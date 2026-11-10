@@ -628,7 +628,7 @@
       "pricing": {
         "input_per_million_tokens": 1.32,
         "output_per_million_tokens": 3.96,
-        "cache_read_per_million_tokens": 0.132
+        "cache_read_per_million_tokens": 0.044
       },
       "capabilities": {
         "function_calling": true,
@@ -637,7 +637,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "deepseek/deepseek_v3": {
       "mode": "chat",
@@ -991,9 +991,9 @@
         "max_output": 32768
       },
       "pricing": {
-        "input_per_million_tokens": 0.45,
-        "output_per_million_tokens": 2.6,
-        "cache_read_per_million_tokens": 0.08
+        "input_per_million_tokens": 0.2475,
+        "output_per_million_tokens": 1.43,
+        "cache_read_per_million_tokens": 0.044
       },
       "capabilities": {
         "function_calling": true,
@@ -1002,7 +1002,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "mindai/macaron-v1-venti": {
       "mode": "chat",
@@ -1011,9 +1011,9 @@
         "max_output": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 4.5,
-        "cache_read_per_million_tokens": 0.3
+        "input_per_million_tokens": 0.825,
+        "output_per_million_tokens": 2.475,
+        "cache_read_per_million_tokens": 0.165
       },
       "capabilities": {
         "function_calling": true,
@@ -1022,7 +1022,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-04"
     },
     "minimax/minimax-m2": {
       "mode": "chat",

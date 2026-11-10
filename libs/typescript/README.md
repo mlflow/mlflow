@@ -49,7 +49,7 @@ pip install mlflow
 mlflow server --backend-store-uri sqlite:///mlruns.db --port 5000
 ```
 
-Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
+Self-hosting MLflow server requires Python 3.11 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
 
 Instantiate MLflow SDK in your application:
 
@@ -189,7 +189,7 @@ View traces in MLflow UI:
 
 ## Publishing
 
-1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately
+1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately. The script also rewrites the `version` field of each integration's Claude Code plugin manifest (`.claude-plugin/plugin.json`, currently only `integrations/claude-code`) to the same value, so never edit that field by hand: Claude Code derives the installed plugin version from the manifest, and marketplace installs only see an update when it changes.
 2. `cd` into `core` and run `npm publish`, and repeat for `integrations/openai`
 
 ## Adding New Integrations

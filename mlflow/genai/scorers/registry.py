@@ -11,11 +11,10 @@ from abc import ABCMeta, abstractmethod
 from base64 import urlsafe_b64encode
 from collections.abc import Callable
 from functools import partial
-from typing import TYPE_CHECKING, Any, NoReturn, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, NoReturn, Optional, Self, TypeVar, cast
 from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, ValidationError
-from typing_extensions import Self
 
 from mlflow.entities import LifecycleStage, ScorerVersion
 from mlflow.exceptions import MlflowException, RestException

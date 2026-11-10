@@ -7,10 +7,9 @@ import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 import cachetools
-from typing_extensions import NotRequired
 
 from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
 from mlflow.exceptions import MlflowException
@@ -772,6 +771,40 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "description": "Portkey API Base URL (defaults to https://api.portkey.ai/v1)",
                     "secret": False,
                     "required": False,
+                },
+            ],
+        },
+    },
+    "sap": {
+        "oauth2_client_credentials": {
+            "display_name": "OAuth2 Client Credentials",
+            "description": "SAP AI Core (SAP Generative AI Hub) via OAuth2 client credentials",
+            "default": True,
+            "fields": [
+                {
+                    "name": "auth_url",
+                    "description": "OAuth2 token endpoint URL "
+                    "(e.g. https://<subdomain>.authentication.<region>.hana.ondemand.com)",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_id",
+                    "description": "OAuth2 client ID",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_secret",
+                    "description": "OAuth2 client secret",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "SAP AI Core API URL",
+                    "secret": False,
+                    "required": True,
                 },
             ],
         },

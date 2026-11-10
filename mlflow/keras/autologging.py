@@ -224,7 +224,8 @@ def autolog(
                 _logger.warning(f"Failed to log dataset information to MLflow. Reason: {e}")
 
         # Add `MlflowCallback` to the callback list.
-        callbacks = args[5] if len(args) >= 6 else kwargs.get("callbacks", [])
+        # Copy the list so the user's `callbacks` list is not modified across `fit()` calls.
+        callbacks = list((args[5] if len(args) >= 6 else kwargs.get("callbacks")) or [])
         mlflow_callback = MlflowCallback(
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,

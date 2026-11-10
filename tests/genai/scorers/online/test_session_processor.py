@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 import uuid
 from unittest.mock import MagicMock, patch
 
@@ -374,6 +376,40 @@ def test_execute_session_scoring_handles_failures(
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 1500
     assert checkpoint.session_id == "sess-002"
+
+
+def test_host_session_scoring_imports_the_evaluation_harness_before_starting_workers():
+    # Fresh process: the harness eagerly imports optional dependencies such as litellm, which
+    # can deadlock if first imported concurrently from worker threads.
+    code = """
+import sys
+from unittest.mock import MagicMock, patch
+
+from mlflow.genai.scorers.online.session_processor import (
+    OnlineSessionScoringProcessor,
+    SessionScoringTask,
+)
+
+assert "mlflow.genai.evaluation.harness" not in sys.modules
+loaded_in_worker = []
+processor = OnlineSessionScoringProcessor(
+    trace_loader=MagicMock(),
+    checkpoint_manager=MagicMock(),
+    sampler=MagicMock(),
+    experiment_id="exp1",
+    tracking_store=MagicMock(),
+)
+with patch.object(
+    OnlineSessionScoringProcessor,
+    "_score_session",
+    side_effect=lambda task: loaded_in_worker.append(
+        "mlflow.genai.evaluation.harness" in sys.modules
+    ),
+):
+    processor._execute_session_scoring_on_host([SessionScoringTask(MagicMock(), [])])
+assert loaded_in_worker == [True]
+"""
+    subprocess.check_call([sys.executable, "-c", code])
 
 
 def test_score_session_logs_assessments_to_first_trace(

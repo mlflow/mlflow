@@ -4,6 +4,7 @@ import math
 import re
 import time
 import uuid
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
@@ -286,6 +287,72 @@ def test_create_run_sets_name(store: SqlAlchemyStore):
             run_name="test",
             tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, "test_2")],
         )
+
+
+@pytest.mark.parametrize("tag_value", ["", None])
+@pytest.mark.parametrize("run_name", [None, "", "test"])
+def test_create_run_with_empty_run_name_tag(store: SqlAlchemyStore, run_name, tag_value):
+    experiment_id = _create_experiments(store, "test_create_run_empty_run_name_tag")
+    run = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=run_name,
+        tags=[RunTag(mlflow_tags.MLFLOW_RUN_NAME, tag_value)],
+    )
+    run = store.get_run(run.info.run_id)
+    assert run.info.run_name
+    if run_name:
+        assert run.info.run_name == run_name
+    assert run.data.tags[mlflow_tags.MLFLOW_RUN_NAME] == run.info.run_name
+
+
+def test_create_run_with_duplicate_tag_keys_keeps_last_value(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_duplicate_tags")
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name="name",
+        tags=[RunTag("x", "1"), RunTag("y", "a"), RunTag("x", "2")],
+    ).info.run_id
+    run = store.get_run(run_id)
+    assert run.data.tags == {"x": "2", "y": "a", mlflow_tags.MLFLOW_RUN_NAME: "name"}
+
+
+@pytest.mark.parametrize("last_value", ["second", ""])
+def test_create_run_with_duplicate_run_name_tags(store: SqlAlchemyStore, last_value):
+    experiment_id = _create_experiments(store, "test_create_run_duplicate_run_name_tags")
+    run_id = store.create_run(
+        experiment_id=experiment_id,
+        user_id="user",
+        start_time=0,
+        run_name=None,
+        tags=[
+            RunTag(mlflow_tags.MLFLOW_RUN_NAME, "first"),
+            RunTag(mlflow_tags.MLFLOW_RUN_NAME, last_value),
+        ],
+    ).info.run_id
+    run = store.get_run(run_id)
+    if last_value:
+        assert run.info.run_name == last_value
+    else:
+        # An empty last value gets a generated name, as for a single empty tag
+        assert run.info.run_name not in ("", "first")
+    assert run.data.tags == {mlflow_tags.MLFLOW_RUN_NAME: run.info.run_name}
+
+
+def test_create_run_checks_run_name_against_last_duplicate_run_name_tag(store: SqlAlchemyStore):
+    experiment_id = _create_experiments(store, "test_create_run_run_name_vs_duplicate_tags")
+    tags = [
+        RunTag(mlflow_tags.MLFLOW_RUN_NAME, "first"),
+        RunTag(mlflow_tags.MLFLOW_RUN_NAME, "second"),
+    ]
+    run = store.create_run(experiment_id, "user", 0, tags, "second")
+    assert store.get_run(run.info.run_id).info.run_name == "second"
+
+    with pytest.raises(MlflowException, match="Both 'run_name' argument and 'mlflow.runName' tag"):
+        store.create_run(experiment_id, "user", 0, tags, "first")
 
 
 def test_get_run_with_name(store: SqlAlchemyStore):
@@ -2370,6 +2437,51 @@ def test_log_batch(store: SqlAlchemyStore):
     assert set(metrics) == {("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)}
 
 
+@pytest.mark.parametrize("fail_metrics", [False, True])
+def test_log_batch_releases_validation_connection(store: SqlAlchemyStore, fail_metrics):
+    run_id = _run_factory(store).info.run_id
+    active_connections = 0
+    peak_connections = 0
+
+    def checkout(*_args):
+        nonlocal active_connections, peak_connections
+        active_connections += 1
+        peak_connections = max(peak_connections, active_connections)
+
+    def checkin(*_args):
+        nonlocal active_connections
+        active_connections -= 1
+
+    sqlalchemy.event.listen(store.engine, "checkout", checkout)
+    sqlalchemy.event.listen(store.engine, "checkin", checkin)
+    try:
+        with contextlib.ExitStack() as stack:
+            if fail_metrics:
+                stack.enter_context(
+                    mock.patch.object(
+                        store, "_log_metrics", side_effect=RuntimeError("write failed")
+                    )
+                )
+                stack.enter_context(pytest.raises(MlflowException, match="write failed"))
+            store.log_batch(
+                run_id,
+                metrics=[Metric("metric", 1.0, 1, 1)],
+                params=[Param("parameter", "value")],
+                tags=[RunTag("tag", "value")],
+            )
+    finally:
+        sqlalchemy.event.remove(store.engine, "checkout", checkout)
+        sqlalchemy.event.remove(store.engine, "checkin", checkin)
+
+    assert active_connections == 0
+    assert peak_connections == 1
+    run = store.get_run(run_id)
+    assert run.data.params == {"parameter": "value"}
+    if not fail_metrics:
+        assert run.data.metrics == {"metric": 1.0}
+        assert run.data.tags["tag"] == "value"
+
+
 def test_log_batch_limits(store: SqlAlchemyStore):
     # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
     # SQL limitations, etc)
@@ -4278,6 +4390,200 @@ def test_search_logged_models_metric_filter_does_not_shrink_pages(store: SqlAlch
     # Every matching model is returned exactly once across the pages.
     assert sorted(actual_names) == sorted(expected_names)
     assert len(actual_names) == len(set(actual_names))
+
+
+def test_search_logged_models_nan_metric(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    )
+    diverged = store.create_logged_model(experiment_id=exp_id, name="diverged")
+    good = store.create_logged_model(experiment_id=exp_id, name="good")
+    store.log_metric(
+        run.info.run_id, Metric("loss", float("nan"), 0, 0, model_id=diverged.model_id)
+    )
+    store.log_metric(run.info.run_id, Metric("loss", 0.05, 0, 0, model_id=good.model_id))
+
+    (metric,) = store.get_logged_model(diverged.model_id).metrics
+    assert math.isnan(metric.value)
+
+    def search(**kwargs):
+        return [m.name for m in store.search_logged_models(experiment_ids=[exp_id], **kwargs)]
+
+    assert search(filter_string="metrics.loss < 0.1") == ["good"]
+    assert search(filter_string="metrics.loss = 0") == []
+    assert search(filter_string="metrics.loss != 0.05") == ["diverged"]
+    for ascending in [True, False]:
+        order_by = [{"field_name": "metrics.loss", "ascending": ascending}]
+        assert search(order_by=order_by) == ["good", "diverged"]
+
+
+def test_search_logged_models_nan_latest_metric(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    def create_run():
+        return store.create_run(
+            experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+        ).info.run_id
+
+    run_id = create_run()
+    nan_last = store.create_logged_model(experiment_id=exp_id, name="nan_last")
+    nan_first = store.create_logged_model(experiment_id=exp_id, name="nan_first")
+    tie = store.create_logged_model(experiment_id=exp_id, name="tie")
+    store.log_metric(run_id, Metric("loss", 0.05, 0, 0, model_id=nan_last.model_id))
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 1, model_id=nan_last.model_id))
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 0, model_id=nan_first.model_id))
+    store.log_metric(run_id, Metric("loss", 0.05, 0, 1, model_id=nan_first.model_id))
+    # At the same step and timestamp, NaN ranks as 0 like it does for run metrics, so it wins
+    # over a negative value on every database.
+    store.log_metric(run_id, Metric("loss", float("nan"), 0, 0, model_id=tie.model_id))
+    store.log_metric(create_run(), Metric("loss", -1.0, 0, 0, model_id=tie.model_id))
+
+    def search(filter_string):
+        models = store.search_logged_models(experiment_ids=[exp_id], filter_string=filter_string)
+        return sorted(m.name for m in models)
+
+    assert search("metrics.loss < 0.1") == ["nan_first"]
+    assert search("metrics.loss < 0") == []
+    assert search("metrics.loss != 0.05") == ["nan_last", "tie"]
+
+
+def test_log_batch_nan_logged_model_metric_duplicates(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+
+    def nan_metric():
+        return Metric("loss", float("nan"), 100, 0, model_id=model_id)
+
+    store.log_batch(run_id, metrics=[nan_metric(), nan_metric()], params=[], tags=[])
+    store.log_batch(run_id, metrics=[nan_metric()], params=[], tags=[])
+    (metric,) = store.get_logged_model(model_id).metrics
+    assert math.isnan(metric.value)
+
+    # A different value for the same primary key is still rejected.
+    with pytest.raises(
+        MlflowException, match="UNIQUE constraint failed|duplicate key|Duplicate entry"
+    ):
+        store.log_batch(
+            run_id, metrics=[Metric("loss", 0.5, 100, 0, model_id=model_id)], params=[], tags=[]
+        )
+
+
+def test_log_batch_logged_model_metric_duplicates_across_key_batches(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+    metrics = [Metric(f"m{i:03d}", 1.0, 100, 0, model_id=model_id) for i in range(150)]
+
+    # The existing metric's key falls in the second chunk of the dedup lookup.
+    store.log_batch(run_id, metrics=[metrics[120]], params=[], tags=[])
+    store.log_batch(run_id, metrics=metrics, params=[], tags=[])
+
+    assert len(store.get_logged_model(model_id).metrics) == 150
+
+
+def test_log_batch_logged_model_metrics_committed_during_dedup(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+    existing = Metric("loss", 0.5, 100, 0, model_id=model_id)
+    concurrent = [
+        Metric("val_loss", 0.4, 100, 0, model_id=model_id),
+        Metric("val_acc", 0.9, 100, 0, model_id=model_id),
+    ]
+    store.log_batch(run_id, metrics=[existing], params=[], tags=[])
+
+    injected = False
+
+    def commit_concurrently_after_dedup_query(state):
+        nonlocal injected
+        is_dedup_query = state.is_select and any(
+            d.get("entity") is models.SqlLoggedModelMetric
+            for d in state.statement.column_descriptions
+        )
+        if injected or not is_dedup_query:
+            return None
+        injected = True
+        result = state.invoke_statement().freeze()
+        store._log_model_metrics(run_id, concurrent, experiment_id=exp_id)
+        return result()
+
+    sqlalchemy.event.listen(
+        sqlalchemy.orm.Session, "do_orm_execute", commit_concurrently_after_dedup_query
+    )
+    try:
+        store._log_model_metrics(run_id, [existing, *concurrent], experiment_id=exp_id)
+    finally:
+        sqlalchemy.event.remove(
+            sqlalchemy.orm.Session, "do_orm_execute", commit_concurrently_after_dedup_query
+        )
+
+    assert injected
+    metrics = store.get_logged_model(model_id).metrics
+    assert sorted((m.key, m.value) for m in metrics) == [
+        ("loss", 0.5),
+        ("val_acc", 0.9),
+        ("val_loss", 0.4),
+    ]
+
+
+def test_log_batch_logged_model_metric_conflict_fails_without_retry(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+    store.log_batch(
+        run_id, metrics=[Metric("loss", 0.5, 100, 0, model_id=model_id)], params=[], tags=[]
+    )
+
+    statements = []
+
+    def capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture_statement)
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises(
+                MlflowException, match="UNIQUE constraint failed|duplicate key|Duplicate entry"
+            ):
+                store.log_batch(
+                    run_id,
+                    metrics=[Metric("loss", 0.7, 100, 0, model_id=model_id)],
+                    params=[],
+                    tags=[],
+                )
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture_statement)
+
+    # The dedup lookup matches no stored row, so the insert is not retried.
+    inserts = [s for s in statements if s.lstrip().startswith("insert into logged_model_metrics")]
+    assert len(inserts) == 1
+    # The lookup selects columns, so no entity enters the identity map and conflicts with the
+    # instance being inserted.
+    assert not [w for w in caught if issubclass(w.category, sqlalchemy.exc.SAWarning)]
+
+
+@pytest.mark.parametrize("value", [None, "abc"])
+def test_log_metric_invalid_value_with_model_id(store: SqlAlchemyStore, value):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, tags=[], run_name="run"
+    ).info.run_id
+    model_id = store.create_logged_model(experiment_id=exp_id, name="model").model_id
+
+    with pytest.raises(MlflowException, match="parameter 'value'") as e:
+        store.log_metric(run_id, Metric("loss", value, 0, 0, model_id=model_id))
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_search_logged_models_eager_loads_tags_params_and_metrics(store: SqlAlchemyStore):

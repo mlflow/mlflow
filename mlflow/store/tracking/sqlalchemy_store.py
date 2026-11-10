@@ -347,6 +347,10 @@ _METRIC_DEDUP_CHUNK_SIZE = 100
 # Deterministic key ordering is the primary defense; this bounded retry is the safety net.
 _DB_WRITE_MAX_DEADLOCK_RETRIES = 2
 
+# Max insert attempts in _log_model_metrics when rows that already exist (or are committed
+# concurrently) violate the primary key.
+_LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS = 3
+
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
 # columns defined via backreference are available as Mapper instance attributes (e.g.,
@@ -1088,7 +1092,8 @@ class SqlAlchemyStore(
                 run_id,
                 SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
             )
-            tags = tags.copy() if tags else []
+            # Keep the last value for duplicate tag keys; each key is one row in the tags table.
+            tags = list({tag.key: tag for tag in tags or []}.values())
             run_name_tag = _get_run_name_from_tags(tags)
             if run_name and run_name_tag and (run_name != run_name_tag):
                 raise MlflowException(
@@ -1098,6 +1103,8 @@ class SqlAlchemyStore(
                 )
             run_name = run_name or run_name_tag or _generate_random_name()
             if not run_name_tag:
+                # Drop an empty `mlflow.runName` tag to avoid a duplicate tag primary key
+                tags = [tag for tag in tags if tag.key != MLFLOW_RUN_NAME]
                 tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
             run = SqlRun(
                 name=run_name,
@@ -1548,15 +1555,11 @@ class SqlAlchemyStore(
             return
 
         is_single_metric = len(metrics) == 1
-        seen: set[Metric] = set()
-        sanitized_metrics: list[tuple[Metric, float]] = []
+        seen: set[tuple[Any, ...]] = set()
+        sanitized_metrics: list[tuple[Metric, float | None]] = []
         for idx, metric in enumerate(metrics):
             if metric.model_id is None:
                 continue
-
-            if metric in seen:
-                continue
-            seen.add(metric)
 
             _validate_metric(
                 metric.key,
@@ -1565,8 +1568,25 @@ class SqlAlchemyStore(
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            _, value = self.sanitize_metric_value(metric.value)
-            sanitized_metrics.append((metric, value))
+            # Key on a tuple rather than the ``Metric`` itself because NaN != NaN, so two
+            # identical NaN metrics would otherwise both be inserted and violate the primary key.
+            metric_id = (
+                metric.model_id,
+                metric.key,
+                metric.timestamp,
+                metric.step,
+                None if math.isnan(metric.value) else metric.value,
+                metric.dataset_name,
+                metric.dataset_digest,
+            )
+            if metric_id in seen:
+                continue
+            seen.add(metric_id)
+
+            is_nan, value = self.sanitize_metric_value(metric.value)
+            # ``logged_model_metrics`` has no ``is_nan`` column, so NaN is stored as NULL.
+            # NULL never satisfies a numeric comparison and is read back as NaN.
+            sanitized_metrics.append((metric, None if is_nan else value))
 
         if not sanitized_metrics:
             return
@@ -1588,32 +1608,35 @@ class SqlAlchemyStore(
                 for metric, value in sanitized_metrics
             ]
 
-            try:
-                session.add_all(metric_instances)
-                session.commit()
-            except sqlalchemy.exc.IntegrityError:
-                # Primary key can be violated if it is tried to log a metric with same value,
-                # timestamp, step, and key within the same run.
-                session.rollback()
-                metric_keys = [m.metric_name for m in metric_instances]
-                metric_key_batches = (
-                    metric_keys[i : i + 100] for i in range(0, len(metric_keys), 100)
-                )
-                for batch in metric_key_batches:
-                    existing_metrics = (
-                        session
-                        .query(SqlLoggedModelMetric)
-                        .filter(
-                            SqlLoggedModelMetric.run_id == run_id,
-                            SqlLoggedModelMetric.metric_name.in_(batch),
-                        )
-                        .all()
+            # Primary key can be violated if it is tried to log a metric with same value,
+            # timestamp, step, and key within the same run. Rows committed concurrently between
+            # the existence query and the commit (e.g. by async logging) can violate it again,
+            # so the dedup is retried a bounded number of times.
+            for attempt in range(_LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS):
+                try:
+                    session.add_all(metric_instances)
+                    session.commit()
+                    return
+                except sqlalchemy.exc.IntegrityError:
+                    session.rollback()
+                    if attempt == _LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS - 1:
+                        raise
+                    existing_metrics = _get_existing_logged_model_metric_ids(
+                        session, run_id, metric_instances
                     )
-                    existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
-                    non_existing_metrics = [
-                        m for m in metric_instances if m.to_mlflow_entity() not in existing_metrics
+                    remaining = [
+                        m
+                        for m in metric_instances
+                        if _logged_model_metric_id(m) not in existing_metrics
                     ]
-                    session.add_all(non_existing_metrics)
+                    if not remaining:
+                        return
+                    if len(remaining) == len(metric_instances):
+                        # No row in the batch matches a stored one, so the violation is not a
+                        # duplicate (e.g. a different value for an existing primary key) and
+                        # retrying would fail the same way.
+                        raise
+                    metric_instances = remaining
 
     def _update_latest_metrics_if_necessary(self, logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
@@ -2434,15 +2457,17 @@ class SqlAlchemyStore(
         with self.ManagedSessionMaker(read_only=False) as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            try:
-                self._log_params(run_id, params)
-                self._log_metrics(run_id, metrics)
-                self._log_model_metrics(run_id, metrics, experiment_id=run.experiment_id)
-                self._set_tags(run_id, tags)
-            except MlflowException as e:
-                raise e
-            except Exception as e:
-                raise MlflowException(e, INTERNAL_ERROR)
+            experiment_id = run.experiment_id
+        # Each helper owns its transaction, so release the validation connection first.
+        try:
+            self._log_params(run_id, params)
+            self._log_metrics(run_id, metrics)
+            self._log_model_metrics(run_id, metrics, experiment_id=experiment_id)
+            self._set_tags(run_id, tags)
+        except MlflowException as e:
+            raise e
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
@@ -3798,10 +3823,13 @@ class SqlAlchemyStore(
                     [] if datasets_filter is None else [datasets_filter],
                     experiment_ids=experiment_ids,
                 )
+                val_filter = comp_func(latest_metrics.c.metric_value, comp.value)
+                if comp.op == "!=":
+                    # NaN metrics are stored as NULL, and NULL != x is NULL rather than true.
+                    # Match them explicitly, as run metrics do.
+                    val_filter = sqlalchemy.or_(val_filter, latest_metrics.c.metric_value.is_(None))
                 non_attr_filters.append(
-                    select(latest_metrics.c.model_id)
-                    .where(comp_func(latest_metrics.c.metric_value, comp.value))
-                    .subquery()
+                    select(latest_metrics.c.model_id).where(val_filter).subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
@@ -8656,22 +8684,39 @@ class SqlAlchemyStore(
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            experiment_ids_str = [str(exp_id) for exp_id in experiment_ids]
+            # ``SqlExperiment.experiment_id`` is an INTEGER column but REST callers
+            # pass string IDs. psycopg2 sent them as untyped literals PostgreSQL
+            # would coerce; psycopg v3 binds them as typed VARCHAR and PostgreSQL
+            # rejects the comparison ("operator does not exist:
+            # integer = character varying"). Coerce with the same error contract
+            # as ``_get_experiment``/``list_scorers_across_experiments``.
+            try:
+                experiment_ids_int = [int(exp_id) for exp_id in experiment_ids]
+            except (ValueError, TypeError):
+                raise MlflowException(
+                    "Invalid experiment IDs: experiment IDs must be valid integers.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Canonical string form, derived from the coerced integers, so a
+            # non-canonical input id (e.g. "007", " 5 ", "+5") is compared
+            # consistently with the query above instead of against its raw form.
+            experiment_ids_canonical = [str(exp_id) for exp_id in experiment_ids_int]
 
             accessible_exp_ids = (
                 {
                     str(row[0])
                     for row in self
                     ._get_query(session, SqlExperiment)
-                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_str))
+                    .filter(SqlExperiment.experiment_id.in_(experiment_ids_int))
                     .with_entities(SqlExperiment.experiment_id)
                     .all()
                 }
-                if experiment_ids_str
+                if experiment_ids_int
                 else set()
             )
 
-            for exp_id in experiment_ids_str:
+            for exp_id in experiment_ids_canonical:
                 if exp_id not in accessible_exp_ids:
                     raise MlflowException(
                         f"No Experiment with id={exp_id}",
@@ -8684,7 +8729,7 @@ class SqlAlchemyStore(
                 .filter(
                     SqlEntityAssociation.source_id == dataset_id,
                     SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
-                    SqlEntityAssociation.destination_id.in_(experiment_ids_str),
+                    SqlEntityAssociation.destination_id.in_(experiment_ids_canonical),
                     SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
                 )
                 .all()
@@ -8700,7 +8745,7 @@ class SqlAlchemyStore(
                     destination_id=exp_id,
                     destination_type=EntityAssociationType.EXPERIMENT,
                 )
-                for exp_id in experiment_ids_str
+                for exp_id in experiment_ids_canonical
                 if exp_id not in existing_exp_ids
             ]
 
@@ -10383,6 +10428,59 @@ class SqlAlchemyStore(
             return row.to_mlflow_entity()
 
 
+def _logged_model_metric_id(
+    metric: SqlLoggedModelMetric | sqlalchemy.Row[Any],
+) -> tuple[Any, ...]:
+    return (
+        metric.model_id,
+        metric.metric_name,
+        metric.metric_timestamp_ms,
+        metric.metric_step,
+        metric.run_id,
+        metric.metric_value,
+        metric.dataset_name,
+        metric.dataset_digest,
+    )
+
+
+def _get_existing_logged_model_metric_ids(
+    session: Session, run_id: str, metric_instances: list[SqlLoggedModelMetric]
+) -> set[tuple[Any, ...]]:
+    """
+    Returns the identities (see ``_logged_model_metric_id``) of the ``logged_model_metrics`` rows
+    already stored for the keys in ``metric_instances``.
+
+    Columns are selected rather than entities so that the rows are not loaded into the session's
+    identity map, where they would conflict with the batch's instances when those are re-added.
+    """
+    existing: set[tuple[Any, ...]] = set()
+    metric_keys = list(dict.fromkeys(m.metric_name for m in metric_instances))
+    for i in range(0, len(metric_keys), 100):
+        rows = (
+            session
+            .query(
+                SqlLoggedModelMetric.model_id,
+                SqlLoggedModelMetric.metric_name,
+                SqlLoggedModelMetric.metric_timestamp_ms,
+                SqlLoggedModelMetric.metric_step,
+                SqlLoggedModelMetric.run_id,
+                SqlLoggedModelMetric.metric_value,
+                SqlLoggedModelMetric.dataset_name,
+                SqlLoggedModelMetric.dataset_digest,
+            )
+            .filter(
+                SqlLoggedModelMetric.run_id == run_id,
+                SqlLoggedModelMetric.metric_name.in_(metric_keys[i : i + 100]),
+            )
+            .all()
+        )
+        # Compare column values rather than ``Metric`` entities because NaN != NaN.
+        # ``metric_value`` is included so that a conflicting value for an existing primary key
+        # is still rejected.
+        existing.update(_logged_model_metric_id(row) for row in rows)
+    return existing
+
+
 def _get_logged_model_metric_datasets_filter(
     datasets: list[dict[str, Any]] | None,
 ) -> sqlalchemy.ColumnElement[bool] | None:
@@ -10442,7 +10540,9 @@ def _get_latest_logged_model_metrics_subquery(
                 order_by=[
                     SqlLoggedModelMetric.metric_step.desc(),
                     SqlLoggedModelMetric.metric_timestamp_ms.desc(),
-                    SqlLoggedModelMetric.metric_value.desc(),
+                    # NaN is stored as NULL. Rank it as 0, like run metrics do, so the result
+                    # doesn't depend on how the database orders NULLs.
+                    func.coalesce(SqlLoggedModelMetric.metric_value, 0).desc(),
                 ],
             )
             .label("row_num"),

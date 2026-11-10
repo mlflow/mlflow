@@ -266,7 +266,9 @@ class MlflowStorage(BaseStorage):
         )
 
     def _search_runs_by_name(self, run_name: str):
-        filter_string = f"tags.mlflow.runName = '{run_name}'"
+        # The filter grammar has no escape sequence, so quote with `"` when the name has a `'`.
+        quote = '"' if "'" in run_name else "'"
+        filter_string = f"tags.mlflow.runName = {quote}{run_name}{quote}"
         return self._mlflow_client.search_runs(
             experiment_ids=[self._experiment_id],
             filter_string=filter_string,
@@ -689,11 +691,19 @@ class MlflowStorage(BaseStorage):
         frozen_trials: list[FrozenTrial] = [
             trial for trial in trials if states is None or trial.state in states
         ]
-        return frozen_trials
+        # Optuna requires trials to be ordered by trial number, but search_runs returns
+        # the newest runs first.
+        return sorted(frozen_trials, key=lambda trial: trial.number)
 
-    def get_n_trials(self, study_id, states=None) -> int:
+    def get_n_trials(
+        self, study_id, states: Container[TrialState] | TrialState | None = None
+    ) -> int:
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
         runs = self._search_all_runs(f"tags.mlflow.parentRunId='{study_id}'")
-        return len(runs)
+        if states is None:
+            return len(runs)
+        if isinstance(states, TrialState):
+            states = (states,)
+        return sum(mlflow_optuna_status_map[run.info.status] in states for run in runs)

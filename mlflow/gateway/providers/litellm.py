@@ -11,7 +11,7 @@ from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, Provi
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
-from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
+from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS, GATEWAY_REGION_KEYS
 
 
 def _usage_to_dict(usage: Any) -> dict[str, Any]:
@@ -127,8 +127,9 @@ class LiteLLMProvider(BaseProvider):
         destination is therefore policed here, before anything is handed to LiteLLM:
 
         - The request payload never chooses the destination. Request models allow extra
-          fields and LiteLLM would honor ``api_base``, its ``base_url`` alias and the other
-          ``GATEWAY_DESTINATION_KEYS``, so those are rejected whatever the secret holds.
+          fields and LiteLLM would honor ``api_base``, its ``base_url`` alias, the other
+          ``GATEWAY_DESTINATION_KEYS`` and the region keys it builds hosts from
+          (``GATEWAY_REGION_KEYS``), so those are rejected whatever the secret holds.
         - When upstream protection is on, the stored configuration may choose the upstream
           only through ``api_base`` (``base_url`` is folded in, since litellm prefers it),
           which is resolved and checked. The remaining destination keys are refused because
@@ -142,7 +143,7 @@ class LiteLLMProvider(BaseProvider):
             upstream_protection_enabled,
         )
 
-        if caller_keys := sorted(GATEWAY_DESTINATION_KEYS & set(payload)):
+        if caller_keys := sorted((GATEWAY_DESTINATION_KEYS | GATEWAY_REGION_KEYS) & set(payload)):
             raise HTTPException(
                 status_code=400,
                 detail=f"The request must not set {', '.join(map(repr, caller_keys))}: the "

@@ -29,4 +29,5 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 1
     steps:
-      - run: echo 'Placeholder for manual dispatch. The full verifier is being developed in PR #27338.'
+      - run: |
+          echo 'Placeholder for manual dispatch. The full verifier is being developed in PR #27338.'

@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.17.3.dev0"
+version = "3.18.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -23,9 +23,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # Dependency version ranges express compatibility, not security. We do not raise version
 # floors to exclude dependency versions with known CVEs; patched versions are already
 # installable within the existing ranges, and pinning them is the responsibility of the
@@ -88,6 +88,7 @@ extras = [
   "google-cloud-storage>=1.30.0",
   "azureml-core>=1.2.0",
   "pysftp",
+  "paramiko<4",
   "kubernetes",
   "prometheus-flask-exporter",
 ]
@@ -121,7 +122,7 @@ sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
 kubernetes = ["kubernetes"]
-langchain = ["langchain>=1.0.0,<=1.4.3"]
+langchain = ["langchain>=1.0.4,<=1.4.7"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -260,6 +261,10 @@ exclude-newer = "P7D"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.13.6"
 constraint-dependencies = [
+  # pandas 3 is incompatible with the pyspark<4.1 used by tests and documentation.
+  "pandas<3",
+  # Keep the scikit-learn 1.7 test baseline compatible with xgboost<3.1.
+  "scikit-learn<1.8",
   # The released MLflow package used by the migration check currently requires pyarrow<26.
   # TODO: Remove once the latest released MLflow version supports pyarrow>=26.
   # Then run `uv lock --upgrade-package pyarrow` to update only PyArrow.
@@ -304,7 +309,7 @@ explicit = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 required-version = "0.16.8"
 force-exclude = true
 extend-include = ["*.ipynb"]
@@ -465,11 +470,6 @@ exclude = [
   "docs/docs/classic-ml/mlflow-3/index.mdx",
   "examples/open_webui/mlflow_filter_pipeline.py",
 ]
-typing-extensions-allowlist = [
-  # Docs: https://typing-extensions.readthedocs.io/en/latest/
-  "typing_extensions.Self",        # Added in 4.0.0
-  "typing_extensions.NotRequired", # Added in 4.0.0
-]
 # Rules that are only enabled for code examples.
 example-rules = [
   "lazy-import",
@@ -602,7 +602,7 @@ timeout = "1200"
 
 # Currently, type checking is only enabled for `dev/clint` and `.claude/skills`.
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 exclude_gitignore = true
 

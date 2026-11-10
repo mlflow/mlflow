@@ -457,6 +457,20 @@ def _build_endpoint_config(
             portkey_config=model_config.secret_value.get("portkey_config"),
             provider_api_key=model_config.secret_value.get("provider_api_key"),
         )
+    elif model_config.provider == "sap":
+        auth_config = model_config.auth_config or {}
+        auth_url = auth_config.get("auth_url")
+        service_key = json.dumps({
+            "clientid": auth_config.get("client_id"),
+            "clientsecret": model_config.secret_value.get("client_secret"),
+            "url": auth_url,
+            "serviceurls": {"AI_API_URL": auth_config.get(_AuthConfigKey.API_BASE)},
+        })
+        provider_config = LiteLLMConfig(
+            litellm_provider="sap",
+            litellm_auth_config={"api_key": service_key},
+        )
+        model_config.provider = Provider.LITELLM
     elif normalize_provider_name(model_config.provider) == Provider.DATABRICKS:
         from mlflow.gateway.providers.databricks import DatabricksConfig
 

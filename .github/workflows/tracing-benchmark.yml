@@ -41,7 +41,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
-        run: uv sync
+        run: |
+          uv sync
 
       - name: Run benchmark
         run: |

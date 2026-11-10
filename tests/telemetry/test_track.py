@@ -339,7 +339,9 @@ def test_fetch_server_info_keeps_distinct_effective_uris_separate():
         (MLFLOW_DISABLE_TELEMETRY.name, "true", None),
         (MLFLOW_DISABLE_TELEMETRY.name, "false", TelemetryClient),
         ("DO_NOT_TRACK", "true", None),
+        ("DO_NOT_TRACK", "1", None),
         ("DO_NOT_TRACK", "false", TelemetryClient),
+        ("DO_NOT_TRACK", "0", TelemetryClient),
     ],
 )
 def test_record_usage_event_respect_env_var(

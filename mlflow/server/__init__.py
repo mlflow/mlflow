@@ -16,7 +16,7 @@ from pathlib import Path
 
 _logger = logging.getLogger("mlflow.server")
 
-from flask import Flask, Response, send_from_directory
+from flask import Flask, Response, current_app, has_request_context, send_from_directory
 from packaging.version import Version
 
 from mlflow.environment_variables import (
@@ -80,6 +80,13 @@ REL_STATIC_DIR = "js/build"
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 _flask_version = get_installed_version("flask")
 IS_FLASK_V1 = _flask_version is not None and _flask_version < Version("2.0")
+
+
+def _is_serving_request() -> bool:
+    # Code running in this app's request context is server code, whichever WSGI/ASGI server runs
+    # the app.
+    return has_request_context() and current_app._get_current_object() is app
+
 
 is_running_as_server = (
     "gunicorn" in sys.modules
