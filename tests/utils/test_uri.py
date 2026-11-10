@@ -855,6 +855,25 @@ def test_validate_path_is_safe_preserves_posix_names(path, monkeypatch):
     assert validate_path_is_safe(path, validate_windows_aliases=True) == path
 
 
+@pytest.mark.parametrize(
+    ("path", "component", "rule"),
+    [
+        ("folder/file.txt.", "file.txt.", "ends with a dot or space"),
+        ("run:1.txt", "run:1.txt", "alternate data stream"),
+        ("models/x~1.csv", "x~1.csv", "DOS short-name"),
+    ],
+)
+def test_validate_path_is_safe_windows_alias_error_names_component(
+    path, component, rule, monkeypatch
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path") as exc:
+        validate_path_is_safe(path, validate_windows_aliases=True)
+    message = str(exc.value)
+    assert repr(component) in message
+    assert rule in message
+
+
 @pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")
 @pytest.mark.parametrize(
     "path",

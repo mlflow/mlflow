@@ -57,6 +57,7 @@ from mlflow.server.auth.sqlalchemy_store import (
     RoleGrantRow,
     SqlAlchemyStore,
 )
+from mlflow.server.constants import ARTIFACTS_DESTINATION_ENV_VAR
 from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces
 from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
@@ -11414,7 +11415,7 @@ def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
 @pytest.mark.parametrize("name", ["folder.", "folder ", "FOLDER~1", "file:stream"])
 def test_artifact_proxy_windows_aliases_are_local_only(root, local, name, monkeypatch):
     monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
-    monkeypatch.setenv("_MLFLOW_SERVER_ARTIFACT_DESTINATION", root)
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, root)
     target = auth_module._parse_artifact_auth_target(f"workspaces/team-a/17/artifacts/{name}")
     assert target.invalid is local
     if not local:

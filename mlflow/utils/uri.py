@@ -539,20 +539,30 @@ def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
     return path
 
 
-def _validate_windows_path_aliases(path: str) -> None:
+def _windows_path_alias_rule(component: str) -> str | None:
     # Win32 strips trailing dots/spaces and resolves DOS short names and stream syntax. Reject
     # ambiguous spellings before authorization, which cannot distinguish short names from literal
     # names without the repository's filesystem. Preserve POSIX and ordinary Windows tilde names.
-    if is_windows() and any(
-        component != "."
-        and (
-            component.endswith((" ", "."))
-            or ":" in component
-            or re.search(r"~[0-9]+(?:\.|$)", component)
-        )
-        for component in path.replace("\\", "/").split("/")
-    ):
-        raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
+    if component == "." or not is_windows():
+        return None
+    if component.endswith((" ", ".")):
+        return "ends with a dot or space"
+    if ":" in component:
+        return "contains ':' (alternate data stream syntax)"
+    if re.search(r"~[0-9]+(?:\.|$)", component):
+        return "uses a DOS short-name '~N' spelling"
+    return None
+
+
+def _validate_windows_path_aliases(path: str) -> None:
+    for component in path.replace("\\", "/").split("/"):
+        rule = _windows_path_alias_rule(component)
+        if rule is not None:
+            raise MlflowException(
+                f"Invalid path: component {component!r} {rule}, which Windows resolves "
+                "ambiguously. Rename the artifact.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
 
 def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:

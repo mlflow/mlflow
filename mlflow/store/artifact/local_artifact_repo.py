@@ -26,6 +26,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.uri import (
     _validate_windows_path_aliases,
+    _windows_path_alias_rule,
     validate_path_is_safe,
     validate_path_within_directory,
 )
@@ -260,12 +261,15 @@ class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
         validate_path_within_directory(self.artifact_dir, list_dir)
         if os.path.isdir(list_dir):
             artifact_files = list_all(list_dir, full_path=True)
+            # Entries that get_local_path rejects on Windows are hidden so the listing only
+            # advertises artifacts that can be read back.
             infos = [
                 get_file_info(
                     f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir))
                 )
                 for f in artifact_files
                 if not os.path.basename(f).startswith(_TEMP_ARTIFACT_PREFIX)
+                and _windows_path_alias_rule(os.path.basename(f)) is None
             ]
             return sorted(infos, key=lambda f: f.path)
         else:

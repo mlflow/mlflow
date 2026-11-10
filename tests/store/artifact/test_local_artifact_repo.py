@@ -1,3 +1,4 @@
+import functools
 import io
 import json
 import os
@@ -61,6 +62,40 @@ def test_local_artifact_rejected_upload_leaves_no_directory(
     with pytest.raises(MlflowException, match="Invalid path"):
         local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"x"), name, artifact_path="newdir")
     assert not (pathlib.Path(local_artifact_root) / "newdir").exists()
+
+
+@pytest.mark.parametrize("artifact_path", ["folder.", "folder ", "FOLDER~1", "nested/folder."])
+@pytest.mark.parametrize("operation", ["log_artifact", "log_artifact_from_stream"])
+def test_local_artifact_upload_rejects_windows_alias_artifact_path(
+    local_artifact_repo, local_artifact_root, monkeypatch, tmp_path, artifact_path, operation
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    if operation == "log_artifact":
+        src_file = tmp_path / "source.txt"
+        src_file.write_text("x")
+        call = functools.partial(
+            local_artifact_repo.log_artifact, str(src_file), artifact_path=artifact_path
+        )
+    else:
+        call = functools.partial(
+            local_artifact_repo.log_artifact_from_stream,
+            io.BytesIO(b"x"),
+            "source.txt",
+            artifact_path=artifact_path,
+        )
+    with pytest.raises(MlflowException, match="Invalid path"):
+        call()
+    assert list(pathlib.Path(local_artifact_root).iterdir()) == []
+
+
+def test_list_artifacts_hides_windows_alias_names(
+    local_artifact_repo, local_artifact_root, monkeypatch
+):
+    for name in ["model.txt", "model~1.txt"]:
+        with open(os.path.join(local_artifact_root, name), "w") as f:
+            f.write("x")
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    assert [f.path for f in local_artifact_repo.list_artifacts()] == ["model.txt"]
 
 
 def test_list_artifacts(local_artifact_repo, local_artifact_root):
