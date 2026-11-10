@@ -789,111 +789,32 @@ def test_tool_calling_loop(mock_trace):
     assert json.loads(output.response) == {"result": "yes", "rationale": "Trace looks good"}
 
 
-def test_tool_calling_loop_echoes_gemini_thought_signature(mock_trace, monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    tool_call_response = {
-        "candidates": [
-            {
-                "content": {
-                    "role": "model",
-                    "parts": [
-                        {
-                            "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
-                            "thoughtSignature": "sig_1",
-                        }
-                    ],
-                },
-                "finishReason": "STOP",
-            }
-        ],
-        "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
-    }
-    final_response = {
-        "candidates": [
-            {
-                "content": {
-                    "role": "model",
-                    "parts": [{"text": json.dumps({"result": "yes", "rationale": "ok"})}],
-                },
-                "finishReason": "STOP",
-            }
-        ],
-        "usageMetadata": {"promptTokenCount": 20, "candidatesTokenCount": 5},
-    }
-
-    with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
-            side_effect=[tool_call_response, final_response],
-        ) as mock_send,
-        mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
-            return_value=[
-                ChatMessage(
-                    role="tool",
-                    content='{"trace_id": "test-trace"}',
-                    tool_call_id="call_1",
-                    name="get_trace_info",
-                )
-            ],
-        ) as mock_process,
-    ):
-        output = GatewayAdapter()._invoke_and_handle_tools(
-            provider="gemini",
-            model_name="gemini-3-flash",
-            messages=[ChatMessage(role="user", content="evaluate this")],
-            trace=mock_trace,
-            num_retries=0,
-        )
-
-    mock_process.assert_called_once_with(tool_calls=mock.ANY, trace=mock_trace)
-    assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
-    second_payload = mock_send.call_args_list[1].kwargs["payload"]
-    model_turn = next(c for c in second_payload["contents"] if c["role"] == "model")
-    assert model_turn["parts"] == [
-        {
-            "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
-            "thoughtSignature": "sig_1",
-        }
-    ]
-
-
-def test_tool_calling_loop_preserves_gemini_signatures_for_repeated_id_less_calls(
-    mock_trace, monkeypatch
+@pytest.mark.parametrize(
+    ("call_id", "signatures"), [("call_1", ["sig_1"]), (None, ["sig_1", "sig_2"])]
+)
+def test_tool_calling_loop_preserves_gemini_thought_signatures(
+    mock_trace, monkeypatch, call_id, signatures
 ):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
-    def tool_call_response(sig):
+    def response(parts):
         return {
             "candidates": [
                 {
-                    "content": {
-                        "role": "model",
-                        "parts": [
-                            {
-                                "functionCall": {"name": "get_trace_info", "args": {}},
-                                "thoughtSignature": sig,
-                            }
-                        ],
-                    },
+                    "content": {"role": "model", "parts": parts},
                     "finishReason": "STOP",
                 }
             ],
             "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
         }
 
-    final_response = {
-        "candidates": [
-            {
-                "content": {
-                    "role": "model",
-                    "parts": [{"text": json.dumps({"result": "yes", "rationale": "ok"})}],
-                },
-                "finishReason": "STOP",
-            }
-        ],
-        "usageMetadata": {"promptTokenCount": 20, "candidatesTokenCount": 5},
-    }
+    function_call = {"name": "get_trace_info", "args": {}}
+    if call_id is not None:
+        function_call["id"] = call_id
+    responses = [
+        response([{"functionCall": function_call, "thoughtSignature": sig}]) for sig in signatures
+    ]
+    responses.append(response([{"text": json.dumps({"result": "yes", "rationale": "ok"})}]))
 
     def process_tool_calls(tool_calls, trace):
         return [
@@ -909,7 +830,7 @@ def test_tool_calling_loop_preserves_gemini_signatures_for_repeated_id_less_call
     with (
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
-            side_effect=[tool_call_response("sig_1"), tool_call_response("sig_2"), final_response],
+            side_effect=responses,
         ) as mock_send,
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
@@ -924,14 +845,24 @@ def test_tool_calling_loop_preserves_gemini_signatures_for_repeated_id_less_call
             num_retries=0,
         )
 
-    assert mock_process.call_count == 2
-    assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
-    third_payload = mock_send.call_args_list[2].kwargs["payload"]
-    model_turns = [c for c in third_payload["contents"] if c["role"] == "model"]
-    assert [part["thoughtSignature"] for turn in model_turns for part in turn["parts"]] == [
-        "sig_1",
-        "sig_2",
+    assert mock_send.call_count == len(signatures) + 1
+    assert mock_process.call_args_list == [
+        mock.call(tool_calls=mock.ANY, trace=mock_trace) for _ in signatures
     ]
+    assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
+    final_payload = mock_send.call_args_list[-1].kwargs["payload"]
+    model_turns = [c for c in final_payload["contents"] if c["role"] == "model"]
+    assert len(model_turns) == len(signatures)
+    assert [
+        part["thoughtSignature"] for turn in model_turns for part in turn["parts"]
+    ] == signatures
+    if call_id is not None:
+        assert model_turns[0]["parts"] == [
+            {
+                "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
+                "thoughtSignature": "sig_1",
+            }
+        ]
 
 
 def test_token_counts_accumulated_across_iterations(mock_trace):
