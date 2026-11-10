@@ -805,7 +805,7 @@ class Model:
 
         # Check if the path is a local directory and not remote
         sep = os.path.sep
-        path = str(path).rstrip(sep)
+        path = str(path).rstrip(f"/{sep}")
         path_scheme = urlparse(path).scheme
         if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
             raise MlflowException(
@@ -816,7 +816,7 @@ class Model:
         if ModelsArtifactRepository._is_logged_model_uri(path):
             path = ModelsArtifactRepository.get_underlying_uri(path)
 
-        is_model_dir = path.rsplit(sep, maxsplit=1)[-1] != MLMODEL_FILE_NAME
+        is_model_dir = path.replace(sep, "/").rsplit("/", maxsplit=1)[-1] != MLMODEL_FILE_NAME
         mlmodel_file_path = f"{path}/{MLMODEL_FILE_NAME}" if is_model_dir else path
         mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
         with open(mlmodel_local_path) as f:
