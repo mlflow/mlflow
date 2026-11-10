@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     )
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
+from mlflow.entities.issue_detection_run import IssueDetectionRun
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
@@ -1058,6 +1059,64 @@ class TracingClient:
         if not include_total_count:
             options.pop("include_total_count")
         return self.store.search_issues(**options)
+
+    def _detect_issues(
+        self,
+        experiment_id: str,
+        *,
+        filter_string: str | None = None,
+        model: str | None = None,
+        trace_ids: list[str] | None = None,
+    ) -> IssueDetectionRun:
+        """
+        Start an issue detection run over an experiment's traces.
+
+        Args:
+            experiment_id: The experiment whose traces to analyze.
+            filter_string: Restricts the run to traces matching this ``search_traces`` filter.
+            model: The model to analyze traces with. Not supported on Databricks.
+            trace_ids: The IDs of the traces to analyze. Not supported on Databricks.
+
+        Returns:
+            The run, which has just started.
+        """
+        return self.store.detect_issues(
+            experiment_id, filter_string=filter_string, model=model, trace_ids=trace_ids
+        )
+
+    def _get_issue_detection_run(
+        self, run_id: str, *, experiment_id: str | None = None
+    ) -> IssueDetectionRun:
+        """
+        Get an issue detection run.
+
+        Args:
+            run_id: ID of the run.
+            experiment_id: Parent experiment for Databricks routing.
+
+        Returns:
+            The run.
+        """
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.get_issue_detection_run(run_id, experiment_id=experiment_id)
+        return self.store.get_issue_detection_run(run_id)
+
+    def _cancel_issue_detection_run(
+        self, run_id: str, *, experiment_id: str | None = None
+    ) -> IssueDetectionRun:
+        """
+        Cancel an issue detection run. Canceling a run that has ended returns it unchanged.
+
+        Args:
+            run_id: ID of the run.
+            experiment_id: Parent experiment for Databricks routing.
+
+        Returns:
+            The run.
+        """
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.cancel_issue_detection_run(run_id, experiment_id=experiment_id)
+        return self.store.cancel_issue_detection_run(run_id)
 
     # ----- Label schemas (tracking-store CRUD) -----
 

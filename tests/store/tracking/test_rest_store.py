@@ -21,6 +21,8 @@ from mlflow.entities import (
     GatewayResourceType,
     InputTag,
     Issue,
+    IssueDetectionRun,
+    IssueDetectionRunStatus,
     IssueSeverity,
     IssueStatus,
     LifecycleStage,
@@ -4411,3 +4413,99 @@ def test_issue_rest_extended_contract():
         assert body["include_total_count"] is True
         assert result.total_count == 5
         assert result.token == "next"
+
+
+def _detection_run_response(**overrides):
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issue_detection_run": {
+            "run_id": "run-1",
+            "experiment_id": "exp-1",
+            "status": "running",
+            "start_time": 1700000000000,
+            **overrides,
+        }
+    })
+    return response
+
+
+def test_detect_issues():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request", return_value=_detection_run_response()
+    ) as mock_http:
+        run = store.detect_issues(
+            "exp-1", filter_string="trace.status = 'ERROR'", model="gateway:/endpoint"
+        )
+
+    call_args = mock_http.call_args.kwargs
+    assert call_args["endpoint"] == f"{_V3_ISSUES_REST_API_PATH_PREFIX}/detect"
+    assert call_args["method"] == "POST"
+    assert call_args["json"] == {
+        "experiment_id": "exp-1",
+        "filter_string": "trace.status = 'ERROR'",
+        "model": "gateway:/endpoint",
+    }
+    assert run == IssueDetectionRun(
+        run_id="run-1",
+        experiment_id="exp-1",
+        status=IssueDetectionRunStatus.RUNNING,
+        start_time=1700000000000,
+    )
+
+
+def test_detect_issues_with_trace_ids():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request", return_value=_detection_run_response()
+    ) as mock_http:
+        store.detect_issues("exp-1", trace_ids=["trace-1", "trace-2"])
+
+    assert mock_http.call_args.kwargs["json"] == {
+        "experiment_id": "exp-1",
+        "trace_ids": ["trace-1", "trace-2"],
+    }
+
+
+def test_detect_issues_omits_unset_fields():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request", return_value=_detection_run_response()
+    ) as mock_http:
+        store.detect_issues("exp-1")
+
+    assert mock_http.call_args.kwargs["json"] == {"experiment_id": "exp-1"}
+
+
+def test_get_issue_detection_run():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+    response = _detection_run_response(
+        status="failed", end_time=1700000900000, error_message="MlflowException: bad key"
+    )
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        run = store.get_issue_detection_run("run-1")
+
+    call_args = mock_http.call_args.kwargs
+    assert call_args["endpoint"] == f"{_V3_ISSUES_REST_API_PATH_PREFIX}/detection-runs/run-1"
+    assert call_args["method"] == "GET"
+    assert run.status is IssueDetectionRunStatus.FAILED
+    assert run.end_time == 1700000900000
+    assert run.error_message == "MlflowException: bad key"
+
+
+def test_cancel_issue_detection_run():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+    response = _detection_run_response(status="canceled", end_time=1700000900000)
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        run = store.cancel_issue_detection_run("run-1")
+
+    call_args = mock_http.call_args.kwargs
+    assert call_args["endpoint"] == f"{_V3_ISSUES_REST_API_PATH_PREFIX}/detection-runs/run-1/cancel"
+    assert call_args["method"] == "POST"
+    assert run.status is IssueDetectionRunStatus.CANCELED

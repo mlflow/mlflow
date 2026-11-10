@@ -486,6 +486,12 @@ mlflow.entities.Issue.from_proto
 mlflow.entities.Issue.to_dictionary
 mlflow.entities.Issue.to_proto
 mlflow.entities.IssueCategory
+mlflow.entities.IssueDetectionRun
+mlflow.entities.IssueDetectionRun.from_dictionary
+mlflow.entities.IssueDetectionRun.from_proto
+mlflow.entities.IssueDetectionRun.to_dictionary
+mlflow.entities.IssueDetectionRun.to_proto
+mlflow.entities.IssueDetectionRunStatus
 mlflow.entities.IssueEvidence
 mlflow.entities.IssueEvidence.from_assessment
 mlflow.entities.IssueEvidence.from_metadata_value
@@ -767,6 +773,8 @@ mlflow.entities.issue.Issue
 mlflow.entities.issue.IssueCategory
 mlflow.entities.issue.IssueSeverity
 mlflow.entities.issue.IssueStatus
+mlflow.entities.issue_detection_run.IssueDetectionRun
+mlflow.entities.issue_detection_run.IssueDetectionRunStatus
 mlflow.entities.issue_evidence.IssueEvidence
 mlflow.entities.issue_evidence.IssueEvidenceStep
 mlflow.entities.lifecycle_stage.LifecycleStage
@@ -980,6 +988,7 @@ mlflow.genai.agent_server.server.AgentServer
 mlflow.genai.agent_server.set_request_headers
 mlflow.genai.agent_server.setup_mlflow_git_based_version_tracking
 mlflow.genai.agent_server.stream
+mlflow.genai.cancel_issue_detection_run
 mlflow.genai.compare_evaluations
 mlflow.genai.create_dataset
 mlflow.genai.create_issue
@@ -1071,11 +1080,13 @@ mlflow.genai.delete_prompt_model_config
 mlflow.genai.delete_prompt_tag
 mlflow.genai.delete_prompt_version_tag
 mlflow.genai.delete_scorer
+mlflow.genai.detect_issues
 mlflow.genai.disable_git_model_versioning
 mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
 mlflow.genai.get_dataset
 mlflow.genai.get_issue
+mlflow.genai.get_issue_detection_run
 mlflow.genai.get_labeling_session
 mlflow.genai.get_labeling_sessions
 mlflow.genai.get_latest_mcp_server_version

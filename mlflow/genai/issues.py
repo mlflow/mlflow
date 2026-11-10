@@ -3,6 +3,7 @@
 from typing import Literal
 
 from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
+from mlflow.entities.issue_detection_run import IssueDetectionRun
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.client import TracingClient
 from mlflow.tracking.fluent import _get_experiment_id
@@ -179,3 +180,97 @@ def search_issues(
         include_total_count=include_total_count,
         view=view,
     )
+
+
+@experimental(version="3.19.0")
+def detect_issues(
+    *,
+    filter_string: str | None = None,
+    trace_ids: list[str] | None = None,
+    model: str | None = None,
+    experiment_id: str | None = None,
+) -> IssueDetectionRun:
+    """
+    Start an issue detection run over an experiment's traces.
+
+    The run analyzes the traces in the background and files what it finds as issues, using the
+    categories and instructions saved on the experiment. Poll it with
+    :py:func:`get_issue_detection_run`. An experiment can have several detection runs in progress
+    at once.
+
+    On an MLflow tracking server, the run needs job execution enabled
+    (``MLFLOW_SERVER_ENABLE_JOB_EXECUTION=true``). On Databricks, the experiment must store its
+    traces in Unity Catalog, and the run reads them through the warehouse in
+    ``MLFLOW_TRACING_SQL_WAREHOUSE_ID`` when it is set.
+
+    .. code-block:: python
+
+        import mlflow
+
+        run = mlflow.genai.detect_issues(filter_string="trace.status = 'ERROR'")
+        run = mlflow.genai.get_issue_detection_run(run.run_id)
+
+    Args:
+        filter_string: Restricts the run to traces matching this filter, in the
+            :py:func:`mlflow.search_traces` filter syntax. When neither this nor ``trace_ids`` is
+            set, the run looks at the experiment's newest traces. Either way it analyzes a sample,
+            not every match: on an MLflow tracking server, up to 100 sessions picked at random
+            from the newest 500 matching traces; on Databricks, the traces its agent's searches
+            return.
+        trace_ids: The IDs of the traces to analyze, all in the experiment and at most 500.
+            Cannot be combined with ``filter_string``. Not supported on Databricks.
+        model: The model to analyze traces with, as ``"<provider>:/<model>"`` or
+            ``"gateway:/<endpoint>"``. Defaults to the model saved in the experiment's issue
+            detection schedule. The run calls the model from the MLflow server, so a
+            ``"<provider>:/<model>"`` model needs the provider's API key, such as
+            ``OPENAI_API_KEY``, in the server's environment rather than the caller's. A
+            ``"gateway:/<endpoint>"`` model uses the key saved with the AI Gateway endpoint. Not
+            supported on Databricks, which chooses the model.
+        experiment_id: The experiment whose traces to analyze. Defaults to the active experiment.
+
+    Returns:
+        The :py:class:`mlflow.entities.IssueDetectionRun`, which has just started.
+    """
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
+    return TracingClient()._detect_issues(
+        experiment_id, filter_string=filter_string, model=model, trace_ids=trace_ids
+    )
+
+
+@experimental(version="3.19.0")
+def get_issue_detection_run(run_id: str, *, experiment_id: str | None = None) -> IssueDetectionRun:
+    """
+    Get an issue detection run.
+
+    Args:
+        run_id: ID of the run, from :py:func:`detect_issues`.
+        experiment_id: Parent experiment for Databricks routing. Defaults to the active
+            experiment.
+
+    Returns:
+        The :py:class:`mlflow.entities.IssueDetectionRun`.
+    """
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
+    return TracingClient()._get_issue_detection_run(run_id, experiment_id=experiment_id)
+
+
+@experimental(version="3.19.0")
+def cancel_issue_detection_run(
+    run_id: str, *, experiment_id: str | None = None
+) -> IssueDetectionRun:
+    """
+    Cancel an issue detection run. Canceling a run that has ended returns it unchanged.
+
+    Args:
+        run_id: ID of the run, from :py:func:`detect_issues`.
+        experiment_id: Parent experiment for Databricks routing. Defaults to the active
+            experiment.
+
+    Returns:
+        The :py:class:`mlflow.entities.IssueDetectionRun`.
+    """
+    if experiment_id is None:
+        experiment_id = _get_experiment_id()
+    return TracingClient()._cancel_issue_detection_run(run_id, experiment_id=experiment_id)

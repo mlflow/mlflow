@@ -4,7 +4,7 @@ import pytest
 
 import mlflow
 from mlflow.entities import IssueCategory, IssueSeverity, IssueStatus
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 ISSUE_ID = "iss-1234567890abcdef1234567890abcdef"
@@ -291,6 +291,9 @@ def test_issue_api_uses_existing_experiment_resolution(monkeypatch, environment_
             {"issue_id": ISSUE_ID, "status": IssueStatus.RESOLVED, "experiment_id": "1"},
         ),
         ("search_issues", {"filter_string": "status = 'pending'", "experiment_id": "1"}),
+        ("detect_issues", {"experiment_id": "1"}),
+        ("get_issue_detection_run", {"run_id": "run-1", "experiment_id": "1"}),
+        ("cancel_issue_detection_run", {"run_id": "run-1", "experiment_id": "1"}),
     ],
 )
 def test_issue_api_preserves_client_errors(tracing_client, method, kwargs):
@@ -301,3 +304,53 @@ def test_issue_api_preserves_client_errors(tracing_client, method, kwargs):
         getattr(mlflow.genai, method)(**kwargs)
 
     assert caught.value is error
+
+
+def test_detect_issues_delegates_to_tracing_client(tracing_client):
+    experiment = mlflow.set_experiment("issue-detection-sdk")
+
+    result = mlflow.genai.detect_issues(filter_string="trace.status = 'ERROR'")
+
+    assert result is tracing_client._detect_issues.return_value
+    tracing_client._detect_issues.assert_called_once_with(
+        experiment.experiment_id, filter_string="trace.status = 'ERROR'", model=None, trace_ids=None
+    )
+    tracing_client._detect_issues.reset_mock()
+
+    mlflow.genai.detect_issues(
+        trace_ids=["trace-1"], model="gateway:/endpoint", experiment_id="override"
+    )
+    tracing_client._detect_issues.assert_called_once_with(
+        "override", filter_string=None, model="gateway:/endpoint", trace_ids=["trace-1"]
+    )
+
+
+@pytest.mark.parametrize("method", ["get_issue_detection_run", "cancel_issue_detection_run"])
+def test_issue_detection_run_api_delegates_to_tracing_client(tracing_client, method):
+    experiment = mlflow.set_experiment("issue-detection-sdk")
+    client_method = getattr(tracing_client, f"_{method}")
+
+    result = getattr(mlflow.genai, method)("run-1")
+
+    assert result is client_method.return_value
+    client_method.assert_called_once_with("run-1", experiment_id=experiment.experiment_id)
+    client_method.reset_mock()
+
+    getattr(mlflow.genai, method)("run-1", experiment_id="override")
+    client_method.assert_called_once_with("run-1", experiment_id="override")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda: mlflow.genai.detect_issues(),
+        lambda: mlflow.genai.get_issue_detection_run("run-1"),
+        lambda: mlflow.genai.cancel_issue_detection_run("run-1"),
+    ],
+    ids=["detect", "get", "cancel"],
+)
+def test_issue_detection_needs_a_tracking_server(tmp_sqlite_uri, call):
+    with _use_tracking_uri(tmp_sqlite_uri):
+        mlflow.set_experiment("issue-detection-local")
+        with pytest.raises(MlflowNotImplementedException, match="MLflow tracking server"):
+            call()

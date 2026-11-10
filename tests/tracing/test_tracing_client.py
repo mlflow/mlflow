@@ -83,6 +83,31 @@ def test_issue_client_routes_experiment_context(tracking_uri, context):
     )
 
 
+@pytest.mark.parametrize(
+    ("tracking_uri", "context"),
+    [("http://localhost:5000", {}), ("databricks", {"experiment_id": "1"})],
+)
+def test_issue_detection_client_routes_experiment_context(tracking_uri, context):
+    store = Mock()
+    with patch("mlflow.tracing.client._get_store", return_value=store):
+        client = TracingClient(tracking_uri=tracking_uri)
+        assert client._detect_issues("1", trace_ids=["trace-1"]) is store.detect_issues.return_value
+        assert (
+            client._get_issue_detection_run("run-1", experiment_id="1")
+            is store.get_issue_detection_run.return_value
+        )
+        assert (
+            client._cancel_issue_detection_run("run-1", experiment_id="1")
+            is store.cancel_issue_detection_run.return_value
+        )
+
+    store.detect_issues.assert_called_once_with(
+        "1", filter_string=None, model=None, trace_ids=["trace-1"]
+    )
+    store.get_issue_detection_run.assert_called_once_with("run-1", **context)
+    store.cancel_issue_detection_run.assert_called_once_with("run-1", **context)
+
+
 def test_get_trace_v4_retry():
     mock_store = Mock()
     mock_store.batch_get_traces.side_effect = [[], ["dummy_trace"]]
