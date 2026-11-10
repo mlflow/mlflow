@@ -507,8 +507,8 @@ def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
         not be an absolute path
 
     Set ``validate_windows_aliases`` for local filesystem access and its server authorization.
-    On Windows it also rejects components ending in dots or spaces, DOS short-name spellings
-    containing ``~N``, and alternate data stream syntax containing ``:``.
+    On Windows it also rejects components ending in dots or spaces, DOS short-name patterns with
+    ``~N`` at a component end or before a dot, and alternate data stream syntax containing ``:``.
     Alias validation applies to raw artifact paths, including ``file:`` spellings.
     Remote artifact names may be valid POSIX or object-store paths even on a Windows client.
     """
