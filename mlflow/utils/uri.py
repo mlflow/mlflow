@@ -26,17 +26,22 @@ _OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
 def redact_uri_credentials(uri: str | None) -> str | None:
-    """Redact URI userinfo before including a configured URI in an error message."""
+    """Redact userinfo and URI options before including a configured URI in an error message."""
     if not uri:
         return uri
     try:
         parsed = urllib.parse.urlparse(uri)
     except ValueError:
         return "<redacted URI>"
-    if "@" not in parsed.netloc:
+    if not parsed.netloc and not (parsed.params or parsed.query or parsed.fragment):
         return uri
-    host = parsed.netloc.rsplit("@", 1)[1]
-    return parsed._replace(netloc=f"***@{host}").geturl()
+    # Unescaped delimiters in userinfo can make credentials look like a path or query.
+    if parsed.netloc and any("@" in part for part in parsed[2:]):
+        return "<redacted URI>"
+    netloc = parsed.netloc
+    if "@" in netloc:
+        netloc = f"***@{netloc.rsplit('@', 1)[1]}"
+    return parsed._replace(netloc=netloc, params="", query="", fragment="").geturl()
 
 
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
