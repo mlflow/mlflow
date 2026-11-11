@@ -327,6 +327,7 @@ from mlflow.server.auth.permissions import (
 from mlflow.server.auth.permissions import (
     max_permission as max_permission,
 )
+from mlflow.server.auth.registry import get_auth_store
 from mlflow.server.auth.requirements import (
     ACTION_NOT_DENIED,
     Requirement,
@@ -493,6 +494,7 @@ from mlflow.server.workspace_helpers import (
     resolve_workspace_for_request_if_enabled,
 )
 from mlflow.store.artifact.utils.models import _parse_model_uri
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.skill_registry.artifact_paths import (
@@ -7896,6 +7898,14 @@ def _validate_bootstrap_admin_password(username: str, password: str | None) -> N
         ) from e
 
 
+def _init_auth_store(db_uri: str, read_db_uri: str | None = None) -> None:
+    global store
+    if type(store) is SqlAlchemyStore and get_uri_scheme(db_uri) not in DATABASE_ENGINES:
+        store = get_auth_store(db_uri, read_database_uri=read_db_uri)
+    else:
+        store.init_db(db_uri, read_db_uri=read_db_uri)
+
+
 def bootstrap_admin_user() -> None:
     """Initialize the auth store and create the admin user if it does not exist yet.
 
@@ -7904,7 +7914,7 @@ def bootstrap_admin_user() -> None:
     the app, so a bootstrap failure inside a worker would otherwise turn into an endless
     restart loop instead of one clear error that exits the command.
     """
-    store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
+    _init_auth_store(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
 
 
@@ -7933,7 +7943,7 @@ def _init_store_for_app() -> None:
         # This trusts that the CLI resolved the same `database_uri` as this worker. The variable
         # is private and only the CLI sets it; importing `create_app` directly with it set skips
         # both checks.
-        store.init_db(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
+        _init_auth_store(auth_config.database_uri, read_db_uri=auth_config.read_database_uri)
     else:
         bootstrap_admin_user()
 
