@@ -794,6 +794,7 @@ def test_tool_calling_loop(mock_trace):
     [
         (["call_1"], ["sig_1"], False, False),
         ([None, None], ["sig_1", "sig_2"], False, False),
+        ([None, None], ["sig_1", None], False, False),
         (["call_1", "call_2"], ["sig_1", "sig_2"], True, False),
         (["call_1", "call_2"], ["sig_1", None], False, True),
         (["call_1", "call_2"], [None, "sig_2"], False, True),
