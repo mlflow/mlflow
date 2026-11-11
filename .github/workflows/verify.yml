@@ -1,3 +1,4 @@
+# Smoke-test a branch: gh workflow run verify.yml --ref <branch> -F pr_number=<number>
 name: Verify PR behavior
 
 on:
@@ -7,6 +8,21 @@ on:
         description: "Pull request number to verify"
         required: true
         type: number
+      model:
+        description: "AI Gateway Claude model"
+        required: false
+        type: choice
+        default: databricks-claude-sonnet-5-5
+        options:
+          - databricks-claude-opus-5-5
+          - databricks-claude-sonnet-5-5
+          - databricks-claude-haiku-5-5
+      effort:
+        description: "Reasoning effort"
+        required: false
+        type: choice
+        default: medium
+        options: [low, medium, high, xhigh, max]
       dry_run:
         description: "Preview without posting a review or uploading media"
         required: false
@@ -14,8 +30,9 @@ on:
         default: true
 
 concurrency:
-  group: verify-bootstrap-${{ github.run_id }}
+  group: verify-${{ inputs.pr_number }}
   cancel-in-progress: false
+  queue: max
 
 defaults:
   run:
@@ -25,9 +42,190 @@ permissions: {}
 cache-mode: none
 
 jobs:
-  placeholder:
-    runs-on: ubuntu-slim
-    timeout-minutes: 1
+  verify:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      VERIFY_TMP_DIR: /tmp/verify
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
     steps:
-      - run: |
-          echo 'Placeholder for manual dispatch. The full verifier is being developed in PR #27338.'
+      - parallel:
+          - name: Checkout trusted workflow files
+            id: trusted
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ github.sha }}
+              path: trusted
+              persist-credentials: false
+          - name: Checkout PR merge
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: refs/pull/${{ inputs.pr_number }}/merge
+              path: pr
+              persist-credentials: false
+              fetch-depth: 2
+      - uses: ./trusted/.github/actions/setup-python
+      - uses: ./trusted/.github/actions/setup-node
+      - name: Install agent tools
+        run: |
+          trusted/.claude/scripts/install-claude.sh
+          trusted/.claude/scripts/install-agent-browser.sh
+          sudo apt-get update --error-on=any
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - id: gateway
+        uses: ./trusted/.github/actions/setup-gateway
+        with:
+          task: pr-verify
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start gateway proxy
+        id: gateway-proxy
+        env:
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN \
+            GATEWAY_URL="$GATEWAY_URL" node trusted/.claude/sandbox/gateway-proxy.mjs \
+            > "$RUNNER_TEMP/verify-gateway-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset GATEWAY_TOKEN placeholder_token
+          echo "$proxy_pid" > "$RUNNER_TEMP/verify-gateway-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if curl --noproxy '*' -fsS http://127.0.0.1:8080/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/verify-gateway-proxy.log"
+          echo '::error::Gateway proxy did not become ready.'
+          exit 1
+      # The proxy holds the telemetry token and forwards only OTLP requests. Set the variable
+      # to the <catalog>.<schema>.<table_prefix> of a UC-linked experiment to enable export.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.VERIFY_MLFLOW_TRACE_LOCATION != ''
+        uses: ./trusted/.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start telemetry proxy
+        id: telemetry-proxy
+        if: steps.telemetry.outcome == 'success'
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.VERIFY_MLFLOW_TRACE_LOCATION }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            node trusted/.claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/verify-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN placeholder_token
+          echo "$proxy_pid" > "$RUNNER_TEMP/verify-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if curl --noproxy '*' -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/verify-telemetry-proxy.log"
+          echo '::error::Telemetry proxy did not become ready.'
+          exit 1
+      - id: session
+        name: Generate session ID
+        run: |
+          echo "id=$(cat /proc/sys/kernel/random/uuid)" >> "$GITHUB_OUTPUT"
+      - name: Verify PR behavior
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
+          EFFORT: ${{ inputs.effort || 'medium' }}
+          SESSION_ID: ${{ steps.session.outputs.id }}
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ steps.telemetry.outcome == 'success' && format('Authorization={0} {1}', 'Bearer', steps.telemetry-proxy.outputs.placeholder-token) || '' }}
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          OTEL_RESOURCE_ATTRIBUTES: github.pr_number=${{ inputs.pr_number }},github.pr_url=${{ github.server_url }}/${{ github.repository }}/pull/${{ inputs.pr_number }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AGENT_BROWSER_ARGS: --no-sandbox
+          AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.VERIFY_TMP_DIR }}/out/media
+        run: |
+          mkdir -p "$VERIFY_TMP_DIR/out/media" "$VERIFY_TMP_DIR/work"
+          if [ "$CLAUDE_CODE_ENABLE_TELEMETRY" = 1 ]; then
+            echo "MLflow telemetry session: \`$SESSION_ID\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          timeout 60m setsid bash -o pipefail -c '
+            echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
+            # Placeholder until the /verify skill lands.
+            claude --version
+          ' || { echo "::$token::"; exit 1; }
+          echo "::$token::"
+      - name: Stop agent processes
+        if: always()
+        run: |
+          if [ -s "$RUNNER_TEMP/verify-agent.pgid" ]; then
+            pgid=$(cat "$RUNNER_TEMP/verify-agent.pgid")
+            if [[ "$pgid" =~ ^[1-9][0-9]*$ ]]; then
+              kill -KILL -- "-$pgid" 2>/dev/null || true
+            fi
+          fi
+      - name: Reset trusted checkout
+        if: always() && steps.trusted.outcome == 'success'
+        working-directory: trusted
+        run: |
+          git reset --hard "$GITHUB_SHA"
+          git clean -fd
+          status=$(git status --porcelain --untracked-files=all)
+          if [ -n "$status" ]; then
+            printf '%s\n' "$status"
+            exit 1
+          fi
+      - name: Stop proxies
+        if: always()
+        run: |
+          for proxy in gateway telemetry; do
+            if [ -s "$RUNNER_TEMP/verify-$proxy-proxy.log" ]; then
+              cat "$RUNNER_TEMP/verify-$proxy-proxy.log"
+            fi
+            if [ -f "$RUNNER_TEMP/verify-$proxy-proxy.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/verify-$proxy-proxy.pid")" 2>/dev/null || true
+            fi
+          done
