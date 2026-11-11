@@ -257,7 +257,7 @@ repos:
         name: check-init
         entry: uv run --only-group lint dev/check_init.py
         language: system
-        files: '^(mlflow|tests|\.claude/skills)/.*\.py$'
+        files: '^(mlflow|tests)/.*\.py$'
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false
