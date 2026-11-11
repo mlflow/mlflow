@@ -1645,9 +1645,7 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
         workspace_context._WORKSPACE.reset(token)
 
 
-@pytest.mark.parametrize(
-    ("permission", "expected_ids"), [(USE, ["exp-1", "exp-2"]), (MANAGE, ["exp-1", "exp-2"])]
-)
+@pytest.mark.parametrize(("permission", "expected_ids"), [(USE, []), (MANAGE, ["exp-1", "exp-2"])])
 def test_filter_experiment_ids_workspace_scope_role(
     workspace_permission_setup, monkeypatch, permission, expected_ids
 ):
@@ -9664,7 +9662,12 @@ def test_registered_model_latest_versions_also_lose_denied_siblings(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("registered_model", "*", READ.name), ("run", "*", DENY.name)],
+    )
     payload = {
         "registered_model": {
             "name": "model-xyz",

@@ -5,7 +5,7 @@ import threading
 import time
 from concurrent.futures import as_completed
 from http import HTTPStatus
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import quote, urlparse, urlunparse
 
 import requests
 from requests import HTTPError
@@ -176,7 +176,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
         paths = (artifact_path, file_name) if artifact_path else (file_name,)
-        endpoint = posixpath.join("/", *paths)
+        endpoint = quote(posixpath.join("/", *paths))
         extra_headers = {"Content-Type": mime_type}
         with open(local_file, "rb") as f:
             resp = http_request(
@@ -277,7 +277,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 else:
                     raise
 
-        endpoint = posixpath.join("/", remote_file_path)
+        endpoint = quote(posixpath.join("/", remote_file_path))
         resp = http_request(self._host_creds, endpoint, "GET", stream=True)
         augmented_raise_for_status(resp)
         with open(local_path, "wb") as f:
@@ -407,7 +407,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return PresignedDownloadUrlResponse.from_dict(resp.json())
 
     def delete_artifacts(self, artifact_path=None):
-        endpoint = posixpath.join("/", artifact_path) if artifact_path else "/"
+        endpoint = quote(posixpath.join("/", artifact_path)) if artifact_path else "/"
         resp = http_request(self._host_creds, endpoint, "DELETE", stream=True)
         augmented_raise_for_status(resp)
 
@@ -415,7 +415,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         uri, path = self.artifact_uri.split("/mlflow-artifacts/artifacts", maxsplit=1)
         path = path.strip("/")
         endpoint = (
-            posixpath.join(base_endpoint, path, artifact_path)
+            posixpath.join(base_endpoint, path, quote(artifact_path))
             if artifact_path
             else posixpath.join(base_endpoint, path)
         )

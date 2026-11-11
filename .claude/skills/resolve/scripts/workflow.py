@@ -10,7 +10,8 @@ from typing import Any
 APP = "mlflow-app[bot]"
 APP_ID = 191841109
 COPILOT = "copilot-pull-request-reviewer[bot]"
-MAX_ROUNDS = 3
+NAILAOPUS = "nailaopus[bot]"
+MAX_ROUNDS = 5
 PATCH_PATHS = Path(__file__).resolve().parents[2] / "patch-paths.txt"
 THREADS_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
@@ -116,7 +117,7 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         if role not in {"write", "maintain", "admin"}:
             summary("The reviewer lacks write access.")
             return
-    elif reviewer != COPILOT:
+    elif reviewer not in {COPILOT, NAILAOPUS}:
         summary("This bot reviewer is outside the resolver's scope.")
         return
 
@@ -423,13 +424,27 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
             if not result["data"]["resolveReviewThread"]["thread"]["isResolved"]:
                 raise ValueError("GitHub did not close the resolved thread")
 
-    # An approver has already signed off, so don't ask them to review again.
-    if blocked or review["state"] == "APPROVED":
+    # Blocked items need a human, so the review loop stops here.
+    if blocked:
         return
     pr = api(endpoint)
     if not eligible(pr, repo) or pr["head"]["sha"] != head:
         raise ValueError("PR head changed before the review request")
     reviewer = current["author"]
+    # NaiLaOpus reviews every pushed fix, whoever asked for it. After a NaiLaOpus round
+    # that only answered its threads, it re-checks them so it can approve. It can't be
+    # requested as a reviewer, so a `/review` comment starts it.
+    if tree or (reviewer == NAILAOPUS and review["state"] != "APPROVED"):
+        note = marker(reviewer, review_id, "review-request")
+        if not any(
+            app_comment(comment) and note in comment["body"]
+            for comment in list_items(issue_comments)
+        ):
+            api(issue_comments, data={"body": f"/review\n\n{note}"})
+            summary("Requested a NaiLaOpus review.")
+    # Approvers need no re-request, and NaiLaOpus uses the comment above.
+    if review["state"] == "APPROVED" or reviewer == NAILAOPUS:
+        return
     requested = api(f"{endpoint}/requested_reviewers")["users"]
     reviews = list_items(f"{endpoint}/reviews")
     if any(user["login"] == reviewer for user in requested) or any(
