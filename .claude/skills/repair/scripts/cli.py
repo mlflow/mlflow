@@ -690,8 +690,6 @@ def validate_fix(context: dict[str, Any], action: dict[str, Any], out_dir: Path)
 
 
 def check_staged_fix(git: Callable[..., str]) -> None:
-    """Reject staged changes outside the allowed paths or that weaken tests."""
-
     def names(*args: str) -> list[str]:
         return [name for name in git(*args).split("\0") if name]
 
@@ -708,17 +706,19 @@ def check_staged_fix(git: Callable[..., str]) -> None:
     deleted = names("diff", "--cached", "-z", "--name-only", "--no-renames", "--diff-filter=D")
     if deleted_tests := [path for path in deleted if TEST_FILE_RE.search(path)]:
         raise ValueError(f"fix.patch deletes test files: {deleted_tests}")
-    lines = git("diff", "--cached", "--no-renames", "-U0").splitlines()
     headers = ("+++ b/", "+++ /dev/null", "--- a/", "--- /dev/null")
-    added = [line[1:] for line in lines if line[:1] == "+" and not line.startswith(headers)]
-    removed = [line[1:] for line in lines if line[:1] == "-" and not line.startswith(headers)]
-    if weakening := [line.strip() for line in added if TEST_WEAKENING_RE.search(line)]:
+    added: list[tuple[str, str]] = []
+    removed: list[tuple[str, str]] = []
+    for line in git("diff", "--cached", "--no-renames", "-U0").splitlines():
+        if line.startswith("diff --git "):
+            path = line.rsplit(" b/", 1)[1]
+        elif line[:1] in ("+", "-") and not line.startswith(headers):
+            (added if line[0] == "+" else removed).append((path, line[1:]))
+    if weakening := [line.strip() for _, line in added if TEST_WEAKENING_RE.search(line)]:
         raise ValueError(f"fix.patch skips or xfails tests: {weakening}")
 
-    def tests(source: list[str]) -> set[str]:
-        return {
-            m.group(1) or m.group(3) for line in source if (m := TEST_DEFINITION_RE.match(line))
-        }
+    def tests(source: list[tuple[str, str]]) -> set[tuple[str, str]]:
+        return {(f, m[1] or m[3]) for f, line in source if (m := TEST_DEFINITION_RE.match(line))}
 
     if dropped := sorted(tests(removed) - tests(added)):
         raise ValueError(f"fix.patch removes tests: {dropped}")
@@ -757,8 +757,7 @@ def fix_action(
     lease = f"--force-with-lease={ref}:{context['head_sha']}"
     git(*auth, "push", lease, f"https://github.com/{REPO}.git", f"HEAD:{ref}")
     write_step_summary(f"Pushed a fix to {pr_url}: {git('rev-parse', 'HEAD')}")
-    # NaiLaOpus reviews every pushed fix on triage PRs, as after resolve's fixes.
-    # A failed request must not fail the step, or the pushed fix wouldn't be recorded.
+    # Ask NaiLaOpus to review the fix. A failed request mustn't stop the fix being recorded.
     comments = f"repos/{REPO}/issues/{context['number']}/comments"
     if subprocess.call(["gh", "api", comments, "-f", "body=/review"]) != 0:
         write_step_summary(f"Could not request a NaiLaOpus review on {pr_url}")
