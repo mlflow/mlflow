@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.credentials import read_mlflow_creds
 from mlflow.utils.uri import append_to_uri_path, is_http_uri
@@ -14,6 +15,11 @@ from mlflow.utils.uri import append_to_uri_path, is_http_uri
 # Set while the MLflow server runs a judge in-process (e.g. a gateway guardrail), where the
 # tracking URI is the backend store (e.g. sqlite://) and cannot be used to reach the gateway.
 _server_gateway_uri: ContextVar[str | None] = ContextVar("_server_gateway_uri", default=None)
+
+# The built-in feature that owns the LLM calls made in this context. Features set it around the
+# calls themselves rather than at their entry point, because they fan calls out to worker threads,
+# and a new thread does not inherit context variables.
+_gateway_caller: ContextVar[GatewayCaller | None] = ContextVar("_gateway_caller", default=None)
 
 
 @dataclass
@@ -52,11 +58,12 @@ def get_gateway_config(endpoint_name: str) -> GatewayConfig:
         MlflowException: If the gateway URI is not a valid HTTP(S) URL.
     """
     gateway_uri = _resolve_gateway_uri()
+    extra_headers = {**(_build_auth_headers() or {}), **get_gateway_caller_headers()}
 
     return GatewayConfig(
         api_base=append_to_uri_path(gateway_uri, "gateway/mlflow/v1/"),
         endpoint_name=endpoint_name,
-        extra_headers=_build_auth_headers(),
+        extra_headers=extra_headers or None,
     )
 
 
@@ -127,3 +134,28 @@ def server_gateway_uri(uri: str | None):
         yield
     finally:
         _server_gateway_uri.reset(token)
+
+
+@contextmanager
+def gateway_caller(caller: GatewayCaller | None):
+    """
+    Attribute ``gateway:/`` model calls made in this context to a built-in MLflow feature.
+
+    The gateway records the caller on each trace, which is what breaks gateway usage down by
+    feature. ``None`` leaves the current attribution unchanged.
+    """
+    if caller is None:
+        yield
+        return
+    token = _gateway_caller.set(caller)
+    try:
+        yield
+    finally:
+        _gateway_caller.reset(token)
+
+
+def get_gateway_caller_headers(default: GatewayCaller | None = None) -> dict[str, str]:
+    """The caller header for the feature set by ``gateway_caller``, or for ``default``."""
+    if caller := _gateway_caller.get() or default:
+        return {MLFLOW_GATEWAY_CALLER_HEADER: caller.value}
+    return {}
