@@ -4,6 +4,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import sys
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
@@ -77,6 +78,11 @@ class TraceJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, pydantic.BaseModel):
             return obj.model_dump(warnings=False)
+
+        # NumPy is looked up lazily so this module stays importable without it (mlflow-skinny).
+        np = sys.modules.get("numpy")
+        if np is not None and isinstance(obj, (np.ndarray, np.generic)):
+            return obj.tolist()
 
         # Some dataclass object defines __str__ method that doesn't return the full object
         # representation, so we use dict representation instead.
