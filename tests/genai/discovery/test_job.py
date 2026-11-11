@@ -459,6 +459,31 @@ def test_invoke_issue_detection_job_finishes_without_analyzing_when_nothing_matc
     assert result == {"total_traces_analyzed": 0, "total_cost_usd": 0.0}
 
 
+def test_invoke_issue_detection_job_fails_the_run_when_recording_the_sample_fails():
+    mock_client = mock.MagicMock()
+    mock_client.set_tag.side_effect = [MlflowException("store unavailable"), None]
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[]),
+        pytest.raises(MlflowException, match="store unavailable"),
+    ):
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=None,
+            run_id="run-123",
+            categories=["correctness"],
+            model="gateway:/e",
+        )
+
+    mock_client.set_tag.assert_called_with(
+        "run-123", MLFLOW_ISSUE_DETECTION_ERROR, "MlflowException: store unavailable"
+    )
+    mock_client.set_terminated.assert_called_once_with(
+        "run-123", RunStatus.to_string(RunStatus.FAILED)
+    )
+
+
 def test_invoke_issue_detection_job_fails_the_run_when_sampling_fails():
     mock_client = mock.MagicMock()
 

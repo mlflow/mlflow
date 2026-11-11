@@ -194,18 +194,18 @@ def invoke_issue_detection_job(
                 MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
                 search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
             )
+            trace_ids = [trace.info.trace_id for trace in traces]
+            client.set_tag(run_id, "total_traces", str(len(trace_ids)))
+            if not trace_ids:
+                # Nothing matched, so there is nothing to analyze: finish the run over zero traces
+                # rather than failing it, as a scheduled occurrence over a quiet window does.
+                client.set_tag(run_id, "total_cost_usd", 0.0)
+                client.set_tag(run_id, "total_traces_analyzed", 0)
+                client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
+                return {"total_traces_analyzed": 0, "total_cost_usd": 0.0}
         except Exception as error:
             _record_failure(client, run_id, error)
             raise
-        trace_ids = [trace.info.trace_id for trace in traces]
-        client.set_tag(run_id, "total_traces", str(len(trace_ids)))
-        if not trace_ids:
-            # Nothing matched, so there is nothing to analyze: finish the run over zero traces
-            # rather than failing it, as a scheduled occurrence over a quiet window does.
-            client.set_tag(run_id, "total_cost_usd", 0.0)
-            client.set_tag(run_id, "total_traces_analyzed", 0)
-            client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
-            return {"total_traces_analyzed": 0, "total_cost_usd": 0.0}
     return _detect_issues_into_run(
         client, experiment_id, trace_ids, categories, run_id, model, instructions
     )
