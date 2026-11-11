@@ -32,6 +32,12 @@ from mlflow.genai.skill_content.skill_md import (
 )
 from mlflow.genai.skill_content.sources import resolve_source_type
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.telemetry.events import (
+    SkillRegistryImportSkillsEvent,
+    SkillRegistryPullEvent,
+    SkillRegistryRegisterSkillEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 from mlflow.utils.validation import (
@@ -87,6 +93,7 @@ def search_skills(
     )
 
 
+@record_usage_event(SkillRegistryRegisterSkillEvent)
 @experimental(version="3.18.0")
 def register_skill(
     *,
@@ -218,6 +225,7 @@ def _filter_and_validate_skill_directories(
     return manifests
 
 
+@record_usage_event(SkillRegistryImportSkillsEvent)
 @experimental(version="3.18.0")
 def import_skills(
     *,
@@ -337,6 +345,7 @@ def import_skills(
     )
 
 
+@record_usage_event(SkillRegistryPullEvent)
 @experimental(version="3.18.0")
 def pull(uri: str, *, destination: str | os.PathLike[str] | None = None) -> str:
     """

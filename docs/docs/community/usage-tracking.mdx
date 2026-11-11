@@ -334,6 +334,31 @@ For a comprehensive list of tracked events, please refer to the [source code](ht
       <td>`{"is_streaming": true, "invocation_type": "mlflow_chat_completions"}`</td>
     </tr>
     <tr>
+      <td>skill_registry_create_skill_version</td>
+      <td>Source type and version status</td>
+      <td>`{"source_type": "git", "status": "active"}`</td>
+    </tr>
+    <tr>
+      <td>skill_registry_bulk_register_skills</td>
+      <td>Number of requested skills</td>
+      <td>`{"num_skills": 3}`</td>
+    </tr>
+    <tr>
+      <td>skill_registry_register_skill</td>
+      <td>Source type</td>
+      <td>`{"source_type": "local"}`</td>
+    </tr>
+    <tr>
+      <td>skill_registry_import_skills</td>
+      <td>Whether filtering by skill names and number of returned versions on success</td>
+      <td>`{"filters_by_name": true, "num_returned": 3}`</td>
+    </tr>
+    <tr>
+      <td>skill_registry_pull</td>
+      <td>Skill reference type</td>
+      <td>`{"reference_type": "alias"}`</td>
+    </tr>
+    <tr>
       <td>ui_event</td>
       <td>A UI interaction event. See the [below table](#ui-interaction-metadata) for a description of the various metadata elements</td>
       <td>`{ "eventType": "onClick", "componentViewId": "88fc9edd-5e9e-4a17-abd2-c543f505b8eb", "componentId": "mlflow.prompts.list.create", "componentType": "button", timestamp_ns: 1765784028467000000 }`</td>

@@ -1263,3 +1263,54 @@ def test_trace_json_encoder_does_not_warn_on_pydantic_type_mismatch():
         result = json.dumps(delta, cls=TraceJSONEncoder)
 
     assert json.loads(result) == {"content": content}
+
+
+def test_trace_json_encoder_serializes_numpy_objects():
+    np = pytest.importorskip("numpy")
+
+    value = {
+        "array": np.arange(5000),
+        "embedding": np.full((2, 3), 0.5, dtype=np.float32),
+        "float32": np.float32(0.5),
+        "int64": np.int64(7),
+        "bool": np.bool_(True),
+    }
+
+    assert json.loads(json.dumps(value, cls=TraceJSONEncoder)) == {
+        "array": list(range(5000)),
+        "embedding": [[0.5, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        "float32": 0.5,
+        "int64": 7,
+        "bool": True,
+    }
+
+
+def test_trace_json_encoder_serializes_extended_precision_numpy_objects():
+    np = pytest.importorskip("numpy")
+
+    value = {
+        "longdouble": np.longdouble(1.5),
+        "clongdouble": np.clongdouble(1 + 2j),
+        "array": np.array([1.5, 2.5], dtype=np.longdouble),
+    }
+
+    assert json.loads(json.dumps(value, cls=TraceJSONEncoder)) == {
+        "longdouble": str(np.longdouble(1.5)),
+        "clongdouble": str(np.clongdouble(1 + 2j)),
+        "array": [str(np.longdouble(1.5)), str(np.longdouble(2.5))],
+    }
+
+
+def test_trace_decorator_records_numpy_inputs_and_outputs():
+    np = pytest.importorskip("numpy")
+
+    @mlflow.trace
+    def embed(n):
+        return {"vector": np.arange(n), "score": np.float32(0.5)}
+
+    embed(np.int64(3))
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    span = trace.data.spans[0]
+    assert span.inputs == {"n": 3}
+    assert span.outputs == {"vector": [0, 1, 2], "score": 0.5}
