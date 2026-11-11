@@ -31,17 +31,24 @@ jobs:
   # NaiLaOpus (both the PR author and the commenter are checked). The
   # author_association prefilter at the job level prevents random users from
   # spawning a run at all; the step below does the authoritative role_name check.
+  # mlflow-app[bot] may also trigger it, but only on its own triage PRs and up to a
+  # daily limit, so triage and resolve can request reviews without a maintainer.
   gate:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     if: |
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request != null &&
       startsWith(github.event.comment.body, '/review') &&
-      contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) &&
+      (
+        contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.comment.author_association) ||
+        (github.event.comment.user.login == 'mlflow-app[bot]' && github.event.comment.user.type == 'Bot' &&
+         github.event.issue.user.login == 'mlflow-app[bot]')
+      ) &&
       (
         contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.issue.author_association) ||
         (github.event.issue.user.login == 'mlflow-app[bot]' && github.event.issue.user.type == 'Bot')
@@ -54,6 +61,7 @@ jobs:
           PR_AUTHOR: ${{ github.event.issue.user.login }}
           PR_AUTHOR_TYPE: ${{ github.event.issue.user.type }}
           COMMENTER: ${{ github.event.comment.user.login }}
+          COMMENTER_TYPE: ${{ github.event.comment.user.type }}
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           check_user() {
@@ -65,7 +73,7 @@ jobs:
             fi
             # Automated triage PRs only: same-repo `triage/issue-*` branches, whose patches
             # triage.yml restricts to an allowlist that excludes the files this workflow runs
-            # from the PR head. The commenter must still be a maintainer (checked below).
+            # from the PR head. Human commenters must still be maintainers (checked below).
             if [ "$user" = "mlflow-app[bot]" ] && [ "$type" = "Bot" ]; then
               local head
               head=$(gh api "repos/$REPO/pulls/$PR_NUMBER" \
@@ -96,7 +104,41 @@ jobs:
             esac
           }
           check_user "$PR_AUTHOR" "$PR_AUTHOR_TYPE"
-          check_user "$COMMENTER" "User"
+          # Triage and resolve post `/review` on their own PRs; check_user limits that to triage PRs.
+          if [ "$COMMENTER" = "mlflow-app[bot]" ] && [ "$COMMENTER_TYPE" = "Bot" ]; then
+            check_user "$COMMENTER" Bot
+          else
+            check_user "$COMMENTER" User
+          fi
+      - name: Enforce daily limit on bot-requested reviews
+        if: github.event.comment.user.login == 'mlflow-app[bot]'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          LIMIT: 20
+        run: |
+          since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
+          runs=$(
+            gh api -X GET "repos/$REPO/actions/workflows/nailaopus.yml/runs" \
+              -f actor='mlflow-app[bot]' -f event=issue_comment -f created=">=$since" -f per_page=100 \
+              --paginate --slurp \
+              | jq -r --argjson current "$GITHUB_RUN_ID" \
+                '.[] | .workflow_runs[] | select(.id != $current and .conclusion != "skipped") | .id'
+          )
+          # Count passed gates, even if the review later fails. Rejected requests don't extend the lockout.
+          count=0
+          for run in $runs; do
+            passed=$(gh api "repos/$REPO/actions/runs/$run/jobs" --paginate --slurp \
+              | jq '[.[] | .jobs[]] | any(.name == "gate" and .conclusion == "success")')
+            if [ "$passed" = true ]; then
+              count=$((count + 1))
+            fi
+          done
+          if [ "$count" -ge "$LIMIT" ]; then
+            echo "::error::Bot-requested NaiLaOpus reviews hit the daily limit ($count of $LIMIT in 24 hours)."
+            exit 1
+          fi
+          echo "Bot-requested NaiLaOpus reviews in the last 24 hours: $count of $LIMIT"
 
   review:
     needs: gate
@@ -157,8 +199,9 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           since=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
-          count=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-            --jq "[.[] | select(.user.login == \"NaiLaOpus[bot]\") | select(.created_at > \"$since\")] | length")
+          count=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --slurp \
+            | jq --arg since "$since" \
+              '[.[][] | select(.user.login == "nailaopus[bot]" and .created_at > $since)] | length')
           if [ "$count" -ge 5 ]; then
             echo "Rate limit hit: $count bot comments in the last 24h on PR $PR (max 5)."
             exit 1
