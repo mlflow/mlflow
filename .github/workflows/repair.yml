@@ -286,6 +286,8 @@ jobs:
         if: steps.budget.outputs.eligible == 'true'
         id: validate
         working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python "$SCRIPT" validate \
             --payload "$OUT_DIR/payload.json" \
