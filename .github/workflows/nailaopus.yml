@@ -215,7 +215,8 @@ jobs:
           persist-credentials: false
 
       # PR head code. Safe only because the job gate limits this workflow to
-      # maintainer-authored PRs.
+      # maintainer-authored PRs and `triage/issue-*` PRs, whose patches triage.yml
+      # restricts to paths that exclude this action, pyproject.toml and .python-version.
       - uses: ./mlflow/.github/actions/setup-python
 
       - name: Install ripgrep
