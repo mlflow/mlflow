@@ -311,8 +311,13 @@ def test_scorer_returns_feedback_with_error(sample_data, is_in_databricks):
         scorers=[dummy_scorer],
     )
 
-    # Scorer should not be in result when it returns an error
-    assert all("dummy_scorer" not in metric for metric in results.metrics.keys())
+    # The scorer returns an error on every row, so it has no mean, only an error count
+    # under the scorer's name.
+    assert {
+        name: value
+        for name, value in results.metrics.items()
+        if "dummy_scorer" in name or "feedback_with_error" in name
+    } == {"dummy_scorer/error_count": len(sample_data)}
 
 
 @pytest.mark.parametrize(
@@ -965,11 +970,13 @@ def test_scorer_timeout_becomes_error_feedback_in_evaluate(sample_data, is_in_da
     finally:
         release.set()
 
-    # The fast scorer yields its metric; the timed-out one errors and is excluded. The control
-    # scorer makes the absence specifically a timeout, not scorers being dropped wholesale.
-    metrics = results.metrics.keys()
+    # The fast scorer yields its metric; the timed-out one errors on every row, so it gets no
+    # mean, only an error count. The control scorer makes this specifically a timeout, not
+    # scorers being dropped wholesale.
+    metrics = results.metrics
     assert any("fast_scorer" in metric for metric in metrics)
-    assert all("slow_scorer" not in metric for metric in metrics)
+    assert [metric for metric in metrics if "slow_scorer" in metric] == ["slow_scorer/error_count"]
+    assert metrics["slow_scorer/error_count"] == len(sample_data)
 
 
 # ==================== Tests for session_level ====================
