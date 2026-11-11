@@ -1255,13 +1255,17 @@ def mock_s3_bucket():
     # `_cached_get_s3_client` is a process-global lru_cache whose key does not include the
     # resolved AWS credentials. A client cached by an earlier test on the same worker (e.g.
     # created outside moto with no credentials) would otherwise be reused here and raise
-    # `NoCredentialsError`.
+    # `NoCredentialsError`. Clear it again on teardown so clients created under moto's fake
+    # credentials don't leak into later tests.
     _cached_get_s3_client.cache_clear()
-    with moto.mock_s3():
-        bucket_name = "mock-bucket"
-        s3_client = boto3.client("s3")
-        s3_client.create_bucket(Bucket=bucket_name)
-        yield bucket_name
+    try:
+        with moto.mock_s3():
+            bucket_name = "mock-bucket"
+            s3_client = boto3.client("s3")
+            s3_client.create_bucket(Bucket=bucket_name)
+            yield bucket_name
+    finally:
+        _cached_get_s3_client.cache_clear()
 
 
 @pytest.fixture
