@@ -5954,7 +5954,7 @@ def _detect_issues():
     starts a run while another of the experiment's runs is in progress, so callers can run
     detection over different traces at once.
     """
-    from mlflow.genai.discovery.job import invoke_issue_detection_job
+    from mlflow.genai.discovery.job import _record_failure, invoke_issue_detection_job
     from mlflow.server.jobs import submit_job
 
     request_message = _get_request_message(
@@ -6033,12 +6033,18 @@ def _detect_issues():
             },
             extra_envs=credentials,
         )
+    except Exception as error:
+        # A run left RUNNING with no job would never end, so it is failed with the reason.
+        _record_failure(client, run_id, error)
+        raise
+    # Best effort, and outside the block above: the job is already queued and ends the run itself,
+    # so a failed tag write must not mark the run FAILED under a job that may still succeed.
+    try:
         client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_JOB_ID, job.job_id)
     except Exception:
-        # A run left RUNNING with no job would block detection for this experiment until it
-        # timed out.
-        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
-        raise
+        _logger.warning(
+            "Could not record job %s on issue detection run %s", job.job_id, run_id, exc_info=True
+        )
 
     response_message = DetectIssues.Response(
         issue_detection_run=IssueDetectionRun(

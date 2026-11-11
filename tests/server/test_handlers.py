@@ -11695,14 +11695,14 @@ def test_detect_issues_handler_starts_a_run_while_another_is_in_flight(
 ):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     mock_tracking_store.get_experiment.return_value = _detection_experiment()
-    in_flight = mock.MagicMock()
-    in_flight.info.run_id = "run-in-flight"
-    mock_tracking_store.search_runs.return_value = [in_flight]
 
     with (
         mock.patch(
             "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
         ) as mock_submit_job,
+        mock.patch(
+            "mlflow.genai.discovery.utils.in_flight_detection_run", return_value="run-in-flight"
+        ) as mock_in_flight,
         app.test_client() as c,
     ):
         resp = c.post(
@@ -11711,6 +11711,8 @@ def test_detect_issues_handler_starts_a_run_while_another_is_in_flight(
         )
 
     assert resp.status_code == 200
+    mock_in_flight.assert_not_called()
+    mock_tracking_store.search_runs.assert_not_called()
     detect_issues_client.create_run.assert_called_once()
     mock_submit_job.assert_called_once()
 
@@ -11734,8 +11736,32 @@ def test_detect_issues_handler_fails_the_run_when_submission_fails(
         )
 
     assert resp.get_json()["error_code"] == "INTERNAL_ERROR"
-    # Otherwise a RUNNING run with no job would block detection until it timed out.
+    detect_issues_client.set_tag.assert_called_once_with(
+        "run-detect-1", "mlflow.issueDetection.error", "MlflowException: queue unavailable"
+    )
     detect_issues_client.set_terminated.assert_called_once_with("run-detect-1", "FAILED")
+
+
+def test_detect_issues_handler_keeps_the_run_when_recording_its_job_fails(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    detect_issues_client.set_tag.side_effect = MlflowException("store unavailable")
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "gateway:/e"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.get_json()["issue_detection_run"]["status"] == "running"
+    # The queued job ends the run itself.
+    detect_issues_client.set_terminated.assert_not_called()
 
 
 def test_detect_issues_handler_requires_an_experiment_id(mock_tracking_store, detect_issues_client):
