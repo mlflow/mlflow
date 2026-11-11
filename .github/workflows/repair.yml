@@ -205,15 +205,26 @@ jobs:
       - name: Resolve agent model and effort
         id: agent
         env:
+          # Triage PRs can get a pushed code fix, so they use a model at least as capable as the
+          # triage bot's. Other PRs only get reruns or base merges.
+          IS_TRIAGE_PR: ${{ matrix.pr.author_is_bot && contains(fromJSON('["mlflow-app", "mlflow-app[bot]"]'), matrix.pr.author) && startsWith(matrix.pr.head_ref, 'triage/') }}
+          FIX_MODEL: ${{ vars.REPAIR_FIX_MODEL || 'databricks-claude-opus-5-5' }}
+          FIX_EFFORT: ${{ vars.REPAIR_FIX_EFFORT || 'high' }}
           MODEL: ${{ inputs.model || vars.REPAIR_MODEL || 'databricks-claude-sonnet-5-5' }}
           EFFORT: ${{ inputs.effort || vars.REPAIR_EFFORT || 'high' }}
+          MODEL_INPUT: ${{ inputs.model }}
+          EFFORT_INPUT: ${{ inputs.effort }}
         run: |
+          if [ "$IS_TRIAGE_PR" = true ]; then
+            MODEL="${MODEL_INPUT:-$FIX_MODEL}"
+            EFFORT="${EFFORT_INPUT:-$FIX_EFFORT}"
+          fi
           # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
           [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
           case "$EFFORT" in
             low | medium | high | xhigh | max) ;;
             *)
-              echo "::error::Invalid effort '$EFFORT'. Check the REPAIR_EFFORT repository variable."
+              echo "::error::Invalid effort '$EFFORT'. Check the REPAIR_EFFORT or REPAIR_FIX_EFFORT repository variable."
               exit 1
               ;;
           esac

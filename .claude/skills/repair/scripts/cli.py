@@ -23,7 +23,6 @@ PR_BUDGET = 5
 HISTORY_MARKER = "<!-- repair-history -->"
 APP = "mlflow-app[bot]"
 APP_ID = 191841109
-MAINTAINER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 # Added test lines that skip or expect failure instead of fixing the code.
 TEST_WEAKENING_RE = re.compile(
     r"pytest\.mark\.(skip|skipif|xfail)\b|pytest\.(skip|xfail|importorskip)\("
@@ -83,7 +82,6 @@ PR_FIELDS = f"""
   isDraft
   mergeable
   isCrossRepository
-  authorAssociation
   author {{ __typename login }}
   comments(first: 10) {{ {COMMENTS_FIELDS} }}
   statusCheckRollup {{
@@ -361,7 +359,6 @@ def build_candidate(pr: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str,
         "number": pr["number"],
         "author": author.get("login"),
         "author_is_bot": author.get("__typename") == "Bot",
-        "author_association": pr["authorAssociation"],
         "cross_repository": pr["isCrossRepository"],
         "head_ref": pr["headRefName"],
         "head_sha": pr["headRefOid"],
@@ -722,12 +719,8 @@ def check_patch(text: str) -> None:
 
 
 def validate_fix(context: dict[str, Any], action: dict[str, Any], out_dir: Path) -> None:
-    if context.get("cross_repository") is not False or not (
-        is_triage_pr(context) or context.get("author_association") in MAINTAINER_ASSOCIATIONS
-    ):
-        raise ValueError(
-            "Fixes are limited to triage PRs and maintainer PRs on mlflow/mlflow branches"
-        )
+    if context.get("cross_repository") is not False or not is_triage_pr(context):
+        raise ValueError("Fixes are limited to triage PRs on mlflow/mlflow branches")
     patch = out_dir / "fix.patch"
     if patch.is_symlink() or not patch.is_file():
         raise ValueError("A fix needs a regular fix.patch file in the output directory")

@@ -43,9 +43,8 @@ Do not change files in `$trusted_checkout`, create commits, or execute repair ac
 ## Fixing failures the PR causes
 
 When the PR's changes cause a failure (a broken test, a type error, a lint failure) and the
-context allows it, propose a `fix`. The workflow only accepts a fix on a triage PR or a maintainer
-PR whose branch is in `mlflow/mlflow`; check `author`, `author_association` and
-`cross_repository` in the context. Fix the code, not the test. Never skip, xfail or delete a
+context allows it, propose a `fix`. The workflow only accepts a fix on a triage PR: `author` is
+`mlflow-app`, `head_ref` starts with `triage/`, and `cross_repository` is false. Fix the code, not the test. Never skip, xfail or delete a
 test, loosen an assertion, or change what a test checks just to make CI pass. The workflow
 rejects patches that skip, xfail or remove tests. If the test itself is wrong, or the right fix
 needs a design decision, choose no action and explain why in the rationale.
