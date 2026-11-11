@@ -558,9 +558,11 @@ class DetectIssues(_message.Message):
     experiment_id: _builtins.str
     """Experiment ID."""
     filter_string: _builtins.str
-    """Restricts the run to traces matching this filter, in the search_traces filter syntax. When
-    neither this nor trace_ids is set, the run analyzes the experiment's most recent traces.
-    Cannot be combined with trace_ids.
+    """Restricts the run to traces matching this filter, in the search_traces filter syntax. The run
+    samples the matching traces: from the newest 500, it picks up to 100 sessions at random, a
+    trace without a session counting as its own, and analyzes their traces. It doesn't promise to
+    cover every match. When neither this nor trace_ids is set, it samples the experiment's newest
+    traces the same way. Cannot be combined with trace_ids.
     """
     model: _builtins.str
     """The model the run analyzes traces with, as "<provider>:/<model>" or "gateway:/<endpoint>".
