@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794408254367,
+  "lastUpdate": 1794433215739,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ruslan@hadrian.io",
-            "name": "Ruslan Hamzatov",
-            "username": "rhamzatov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7da179d9df1c3af9f4f6426ccae3a12094bacdfe",
-          "message": "Forward `VertexAIProvider` passthrough and proxy routes to its Claude/MaaS delegates (#25833)\n\nSigned-off-by: Ruslan Hamzatov <ruslan@hadrian.io>\nCo-authored-by: Claude Fable 5.1 <noreply@anthropic.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>",
-          "timestamp": "2026-09-14T10:35:11Z",
-          "tree_id": "e0c3e7b2c416335cd5c3f9f9119b042a2bb64326",
-          "url": "https://github.com/mlflow/mlflow/commit/7da179d9df1c3af9f4f6426ccae3a12094bacdfe"
-        },
-        "date": 1789382324032,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 54.9339436000011,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.459162703705003,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 6.629910486301513,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.3507886842107775,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.792375874016323,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 11.081389600002467,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 4.150151000001756,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "89657709+a-gajam@users.noreply.github.com",
+            "name": "Anurag Gajam",
+            "username": "a-gajam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f72072773ee22e8e94bfc04166db5cfaab3bde41",
+          "message": "Don't list resources a workspace `USE` grant can't read (#27280)\n\nSigned-off-by: a-gajam <89657709+a-gajam@users.noreply.github.com>",
+          "timestamp": "2026-11-11T21:36:50Z",
+          "tree_id": "0393483373f22ef9b2fc84402018531b2edcf673",
+          "url": "https://github.com/mlflow/mlflow/commit/f72072773ee22e8e94bfc04166db5cfaab3bde41"
+        },
+        "date": 1794433212467,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.88667415000029,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.00953838461508,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.230265378377672,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.269674698629819,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.752324340740718,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 19.2609468000029,
             "unit": "ms"
           }
         ]
