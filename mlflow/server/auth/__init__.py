@@ -274,7 +274,7 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server import app
+from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, app
 from mlflow.server import skill_registry_api as _skill_registry_api
 from mlflow.server._request_keys import (
     MCP_SERVER_ALLOWED_ACTIONS,
@@ -509,7 +509,7 @@ from mlflow.utils.search_utils import (
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
 )
-from mlflow.utils.uri import _decode, is_models_uri, validate_path_is_safe
+from mlflow.utils.uri import _decode, get_uri_scheme, is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
     _parse_experiment_id,
@@ -1261,7 +1261,13 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
 
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
     try:
-        return validate_path_is_safe(artifact_path)
+        return validate_path_is_safe(
+            artifact_path,
+            validate_windows_aliases=get_uri_scheme(
+                os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR, "")
+            )
+            in {"", "file"},
+        )
     except MlflowException:
         return None
 
