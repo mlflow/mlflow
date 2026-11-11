@@ -73,7 +73,7 @@ jobs:
             fi
             # Automated triage PRs only: same-repo `triage/issue-*` branches, whose patches
             # triage.yml restricts to an allowlist that excludes the files this workflow runs
-            # from the PR head. The commenter must still be a maintainer (checked below).
+            # from the PR head. Human commenters must still be maintainers (checked below).
             if [ "$user" = "mlflow-app[bot]" ] && [ "$type" = "Bot" ]; then
               local head
               head=$(gh api "repos/$REPO/pulls/$PR_NUMBER" \
@@ -118,14 +118,22 @@ jobs:
           LIMIT: 20
         run: |
           since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
-          # mlflow-app[bot] comments that aren't `/review` on a PR skip the gate and don't count.
-          count=$(
+          runs=$(
             gh api -X GET "repos/$REPO/actions/workflows/nailaopus.yml/runs" \
               -f actor='mlflow-app[bot]' -f event=issue_comment -f created=">=$since" -f per_page=100 \
               --paginate --slurp \
-              | jq --argjson current "$GITHUB_RUN_ID" \
-                '[.[] | .workflow_runs[] | select(.id != $current and .conclusion != "skipped")] | length'
+              | jq -r --argjson current "$GITHUB_RUN_ID" \
+                '.[] | .workflow_runs[] | select(.id != $current and .conclusion != "skipped") | .id'
           )
+          # Count passed gates, even if the review later fails. Rejected requests don't extend the lockout.
+          count=0
+          for run in $runs; do
+            passed=$(gh api "repos/$REPO/actions/runs/$run/jobs" --paginate --slurp \
+              --jq '[.[] | .jobs[]] | any(.name == "gate" and .conclusion == "success")')
+            if [ "$passed" = true ]; then
+              count=$((count + 1))
+            fi
+          done
           if [ "$count" -ge "$LIMIT" ]; then
             echo "::error::Bot-requested NaiLaOpus reviews hit the daily limit ($count of $LIMIT in 24 hours)."
             exit 1
@@ -250,7 +258,8 @@ jobs:
           persist-credentials: false
 
       # PR head code. Safe only because the job gate limits this workflow to
-      # maintainer-authored PRs.
+      # maintainer-authored PRs and `triage/issue-*` PRs, whose patches triage.yml
+      # restricts to paths that exclude this action, pyproject.toml and .python-version.
       - uses: ./mlflow/.github/actions/setup-python
 
       - name: Install ripgrep

@@ -45,6 +45,11 @@ from mlflow.store.tracking.skill_registry_pagination import (
     validate_max_results,
 )
 from mlflow.store.tracking.skill_registry_search_text import build_skill_search_text
+from mlflow.telemetry.events import (
+    SkillRegistryBulkRegisterSkillsEvent,
+    SkillRegistryCreateSkillVersionEvent,
+)
+from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.search_utils import SearchSkillUtils, SearchSkillVersionUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
@@ -476,6 +481,7 @@ class SqlAlchemySkillRegistryMixin:
             ) from e
         return skill_version.to_mlflow_entity()
 
+    @record_usage_event(SkillRegistryCreateSkillVersionEvent)
     def create_skill_version(
         self,
         name: str,
@@ -544,6 +550,7 @@ class SqlAlchemySkillRegistryMixin:
                 **kwargs,
             )
 
+    @record_usage_event(SkillRegistryBulkRegisterSkillsEvent)
     def bulk_register_skills(
         self,
         skill_definitions: list[dict[str, Any]],

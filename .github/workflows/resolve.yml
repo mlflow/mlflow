@@ -55,7 +55,6 @@ env:
   REVIEW_ID: ${{ github.event.review.id || inputs.review_id }}
   DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
   DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-  TRUSTED_REF: ${{ github.event.pull_request.base.sha || github.sha }}
   CONTEXT_PATH: /tmp/resolve-context/context.json
   OUT_DIR: /tmp/resolve-out
   SCRIPT: .claude/skills/resolve/scripts/workflow.py
@@ -79,6 +78,7 @@ jobs:
       pull-requests: read
     outputs:
       head_sha: ${{ steps.context.outputs.head_sha }}
+      trusted_ref: ${{ steps.trusted.outputs.ref }}
     steps:
       - name: Check dispatch ref
         if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
@@ -86,9 +86,24 @@ jobs:
           EXPECTED_REF: refs/heads/${{ github.event.repository.default_branch }}
         run: |
           test "$GITHUB_REF" = "$EXPECTED_REF"
+      - name: Resolve trusted ref
+        id: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request_review ]; then
+            # GITHUB_SHA is the PR merge commit, which contains PR code. Its first parent is
+            # the base commit this workflow file was merged with. The event's base.sha can
+            # predate this workflow file and lack scripts it runs.
+            ref=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA" --jq '.parents[0].sha')
+          else
+            ref=$GITHUB_SHA
+          fi
+          test -n "$ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ env.TRUSTED_REF }}
+          ref: ${{ steps.trusted.outputs.ref }}
           persist-credentials: false
           sparse-checkout: .claude/skills/resolve
       - name: Collect review context
@@ -122,7 +137,7 @@ jobs:
           - name: Checkout trusted workflow files
             uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             with:
-              ref: ${{ env.TRUSTED_REF }}
+              ref: ${{ needs.gate.outputs.trusted_ref }}
               path: trusted
               persist-credentials: false
           - name: Checkout PR head
@@ -347,7 +362,7 @@ jobs:
           - name: Checkout trusted workflow files
             uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             with:
-              ref: ${{ env.TRUSTED_REF }}
+              ref: ${{ needs.gate.outputs.trusted_ref }}
               path: trusted
               persist-credentials: false
           - name: Checkout PR head

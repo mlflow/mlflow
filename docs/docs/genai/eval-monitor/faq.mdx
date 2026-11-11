@@ -213,6 +213,8 @@ print(result.metrics)
 correctness_score = result.metrics.get("correctness/mean")
 ```
 
+If a scorer fails, for example because the judge call timed out, MLflow also logs `<scorer>/error_count`: the number of rows where the scorer failed, or sessions for session-level scorers. It is not logged when the scorer never fails. The mean is computed over the scored rows only, so check for an error count before comparing means across runs.
+
 To get metrics for an existing evaluation run, you can use <APILink fn="mlflow.get_run" /> API:
 
 ```python

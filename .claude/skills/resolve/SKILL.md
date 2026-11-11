@@ -106,6 +106,11 @@ Read the relevant code and diff before acting on each item. Check whether sugges
 apply to the current head. Make the smallest change that addresses valid feedback and run
 targeted tests and checks for the resulting patch. Describe checks you actually ran.
 
+Only change files under the paths listed in `.claude/skills/patch-paths.txt` in the trusted
+checkout; the workflow rejects a patch that touches anything else. When an item needs a change
+elsewhere, such as dependencies, build configuration, or CI, mark it `blocked` and name the
+file so a maintainer can make the change.
+
 Write `$out_dir/payload.json` using the [payload schema](payload.schema.yml). Key `responses` by
 thread ID, with one entry per thread. Add a `review` entry when the review's body has feedback
 that needs a response.

@@ -125,6 +125,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
           sparse-checkout: |
+            .claude/skills/patch-paths.txt
             .claude/skills/triage/scripts
           sparse-checkout-cone-mode: false
       - name: Load issue
@@ -165,10 +166,12 @@ jobs:
         run: |
           {
             echo 'patch_path_allowlist<<EOF'
-            echo 'mlflow/'
-            echo 'tests/'
-            echo 'docs/'
-            echo 'libs/typescript/'
+            python - <<'PY'
+          from pathlib import Path
+
+          lines = (line.strip() for line in Path(".claude/skills/patch-paths.txt").read_text().splitlines())
+          print("\n".join(line for line in lines if line and not line.startswith("#")))
+          PY
             echo EOF
           } >> "$GITHUB_OUTPUT"
       - name: Clean issue content
@@ -1438,6 +1441,7 @@ jobs:
           gh pr comment "$PR_NUMBER" --repo "$REPO" --body '/autoformat'
       - name: Request NaiLaOpus review
         if: steps.open.outcome == 'success'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
