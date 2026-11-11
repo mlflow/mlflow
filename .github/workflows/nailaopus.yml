@@ -129,7 +129,7 @@ jobs:
           count=0
           for run in $runs; do
             passed=$(gh api "repos/$REPO/actions/runs/$run/jobs" --paginate --slurp \
-              --jq '[.[] | .jobs[]] | any(.name == "gate" and .conclusion == "success")')
+              | jq '[.[] | .jobs[]] | any(.name == "gate" and .conclusion == "success")')
             if [ "$passed" = true ]; then
               count=$((count + 1))
             fi
@@ -199,8 +199,9 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           since=$(date -u -d '24 hours ago' '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -v-24H '+%Y-%m-%dT%H:%M:%SZ')
-          count=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
-            --jq "[.[] | select(.user.login == \"nailaopus[bot]\") | select(.created_at > \"$since\")] | length")
+          count=$(gh api "repos/$REPO/issues/$PR/comments" --paginate --slurp \
+            | jq --arg since "$since" \
+              '[.[][] | select(.user.login == "nailaopus[bot]" and .created_at > $since)] | length')
           if [ "$count" -ge 5 ]; then
             echo "Rate limit hit: $count bot comments in the last 24h on PR $PR (max 5)."
             exit 1
