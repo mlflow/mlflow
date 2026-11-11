@@ -497,7 +497,7 @@ def test_build_request_response_format_is_strict():
 
 def test_parse_response_basic():
     resp = _chat_response("Hello!")
-    msg = _parse_response_message(resp, provider=_mock_provider()).message
+    msg, usage = _parse_response_message(resp, provider=_mock_provider())
     assert isinstance(msg, ChatMessage)
     assert msg.role == "assistant"
     assert msg.content == "Hello!"
@@ -509,7 +509,7 @@ def test_parse_response_with_tool_calls():
         {"id": "call_1", "type": "function", "function": {"name": "test", "arguments": "{}"}}
     ]
     resp = _chat_response(None, tool_calls=tool_calls)
-    msg = _parse_response_message(resp, provider=_mock_provider()).message
+    msg, usage = _parse_response_message(resp, provider=_mock_provider())
     assert msg.content is None
     assert len(msg.tool_calls) == 1
     assert msg.tool_calls[0].id == "call_1"
@@ -550,7 +550,7 @@ def test_parse_anthropic_response_with_tool_calls(monkeypatch):
         "usage": {"input_tokens": 50, "output_tokens": 30},
     }
 
-    msg = _parse_response_message(anthropic_response, provider).message
+    msg, usage = _parse_response_message(anthropic_response, provider)
     assert msg.role == "assistant"
     assert msg.content == "Let me check that."
     assert len(msg.tool_calls) == 1
@@ -572,7 +572,7 @@ def test_parse_anthropic_response_text_only(monkeypatch):
         "usage": {"input_tokens": 10, "output_tokens": 20},
     }
 
-    msg = _parse_response_message(anthropic_response, provider).message
+    msg, usage = _parse_response_message(anthropic_response, provider)
     assert msg.role == "assistant"
     assert msg.tool_calls is None
     parsed = json.loads(msg.content)
@@ -790,15 +790,17 @@ def test_tool_calling_loop(mock_trace):
 
 
 @pytest.mark.parametrize(
-    ("call_ids", "signatures", "prune"),
+    ("call_ids", "signatures", "prune", "parallel"),
     [
-        (["call_1"], ["sig_1"], False),
-        ([None, None], ["sig_1", "sig_2"], False),
-        (["call_1", "call_2"], ["sig_1", "sig_2"], True),
+        (["call_1"], ["sig_1"], False, False),
+        ([None, None], ["sig_1", "sig_2"], False, False),
+        (["call_1", "call_2"], ["sig_1", "sig_2"], True, False),
+        (["call_1", "call_2"], ["sig_1", None], False, True),
+        (["call_1", "call_2"], [None, "sig_2"], False, True),
     ],
 )
 def test_tool_calling_loop_preserves_gemini_thought_signatures(
-    mock_trace, monkeypatch, call_ids, signatures, prune
+    mock_trace, monkeypatch, call_ids, signatures, prune, parallel
 ):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
@@ -813,12 +815,16 @@ def test_tool_calling_loop_preserves_gemini_thought_signatures(
             "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
         }
 
-    responses = []
+    parts = []
     for call_id, sig in zip(call_ids, signatures, strict=True):
         function_call = {"name": "get_trace_info", "args": {}}
         if call_id is not None:
             function_call["id"] = call_id
-        responses.append(response([{"functionCall": function_call, "thoughtSignature": sig}]))
+        part = {"functionCall": function_call}
+        if sig is not None:
+            part["thoughtSignature"] = sig
+        parts.append(part)
+    responses = [response(parts)] if parallel else [response([part]) for part in parts]
     if prune:
         responses.append(
             ChatCompletionError(
@@ -856,25 +862,28 @@ def test_tool_calling_loop_preserves_gemini_thought_signatures(
             num_retries=0,
         )
 
-    assert mock_send.call_count == len(signatures) + 1 + int(prune)
+    tool_rounds = 1 if parallel else len(signatures)
+    assert mock_send.call_count == tool_rounds + 1 + int(prune)
     assert mock_process.call_args_list == [
-        mock.call(tool_calls=mock.ANY, trace=mock_trace) for _ in signatures
+        mock.call(tool_calls=mock.ANY, trace=mock_trace) for _ in range(tool_rounds)
     ]
     assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
     final_payload = mock_send.call_args_list[-1].kwargs["payload"]
     model_turns = [c for c in final_payload["contents"] if c["role"] == "model"]
     expected_signatures = signatures[1:] if prune else signatures
-    assert len(model_turns) == len(expected_signatures)
+    assert len(model_turns) == (1 if parallel else len(expected_signatures))
     assert [
-        part["thoughtSignature"] for turn in model_turns for part in turn["parts"]
+        part.get("thoughtSignature") for turn in model_turns for part in turn["parts"]
     ] == expected_signatures
-    if prune:
+    if parallel:
+        assert sum("thoughtSignature" in part for part in model_turns[0]["parts"]) == 1
+    if prune or parallel:
         assert [
             part["functionResponse"]["id"]
             for turn in final_payload["contents"]
             for part in turn["parts"]
             if "functionResponse" in part
-        ] == ["call_2"]
+        ] == (["call_2"] if prune else call_ids)
     if len(call_ids) == 1:
         assert model_turns[0]["parts"] == [
             {

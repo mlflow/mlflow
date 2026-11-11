@@ -68,7 +68,6 @@ _logger = logging.getLogger(__name__)
 
 # Global cache to track model capabilities across function calls
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
-_THOUGHT_SIGNATURES_ATTR = "_mlflow_gateway_thought_signatures"
 
 
 # ---------------------------------------------------------------------------
@@ -84,13 +83,6 @@ class InvokeOutput:
     num_completion_tokens: int | None
 
 
-@dataclass
-class ParsedResponse:
-    message: "ChatMessage"
-    # Keys: "prompt_tokens" and "completion_tokens"
-    usage: dict[str, Any]
-
-
 # ---------------------------------------------------------------------------
 # MLflow Gateway provider (lightweight provider-like object)
 # ---------------------------------------------------------------------------
@@ -99,6 +91,9 @@ class ParsedResponse:
 # ---------------------------------------------------------------------------
 # HTTP / request helpers
 # ---------------------------------------------------------------------------
+
+
+_THOUGHT_SIGNATURES_ATTR = "_mlflow_gateway_thought_signatures"
 
 
 def _tool_call_to_dict(tool_call: "ToolCall", thought_signature: str | None) -> dict[str, Any]:
@@ -216,12 +211,15 @@ def _should_proactively_prune(
 def _parse_response_message(
     response_data: dict[str, Any],
     provider: "BaseProvider",
-) -> ParsedResponse:
+) -> tuple["ChatMessage", dict[str, Any]]:
     """Parse the assistant message and usage from a chat completions response.
 
     Uses the provider's adapter to transform the raw response into a
-    normalized format, then extracts the assistant message, usage metadata,
-    and any tool call thought signatures.
+    normalized format, then extracts the assistant message and usage metadata.
+
+    Returns:
+        Tuple of (ChatMessage, usage_dict) where usage_dict has
+        "prompt_tokens" and "completion_tokens" keys.
     """
     # Lazy import: mlflow.types.llm → mlflow.types.schema → numpy, which breaks
     # the skinny client. Must stay inside the function.
@@ -272,7 +270,7 @@ def _parse_response_message(
         tool_calls=tool_calls_raw,
     )
     setattr(message, _THOUGHT_SIGNATURES_ATTR, thought_signatures)
-    return ParsedResponse(message=message, usage=usage)
+    return message, usage
 
 
 # ---------------------------------------------------------------------------
@@ -654,9 +652,7 @@ class GatewayAdapter(BaseJudgeAdapter):
                     ) from e
 
                 # Use the provider adapter to normalize the response
-                parsed = _parse_response_message(response_data, provider_instance)
-                message = parsed.message
-                usage = parsed.usage
+                message, usage = _parse_response_message(response_data, provider_instance)
 
                 if (prompt_tokens := usage.get("prompt_tokens")) is not None:
                     total_prompt_tokens = (total_prompt_tokens or 0) + prompt_tokens
