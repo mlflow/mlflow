@@ -36,6 +36,7 @@ interface CatalogPricing {
   output_per_million_tokens?: number;
   cache_read_per_million_tokens?: number;
   cache_write_per_million_tokens?: number;
+  cache_write_1hr_per_million_tokens?: number;
 }
 
 interface CatalogFile {
@@ -76,6 +77,9 @@ export function catalogToRates(catalog: CatalogFile): Record<string, AnthropicMo
       }),
       ...(pricing.cache_write_per_million_tokens != null && {
         cacheWrite: pricing.cache_write_per_million_tokens,
+      }),
+      ...(pricing.cache_write_1hr_per_million_tokens != null && {
+        cacheWrite1h: pricing.cache_write_1hr_per_million_tokens,
       }),
     };
   }
