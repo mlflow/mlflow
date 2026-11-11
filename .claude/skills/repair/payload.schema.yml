@@ -62,8 +62,6 @@ properties:
           type:
             const: fix
           commit_message:
-            description: One-line commit message that says what the fix changes.
             type: string
-            minLength: 1
             maxLength: 100
             pattern: '^[^\n]*\S[^\n]*$'

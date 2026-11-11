@@ -517,7 +517,7 @@ def record(args: argparse.Namespace) -> int:
         f"{HISTORY_MARKER}\n\n"
         "### Repair history\n\n"
         "> [!NOTE]\n"
-        f"> You can ignore this comment. {workflow} records successful live runs here and "
+        f"> You can ignore this comment. {workflow} records live runs here and "
         "checks this history to skip repeat contexts and enforce the per-PR limit.\n\n"
         f"{table}\n\n"
         "<details>\n<summary>History data</summary>\n\n"
@@ -559,7 +559,7 @@ def record(args: argparse.Namespace) -> int:
         """,
         id=comment_id,
     )
-    write_step_summary(f"Successful repair {len(history)}/{PR_BUDGET}: {args.run_url}")
+    write_step_summary(f"Recorded repair {len(history)}/{PR_BUDGET}: {args.run_url}")
     return 0
 
 
