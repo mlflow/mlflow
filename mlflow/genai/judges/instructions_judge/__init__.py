@@ -77,7 +77,7 @@ def _attribute_gateway_calls(call):
 
     @functools.wraps(call)
     def wrapper(self, *args, **kwargs):
-        with gateway_caller(self._gateway_caller):
+        with gateway_caller(self._gateway_caller or GatewayCaller.JUDGE):
             return call(self, *args, **kwargs)
 
     return wrapper

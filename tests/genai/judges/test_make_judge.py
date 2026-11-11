@@ -35,7 +35,7 @@ from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
 from mlflow.genai.judges.utils import validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
-from mlflow.genai.utils.gateway_utils import get_gateway_caller_headers
+from mlflow.genai.utils.gateway_utils import gateway_caller, get_gateway_caller_headers
 from mlflow.genai.utils.trace_utils import _session_level_group
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
@@ -4384,8 +4384,7 @@ def test_make_judge_session_level_rejected_eagerly_on_single_turn_judge():
     ("owner", "expected_headers"),
     [
         (GatewayCaller.ISSUE_DETECTION, {MLFLOW_GATEWAY_CALLER_HEADER: "issue_detection"}),
-        # A judge no feature owns is attributed to judges by the adapters.
-        (None, {}),
+        (None, {MLFLOW_GATEWAY_CALLER_HEADER: "judge"}),
     ],
 )
 def test_judge_calls_carry_the_gateway_attribution_of_the_owning_feature(
@@ -4410,3 +4409,24 @@ def test_judge_calls_carry_the_gateway_attribution_of_the_owning_feature(
 
     assert attribution_during_call == [expected_headers, expected_headers]
     assert get_gateway_caller_headers() == {}
+
+
+def test_user_judge_stays_a_judge_inside_another_features_attribution(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_URI", "http://localhost:5000")
+    judge = make_judge(
+        name="quality", instructions="Is {{ outputs }} good?", model="gateway:/my-endpoint"
+    )
+    attribution_during_call = []
+
+    def invoke(**kwargs):
+        attribution_during_call.append(get_gateway_caller_headers())
+        return Feedback(name="quality", value="yes")
+
+    with (
+        mock.patch("mlflow.genai.judges.instructions_judge.invoke_judge_model", side_effect=invoke),
+        gateway_caller(GatewayCaller.SIMULATOR),
+    ):
+        judge(outputs="hello")
+        assert get_gateway_caller_headers() == {MLFLOW_GATEWAY_CALLER_HEADER: "simulator"}
+
+    assert attribution_during_call == [{MLFLOW_GATEWAY_CALLER_HEADER: "judge"}]
