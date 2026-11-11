@@ -11454,6 +11454,29 @@ def test_detect_issues_handler_runs_a_gateway_model_without_a_server_key(
     assert submit_kwargs["extra_envs"] is None
 
 
+def test_detect_issues_handler_lowercases_the_models_provider(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "server-key")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "OpenAI:/gpt-5-mini"},
+        )
+
+    assert resp.status_code == 200
+    assert detect_issues_client.create_run.call_args.kwargs["tags"]["model"] == "openai:/gpt-5-mini"
+    assert mock_submit_job.call_args.kwargs["params"]["model"] == "openai:/gpt-5-mini"
+
+
 def test_detect_issues_handler_uses_the_schedule_model_and_its_secret(
     monkeypatch, mock_tracking_store, detect_issues_client
 ):

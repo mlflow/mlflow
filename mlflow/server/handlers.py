@@ -5919,10 +5919,13 @@ def _resolve_issue_detection_model(
     from mlflow.genai.discovery.job import _fetch_provider_credentials
 
     if model:
-        provider, _ = _parse_llm_model_uri(model)
+        provider, model_name = _parse_llm_model_uri(model)
+        provider = provider.lower()
         if provider != "gateway":
             _require_server_provider_credentials(provider)
-        return model, None
+        # Rebuilt with the provider lowercased, as `issues/invoke` does, so the run's tag and its
+        # job see the same URI however the caller cased it.
+        return f"{provider}:/{model_name}", None
 
     schedule = read_detection_schedule(experiment)
     saved = schedule.model if schedule is not None else None
