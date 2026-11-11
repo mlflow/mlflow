@@ -122,7 +122,7 @@ def test_digest_property_has_expected_value(source: SampleDatasetSource) -> None
     dataset = PolarsDataset(df=pl.DataFrame([1, 2, 3], schema=["Numbers"]), source=source)
     assert dataset.digest == dataset._compute_digest()
     # Digest value varies across Polars versions due to hash_rows() implementation changes
-    assert re.match(r"^\d+$", dataset.digest)
+    assert re.match(r"^[0-9a-f]{8}$", dataset.digest)
 
 
 def test_digest_consistent(source: SampleDatasetSource) -> None:
@@ -131,9 +131,29 @@ def test_digest_consistent(source: SampleDatasetSource) -> None:
     )
 
     dataset2 = PolarsDataset(
-        df=pl.DataFrame({"numbers": [2, 3, 1], "strs": ["b", "c", "a"]}), source=source
+        df=pl.DataFrame({"numbers": [1, 2, 3], "strs": ["a", "b", "c"]}), source=source
     )
     assert dataset1.digest == dataset2.digest
+
+
+def test_digest_depends_on_row_order(source: SampleDatasetSource) -> None:
+    # (name, digest) is the dataset identity, so two frames with the same rows in
+    # another order must not share a digest.
+    dataset1 = PolarsDataset(
+        df=pl.DataFrame({"numbers": [1, 2, 3], "strs": ["a", "b", "c"]}), source=source
+    )
+
+    dataset2 = PolarsDataset(
+        df=pl.DataFrame({"numbers": [2, 3, 1], "strs": ["b", "c", "a"]}), source=source
+    )
+    assert dataset1.digest != dataset2.digest
+
+
+def test_digest_depends_on_column_names(source: SampleDatasetSource) -> None:
+    dataset1 = PolarsDataset(df=pl.DataFrame({"numbers": [1, 2, 3]}), source=source)
+
+    dataset2 = PolarsDataset(df=pl.DataFrame({"labels": [1, 2, 3]}), source=source)
+    assert dataset1.digest != dataset2.digest
 
 
 def test_digest_change(source: SampleDatasetSource) -> None:

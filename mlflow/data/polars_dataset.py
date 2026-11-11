@@ -15,6 +15,7 @@ from polars.datatypes.classes import DataTypeClass as PolarsDataTypeClass
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.data.digest_utils import MAX_ROWS, get_normalized_md5_digest
 from mlflow.data.evaluation_dataset import EvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
@@ -25,10 +26,23 @@ _logger = logging.getLogger(__name__)
 
 
 def hash_polars_df(df: pl.DataFrame) -> str:
-    # probably not the best way to hash, also see:
-    # https://github.com/pola-rs/polars/issues/9743
-    # https://stackoverflow.com/q/76678160
-    return str(df.hash_rows().sum())
+    """Computes a digest of the frame's contents, column names and row order.
+
+    ``hash_rows`` hashes the values of each row, so summing the row hashes loses both the
+    row order and the column names: a renamed frame, or one with the same rows in another
+    order, would get the same digest. ``(name, digest)`` is the identity of a dataset, so
+    such frames would be recorded as one dataset and could not be told apart in lineage.
+    The digest therefore covers the row hashes as an ordered sequence, the row count and
+    the column names, over the first ``MAX_ROWS`` rows as the pandas digest does.
+    """
+    trimmed_df = df.head(MAX_ROWS)
+    return get_normalized_md5_digest(
+        [
+            json.dumps(trimmed_df.hash_rows().to_list()).encode(),
+            str(len(df)).encode(),
+        ]
+        + [str(column).encode() for column in df.columns]
+    )
 
 
 ColSpecType = DataType | Array | Object | str
