@@ -44,18 +44,16 @@ class StubGenerator(BaseDemoGenerator):
         self.delete_demo_called = True
 
 
-class AnotherStubGenerator(BaseDemoGenerator):
+class AnotherStubGenerator(StubGenerator):
     name = DemoFeature.EVALUATION
 
     def generate(self) -> DemoResult:
+        self.generate_called = True
         return DemoResult(
             feature=self.name,
             entity_ids=["entity-2"],
             navigation_url="/evaluation",
         )
-
-    def _data_exists(self) -> bool:
-        return False
 
 
 @pytest.fixture

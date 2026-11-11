@@ -8264,39 +8264,27 @@ def _generate_demo():
     """
     from mlflow.demo import generate_all_demos
     from mlflow.demo.base import DEMO_EXPERIMENT_NAME
-    from mlflow.demo.registry import demo_registry
 
     request_json = request.get_json(silent=True) or {}
     features = request_json.get("features")
 
     store = _get_tracking_store()
-    experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-
-    generator_names = demo_registry.list_generators()
-    if features is not None:
-        generator_names = [n for n in generator_names if n in features]
-
-    all_exist = False
-    if experiment and experiment.lifecycle_stage == "active":
-        all_exist = all(demo_registry.get(name)().is_generated() for name in generator_names)
-
-    if experiment and all_exist:
-        return jsonify({
-            "status": "exists",
-            "experiment_id": experiment.experiment_id,
-            "features_generated": [],
-            "navigation_url": f"/experiments/{experiment.experiment_id}",
-        })
+    refresh_allowed = getattr(g, "mlflow_demo_refresh_allowed", True)
 
     with _demo_generate_lock:
-        results = generate_all_demos(features=features)
+        experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+        if experiment and experiment.lifecycle_stage == "deleted" and not refresh_allowed:
+            raise MlflowException(
+                "You do not have permission to restore the demo experiment.", PERMISSION_DENIED
+            )
+        results = generate_all_demos(features=features, can_refresh=lambda _: refresh_allowed)
+        experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
 
-    experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
     navigation_url = f"/experiments/{experiment_id}" if experiment_id else "/experiments"
 
     return jsonify({
-        "status": "created",
+        "status": "created" if results else "exists",
         "experiment_id": experiment_id,
         "features_generated": [r.feature for r in results],
         "navigation_url": navigation_url,

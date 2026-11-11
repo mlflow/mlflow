@@ -95,21 +95,8 @@ class BaseDemoGenerator(ABC):
         """
 
     def is_generated(self) -> bool:
-        """Check if demo data exists with a matching version.
-
-        Returns True only if data exists AND the stored version matches the current
-        generator version. If version mismatches, calls delete_demo() and
-        returns False to trigger regeneration.
-        """
-        if not self._data_exists():
-            return False
-
-        stored_version = self._get_stored_version()
-        if stored_version is None or stored_version != self.version:
-            self.delete_demo()
-            return False
-
-        return True
+        """Check if demo data exists with a matching version, without changing it."""
+        return self._data_exists() and self._get_stored_version() == self.version
 
     def _get_stored_version(self) -> int | None:
         """Get the stored version for this generator from experiment tags."""
