@@ -333,8 +333,8 @@ def create_test_span(
         status=trace_api.Status(status, status_desc),
         resource=_OTelResource.get_empty(),
     )
-    # This helper builds stored-format spans with JSON-encoded attributes. The factory treats
-    # MCP attributes on ReadableSpan as raw OTel values, so wrap this fixture directly.
+    # This helper builds stored-format spans with JSON-encoded attributes, so wrap this fixture
+    # directly without passing through the OTel ingestion path.
     span = Span(otel_span)
     if links:
         span._links = list(links)

@@ -173,10 +173,9 @@ class Span:
     @classmethod
     def _from_otel_span(cls, otel_span: OTelReadableSpan) -> "Span":
         """Wrap an OTel span whose MCP attributes have not yet been JSON-encoded."""
-        if any(key in otel_span.attributes for key in MCP_SPAN_ATTRIBUTE_KEYS):
-            attributes = _LiveSpanAttributesRegistry(otel_span).get_serialized()
-            otel_span = copy.copy(otel_span)
-            otel_span._attributes = attributes
+        attributes = _LiveSpanAttributesRegistry(otel_span).get_serialized()
+        otel_span = copy.copy(otel_span)
+        otel_span._attributes = attributes
         return cls(otel_span)
 
     @cached_property
@@ -1780,13 +1779,15 @@ class _SpanAttributesRegistry:
 
 class _LiveSpanAttributesRegistry(_SpanAttributesRegistry):
     # Keep MCP attributes raw on OTel spans and JSON-encode them when serializing for storage.
+    # Native OTel setters can overwrite MLflow writes on the same span. If MLflow JSON-encoded
+    # its writes, a raw value like '"1"' would be indistinguishable from an encoded "1" at export.
     def get(self, key: str):
         if key in MCP_SPAN_ATTRIBUTE_KEYS:
             return self._span.attributes.get(key)
         return super().get(key)
 
     def set(self, key: str, value: Any):
-        if key not in MCP_SPAN_ATTRIBUTE_KEYS:
+        if not isinstance(key, str) or key not in MCP_SPAN_ATTRIBUTE_KEYS:
             return super().set(key, value)
         if value is not None and isinstance(value, (str, bool, int, float)):
             self._span.set_attribute(key, value)

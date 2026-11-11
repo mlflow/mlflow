@@ -27,6 +27,7 @@ from mlflow.utils.workspace_context import (
     get_request_workspace,
 )
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
@@ -231,6 +232,7 @@ def test_file_store_mcp_resolution_fails_with_actionable_error(server, tmp_path,
         _resolve(server, tracking_uri=tracking_uri, cache_ttl_seconds=0)
 
 
+@skip_when_testing_trace_sdk
 def test_alias_resolution_records_concrete_version_and_preserves_history(registry_store):
     with mock.patch.object(
         registry_store,
@@ -246,6 +248,7 @@ def test_alias_resolution_records_concrete_version_and_preserves_history(registr
         assert lookup.call_args_list == [mock.call(name=NAME, alias="prod")] * 2
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("endpoint", [False, True])
 def test_resolution_failure_is_not_cached_or_partially_written(endpoint, registry_store):
     server = _endpoint() if endpoint else MCPServerRef(NAME, alias="missing")
@@ -262,6 +265,7 @@ def test_resolution_failure_is_not_cached_or_partially_written(endpoint, registr
         assert lookup.call_count == 2
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("resolved_version", [None, _version("2.0.0")])
 def test_endpoint_reloads_instead_of_using_stale_resolution(resolved_version, registry_store):
     endpoint = _endpoint(resolved_version=_version())
@@ -390,7 +394,19 @@ def test_workspace_mismatch_before_lookup(server):
 
 
 @pytest.mark.parametrize("endpoint", [False, True])
-@pytest.mark.parametrize("trace_workspace", [None, "trace-workspace"])
+@pytest.mark.parametrize(
+    "trace_workspace",
+    [
+        pytest.param(
+            None,
+            marks=pytest.mark.skipif(
+                IS_TRACING_SDK_ONLY,
+                reason="Workspace inference requires the full MLflow package.",
+            ),
+        ),
+        "trace-workspace",
+    ],
+)
 def test_span_rejects_entity_from_current_workspace_when_trace_workspace_differs(
     endpoint, trace_workspace
 ):
@@ -422,6 +438,7 @@ def test_span_rejects_entity_from_current_workspace_when_trace_workspace_differs
             get_store.assert_not_called()
 
 
+@skip_when_testing_trace_sdk
 def test_span_resolves_concrete_version_in_implicit_default_workspace():
     store = mock.MagicMock(supports_workspaces=True)
 
@@ -452,7 +469,19 @@ def test_child_span_does_not_inherit_version_or_tool():
 
 
 @pytest.mark.parametrize("endpoint", [False, True])
-@pytest.mark.parametrize("trace_workspace", [None, "trace-workspace"])
+@pytest.mark.parametrize(
+    "trace_workspace",
+    [
+        pytest.param(
+            None,
+            marks=pytest.mark.skipif(
+                IS_TRACING_SDK_ONLY,
+                reason="Workspace inference requires the full MLflow package.",
+            ),
+        ),
+        "trace-workspace",
+    ],
+)
 def test_resolution_uses_captured_trace_workspace(
     endpoint, trace_workspace, monkeypatch, registry_store
 ):

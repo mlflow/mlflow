@@ -140,22 +140,28 @@ with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
     span.link_mcp_server(endpoint, tool="forecast")
 ```
 
-On a cache miss or expiry, the SDK reloads the endpoint by ID and uses its refreshed
-`resolved_version`. An existing unresolved endpoint produces a name-only link. A missing
-endpoint, or a change to its URL or transport, fails the call. Reload the endpoint after a
-URL or transport change. The registry target describes the intended server identity; it does
-not verify which version the remote server actually serves. Raw URLs are not accepted.
+Pass an `MCPServerRef`, `MCPServerVersion`, or `MCPAccessEndpoint`; raw URLs are not accepted.
+If an endpoint resolves without a version, linking records only the server name. If its URL or
+transport changes, reload the endpoint before linking.
 
-The method sets `mlflow.mcp.server.name`, optionally `mlflow.mcp.server.version`, and optionally
-`mlflow.mcp.tool.name` on the span. Supply `tool` only for an invoked tool; omit it for
-discovery, resource, and prompt operations. These attributes travel through normal trace
-export; the method makes no separate request to create a link. A span can hold one server
-identity, consisting of the server name and its optional version. After the first link, using a
-different name or version raises an error, including adding a version to a name-only link.
+Supply `tool` when tracing a tool invocation; omit it for discovery, resource, and prompt
+operations. A span can link to only one server name/version pair. Attempts to change that
+identity—including adding a version to a name-only link—raise an error.
 
-MLflow exporters send MCP name, version, and tool attributes as literal OTLP strings. If you send
-OTLP directly to an MLflow server, send their exact values as strings without JSON encoding. For
-example, a version whose literal value is `[]` must be sent as the string `[]`:
+Linking records the registry's intended server identity; it does not verify which version the
+remote server serves.
+
+Resolution uses the tracking server and workspace captured when the trace started. Version
+and endpoint objects from another workspace are rejected. Alias lookup failures also raise an error, and failed
+calls leave the span attributes unchanged. Stored traces retain the concrete version observed
+when linked, even if an alias is later retargeted.
+
+Manually linking a span does not require an MCP client framework or the `mcp` extra.
+
+### Link spans exported through OTLP
+
+When exporting OpenTelemetry spans directly to MLflow through OTLP, set the MCP attributes
+on the span as literal strings, without JSON encoding:
 
 ```python
 from opentelemetry import trace
@@ -163,36 +169,14 @@ from opentelemetry import trace
 tracer = trace.get_tracer(__name__)
 with tracer.start_as_current_span("weather.forecast") as span:
     span.set_attribute("mlflow.mcp.server.name", "com.example/weather")
-    span.set_attribute("mlflow.mcp.server.version", "[]")
+    span.set_attribute("mlflow.mcp.server.version", "1.0.0")
     span.set_attribute("mlflow.mcp.tool.name", "forecast")
 ```
 
-No resource-level encoding marker is required. MLflow applies its internal attribute serialization
-after receiving these strings.
-
-Resolution uses the tracking server and workspace captured when the trace started. Version
-and endpoint objects from another workspace are rejected. Alias lookup failures also raise an error, and failed
-calls leave the span attributes unchanged. Stored traces retain the concrete version observed
-when linked, even if an alias is later retargeted.
-
-### Resolution Cache
-
-Alias and access endpoint lookups use a shared process-local cache, isolated by tracking server
-and workspace. `MLFLOW_MCP_SERVER_CACHE_TTL_SECONDS` sets the cache lifetime in seconds and
-defaults to `60`. Override it for a call with `cache_ttl_seconds`; set it to `0` to bypass the
-cache:
-
-```python
-with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
-    span.link_mcp_server(
-        MCPServerRef("com.example/weather", alias="production"),
-        tool="forecast",
-        cache_ttl_seconds=0,
-    )
-```
-
-Name-only references and concrete versions do not need registry lookups. Manually linking a
-span does not require an MCP client framework or the `mcp` extra.
+The server name is required to create a link. Omit the version when it is unknown, and omit
+the tool name for discovery, resource, and prompt operations. OTLP ingestion does not resolve
+aliases. The workspace comes from the `X-MLFLOW-WORKSPACE` request header or the server's
+configured default workspace.
 
 ## Connection Instructions
 

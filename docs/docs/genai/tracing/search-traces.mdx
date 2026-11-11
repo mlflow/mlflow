@@ -243,15 +243,10 @@ mlflow.search_traces(
 ```
 
 :::note
-MCP server filters require an OSS SQLAlchemy tracking store and support only the
-equality (`=`) operator. When combined, the server name and version must match the
-same link. Links without a recorded version match name-only searches but do not
-match a specific version. Version matching follows backend-specific string comparison rules,
-so case and trailing-space matching can vary by backend. MySQL and PostgreSQL use the
-`mcp_version` column's configured collation; SQL Server uses a binary comparison and length
-check that distinguishes case and trailing spaces. A `mcp_server.version` filter without
-`mcp_server` matches that version across all server names. MCP server filters continue to
-work after trace archival.
+When combined, server name and version filters must match the same link. Links without
+a recorded version match name-only searches but not specific-version searches.
+A version-only filter matches that version across all server names. MCP server filters
+continue to work after trace archival.
 :::
 
 #### Filter by Span Name and Type
