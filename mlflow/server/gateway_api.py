@@ -83,6 +83,7 @@ from mlflow.gateway.tracing_utils import (
 from mlflow.gateway.utils import safe_stream, to_sse_stream, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.tracking.gateway.abstract_mixin import GatewayStoreMixin
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.gateway.entities import (
     GatewayEndpointConfig,
@@ -717,11 +718,15 @@ def _create_provider_from_endpoint_name(
 
 
 def _validate_store(store: AbstractStore) -> None:
-    if not isinstance(store, SqlAlchemyStore):
+    supports_gateway = isinstance(store, SqlAlchemyStore) or (
+        isinstance(store, GatewayStoreMixin)
+        and type(store).get_endpoint_config is not GatewayStoreMixin.get_endpoint_config
+    )
+    if not supports_gateway:
         raise HTTPException(
             status_code=500,
-            detail="Gateway endpoints are only available with SqlAlchemyStore, "
-            f"got {type(store).__name__}.",
+            detail="Gateway endpoints are only available with SqlAlchemyStore or "
+            f"GatewayStoreMixin backends, got {type(store).__name__}.",
         )
 
 
