@@ -520,9 +520,9 @@ def record(args: argparse.Namespace) -> int:
     body = (
         f"{HISTORY_MARKER}\n\n"
         "### Repair history\n\n"
-        "> [!NOTE]\n> You can ignore this comment.\n\n"
-        f"{workflow} records successful live runs here and checks this history to skip repeat "
-        "contexts and enforce the per-PR limit.\n\n"
+        "> [!NOTE]\n"
+        f"> You can ignore this comment. {workflow} records successful live runs here and "
+        "checks this history to skip repeat contexts and enforce the per-PR limit.\n\n"
         f"{table}\n\n"
         "<details>\n<summary>History data</summary>\n\n"
         f"```json\n{json.dumps(history, indent=2)}\n```\n\n"
