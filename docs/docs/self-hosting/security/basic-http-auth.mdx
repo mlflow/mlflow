@@ -1138,6 +1138,16 @@ on that experiment, so that the creator can grant or revoke other users' access 
   </tbody>
 </table>
 
+### Routes Without a Permission Rule
+
+From MLflow 3.16.0 onwards, a request from a non-admin user to a route that has no permission rule,
+for example one added by a plugin, is rejected with `403 Permission denied` instead of being served
+without access control.
+
+To restore the earlier behavior, where such routes were served to any authenticated user, set the
+`MLFLOW_BASIC_AUTH_FAIL_CLOSED` environment variable to `false` before starting the server. This leaves
+those routes unprotected, so only use it as a temporary workaround.
+
 ### Permissions Database
 
 All users and permissions are stored in a database in `basic_auth.db`, relative to the directory where MLflow server is launched.

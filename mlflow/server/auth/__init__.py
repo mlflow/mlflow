@@ -5513,6 +5513,8 @@ BEFORE_REQUEST_VALIDATORS = {
 # Auth-related routes
 BEFORE_REQUEST_VALIDATORS.update({
     (SIGNUP, "GET"): validate_can_create_user,
+    # The /signup form submits here, so it takes the same check as CREATE_USER.
+    (CREATE_USER_UI, "POST"): validate_can_create_user,
     (GET_USER, "GET"): validate_can_read_user,
     (AJAX_GET_USER, "GET"): validate_can_read_user,
     # /current returns only the authenticated user's own identity — any
@@ -5611,10 +5613,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     # The web UI itself, for any signed-in user: the SPA shell, the server version
     # string the bundle reads, and the UI's own telemetry config. None carries
     # tenant-scoped data, and none has a permission that could sensibly be checked.
-    # These are plain Flask routes on ``app`` rather than handler endpoints, so
-    # ``get_endpoints`` never surfaced them to the coverage guard and no decision was
-    # registered; the fail-closed net then denies them, and a non-admin's browser gets
-    # "Permission denied" instead of MLflow. ``/static-files/<path>`` already serves
+    # Without an entry here the fail-closed net denies them, and a non-admin's browser
+    # gets "Permission denied" instead of MLflow. ``/static-files/<path>`` already serves
     # that same shell unauthenticated via ``_UNPROTECTED_PATH_PREFIXES``.
     #
     # HOME and SERVER_VERSION are bare paths and take the static prefix here;
@@ -6150,7 +6150,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
     return None
 
 
-# Fail-closed net (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED).
+# Fail-closed net: on by default; MLFLOW_BASIC_AUTH_FAIL_CLOSED=false restores fail-open.
 _PUBLIC_ROUTE_SUFFIXES = (
     # Public capability discovery. No login. Do not add tenant data here.
     "/mlflow/server-info",
@@ -6163,13 +6163,13 @@ _HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
     "/graphql",
 )
 
-# Empty: every route family is gated, so the fail-closed flag can be flipped on. Add
-# an entry only as a temporary, tracked exception for a route awaiting a validator.
+# Empty: every route family is gated. Add an entry only as a temporary, tracked
+# exception for a route awaiting a validator.
 _KNOWN_UNGATED_ROUTE_MARKERS = ()
 
 # Native FastAPI routes (served by the FastAPI permission middleware, not _before_request)
 # that lack an authorization validator. Empty today — a coverage test asserts every native
-# route resolves a validator. Runtime fail-closed enforcement for FastAPI is a follow-up.
+# route resolves a validator.
 _KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS = ()
 
 
@@ -9851,7 +9851,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # Find validator for this route
         validator = _find_fastapi_validator(path, request.method)
         if validator is None:
-            # Fail-closed (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED): deny a native FastAPI
+            # Fail-closed (MLFLOW_BASIC_AUTH_FAIL_CLOSED, on by default): deny a native FastAPI
             # route with no validator. Flask-delegated paths pass through (authorized by Flask).
             if (
                 MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()

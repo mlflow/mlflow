@@ -1,5 +1,6 @@
-# CI guard for the basic-auth dispatcher: every Flask route must resolve to an
-# authorization decision, or be listed in the debt list _KNOWN_UNGATED_ROUTE_MARKERS.
+# CI guard for the basic-auth dispatcher: every route the basic-auth server serves must
+# resolve to an authorization decision, or be listed in the debt list
+# _KNOWN_UNGATED_ROUTE_MARKERS.
 
 import inspect
 import json
@@ -7,9 +8,52 @@ import re
 from types import SimpleNamespace
 
 import pytest
+from fastapi.routing import iter_route_contexts
+from flask import Flask
+from starlette.routing import Mount, Route
 
+from mlflow.server import app as server_app
 from mlflow.server import auth as a
-from mlflow.server.handlers import get_endpoints
+from mlflow.server.auth.routes import CREATE_USER_UI
+from mlflow.server.handlers import _not_implemented
+
+
+@pytest.fixture(scope="module")
+def basic_auth_app():
+    # Build the app `mlflow server --app-name basic-auth` serves, so the guards walk what is
+    # actually registered rather than a hand-kept list. `create_app` gets a fresh Flask app so
+    # the auth routes it adds stay off the shared module-level one.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MLFLOW_FLASK_SERVER_SECRET_KEY", "coverage-guard")
+        mp.setenv("_MLFLOW_SGI_NAME", "uvicorn")
+        # Registering routes needs no auth database. `create_app` also flips the module's
+        # `_auth_initialized`; recording it here restores it when the context exits.
+        mp.setattr(a, "_init_store_for_app", lambda: None)
+        mp.setattr(a, "_auth_initialized", a._auth_initialized)
+        # No static folder, so this app adds no static route of its own.
+        auth_flask_app = Flask(__name__, static_folder=None)
+        fastapi_app = a.create_app(auth_flask_app)
+    return auth_flask_app, fastapi_app
+
+
+@pytest.fixture(scope="module")
+def flask_routes(basic_auth_app):
+    # The module-level app holds the handler endpoints, the plain `@app.route` views and Flask's
+    # static route; the auth app holds the routes `create_app` adds.
+    auth_flask_app, _ = basic_auth_app
+    routes = set()
+    for flask_app in (server_app, auth_flask_app):
+        for rule in flask_app.url_map.iter_rules():
+            if flask_app.view_functions[rule.endpoint] is _not_implemented:
+                continue
+            # Flask's own route over the React build directory (/build/<path:filename>). The UI
+            # loads those files from /static-files/, so nothing requests it, and it is left to the
+            # fail-closed net (see test_flask_static_route_is_left_to_the_fail_closed_net).
+            if rule.endpoint == "static":
+                continue
+            # Flask adds HEAD and OPTIONS to every rule.
+            routes.update((rule.rule, method) for method in rule.methods - {"HEAD", "OPTIONS"})
+    return sorted(routes)
 
 
 class _Req:
@@ -28,21 +72,10 @@ def _is_covered(path, method):
     )
 
 
-def _all_routes():
-    seen = set()
-    for path, handler, methods in get_endpoints():
-        if getattr(handler, "__name__", str(handler)) == "_not_implemented":
-            continue
-        for method in methods:
-            if (path, method) not in seen:
-                seen.add((path, method))
-                yield path, method
-
-
-def test_no_new_ungated_routes():
+def test_no_new_ungated_routes(flask_routes):
     uncovered = sorted(
         f"{method:6} {path}"
-        for path, method in _all_routes()
+        for path, method in flask_routes
         if not _is_covered(path, method) and not a._is_known_ungated_route(path)
     )
     assert not uncovered, (
@@ -53,7 +86,7 @@ def test_no_new_ungated_routes():
     )
 
 
-def test_all_dataset_routes_resolve_a_real_validator():
+def test_all_dataset_routes_resolve_a_real_validator(flask_routes):
     # Guard against a dataset route silently hitting the hard-deny lambda fallback in
     # _find_validator (which test_no_new_ungated_routes would still count as gated).
     real = set(a.DATASET_BEFORE_REQUEST_HANDLERS.values()) | set(
@@ -61,7 +94,7 @@ def test_all_dataset_routes_resolve_a_real_validator():
     )
     unresolved = sorted(
         f"{method:6} {path}"
-        for path, method in _all_routes()
+        for path, method in flask_routes
         if "/mlflow/datasets/" in path and a._find_validator(_Req(path, method)) not in real
     )
     assert not unresolved, (
@@ -70,9 +103,9 @@ def test_all_dataset_routes_resolve_a_real_validator():
     )
 
 
-def test_known_ungated_markers_are_not_stale():
+def test_known_ungated_markers_are_not_stale(flask_routes):
     matched = set()
-    for path, method in _all_routes():
+    for path, method in flask_routes:
         if _is_covered(path, method):
             continue
         for marker in a._KNOWN_UNGATED_ROUTE_MARKERS:
@@ -117,59 +150,51 @@ def test_unknown_issue_subpath_fails_closed():
     assert a._is_known_ungated_route(invoke) or (invoke, "POST") in a.BEFORE_REQUEST_VALIDATORS
 
 
-def _fastapi_native_routes():
-    # Routers served directly by FastAPI (Flask is mounted separately and authorized by
-    # _before_request, so it is out of scope for this guard).
-    from mlflow.server.fastapi_app import (
-        artifact_router,
-        assistant_router,
-        gateway_router,
-        job_api_router,
-        mcp_server_router,
-        otel_router,
-        server_info_router,
-    )
-
-    def _methods(route):
-        return [
-            m
-            for m in sorted(getattr(route, "methods", None) or ["GET"])
-            if m not in ("HEAD", "OPTIONS")
-        ]
-
-    for router in (
-        artifact_router,
-        assistant_router,
-        gateway_router,
-        job_api_router,
-        otel_router,
-        server_info_router,
-    ):
-        for route in router.routes:
-            for method in _methods(route):
-                yield route.path, method
-    # The MCP router is mounted under versioned prefixes; prepend one to form full paths.
-    mcp_prefix = next(iter(a.get_mcp_server_api_route_prefixes())).rstrip("/")
-    for route in mcp_server_router.routes:
-        for method in _methods(route):
-            yield mcp_prefix + route.path, method
+def _fastapi_native_routes(basic_auth_app):
+    # Every route served directly by FastAPI, with its router prefix applied. The mounted
+    # Flask app is authorized by _before_request, so it is out of scope for these guards.
+    auth_flask_app, fastapi_app = basic_auth_app
+    for route in iter_route_contexts(fastapi_app.routes):
+        original = route.original_route
+        if isinstance(original, Mount) and getattr(original.app, "app", None) is auth_flask_app:
+            continue
+        yield route
 
 
-def test_no_ungated_fastapi_native_routes():
-    # The FastAPI permission middleware is fail-open for routes with no validator; this
-    # guard makes a new native route without one a failing test rather than a silent hole.
+def test_no_ungated_fastapi_native_routes(basic_auth_app):
+    # The FastAPI permission middleware denies a native route with no validator; this guard
+    # makes a new one a failing test rather than a 403 first seen in production.
     uncovered = sorted(
-        f"{method:6} {path}"
-        for path, method in _fastapi_native_routes()
-        if a._find_fastapi_validator(path, method) is None
-        and not a.is_unprotected_route(path)
-        and not a._matches_route_suffix(a._strip_static_prefix(path), a._PUBLIC_ROUTE_SUFFIXES)
-        and not any(m in path for m in a._KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
+        f"{method:6} {route.path}"
+        for route in _fastapi_native_routes(basic_auth_app)
+        if isinstance(route.original_route, Route)
+        for method in route.methods - {"HEAD", "OPTIONS"}
+        if a._find_fastapi_validator(route.path, method) is None
+        and not a.is_unprotected_route(route.path)
+        and not a._matches_route_suffix(
+            a._strip_static_prefix(route.path), a._PUBLIC_ROUTE_SUFFIXES
+        )
+        and not any(m in route.path for m in a._KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
     )
     assert not uncovered, (
         "Native FastAPI routes with no authorization validator that are not documented in "
         "_KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS. Add a validator branch in "
         "_find_fastapi_validator, or document the exemption:\n" + "\n".join(uncovered)
+    )
+
+
+def test_fastapi_native_routes_are_http_routes(basic_auth_app):
+    # The permission middleware only sees HTTP requests, and its fail-closed check passes
+    # through any path no native route matches as if Flask served it. A WebSocket route or
+    # another mounted app would therefore be served with no authorization at all.
+    unauthorized = sorted(
+        f"{type(route.original_route).__name__} {route.path}"
+        for route in _fastapi_native_routes(basic_auth_app)
+        if not isinstance(route.original_route, Route)
+    )
+    assert not unauthorized, (
+        "Native FastAPI routes that the permission middleware cannot authorize:\n"
+        + "\n".join(unauthorized)
     )
 
 
@@ -366,6 +391,21 @@ def test_demo_routes_gating():
     dele = a._find_validator(_Req("/ajax-api/3.0/mlflow/demo/delete", "POST"))
     assert gen is a._allow_authenticated
     assert dele is a.sender_is_admin
+
+
+def test_signup_form_submit_takes_the_create_user_check():
+    # /signup renders a form that posts to create-ui. Without the same check as the page and the
+    # JSON create route, a workspace admin could open the form but never submit it.
+    assert a._find_validator(_Req("/signup", "GET")) is a.validate_can_create_user
+    assert a._find_validator(_Req(CREATE_USER_UI, "POST")) is a.validate_can_create_user
+
+
+def test_flask_static_route_is_left_to_the_fail_closed_net():
+    # The guards skip Flask's static route on the premise that nothing authorizes it, so the
+    # fail-closed net denies it to non-admins. A decision keyed on its /build/ prefix would also
+    # catch every route under `--static-prefix /build`.
+    assert server_app.static_url_path == "/build"
+    assert not _is_covered("/build/index.html", "GET")
 
 
 def _graphql_schema_field_names():

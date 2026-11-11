@@ -2658,6 +2658,34 @@ def test_create_user_ui(client):
         assert "Successfully signed up user" in response.text
 
 
+def test_create_user_ui_as_workspace_admin(client):
+    # Workspace admins may create users, so the sign-up form has to work end to end for them
+    # too, not just open; a user without that grant is turned away before the form is read.
+    ws_admin, ws_admin_password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, ws_admin, "workspace", "*", "MANAGE")
+    with requests.Session() as session:
+        page = session.get(client.tracking_uri + "/signup", auth=(ws_admin, ws_admin_password))
+        match = re.search(r"name=\"csrf_token\" value=\"([\S]+)\"", page.text)
+        assert match is not None
+
+        response = session.post(
+            client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+            data={"username": random_str(), "password": random_str(), "csrf_token": match.group(1)},
+            auth=(ws_admin, ws_admin_password),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        assert "Successfully signed up user" in response.text
+
+    member, member_password = create_user(client.tracking_uri)
+    response = requests.post(
+        client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+        data={"username": random_str(), "password": random_str()},
+        auth=(member, member_password),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 403
+
+
 def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
