@@ -52,3 +52,16 @@ properties:
                   --jq '.commits[] | "\(.sha) \(.commit.message | split("\n")[0])"'
                 ```
             const: true
+      - type: object
+        description: >-
+          Push a code fix, written to `fix.patch` in the output directory, for failures the PR's
+          changes cause. Pushing starts a new CI run.
+        additionalProperties: false
+        required: [type, commit_message]
+        properties:
+          type:
+            const: fix
+          commit_message:
+            type: string
+            maxLength: 100
+            pattern: '^[^\n]*\S[^\n]*$'
