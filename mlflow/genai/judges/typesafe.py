@@ -19,8 +19,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import (
     TYPESAFE_API_BASE_URL,
     TYPESAFE_SYSTEM_ONE_PATH,
+    GatewayCaller,
 )
-from mlflow.genai.utils.gateway_utils import _resolve_gateway_uri
+from mlflow.genai.utils.gateway_utils import _resolve_gateway_uri, get_gateway_caller_headers
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -292,6 +293,7 @@ def _send_gateway_request(payload: dict[str, Any], num_retries: int):
         retry_codes=_RETRY_CODES,
         timeout=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get(),
         raise_on_status=False,
+        extra_headers=get_gateway_caller_headers(default=GatewayCaller.JUDGE),
         json=payload,
     )
 

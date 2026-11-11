@@ -349,7 +349,11 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server._request_keys import SCOPED_EXPERIMENT_FILTER, SCOPED_EXPERIMENT_IDS
+from mlflow.server._request_keys import (
+    SCOPED_EXPERIMENT_FILTER,
+    SCOPED_EXPERIMENT_IDS,
+    SCOPED_REGISTERED_MODEL_FILTER,
+)
 from mlflow.server._search_limits import translate_scoped_search_limits
 from mlflow.server.artifact_transfer import (
     reject_proxied_artifact_download,
@@ -1202,6 +1206,10 @@ def _get_scoped_experiment_ids() -> list[str] | None:
 
 def _get_scoped_experiment_filter() -> str | None:
     return getattr(g, SCOPED_EXPERIMENT_FILTER, None) if has_request_context() else None
+
+
+def _get_scoped_registered_model_filter() -> str | None:
+    return getattr(g, SCOPED_REGISTERED_MODEL_FILTER, None) if has_request_context() else None
 
 
 def _get_request_message(
@@ -3102,12 +3110,13 @@ def _search_registered_models():
         },
     )
     store = _get_model_registry_store()
-    registered_models = store.search_registered_models(
-        filter_string=request_message.filter,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_registered_model_filter() is not None):
+        registered_models = store.search_registered_models(
+            filter_string=request_message.filter,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
     if registered_models.token:

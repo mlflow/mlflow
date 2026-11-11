@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.genai.simulators.utils import (
     format_history,
     get_default_simulation_model,
@@ -105,3 +106,20 @@ def test_get_default_simulation_model_databricks():
     with mock.patch("mlflow.genai.simulators.utils.is_databricks_uri", return_value=True):
         model = get_default_simulation_model()
         assert model == "gpt-oss-120b"
+
+
+def test_invoke_model_without_tracing_attributes_gateway_calls_to_simulator(monkeypatch):
+    from mlflow.types.llm import ChatMessage
+
+    monkeypatch.setenv("MLFLOW_GATEWAY_URI", "http://localhost:5000")
+
+    with mock.patch(
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api", return_value="Hi there!"
+    ) as mock_call:
+        invoke_model_without_tracing(
+            model_uri="gateway:/my-endpoint", messages=[ChatMessage(role="user", content="Hello")]
+        )
+
+    assert mock_call.call_args.kwargs["extra_headers"] == {
+        MLFLOW_GATEWAY_CALLER_HEADER: "simulator"
+    }
