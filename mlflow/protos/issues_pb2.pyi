@@ -498,7 +498,9 @@ class IssueDetectionRun(_message.Message):
     experiment_id: _builtins.str
     """Experiment ID."""
     status: _builtins.str
-    """One of "pending", "running", "succeeded", "failed" or "canceled"."""
+    """One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+    starts, including while its job waits for a worker.
+    """
     start_time: _builtins.int
     """Start time of the run, in milliseconds since the epoch."""
     end_time: _builtins.int
@@ -536,7 +538,7 @@ class DetectIssues(_message.Message):
         ISSUE_DETECTION_RUN_FIELD_NUMBER: _builtins.int
         @_builtins.property
         def issue_detection_run(self) -> Global___IssueDetectionRun:
-            """The run, which has not started analyzing yet."""
+            """The run, which has just started."""
 
         def __init__(
             self,

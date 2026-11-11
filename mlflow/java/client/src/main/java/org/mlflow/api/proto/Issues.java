@@ -16910,7 +16910,8 @@ public final class Issues {
 
     /**
      * <pre>
-     * One of "pending", "running", "succeeded", "failed" or "canceled".
+     * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+     * starts, including while its job waits for a worker.
      * </pre>
      *
      * <code>optional string status = 3;</code>
@@ -16919,7 +16920,8 @@ public final class Issues {
     boolean hasStatus();
     /**
      * <pre>
-     * One of "pending", "running", "succeeded", "failed" or "canceled".
+     * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+     * starts, including while its job waits for a worker.
      * </pre>
      *
      * <code>optional string status = 3;</code>
@@ -16928,7 +16930,8 @@ public final class Issues {
     java.lang.String getStatus();
     /**
      * <pre>
-     * One of "pending", "running", "succeeded", "failed" or "canceled".
+     * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+     * starts, including while its job waits for a worker.
      * </pre>
      *
      * <code>optional string status = 3;</code>
@@ -17250,7 +17253,8 @@ public final class Issues {
     private volatile java.lang.Object status_;
     /**
      * <pre>
-     * One of "pending", "running", "succeeded", "failed" or "canceled".
+     * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+     * starts, including while its job waits for a worker.
      * </pre>
      *
      * <code>optional string status = 3;</code>
@@ -17262,7 +17266,8 @@ public final class Issues {
     }
     /**
      * <pre>
-     * One of "pending", "running", "succeeded", "failed" or "canceled".
+     * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+     * starts, including while its job waits for a worker.
      * </pre>
      *
      * <code>optional string status = 3;</code>
@@ -17285,7 +17290,8 @@ public final class Issues {
     }
     /**
      * <pre>
-     * One of "pending", "running", "succeeded", "failed" or "canceled".
+     * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+     * starts, including while its job waits for a worker.
      * </pre>
      *
      * <code>optional string status = 3;</code>
@@ -18089,7 +18095,8 @@ public final class Issues {
       private java.lang.Object status_ = "";
       /**
        * <pre>
-       * One of "pending", "running", "succeeded", "failed" or "canceled".
+       * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+       * starts, including while its job waits for a worker.
        * </pre>
        *
        * <code>optional string status = 3;</code>
@@ -18100,7 +18107,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * One of "pending", "running", "succeeded", "failed" or "canceled".
+       * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+       * starts, including while its job waits for a worker.
        * </pre>
        *
        * <code>optional string status = 3;</code>
@@ -18122,7 +18130,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * One of "pending", "running", "succeeded", "failed" or "canceled".
+       * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+       * starts, including while its job waits for a worker.
        * </pre>
        *
        * <code>optional string status = 3;</code>
@@ -18143,7 +18152,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * One of "pending", "running", "succeeded", "failed" or "canceled".
+       * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+       * starts, including while its job waits for a worker.
        * </pre>
        *
        * <code>optional string status = 3;</code>
@@ -18162,7 +18172,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * One of "pending", "running", "succeeded", "failed" or "canceled".
+       * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+       * starts, including while its job waits for a worker.
        * </pre>
        *
        * <code>optional string status = 3;</code>
@@ -18176,7 +18187,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * One of "pending", "running", "succeeded", "failed" or "canceled".
+       * One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+       * starts, including while its job waits for a worker.
        * </pre>
        *
        * <code>optional string status = 3;</code>
@@ -18731,7 +18743,7 @@ public final class Issues {
 
       /**
        * <pre>
-       * The run, which has not started analyzing yet.
+       * The run, which has just started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18740,7 +18752,7 @@ public final class Issues {
       boolean hasIssueDetectionRun();
       /**
        * <pre>
-       * The run, which has not started analyzing yet.
+       * The run, which has just started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18749,7 +18761,7 @@ public final class Issues {
       org.mlflow.api.proto.Issues.IssueDetectionRun getIssueDetectionRun();
       /**
        * <pre>
-       * The run, which has not started analyzing yet.
+       * The run, which has just started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18852,7 +18864,7 @@ public final class Issues {
       private org.mlflow.api.proto.Issues.IssueDetectionRun issueDetectionRun_;
       /**
        * <pre>
-       * The run, which has not started analyzing yet.
+       * The run, which has just started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18864,7 +18876,7 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The run, which has not started analyzing yet.
+       * The run, which has just started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18876,7 +18888,7 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The run, which has not started analyzing yet.
+       * The run, which has just started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19214,7 +19226,7 @@ public final class Issues {
             org.mlflow.api.proto.Issues.IssueDetectionRun, org.mlflow.api.proto.Issues.IssueDetectionRun.Builder, org.mlflow.api.proto.Issues.IssueDetectionRunOrBuilder> issueDetectionRunBuilder_;
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19225,7 +19237,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19240,7 +19252,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19260,7 +19272,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19278,7 +19290,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19302,7 +19314,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19319,7 +19331,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19331,7 +19343,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19346,7 +19358,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has not started analyzing yet.
+         * The run, which has just started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>

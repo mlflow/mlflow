@@ -6044,7 +6044,7 @@ def _detect_issues():
         issue_detection_run=IssueDetectionRun(
             run_id=run_id,
             experiment_id=experiment_id,
-            status="pending",
+            status="running",
             start_time=run.info.start_time,
         )
     )

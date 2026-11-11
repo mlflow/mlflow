@@ -11392,7 +11392,7 @@ def test_detect_issues_handler_starts_a_run(monkeypatch, mock_tracking_store, de
         "issue_detection_run": {
             "run_id": "run-detect-1",
             "experiment_id": "exp-123",
-            "status": "pending",
+            "status": "running",
             "start_time": 1700000000000,
         }
     }

@@ -183,7 +183,8 @@ message IssueDetectionRun {
   // Experiment ID.
   optional string experiment_id = 2;
 
-  // One of "pending", "running", "succeeded", "failed" or "canceled".
+  // One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+  // starts, including while its job waits for a worker.
   optional string status = 3;
 
   // Start time of the run, in milliseconds since the epoch.
@@ -215,7 +216,7 @@ message DetectIssues {
   repeated string trace_ids = 4;
 
   message Response {
-    // The run, which has not started analyzing yet.
+    // The run, which has just started.
     optional IssueDetectionRun issue_detection_run = 1;
   }
 }
