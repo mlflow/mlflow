@@ -5950,10 +5950,11 @@ def _detect_issues():
 
     The public counterpart of the Issues tab's ``issues/invoke``. It takes either the traces the
     caller picked or a trace filter whose matching traces the run samples, and it analyzes them
-    with the categories and instructions saved on the experiment.
+    with the categories and instructions saved on the experiment. Unlike ``issues/invoke``, it
+    starts a run while another of the experiment's runs is in progress, so callers can run
+    detection over different traces at once.
     """
     from mlflow.genai.discovery.job import invoke_issue_detection_job
-    from mlflow.genai.discovery.utils import in_flight_detection_run
     from mlflow.server.jobs import submit_job
 
     request_message = _get_request_message(
@@ -5997,13 +5998,6 @@ def _detect_issues():
     model, credentials = _resolve_issue_detection_model(
         store, experiment, request_message.model or None
     )
-    if in_flight_run_id := in_flight_detection_run(store, experiment_id):
-        raise MlflowException(
-            "Issue detection is already running for this experiment "
-            f"(run {in_flight_run_id}). Wait for it to finish, or cancel it, before starting "
-            "another.",
-            error_code=RESOURCE_ALREADY_EXISTS,
-        )
 
     settings = read_detection_settings(experiment)
     tags = {

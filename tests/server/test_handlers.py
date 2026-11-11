@@ -11690,7 +11690,7 @@ def test_detect_issues_handler_rejects_before_creating_a_run(
     mock_submit_job.assert_not_called()
 
 
-def test_detect_issues_handler_rejects_a_second_concurrent_run(
+def test_detect_issues_handler_starts_a_run_while_another_is_in_flight(
     monkeypatch, mock_tracking_store, detect_issues_client
 ):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
@@ -11700,7 +11700,9 @@ def test_detect_issues_handler_rejects_a_second_concurrent_run(
     mock_tracking_store.search_runs.return_value = [in_flight]
 
     with (
-        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
         app.test_client() as c,
     ):
         resp = c.post(
@@ -11708,10 +11710,9 @@ def test_detect_issues_handler_rejects_a_second_concurrent_run(
             json={"experiment_id": "exp-123", "model": "gateway:/e"},
         )
 
-    assert resp.get_json()["error_code"] == "RESOURCE_ALREADY_EXISTS"
-    assert "run-in-flight" in resp.get_json()["message"]
-    detect_issues_client.create_run.assert_not_called()
-    mock_submit_job.assert_not_called()
+    assert resp.status_code == 200
+    detect_issues_client.create_run.assert_called_once()
+    mock_submit_job.assert_called_once()
 
 
 def test_detect_issues_handler_fails_the_run_when_submission_fails(
