@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from contextlib import contextmanager
 from datetime import date
@@ -42,6 +43,12 @@ MIGRATION_MODULE = import_module(
 # Derive from the migration so the harness provisions the database at the true immediate predecessor
 # and self-corrects if a rebase reparents the migration.
 REVISION = MIGRATION_MODULE.revision
+
+
+@pytest.fixture(autouse=True)
+def _propagate_mlflow_logs(monkeypatch):
+    # The `mlflow` logger does not propagate to the root logger, which is where `caplog` listens.
+    monkeypatch.setattr(logging.getLogger("mlflow"), "propagate", True)
 PREVIOUS_REVISION = MIGRATION_MODULE.down_revision
 
 _LONG_TRACE_NAME = "trace-" + "n" * (8000 - len("trace-"))
@@ -705,6 +712,40 @@ def test_trace_analytics_migration_backfills_schema_and_cleans_legacy_rows(tmp_p
                 )
     finally:
         engine.dispose()
+
+
+def test_trace_analytics_migration_logs_progress(tmp_path):
+    messages = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record):
+            messages.append(record.getMessage())
+
+    logger = MIGRATION_MODULE._logger
+    assert logger.name.startswith("mlflow.")
+    handler = _Capture()
+    previous_level = logger.level
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    engine, config = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            _seed_legacy_analytics_data(conn)
+        command.upgrade(config, REVISION)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
+        engine.dispose()
+
+    assert "Trace analytics migration step 1/13: _validate_required_trace_joins" in messages
+    assert "Trace analytics migration step 13/13: _create_analytics_indexes" in messages
+    for entity in ("trace", "span", "assessment"):
+        assert any(
+            m.startswith(f"Trace analytics {entity} backfill progress: scanned=") for m in messages
+        )
+        assert any(
+            m.startswith(f"Trace analytics {entity} backfill complete: scanned=") for m in messages
+        )
 
 
 def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
