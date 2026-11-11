@@ -25,8 +25,9 @@ APP = "mlflow-app[bot]"
 APP_ID = 191841109
 # Added test lines that skip or expect failure instead of fixing the code.
 TEST_WEAKENING_RE = re.compile(
-    r"pytest\.mark\.(skip|skipif|xfail)\b|pytest\.(skip|xfail|importorskip)\("
-    r"|unittest\.skip|\b(it|test|describe)\.(skip|todo)\(|\bx(it|test|describe)\("
+    r"pytest\.mark\.(skip|skipif|xfail)\b|pytest\.(skip|xfail|importorskip)\(|unittest\.skip"
+    r"|unittest\.expectedFailure|\.skipTest\(|\b(it|test|describe)\.(skip|only|todo|fixme)\("
+    r"|\b[xf](it|test|describe)\("
 )
 TEST_DEFINITION_RE = re.compile(
     r"^\s*(?:async\s+)?def\s+(test_\w+)|^\s*(?:it|test)\(\s*([\"'`])(.+?)\2"
@@ -692,23 +693,25 @@ def check_staged_fix(git: Callable[..., str]) -> None:
     """Reject staged changes outside the allowed paths or that weaken tests."""
 
     def names(*args: str) -> list[str]:
-        return [name for name in git(*args, "-z").split("\0") if name]
+        return [name for name in git(*args).split("\0") if name]
 
-    if not (paths := names("diff", "--cached", "--name-only", "--no-renames")):
+    if not (paths := names("diff", "--cached", "-z", "--name-only", "--no-renames")):
         raise ValueError("fix.patch changes no files")
-    if outside := [path for path in paths if not path.startswith(allowed_patch_paths())]:
+    allowed = allowed_patch_paths()
+    if outside := [path for path in paths if not path.startswith(allowed)]:
         raise ValueError(f"fix.patch changes paths outside patch-paths.txt: {outside}")
     if any(
         not entry.startswith(("100644 ", "100755 "))
-        for entry in names("ls-files", "-s", "--", *paths)
+        for entry in names("ls-files", "-s", "-z", "--", *paths)
     ):
         raise ValueError("fix.patch contains a symlink or submodule")
-    deleted = names("diff", "--cached", "--name-only", "--no-renames", "--diff-filter=D")
+    deleted = names("diff", "--cached", "-z", "--name-only", "--no-renames", "--diff-filter=D")
     if deleted_tests := [path for path in deleted if TEST_FILE_RE.search(path)]:
         raise ValueError(f"fix.patch deletes test files: {deleted_tests}")
     lines = git("diff", "--cached", "--no-renames", "-U0").splitlines()
-    added = [line[1:] for line in lines if line.startswith("+") and not line.startswith("+++")]
-    removed = [line[1:] for line in lines if line.startswith("-") and not line.startswith("---")]
+    headers = ("+++ b/", "+++ /dev/null", "--- a/", "--- /dev/null")
+    added = [line[1:] for line in lines if line[:1] == "+" and not line.startswith(headers)]
+    removed = [line[1:] for line in lines if line[:1] == "-" and not line.startswith(headers)]
     if weakening := [line.strip() for line in added if TEST_WEAKENING_RE.search(line)]:
         raise ValueError(f"fix.patch skips or xfails tests: {weakening}")
 
@@ -755,8 +758,10 @@ def fix_action(
     git(*auth, "push", lease, f"https://github.com/{REPO}.git", f"HEAD:{ref}")
     write_step_summary(f"Pushed a fix to {pr_url}: {git('rev-parse', 'HEAD')}")
     # NaiLaOpus reviews every pushed fix on triage PRs, as after resolve's fixes.
+    # A failed request must not fail the step, or the pushed fix wouldn't be recorded.
     comments = f"repos/{REPO}/issues/{context['number']}/comments"
-    subprocess.check_call(["gh", "api", comments, "-f", "body=/review"])
+    if subprocess.call(["gh", "api", comments, "-f", "body=/review"]) != 0:
+        write_step_summary(f"Could not request a NaiLaOpus review on {pr_url}")
 
 
 ACTION_HANDLERS = {
