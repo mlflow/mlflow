@@ -271,7 +271,7 @@ def _parse_response_message(
         content=content,
         tool_calls=tool_calls_raw,
     )
-    object.__setattr__(message, _THOUGHT_SIGNATURES_ATTR, thought_signatures)
+    setattr(message, _THOUGHT_SIGNATURES_ATTR, thought_signatures)
     return ParsedResponse(message=message, usage=usage)
 
 
@@ -586,6 +586,7 @@ class GatewayAdapter(BaseJudgeAdapter):
         iteration_count = 0
         total_prompt_tokens: int | None = None
         total_completion_tokens: int | None = None
+
         while True:
             iteration_count += 1
             if iteration_count > max_iterations:
