@@ -10,6 +10,7 @@ from typing import Any
 APP = "mlflow-app[bot]"
 APP_ID = 191841109
 COPILOT = "copilot-pull-request-reviewer[bot]"
+NAILAOPUS = "nailaopus[bot]"
 MAX_ROUNDS = 3
 PATCH_PATHS = Path(__file__).resolve().parents[2] / "patch-paths.txt"
 THREADS_QUERY = """
@@ -116,7 +117,7 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         if role not in {"write", "maintain", "admin"}:
             summary("The reviewer lacks write access.")
             return
-    elif reviewer != COPILOT:
+    elif reviewer not in {COPILOT, NAILAOPUS}:
         summary("This bot reviewer is outside the resolver's scope.")
         return
 
@@ -430,6 +431,16 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     if not eligible(pr, repo) or pr["head"]["sha"] != head:
         raise ValueError("PR head changed before the review request")
     reviewer = current["author"]
+    if reviewer == NAILAOPUS:
+        # NaiLaOpus can't be requested as a reviewer; a `/review` comment starts it instead.
+        note = marker(reviewer, review_id, "review-request")
+        if tree and not any(
+            app_comment(comment) and note in comment["body"]
+            for comment in list_items(issue_comments)
+        ):
+            api(issue_comments, data={"body": f"/review\n\n{note}"})
+            summary("Requested a NaiLaOpus review of the fix.")
+        return
     requested = api(f"{endpoint}/requested_reviewers")["users"]
     reviews = list_items(f"{endpoint}/reviews")
     if any(user["login"] == reviewer for user in requested) or any(
