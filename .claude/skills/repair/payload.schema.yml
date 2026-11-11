@@ -52,3 +52,19 @@ properties:
                   --jq '.commits[] | "\(.sha) \(.commit.message | split("\n")[0])"'
                 ```
             const: true
+      - type: object
+        description: >-
+          Push a code fix for failures the PR's changes cause, such as a broken test, type error,
+          or lint failure. Edit the PR checkout and write the change to `fix.patch` in the output
+          directory. Pushing starts a new CI run.
+        additionalProperties: false
+        required: [type, commit_message]
+        properties:
+          type:
+            const: fix
+          commit_message:
+            description: One-line commit message that says what the fix changes.
+            type: string
+            minLength: 1
+            maxLength: 100
+            pattern: '^[^\n]*\S[^\n]*$'

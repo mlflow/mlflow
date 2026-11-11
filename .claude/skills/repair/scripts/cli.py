@@ -21,6 +21,18 @@ CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
 PR_BUDGET = 5
 HISTORY_MARKER = "<!-- repair-history -->"
+APP = "mlflow-app[bot]"
+APP_ID = 191841109
+MAINTAINER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
+# Added test lines that skip or expect failure instead of fixing the code.
+TEST_WEAKENING_RE = re.compile(
+    r"pytest\.mark\.(skip|skipif|xfail)\b|pytest\.(skip|xfail|importorskip)\("
+    r"|unittest\.skip|\b(it|test|describe)\.(skip|todo)\(|\bx(it|test|describe)\("
+)
+TEST_DEFINITION_RE = re.compile(
+    r"^\s*(?:async\s+)?def\s+(test_\w+)|^\s*(?:it|test)\(\s*([\"'`])(.+?)\2"
+)
+TEST_FILE_RE = re.compile(r"(^|/)tests?/|(^|/)test_[^/]*\.py$|\.test\.[jt]sx?$")
 
 COMMENT_FIELDS = """
   id
@@ -70,6 +82,9 @@ PR_FIELDS = f"""
   state
   isDraft
   mergeable
+  isCrossRepository
+  authorAssociation
+  author {{ __typename login }}
   comments(first: 10) {{ {COMMENTS_FIELDS} }}
   statusCheckRollup {{
     id
@@ -341,8 +356,13 @@ def build_candidate(pr: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str,
             },
         )
         group["job_runs"].extend(job_runs)
+    author = pr["author"] or {}
     return {
         "number": pr["number"],
+        "author": author.get("login"),
+        "author_is_bot": author.get("__typename") == "Bot",
+        "author_association": pr["authorAssociation"],
+        "cross_repository": pr["isCrossRepository"],
         "head_ref": pr["headRefName"],
         "head_sha": pr["headRefOid"],
         "base_ref": pr["baseRefName"],
@@ -545,13 +565,15 @@ def record(args: argparse.Namespace) -> int:
     return 0
 
 
-def validate_rerun(context: dict[str, Any], action: dict[str, Any]) -> None:
+def validate_rerun(context: dict[str, Any], action: dict[str, Any], out_dir: Path) -> None:
     allowed = {run["run_id"] for run in context["failed_runs"]}
     if not set(action["run_ids"]) <= allowed:
         raise ValueError("Rerun IDs must belong to the captured failed runs")
 
 
-def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
+def rerun_action(
+    context: dict[str, Any], action: dict[str, Any], dry_run: bool, out_dir: Path
+) -> None:
     runs = [run for run in context["failed_runs"] if run["run_id"] in action["run_ids"]]
 
     def submit(run: dict[str, Any]) -> None:
@@ -596,11 +618,11 @@ def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool)
 
 @dataclass(frozen=True)
 class ActionHandler:
-    validate: Callable[[dict[str, Any], dict[str, Any]], None]
-    execute: Callable[[dict[str, Any], dict[str, Any], bool], None]
+    validate: Callable[[dict[str, Any], dict[str, Any], Path], None]
+    execute: Callable[[dict[str, Any], dict[str, Any], bool, Path], None]
 
 
-def validate_push(context: dict[str, Any], action: dict[str, Any]) -> None:
+def validate_push(context: dict[str, Any], action: dict[str, Any], out_dir: Path) -> None:
     behind_by = subprocess.check_output(
         [
             "gh",
@@ -621,7 +643,9 @@ def fetch_head_sha(number: int) -> str:
     ).strip()
 
 
-def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
+def push_action(
+    context: dict[str, Any], action: dict[str, Any], dry_run: bool, out_dir: Path
+) -> None:
     pr_url = f"https://github.com/{REPO}/pull/{context['number']}"
     if dry_run:
         write_step_summary(f"Would merge the base branch into {pr_url}")
@@ -645,9 +669,140 @@ def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) 
         raise RuntimeError("The PR head did not move within 60s")
 
 
+def is_triage_pr(context: dict[str, Any]) -> bool:
+    return (
+        context.get("author_is_bot") is True
+        and context.get("author") in {APP, APP.removesuffix("[bot]")}
+        and context["head_ref"].startswith("triage/")
+    )
+
+
+def allowed_patch_paths() -> tuple[str, ...]:
+    path = Path(__file__).resolve().parents[2] / "patch-paths.txt"
+    lines = (line.strip() for line in path.read_text().splitlines())
+    return tuple(line for line in lines if line and not line.startswith("#"))
+
+
+def check_patch(text: str) -> None:
+    """Reject patches outside the allowed paths or that weaken tests instead of fixing code."""
+    paths: set[str] = set()
+    deleted: set[str] = set()
+    added_tests: set[str] = set()
+    removed_tests: set[str] = set()
+    old_path = None
+    for line in text.splitlines():
+        if line.startswith("--- a/"):
+            old_path = line[6:]
+            paths.add(old_path)
+        elif line.startswith("--- "):
+            old_path = None
+        elif line.startswith("+++ "):
+            if line.startswith("+++ b/"):
+                paths.add(line[6:])
+            elif old_path:
+                deleted.add(old_path)
+        elif line.startswith(("rename from ", "rename to ", "copy from ", "copy to ")):
+            paths.add(line.split(" ", 2)[2])
+        elif line.startswith("+"):
+            if TEST_WEAKENING_RE.search(line):
+                raise ValueError(f"fix.patch skips or xfails tests: {line[1:].strip()}")
+            if match := TEST_DEFINITION_RE.match(line[1:]):
+                added_tests.add(match.group(1) or match.group(3))
+        elif line.startswith("-") and (match := TEST_DEFINITION_RE.match(line[1:])):
+            removed_tests.add(match.group(1) or match.group(3))
+    if not paths:
+        raise ValueError("fix.patch changes no files")
+    allowed = allowed_patch_paths()
+    if outside := sorted(path for path in paths if not path.startswith(allowed)):
+        raise ValueError(f"fix.patch changes paths outside patch-paths.txt: {', '.join(outside)}")
+    if deleted_tests := sorted(path for path in deleted if TEST_FILE_RE.search(path)):
+        raise ValueError(f"fix.patch deletes test files: {', '.join(deleted_tests)}")
+    if dropped := sorted(removed_tests - added_tests):
+        raise ValueError(f"fix.patch removes tests: {', '.join(dropped)}")
+
+
+def validate_fix(context: dict[str, Any], action: dict[str, Any], out_dir: Path) -> None:
+    if context.get("cross_repository") is not False or not (
+        is_triage_pr(context) or context.get("author_association") in MAINTAINER_ASSOCIATIONS
+    ):
+        raise ValueError(
+            "Fixes are limited to triage PRs and maintainer PRs on mlflow/mlflow branches"
+        )
+    patch = out_dir / "fix.patch"
+    if patch.is_symlink() or not patch.is_file():
+        raise ValueError("A fix needs a regular fix.patch file in the output directory")
+    check_patch(patch.read_text())
+
+
+def fix_action(
+    context: dict[str, Any], action: dict[str, Any], dry_run: bool, out_dir: Path
+) -> None:
+    checkout = Path(os.environ["PR_CHECKOUT"])
+
+    def git(*args: str | Path) -> str:
+        return subprocess.check_output(
+            ["git", "-C", checkout, "-c", "core.hooksPath=/dev/null", *args], text=True
+        ).strip()
+
+    if git("rev-parse", "HEAD") != context["head_sha"]:
+        raise ValueError("The PR checkout does not match the captured head")
+    git("apply", "--index", "--whitespace=error", "--", out_dir / "fix.patch")
+    paths = git("diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")
+    paths = [path for path in paths if path]
+    if not paths:
+        raise ValueError("fix.patch changes no files")
+    if outside := sorted(path for path in paths if not path.startswith(allowed_patch_paths())):
+        raise ValueError(f"fix.patch changes paths outside patch-paths.txt: {', '.join(outside)}")
+    staged = git("ls-files", "--stage", "-z", "--", *paths).split("\0")
+    staged = [entry for entry in staged if entry]
+    if any(not entry.startswith(("100644 ", "100755 ")) for entry in staged):
+        raise ValueError("fix.patch contains a symlink or submodule")
+    pr_url = f"https://github.com/{REPO}/pull/{context['number']}"
+    if dry_run:
+        write_step_summary(
+            f"Would push a fix to {pr_url}:\n\n```\n{git('diff', '--cached', '--stat')}\n```"
+        )
+        return
+    ref = f"refs/heads/{context['head_ref']}"
+    git(
+        "-c",
+        f"user.name={APP}",
+        "-c",
+        f"user.email={APP_ID}+{APP}@users.noreply.github.com",
+        "commit",
+        "-s",
+        "-m",
+        action["commit_message"],
+        "-m",
+        f"Repair-Run: {os.environ['RUN_URL']}",
+    )
+    # The lease rejects the push if the PR moved after the context was captured.
+    git(
+        "-c",
+        "credential.helper=",
+        "-c",
+        "credential.helper=!gh auth git-credential",
+        "push",
+        f"--force-with-lease={ref}:{context['head_sha']}",
+        f"https://github.com/{REPO}.git",
+        f"HEAD:{ref}",
+    )
+    write_step_summary(f"Pushed a fix to {pr_url}: {git('rev-parse', 'HEAD')}")
+    if is_triage_pr(context):
+        # NaiLaOpus reviews every pushed fix on triage PRs, as after resolve's fixes.
+        subprocess.check_call([
+            "gh",
+            "api",
+            f"repos/{REPO}/issues/{context['number']}/comments",
+            "-f",
+            "body=/review",
+        ])
+
+
 ACTION_HANDLERS = {
     "rerun": ActionHandler(validate_rerun, rerun_action),
     "push": ActionHandler(validate_push, push_action),
+    "fix": ActionHandler(validate_fix, fix_action),
 }
 
 
@@ -664,7 +819,7 @@ def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
         text=True,
     )
     if (action := payload["action"]) is not None:
-        ACTION_HANDLERS[action["type"]].validate(context, action)
+        ACTION_HANDLERS[action["type"]].validate(context, action, path.parent)
     return payload
 
 
@@ -683,7 +838,9 @@ def execute(args: argparse.Namespace) -> int:
         f"### Repair PR #{context['number']}\n\n```json\n{json.dumps(payload, indent=2)}\n```"
     )
     if (action := payload["action"]) is not None:
-        ACTION_HANDLERS[action["type"]].execute(context, action, args.dry_run)
+        ACTION_HANDLERS[action["type"]].execute(
+            context, action, args.dry_run, args.payload_path.parent
+        )
     return 0
 
 

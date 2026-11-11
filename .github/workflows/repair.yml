@@ -350,6 +350,14 @@ jobs:
           python "$SCRIPT" validate \
             --payload "$OUT_DIR/payload.json" \
             --context "$CONTEXT_PATH"
+      # The fix is applied here, after validation, from the downloaded fix.patch.
+      - name: Checkout PR head
+        if: steps.validate.outputs.action_type == 'fix'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.pr.head_sha }}
+          path: pr
+          persist-credentials: false
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: steps.validate.outputs.action_type != '' && env.DRY_RUN != 'true'
         id: app-token
@@ -359,8 +367,8 @@ jobs:
           owner: mlflow
           repositories: mlflow
           permission-actions: ${{ steps.validate.outputs.action_type == 'rerun' && 'write' || '' }}
-          permission-pull-requests: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
-          permission-contents: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
+          permission-pull-requests: ${{ contains(fromJSON('["push", "fix"]'), steps.validate.outputs.action_type) && 'write' || '' }}
+          permission-contents: ${{ contains(fromJSON('["push", "fix"]'), steps.validate.outputs.action_type) && 'write' || '' }}
       - name: Execute or preview repair plan
         if: steps.validate.outcome == 'success'
         id: execute
@@ -368,6 +376,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           DRY_RUN_FLAG: ${{ env.DRY_RUN == 'true' && '--dry-run' || '--no-dry-run' }}
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python "$SCRIPT" execute \
             --payload "$OUT_DIR/payload.json" \
