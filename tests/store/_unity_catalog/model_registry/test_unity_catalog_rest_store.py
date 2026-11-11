@@ -1870,7 +1870,7 @@ def test_create_model_version_with_volume_weights_finalizes_after_the_copy(store
 
     steps, start_copy, wait_copy = _create_model_version_recording_steps(store, local_model_dir)
 
-    assert steps == ["create", "upload", "stage", "wait", "finalize"]
+    assert steps == ["create", "stage", "upload", "wait", "finalize"]
     start_copy.assert_called_once_with("model_1", "1", ANY)
     wait_copy.assert_called_once_with("model_1", "1", {"state": "IN_PROGRESS"}, ANY)
 
