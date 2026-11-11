@@ -10,6 +10,7 @@ from typing import Any
 APP = "mlflow-app[bot]"
 APP_ID = 191841109
 COPILOT = "copilot-pull-request-reviewer[bot]"
+NAILAOPUS = "nailaopus[bot]"
 MAX_ROUNDS = 3
 THREADS_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
@@ -115,7 +116,7 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         if role not in {"write", "maintain", "admin"}:
             summary("The reviewer lacks write access.")
             return
-    elif reviewer != COPILOT:
+    elif reviewer not in {COPILOT, NAILAOPUS}:
         summary("This bot reviewer is outside the resolver's scope.")
         return
 
@@ -190,10 +191,27 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         if r["id"] == int(review_id) or r["body"] or r["state"] != "COMMENTED" or r["id"] in started
     ]
     timeline.sort(key=lambda item: item["created_at"])
+    if reviewer == NAILAOPUS:
+        # NaiLaOpus submits one review per finding, so address all of its unanswered threads
+        # in one round. Reviews from the same pass then find nothing left to address.
+        thread_ids = {
+            thread["id"]
+            for thread in pr_threads
+            if not thread["resolved"]
+            and thread["comments"][0]["author"] == NAILAOPUS
+            and thread["comments"][-1]["author"] != APP
+        }
+    else:
+        thread_ids = {
+            thread["id"]
+            for thread in pr_threads
+            if any(c["review_id"] == int(review_id) for c in thread["comments"])
+        }
     context = {
         "head_sha": pr["head"]["sha"],
         "head_ref": pr["head"]["ref"],
         "review_id": int(review_id),
+        "thread_ids": sorted(thread_ids),
         "timeline": timeline,
     }
     if not any(item.get("id") == context["review_id"] for item in timeline):
@@ -218,11 +236,7 @@ def all_threads(context: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def review_thread_ids(context: dict[str, Any]) -> set[str]:
-    return {
-        thread["id"]
-        for thread in all_threads(context)
-        if any(c["review_id"] == context["review_id"] for c in thread["comments"])
-    }
+    return set(context["thread_ids"])
 
 
 def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -418,13 +432,14 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
             if not result["data"]["resolveReviewThread"]["thread"]["isResolved"]:
                 raise ValueError("GitHub did not close the resolved thread")
 
-    # An approver has already signed off, so don't ask them to review again.
-    if blocked or review["state"] == "APPROVED":
+    reviewer = current["author"]
+    # An approver has already signed off, so don't ask them to review again. NaiLaOpus
+    # can't be requested as a reviewer; it reviews when a `/review` comment asks it to.
+    if blocked or review["state"] == "APPROVED" or reviewer == NAILAOPUS:
         return
     pr = api(endpoint)
     if not eligible(pr, repo) or pr["head"]["sha"] != head:
         raise ValueError("PR head changed before the review request")
-    reviewer = current["author"]
     requested = api(f"{endpoint}/requested_reviewers")["users"]
     reviews = list_items(f"{endpoint}/reviews")
     if any(user["login"] == reviewer for user in requested) or any(

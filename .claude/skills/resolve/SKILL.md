@@ -35,7 +35,7 @@ You start in the trusted checkout. `$pr_checkout` is a checkout of the
 PR head. `$out_dir` is a fresh absolute path outside both checkouts. `$review_context` mirrors
 the PR's Conversation tab: a chronological `timeline` of comments and reviews, with each inline
 thread under the review that started it. Address the review with `review_id`: its body and
-every thread containing a comment with that `review_id`, wherever the thread appears.
+every thread listed in `thread_ids`, wherever the thread appears.
 `resolved` and `outdated` give each thread's current state on GitHub. Everything else is
 context.
 
@@ -44,6 +44,7 @@ context.
   "head_sha": "<sha>",
   "head_ref": "<branch>",
   "review_id": 123,
+  "thread_ids": ["PRRT_..."],
   "timeline": [
     {
       "type": "review",
@@ -121,8 +122,7 @@ Validate the payload from the trusted checkout before finishing.
 uvx check-jsonschema@0.37.4 \
   --schemafile .claude/skills/resolve/payload.schema.yml "$out_dir/payload.json"
 jq -e --slurpfile context "$review_context" \
-  '(.responses | keys - ["review"]) == ([$context[0] | .review_id as $id
-    | .timeline[].threads[]? | select(any(.comments[]; .review_id == $id)) | .id] | sort)' \
+  '(.responses | keys - ["review"]) == ($context[0].thread_ids | sort)' \
   "$out_dir/payload.json"
 jq -r '.responses[].body' "$out_dir/payload.json" |
   uv run --directory .claude/skills --package skills skills embed-media \
