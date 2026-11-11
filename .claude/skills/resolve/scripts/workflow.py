@@ -11,7 +11,7 @@ APP = "mlflow-app[bot]"
 APP_ID = 191841109
 COPILOT = "copilot-pull-request-reviewer[bot]"
 NAILAOPUS = "nailaopus[bot]"
-MAX_ROUNDS = 3
+MAX_ROUNDS = 5
 PATCH_PATHS = Path(__file__).resolve().parents[2] / "patch-paths.txt"
 THREADS_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
