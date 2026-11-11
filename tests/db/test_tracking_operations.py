@@ -7,7 +7,9 @@ import sqlalchemy.dialects.sqlite.pysqlite
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities.assessment import IssueReference
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
+from mlflow.tracking._tracking_service.utils import _get_store
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -152,3 +154,49 @@ def test_database_operational_error(monkeypatch):
             "SQLAlchemy database error" in str(call) and "sqlite3.OperationalError" in str(call)
             for call in exception.mock_calls
         )
+
+
+def test_search_issues_with_trace_count():
+    exp_id = mlflow.create_experiment(f"issues-{uuid.uuid4().hex}")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    @mlflow.trace
+    def app(question):
+        return question
+
+    first = mlflow.genai.create_issue(
+        "Incorrect refund policy", severity="high", description="d", experiment_id=exp_id
+    )
+    second = mlflow.genai.create_issue(
+        "Slow answers", severity="low", description="d", experiment_id=exp_id
+    )
+    for issue, num_traces in [(first, 2), (second, 1)]:
+        for _ in range(num_traces):
+            app("q")
+            trace_id = mlflow.get_last_active_trace_id()
+            mlflow.flush_trace_async_logging()
+            mlflow.log_assessment(
+                trace_id, IssueReference(issue_id=issue.issue_id, issue_name=issue.name)
+            )
+
+    store = _get_store()
+    result = store.search_issues(
+        experiment_id=exp_id,
+        include_trace_count=True,
+        include_total_count=True,
+        statuses=["pending"],
+        name="",
+    )
+    assert result.total_count == 2
+    assert {(i.name, i.trace_count) for i in result} == {
+        ("Incorrect refund policy", 2),
+        ("Slow answers", 1),
+    }
+
+    result = store.search_issues(
+        experiment_id=exp_id, include_trace_count=True, order_by=["name ASC"]
+    )
+    assert [(i.name, i.trace_count) for i in result] == [
+        ("Incorrect refund policy", 2),
+        ("Slow answers", 1),
+    ]
