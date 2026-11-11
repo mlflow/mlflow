@@ -434,7 +434,7 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     # NaiLaOpus reviews every pushed fix, whoever asked for it. After a NaiLaOpus round
     # that only answered its threads, it re-checks them so it can approve. It can't be
     # requested as a reviewer, so a `/review` comment starts it.
-    if tree or reviewer == NAILAOPUS:
+    if tree or (reviewer == NAILAOPUS and review["state"] != "APPROVED"):
         note = marker(reviewer, review_id, "review-request")
         if not any(
             app_comment(comment) and note in comment["body"]
@@ -442,7 +442,7 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
         ):
             api(issue_comments, data={"body": f"/review\n\n{note}"})
             summary("Requested a NaiLaOpus review.")
-    # An approver has already signed off, so don't ask them to review again.
+    # Approvers need no re-request, and NaiLaOpus uses the comment above.
     if review["state"] == "APPROVED" or reviewer == NAILAOPUS:
         return
     requested = api(f"{endpoint}/requested_reviewers")["users"]
