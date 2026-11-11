@@ -5954,7 +5954,10 @@ def _detect_issues():
     caller picked or a trace filter whose matching traces the run samples, and it analyzes them
     with the categories and instructions saved on the experiment. Unlike ``issues/invoke``, it
     starts a run while another of the experiment's runs is in progress, so callers can run
-    detection over different traces at once.
+    detection over different traces at once. Runs that overlap can refresh the same issues, and
+    a run in progress still counts for the scheduler and ``issues/invoke``: a due scheduled
+    occurrence waits for a later pass, and loses nothing, since its window still reaches back
+    over the traces it would have covered.
     """
     from mlflow.genai.discovery.job import _record_failure, invoke_issue_detection_job
     from mlflow.server.jobs import submit_job
