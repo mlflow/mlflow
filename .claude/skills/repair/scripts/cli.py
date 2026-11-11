@@ -680,51 +680,45 @@ def allowed_patch_paths() -> tuple[str, ...]:
     return tuple(line for line in lines if line and not line.startswith("#"))
 
 
-def check_patch(text: str) -> None:
-    """Reject patches outside the allowed paths or that weaken tests instead of fixing code."""
-    paths: set[str] = set()
-    deleted: set[str] = set()
-    added_tests: set[str] = set()
-    removed_tests: set[str] = set()
-    old_path = None
-    for line in text.splitlines():
-        if line.startswith("--- a/"):
-            old_path = line[6:]
-            paths.add(old_path)
-        elif line.startswith("--- "):
-            old_path = None
-        elif line.startswith("+++ "):
-            if line.startswith("+++ b/"):
-                paths.add(line[6:])
-            elif old_path:
-                deleted.add(old_path)
-        elif line.startswith(("rename from ", "rename to ", "copy from ", "copy to ")):
-            paths.add(line.split(" ", 2)[2])
-        elif line.startswith("+"):
-            if TEST_WEAKENING_RE.search(line):
-                raise ValueError(f"fix.patch skips or xfails tests: {line[1:].strip()}")
-            if match := TEST_DEFINITION_RE.match(line[1:]):
-                added_tests.add(match.group(1) or match.group(3))
-        elif line.startswith("-") and (match := TEST_DEFINITION_RE.match(line[1:])):
-            removed_tests.add(match.group(1) or match.group(3))
-    if not paths:
-        raise ValueError("fix.patch changes no files")
-    allowed = allowed_patch_paths()
-    if outside := sorted(path for path in paths if not path.startswith(allowed)):
-        raise ValueError(f"fix.patch changes paths outside patch-paths.txt: {', '.join(outside)}")
-    if deleted_tests := sorted(path for path in deleted if TEST_FILE_RE.search(path)):
-        raise ValueError(f"fix.patch deletes test files: {', '.join(deleted_tests)}")
-    if dropped := sorted(removed_tests - added_tests):
-        raise ValueError(f"fix.patch removes tests: {', '.join(dropped)}")
-
-
 def validate_fix(context: dict[str, Any], action: dict[str, Any], out_dir: Path) -> None:
     if context.get("cross_repository") is not False or not is_triage_pr(context):
         raise ValueError("Fixes are limited to triage PRs on mlflow/mlflow branches")
     patch = out_dir / "fix.patch"
     if patch.is_symlink() or not patch.is_file():
         raise ValueError("A fix needs a regular fix.patch file in the output directory")
-    check_patch(patch.read_text())
+
+
+def check_staged_fix(git: Callable[..., str]) -> None:
+    """Reject staged changes outside the allowed paths or that weaken tests."""
+
+    def names(*args: str) -> list[str]:
+        return [name for name in git(*args, "-z").split("\0") if name]
+
+    if not (paths := names("diff", "--cached", "--name-only", "--no-renames")):
+        raise ValueError("fix.patch changes no files")
+    if outside := [path for path in paths if not path.startswith(allowed_patch_paths())]:
+        raise ValueError(f"fix.patch changes paths outside patch-paths.txt: {outside}")
+    if any(
+        not entry.startswith(("100644 ", "100755 "))
+        for entry in names("ls-files", "-s", "--", *paths)
+    ):
+        raise ValueError("fix.patch contains a symlink or submodule")
+    deleted = names("diff", "--cached", "--name-only", "--no-renames", "--diff-filter=D")
+    if deleted_tests := [path for path in deleted if TEST_FILE_RE.search(path)]:
+        raise ValueError(f"fix.patch deletes test files: {deleted_tests}")
+    lines = git("diff", "--cached", "--no-renames", "-U0").splitlines()
+    added = [line[1:] for line in lines if line.startswith("+") and not line.startswith("+++")]
+    removed = [line[1:] for line in lines if line.startswith("-") and not line.startswith("---")]
+    if weakening := [line.strip() for line in added if TEST_WEAKENING_RE.search(line)]:
+        raise ValueError(f"fix.patch skips or xfails tests: {weakening}")
+
+    def tests(source: list[str]) -> set[str]:
+        return {
+            m.group(1) or m.group(3) for line in source if (m := TEST_DEFINITION_RE.match(line))
+        }
+
+    if dropped := sorted(tests(removed) - tests(added)):
+        raise ValueError(f"fix.patch removes tests: {dropped}")
 
 
 def fix_action(
@@ -733,63 +727,36 @@ def fix_action(
     checkout = Path(os.environ["PR_CHECKOUT"])
 
     def git(*args: str | Path) -> str:
-        return subprocess.check_output(
-            ["git", "-C", checkout, "-c", "core.hooksPath=/dev/null", *args], text=True
-        ).strip()
+        command = ["git", "-C", checkout, "-c", "core.hooksPath=/dev/null", *args]
+        return subprocess.check_output(command, text=True).strip()
 
     if git("rev-parse", "HEAD") != context["head_sha"]:
         raise ValueError("The PR checkout does not match the captured head")
     git("apply", "--index", "--whitespace=error", "--", out_dir / "fix.patch")
-    paths = git("diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")
-    paths = [path for path in paths if path]
-    if not paths:
-        raise ValueError("fix.patch changes no files")
-    if outside := sorted(path for path in paths if not path.startswith(allowed_patch_paths())):
-        raise ValueError(f"fix.patch changes paths outside patch-paths.txt: {', '.join(outside)}")
-    staged = git("ls-files", "--stage", "-z", "--", *paths).split("\0")
-    staged = [entry for entry in staged if entry]
-    if any(not entry.startswith(("100644 ", "100755 ")) for entry in staged):
-        raise ValueError("fix.patch contains a symlink or submodule")
+    check_staged_fix(git)
     pr_url = f"https://github.com/{REPO}/pull/{context['number']}"
     if dry_run:
         write_step_summary(
-            f"Would push a fix to {pr_url}:\n\n```\n{git('diff', '--cached', '--stat')}\n```"
+            f"Would push to {pr_url}:\n\n```\n{git('diff', '--cached', '--stat')}\n```"
         )
         return
-    ref = f"refs/heads/{context['head_ref']}"
-    git(
+    identity = [
         "-c",
         f"user.name={APP}",
         "-c",
         f"user.email={APP_ID}+{APP}@users.noreply.github.com",
-        "commit",
-        "-s",
-        "-m",
-        action["commit_message"],
-        "-m",
-        f"Repair-Run: {os.environ['RUN_URL']}",
-    )
+    ]
+    trailer = f"Repair-Run: {os.environ['RUN_URL']}"
+    git(*identity, "commit", "-s", "-m", action["commit_message"], "-m", trailer)
     # The lease rejects the push if the PR moved after the context was captured.
-    git(
-        "-c",
-        "credential.helper=",
-        "-c",
-        "credential.helper=!gh auth git-credential",
-        "push",
-        f"--force-with-lease={ref}:{context['head_sha']}",
-        f"https://github.com/{REPO}.git",
-        f"HEAD:{ref}",
-    )
+    ref = f"refs/heads/{context['head_ref']}"
+    auth = ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"]
+    lease = f"--force-with-lease={ref}:{context['head_sha']}"
+    git(*auth, "push", lease, f"https://github.com/{REPO}.git", f"HEAD:{ref}")
     write_step_summary(f"Pushed a fix to {pr_url}: {git('rev-parse', 'HEAD')}")
-    if is_triage_pr(context):
-        # NaiLaOpus reviews every pushed fix on triage PRs, as after resolve's fixes.
-        subprocess.check_call([
-            "gh",
-            "api",
-            f"repos/{REPO}/issues/{context['number']}/comments",
-            "-f",
-            "body=/review",
-        ])
+    # NaiLaOpus reviews every pushed fix on triage PRs, as after resolve's fixes.
+    comments = f"repos/{REPO}/issues/{context['number']}/comments"
+    subprocess.check_call(["gh", "api", comments, "-f", "body=/review"])
 
 
 ACTION_HANDLERS = {
