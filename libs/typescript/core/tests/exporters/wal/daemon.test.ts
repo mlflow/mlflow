@@ -371,6 +371,32 @@ describe('wal/daemon', () => {
       expect(pending.find((r) => r.id === 'row-databricks')).toBeUndefined();
     });
 
+    it('stops sending spans to a server that reports ingestion unsupported', async () => {
+      const exportOtlpSpans = jest
+        .fn()
+        .mockRejectedValue(new MlflowHttpError(501, 'Not Implemented', ''));
+      const client = makeClient({ exportOtlpSpans });
+      const otlpSpans = Buffer.from([0x0a, 0x01]).toString('base64');
+      // The latch is keyed by tracking URI, so use one no other test shares.
+      const trackingUri = 'http://no-span-ingestion.test:5000';
+
+      await uploadOne(
+        makeRecord({ id: 'row-unsupported-1', trackingUri, otlpSpans }),
+        client,
+        new BatchingWriter(),
+      );
+      await uploadOne(
+        makeRecord({ id: 'row-unsupported-2', trackingUri, otlpSpans }),
+        client,
+        new BatchingWriter(),
+      );
+
+      expect(exportOtlpSpans).toHaveBeenCalledTimes(1);
+
+      const pending = await readPending();
+      expect(pending.find((r) => r.id.startsWith('row-unsupported'))).toBeUndefined();
+    });
+
     it('tombstones the record even when span logging fails (non-fatal)', async () => {
       const exportOtlpSpans = jest.fn().mockRejectedValue(new Error('501 not supported'));
       const createTrace = jest.fn().mockImplementation((info: TraceInfo) => Promise.resolve(info));

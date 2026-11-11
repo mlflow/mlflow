@@ -1,6 +1,12 @@
+import { ROOT_CONTEXT, TraceFlags, trace as otelTrace } from '@opentelemetry/api';
 import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
-import { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
 import {
+  BasicTracerProvider,
+  ReadableSpan as OTelReadableSpan,
+} from '@opentelemetry/sdk-trace-base';
+import { MlflowHttpError } from '../../src/clients/utils';
+import {
+  isSpanIngestionUnsupportedError,
   sendOtlpSpansIfSupported,
   serializeSpansToOtlpBase64,
   serializeSpansToOtlpBytes,
@@ -31,9 +37,67 @@ describe('exporters/otlp', () => {
     );
   });
 
+  describe('isSpanIngestionUnsupportedError', () => {
+    const mlflowErrorBody = JSON.stringify({
+      error_code: 'RESOURCE_DOES_NOT_EXIST',
+      message: 'no such experiment',
+    });
+
+    it.each([
+      ['501 from a store that cannot log spans', new MlflowHttpError(501, 'Not Implemented', '')],
+      ['405', new MlflowHttpError(405, 'Method Not Allowed', '')],
+      ['404 from a server without the route', new MlflowHttpError(404, 'Not Found', '')],
+    ])('treats %s as unsupported', (_name, err) => {
+      expect(isSpanIngestionUnsupportedError(err)).toBe(true);
+    });
+
+    it.each([
+      ['404 carrying an MLflow error_code', new MlflowHttpError(404, 'Not Found', mlflowErrorBody)],
+      ['500', new MlflowHttpError(500, 'Internal Server Error', '')],
+      ['a network error', new Error('ECONNRESET')],
+    ])('does not treat %s as unsupported', (_name, err) => {
+      expect(isSpanIngestionUnsupportedError(err)).toBe(false);
+    });
+  });
+
   describe('serialization', () => {
     afterEach(() => {
       jest.restoreAllMocks();
+    });
+
+    it('decodes JSON-encoded attributes and turns a remote parent into a link', () => {
+      const serializeSpy = jest.spyOn(ProtobufTraceSerializer, 'serializeRequest');
+      const remoteParent = {
+        traceId: '0af7651916cd43dd8448eb211c80319c',
+        spanId: 'b7ad6b7169203331',
+        traceFlags: TraceFlags.SAMPLED,
+        isRemote: true,
+      };
+      const span = new BasicTracerProvider()
+        .getTracer('otlp-test')
+        .startSpan('otlp-test-span', {}, otelTrace.setSpanContext(ROOT_CONTEXT, remoteParent));
+      span.setAttribute('mlflow.spanType', JSON.stringify('LLM'));
+      span.setAttribute('not.json', '"unterminated');
+      span.setAttribute('plain', 'text');
+      span.setAttribute('count', 3);
+      span.end();
+      const readable = span as unknown as OTelReadableSpan;
+
+      const bytes = serializeSpansToOtlpBytes([readable], 'http://localhost:5000');
+
+      const [serialized] = serializeSpy.mock.calls[0][0];
+      expect(serialized.attributes).toEqual({
+        'mlflow.spanType': 'LLM',
+        'not.json': '"unterminated',
+        plain: 'text',
+        count: 3,
+      });
+      expect(serialized.parentSpanContext).toBeUndefined();
+      expect(serialized.links).toEqual([{ context: remoteParent }]);
+      // The live span is left untouched.
+      expect(readable.attributes['mlflow.spanType']).toBe('"LLM"');
+      expect(readable.parentSpanContext?.spanId).toBe(remoteParent.spanId);
+      expect(Buffer.from(bytes as Uint8Array).includes(Buffer.from('otlp-test-span'))).toBe(true);
     });
 
     it('does not serialize spans for Databricks tracking URIs', () => {

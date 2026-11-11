@@ -74,15 +74,45 @@ describe('MlflowSpanExporter', () => {
     exporter = new MlflowSpanExporter(client as any);
   });
 
-  it('sends OTLP spans to the tracking store after the artifact upload', async () => {
+  it('sends OTLP spans to the tracking store without waiting for the artifact upload', async () => {
     const bytes = new Uint8Array([1, 2, 3]);
     mockedSerialize.mockReturnValue(bytes);
+    let finishUpload!: () => void;
+    client.uploadTraceData.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishUpload = resolve;
+      }),
+    );
 
     exporter.export([makeRootSpan()], () => {});
-    await exporter.forceFlush();
+    await new Promise((resolve) => setImmediate(resolve));
 
+    // The artifact upload is still in flight, yet the spans were already sent.
+    expect(client.uploadTraceData).toHaveBeenCalledTimes(1);
     expect(client.exportOtlpSpans).toHaveBeenCalledTimes(1);
     expect(client.exportOtlpSpans).toHaveBeenCalledWith('exp-1', bytes);
+
+    finishUpload();
+    await exporter.forceFlush();
+  });
+
+  it('reports the export as failed when the artifact upload fails', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      mockedSerialize.mockReturnValue(new Uint8Array([1]));
+      client.uploadTraceData.mockRejectedValue(new Error('artifact store down'));
+
+      exporter.export([makeRootSpan()], () => {});
+      await exporter.forceFlush();
+
+      expect(client.exportOtlpSpans).toHaveBeenCalledTimes(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to export trace tr-abc'),
+        expect.objectContaining({ message: 'artifact store down' }),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('attributes spans to the experiment persisted by createTrace', async () => {
@@ -167,6 +197,49 @@ describe('MlflowSpanExporter', () => {
       expect(client.exportOtlpSpans).toHaveBeenCalledTimes(1);
       expect(warnSpy).toHaveBeenCalledTimes(1);
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('not supported'));
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('latches when the server has no span-ingestion route', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockedSerialize.mockReturnValue(new Uint8Array([1]));
+      client.exportOtlpSpans.mockRejectedValue(new MlflowHttpError(404, 'Not Found', ''));
+
+      exporter.export([makeRootSpan()], () => {});
+      await exporter.forceFlush();
+      exporter.export([makeRootSpan()], () => {});
+      await exporter.forceFlush();
+
+      expect(client.exportOtlpSpans).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('keeps sending after a 404 that is about one request, not the route', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockedSerialize.mockReturnValue(new Uint8Array([1]));
+      client.exportOtlpSpans.mockRejectedValue(
+        new MlflowHttpError(
+          404,
+          'Not Found',
+          JSON.stringify({ error_code: 'RESOURCE_DOES_NOT_EXIST', message: 'no such experiment' }),
+        ),
+      );
+
+      exporter.export([makeRootSpan()], () => {});
+      await exporter.forceFlush();
+      exporter.export([makeRootSpan()], () => {});
+      await exporter.forceFlush();
+
+      expect(client.exportOtlpSpans).toHaveBeenCalledTimes(2);
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to send OTLP spans'));
     } finally {
       warnSpy.mockRestore();
     }

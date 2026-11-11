@@ -1,6 +1,7 @@
 import { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { isDatabricksUri } from '../auth';
+import { MlflowHttpError } from '../clients/utils';
 import { MAX_OTLP_REQUEST_BYTES } from '../core/constants';
 import { withoutRemoteParent } from '../core/utils';
 
@@ -48,6 +49,28 @@ function spanWithDecodedAttributes(span: OTelReadableSpan): OTelReadableSpan {
  */
 export function supportsOtlpSpanIngestion(trackingUri: string): boolean {
   return !isDatabricksUri(trackingUri);
+}
+
+/**
+ * Whether `err` means the tracking server does not implement OTLP span
+ * ingestion at all, as opposed to rejecting this one request. Callers latch on
+ * it so they stop POSTing (and warning) for every trace.
+ *
+ * - 405 / 501: the route exists but the backing store cannot log spans (e.g. a
+ *   FileStore-backed server).
+ * - 404 without an MLflow `error_code`: the server has no `/v1/traces` route.
+ *   The route itself also maps MLflow errors to their HTTP status, so a 404
+ *   that carries an `error_code` (e.g. `RESOURCE_DOES_NOT_EXIST`) is about this
+ *   request only and must not disable ingestion.
+ */
+export function isSpanIngestionUnsupportedError(err: unknown): err is MlflowHttpError {
+  if (!(err instanceof MlflowHttpError)) {
+    return false;
+  }
+  if (err.status === 405 || err.status === 501) {
+    return true;
+  }
+  return err.status === 404 && err.errorCode === undefined;
 }
 
 /**
