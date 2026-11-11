@@ -15,6 +15,8 @@ from typing import Any
 
 FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
 EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
+PR_BATCH_SIZE = 20
+CHECK_PAGE_SIZE = 20
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
 PR_BUDGET = 5
@@ -47,7 +49,7 @@ CHECK_FIELDS = f"""
     conclusion
     detailsUrl
     permalink
-    steps(first: 20) {{
+    steps(first: 10) {{
       nodes {{ {STEP_FIELDS} }}
       pageInfo {{ hasNextPage endCursor }}
     }}
@@ -82,12 +84,12 @@ PR_FIELDS = f"""
   comments(first: 10) {{ {COMMENTS_FIELDS} }}
   statusCheckRollup {{
     id
-    contexts(first: 100) {{ {CONTEXT_FIELDS} }}
+    contexts(first: {CHECK_PAGE_SIZE}) {{ {CONTEXT_FIELDS} }}
   }}
 """
 SEARCH_QUERY = f"""
 query($search: String!, $cursor: String) {{
-  search(query: $search, type: ISSUE, first: 100, after: $cursor) {{
+  search(query: $search, type: ISSUE, first: {PR_BATCH_SIZE}, after: $cursor) {{
     nodes {{ ... on PullRequest {{ {PR_FIELDS} }} }}
     pageInfo {{ hasNextPage endCursor }}
   }}
@@ -141,8 +143,8 @@ def fetch_prs(repository: str, numbers: list[str]) -> list[dict[str, Any]]:
     owner, name = repository.split("/")
     prs: list[dict[str, Any]] = []
     if numbers:
-        for offset in range(0, len(numbers), 100):
-            batch = numbers[offset : offset + 100]
+        for offset in range(0, len(numbers), PR_BATCH_SIZE):
+            batch = numbers[offset : offset + PR_BATCH_SIZE]
             aliases = "\n".join(
                 f"pr_{number}: pullRequest(number: {number}) {{ {PR_FIELDS} }}" for number in batch
             )
@@ -233,7 +235,7 @@ def check_connection(rollup: dict[str, Any]) -> Connection:
 
 
 def fetch_checks(rollup: dict[str, Any]) -> list[dict[str, Any]]:
-    return fetch_connections([check_connection(rollup)])[0]
+    return fetch_connections([check_connection(rollup)], page_size=CHECK_PAGE_SIZE)[0]
 
 
 def read_history(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
@@ -390,7 +392,8 @@ def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[
 
     connections = [check_connection(pr["statusCheckRollup"]) for pr in eligible]
     candidates = []
-    for pr, checks in zip(eligible, fetch_connections(connections), strict=True):
+    checks_by_pr = fetch_connections(connections, page_size=CHECK_PAGE_SIZE)
+    for pr, checks in zip(eligible, checks_by_pr, strict=True):
         runs = latest_workflow_runs(checks)
         if pending := unfinished_jobs(runs):
             sys.stderr.write(
@@ -443,7 +446,7 @@ def discover(args: argparse.Namespace) -> int:
     except (RuntimeError, ValueError, KeyError, TypeError) as error:
         sys.stderr.write(f"Could not select Repair PRs: {error}\n")
         return 1
-    sys.stdout.write(json.dumps(candidates) + "\n")
+    args.out_path.write_text(json.dumps(candidates) + "\n")
     return 0
 
 
@@ -711,6 +714,7 @@ def main() -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     discovery = commands.add_parser("discover", help="Select PRs without unfinished CI jobs")
     discovery.add_argument("--prs", default=os.environ.get("PR_NUMBERS", ""))
+    discovery.add_argument("--out-path", type=Path, required=True)
     discovery.set_defaults(func=discover)
     budget = commands.add_parser("check-budget", help="Check the PR history before repairing")
     budget.add_argument("--context", dest="context_path", type=Path, required=True)

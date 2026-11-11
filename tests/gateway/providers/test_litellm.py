@@ -1,3 +1,4 @@
+import asyncio
 from unittest import mock
 
 import pytest
@@ -10,6 +11,10 @@ from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.litellm import LiteLLMAdapter, LiteLLMProvider
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.ssrf import upstream_ssrf_protection
+from mlflow.utils.validation import (
+    _validate_gateway_secret_auth_config,
+    _validate_gateway_secret_value,
+)
 
 TEST_MESSAGE = "This is a test"
 
@@ -1190,6 +1195,7 @@ def chat_config_with_base_url_alias():
         ("custom_llm_provider", "ollama"),
         ("aws_bedrock_runtime_endpoint", "http://127.0.0.1:11434"),
         ("aws_sts_endpoint", "http://127.0.0.1:11434"),
+        ("gigachat_auth_url", "https://oauth.example.com/token"),
         ("aws_region_name", "evil.example/invocations?x="),
         ("vertex_location", "evil.example/#"),
         ("vertex_ai_location", "evil.example/#"),
@@ -1238,6 +1244,44 @@ async def test_passthrough_rejects_destination_override_in_request_payload():
 
     assert exc.value.status_code == 400
     mock_completion.assert_not_called()
+
+
+@pytest.mark.parametrize("operation", ["chat", "chat_stream", "embeddings", "passthrough"])
+@pytest.mark.parametrize("key", ["aws_profile_name", "vertex_credentials"])
+@pytest.mark.asyncio
+async def test_provider_rejects_credential_overrides(operation, key):
+    config = chat_config()
+    if operation == "embeddings":
+        config["endpoint_type"] = "llm/v1/embeddings"
+    with (
+        mock.patch("litellm.acompletion") as completion,
+        mock.patch("litellm.aembedding") as embedding,
+    ):
+        provider = LiteLLMProvider(EndpointConfig(**config))
+        extra = {key: "caller-credential-source"}
+        if operation == "embeddings":
+            call = provider.embeddings(embeddings.RequestPayload(input="hello", **extra))
+        elif operation == "chat_stream":
+            call = anext(
+                provider.chat_stream(
+                    chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}], **extra)
+                )
+            )
+        elif operation == "passthrough":
+            call = provider.passthrough(
+                PassthroughAction.OPENAI_CHAT,
+                {"messages": [{"role": "user", "content": "Hello"}], **extra},
+                headers=None,
+            )
+        else:
+            call = provider.chat(
+                chat.RequestPayload(messages=[{"role": "user", "content": "Hello"}], **extra)
+            )
+        with pytest.raises(HTTPException, match=f"The request must not set '{key}'") as exc:
+            await call
+    assert exc.value.status_code == 400
+    completion.assert_not_called()
+    embedding.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1291,6 +1335,7 @@ async def test_chat_folds_public_base_url_alias_into_api_base_when_upstream_prot
         ),
         ("aws_bedrock_runtime_endpoint", "http://10.0.0.1/"),
         ("aws_sts_endpoint", "http://10.0.0.1/"),
+        ("gigachat_auth_url", "https://oauth.example.com/token"),
     ],
 )
 async def test_chat_rejects_stored_destination_keys_when_upstream_protection_is_on(
@@ -1320,3 +1365,87 @@ async def test_chat_passes_stored_base_url_through_when_upstream_protection_is_o
         await provider.chat(chat.RequestPayload(**payload))
 
     assert mock_completion.call_args[1]["base_url"] == "https://custom-api.example.com"
+
+
+def _prepare_litellm_kwargs(payload, auth_config, protected):
+    # The kwargs policy only needs configuration, not the optional transport runtime.
+    provider = LiteLLMProvider.__new__(LiteLLMProvider)
+    provider.litellm_config = LiteLLMConfig(litellm_auth_config=auth_config)
+    token = upstream_ssrf_protection.set(protected)
+    try:
+        return asyncio.run(provider._prepare_litellm_kwargs(payload))
+    finally:
+        upstream_ssrf_protection.reset(token)
+
+
+@pytest.mark.parametrize("protected", [False, True])
+@pytest.mark.parametrize("value", ["caller-value", None])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "aws_access_key_id",
+        "aws_secret_access_key",
+        "aws_session_token",
+        "aws_session_name",
+        "aws_profile_name",
+        "aws_role_name",
+        "aws_web_identity_token",
+        "aws_external_id",
+        "aws_session_tags",
+        "vertex_credentials",
+        "vertex_ai_credentials",
+    ],
+)
+def test_credential_request_guard(key, value, protected):
+    with pytest.raises(HTTPException, match=f"The request must not set '{key}'") as exc:
+        _prepare_litellm_kwargs({key: value}, {key: "configured-value"}, protected)
+    assert exc.value.status_code == 400
+    assert "caller-value" not in exc.value.detail
+    assert "configured-value" not in exc.value.detail
+
+
+@pytest.mark.parametrize("protected", [False, True])
+@pytest.mark.parametrize(
+    ("payload", "auth_config"),
+    [
+        (
+            {"aws_profile_name": "caller-profile"},
+            {"aws_access_key_id": "configured-key", "aws_secret_access_key": "configured-secret"},
+        ),
+        ({"vertex_credentials": "caller-credentials"}, {"vertex_ai_credentials": "configured"}),
+        ({"vertex_ai_credentials": "caller-credentials"}, {"vertex_credentials": "configured"}),
+    ],
+)
+def test_credential_selector_guard_precedes_configuration_merge(payload, auth_config, protected):
+    with pytest.raises(HTTPException, match="provider credentials are fixed") as exc:
+        _prepare_litellm_kwargs(payload, auth_config, protected)
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.parametrize("protected", [False, True])
+@pytest.mark.parametrize(
+    "auth_config",
+    [
+        {"aws_access_key_id": "configured-key", "aws_secret_access_key": "configured-secret"},
+        {"aws_session_token": "configured-token"},
+        {"aws_profile_name": "configured-profile"},
+        {"aws_role_name": "configured-role", "aws_session_name": "configured-session"},
+        {"aws_web_identity_token": "configured-token", "aws_external_id": "configured-id"},
+        {"aws_session_tags": [{"Key": "team", "Value": "configured-team"}]},
+        {"vertex_credentials": "configured-credentials"},
+        {"vertex_ai_credentials": "configured-credentials"},
+    ],
+)
+def test_credential_guard_preserves_stored_configuration(auth_config, protected):
+    assert _validate_gateway_secret_auth_config(auth_config) == auth_config
+    _validate_gateway_secret_value(auth_config)
+    payload = {"messages": [], "temperature": 0.5, "top_k": 2}
+    assert _prepare_litellm_kwargs(payload, auth_config, protected) == payload | auth_config
+    assert payload == {"messages": [], "temperature": 0.5, "top_k": 2}
+
+
+def test_credential_request_guard_with_private_upstream_opt_out(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_API_BASE_ALLOW_PRIVATE_IPS", "true")
+    with pytest.raises(HTTPException, match="The request must not set 'aws_profile_name'") as exc:
+        _prepare_litellm_kwargs({"aws_profile_name": "caller-profile"}, None, protected=True)
+    assert exc.value.status_code == 400

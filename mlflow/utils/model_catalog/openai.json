@@ -3224,7 +3224,15 @@
         "input_per_million_tokens": 20.0,
         "output_per_million_tokens": 100.0,
         "cache_read_per_million_tokens": 2.0,
-        "cache_write_per_million_tokens": 25.0
+        "cache_write_per_million_tokens": 25.0,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_read_per_million_tokens": 4.0,
+            "input_per_million_tokens": 40.0,
+            "output_per_million_tokens": 150.0
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -3233,7 +3241,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-06"
+      "last_updated_at": "2026-11-10"
     },
     "gpt-6-luna": {
       "mode": "chat",
@@ -3842,7 +3850,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-25"
+      "deprecation_date": "2027-02-10",
+      "last_updated_at": "2026-11-10"
     },
     "gpt-image-2-2026-04-21": {
       "mode": "image_generation",
@@ -3864,7 +3873,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-25"
+      "deprecation_date": "2027-02-10",
+      "last_updated_at": "2026-11-10"
     },
     "gpt-image-2.5-flare": {
       "mode": "image_generation",
