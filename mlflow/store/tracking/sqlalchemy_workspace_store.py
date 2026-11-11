@@ -53,6 +53,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersion,
     SqlSkillVersionTag,
     SqlSpanCostDailyRollup,
+    SqlSpanMCPServerLink,
     SqlTraceInfo,
     SqlTraceMetricDailyRollup,
     SqlTraceRollupRebuild,
@@ -100,6 +101,9 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return query.join(
                 SqlExperiment, SqlTraceInfo.experiment_id == SqlExperiment.experiment_id
             ).filter(SqlExperiment.workspace == workspace)
+
+        if model is SqlSpanMCPServerLink:
+            return query.filter(SqlSpanMCPServerLink.mcp_workspace == workspace)
 
         if model is SqlIssue:
             return query.join(

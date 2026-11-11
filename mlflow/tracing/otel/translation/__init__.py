@@ -9,6 +9,7 @@ and performance.
 
 import json
 import logging
+from collections.abc import Collection
 from typing import Any
 
 from mlflow.entities.span import Span, SpanType
@@ -480,7 +481,9 @@ def update_cost(
     return current_cost
 
 
-def strip_otlp_double_encoding(attributes: dict[str, Any]) -> dict[str, Any]:
+def strip_otlp_double_encoding(
+    attributes: dict[str, Any], *, raw_attribute_keys: Collection[str] | None = None
+) -> dict[str, Any]:
     """
     Strip the extra JSON encoding layer that Span.from_otel_proto adds to attribute values.
 
@@ -488,9 +491,13 @@ def strip_otlp_double_encoding(attributes: dict[str, Any]) -> dict[str, Any]:
     values before export, so from_otel_proto encodes them a second time. A raw string from a
     third-party OTel client that happens to be JSON (e.g. '{"a": 1}') is also unwrapped here,
     so it is stored as a structured value. This is intended: the chat UI relies on it.
+    Attributes listed in raw_attribute_keys keep their single encoding from from_otel_proto.
     """
     updated_attributes = {}
     for key, value in attributes.items():
+        if raw_attribute_keys is not None and key in raw_attribute_keys:
+            updated_attributes[key] = value
+            continue
         try:
             result = json.loads(value)
             if isinstance(result, str):

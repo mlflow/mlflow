@@ -39,6 +39,7 @@ from mlflow.server.otlp_metrics import (
 )
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import MCP_SPAN_ATTRIBUTE_KEYS
 from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
@@ -217,7 +218,8 @@ async def export_traces(
                     try:
                         mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
                         mlflow_span._span._attributes = strip_otlp_double_encoding(
-                            mlflow_span._span._attributes
+                            mlflow_span._span._attributes,
+                            raw_attribute_keys=MCP_SPAN_ATTRIBUTE_KEYS,
                         )
 
                         # Propagate service.name onto root spans so it's visible

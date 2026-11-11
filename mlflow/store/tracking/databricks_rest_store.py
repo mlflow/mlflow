@@ -74,7 +74,10 @@ from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.utils import parse_trace_id_v4
-from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, resource_to_otel_proto
+from mlflow.tracing.utils.otlp import (
+    OTLP_TRACES_PATH,
+    resource_to_otel_proto,
+)
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     parse_uc_location,

@@ -16,10 +16,16 @@ def get_request_workspace() -> str | None:
     Resolution order:
     1) Request-scoped ContextVar (set by server middleware or explicit setters).
     2) ``MLFLOW_WORKSPACE`` environment variable (client-side fallback, including threads).
+
+    A resolved server context, including an explicit absence of a workspace, takes precedence
+    over the client environment.
     """
 
     if workspace := (_WORKSPACE.get() or "").strip():
         return workspace
+
+    if _IS_WORKSPACE_RESOLVED.get():
+        return None
 
     if env_workspace := (MLFLOW_WORKSPACE.get() or "").strip():
         return env_workspace
