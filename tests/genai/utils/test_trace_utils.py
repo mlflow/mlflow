@@ -4,12 +4,12 @@ from collections import OrderedDict
 from typing import Any
 from unittest import mock
 
-import httpx
 import numpy as np
 import openai
 import pandas as pd
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities.assessment import Expectation
@@ -52,6 +52,12 @@ from mlflow.types.responses import ResponsesAgentResponse
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
 
+# openai>=3 sends requests through `httpx2` instead of `httpx`.
+if Version(openai.__version__).major >= 3:
+    import httpx2 as httpx
+else:
+    import httpx
+
 
 def httpx_send_patch(request, *args, **kwargs):
     return httpx.Response(
@@ -83,11 +89,12 @@ def get_openai_predict_fn(with_tracing=False):
         mlflow.openai.autolog()
 
     def predict_fn(request):
-        with mock.patch("httpx.Client.send", side_effect=httpx_send_patch):
+        with mock.patch.object(httpx.Client, "send", side_effect=httpx_send_patch) as mock_send:
             response = openai.OpenAI().chat.completions.create(
                 messages=request["messages"],
                 model="gpt-4o-mini",
             )
+            mock_send.assert_called_once()
             return response.choices[0].message.content
 
     return predict_fn
