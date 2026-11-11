@@ -53,7 +53,8 @@ jobs:
       - uses: ./.github/actions/setup-node
 
       - name: Fetch and transform model catalog
-        run: uv run python dev/update_model_catalog.py
+        run: |
+          uv run python dev/update_model_catalog.py
 
       - name: Regenerate claude-code pricing snapshot
         working-directory: libs/typescript
@@ -145,7 +146,7 @@ jobs:
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
             gh pr edit "$existing_pr" \
               --remove-reviewer TomeHirata \
-              --add-label auto-rerun \
+              --add-label auto-repair \
               --add-label team-review
             echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
@@ -153,7 +154,7 @@ jobs:
             pr_url=$(gh pr create \
               --title "Update model catalog from upstream sources" \
               --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-              --label auto-rerun \
+              --label auto-repair \
               --label team-review)
             echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
@@ -192,4 +193,5 @@ jobs:
       - name: Publish to GitHub Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash dev/publish_model_catalog.sh
+        run: |
+          bash dev/publish_model_catalog.sh

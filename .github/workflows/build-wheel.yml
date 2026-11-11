@@ -17,6 +17,7 @@ on:
       - ".github/workflows/triage.yml"
       - ".github/workflows/verify.yml"
       - ".github/workflows/resolve.yml"
+      - ".github/workflows/repair.yml"
       - ".github/workflows/nightly.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"

@@ -25,6 +25,29 @@ _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 _OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
+def redact_uri_credentials(uri: str | None) -> str | None:
+    """Redact userinfo and URI options before including a configured URI in an error message."""
+    if not uri:
+        return uri
+    try:
+        parsed = urllib.parse.urlparse(uri)
+    except ValueError:
+        return "<redacted URI>"
+    if not parsed.netloc and not (
+        parsed.params or parsed.query or parsed.fragment or ";" in parsed.path
+    ):
+        return uri
+    # Unescaped delimiters in userinfo can make credentials look like a path or query.
+    if parsed.netloc and any("@" in part for part in parsed[2:]):
+        return "<redacted URI>"
+    netloc = parsed.netloc
+    if "@" in netloc:
+        netloc = f"***@{netloc.rsplit('@', 1)[1]}"
+    return parsed._replace(
+        netloc=netloc, path=parsed.path.split(";", 1)[0], params="", query="", fragment=""
+    ).geturl()
+
+
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
     """Returns true if the specified URI is a local file path (/foo or file:/foo).
 
@@ -507,8 +530,8 @@ def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
         not be an absolute path
 
     Set ``validate_windows_aliases`` for local filesystem access and its server authorization.
-    On Windows it also rejects components ending in dots or spaces, DOS short-name spellings
-    containing ``~N``, and alternate data stream syntax containing ``:``.
+    On Windows it also rejects components ending in dots or spaces, DOS short-name patterns with
+    ``~N`` at a component end or before a dot, and alternate data stream syntax containing ``:``.
     Alias validation applies to raw artifact paths, including ``file:`` spellings.
     Remote artifact names may be valid POSIX or object-store paths even on a Windows client.
     """

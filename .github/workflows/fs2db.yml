@@ -17,6 +17,7 @@ on:
       - ".github/workflows/triage.yml"
       - ".github/workflows/verify.yml"
       - ".github/workflows/resolve.yml"
+      - ".github/workflows/repair.yml"
       - ".github/workflows/nightly.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
@@ -58,7 +59,8 @@ jobs:
       - name: Install MLflow ${{ matrix.mlflow-version }}
         env:
           MLFLOW_VERSION: ${{ matrix.mlflow-version }}
-        run: uv run --with "mlflow==$MLFLOW_VERSION" --no-project mlflow --version
+        run: |
+          uv run --with "mlflow==$MLFLOW_VERSION" --no-project mlflow --version
 
       - name: Generate synthetic data for MLflow ${{ matrix.mlflow-version }}
         env:
@@ -90,4 +92,5 @@ jobs:
       - uses: ./.github/actions/setup-python
 
       - name: Run fs2db pytest tests
-        run: uv run pytest tests/store/fs2db
+        run: |
+          uv run pytest tests/store/fs2db

@@ -57,6 +57,7 @@ from mlflow.genai.evaluation.entities import (
     EvaluationResult,
     ScorerStat,
 )
+from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RateLimiter,
@@ -670,6 +671,7 @@ def run(
     run_id: str | None = None,
     dataset: Any | None = None,
     extra_aggregations: dict[str, list[str]] | None = None,
+    quality_criteria: list[QualityCriteriaRule] | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -840,6 +842,7 @@ def run(
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
         pass_criteria=pass_criteria,
+        quality_criteria=quality_criteria or [],
     )
 
 
