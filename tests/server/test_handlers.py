@@ -11547,6 +11547,34 @@ def test_detect_issues_handler_analyzes_the_given_traces(
     assert params["filter_string"] is None
 
 
+def test_detect_issues_handler_rejects_trace_ids_that_dont_exist(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    mock_tracking_store.batch_get_trace_infos.return_value = [_trace_info_in("trace-1", "exp-123")]
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={
+                "experiment_id": "exp-123",
+                "model": "gateway:/e",
+                "trace_ids": ["trace-1", "trace-typo"],
+            },
+        )
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    message = resp.get_json()["message"]
+    assert "1 of `trace_ids` not found in experiment exp-123: trace-typo" in message
+    detect_issues_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
 def test_detect_issues_handler_rejects_traces_from_another_experiment(
     monkeypatch, mock_tracking_store, detect_issues_client
 ):

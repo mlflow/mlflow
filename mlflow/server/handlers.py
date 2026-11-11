@@ -5737,13 +5737,14 @@ def _set_review_queue_item_status():
 
 def _validate_trace_ids_in_experiment(
     tracking_store: AbstractTrackingStore, trace_ids: list[str], experiment_id: str
-) -> None:
+) -> list[TraceInfo]:
     """
     Reject the request if any requested trace that exists belongs to an experiment other
     than ``experiment_id``. The route validators only check the caller's permission on the
     request's ``experiment_id``, so this binds the caller-supplied ``trace_ids`` to that
     authorized experiment. Missing traces are not rejected here; they are left to fail
-    downstream in the job, which preserves the existing contract for missing traces.
+    downstream in the job, which preserves the existing contract for missing traces. Returns
+    the requested traces that exist, for a caller that rejects missing ones itself.
     """
     try:
         # Deliberately not scoped with `experiment_ids`: scoping would hide foreign traces and
@@ -5768,6 +5769,7 @@ def _validate_trace_ids_in_experiment(
                 "Not all requested traces could be accessed.",
                 error_code=PERMISSION_DENIED,
             )
+    return trace_infos
 
 
 @catch_mlflow_exception
@@ -5994,7 +5996,16 @@ def _detect_issues():
     store = _get_tracking_store()
     experiment = store.get_experiment(experiment_id)
     if trace_ids:
-        _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
+        found = {
+            info.trace_id
+            for info in _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
+        }
+        # Rejected here rather than left to fail the job, so a mistyped ID doesn't start a run.
+        if missing := [trace_id for trace_id in trace_ids if trace_id not in found]:
+            shown = ", ".join(missing[:10]) + (", ..." if len(missing) > 10 else "")
+            raise MlflowException.invalid_parameter_value(
+                f"{len(missing)} of `trace_ids` not found in experiment {experiment_id}: {shown}"
+            )
     model, credentials = _resolve_issue_detection_model(
         store, experiment, request_message.model or None
     )
