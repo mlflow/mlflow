@@ -698,6 +698,34 @@ def test_delete_artifacts(http_artifact_repo, remote_file_path):
         )
 
 
+@pytest.mark.parametrize(
+    ("operation", "expected_endpoint"),
+    [
+        (lambda repo, f: repo.log_artifact(f, "cv#1"), "/cv%231/a%3Fb.txt"),
+        (lambda repo, f: repo._download_file("cv#1/a?b.txt", f), "/cv%231/a%3Fb.txt"),
+        (lambda repo, f: repo.delete_artifacts("cv#1/a?b.txt"), "/cv%231/a%3Fb.txt"),
+        (
+            lambda repo, f: repo._get_presigned_download_url("cv#1/a?b.txt"),
+            "/mlflow-artifacts/presigned/cv%231/a%3Fb.txt",
+        ),
+        (
+            lambda repo, f: repo.create_multipart_upload(f, 1, "cv#1"),
+            "/mlflow-artifacts/mpu/create/cv%231",
+        ),
+    ],
+)
+def test_endpoints_quote_artifact_paths(http_artifact_repo, tmp_path, operation, expected_endpoint):
+    local_file = tmp_path / "a?b.txt"
+    local_file.write_text("data")
+    response = MockStreamResponse("data", 200)
+    response.json = lambda: {"url": "https://example.com", "upload_id": "id", "credentials": []}
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request", return_value=response
+    ) as mock_request:
+        operation(http_artifact_repo, str(local_file))
+    assert mock_request.call_args.args[1] == expected_endpoint
+
+
 def test_create_multipart_upload(http_artifact_repo, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
     with mock.patch(
