@@ -11683,7 +11683,7 @@ def test_detect_issues_handler_tells_the_ui_from_api_callers(
             {},
             {},
             "INVALID_PARAMETER_VALUE",
-            "",
+            "Invalid clause(s) in filter string",
             id="malformed_filter",
         ),
         pytest.param(
