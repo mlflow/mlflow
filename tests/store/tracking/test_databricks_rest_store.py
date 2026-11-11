@@ -482,6 +482,33 @@ def test_delete_trace_tag_fallback():
         assert result is None
 
 
+@pytest.mark.parametrize(
+    ("key", "expected_endpoint"),
+    [
+        ("k", "/api/2.0/mlflow/experiments/123/tags/k"),
+        ("foo/bar baz", "/api/2.0/mlflow/experiments/123/tags/foo%2Fbar%20baz"),
+    ],
+)
+def test_delete_experiment_tag(key, expected_endpoint):
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        result = store.delete_experiment_tag("123", key)
+
+    mock_http.assert_called_once_with(
+        host_creds=creds,
+        endpoint=expected_endpoint,
+        method="DELETE",
+        raise_on_status=False,
+        json=None,
+    )
+    assert result is None
+
+
 @pytest.mark.parametrize("sql_warehouse_id", [None, "warehouse_override"])
 def test_batch_get_traces(monkeypatch, sql_warehouse_id):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")

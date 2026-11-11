@@ -253,9 +253,9 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: check-init-py
-        name: check-init-py
-        entry: uv run --only-group lint dev/check_init_py.py
+      - id: check-init
+        name: check-init
+        entry: uv run --only-group lint dev/check_init.py
         language: system
         files: '^(mlflow|tests)/.*\.py$'
         stages: [pre-commit]

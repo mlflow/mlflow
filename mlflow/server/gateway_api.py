@@ -680,8 +680,9 @@ def _enable_upstream_ssrf_protection(
     so typed routes leave them alone.
     """
     if raw_proxy or any(
-        model.auth_config and any(model.auth_config.get(key) for key in GATEWAY_DESTINATION_KEYS)
+        config and any(config.get(key) for key in GATEWAY_DESTINATION_KEYS)
         for model in endpoint_config.models
+        for config in (model.auth_config, model.secret_value)
     ):
         upstream_ssrf_protection.set(True)
 

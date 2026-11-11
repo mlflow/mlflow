@@ -57,6 +57,7 @@ from mlflow.server.auth.sqlalchemy_store import (
     RoleGrantRow,
     SqlAlchemyStore,
 )
+from mlflow.server.constants import ARTIFACTS_DESTINATION_ENV_VAR
 from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces
 from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
@@ -1644,9 +1645,7 @@ def test_filter_experiment_ids_role_specific_grant(workspace_permission_setup, m
         workspace_context._WORKSPACE.reset(token)
 
 
-@pytest.mark.parametrize(
-    ("permission", "expected_ids"), [(USE, ["exp-1", "exp-2"]), (MANAGE, ["exp-1", "exp-2"])]
-)
+@pytest.mark.parametrize(("permission", "expected_ids"), [(USE, []), (MANAGE, ["exp-1", "exp-2"])])
 def test_filter_experiment_ids_workspace_scope_role(
     workspace_permission_setup, monkeypatch, permission, expected_ids
 ):
@@ -9663,7 +9662,12 @@ def test_registered_model_latest_versions_also_lose_denied_siblings(
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
-    _grant(store, username, "team-a", [("run", "*", DENY.name)])
+    _grant(
+        store,
+        username,
+        "team-a",
+        [("registered_model", "*", READ.name), ("run", "*", DENY.name)],
+    )
     payload = {
         "registered_model": {
             "name": "model-xyz",
@@ -11396,6 +11400,31 @@ def test_parse_artifact_auth_target_workspace_prefix_ignores_case(prefix):
     assert target.workspace == "team-a"
     assert target.experiment_id == "17"
     assert target.relative_path == "17/models/m-1/model.pkl"
+
+
+@pytest.mark.parametrize(
+    ("root", "local"),
+    [
+        ("./mlartifacts", True),
+        ("C:\\mlartifacts", True),
+        ("\\\\server\\share", True),
+        ("//server/share", True),
+        ("file:///C:/mlartifacts", True),
+        ("s3://bucket", False),
+        ("gs://bucket", False),
+        ("wasbs://container@account", False),
+    ],
+)
+@pytest.mark.parametrize("name", ["folder.", "folder ", "FOLDER~1", "file:stream"])
+def test_artifact_proxy_windows_aliases_are_local_only(root, local, name, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, root)
+    target = auth_module._parse_artifact_auth_target(f"workspaces/team-a/17/artifacts/{name}")
+    assert target.invalid is local
+    if not local:
+        assert target.workspace == "team-a"
+        assert target.experiment_id == "17"
+        assert target.relative_path == f"17/artifacts/{name}"
 
 
 @pytest.mark.parametrize("prefix", ["workspaces", "WORKSPACES"])

@@ -1,7 +1,42 @@
-import type { HrTime } from '@opentelemetry/api';
+import type { HrTime, SpanContext } from '@opentelemetry/api';
+import type { ReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { Span } from '../entities/span';
 import { SpanAttributeKey } from '../constants';
 import { TokenUsage } from '../entities/trace_info';
+
+/**
+ * Whether the span is the root of this process's part of the trace. A span whose parent is
+ * remote (e.g. propagated through an incoming `traceparent` header) starts a new MLflow trace.
+ */
+export function isRootSpan(span: { parentSpanContext?: SpanContext }): boolean {
+  const parent = span.parentSpanContext;
+  return !parent?.spanId || parent.isRemote === true;
+}
+
+/**
+ * Return a view of `span` for MLflow-bound serialization in which a remote parent is replaced
+ * by a span link, so the exported root span is parentless (as MLflow readback expects) while
+ * still recording its upstream caller. The live OTel span is left unchanged.
+ */
+export function withoutRemoteParent(span: ReadableSpan): ReadableSpan {
+  const parent = span.parentSpanContext;
+  if (!parent?.spanId || !parent.isRemote) {
+    return span;
+  }
+  const links = [...(span.links ?? []), { context: parent }];
+  return new Proxy(span, {
+    get(target, prop) {
+      if (prop === 'parentSpanContext') {
+        return undefined;
+      }
+      if (prop === 'links') {
+        return links;
+      }
+      const value: unknown = Reflect.get(target, prop);
+      return typeof value === 'function' ? (value.bind(target) as unknown) : value;
+    },
+  });
+}
 
 /**
  * OpenTelemetry Typescript SDK uses a unique timestamp format `HrTime` to represent
