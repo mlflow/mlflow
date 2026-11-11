@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDispatch } from 'react-redux';
 import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
-import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
+import { loadMoreRunsApi, RUNS_SEARCH_MAX_RESULTS, searchRunsApi } from '../../../actions';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { createSearchRunsParams, fetchModelVersionsForRuns } from '../utils/experimentPage.fetch-utils';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
@@ -17,6 +17,7 @@ import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../../commo
 import Utils from '../../../../common/utils/Utils';
 import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
 import type { RunEntity, SearchRunsApiResponse } from '../../../types';
+import { useServerInfo } from '../../../hooks/useServerInfo';
 
 export type FetchRunsHookParams = ReturnType<typeof createSearchRunsParams> & {
   requestedFacets: ExperimentPageSearchFacetsState;
@@ -35,11 +36,18 @@ const createFetchRunsRequestParams = (
   searchFacets: ExperimentQueryParamsSearchFacets | null,
   experimentIds: string[],
   runsPinned: string[],
+  pageSize: number,
 ): FetchRunsHookParams | null => {
   if (!searchFacets || !experimentIds.length) {
     return null;
   }
-  const searchParams = createSearchRunsParams(experimentIds, { ...searchFacets, runsPinned }, Date.now());
+  const searchParams = createSearchRunsParams(
+    experimentIds,
+    { ...searchFacets, runsPinned },
+    Date.now(),
+    undefined,
+    pageSize,
+  );
   return { ...searchParams, requestedFacets: searchFacets };
 };
 
@@ -54,6 +62,8 @@ export const useExperimentRuns = (
   disabled = false,
 ) => {
   const dispatch = useDispatch<ThunkDispatch>();
+  const { data: serverInfo, isLoading: isLoadingServerInfo } = useServerInfo();
+  const pageSize = serverInfo?.runs_page_size ?? RUNS_SEARCH_MAX_RESULTS;
 
   const [runsData, setRunsData] = useState<ExperimentRunsSelectorResult>(() => createEmptyRunsResult());
 
@@ -177,17 +187,17 @@ export const useExperimentRuns = (
   // Fetch runs when new request params are available
   // (e.g. after search facets change)
   useEffect(() => {
-    if (disabled) {
+    if (disabled || isLoadingServerInfo) {
       return;
     }
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
+    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current, pageSize);
     if (requestParams) {
       fetchRuns(requestParams);
     }
-  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds]);
+  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds, isLoadingServerInfo, pageSize]);
 
   const loadMoreRuns = async () => {
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
+    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current, pageSize);
     if (!nextPageToken || !requestParams) {
       return [];
     }
@@ -201,6 +211,7 @@ export const useExperimentRuns = (
   }, [fetchRuns]);
 
   useExperimentRunsAutoRefresh({
+    pageSize,
     experimentIds,
     fetchRuns,
     searchFacets,

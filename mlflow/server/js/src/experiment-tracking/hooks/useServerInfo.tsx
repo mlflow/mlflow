@@ -22,6 +22,8 @@ interface ServerInfoResponse {
   skill_content_max_files?: number;
   /** Client auth provider name, when the server advertises one for generated snippets. */
   tracking_auth?: string;
+  /** Runs UI page size. Absent on servers that predate this setting. */
+  runs_page_size?: number;
   presigned_upload_run_id_supported?: boolean;
   presigned_upload_model_id_supported?: boolean;
   model_artifact_presigned_downloads_supported?: boolean;

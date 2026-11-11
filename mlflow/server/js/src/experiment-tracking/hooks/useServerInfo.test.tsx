@@ -50,7 +50,12 @@ describe('useServerInfo', () => {
     setupServer(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {
         return res(
-          ctx.json({ store_type: 'SqlAlchemyStore', workspaces_enabled: false, trace_archival_enabled: false }),
+          ctx.json({
+            store_type: 'SqlAlchemyStore',
+            workspaces_enabled: false,
+            trace_archival_enabled: false,
+            runs_page_size: 250,
+          }),
         );
       }),
     );
@@ -63,6 +68,7 @@ describe('useServerInfo', () => {
       });
 
       expect(result.current.data?.store_type).toBe('SqlAlchemyStore');
+      expect(result.current.data?.runs_page_size).toBe(250);
     });
   });
 

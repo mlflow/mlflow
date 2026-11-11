@@ -510,6 +510,32 @@ def test_server_info():
         assert data[SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED] is True
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(None, 100), ("1", 1), ("250", 250), ("50000", 50000)],
+)
+def test_server_info_runs_page_size(monkeypatch, value, expected):
+    monkeypatch.delenv("MLFLOW_UI_RUNS_PAGE_SIZE", raising=False)
+    if value is not None:
+        monkeypatch.setenv("MLFLOW_UI_RUNS_PAGE_SIZE", value)
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        assert response.get_json()["runs_page_size"] == expected
+
+
+@pytest.mark.parametrize("value", ["", "invalid", "1.5", "0", "-1", "50001"])
+def test_server_info_handles_invalid_runs_page_size(monkeypatch, caplog, value):
+    monkeypatch.setenv("MLFLOW_UI_RUNS_PAGE_SIZE", value)
+
+    with app.test_client() as c:
+        response = c.get("/api/3.0/mlflow/server-info")
+        assert response.status_code == 200
+        assert response.get_json()["runs_page_size"] == 100
+    assert "Invalid MLFLOW_UI_RUNS_PAGE_SIZE" in caplog.text
+
+
 def test_server_info_advertises_configured_tracking_auth(monkeypatch):
     monkeypatch.delenv("MLFLOW_SERVER_INFO_TRACKING_AUTH", raising=False)
     monkeypatch.setenv("MLFLOW_TRACKING_AUTH", "server-outbound-provider")

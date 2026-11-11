@@ -4,7 +4,7 @@ import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSe
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
-import { useExperimentRuns } from './useExperimentRuns';
+import { useExperimentRuns, type FetchRunsHookFunction } from './useExperimentRuns';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
 import { applyMiddleware, combineReducers, createStore } from 'redux';
 import thunk from 'redux-thunk';
@@ -23,7 +23,7 @@ import { Provider } from 'react-redux';
 import { latestMetricsByRunUuid, metricsByRunUuid } from '../../../reducers/MetricReducer';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import Utils from '../../../../common/utils/Utils';
-import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL } from '../utils/experimentPage.fetch-utils';
 import {
   shouldUsePredefinedErrorsInExperimentTracking,
@@ -35,6 +35,10 @@ import { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { NotFoundError, BadRequestError } from '@databricks/web-shared/errors';
 import { ErrorBoundary } from 'react-error-boundary';
 import { runInputsOutputsByUuid } from '../../../reducers/InputsOutputsReducer';
+import { useServerInfo } from '../../../hooks/useServerInfo';
+import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
+
+jest.mock('../../../hooks/useServerInfo', () => ({ useServerInfo: jest.fn() }));
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),
@@ -181,6 +185,9 @@ describe('useExperimentRuns - integration test', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    jest
+      .mocked(useServerInfo)
+      .mockReturnValue({ data: undefined, isLoading: false } as ReturnType<typeof useServerInfo>);
     jest.mocked(searchRunsApi).mockClear();
     jest
       .mocked(searchRunsApi)
@@ -227,6 +234,49 @@ describe('useExperimentRuns - integration test', () => {
     });
     return result;
   };
+  test('uses the configured page size for initial loading, Load more, and manual refresh', async () => {
+    jest.mocked(useServerInfo).mockReturnValue({
+      data: { runs_page_size: 250 },
+      isLoading: false,
+    } as ReturnType<typeof useServerInfo>);
+    jest.mocked(searchRunsApi).mockReturnValue({
+      type: 'SEARCH_RUNS_API',
+      payload: Promise.resolve({ runs: [], next_page_token: 'next-page' }),
+      meta: { id: 0 },
+    });
+
+    const { result } = await renderTestHook();
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250, pageToken: undefined }));
+
+    await act(async () => {
+      await result.current.loadMoreRuns();
+    });
+    expect(loadMoreRunsApi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ maxResults: 250, pageToken: 'next-page' }),
+    );
+
+    await act(async () => {
+      result.current.refreshRuns();
+    });
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250, pageToken: undefined }));
+  });
+
+  test('waits for server info before issuing the initial runs request', async () => {
+    jest
+      .mocked(useServerInfo)
+      .mockReturnValue({ data: undefined, isLoading: true } as ReturnType<typeof useServerInfo>);
+    const { rerender } = await renderTestHook();
+    expect(searchRunsApi).not.toHaveBeenCalled();
+
+    jest.mocked(useServerInfo).mockReturnValue({
+      data: { runs_page_size: 250 },
+      isLoading: false,
+    } as ReturnType<typeof useServerInfo>);
+    rerender({ uiState: testUiState, searchFacets: testSearchFacets, experimentIds: testExperimentIds });
+    expect(searchRunsApi).toHaveBeenCalledTimes(1);
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250 }));
+  });
+
   test('should call for new runs and return processed runs data', async () => {
     // Mock two responses - one for initial runs, one for load more runs
     jest.mocked(searchRunsApi).mockReturnValue({
@@ -258,6 +308,7 @@ describe('useExperimentRuns - integration test', () => {
         runViewType: 'ACTIVE_ONLY',
         runsPinned: [],
         shouldFetchParents: true,
+        maxResults: 100,
       }),
     );
 
@@ -584,6 +635,51 @@ describe('useExperimentRuns - integration test', () => {
         payload: createNRunsResponse(100),
         meta: { id: 0 },
       }));
+    });
+
+    test('caps each auto-refresh request while retaining the target number of runs', async () => {
+      const fetchRuns = jest
+        .fn<FetchRunsHookFunction>()
+        .mockResolvedValueOnce({ runs: new Array(50_000), next_page_token: 'next-page' })
+        .mockResolvedValue({ runs: [] });
+      const { unmount } = renderHook(() =>
+        useExperimentRunsAutoRefresh({
+          pageSize: 50_000,
+          experimentIds: testExperimentIds,
+          lastFetchedTime: { current: Date.now() - RUNS_AUTO_REFRESH_INTERVAL },
+          fetchRuns,
+          searchFacets: testSearchFacets,
+          enabled: true,
+          cachedPinnedRuns: { current: [] },
+          runsData: { runInfos: new Array(50_001) } as ExperimentRunsSelectorResult,
+          isLoadingRuns: false,
+        }),
+      );
+      expect(fetchRuns).toHaveBeenCalledWith(expect.objectContaining({ maxResults: 50_000 }), expect.anything());
+      await waitFor(() => expect(fetchRuns).toHaveBeenCalledTimes(2));
+      expect(fetchRuns).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ maxResults: 50_000, pageToken: 'next-page' }),
+        expect.anything(),
+      );
+      unmount();
+    });
+
+    test('uses the configured page size when automatically refreshing', async () => {
+      jest.mocked(useServerInfo).mockReturnValue({
+        data: { runs_page_size: 250 },
+        isLoading: false,
+      } as ReturnType<typeof useServerInfo>);
+      const { unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+      await act(async () => {
+        jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+      expect(searchRunsApi).toHaveBeenCalledTimes(2);
+      expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250 }));
+      unmount();
     });
 
     test('should query for the new runs', async () => {

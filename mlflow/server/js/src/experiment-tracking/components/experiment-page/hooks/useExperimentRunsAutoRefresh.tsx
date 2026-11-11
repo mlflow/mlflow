@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
 import { isArray, isEqual } from 'lodash';
 import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
@@ -13,6 +12,7 @@ import type { SearchRunsApiResponse } from '../../../types';
  * if user is currently loading runs or changes the search facets.
  */
 export const useExperimentRunsAutoRefresh = ({
+  pageSize,
   experimentIds,
   lastFetchedTime,
   fetchRuns,
@@ -22,6 +22,7 @@ export const useExperimentRunsAutoRefresh = ({
   runsData,
   isLoadingRuns,
 }: {
+  pageSize: number;
   cachedPinnedRuns: React.MutableRefObject<string[]>;
   lastFetchedTime: React.MutableRefObject<number | null>;
   enabled: boolean;
@@ -58,8 +59,7 @@ export const useExperimentRunsAutoRefresh = ({
         const initialRunsCount = currentResults.current.length;
 
         // Use Math.max(1, ...) so at least one page is fetched
-        const requestedRunsCount =
-          Math.max(1, Math.ceil(initialRunsCount / RUNS_SEARCH_MAX_RESULTS)) * RUNS_SEARCH_MAX_RESULTS;
+        const requestedRunsCount = Math.max(1, Math.ceil(initialRunsCount / pageSize)) * pageSize;
 
         const requestParams = {
           ...createSearchRunsParams(
@@ -68,7 +68,8 @@ export const useExperimentRunsAutoRefresh = ({
             Date.now(),
           ),
           requestedFacets: searchFacets,
-          maxResults: requestedRunsCount,
+          // A refresh may span more runs than the server accepts in a single search request.
+          maxResults: Math.min(requestedRunsCount, 50_000),
         };
 
         let autoRefreshFetchedPages = 0;
@@ -130,5 +131,5 @@ export const useExperimentRunsAutoRefresh = ({
     return () => {
       clearTimeout(refreshTimeoutRef.current);
     };
-  }, [experimentIds, fetchRuns, searchFacets, enabled, cachedPinnedRuns, lastFetchedTime, isLoadingRuns]);
+  }, [experimentIds, fetchRuns, searchFacets, enabled, cachedPinnedRuns, lastFetchedTime, isLoadingRuns, pageSize]);
 };
