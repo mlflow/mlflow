@@ -73,6 +73,7 @@ jobs:
           ./dev/run-python-skinny-tests.sh
 
   python:
+    name: python (${{ matrix.mode }} ${{ matrix.group }}/${{ matrix.splits }})
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
@@ -81,9 +82,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
+        # `parallel` shards run the bulk of the suite under pytest-xdist. `serial` shards run the
+        # xdist-hostile tests (see `_XDIST_SERIAL_PATHS` in tests/conftest.py) one at a time. They
+        # only conflict with tests running concurrently on the same machine, so giving them their
+        # own runners keeps them serial without making them wait for the parallel pass.
         include:
-          - splits: 4
+          - { mode: parallel, splits: 6, group: 1 }
+          - { mode: parallel, splits: 6, group: 2 }
+          - { mode: parallel, splits: 6, group: 3 }
+          - { mode: parallel, splits: 6, group: 4 }
+          - { mode: parallel, splits: 6, group: 5 }
+          - { mode: parallel, splits: 6, group: 6 }
+          - { mode: serial, splits: 4, group: 1 }
+          - { mode: serial, splits: 4, group: 2 }
+          - { mode: serial, splits: 4, group: 3 }
+          - { mode: serial, splits: 4, group: 4 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,15 +124,13 @@ jobs:
           uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         env:
+          MODE: ${{ matrix.mode }}
           SPLITS: ${{ matrix.splits }}
           GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          # Two passes: the bulk of the suite runs in parallel across cores with
-          # pytest-xdist (`--serial=exclude -n auto`), and the xdist-hostile tests
-          # (shared Spark session, process-global Flask app / server config,
-          # env-building subprocesses; see `_XDIST_SERIAL_PATHS` in tests/conftest.py)
-          # run serially afterward (`--serial=only`, no `-n`).
+          # `--serial` filters the collected tests before `--splits`/`--group` shards them, so
+          # the parallel and serial shards partition the suite independently.
           COMMON_ARGS=(
             --splits="$SPLITS" --group="$GROUP"
             --quiet --requires-ssh --ignore-flavors
@@ -129,10 +140,14 @@ jobs:
             --ignore=tests/docker
             tests
           )
-          uv run --no-sync pytest --serial=exclude -n auto --dist loadscope "${COMMON_ARGS[@]}"
-          uv run --no-sync pytest --serial=only "${COMMON_ARGS[@]}"
+          if [[ "$MODE" == "parallel" ]]; then
+            uv run --no-sync pytest --serial=exclude -n auto --dist loadscope "${COMMON_ARGS[@]}"
+          else
+            uv run --no-sync pytest --serial=only "${COMMON_ARGS[@]}"
+          fi
 
       - name: Run databricks-connect related tests
+        if: matrix.mode == 'serial' && matrix.group == 1
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other
           # tests that uses normal SparkSession instead of remote SparkSession
@@ -144,6 +159,14 @@ jobs:
     timeout-minutes: 90
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # Each backend runs in its own containers (`tests/db/compose.sh` tears down volumes
+        # before every command), so the backends share no state and can run on separate runners.
+        db: [postgresql, mysql, mssql, sqlite]
+    env:
+      DB: ${{ matrix.db }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -151,51 +174,30 @@ jobs:
       - uses: ./.github/actions/untracked
       - name: Build
         run: |
-          ./tests/db/compose.sh pull -q postgresql mysql mssql
+          # SQLite has no database server image to pull.
+          if [[ "$DB" != "sqlite" ]]; then
+            ./tests/db/compose.sh pull -q "$DB"
+          fi
           docker images --digests
-          ./tests/db/compose.sh build
+          ./tests/db/compose.sh build "mlflow-$DB" "migration-$DB"
       - name: Run tests
         run: |
-          set +e
-          err=0
-          trap 'err=1' ERR
-          RESULTS=""
-          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
-          do
-            # Set `--no-TTY` to show container logs on GitHub Actions:
-            # https://github.com/actions/virtual-environments/issues/5022
-            ./tests/db/compose.sh run --rm --no-TTY $service pytest -q \
-              tests/store/tracking/sqlalchemy_store \
-              tests/store/tracking/test_gateway_sql_store.py \
-              tests/store/model_registry/test_sqlalchemy_store.py \
-              tests/store/model_registry/test_sqlalchemy_workspace_store.py \
-              tests/store/workspace/test_sqlalchemy_store.py \
-              tests/db
-              RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
-          done
-
-          echo -e "$RESULTS"
-          test $err = 0
+          # Set `--no-TTY` to show container logs on GitHub Actions:
+          # https://github.com/actions/virtual-environments/issues/5022
+          ./tests/db/compose.sh run --rm --no-TTY "mlflow-$DB" pytest -q \
+            tests/store/tracking/sqlalchemy_store \
+            tests/store/tracking/test_gateway_sql_store.py \
+            tests/store/model_registry/test_sqlalchemy_store.py \
+            tests/store/model_registry/test_sqlalchemy_workspace_store.py \
+            tests/store/workspace/test_sqlalchemy_store.py \
+            tests/db
 
       - name: Run migration check
         run: |
-          ./tests/db/compose.sh down --volumes --remove-orphans
-          results=()
-          failed=0
-          for service in $(./tests/db/compose.sh config --services | grep '^migration-')
-          do
-            if ./tests/db/compose.sh run --rm --no-TTY "$service"; then
-              results+=("$service: ✅")
-            else
-              status=$?
-              results+=("$service: ❌ (exit code $status)")
-              echo "::error::Migration check failed for $service (exit code $status)"
-              failed=1
-            fi
-          done
-
-          printf '%s\n' "${results[@]}"
-          exit "$failed"
+          if ! ./tests/db/compose.sh run --rm --no-TTY "migration-$DB"; then
+            echo "::error::Migration check failed for migration-$DB"
+            exit 1
+          fi
 
       - name: Clean up
         run: |
@@ -259,9 +261,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3]
+        group: [1, 2, 3, 4]
         include:
-          - splits: 3
+          - splits: 4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -295,9 +297,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1]
+        group: [1, 2, 3]
         include:
-          - splits: 1
+          - splits: 3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -322,6 +324,8 @@ jobs:
         run: |
           uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
+        # Not covered by `--splits`, so run it in one shard only.
+        if: matrix.group == 1
         run: |
           uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
 
@@ -330,6 +334,12 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # The OSS and Databricks runs are separate pytest invocations (the latter adds
+        # databricks-agents via `uv run --with`), so they run on separate runners.
+        variant: [oss, databricks]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -362,6 +372,7 @@ jobs:
             deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm google-adk google-cloud-aiplatform
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
+        if: matrix.variant == 'oss'
         run: |
           # guardrails-ai is not installed (see the install step), so skip its
           # tests to keep collection of the rest of tests/genai from breaking.
@@ -370,6 +381,7 @@ jobs:
             --ignore tests/genai/scorers/guardrails
 
       - name: Run GenAI Tests (Databricks)
+        if: matrix.variant == 'databricks'
         run: |
           # guardrails-ai is not installed (see the install step), so skip its
           # tests here too. https://github.com/guardrails-ai/guardrails/issues/1505
