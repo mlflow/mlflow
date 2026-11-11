@@ -3761,7 +3761,7 @@ def test_alternate_run_creation_paths_carry_the_run_veto(
 def test_detect_issues_carries_the_trace_veto(
     workspace_permission_setup, monkeypatch, trace_denied
 ):
-    """Detection's job reads the experiment's traces from the store, so a trace DENY refuses it."""
+    # Detection's job reads the experiment's traces from the store, so a trace DENY refuses it.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
