@@ -11,6 +11,7 @@ APP = "mlflow-app[bot]"
 APP_ID = 191841109
 COPILOT = "copilot-pull-request-reviewer[bot]"
 MAX_ROUNDS = 3
+PATCH_PATHS = Path(__file__).resolve().parents[2] / "patch-paths.txt"
 THREADS_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
   repository(owner: $owner, name: $name) {
@@ -305,6 +306,10 @@ def apply_patch(patch: Path) -> None:
     paths = git("diff", "--cached", "--name-only", "--no-renames", "-z").split("\0")[:-1]
     if not paths:
         raise ValueError("Patch is empty")
+    lines = (line.strip() for line in PATCH_PATHS.read_text().splitlines())
+    allowed = tuple(line for line in lines if line and not line.startswith("#"))
+    if outside := [path for path in paths if not path.startswith(allowed)]:
+        raise ValueError(f"Patch changes paths outside {PATCH_PATHS.name}: {', '.join(outside)}")
     staged = git("ls-files", "--stage", "-z", "--", *paths).split("\0")[:-1]
     if any(not entry.startswith(("100644 ", "100755 ")) for entry in staged):
         raise ValueError("Patch contains a symlink or submodule")

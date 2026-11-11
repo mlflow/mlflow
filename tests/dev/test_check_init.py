@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 
-def get_check_init_py_script() -> Path:
-    return Path(__file__).resolve().parents[2] / "dev" / "check_init_py.py"
+def get_check_init_script() -> Path:
+    return Path(__file__).resolve().parents[2] / "dev" / "check_init.py"
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def test_exits_with_0_when_all_directories_have_init_py(temp_git_repo: Path) -> 
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()],
+        [sys.executable, get_check_init_script()],
         capture_output=True,
         text=True,
         cwd=temp_git_repo,
@@ -51,7 +51,7 @@ def test_exits_with_1_when_directories_missing_init_py(temp_git_repo: Path) -> N
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()],
+        [sys.executable, get_check_init_script()],
         capture_output=True,
         text=True,
         cwd=temp_git_repo,
@@ -77,7 +77,7 @@ def test_exits_with_0_when_no_python_files_exist(temp_git_repo: Path) -> None:
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()],
+        [sys.executable, get_check_init_script()],
         capture_output=True,
         text=True,
         cwd=temp_git_repo,
@@ -104,7 +104,7 @@ def test_identifies_only_directories_missing_init_py(temp_git_repo: Path) -> Non
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()],
+        [sys.executable, get_check_init_script()],
         capture_output=True,
         text=True,
         cwd=temp_git_repo,
@@ -131,7 +131,7 @@ def test_checks_tests_directory_for_missing_init_py(temp_git_repo: Path) -> None
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()],
+        [sys.executable, get_check_init_script()],
         capture_output=True,
         text=True,
         cwd=temp_git_repo,
@@ -159,7 +159,7 @@ def test_exits_with_0_when_tests_directories_have_init_py(temp_git_repo: Path) -
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()],
+        [sys.executable, get_check_init_script()],
         capture_output=True,
         text=True,
         cwd=temp_git_repo,
@@ -182,7 +182,7 @@ def test_ignores_non_test_files_in_tests_directory(temp_git_repo: Path) -> None:
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()],
+        [sys.executable, get_check_init_script()],
         capture_output=True,
         text=True,
         cwd=temp_git_repo,
@@ -210,7 +210,7 @@ def test_checks_all_parent_directories(temp_git_repo: Path) -> None:
     subprocess.check_call(["git", "commit", "-m", "Initial commit"], cwd=temp_git_repo)
 
     result = subprocess.run(
-        [sys.executable, get_check_init_py_script()],
+        [sys.executable, get_check_init_script()],
         capture_output=True,
         text=True,
         cwd=temp_git_repo,

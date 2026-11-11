@@ -6,7 +6,7 @@ Python files also have an `__init__.py` file. This prevents `setuptools` from ex
 directories during package build and ensures test modules are properly structured.
 
 Usage:
-    uv run dev/check_init_py.py
+    uv run dev/check_init.py
 
 Requirements:
 - If `mlflow/foo/bar.py` exists, `mlflow/foo/__init__.py` must exist.
