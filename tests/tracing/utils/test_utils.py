@@ -1285,6 +1285,22 @@ def test_trace_json_encoder_serializes_numpy_objects():
     }
 
 
+def test_trace_json_encoder_serializes_extended_precision_numpy_objects():
+    np = pytest.importorskip("numpy")
+
+    value = {
+        "longdouble": np.longdouble(1.5),
+        "clongdouble": np.clongdouble(1 + 2j),
+        "array": np.array([1.5, 2.5], dtype=np.longdouble),
+    }
+
+    assert json.loads(json.dumps(value, cls=TraceJSONEncoder)) == {
+        "longdouble": str(np.longdouble(1.5)),
+        "clongdouble": str(np.clongdouble(1 + 2j)),
+        "array": [str(np.longdouble(1.5)), str(np.longdouble(2.5))],
+    }
+
+
 def test_trace_decorator_records_numpy_inputs_and_outputs():
     np = pytest.importorskip("numpy")
 

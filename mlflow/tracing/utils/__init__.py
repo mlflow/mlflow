@@ -82,7 +82,10 @@ class TraceJSONEncoder(json.JSONEncoder):
         # NumPy is looked up lazily so this module stays importable without it (mlflow-skinny).
         np = sys.modules.get("numpy")
         if np is not None and isinstance(obj, (np.ndarray, np.generic)):
-            return obj.tolist()
+            converted = obj.tolist()
+            # Extended-precision types (e.g. np.longdouble) convert to themselves, which would
+            # re-enter default() indefinitely, so fall back to their string representation.
+            return str(obj) if isinstance(converted, np.generic) else converted
 
         # Some dataclass object defines __str__ method that doesn't return the full object
         # representation, so we use dict representation instead.
