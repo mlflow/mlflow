@@ -423,6 +423,26 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "gemini-4-carbon": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.1
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-11"
+    },
     "gpt-3.5-turbo": {
       "mode": "chat",
       "context_window": {
