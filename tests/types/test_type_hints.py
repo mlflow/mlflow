@@ -449,6 +449,11 @@ def test_type_hints_validation_errors():
         (None, int | None, None),
         (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
         (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),
+        (
+            pd.DataFrame({"a": [1, 3], "b": [2, 4]}),
+            list[dict[str, int]],
+            [{"a": 1, "b": 2}, {"a": 3, "b": 4}],
+        ),
         # This is a temp workaround for evaluate
         (pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str], ["x", "y"]),
     ],
