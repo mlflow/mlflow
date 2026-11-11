@@ -432,14 +432,19 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
             if not result["data"]["resolveReviewThread"]["thread"]["isResolved"]:
                 raise ValueError("GitHub did not close the resolved thread")
 
-    reviewer = current["author"]
-    # An approver has already signed off, so don't ask them to review again. NaiLaOpus
-    # can't be requested as a reviewer; it reviews when a `/review` comment asks it to.
-    if blocked or review["state"] == "APPROVED" or reviewer == NAILAOPUS:
+    # An approver has already signed off, so don't ask them to review again.
+    if blocked or review["state"] == "APPROVED":
         return
     pr = api(endpoint)
     if not eligible(pr, repo) or pr["head"]["sha"] != head:
         raise ValueError("PR head changed before the review request")
+    reviewer = current["author"]
+    if reviewer == NAILAOPUS:
+        # NaiLaOpus can't be requested as a reviewer; a `/review` comment starts it instead.
+        if tree:
+            api(issue_comments, data={"body": "/review"})
+            summary("Requested a NaiLaOpus review of the fix.")
+        return
     requested = api(f"{endpoint}/requested_reviewers")["users"]
     reviews = list_items(f"{endpoint}/reviews")
     if any(user["login"] == reviewer for user in requested) or any(
