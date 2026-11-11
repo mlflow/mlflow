@@ -790,10 +790,15 @@ def test_tool_calling_loop(mock_trace):
 
 
 @pytest.mark.parametrize(
-    ("call_id", "signatures"), [("call_1", ["sig_1"]), (None, ["sig_1", "sig_2"])]
+    ("call_ids", "signatures", "prune"),
+    [
+        (["call_1"], ["sig_1"], False),
+        ([None, None], ["sig_1", "sig_2"], False),
+        (["call_1", "call_2"], ["sig_1", "sig_2"], True),
+    ],
 )
 def test_tool_calling_loop_preserves_gemini_thought_signatures(
-    mock_trace, monkeypatch, call_id, signatures
+    mock_trace, monkeypatch, call_ids, signatures, prune
 ):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
 
@@ -808,12 +813,18 @@ def test_tool_calling_loop_preserves_gemini_thought_signatures(
             "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
         }
 
-    function_call = {"name": "get_trace_info", "args": {}}
-    if call_id is not None:
-        function_call["id"] = call_id
-    responses = [
-        response([{"functionCall": function_call, "thoughtSignature": sig}]) for sig in signatures
-    ]
+    responses = []
+    for call_id, sig in zip(call_ids, signatures, strict=True):
+        function_call = {"name": "get_trace_info", "args": {}}
+        if call_id is not None:
+            function_call["id"] = call_id
+        responses.append(response([{"functionCall": function_call, "thoughtSignature": sig}]))
+    if prune:
+        responses.append(
+            ChatCompletionError(
+                400, "maximum context length exceeded", is_context_window_error=True
+            )
+        )
     responses.append(response([{"text": json.dumps({"result": "yes", "rationale": "ok"})}]))
 
     def process_tool_calls(tool_calls, trace):
@@ -845,18 +856,26 @@ def test_tool_calling_loop_preserves_gemini_thought_signatures(
             num_retries=0,
         )
 
-    assert mock_send.call_count == len(signatures) + 1
+    assert mock_send.call_count == len(signatures) + 1 + int(prune)
     assert mock_process.call_args_list == [
         mock.call(tool_calls=mock.ANY, trace=mock_trace) for _ in signatures
     ]
     assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
     final_payload = mock_send.call_args_list[-1].kwargs["payload"]
     model_turns = [c for c in final_payload["contents"] if c["role"] == "model"]
-    assert len(model_turns) == len(signatures)
+    expected_signatures = signatures[1:] if prune else signatures
+    assert len(model_turns) == len(expected_signatures)
     assert [
         part["thoughtSignature"] for turn in model_turns for part in turn["parts"]
-    ] == signatures
-    if call_id is not None:
+    ] == expected_signatures
+    if prune:
+        assert [
+            part["functionResponse"]["id"]
+            for turn in final_payload["contents"]
+            for part in turn["parts"]
+            if "functionResponse" in part
+        ] == ["call_2"]
+    if len(call_ids) == 1:
         assert model_turns[0]["parts"] == [
             {
                 "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
