@@ -205,15 +205,17 @@ jobs:
       - name: Resolve agent model and effort
         id: agent
         env:
-          MODEL: ${{ inputs.model || vars.REPAIR_MODEL || 'databricks-claude-sonnet-5-5' }}
-          EFFORT: ${{ inputs.effort || vars.REPAIR_EFFORT || 'high' }}
+          # Triage PRs can get a pushed code fix, so they use a model at least as capable as the
+          # triage bot's. Other PRs only get reruns or base merges.
+          MODEL: ${{ inputs.model || (matrix.pr.author_is_bot && startsWith(matrix.pr.head_ref, 'triage/') && (vars.REPAIR_FIX_MODEL || 'databricks-claude-opus-5-5')) || vars.REPAIR_MODEL || 'databricks-claude-sonnet-5-5' }}
+          EFFORT: ${{ inputs.effort || (matrix.pr.author_is_bot && startsWith(matrix.pr.head_ref, 'triage/') && (vars.REPAIR_FIX_EFFORT || 'high')) || vars.REPAIR_EFFORT || 'high' }}
         run: |
           # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
           [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
           case "$EFFORT" in
             low | medium | high | xhigh | max) ;;
             *)
-              echo "::error::Invalid effort '$EFFORT'. Check the REPAIR_EFFORT repository variable."
+              echo "::error::Invalid effort '$EFFORT'. Check the REPAIR_EFFORT or REPAIR_FIX_EFFORT repository variable."
               exit 1
               ;;
           esac
@@ -350,6 +352,13 @@ jobs:
           python "$SCRIPT" validate \
             --payload "$OUT_DIR/payload.json" \
             --context "$CONTEXT_PATH"
+      - name: Checkout PR head
+        if: steps.validate.outputs.action_type == 'fix'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.pr.head_sha }}
+          path: pr
+          persist-credentials: false
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: steps.validate.outputs.action_type != '' && env.DRY_RUN != 'true'
         id: app-token
@@ -359,8 +368,8 @@ jobs:
           owner: mlflow
           repositories: mlflow
           permission-actions: ${{ steps.validate.outputs.action_type == 'rerun' && 'write' || '' }}
-          permission-pull-requests: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
-          permission-contents: ${{ steps.validate.outputs.action_type == 'push' && 'write' || '' }}
+          permission-pull-requests: ${{ contains(fromJSON('["push", "fix"]'), steps.validate.outputs.action_type) && 'write' || '' }}
+          permission-contents: ${{ contains(fromJSON('["push", "fix"]'), steps.validate.outputs.action_type) && 'write' || '' }}
       - name: Execute or preview repair plan
         if: steps.validate.outcome == 'success'
         id: execute
@@ -368,13 +377,15 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
           DRY_RUN_FLAG: ${{ env.DRY_RUN == 'true' && '--dry-run' || '--no-dry-run' }}
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python "$SCRIPT" execute \
             --payload "$OUT_DIR/payload.json" \
             --context "$CONTEXT_PATH" \
             "$DRY_RUN_FLAG"
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        if: steps.execute.outcome == 'success' && env.DRY_RUN != 'true'
+        if: always() && (steps.execute.outcome == 'success' || steps.validate.outputs.action_type == 'fix') && env.DRY_RUN != 'true'
         id: history-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
@@ -383,7 +394,7 @@ jobs:
           repositories: mlflow
           permission-pull-requests: write
       - name: Record or preview repair history
-        if: steps.execute.outcome == 'success'
+        if: always() && (steps.execute.outcome == 'success' || steps.validate.outputs.action_type == 'fix')
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.history-token.outputs.token || secrets.GITHUB_TOKEN }}
