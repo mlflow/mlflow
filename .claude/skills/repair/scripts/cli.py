@@ -32,16 +32,9 @@ COMMENTS_FIELDS = f"""
   pageInfo {{ hasNextPage endCursor }}
 """
 
-STEP_FIELDS = """
-  name
-  number
-  status
-  conclusion
-"""
-# Limit the first step page to keep nested PR/check/step searches below GitHub's node limit.
-CHECK_FIELDS = f"""
+CHECK_FIELDS = """
   __typename
-  ... on CheckRun {{
+  ... on CheckRun {
     id
     databaseId
     name
@@ -49,23 +42,19 @@ CHECK_FIELDS = f"""
     conclusion
     detailsUrl
     permalink
-    steps(first: 10) {{
-      nodes {{ {STEP_FIELDS} }}
-      pageInfo {{ hasNextPage endCursor }}
-    }}
-    checkSuite {{
+    checkSuite {
       status
       conclusion
-      app {{ slug }}
-      workflowRun {{
+      app { slug }
+      workflowRun {
         databaseId
         createdAt
         event
         runAttempt
-        workflow {{ resourcePath }}
-      }}
-    }}
-  }}
+        workflow { resourcePath }
+      }
+    }
+  }
 """
 CONTEXT_FIELDS = f"""
   nodes {{ {CHECK_FIELDS} }}
@@ -262,13 +251,10 @@ def read_history(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
 
 
 def context_hash(context: dict[str, Any]) -> str:
-    runs = []
-    for run in context["failed_runs"]:
-        jobs = [
-            {**job, "failed_steps": sorted(job["failed_steps"], key=lambda step: step["number"])}
-            for job in run["job_runs"]
-        ]
-        runs.append({**run, "job_runs": sorted(jobs, key=lambda job: job["id"])})
+    runs = [
+        {**run, "job_runs": sorted(run["job_runs"], key=lambda job: job["id"])}
+        for run in context["failed_runs"]
+    ]
     context = {**context, "failed_runs": sorted(runs, key=lambda run: run["run_id"])}
     return hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
 
@@ -313,20 +299,12 @@ def unfinished_jobs(runs: list[dict[str, Any]]) -> list[str]:
 
 
 def failed_job_context(check: dict[str, Any]) -> dict[str, Any]:
-    steps = (
-        fetch_connections([
-            Connection(check["id"], "CheckRun", "steps", STEP_FIELDS, check["steps"])
-        ])[0]
-        if check["steps"] is not None
-        else []
-    )
     return {
         "id": check["databaseId"],
         "name": check["name"],
         "status": check["status"],
         "conclusion": check["conclusion"],
         "url": check["detailsUrl"] or check["permalink"],
-        "failed_steps": [step for step in steps if step["conclusion"] in FAILED_CONCLUSIONS],
     }
 
 
