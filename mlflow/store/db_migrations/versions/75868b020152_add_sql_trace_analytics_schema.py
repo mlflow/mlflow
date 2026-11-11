@@ -28,9 +28,12 @@ down_revision = "b7e2c1a4d9f3"
 branch_labels = None
 depends_on = None
 
-_logger = logging.getLogger(__name__)
+# Alembic imports this file as a top-level module, so `__name__` would put the logger outside the
+# `mlflow` logger tree and drop INFO records. Use an explicit name instead.
+_logger = logging.getLogger("mlflow.store.db_migrations.versions.75868b020152")
 
 _BATCH_SIZE = 250
+_PROGRESS_EVERY_BATCHES = 100
 _TOKEN_COLUMNS = _backfill.TOKEN_COLUMNS
 _COST_COLUMNS = _backfill.COST_COLUMNS
 _finite_float_or_none = _backfill.finite_float_or_none
@@ -47,19 +50,41 @@ _SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY = "mlflow.llm.provider"
 
 
 def upgrade():
-    _validate_required_trace_joins()
-    _validate_dimension_attributes()
-    _add_analytics_columns()
-    _backfill_trace_analytics()
-    _backfill_span_analytics()
-    _backfill_trace_costs_from_spans()
-    _backfill_assessment_analytics()
-    _validate_backfill()
-    _finalize_assessment_not_null()
-    _create_rollup_tables()
-    _cleanup_legacy_analytics()
-    _drop_dimension_attributes()
-    _create_analytics_indexes()
+    steps = [
+        _validate_required_trace_joins,
+        _validate_dimension_attributes,
+        _add_analytics_columns,
+        _backfill_trace_analytics,
+        _backfill_span_analytics,
+        _backfill_trace_costs_from_spans,
+        _backfill_assessment_analytics,
+        _validate_backfill,
+        _finalize_assessment_not_null,
+        _create_rollup_tables,
+        _cleanup_legacy_analytics,
+        _drop_dimension_attributes,
+        _create_analytics_indexes,
+    ]
+    for i, step in enumerate(steps, start=1):
+        _logger.info("Trace analytics migration step %d/%d: %s", i, len(steps), step.__name__)
+        step()
+
+
+def _log_backfill_progress(entity, batch_count, scanned, updated, done=False):
+    if done:
+        _logger.info(
+            "Trace analytics %s backfill complete: scanned=%d, updated=%d",
+            entity,
+            scanned,
+            updated,
+        )
+    elif batch_count == 1 or batch_count % _PROGRESS_EVERY_BATCHES == 0:
+        _logger.info(
+            "Trace analytics %s backfill progress: scanned=%d, updated=%d",
+            entity,
+            scanned,
+            updated,
+        )
 
 
 def downgrade():
@@ -428,6 +453,7 @@ def _backfill_trace_analytics():
         *_COST_COLUMNS.values(),
     ]
     last_request_id = None
+    batch_count = scanned = updated = 0
     while True:
         # Read the destination columns alongside the keys so rows already filled by the online
         # prepopulation utility can be skipped instead of rewritten under the migration's lock.
@@ -503,6 +529,12 @@ def _backfill_trace_analytics():
         if updates:
             _execute_backfill_updates(bind, update_stmt, updates, "trace")
         last_request_id = batch_ids[-1]
+        batch_count += 1
+        scanned += len(batch)
+        updated += len(updates)
+        _log_backfill_progress("trace", batch_count, scanned, updated)
+
+    _log_backfill_progress("trace", batch_count, scanned, updated, done=True)
 
     if sum(truncation_counts.values()):
         _logger.warning(
@@ -538,6 +570,7 @@ def _backfill_span_analytics():
     truncation_counts = {"model_name": 0, "model_provider": 0}
     value_columns = [*_COST_COLUMNS.values(), "model_name", "model_provider"]
     last_span_key = None
+    batch_count = scanned = updated = 0
     while True:
         # Read the destination columns so rows already filled by the online prepopulation utility
         # can be skipped instead of rewritten under the migration's lock.
@@ -591,6 +624,12 @@ def _backfill_span_analytics():
         if updates:
             _execute_backfill_updates(bind, update_stmt, updates, "span")
         last_span_key = span_keys[-1]
+        batch_count += 1
+        scanned += len(batch)
+        updated += len(updates)
+        _log_backfill_progress("span", batch_count, scanned, updated)
+
+    _log_backfill_progress("span", batch_count, scanned, updated, done=True)
 
     if sum(truncation_counts.values()):
         _logger.warning(
@@ -655,6 +694,7 @@ def _backfill_assessment_analytics():
         "aggregate_value",
         "is_numeric_value",
     ]
+    batch_count = scanned = updated = 0
     while True:
         # Read the destination columns so rows already filled by the online prepopulation utility
         # can be skipped instead of rewritten under the migration's lock.
@@ -691,6 +731,12 @@ def _backfill_assessment_analytics():
         if updates:
             _execute_backfill_updates(bind, update_stmt, updates, "assessment")
         last_assessment_id = batch[-1].assessment_id
+        batch_count += 1
+        scanned += len(batch)
+        updated += len(updates)
+        _log_backfill_progress("assessment", batch_count, scanned, updated)
+
+    _log_backfill_progress("assessment", batch_count, scanned, updated, done=True)
 
 
 def _validate_required_trace_joins():
