@@ -68,6 +68,7 @@ _logger = logging.getLogger(__name__)
 
 # Global cache to track model capabilities across function calls
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
+_THOUGHT_SIGNATURES_ATTR = "_mlflow_gateway_thought_signatures"
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +89,6 @@ class ParsedResponse:
     message: "ChatMessage"
     # Keys: "prompt_tokens" and "completion_tokens"
     usage: dict[str, Any]
-    # Gemini thought signatures aligned with ``message.tool_calls`` (None when absent)
-    thought_signatures: list[str | None]
 
 
 # ---------------------------------------------------------------------------
@@ -113,21 +112,18 @@ def _tool_call_to_dict(tool_call: "ToolCall", thought_signature: str | None) -> 
     return d
 
 
-def _message_to_dict(
-    msg: "ChatMessage", thought_signatures: list[str | None] | None = None
-) -> dict[str, Any]:
+def _message_to_dict(msg: "ChatMessage") -> dict[str, Any]:
     """Serialize a ChatMessage to OpenAI message format, omitting None fields.
 
-    ``thought_signatures`` holds the Gemini thought signatures that must be echoed back with
-    ``msg.tool_calls``, aligned by position. ``mlflow.types.llm.ToolCall`` has no field for
-    them, and tool call IDs can't be used as keys because Gemini derives missing IDs from the
-    function name and arguments, so repeated identical calls share an ID.
+    Gemini thought signatures live in private message metadata, aligned by position with
+    ``msg.tool_calls``. Call IDs cannot be used as keys because Gemini derives missing IDs
+    from the function name and arguments, so repeated identical calls share an ID.
     """
     d: dict[str, Any] = {"role": msg.role}
     if msg.content is not None:
         d["content"] = msg.content
     if msg.tool_calls is not None:
-        sigs = thought_signatures or []
+        sigs = getattr(msg, _THOUGHT_SIGNATURES_ATTR, [])
         d["tool_calls"] = [
             _tool_call_to_dict(tc, sigs[i] if i < len(sigs) else None)
             for i, tc in enumerate(msg.tool_calls)
@@ -158,15 +154,10 @@ def _build_request(
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
     inference_params: dict[str, Any] | None,
-    thought_signatures: dict[int, list[str | None]] | None = None,
 ) -> dict[str, Any]:
-    """Build an OpenAI-format chat completions request payload.
-
-    ``thought_signatures`` maps ``id(message)`` to that message's tool call signatures.
-    """
-    thought_signatures = thought_signatures or {}
+    """Build an OpenAI-format chat completions request payload."""
     payload: dict[str, Any] = {
-        "messages": [_message_to_dict(msg, thought_signatures.get(id(msg))) for msg in messages],
+        "messages": [_message_to_dict(msg) for msg in messages],
     }
 
     if tools:
@@ -275,15 +266,13 @@ def _parse_response_message(
             "completion_tokens": getattr(chat_response.usage, "completion_tokens", None),
         }
 
-    return ParsedResponse(
-        message=ChatMessage(
-            role=resp_msg.role,
-            content=content,
-            tool_calls=tool_calls_raw,
-        ),
-        usage=usage,
-        thought_signatures=thought_signatures,
+    message = ChatMessage(
+        role=resp_msg.role,
+        content=content,
+        tool_calls=tool_calls_raw,
     )
+    object.__setattr__(message, _THOUGHT_SIGNATURES_ATTR, thought_signatures)
+    return ParsedResponse(message=message, usage=usage)
 
 
 # ---------------------------------------------------------------------------
@@ -597,11 +586,6 @@ class GatewayAdapter(BaseJudgeAdapter):
         iteration_count = 0
         total_prompt_tokens: int | None = None
         total_completion_tokens: int | None = None
-        # Keyed by id() of assistant messages in judge_messages. Every assistant message with
-        # tool calls is registered as soon as it is created, so a reused id() of a pruned
-        # message is always overwritten before it is looked up.
-        thought_signatures: dict[int, list[str | None]] = {}
-
         while True:
             iteration_count += 1
             if iteration_count > max_iterations:
@@ -614,7 +598,6 @@ class GatewayAdapter(BaseJudgeAdapter):
                     response_format=response_format,
                     include_response_format=include_response_format,
                     inference_params=inference_params,
-                    thought_signatures=thought_signatures,
                 )
 
                 # Use the provider adapter to transform the request
@@ -673,7 +656,6 @@ class GatewayAdapter(BaseJudgeAdapter):
                 parsed = _parse_response_message(response_data, provider_instance)
                 message = parsed.message
                 usage = parsed.usage
-                thought_signatures[id(message)] = parsed.thought_signatures
 
                 if (prompt_tokens := usage.get("prompt_tokens")) is not None:
                     total_prompt_tokens = (total_prompt_tokens or 0) + prompt_tokens
