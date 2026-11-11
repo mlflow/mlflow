@@ -111,9 +111,12 @@ def graphql(query: str, **variables: str | None) -> dict[str, Any]:
     for name, value in variables.items():
         if value is not None:
             command.extend(["-f", f"{name}={value}"])
-    response: dict[str, Any] = json.loads(
-        subprocess.check_output(command, text=True, stderr=subprocess.PIPE)
-    )
+    start = time.perf_counter()
+    try:
+        output = subprocess.check_output(command, text=True, stderr=subprocess.PIPE)
+    finally:
+        sys.stderr.write(f"gh api graphql took {time.perf_counter() - start:.3f}s\n")
+    response: dict[str, Any] = json.loads(output)
     if response.get("errors") or not isinstance(response.get("data"), dict):
         raise RuntimeError(f"GraphQL lookup failed: {response.get('errors')}")
     data: dict[str, Any] = response["data"]
