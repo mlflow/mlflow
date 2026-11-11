@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from contextlib import contextmanager
 from datetime import date
@@ -772,6 +773,7 @@ def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
 
 
 def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, caplog):
+    caplog.set_level(logging.INFO, logger="mlflow.store.db_migrations")
     engine, config = _prepare_database(tmp_path)
     try:
         with engine.begin() as conn:
@@ -972,6 +974,31 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
             "Truncated span analytics dimensions to 500 characters during backfill: "
             "model_name=3, model_provider=2"
         ]
+
+        progress_logs = [
+            record.getMessage()
+            for record in caplog.records
+            if record.name.startswith("mlflow.")
+            and record.getMessage().startswith("Trace analytics ")
+        ]
+        assert "Trace analytics migration step 1/13: validate_required_trace_joins" in progress_logs
+        assert "Trace analytics migration step 13/13: create_analytics_indexes" in progress_logs
+        trace_backfill_logs = [
+            message for message in progress_logs if message.startswith("Trace analytics trace ")
+        ]
+        # Progress is logged for the first batch and on completion; the 11 batches here stay
+        # below the every-N-batches interval.
+        assert len(trace_backfill_logs) == 2
+        assert trace_backfill_logs[0].startswith(
+            "Trace analytics trace backfill progress: scanned=250, updated="
+        )
+        assert trace_backfill_logs[1].startswith(
+            "Trace analytics trace backfill completed: scanned="
+        )
+        assert any(
+            message.startswith("Trace analytics span_metrics legacy row cleanup completed: ")
+            for message in progress_logs
+        )
 
         with engine.connect() as conn:
             trace_info = _table(conn, "trace_info")
