@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 import pydantic
 
 from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.discovery.constants import (
     CROSS_RUN_MATCH_PROMPT_TEMPLATE,
     DEFAULT_MODEL,
@@ -198,6 +199,7 @@ def match_findings_to_existing_issues(
             [{"role": "user", "content": prompt}],
             response_format=_Matches,
             token_counter=token_counter,
+            gateway_caller=GatewayCaller.ISSUE_DETECTION,
         )
         decided = _Matches.model_validate_json(response.choices[0].message.content)
     except Exception:

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from mlflow.entities.assessment import Feedback
-from mlflow.genai.evaluation.entities import EvalItem, EvalResult
+from mlflow.genai.evaluation.entities import EvalItem, EvalResult, ScorerStat
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers.aggregation import (
     _cast_assessment_value_to_float,
@@ -195,3 +195,77 @@ def test_compute_aggregated_metrics_matches_scorer_name_containing_slash():
         "team/latency/max": pytest.approx(3.0),
         "judges/correctness/min": pytest.approx(1.0),
     }
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        # Some rows fail: the mean covers the scored rows, the count covers the failed ones.
+        ([1.0, 0.0, None], {"scorer/mean": pytest.approx(0.5), "scorer/error_count": 1}),
+        # No row fails: no count is logged.
+        ([1.0, 0.0], {"scorer/mean": pytest.approx(0.5)}),
+        # Every row fails: only the count is logged.
+        ([None, None, None], {"scorer/error_count": 3}),
+    ],
+)
+def test_compute_aggregated_metrics_logs_scorer_error_count(values, expected):
+    scorer = Scorer(name="scorer")
+    eval_results = [
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[
+                Feedback(name="scorer", value=value)
+                if value is not None
+                else Feedback(name="scorer", error=Exception("judge timeout"))
+            ],
+        )
+        for value in values
+    ]
+    scorer_stats = {"scorer": ScorerStat(failure_count=values.count(None), total_count=len(values))}
+
+    result = compute_aggregated_metrics(eval_results, [scorer], scorer_stats=scorer_stats)
+
+    assert result == expected
+
+
+def test_compute_aggregated_metrics_counts_errors_per_scorer_not_per_feedback_name():
+    # A scorer that returns several feedbacks records a failure under its own name.
+    scorer = Scorer(name="multi")
+    eval_results = [
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[Feedback(name="clarity", value=1.0), Feedback(name="safety", value=0.0)],
+        ),
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[Feedback(name="multi", error=Exception("judge timeout"))],
+        ),
+    ]
+    scorer_stats = {"multi": ScorerStat(failure_count=1, total_count=2)}
+
+    result = compute_aggregated_metrics(eval_results, [scorer], scorer_stats=scorer_stats)
+
+    assert result == {
+        "clarity/mean": pytest.approx(1.0),
+        "safety/mean": pytest.approx(0.0),
+        "multi/error_count": 1,
+    }
+
+
+def test_compute_aggregated_metrics_custom_error_count_aggregation_wins():
+    def error_count(x: list[float]) -> float:
+        return 42.0
+
+    scorer = Scorer(name="scorer", aggregations=[error_count])
+    eval_results = [
+        EvalResult(eval_item=_EVAL_ITEM, assessments=[Feedback(name="scorer", value=1.0)]),
+        EvalResult(
+            eval_item=_EVAL_ITEM,
+            assessments=[Feedback(name="scorer", error=Exception("judge timeout"))],
+        ),
+    ]
+    scorer_stats = {"scorer": ScorerStat(failure_count=1, total_count=2)}
+
+    result = compute_aggregated_metrics(eval_results, [scorer], scorer_stats=scorer_stats)
+
+    assert result == {"scorer/error_count": 42.0}

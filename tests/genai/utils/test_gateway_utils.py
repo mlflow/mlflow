@@ -4,9 +4,13 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.genai.utils.gateway_utils import (
     GatewayLiteLLMConfig,
     _resolve_gateway_uri,
+    gateway_caller,
+    get_gateway_caller_headers,
+    get_gateway_config,
     get_gateway_litellm_config,
     server_gateway_uri,
 )
@@ -142,3 +146,51 @@ def test_mlflow_gateway_uri_takes_precedence_over_server_gateway_uri(monkeypatch
 
     with server_gateway_uri("http://127.0.0.1:5000"):
         assert _resolve_gateway_uri() == GATEWAY_URI
+
+
+def test_gateway_config_carries_the_caller_set_by_gateway_caller(gateway_env):
+    with gateway_caller(GatewayCaller.SIMULATOR):
+        assert get_gateway_config("chat").extra_headers == {
+            MLFLOW_GATEWAY_CALLER_HEADER: "simulator"
+        }
+        assert get_gateway_litellm_config("chat").extra_headers == {
+            MLFLOW_GATEWAY_CALLER_HEADER: "simulator"
+        }
+
+    assert get_gateway_config("chat").extra_headers is None
+
+
+def test_gateway_config_keeps_auth_alongside_the_caller(gateway_env, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "alice")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "secret123")
+
+    with gateway_caller(GatewayCaller.ISSUE_DETECTION):
+        config = get_gateway_config("chat")
+
+    expected_encoded = base64.b64encode(b"alice:secret123").decode("ascii")
+    assert config.extra_headers == {
+        "Authorization": f"Basic {expected_encoded}",
+        MLFLOW_GATEWAY_CALLER_HEADER: "issue_detection",
+    }
+
+
+def test_gateway_caller_restores_the_enclosing_caller():
+    with gateway_caller(GatewayCaller.PROMPT_OPTIMIZATION):
+        with gateway_caller(GatewayCaller.ISSUE_DETECTION):
+            assert get_gateway_caller_headers() == {MLFLOW_GATEWAY_CALLER_HEADER: "issue_detection"}
+        with gateway_caller(None):
+            assert get_gateway_caller_headers() == {
+                MLFLOW_GATEWAY_CALLER_HEADER: "prompt_optimization"
+            }
+        assert get_gateway_caller_headers() == {MLFLOW_GATEWAY_CALLER_HEADER: "prompt_optimization"}
+    assert get_gateway_caller_headers() == {}
+
+
+def test_get_gateway_caller_headers_falls_back_to_default():
+    assert get_gateway_caller_headers(default=GatewayCaller.JUDGE) == {
+        MLFLOW_GATEWAY_CALLER_HEADER: "judge"
+    }
+    with gateway_caller(GatewayCaller.SIMULATOR):
+        assert get_gateway_caller_headers(default=GatewayCaller.JUDGE) == {
+            MLFLOW_GATEWAY_CALLER_HEADER: "simulator"
+        }

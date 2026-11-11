@@ -6,9 +6,14 @@ import logging
 import numpy as np
 
 from mlflow.entities.assessment import Feedback
-from mlflow.genai.evaluation.entities import EvalResult
+from mlflow.genai.evaluation.entities import EvalResult, ScorerStat
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.scorers.base import AggregationFunc, Scorer
+from mlflow.utils.validation import (
+    MAX_ENTITY_KEY_LENGTH,
+    path_not_unique,
+    validate_param_and_metric_name,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -27,6 +32,7 @@ def compute_aggregated_metrics(
     eval_results: list[EvalResult],
     scorers: list[Scorer],
     extra_aggregations: dict[str, list[str]] | None = None,
+    scorer_stats: dict[str, ScorerStat] | None = None,
 ) -> dict[str, float]:
     """
     Generates the aggregated per-run metrics from the evaluation result for each row.
@@ -36,6 +42,8 @@ def compute_aggregated_metrics(
         scorers: List of scorers
         extra_aggregations: Aggregations to compute by scorer name, on top of the scorer's own
             ``aggregations``.
+        scorer_stats: Invocation stats by scorer name. Logged as ``<scorer>/error_count`` for
+            scorers that failed at least once.
 
     Returns:
         Dictionary of aggregated metrics (metric name -> aggregated value)
@@ -77,6 +85,21 @@ def compute_aggregated_metrics(
         # Each aggregation should be logged as a separate metric
         for agg_name, agg_value in aggregation_results.items():
             result[f"{name}/{agg_name}"] = agg_value
+
+    # Count failures per scorer invocation (a row, or a session for session-level scorers), the
+    # same count as the failure summary. A custom aggregation named "error_count" takes precedence.
+    for name, stat in (scorer_stats or {}).items():
+        if not stat.has_failures:
+            continue
+        key = f"{name}/error_count"
+        if (
+            len(key) > MAX_ENTITY_KEY_LENGTH
+            or not validate_param_and_metric_name(key)
+            or path_not_unique(key)
+        ):
+            _logger.warning("Skipping scorer error count with invalid metric key %r.", key)
+            continue
+        result.setdefault(key, stat.failure_count)
 
     return result
 
