@@ -418,6 +418,7 @@ from mlflow.server.auth.routes import (
     SEARCH_DATASETS,
     SERVER_VERSION,
     SIGNUP,
+    SYNC_ISSUE_DETECTION_SCHEDULE_STATE,
     UI_TELEMETRY,
     UNASSIGN_ROLE,
     UPDATE_ROLE,
@@ -5600,6 +5601,9 @@ BEFORE_REQUEST_VALIDATORS.update({
     (INVOKE_SCORER, "POST"): validate_can_invoke_scorer,
     # Issue detection may also consume a gateway secret -> additionally require USE on it.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
+    # The schedule dialog calls this right after writing the schedule as experiment tags, and
+    # it writes the schedule state back as tags, so it takes the same check as SetExperimentTag.
+    (SYNC_ISSUE_DETECTION_SCHEDULE_STATE, "POST"): validate_can_update_experiment,
     (INVOKE_GENAI_EVALUATE, "POST"): validate_can_invoke_genai_evaluate,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
@@ -6048,6 +6052,12 @@ JOB_BEFORE_REQUEST_VALIDATORS = {
 }
 
 
+def _deny_unmatched_route() -> bool:
+    # One named object, so the coverage guard can tell a route that only hit a family's
+    # fail-closed fallback from a route with a real validator.
+    return False
+
+
 def _find_validator(req: Request) -> Callable[[], bool] | None:
     """
     Finds the validator matching the request path and method.
@@ -6101,7 +6111,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-        return validator if validator is not None else lambda: False
+        return validator if validator is not None else _deny_unmatched_route
 
     # Job routes (/mlflow/jobs/<job_id>, cancel), ownership-gated. The /mlflow/jobs/ substring
     # is a coarse gate: any path under it that isn't a real job route (including a crafted
@@ -6116,7 +6126,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-        return route_validator if route_validator is not None else lambda: False
+        return route_validator if route_validator is not None else _deny_unmatched_route
 
     # Whole /mlflow/issues/ family; unknown paths fail closed, except the not-yet-gated
     # routes tracked in _KNOWN_UNGATED_ROUTE_MARKERS (e.g. invoke), which fall through.
@@ -6132,7 +6142,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         if validator is not None:
             return validator
         if not _is_known_ungated_route(req.path):
-            return lambda: False
+            return _deny_unmatched_route
 
     # Trace routes with path parameters (e.g. /mlflow/traces/<request_id>/tags).
     # Unknown paths under this prefix are denied (fail-closed) rather than skipped.
@@ -6145,7 +6155,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-        return validator if validator is not None else lambda: False
+        return validator if validator is not None else _deny_unmatched_route
 
     return None
 

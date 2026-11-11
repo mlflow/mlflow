@@ -86,20 +86,66 @@ def test_no_new_ungated_routes(flask_routes):
     )
 
 
-def test_all_dataset_routes_resolve_a_real_validator(flask_routes):
-    # Guard against a dataset route silently hitting the hard-deny lambda fallback in
-    # _find_validator (which test_no_new_ungated_routes would still count as gated).
-    real = set(a.DATASET_BEFORE_REQUEST_HANDLERS.values()) | set(
-        a.DATASET_EXACT_BEFORE_REQUEST_HANDLERS.values()
-    )
-    unresolved = sorted(
+def _routes_on_the_deny_fallback(routes):
+    # The dataset, job, issue and trace families deny a path they do not recognize.
+    # test_no_new_ungated_routes counts that denial as a decision, so a new route that is
+    # missing from its family's table passes it and only shows up as a runtime 403.
+    return sorted(
         f"{method:6} {path}"
-        for path, method in flask_routes
-        if "/mlflow/datasets/" in path and a._find_validator(_Req(path, method)) not in real
+        for path, method in routes
+        if a._find_validator(_Req(path, method)) is a._deny_unmatched_route
     )
+
+
+def test_no_route_falls_through_to_a_family_deny_fallback(flask_routes):
+    unresolved = _routes_on_the_deny_fallback(flask_routes)
     assert not unresolved, (
-        "Dataset routes that fall through to the hard-deny fallback instead of a real "
-        "validator (add them to DATASET_BEFORE_REQUEST_HANDLERS):\n" + "\n".join(unresolved)
+        "Routes that resolve only to the fail-closed fallback of their route family, not to "
+        "a real validator. Register a handler for each one in the family's table (for "
+        "example DATASET_BEFORE_REQUEST_HANDLERS, ISSUE_BEFORE_REQUEST_HANDLERS, "
+        "JOB_BEFORE_REQUEST_VALIDATORS or BEFORE_REQUEST_VALIDATORS):\n" + "\n".join(unresolved)
+    )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/2.0/mlflow/datasets/<dataset_id>/new-route",
+        "/ajax-api/3.0/mlflow/jobs/<job_id>/new-route",
+        "/api/3.0/mlflow/issues/<issue_id>/new-route",
+        "/api/3.0/mlflow/traces/<trace_id>/new-route",
+    ],
+)
+def test_new_route_missing_from_its_family_table_fails_the_guard(flask_routes, path):
+    assert (path, "POST") not in flask_routes
+    assert _routes_on_the_deny_fallback([(path, "POST")]) == [f"POST   {path}"]
+
+
+@pytest.mark.parametrize(
+    ("marker", "table"),
+    [
+        ("/mlflow/datasets/", "DATASET_BEFORE_REQUEST_VALIDATORS"),
+        ("/mlflow/jobs/", "JOB_BEFORE_REQUEST_VALIDATORS"),
+        ("/mlflow/issues/", "ISSUE_BEFORE_REQUEST_VALIDATORS"),
+        ("/mlflow/traces/", "TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS"),
+    ],
+)
+def test_registered_route_with_its_validator_removed_fails_the_guard(
+    flask_routes, monkeypatch, marker, table
+):
+    family_routes = [(p, m) for p, m in flask_routes if marker in p and "<" in p]
+    assert family_routes
+    assert not _routes_on_the_deny_fallback(family_routes)
+
+    monkeypatch.setattr(a, table, {})
+    # Parameterized trace routes also match their template in the exact-match table.
+    monkeypatch.setattr(
+        a,
+        "BEFORE_REQUEST_VALIDATORS",
+        {k: v for k, v in a.BEFORE_REQUEST_VALIDATORS.items() if k not in family_routes},
+    )
+    assert _routes_on_the_deny_fallback(family_routes) == sorted(
+        f"{m:6} {p}" for p, m in family_routes
     )
 
 

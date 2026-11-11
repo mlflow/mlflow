@@ -9246,6 +9246,31 @@ def test_invoke_endpoints_require_experiment_update_permission(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_issue_detection_schedule_state_requires_experiment_update(client):
+    # The route writes the schedule state onto the experiment as tags.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    other, other_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "schedule-state-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    url = f"{base}/ajax-api/3.0/mlflow/issues/schedule/state"
+
+    resp = requests.post(url, json={"experiment_id": exp_id}, auth=(other, other_pw))
+    assert resp.status_code == 403
+
+    resp = requests.post(url, json={"experiment_id": exp_id}, auth=(owner, owner_pw))
+    assert resp.status_code == 200
+    assert resp.json() == {"next_fire_time_ms": None}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_issue_detection_invoke_requires_use_permission_on_secret(client):
     # issues/invoke decrypts the referenced gateway secret into the job environment, so
     # UPDATE on the caller's own experiment must not be enough to consume someone else's
