@@ -1895,10 +1895,6 @@ _MLFLOW_IN_JOB_EXECUTOR = _BooleanEnvironmentVariable("_MLFLOW_IN_JOB_EXECUTOR",
 _MLFLOW_SERVER_JOB_NAME = _EnvironmentVariable("_MLFLOW_SERVER_JOB_NAME", str, None)
 _MLFLOW_SERVER_JOB_ID = _EnvironmentVariable("_MLFLOW_SERVER_JOB_ID", str, None)
 
-#: Internal marker an ad hoc issue detection job sets in its subprocess when the run was started
-#: through the public API rather than the UI, so telemetry can tell the two apart.
-_MLFLOW_ISSUE_DETECTION_TRIGGER = _EnvironmentVariable("_MLFLOW_ISSUE_DETECTION_TRIGGER", str, None)
-
 #: Opt-in switch for the executor job-execution engine. Leave unset to use the default engine
 #: (currently the built-in Huey consumers); set to ``"executor"`` to route job execution through
 #: the ``AbstractJobExecutor`` framework (``LocalJobExecutor`` by default). It is intentionally

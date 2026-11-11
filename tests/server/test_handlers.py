@@ -11416,7 +11416,6 @@ def test_detect_issues_handler_starts_a_run(monkeypatch, mock_tracking_store, de
         "instructions": "Focus on refunds.",
         "username": None,
         "filter_string": "trace.status = 'ERROR'",
-        "trigger": "api",
     }
     # The server's own key is read from its environment by the job; nothing is passed along.
     assert submit_kwargs["extra_envs"] is None
@@ -11602,28 +11601,6 @@ def test_detect_issues_handler_rejects_traces_from_another_experiment(
     assert resp.get_json()["error_code"] == "PERMISSION_DENIED"
     detect_issues_client.create_run.assert_not_called()
     mock_submit_job.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    ("route", "trigger"),
-    [("/api/3.0/mlflow/issues/detect", "api"), ("/ajax-api/3.0/mlflow/issues/detect", "adhoc")],
-)
-def test_detect_issues_handler_tells_the_ui_from_api_callers(
-    monkeypatch, mock_tracking_store, detect_issues_client, route, trigger
-):
-    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
-    mock_tracking_store.get_experiment.return_value = _detection_experiment()
-
-    with (
-        mock.patch(
-            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
-        ) as mock_submit_job,
-        app.test_client() as c,
-    ):
-        resp = c.post(route, json={"experiment_id": "exp-123", "model": "gateway:/e"})
-
-    assert resp.status_code == 200
-    assert mock_submit_job.call_args.kwargs["params"]["trigger"] == trigger
 
 
 @pytest.mark.parametrize(

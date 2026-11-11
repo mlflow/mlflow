@@ -6040,10 +6040,6 @@ def _detect_issues():
                 "instructions": settings.instructions,
                 "username": _get_request_username(),
                 "filter_string": filter_string,
-                # The UI calls the AJAX route; anything else is a caller of the public API.
-                "trigger": (
-                    "adhoc" if request.path.startswith(_add_static_prefix("/ajax-api/")) else "api"
-                ),
             },
             extra_envs=credentials,
         )
