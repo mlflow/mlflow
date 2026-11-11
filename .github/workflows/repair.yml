@@ -215,7 +215,7 @@ jobs:
           case "$EFFORT" in
             low | medium | high | xhigh | max) ;;
             *)
-              echo "::error::Invalid effort '$EFFORT'. Check the REPAIR_EFFORT or REPAIR_FIX_EFFORT repository variable."
+              echo "::error::Invalid effort '$EFFORT'. Check the REPAIR_EFFORT repository variable."
               exit 1
               ;;
           esac
@@ -352,7 +352,6 @@ jobs:
           python "$SCRIPT" validate \
             --payload "$OUT_DIR/payload.json" \
             --context "$CONTEXT_PATH"
-      # The fix is applied here, after validation, from the downloaded fix.patch.
       - name: Checkout PR head
         if: steps.validate.outputs.action_type == 'fix'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

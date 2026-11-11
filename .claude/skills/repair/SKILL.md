@@ -42,28 +42,18 @@ Do not change files in `$trusted_checkout`, create commits, or execute repair ac
 
 ## Fixing failures the PR causes
 
-When the PR's changes cause a failure (a broken test, a type error, a lint failure) and the
-context allows it, propose a `fix`. The workflow only accepts a fix on a triage PR: `author` is
-`mlflow-app`, `head_ref` starts with `triage/`, and `cross_repository` is false. Fix the code, not the test. Never skip, xfail or delete a
-test, loosen an assertion, or change what a test checks just to make CI pass. The workflow
-rejects patches that skip, xfail or remove tests. If the test itself is wrong, or the right fix
-needs a design decision, choose no action and explain why in the rationale.
-
-Only change files under the paths listed in `$trusted_checkout/.claude/skills/patch-paths.txt`;
-the workflow rejects a patch that touches anything else, such as dependencies or CI.
-
-Make the smallest change in `$pr_checkout` that fixes the failure. Run the failing tests and
-pre-commit on the changed files, and fix any issues. Then write the patch:
+On a triage PR (`author` is `mlflow-app`, `head_ref` starts with `triage/`, and
+`cross_repository` is false), propose a `fix` when the PR's changes cause a failure. Fix the
+code, not the test: never skip, xfail or delete a test, loosen an assertion, or change what a
+test checks. If the test is wrong or the fix needs a design decision, choose no action and say
+why. Only change files under the paths in `$trusted_checkout/.claude/skills/patch-paths.txt`.
+Run the failing tests and pre-commit on the changed files, then write the patch from
+`$pr_checkout`:
 
 ```bash
-cd "$pr_checkout"
 mapfile -t paths < <(sed -e '/^#/d' -e '/^[[:space:]]*$/d' "$trusted_checkout/.claude/skills/patch-paths.txt")
-git add -N -- "${paths[@]}"
-git diff HEAD -- "${paths[@]}" > "$out_dir/fix.patch"
-git diff HEAD --stat
+git add -N -- "${paths[@]}" && git diff HEAD -- "${paths[@]}" > "$out_dir/fix.patch"
 ```
-
-The last command must list only the files in the patch.
 
 Write `$out_dir/payload.json` following [the payload schema](payload.schema.yml).
 Base the plan on the captured context and available evidence.

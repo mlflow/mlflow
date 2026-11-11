@@ -54,9 +54,8 @@ properties:
             const: true
       - type: object
         description: >-
-          Push a code fix for failures the PR's changes cause, such as a broken test, type error,
-          or lint failure. Edit the PR checkout and write the change to `fix.patch` in the output
-          directory. Pushing starts a new CI run.
+          Push a code fix, written to `fix.patch` in the output directory, for failures the PR's
+          changes cause. Pushing starts a new CI run.
         additionalProperties: false
         required: [type, commit_message]
         properties:
