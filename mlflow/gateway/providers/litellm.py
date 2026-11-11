@@ -13,6 +13,22 @@ from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS, GATEWAY_REGION_KEYS
 
+# Credential selectors can take precedence over configured keys or select credentials from
+# the server's filesystem. They belong to endpoint configuration, never inference payloads.
+_LITELLM_CREDENTIAL_KEYS = frozenset({
+    "aws_access_key_id",
+    "aws_secret_access_key",
+    "aws_session_token",
+    "aws_session_name",
+    "aws_profile_name",
+    "aws_role_name",
+    "aws_web_identity_token",
+    "aws_external_id",
+    "aws_session_tags",
+    "vertex_credentials",
+    "vertex_ai_credentials",
+})
+
 
 def _usage_to_dict(usage: Any) -> dict[str, Any]:
     """Forward token usage in OpenAI shape, including cache-read tokens.
@@ -148,6 +164,12 @@ class LiteLLMProvider(BaseProvider):
                 status_code=400,
                 detail=f"The request must not set {', '.join(map(repr, caller_keys))}: the "
                 "upstream destination is fixed by the endpoint configuration.",
+            )
+        if credential_keys := sorted(_LITELLM_CREDENTIAL_KEYS & set(payload)):
+            raise HTTPException(
+                status_code=400,
+                detail=f"The request must not set {', '.join(map(repr, credential_keys))}: "
+                "provider credentials are fixed by the endpoint configuration.",
             )
         kwargs = self._build_litellm_kwargs(payload)
         if not upstream_protection_enabled():

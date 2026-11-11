@@ -1,211 +1,98 @@
-import type { ReadableSpan } from '@opentelemetry/sdk-trace-base';
-import { MlflowSpanExporter } from '../../src/exporters/mlflow';
-import { serializeSpansToOtlpBytes } from '../../src/exporters/otlp';
-import { InMemoryTraceManager } from '../../src/core/trace_manager';
-import { getConfig } from '../../src/core/config';
-import { MlflowHttpError } from '../../src/clients/utils';
-import { MAX_OTLP_REQUEST_BYTES } from '../../src/core/constants';
-
-jest.mock('../../src/exporters/otlp', () => {
-  const actual = jest.requireActual<typeof import('../../src/exporters/otlp')>(
-    '../../src/exporters/otlp',
-  );
-  return { ...actual, serializeSpansToOtlpBytes: jest.fn() };
-});
-
-jest.mock('../../src/core/trace_manager', () => {
-  const instance = {
-    popTrace: jest.fn(() => ({
-      info: {
-        traceId: 'tr-abc',
-        traceLocation: {
-          type: 'MLFLOW_EXPERIMENT',
-          mlflowExperiment: { experimentId: 'exp-1' },
-        },
-        tags: {},
-        traceMetadata: {},
-        assessments: [],
-      },
-      data: { spans: [{ _span: { name: 'root-span' } }] },
-    })),
-    lastActiveTraceId: null,
-  };
-  return { InMemoryTraceManager: { getInstance: () => instance } };
-});
-
-const popTraceMock = (InMemoryTraceManager.getInstance() as unknown as { popTrace: jest.Mock })
-  .popTrace;
+import { ROOT_CONTEXT, TraceFlags, trace as otelTrace } from '@opentelemetry/api';
+import { ExportResult, ExportResultCode } from '@opentelemetry/core';
+import {
+  BasicTracerProvider,
+  ReadableSpan as OTelReadableSpan,
+  SpanExporter,
+} from '@opentelemetry/sdk-trace-base';
 
 jest.mock('../../src/core/config', () => ({
-  getConfig: jest.fn(() => ({ experimentId: 'exp-1', trackingUri: 'http://localhost:5000' })),
+  getConfig: () => ({ experimentId: '0', trackingUri: 'http://localhost:5000' }),
 }));
 
-const mockedGetConfig = getConfig as jest.MockedFunction<typeof getConfig>;
-const mockedSerialize = serializeSpansToOtlpBytes as jest.MockedFunction<
-  typeof serializeSpansToOtlpBytes
->;
+jest.mock('../../src/core/utils/environment', () => ({
+  resolveEnvironmentMetadata: () => ({}),
+}));
 
-function makeRootSpan(): ReadableSpan {
-  return {
-    spanContext: () => ({ traceId: 'abc123', spanId: 'def456' }),
-  } as unknown as ReadableSpan;
+import { SpanAttributeKey } from '../../src/core/constants';
+import { Trace } from '../../src/core/entities/trace';
+import { InMemoryTraceManager } from '../../src/core/trace_manager';
+import { MlflowSpanProcessor } from '../../src/exporters/mlflow';
+
+const REMOTE_TRACE_ID = '0af7651916cd43dd8448eb211c80319c';
+const REMOTE_SPAN_ID = 'b7ad6b7169203331';
+
+class RecordingExporter implements SpanExporter {
+  traces: Trace[] = [];
+
+  export(spans: OTelReadableSpan[], resultCallback: (result: ExportResult) => void): void {
+    for (const span of spans) {
+      const trace = InMemoryTraceManager.getInstance().popTrace(span.spanContext().traceId);
+      if (trace) {
+        this.traces.push(trace);
+      }
+    }
+    resultCallback({ code: ExportResultCode.SUCCESS });
+  }
+
+  shutdown(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  forceFlush(): Promise<void> {
+    return Promise.resolve();
+  }
 }
 
-describe('MlflowSpanExporter', () => {
-  let client: {
-    createTrace: jest.Mock;
-    uploadTraceData: jest.Mock;
-    exportOtlpSpans: jest.Mock;
-  };
-  let exporter: MlflowSpanExporter;
+describe('MlflowSpanProcessor', () => {
+  let exporter: RecordingExporter;
+  let tracer: ReturnType<BasicTracerProvider['getTracer']>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockedGetConfig.mockReturnValue({
-      experimentId: 'exp-1',
-      trackingUri: 'http://localhost:5000',
-    } as ReturnType<typeof getConfig>);
-    mockedSerialize.mockReturnValue(undefined);
-    client = {
-      createTrace: jest.fn((info) => Promise.resolve(info)),
-      uploadTraceData: jest.fn().mockResolvedValue(undefined),
-      exportOtlpSpans: jest.fn().mockResolvedValue(undefined),
-    };
-    exporter = new MlflowSpanExporter(client as any);
+    InMemoryTraceManager.reset();
+    exporter = new RecordingExporter();
+    const provider = new BasicTracerProvider({
+      spanProcessors: [new MlflowSpanProcessor(exporter)],
+    });
+    tracer = provider.getTracer('mlflow-test');
   });
 
-  it('sends OTLP spans to the tracking store after the artifact upload', async () => {
-    const bytes = new Uint8Array([1, 2, 3]);
-    mockedSerialize.mockReturnValue(bytes);
+  it('exports a trace whose root span has a remote parent', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const remoteCtx = otelTrace.setSpanContext(ROOT_CONTEXT, {
+      traceId: REMOTE_TRACE_ID,
+      spanId: REMOTE_SPAN_ID,
+      traceFlags: TraceFlags.SAMPLED,
+      isRemote: true,
+    });
 
-    exporter.export([makeRootSpan()], () => {});
-    await exporter.forceFlush();
+    const root = tracer.startSpan('remote-parent-root', {}, remoteCtx);
+    root.setAttribute(SpanAttributeKey.INPUTS, JSON.stringify({ question: 'hi' }));
+    root.setAttribute(SpanAttributeKey.OUTPUTS, JSON.stringify('hello'));
+    const child = tracer.startSpan('child', {}, otelTrace.setSpan(remoteCtx, root));
+    child.end();
+    root.end();
 
-    expect(client.exportOtlpSpans).toHaveBeenCalledTimes(1);
-    expect(client.exportOtlpSpans).toHaveBeenCalledWith('exp-1', bytes);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+
+    expect(exporter.traces).toHaveLength(1);
+    const exported = exporter.traces[0];
+    expect(exported.info.traceId).toBe(`tr-${REMOTE_TRACE_ID}`);
+    expect(exported.info.requestPreview).toBe('{"question":"hi"}');
+    expect(exported.info.responsePreview).toBe('"hello"');
+
+    const spans = Object.fromEntries(exported.data.spans.map((s) => [s.name, s]));
+    expect(Object.keys(spans).sort()).toEqual(['child', 'remote-parent-root']);
+    expect(spans['remote-parent-root'].parentId).toBeNull();
+    expect(spans['child'].parentId).toBe(spans['remote-parent-root'].spanId);
+    // The OTel span keeps its remote parent so it still links to the caller's distributed trace
+    expect(spans['remote-parent-root']._span.parentSpanContext?.spanId).toBe(REMOTE_SPAN_ID);
   });
 
-  it('attributes spans to the experiment persisted by createTrace', async () => {
-    mockedGetConfig.mockReturnValue({
-      experimentId: 'exp-config',
-      trackingUri: 'http://localhost:5000',
-    } as ReturnType<typeof getConfig>);
-    client.createTrace.mockImplementation((info) =>
-      Promise.resolve({
-        ...info,
-        traceLocation: {
-          type: 'MLFLOW_EXPERIMENT',
-          mlflowExperiment: { experimentId: 'exp-trace' },
-        },
-      }),
-    );
-    const bytes = new Uint8Array([9]);
-    mockedSerialize.mockReturnValue(bytes);
+  it('still exports a trace whose root span has no parent', () => {
+    tracer.startSpan('local-root', {}, ROOT_CONTEXT).end();
 
-    exporter.export([makeRootSpan()], () => {});
-    await exporter.forceFlush();
-
-    expect(client.exportOtlpSpans).toHaveBeenCalledWith('exp-trace', bytes);
-  });
-
-  it('skips OTLP span ingestion for Databricks tracking URIs', async () => {
-    mockedGetConfig.mockReturnValue({
-      experimentId: 'exp-1',
-      trackingUri: 'databricks',
-    } as ReturnType<typeof getConfig>);
-    mockedSerialize.mockReturnValue(new Uint8Array([1]));
-
-    exporter.export([makeRootSpan()], () => {});
-    await exporter.forceFlush();
-
-    expect(mockedSerialize).toHaveBeenCalled();
-    expect(client.exportOtlpSpans).not.toHaveBeenCalled();
-    expect(client.uploadTraceData).toHaveBeenCalledTimes(1);
-  });
-
-  it('skips OTLP span ingestion when the trace has no MLflow experiment', async () => {
-    client.createTrace.mockImplementation((info) =>
-      Promise.resolve({ ...info, traceLocation: { type: 'INFERENCE_TABLE' } }),
-    );
-    mockedSerialize.mockReturnValue(new Uint8Array([1]));
-
-    exporter.export([makeRootSpan()], () => {});
-    await exporter.forceFlush();
-
-    expect(mockedSerialize).not.toHaveBeenCalled();
-    expect(client.exportOtlpSpans).not.toHaveBeenCalled();
-  });
-
-  it('skips OTLP span ingestion when the payload exceeds the request budget', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      mockedSerialize.mockReturnValue({
-        length: MAX_OTLP_REQUEST_BYTES + 1,
-      } as Uint8Array);
-
-      exporter.export([makeRootSpan()], () => {});
-      await exporter.forceFlush();
-
-      expect(client.exportOtlpSpans).not.toHaveBeenCalled();
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('exceeding the'));
-    } finally {
-      warnSpy.mockRestore();
-    }
-  });
-
-  it('warns once and stops sending after span ingestion is reported unsupported', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      mockedSerialize.mockReturnValue(new Uint8Array([1]));
-      client.exportOtlpSpans.mockRejectedValue(new MlflowHttpError(501, 'Not Implemented', ''));
-
-      exporter.export([makeRootSpan()], () => {});
-      await exporter.forceFlush();
-      exporter.export([makeRootSpan()], () => {});
-      await exporter.forceFlush();
-
-      expect(client.exportOtlpSpans).toHaveBeenCalledTimes(1);
-      expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('not supported'));
-    } finally {
-      warnSpy.mockRestore();
-    }
-  });
-
-  it('still succeeds when the span-ingestion endpoint fails', async () => {
-    mockedSerialize.mockReturnValue(new Uint8Array([1]));
-    client.exportOtlpSpans.mockRejectedValue(new Error('501 not supported'));
-
-    exporter.export([makeRootSpan()], () => {});
-    await expect(exporter.forceFlush()).resolves.toBeUndefined();
-
-    expect(client.uploadTraceData).toHaveBeenCalledTimes(1);
-    expect(client.exportOtlpSpans).toHaveBeenCalledTimes(1);
-  });
-
-  it('skips non-root spans', async () => {
-    exporter.export(
-      [
-        {
-          spanContext: () => ({ traceId: 'abc', spanId: 'd' }),
-          parentSpanContext: { spanId: 'p' },
-        } as any,
-      ],
-      () => {},
-    );
-    await exporter.forceFlush();
-
-    expect(popTraceMock).not.toHaveBeenCalled();
-    expect(client.exportOtlpSpans).not.toHaveBeenCalled();
-  });
-
-  it('does not call the ingestion endpoint when serialization yields nothing', async () => {
-    mockedSerialize.mockReturnValue(undefined);
-
-    exporter.export([makeRootSpan()], () => {});
-    await exporter.forceFlush();
-
-    expect(client.exportOtlpSpans).not.toHaveBeenCalled();
-    expect(client.uploadTraceData).toHaveBeenCalledTimes(1);
+    expect(exporter.traces.map((t) => t.data.spans.map((s) => s.name))).toEqual([['local-root']]);
   });
 });

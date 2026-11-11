@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { ROOT_CONTEXT, SpanKind } from '@opentelemetry/api';
+import { ROOT_CONTEXT, SpanKind, TraceFlags, trace as otelTrace } from '@opentelemetry/api';
 import { ExportResult, ExportResultCode } from '@opentelemetry/core';
 import {
   BasicTracerProvider,
@@ -166,6 +166,26 @@ describe('wal/exporter', () => {
     expect((record.traceInfo as { trace_id: string }).trace_id).toBe('tr-abc');
     expect(typeof record.id).toBe('string');
     expect(record.id.length).toBeGreaterThan(0);
+  });
+
+  it('submits a record for a root span with a remote parent', async () => {
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(makeTrace('tr-abc'));
+    const span = {
+      ...makeSpan({ traceId: 'otel-1', rootSpan: true }),
+      parentSpanContext: { spanId: 'remote-parent-id', isRemote: true },
+    } as unknown as OTelReadableSpan;
+
+    const { callback, promise } = captureExportResult();
+    exporter.export([span], callback);
+
+    expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+    await exporter.forceFlush();
+
+    expect(popTraceSpy).toHaveBeenCalledWith('otel-1');
+    expect(submit).toHaveBeenCalledTimes(1);
   });
 
   it('skips non-root spans without invoking the submitter', async () => {
@@ -486,6 +506,44 @@ describe('wal/exporter', () => {
       } else {
         process.env.DATABRICKS_HOST = originalDatabricksHost;
       }
+    }
+  });
+
+  it('serializes a remote parent as a span link instead of a parent', async () => {
+    const serializeSpy = jest.spyOn(ProtobufTraceSerializer, 'serializeRequest');
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    const remoteParent = {
+      traceId: '0af7651916cd43dd8448eb211c80319c',
+      spanId: 'b7ad6b7169203331',
+      traceFlags: TraceFlags.SAMPLED,
+      isRemote: true,
+    };
+    const remoteCtx = otelTrace.setSpanContext(ROOT_CONTEXT, remoteParent);
+    const otelSpan = new BasicTracerProvider()
+      .getTracer('wal-exporter-test')
+      .startSpan('remote-parent-root', {}, remoteCtx) as OTelSpan;
+    otelSpan.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify('tr-remote'));
+    otelSpan.end();
+    const trace = makeTrace('tr-remote');
+    trace.data.spans.push(new MlflowSpan(otelSpan));
+    popTraceSpy.mockReturnValue(trace);
+
+    try {
+      const { callback, promise } = captureExportResult();
+      exporter.export([otelSpan as unknown as OTelReadableSpan], callback);
+
+      expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+      await exporter.forceFlush();
+
+      const [serializedSpan] = serializeSpy.mock.calls[0][0];
+      expect(serializedSpan.parentSpanContext).toBeUndefined();
+      expect(serializedSpan.links).toEqual([{ context: remoteParent }]);
+      expect(otelSpan.parentSpanContext?.spanId).toBe('b7ad6b7169203331');
+      expect(typeof submit.mock.calls[0][0].otlpSpans).toBe('string');
+    } finally {
+      serializeSpy.mockRestore();
     }
   });
 

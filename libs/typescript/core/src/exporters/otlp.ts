@@ -2,6 +2,7 @@ import { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base'
 import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { isDatabricksUri } from '../auth';
 import { MAX_OTLP_REQUEST_BYTES } from '../core/constants';
+import { withoutRemoteParent } from '../core/utils';
 
 function decodeMlflowSpanAttributes(
   attributes: OTelReadableSpan['attributes'],
@@ -68,7 +69,7 @@ export function serializeSpansToOtlpBytes(
   }
   try {
     const bytes = ProtobufTraceSerializer.serializeRequest(
-      serializable.map(spanWithDecodedAttributes),
+      serializable.map((s) => spanWithDecodedAttributes(withoutRemoteParent(s))),
     );
     if (!bytes || bytes.length === 0) {
       return undefined;

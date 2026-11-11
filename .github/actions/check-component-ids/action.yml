@@ -4,5 +4,6 @@ runs:
   using: "composite"
   steps:
     - uses: ./.github/actions/setup-node
-    - run: node ${GITHUB_ACTION_PATH}/index.js
+    - run: |
+        node ${GITHUB_ACTION_PATH}/index.js
       shell: bash

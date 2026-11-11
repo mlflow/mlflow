@@ -297,6 +297,23 @@ def test_get_all_studies_ignores_trial_runs(setup_storage):
     assert frozen_studies[0].study_name == "study"
 
 
+def test_searches_return_runs_beyond_the_first_page(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE], study_name="study")
+    trial_ids = {storage.create_new_trial(study_id) for _ in range(3)}
+
+    # The store returns at most max_results runs per call, 1000 by default; use 2 instead
+    search_runs = storage._mlflow_client.search_runs
+
+    def search_runs_in_pages_of_two(*args, max_results=1000, **kwargs):
+        return search_runs(*args, max_results=min(max_results, 2), **kwargs)
+
+    with patch.object(storage._mlflow_client, "search_runs", search_runs_in_pages_of_two):
+        assert storage.get_n_trials(study_id) == 3
+        assert {t._trial_id for t in storage.get_all_trials(study_id)} == trial_ids
+        assert [s._study_id for s in storage.get_all_studies()] == [study_id]
+
+
 def test_delete_study(setup_storage):
     storage = setup_storage
     study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
@@ -928,6 +945,19 @@ def test_get_n_trials_with_states(setup_storage, states, expected):
     storage.create_new_trial(study_id)
 
     assert storage.get_n_trials(study_id, states) == expected
+
+
+@pytest.mark.parametrize("states", [None, (TrialState.COMPLETE,)])
+def test_get_all_trials_ordered_by_trial_number(setup_storage, states):
+    storage = setup_storage
+    study_id = storage.create_new_study([StudyDirection.MINIMIZE])
+    for i in range(3):
+        trial_id = storage.create_new_trial(study_id)
+        storage.set_trial_state_values(trial_id, TrialState.COMPLETE, [float(i)])
+
+    trials = storage.get_all_trials(study_id, states=states)
+    assert [t.number for t in trials] == [0, 1, 2]
+    assert [t.value for t in trials] == [0.0, 1.0, 2.0]
 
 
 def test_study_exists_method(setup_storage):
