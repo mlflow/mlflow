@@ -428,8 +428,12 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     reviewer = current["author"]
     if reviewer == NAILAOPUS:
         # NaiLaOpus can't be requested as a reviewer; a `/review` comment starts it instead.
-        if tree:
-            api(issue_comments, data={"body": "/review"})
+        note = marker(reviewer, review_id, "review-request")
+        if tree and not any(
+            app_comment(comment) and note in comment["body"]
+            for comment in list_items(issue_comments)
+        ):
+            api(issue_comments, data={"body": f"/review\n\n{note}"})
             summary("Requested a NaiLaOpus review of the fix.")
         return
     requested = api(f"{endpoint}/requested_reviewers")["users"]
