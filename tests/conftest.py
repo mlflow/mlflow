@@ -1250,6 +1250,13 @@ def mock_s3_bucket():
     import boto3
     import moto
 
+    from mlflow.store.artifact.s3_artifact_repo import _cached_get_s3_client
+
+    # `_cached_get_s3_client` is a process-global lru_cache whose key does not include the
+    # resolved AWS credentials. A client cached by an earlier test on the same worker (e.g.
+    # created outside moto with no credentials) would otherwise be reused here and raise
+    # `NoCredentialsError`.
+    _cached_get_s3_client.cache_clear()
     with moto.mock_s3():
         bucket_name = "mock-bucket"
         s3_client = boto3.client("s3")
