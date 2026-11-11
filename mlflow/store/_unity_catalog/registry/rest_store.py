@@ -1100,14 +1100,12 @@ class UcModelRegistryStore(BaseRestStore):
         A model whose weights are in a Unity Catalog volume (``volume_artifacts_path`` in its
         metadata) has Databricks copy them into the version; this returns once that copy is done.
         """
+        store.log_artifacts(local_dir=local_model_dir, artifact_path="")
         if _get_volume_artifacts_path(local_model_dir) is None:
-            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             return
         version = str(version)
         host_creds = self.get_host_creds()
-        # Starting the copy first lets it run while the model's own files upload.
         status = start_volume_weights_copy(full_name, version, host_creds)
-        store.log_artifacts(local_dir=local_model_dir, artifact_path="")
         wait_for_volume_weights_copy(full_name, version, status, host_creds)
 
     def create_model_version(
