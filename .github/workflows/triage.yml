@@ -166,7 +166,12 @@ jobs:
         run: |
           {
             echo 'patch_path_allowlist<<EOF'
-            sed -e '/^#/d' -e '/^[[:space:]]*$/d' .claude/skills/patch-paths.txt
+            python - <<'PY'
+          from pathlib import Path
+
+          lines = (line.strip() for line in Path(".claude/skills/patch-paths.txt").read_text().splitlines())
+          print("\n".join(line for line in lines if line and not line.startswith("#")))
+          PY
             echo EOF
           } >> "$GITHUB_OUTPUT"
       - name: Clean issue content
