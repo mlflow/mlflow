@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794359897772,
+  "lastUpdate": 1794367790654,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "108891350+Yash-Chindam@users.noreply.github.com",
-            "name": "Yash-Chindam",
-            "username": "Yash-Chindam"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7fc307adb7c41ee660950a0ea2102675a44c3082",
-          "message": "Map `top_p` to `topP` in the Bedrock Titan and AI21 completions adapters (#25795)\n\nSigned-off-by: Yash-Chindam <yash.chindam@gmail.com>\nCo-authored-by: Claude Opus 5 <noreply@anthropic.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>",
-          "timestamp": "2026-09-12T18:58:31+09:00",
-          "tree_id": "ebd7db293f30080d488a3d0590962401d62cbade",
-          "url": "https://github.com/mlflow/mlflow/commit/7fc307adb7c41ee660950a0ea2102675a44c3082"
-        },
-        "date": 1789207192574,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.45803055000283,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 4.890306699998348,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 4.12185851562441,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 4.748192413334588,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.098869910181726,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 5.7579874999949725,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 3.058915666665977,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mvgrechannikov@gmail.com",
+            "name": "Mikhail Grechannikov",
+            "username": "Revinand"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "16f2ffa2113610b09373b7058ccfbd6e8ad0e1db",
+          "message": "Fix `MlflowStorage` dropping trials and studies past the first 1000 runs (#27372)\n\nSigned-off-by: Revinand <mvgrechannikov@gmail.com>",
+          "timestamp": "2026-11-11T03:26:16Z",
+          "tree_id": "d1186af791df1004c3ad9d661765f0fcdc21d6aa",
+          "url": "https://github.com/mlflow/mlflow/commit/16f2ffa2113610b09373b7058ccfbd6e8ad0e1db"
+        },
+        "date": 1794367787942,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 23.43705469999975,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 3.5086948444450803,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 2.917275707510298,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 2.8278350281121254,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 3.1034823037383727,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 2.6089224285722628,
             "unit": "ms"
           }
         ]
