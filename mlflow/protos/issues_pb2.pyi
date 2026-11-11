@@ -566,8 +566,8 @@ class DetectIssues(_message.Message):
     """
     @_builtins.property
     def trace_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
-        """The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-        filter_string.
+        """The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+        with filter_string.
         """
 
     def __init__(

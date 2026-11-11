@@ -11416,6 +11416,7 @@ def test_detect_issues_handler_starts_a_run(monkeypatch, mock_tracking_store, de
         "instructions": "Focus on refunds.",
         "username": None,
         "filter_string": "trace.status = 'ERROR'",
+        "trigger": "api",
     }
     # The server's own key is read from its environment by the job; nothing is passed along.
     assert submit_kwargs["extra_envs"] is None
@@ -11576,8 +11577,42 @@ def test_detect_issues_handler_rejects_traces_from_another_experiment(
 
 
 @pytest.mark.parametrize(
+    ("route", "trigger"),
+    [("/api/3.0/mlflow/issues/detect", "api"), ("/ajax-api/3.0/mlflow/issues/detect", "adhoc")],
+)
+def test_detect_issues_handler_tells_the_ui_from_api_callers(
+    monkeypatch, mock_tracking_store, detect_issues_client, route, trigger
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(route, json={"experiment_id": "exp-123", "model": "gateway:/e"})
+
+    assert resp.status_code == 200
+    assert mock_submit_job.call_args.kwargs["params"]["trigger"] == trigger
+
+
+@pytest.mark.parametrize(
     ("body", "env", "tags", "error_code", "message"),
     [
+        pytest.param(
+            {
+                "experiment_id": "exp-123",
+                "model": "gateway:/e",
+                "trace_ids": [f"trace-{i}" for i in range(501)],
+            },
+            {},
+            {},
+            "INVALID_PARAMETER_VALUE",
+            "`trace_ids` can name at most 500 traces, got 501",
+            id="too_many_trace_ids",
+        ),
         pytest.param(
             {
                 "experiment_id": "exp-123",

@@ -247,6 +247,26 @@ def test_invoke_issue_detection_job_propagates_username_for_gateway_auth(monkeyp
     assert captured_env == {"username": "alice", "password": "internal-token"}
 
 
+@pytest.mark.parametrize("trigger", ["api", "adhoc"])
+def test_invoke_issue_detection_job_marks_its_trigger_for_telemetry(monkeypatch, trigger):
+    # setenv (not delenv) so monkeypatch restores it after the job overwrites os.environ
+    monkeypatch.setenv("_MLFLOW_ISSUE_DETECTION_TRIGGER", "")
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient"),
+        mock.patch("mlflow.genai.discovery.job.discover_issues"),
+    ):
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            trigger=trigger,
+        )
+
+    assert os.environ["_MLFLOW_ISSUE_DETECTION_TRIGGER"] == trigger
+
+
 def test_invoke_issue_detection_job_skips_username_propagation_when_none(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "unchanged")
     monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "unchanged")

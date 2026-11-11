@@ -14,20 +14,27 @@ from mlflow.telemetry.issue_detection_utils import (
 
 
 @pytest.mark.parametrize(
-    ("job_name", "expected"),
+    ("job_name", "detection_trigger", "expected"),
     [
-        (None, "sdk"),
-        ("another_job", "unknown"),
-        ("", "unknown"),
-        ("invoke_issue_detection", "adhoc"),
-        ("scheduled_issue_detection", "schedule"),
+        (None, None, "sdk"),
+        ("another_job", None, "unknown"),
+        ("", None, "unknown"),
+        ("invoke_issue_detection", None, "adhoc"),
+        ("invoke_issue_detection", "adhoc", "adhoc"),
+        ("invoke_issue_detection", "api", "api"),
+        ("scheduled_issue_detection", None, "schedule"),
+        ("scheduled_issue_detection", "api", "schedule"),
     ],
 )
-def test_get_issue_detection_trigger(monkeypatch, job_name, expected):
+def test_get_issue_detection_trigger(monkeypatch, job_name, detection_trigger, expected):
     if job_name is None:
         monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
     else:
         monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+    if detection_trigger is None:
+        monkeypatch.delenv("_MLFLOW_ISSUE_DETECTION_TRIGGER", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_ISSUE_DETECTION_TRIGGER", detection_trigger)
     assert get_issue_detection_trigger() == expected
 
 

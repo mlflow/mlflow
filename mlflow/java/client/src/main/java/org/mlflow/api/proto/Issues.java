@@ -18566,8 +18566,8 @@ public final class Issues {
 
     /**
      * <pre>
-     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-     * filter_string.
+     * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+     * with filter_string.
      * </pre>
      *
      * <code>repeated string trace_ids = 4;</code>
@@ -18577,8 +18577,8 @@ public final class Issues {
         getTraceIdsList();
     /**
      * <pre>
-     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-     * filter_string.
+     * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+     * with filter_string.
      * </pre>
      *
      * <code>repeated string trace_ids = 4;</code>
@@ -18587,8 +18587,8 @@ public final class Issues {
     int getTraceIdsCount();
     /**
      * <pre>
-     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-     * filter_string.
+     * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+     * with filter_string.
      * </pre>
      *
      * <code>repeated string trace_ids = 4;</code>
@@ -18598,8 +18598,8 @@ public final class Issues {
     java.lang.String getTraceIds(int index);
     /**
      * <pre>
-     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-     * filter_string.
+     * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+     * with filter_string.
      * </pre>
      *
      * <code>repeated string trace_ids = 4;</code>
@@ -19611,8 +19611,8 @@ public final class Issues {
     private com.google.protobuf.LazyStringList traceIds_;
     /**
      * <pre>
-     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-     * filter_string.
+     * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+     * with filter_string.
      * </pre>
      *
      * <code>repeated string trace_ids = 4;</code>
@@ -19624,8 +19624,8 @@ public final class Issues {
     }
     /**
      * <pre>
-     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-     * filter_string.
+     * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+     * with filter_string.
      * </pre>
      *
      * <code>repeated string trace_ids = 4;</code>
@@ -19636,8 +19636,8 @@ public final class Issues {
     }
     /**
      * <pre>
-     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-     * filter_string.
+     * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+     * with filter_string.
      * </pre>
      *
      * <code>repeated string trace_ids = 4;</code>
@@ -19649,8 +19649,8 @@ public final class Issues {
     }
     /**
      * <pre>
-     * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-     * filter_string.
+     * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+     * with filter_string.
      * </pre>
      *
      * <code>repeated string trace_ids = 4;</code>
@@ -20418,8 +20418,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>
@@ -20431,8 +20431,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>
@@ -20443,8 +20443,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>
@@ -20456,8 +20456,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>
@@ -20470,8 +20470,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>
@@ -20491,8 +20491,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>
@@ -20511,8 +20511,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>
@@ -20529,8 +20529,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>
@@ -20544,8 +20544,8 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The IDs of the traces the run analyzes, all in this experiment. Cannot be combined with
-       * filter_string.
+       * The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+       * with filter_string.
        * </pre>
        *
        * <code>repeated string trace_ids = 4;</code>

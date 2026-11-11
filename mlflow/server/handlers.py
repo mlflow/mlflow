@@ -112,6 +112,8 @@ from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.discovery.checkpoint import MAX_SCHEDULED_SESSION_SAMPLE_SIZE
+from mlflow.genai.discovery.constants import SAMPLE_POOL_MULTIPLIER
 from mlflow.genai.discovery.schedule import read_detection_schedule, scheduled_detection_available
 from mlflow.genai.discovery.settings import read_detection_settings
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
@@ -5935,6 +5937,11 @@ def _resolve_issue_detection_model(
     return saved.to_model_uri(), None
 
 
+# The most trace IDs a DetectIssues request can name: as many traces as a filtered run fetches to
+# sample from, so a run never reads more traces one way than the other.
+_MAX_DETECTION_TRACE_IDS = MAX_SCHEDULED_SESSION_SAMPLE_SIZE * SAMPLE_POOL_MULTIPLIER
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _detect_issues():
@@ -5965,6 +5972,10 @@ def _detect_issues():
     if filter_string and trace_ids:
         raise MlflowException.invalid_parameter_value(
             "Set at most one of `filter_string` and `trace_ids`."
+        )
+    if len(trace_ids) > _MAX_DETECTION_TRACE_IDS:
+        raise MlflowException.invalid_parameter_value(
+            f"`trace_ids` can name at most {_MAX_DETECTION_TRACE_IDS} traces, got {len(trace_ids)}."
         )
     if filter_string:
         # Parsed here so a malformed filter fails the request rather than the run.
@@ -6021,6 +6032,10 @@ def _detect_issues():
                 "instructions": settings.instructions,
                 "username": _get_request_username(),
                 "filter_string": filter_string,
+                # The UI calls the AJAX route; anything else is a caller of the public API.
+                "trigger": (
+                    "adhoc" if request.path.startswith(_add_static_prefix("/ajax-api/")) else "api"
+                ),
             },
             extra_envs=credentials,
         )

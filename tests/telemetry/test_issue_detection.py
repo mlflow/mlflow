@@ -33,12 +33,24 @@ def _records(mock_requests):
 
 
 @pytest.mark.parametrize(
-    ("job_name", "trigger", "trace_count"),
-    [("invoke_issue_detection", "adhoc", 2), ("scheduled_issue_detection", "schedule", None)],
+    ("job_name", "job_trigger", "trigger", "trace_count"),
+    [
+        ("invoke_issue_detection", None, "adhoc", 2),
+        ("invoke_issue_detection", "adhoc", "adhoc", 2),
+        ("invoke_issue_detection", "api", "api", 2),
+        ("scheduled_issue_detection", None, "schedule", None),
+    ],
 )
 @pytest.mark.parametrize("running", [False, True])
 def test_cancel_issue_detection_records_after_commit(
-    job_store, job_name, trigger, trace_count, running, mock_requests, mock_telemetry_client
+    job_store,
+    job_name,
+    job_trigger,
+    trigger,
+    trace_count,
+    running,
+    mock_requests,
+    mock_telemetry_client,
 ):
     params = {
         "model": "openai:/gpt-4",
@@ -46,8 +58,10 @@ def test_cancel_issue_detection_records_after_commit(
         "run_id": "private-run",
         "instructions": "private instructions",
     }
-    if trigger == "adhoc":
+    if job_name == "invoke_issue_detection":
         params["trace_ids"] = ["t-1", "t-2"]
+    if job_trigger is not None:
+        params["trigger"] = job_trigger
     job = job_store.create_job(job_name, json.dumps(params))
     if running:
         job_store.start_job(job.job_id)

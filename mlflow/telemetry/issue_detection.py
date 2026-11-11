@@ -17,9 +17,12 @@ def record_issue_detection_cancellation(job: Job) -> None:
     try:
         arguments = json.loads(job.params)
         trace_ids = arguments.get("trace_ids")
+        trigger = triggers[job.job_name]
+        if trigger == "adhoc" and arguments.get("trigger") == "api":
+            trigger = "api"
         params = {
             "job_id": job.job_id,
-            "trigger": triggers[job.job_name],
+            "trigger": trigger,
             "model": arguments.get("model"),
             "categories": normalize_issue_categories(arguments.get("categories")),
             "trace_count": len(trace_ids) if isinstance(trace_ids, list) else None,

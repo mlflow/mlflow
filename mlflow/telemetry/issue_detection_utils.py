@@ -2,17 +2,17 @@ from collections import Counter
 from typing import Literal
 
 from mlflow.entities.issue import Issue, IssueCategory
-from mlflow.environment_variables import _MLFLOW_SERVER_JOB_NAME
+from mlflow.environment_variables import _MLFLOW_ISSUE_DETECTION_TRIGGER, _MLFLOW_SERVER_JOB_NAME
 
 _BUILTIN_CATEGORIES = frozenset(category.value for category in IssueCategory)
 
 
-def get_issue_detection_trigger() -> Literal["sdk", "adhoc", "schedule", "unknown"]:
+def get_issue_detection_trigger() -> Literal["sdk", "adhoc", "api", "schedule", "unknown"]:
     match _MLFLOW_SERVER_JOB_NAME.get():
         case None:
             return "sdk"
         case "invoke_issue_detection":
-            return "adhoc"
+            return "api" if _MLFLOW_ISSUE_DETECTION_TRIGGER.get() == "api" else "adhoc"
         case "scheduled_issue_detection":
             return "schedule"
         case _:
