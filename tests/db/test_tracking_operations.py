@@ -168,7 +168,7 @@ def test_search_issues_with_trace_count():
         "Incorrect refund policy", severity="high", description="d", experiment_id=exp_id
     )
     second = mlflow.genai.create_issue(
-        "Slow answers", severity="low", description="d", experiment_id=exp_id
+        "Slow answers", severity="high", description="d", experiment_id=exp_id
     )
     for issue, num_traces in [(first, 2), (second, 1)]:
         for _ in range(num_traces):
@@ -188,10 +188,11 @@ def test_search_issues_with_trace_count():
         name="",
     )
     assert result.total_count == 2
-    assert {(i.name, i.trace_count) for i in result} == {
+    # Same severity, so the higher trace count must sort first despite being created earlier
+    assert [(i.name, i.trace_count) for i in result] == [
         ("Incorrect refund policy", 2),
         ("Slow answers", 1),
-    }
+    ]
 
     result = store.search_issues(
         experiment_id=exp_id, include_trace_count=True, order_by=["name ASC"]
