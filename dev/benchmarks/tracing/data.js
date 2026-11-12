@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794503964691,
+  "lastUpdate": 1794505899914,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ruslan@hadrian.io",
-            "name": "Ruslan Hamzatov",
-            "username": "rhamzatov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ea8044b274c3f715272833dfd556f98ad0cab27e",
-          "message": "Handle non-JSON tool message content in the Gemini gateway adapter (#25868)\n\nSigned-off-by: Ruslan Hamzatov <ruslan@hadrian.io>\nCo-authored-by: Claude Opus 5 <noreply@anthropic.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>",
-          "timestamp": "2026-09-16T06:44:23Z",
-          "tree_id": "c128713a1c711c1f64d09d1c31750b97deac1a6f",
-          "url": "https://github.com/mlflow/mlflow/commit/ea8044b274c3f715272833dfd556f98ad0cab27e"
-        },
-        "date": 1789541259122,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.93956489999562,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.378154120689072,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.42499571428477,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.306771184211251,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 7.044792387097965,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 7.976892000004908,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 4.0016688000065415,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tomu.hirata@gmail.com",
+            "name": "Tomu Hirata",
+            "username": "TomeHirata"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c980e95c1c349820b42031e1f9e6f34365fc57a3",
+          "message": "Add missing Claude models to `bedrock_mantle` model catalog (#27649)\n\nSigned-off-by: Tomu Hirata <tomu.hirata@gmail.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-11-12T17:48:21Z",
+          "tree_id": "92a64490a0ba2efcaaeff018268b074b9663b986",
+          "url": "https://github.com/mlflow/mlflow/commit/c980e95c1c349820b42031e1f9e6f34365fc57a3"
+        },
+        "date": 1794505895685,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.257673099998925,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.977529838709931,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.230342565789745,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.193164761904904,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.72084300729894,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.051302599995779,
             "unit": "ms"
           }
         ]
