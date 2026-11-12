@@ -63,6 +63,17 @@ def partly_errored(outputs) -> list[Feedback]:
     return feedbacks
 
 
+@scorer
+def multi(outputs) -> list[Feedback]:
+    # Returns feedback under names other than the scorer name.
+    if outputs.get("error"):
+        raise TimeoutError("judge timed out")
+    return [
+        Feedback(name="clarity", value=outputs["score"]),
+        Feedback(name="safety", value=outputs["passed"]),
+    ]
+
+
 @scorer(name="failing")
 def not_failing(outputs) -> float:
     return outputs["score"]
@@ -885,6 +896,32 @@ def test_compare_evaluations_ignores_errors_on_partly_valid_or_unpaired_rows():
         assert comparison.n_candidate_errors == 0
         assert comparison.diff == pytest.approx(0.1)
     result.assert_improved(alpha=0.05)
+
+
+@pytest.mark.parametrize("candidate_error_rows", [(7, 8, 9), tuple(range(10))])
+def test_compare_evaluations_counts_scorer_failures_under_returned_feedback_names(
+    candidate_error_rows,
+):
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5]
+    baseline_rows = _rows(baseline_scores)
+    candidate_rows = _rows([s + 0.1 for s in baseline_scores])
+    baseline_rows[0]["outputs"]["error"] = True
+    for i in candidate_error_rows:
+        candidate_rows[i]["outputs"]["error"] = True
+    baseline_run_id = _evaluate(baseline_rows, scorers=[multi])
+    candidate_run_id = _evaluate(candidate_rows, scorers=[multi])
+
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
+
+    # The failures are counted under the feedback names rather than as a separate `multi`.
+    assert list(result.scorers) == ["clarity", "safety"]
+    for comparison in result.scorers.values():
+        assert comparison.status == "scorer_errors"
+        assert comparison.n_baseline_errors == 1
+        assert comparison.n_candidate_errors == len(candidate_error_rows)
+        assert comparison.n_paired == 10 - len({0, *candidate_error_rows})
+    with pytest.raises(AssertionError, match="did not significantly improve"):
+        result.assert_improved()
 
 
 def test_compare_evaluations_greater_is_better_override():

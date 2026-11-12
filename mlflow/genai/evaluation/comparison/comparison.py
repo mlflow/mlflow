@@ -7,6 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.comparison.entities import ComparisonResult
 from mlflow.genai.evaluation.comparison.paired_comparison import _compare_paired_values
 from mlflow.genai.evaluation.comparison.utils import (
+    _attribute_scorer_failures,
     _EvalRow,
     _is_pass_fail,
     _load_eval_rows,
@@ -59,10 +60,11 @@ def compare_evaluations(
     0.05, is reported with status ``"insufficient_pairs"``, and a warning is logged for
     scorers with fewer than ten. Paired rows on which a scorer errored in either run are
     excluded from that scorer's statistics and counted in ``n_baseline_errors`` and
-    ``n_candidate_errors``. Since errors are often not random (e.g. judge timeouts on long
-    inputs), such a scorer is reported with status ``"scorer_errors"``, even when all of its
-    feedback errored, and a warning is logged. If no scorer produced feedback in both runs, a
-    warning is logged and the result has no scorers.
+    ``n_candidate_errors``. A row on which a scorer raised counts as an error of each
+    feedback name that the scorer returns on other rows of either run. Since errors are often
+    not random (e.g. judge timeouts on long inputs), such a scorer is reported with status
+    ``"scorer_errors"``, even when all of its feedback errored, and a warning is logged. If no
+    scorer produced feedback in both runs, a warning is logged and the result has no scorers.
 
     No correction for multiple comparisons is applied across scorers.
 
@@ -113,7 +115,10 @@ def compare_evaluations(
 
     greater_is_better = greater_is_better or {}
 
-    pairing = _pair_rows(_load_eval_rows(baseline_run_id), _load_eval_rows(candidate_run_id))
+    baseline_rows = _load_eval_rows(baseline_run_id)
+    candidate_rows = _load_eval_rows(candidate_run_id)
+    _attribute_scorer_failures([*baseline_rows, *candidate_rows])
+    pairing = _pair_rows(baseline_rows, candidate_rows)
     _warn_unpaired_rows(pairing)
 
     def scorer_names(rows: list[_EvalRow]) -> set[str]:

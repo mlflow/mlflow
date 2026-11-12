@@ -81,7 +81,7 @@ Rows that have no match, or whose key appears more than once in a run, are **not
 
 ## Scorer errors
 
-A paired row on which a scorer errored in either run (for example, a judge timeout or rate limit) has no value for that scorer and is excluded from its statistics. The excluded rows are counted in `n_baseline_errors` and `n_candidate_errors`, and a warning is logged. Errors are often not random: long or hard inputs time out more often, so the remaining rows can make the candidate look better than it is. A scorer with errors is therefore reported with `status="scorer_errors"`, even when every one of its feedbacks errored (`n_paired=0`). Its statistics are still computed over the remaining rows when there are at least six of them, but `assert_improved` treats it as not improved. Fix the cause of the errors and evaluate again.
+A paired row on which a scorer errored in either run (for example, a judge timeout or rate limit) has no value for that scorer and is excluded from its statistics. The excluded rows are counted in `n_baseline_errors` and `n_candidate_errors`, and a warning is logged. Errors are often not random: long or hard inputs time out more often, so the remaining rows can make the candidate look better than it is. A scorer with errors is therefore reported with `status="scorer_errors"`, even when every one of its feedbacks errored (`n_paired=0`). Its statistics are still computed over the remaining rows when there are at least six of them, but `assert_improved` treats it as not improved. When a scorer that returns feedback under other names (for example, `clarity` and `safety`) raises on a row, the failure counts as an error of each of those names. Fix the cause of the errors and evaluate again.
 
 ## Which test is used
 

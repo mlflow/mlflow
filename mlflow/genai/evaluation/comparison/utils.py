@@ -14,7 +14,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.metric import Metric
 from mlflow.entities.trace import Trace
 from mlflow.genai.evaluation.comparison.entities import ComparisonResult, ScorerComparison
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.time import get_current_time_millis
 
@@ -25,6 +25,9 @@ _LOGGED_STATS = ("diff", "ci_low", "ci_high", "p_value", "effect_size", "n_paire
 # Only logged for scorers with errors, so the metrics of a ``"scorer_errors"`` comparison are
 # not read as a clean result.
 _LOGGED_ERROR_COUNTS = ("n_baseline_errors", "n_candidate_errors")
+
+# Error code of the feedback logged by `mlflow.genai.evaluate` when a scorer raises.
+_SCORER_INVOCATION_ERROR_CODE = "SCORER_ERROR"
 
 _PairedOn = Literal["eval_request_id", "inputs_hash"]
 # ``str()`` of an object without a JSON form, e.g. ``<Query object at 0x10f3b2d40>``.
@@ -51,9 +54,12 @@ class _EvalRow:
     # A trace can hold several feedbacks of one name, e.g. when a scorer returns a list of
     # feedbacks. They are averaged per trace before pairing, see ``_mean_feedback_value``.
     feedbacks: dict[str, list[Feedback]]
-    # Names of the scorers with errored feedback on the trace. Errored feedback has no value,
-    # so it is kept out of ``feedbacks``.
+    # Names of the feedback that errored on the trace. Errored feedback has no value, so it is
+    # kept out of ``feedbacks``.
     errored_scorers: set[str]
+    # Scorers that raised on the trace, by scorer name, with their definition digest. They are
+    # moved into ``errored_scorers`` by ``_attribute_scorer_failures``.
+    scorer_failures: dict[str, str]
 
 
 @dataclass
@@ -93,6 +99,7 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
     for trace in traces:
         feedbacks = collections.defaultdict(list)
         errored_scorers = set()
+        scorer_failures = {}
         for assessment in trace.info.assessments:
             if (
                 isinstance(assessment, Feedback)
@@ -102,6 +109,10 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
             ):
                 if assessment.error is None:
                     feedbacks[assessment.name].append(assessment)
+                elif assessment.error.error_code == _SCORER_INVOCATION_ERROR_CODE and (
+                    digest := _scorer_digest(assessment)
+                ):
+                    scorer_failures[assessment.name] = digest
                 else:
                     errored_scorers.add(assessment.name)
         inputs_hash, inputs_hash_unstable = _hash_inputs(trace)
@@ -113,9 +124,36 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
                 inputs_hash_unstable=inputs_hash_unstable,
                 feedbacks=dict(feedbacks),
                 errored_scorers=errored_scorers,
+                scorer_failures=scorer_failures,
             )
         )
     return rows
+
+
+def _scorer_digest(feedback: Feedback) -> str | None:
+    return (feedback.metadata or {}).get(AssessmentMetadataKey.SCORER_DIGEST)
+
+
+def _attribute_scorer_failures(rows: list[_EvalRow]) -> None:
+    """
+    Count each scorer failure in ``rows`` as an error of the feedback names the scorer returns.
+
+    A scorer that raises is logged as one errored feedback named after the scorer, but a scorer
+    returning feedback of other names (e.g. ``clarity`` and ``safety``) is compared under those
+    names. The names are those of the valid feedback of the same scorer definition, matched on
+    its digest, on any of ``rows``, so that ``rows`` should hold the rows of both runs for a
+    scorer that failed on every row of one run. A failure of a scorer without valid feedback is
+    counted under the scorer name.
+    """
+    names_by_digest = collections.defaultdict(set)
+    for row in rows:
+        for name, feedbacks in row.feedbacks.items():
+            for feedback in feedbacks:
+                if digest := _scorer_digest(feedback):
+                    names_by_digest[digest].add(name)
+    for row in rows:
+        for name, digest in row.scorer_failures.items():
+            row.errored_scorers.update(names_by_digest.get(digest) or {name})
 
 
 def _mean_feedback_value(feedbacks: list[Feedback]) -> float | None:
