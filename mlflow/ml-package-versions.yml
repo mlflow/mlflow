@@ -503,7 +503,9 @@ transformers:
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
           "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
-          "sentencepiece", # required for transformers text2text generation pipeline
+          # required for transformers text2text generation pipeline. 0.2.3's gencode imports
+          # google.protobuf.runtime_version, which the protobuf pin below lacks.
+          "sentencepiece<0.2.3",
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
