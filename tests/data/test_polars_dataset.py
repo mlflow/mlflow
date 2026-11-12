@@ -154,6 +154,12 @@ def test_digest_depends_on_column_names(source: SampleDatasetSource) -> None:
     assert dataset.digest != renamed.digest
 
 
+def test_digest_keeps_column_name_boundaries(source: SampleDatasetSource) -> None:
+    dataset = PolarsDataset(df=pl.DataFrame({"ab": [1, 2], "c": [3, 4]}), source=source)
+    shifted = PolarsDataset(df=pl.DataFrame({"a": [1, 2], "bc": [3, 4]}), source=source)
+    assert dataset.digest != shifted.digest
+
+
 def test_digest_depends_on_rows_beyond_the_hashed_prefix(source: SampleDatasetSource) -> None:
     df = pl.DataFrame({"numbers": range(10_001)})
     dataset = PolarsDataset(df=df, source=source)

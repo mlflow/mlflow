@@ -37,9 +37,13 @@ def hash_polars_df(df: pl.DataFrame) -> str:
     https://github.com/pola-rs/polars/issues/9743.
     """
     row_hashes = np.sort(df.head(MAX_ROWS).hash_rows().to_numpy())
-    return get_normalized_md5_digest(
-        [row_hashes, np.int64(df.height)] + [str(column).encode() for column in df.columns]
-    )
+    # The column names go in as one JSON list so that their boundaries are part of the
+    # digest: ["ab", "c"] and ["a", "bc"] must not hash alike.
+    return get_normalized_md5_digest([
+        row_hashes,
+        np.int64(df.height),
+        json.dumps(df.columns).encode(),
+    ])
 
 
 ColSpecType = DataType | Array | Object | str
