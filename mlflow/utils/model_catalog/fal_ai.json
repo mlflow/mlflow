@@ -177,6 +177,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "blackforestlabs/flux-3/edit-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "blackforestlabs/flux-3/edit-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -231,6 +242,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "blackforestlabs/flux-3/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "blackforestlabs/flux-3/image-to-video/draft": {
       "mode": "video_generation",
@@ -287,6 +309,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "blackforestlabs/flux-3/klein/edit-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "blackforestlabs/flux-3/klein/edit-image/lora": {
       "mode": "image_generation",
       "capabilities": {
@@ -297,6 +330,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "blackforestlabs/flux-3/klein/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "blackforestlabs/flux-3/klein/text-to-image/lora": {
       "mode": "image_generation",
@@ -309,6 +353,28 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "blackforestlabs/flux-3/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "blackforestlabs/flux-3/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "blackforestlabs/flux-3/text-to-video/draft": {
       "mode": "video_generation",
       "capabilities": {
@@ -319,6 +385,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "blackforestlabs/flux-video-upscale": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "bria/bria_video_eraser/erase/keypoints": {
       "mode": "video_generation",
@@ -385,6 +462,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "bria/fibo-2/generate": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "bria/fibo-bbq-preview/generate": {
       "mode": "image_generation",
@@ -793,6 +881,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "bytedance/seedance-2.0/fast/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "bytedance/seedance-2.0/fast/text-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -881,6 +980,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "bytedance/seedance-2.0/us/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "bytedance/seedance-2.0/us/text-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -947,6 +1057,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "bytedance/seedance-2.5/us/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "bytedance/seedance-2.5/us/text-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -1012,6 +1133,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "bytedance/seedream/v5/pro/layerize": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "clarityai/crystal-upscaler": {
       "mode": "image_generation",
@@ -1167,6 +1299,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/bria/background/remove": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/bria/background/replace": {
       "mode": "image_generation",
       "capabilities": {
@@ -1265,6 +1408,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/bytedance-upscaler/upscale/video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/bytedance/dreamactor/v2": {
       "mode": "video_generation",
@@ -1452,6 +1606,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/emu-3.5-image/edit-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/emu-3.5-image/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/ernie-image": {
       "mode": "image_generation",
@@ -1870,6 +2046,61 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/flux-2-max": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/flux-2-max/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/flux-2-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/flux-2-pro/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/flux-2-pro/outpaint": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/flux-2/edit": {
       "mode": "image_generation",
@@ -2442,6 +2673,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/flux-pro/v1/erase": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/flux-pro/v1/fill": {
       "mode": "image_generation",
@@ -4115,6 +4357,50 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/kling-video/v2.5-turbo/pro/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/kling-video/v2.5-turbo/pro/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/kling-video/v2.5-turbo/standard/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/kling-video/v2.6/pro/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/kling-video/v2.6/pro/motion-control": {
       "mode": "video_generation",
       "capabilities": {
@@ -4632,6 +4918,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/minimax/hailuo-02/standard/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/minimax/hailuo-02/standard/text-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -4642,6 +4939,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/minimax/image-01": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/minimax/image-01/subject-reference": {
       "mode": "image_generation",
@@ -4790,6 +5098,39 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/object-removal": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/object-removal/bbox": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/object-removal/mask": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/omnigen-v2": {
       "mode": "image_generation",
       "capabilities": {
@@ -4844,6 +5185,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/pixverse/lipsync": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/post-processing/blur": {
       "mode": "image_generation",
@@ -5373,6 +5725,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/recraft-20b": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/recraft/upscale/creative": {
       "mode": "image_generation",
       "capabilities": {
@@ -5394,6 +5757,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/recraft/v3/image-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/recraft/v3/text-to-image": {
       "mode": "image_generation",
@@ -5571,6 +5945,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/scail-2": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/seedvr/upscale/image": {
       "mode": "image_generation",
       "capabilities": {
@@ -5593,6 +5978,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/smart-resize": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/stable-diffusion-v3-medium": {
       "mode": "image_generation",
       "capabilities": {
@@ -5603,6 +5999,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/stable-diffusion-v3-medium/image-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/stable-diffusion-v35-large": {
       "mode": "image_generation",
@@ -5681,6 +6088,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/vidu/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/vidu/q2/reference-to-image": {
       "mode": "image_generation",
       "capabilities": {
@@ -5735,6 +6153,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/vidu/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/vidu/start-end-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/wan-22-vace-fun-a14b/depth": {
       "mode": "video_generation",
@@ -5890,6 +6330,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/wan-vace-apps/long-reframe": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "fal-ai/wan-vace-apps/video-edit": {
       "mode": "video_generation",
       "capabilities": {
@@ -5900,6 +6351,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/wan/v2.2-14b/animate/move": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "fal-ai/wan/v2.2-14b/animate/replace": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "fal-ai/wan/v2.2-14b/speech-to-video": {
       "mode": "video_generation",
@@ -6274,6 +6747,87 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "google/gemini-omni-flash/v1.2/edit": {
+      "mode": "video_generation",
+      "pricing": {
+        "input_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-omni-flash/v1.2/extend": {
+      "mode": "video_generation",
+      "pricing": {
+        "input_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-omni-flash/v1.2/image-to-video": {
+      "mode": "video_generation",
+      "pricing": {
+        "input_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-omni-flash/v1.2/reference-to-video": {
+      "mode": "video_generation",
+      "pricing": {
+        "input_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-omni-flash/v1.2/text-to-video": {
+      "mode": "video_generation",
+      "pricing": {
+        "input_per_million_tokens": 1.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/virtual-try-on": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "gpt-image-2": {
       "mode": "image_generation",
@@ -6814,6 +7368,28 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "ideogram/v4/tiling": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram/v4/tiling/lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "kling/v4/flash/image-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -6824,6 +7400,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "kling/v4/flash/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "kling/v4/flash/text-to-video": {
       "mode": "video_generation",
@@ -6857,6 +7444,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "kling/v4/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "kling/v4/text-to-video": {
       "mode": "video_generation",
@@ -7408,6 +8006,61 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "luma/agent/ray/v3.2/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "luma/agent/ray/v3.2/reframe": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "luma/agent/ray/v3.2/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "luma/agent/ray/v3.2/video-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "luma/agent/uni-1/v1/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "luma/agent/uni-1/v1/max": {
       "mode": "image_generation",
       "capabilities": {
@@ -7418,6 +8071,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "luma/agent/uni-1/v1/max/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "luma/agent/uni-1/v1/text-to-image": {
       "mode": "image_generation",
@@ -8288,6 +8952,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "minimax/h3-max/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "minimax/h3-max/reframe-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -8309,6 +8984,61 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "minimax/h3-max/styles/16bit-pixel": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "minimax/h3-max/styles/hand-drawn": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "minimax/h3-max/styles/low-poly": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "minimax/h3-max/styles/retro-toon-70s": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "minimax/h3-max/styles/vhs": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "minimax/h3-max/text-to-video": {
       "mode": "video_generation",
@@ -8387,6 +9117,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "mirelo-ai/sfx2.0/video-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "nvidia/cosmos-3-super/image-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -8397,6 +9138,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "nvidia/cosmos-3-super/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "openai/gpt-image-2": {
       "mode": "image_generation",
@@ -8508,6 +9260,28 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "pixverse/v6/max/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "pixverse/v6/max/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "recraft/v4.1/flash/text-to-image": {
       "mode": "image_generation",
       "capabilities": {
@@ -8518,6 +9292,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "recraft/v4/style/pro/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft/v4/style/pro/text-to-vector": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft/v4/style/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft/v4/style/text-to-vector": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "rundiffusion-fal/juggernaut-flux/base": {
       "mode": "image_generation",
@@ -8628,6 +9446,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "vast/eden-live-14b-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "vast/eden-live-5b-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "veed/fabric-1.0": {
       "mode": "video_generation",
@@ -8750,6 +9590,83 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "xai/grok-imagine-image/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video/edit-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video/extend-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video/v1.5/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "xai/grok-imagine-video/v1.5/lite/image-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -8771,6 +9688,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "xai/grok-imagine-video/v1.5/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "xai/grok-imagine-video/v1.5/text-to-video": {
       "mode": "video_generation",
