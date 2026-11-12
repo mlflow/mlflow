@@ -1,7 +1,8 @@
-"""Print a pull request's context as JSON: its title, body, and conversation timeline.
+"""Print a pull request's context as JSON.
 
-The timeline mirrors the Conversation tab: comments and reviews in chronological order, with
-each inline thread under the review that started it.
+The output has the PR's title, body, author, base, and head, plus a timeline that mirrors the
+Conversation tab: comments and reviews in chronological order, with each inline thread under
+the review that started it.
 
 Usage:
     uv run --no-project .claude/scripts/pr_context.py --repo mlflow/mlflow --pr-number 123
@@ -64,6 +65,22 @@ def _list_threads(repo: str, number: int) -> list[dict[str, Any]]:
 
 def _login(item: dict[str, Any]) -> str:
     return (item["user"] or {}).get("login", "")
+
+
+def describe_pr(pr: dict[str, Any]) -> dict[str, Any]:
+    user = pr["user"] or {}
+    return {
+        "title": pr["title"],
+        "body": pr["body"] or "",
+        "author": {"login": user.get("login", ""), "type": user.get("type", "")},
+        "base": {"ref": pr["base"]["ref"], "sha": pr["base"]["sha"]},
+        "head": {
+            "ref": pr["head"]["ref"],
+            "sha": pr["head"]["sha"],
+            # The head repository is gone once a fork is deleted.
+            "repo": (pr["head"]["repo"] or {}).get("full_name", ""),
+        },
+    }
 
 
 def build_timeline(
@@ -132,7 +149,7 @@ def build_timeline(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Print a pull request's title, body, and conversation timeline as JSON."
+        description="Print a pull request's description and conversation timeline as JSON."
     )
     parser.add_argument("--repo", required=True, help="Repository as <owner>/<name>")
     parser.add_argument("--pr-number", type=int, required=True, help="Pull request number")
@@ -151,8 +168,7 @@ def main() -> None:
         threads=_list_threads(args.repo, args.pr_number),
         review_id=args.review_id,
     )
-    pr = _api(endpoint)
-    json.dump({"title": pr["title"], "body": pr["body"] or "", "timeline": timeline}, sys.stdout)
+    json.dump(describe_pr(_api(endpoint)) | {"timeline": timeline}, sys.stdout)
 
 
 if __name__ == "__main__":

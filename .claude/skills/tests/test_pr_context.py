@@ -60,6 +60,23 @@ def thread(root_id: int, *, resolved: bool = False) -> dict[str, Any]:
     }
 
 
+def test_describe_pr(pr_context: ModuleType) -> None:
+    pr = {
+        "title": "Fix foo",
+        "body": None,
+        "user": {"login": "alice", "type": "User"},
+        "base": {"ref": "master", "sha": "a" * 40},
+        "head": {"ref": "fix-foo", "sha": "b" * 40, "repo": None},
+    }
+    assert pr_context.describe_pr(pr) == {
+        "title": "Fix foo",
+        "body": "",
+        "author": {"login": "alice", "type": "User"},
+        "base": {"ref": "master", "sha": "a" * 40},
+        "head": {"ref": "fix-foo", "sha": "b" * 40, "repo": ""},
+    }
+
+
 def test_threads_appear_under_the_review_that_started_them(pr_context: ModuleType) -> None:
     timeline = pr_context.build_timeline(
         issue_comments=[{"user": None, "created_at": "2026-01-02T00:00:00Z", "body": "hi"}],
