@@ -135,7 +135,7 @@ CREATE TABLE scheduler_leases (
 	lease_key VARCHAR(255) NOT NULL,
 	acquired_at BIGINT NOT NULL,
 	ttl_seconds INTEGER NOT NULL,
-	PRIMARY KEY (lease_key)
+	CONSTRAINT scheduler_leases_pk PRIMARY KEY (lease_key)
 )
 
 
@@ -547,7 +547,7 @@ CREATE TABLE skill_tags (
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	organization VARCHAR(64) DEFAULT '' NOT NULL,
 	name VARCHAR(128) NOT NULL,
-	key VARCHAR(250) COLLATE utf8mb4_bin NOT NULL,
+	key VARCHAR(250) COLLATE "utf8mb4_bin" NOT NULL,
 	value MEDIUMTEXT,
 	PRIMARY KEY (workspace, organization, name, key),
 	CONSTRAINT skill_tags_skill_fkey FOREIGN KEY(workspace, organization, name) REFERENCES skills (workspace, organization, name) ON DELETE CASCADE ON UPDATE CASCADE
@@ -850,7 +850,7 @@ CREATE TABLE skill_version_tags (
 	organization VARCHAR(64) DEFAULT '' NOT NULL,
 	name VARCHAR(128) NOT NULL,
 	version INTEGER NOT NULL,
-	key VARCHAR(250) COLLATE utf8mb4_bin NOT NULL,
+	key VARCHAR(250) COLLATE "utf8mb4_bin" NOT NULL,
 	value MEDIUMTEXT,
 	PRIMARY KEY (workspace, organization, name, version, key),
 	CONSTRAINT skill_version_tags_version_fkey FOREIGN KEY(workspace, organization, name, version) REFERENCES skill_versions (workspace, organization, name, version) ON DELETE CASCADE ON UPDATE CASCADE
