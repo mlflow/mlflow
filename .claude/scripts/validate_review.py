@@ -4,7 +4,7 @@
 2. Positions: with --diff, check that every comment points at a row of the diff.
 
 Usage:
-    uv run .claude/scripts/validate_review.py --payload payload.json --diff pr.diff
+    uv run --no-project .claude/scripts/validate_review.py --payload payload.json --diff pr.diff
 """
 
 from __future__ import annotations
