@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 
 import pytest
+from sqlalchemy import event
 
 import mlflow.store.tracking.sqlalchemy_store as sqlalchemy_store_module
 from mlflow.entities import (
@@ -589,6 +590,74 @@ def test_delete_assessment_with_multiple_overrides(store_and_trace_info, delete_
     assert store.get_assessment(trace_id, second.assessment_id).valid is True
 
     store.delete_assessment(trace_id, second.assessment_id)
+    assert store.get_assessment(trace_id, original.assessment_id).valid is True
+
+
+def test_concurrent_delete_of_overrides_restores_original(store_and_trace_info):
+    store, trace_info = store_and_trace_info
+    if store.db_type in (MYSQL, SQLITE):
+        pytest.skip(f"{store.db_type} does not support this concurrent row-lock test")
+
+    trace_id = trace_info.request_id
+    original = store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="correctness",
+            value=False,
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
+    )
+    first, second = (
+        store.create_assessment(
+            Feedback(
+                trace_id=trace_id,
+                name="correctness",
+                value=True,
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id=user),
+                overrides=original.assessment_id,
+            ),
+        )
+        for user in ["reviewer-a", "reviewer-b"]
+    )
+
+    first_delete_has_locks = Event()
+    release_first_delete = Event()
+    second_delete_started = Event()
+
+    # Pause the first deletion right before its DELETE statement, after it has taken the
+    # row locks on the original and the remaining override.
+    def hold_first_delete(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("DELETE FROM ASSESSMENTS") and (
+            not first_delete_has_locks.is_set()
+        ):
+            first_delete_has_locks.set()
+            assert release_first_delete.wait(timeout=10)
+
+    def delete_second():
+        second_delete_started.set()
+        store.delete_assessment(trace_id, second.assessment_id)
+
+    event.listen(store.engine, "before_cursor_execute", hold_first_delete)
+    try:
+        with ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="test-concurrent-override-delete"
+        ) as executor:
+            first_future = executor.submit(store.delete_assessment, trace_id, first.assessment_id)
+            assert first_delete_has_locks.wait(timeout=10)
+            second_future = executor.submit(delete_second)
+            assert second_delete_started.wait(timeout=10)
+            try:
+                # The second deletion must wait for the first one to commit
+                time.sleep(0.5)
+                assert not second_future.done()
+            finally:
+                release_first_delete.set()
+            first_future.result(timeout=10)
+            second_future.result(timeout=10)
+    finally:
+        event.remove(store.engine, "before_cursor_execute", hold_first_delete)
+
+    # Without the locks, each deletion would see the other override and skip the restore
     assert store.get_assessment(trace_id, original.assessment_id).valid is True
 
 
