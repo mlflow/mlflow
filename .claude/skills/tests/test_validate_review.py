@@ -151,6 +151,8 @@ def test_quoted_path_is_decoded(validate_review: ModuleType) -> None:
     [
         # Fewer lines than the header declares.
         "--- a/f\n+++ b/f\n@@ -1,3 +1,3 @@\n a\n",
+        # One line fewer: the final newline must not count as a blank row.
+        "--- a/f\n+++ b/f\n@@ -1,2 +1,2 @@\n a\n",
         # More old lines than the header declares.
         "--- a/f\n+++ b/f\n@@ -1,1 +1,2 @@\n-a\n-b\n+c\n",
     ],

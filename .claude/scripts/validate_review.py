@@ -74,7 +74,8 @@ def _read_hunk(header: str, lines: Iterator[str]) -> _Hunk:
 def read_hunks(diff: str) -> dict[str, list[_Hunk]]:
     files: dict[str, list[_Hunk]] = {}
     old_path = path = None
-    lines = iter(diff.split("\n"))
+    # Drop the final newline so it is not read as a blank row of a truncated hunk.
+    lines = iter(diff.removesuffix("\n").split("\n"))
     for line in lines:
         if line.startswith("diff --git "):
             old_path = path = None
@@ -134,7 +135,8 @@ def main() -> None:
         "--schema",
         type=Path,
         default=_SCHEMA,
-        help="JSON Schema for the payload (default: %(default)s)",
+        help="JSON Schema for the payload (default: %(default)s). With --diff, it must "
+        "require `comments` and each comment's `path`, `side` and `line`.",
     )
     parser.add_argument("--payload", type=Path, required=True, help="Review payload JSON file")
     parser.add_argument("--diff", type=Path, help="Git diff the comments must point into")
