@@ -1573,6 +1573,22 @@ def test_get_databricks_model_serving_staging_status_returns_the_status():
     }
 
 
+@pytest.mark.parametrize("body", [{}, {"status": None}])
+def test_get_databricks_model_serving_staging_status_returns_empty_without_a_status(body):
+    response = mock.Mock(status_code=200, text=json.dumps(body))
+    response.json.return_value = body
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=response),
+    ):
+        assert (
+            get_databricks_model_serving_staging_status(
+                model_name="main.default.m", model_version="1"
+            )
+            == {}
+        )
+
+
 def test_get_databricks_model_serving_staging_status_raises_rest_exception():
     response = mock.Mock(
         status_code=403,

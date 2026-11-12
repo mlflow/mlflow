@@ -449,6 +449,22 @@ def test_pack_env_for_databricks_model_serving_rejects_a_model_with_volume_weigh
     mock_run.assert_not_called()
 
 
+def test_pack_env_for_databricks_model_serving_packs_a_model_whose_metadata_isnt_a_dict(
+    tmp_path, mock_dbr_version
+):
+    artifacts_dir, env_dir = _make_packable_model(tmp_path)
+    (artifacts_dir / "MLmodel").write_text(
+        yaml.dump({"databricks_runtime": "client.2.0", "flavors": {}, "metadata": ["a", "list"]})
+    )
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("sys.prefix", str(env_dir)),
+        mock.patch("mlflow.telemetry.track._record_event"),
+    ):
+        with env_pack.pack_env_for_databricks_model_serving("models:/test/1") as packed_dir:
+            assert (Path(packed_dir) / env_pack._ARTIFACT_PATH).exists()
+
+
 def test_pack_env_with_local_model_path_no_mutation(tmp_path, mock_dbr_version):
     # Create a local directory with model artifacts
     local_model_dir = tmp_path / "local_model"

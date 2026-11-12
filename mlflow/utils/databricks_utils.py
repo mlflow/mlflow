@@ -1699,7 +1699,7 @@ def get_databricks_model_serving_staging_status(
         json={"model": model_name, "model_version": model_version},
     )
     verify_rest_response(response, endpoint)
-    return response.json().get("status", {})
+    return response.json().get("status") or {}
 
 
 P = ParamSpec("P")

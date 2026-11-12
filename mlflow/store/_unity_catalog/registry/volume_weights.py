@@ -7,8 +7,6 @@ with its weights, is staged; the environment is staged independently.
 """
 
 import logging
-import os
-import posixpath
 import time
 from typing import Any
 
@@ -39,14 +37,18 @@ def get_volume_artifacts_path(model) -> str | None:
     Returns the Unity Catalog volume path set as ``volume_artifacts_path`` in the model's
     metadata, or None when the model carries its weights itself.
     """
-    path = (model.metadata or {}).get(VOLUME_ARTIFACTS_PATH_METADATA_KEY)
+    metadata = model.metadata
+    if not isinstance(metadata, dict):
+        return None
+    path = metadata.get(VOLUME_ARTIFACTS_PATH_METADATA_KEY)
     if path is None:
         return None
+    segments = path.rstrip("/").split("/") if isinstance(path, str) else []
     # /Volumes/<catalog>/<schema>/<volume> is the shortest path inside a volume.
     if (
-        not isinstance(path, str)
-        or not path.startswith("/Volumes/")
-        or len(path.strip("/").split("/")) < 4
+        segments[:2] != ["", "Volumes"]
+        or len(segments) < 5
+        or any(segment in ("", ".", "..") for segment in segments[1:])
     ):
         raise MlflowException.invalid_parameter_value(
             f"The model's '{VOLUME_ARTIFACTS_PATH_METADATA_KEY}' metadata must be a Unity Catalog "
@@ -56,19 +58,23 @@ def get_volume_artifacts_path(model) -> str | None:
     return path
 
 
-def volume_weights_in_model_dir(local_model_dir: str, volume_path: str) -> bool:
+def get_staging_timeout() -> int:
     """
-    Returns whether the model's own files already hold the weights Databricks copies from the
-    volume, as when registering a copy of a version whose weights were already copied.
+    Returns how many seconds to wait for staging. Read before staging starts, so a bad value
+    fails before anything is staged or uploaded.
     """
-    # Staging copies the volume directory to artifacts/<its last path segment>/.
-    weights_dir = os.path.join(
-        local_model_dir, "artifacts", posixpath.basename(volume_path.rstrip("/"))
-    )
-    if not os.path.isdir(weights_dir):
-        return False
-    with os.scandir(weights_dir) as entries:
-        return any(entries)
+    name = MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT.name
+    try:
+        timeout = MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT.get()
+    except ValueError:
+        timeout = None
+    if timeout is None or timeout <= 0:
+        raise MlflowException.invalid_parameter_value(
+            f"{name} must be a positive whole number of seconds, but it is "
+            f"{MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT.get_raw()!r}. Set it to a "
+            "positive number of seconds, or unset it to wait the default 7200 seconds."
+        )
+    return timeout
 
 
 def _error_code_value(error_code_name: str) -> int:
@@ -122,14 +128,13 @@ def start_model_serving_staging(name: str, version: str, host_creds) -> dict[str
 
 
 def wait_for_model_artifact_staging(
-    name: str, version: str, status: dict[str, Any], host_creds
+    name: str, version: str, status: dict[str, Any], host_creds, timeout: int
 ) -> None:
     """
     Polls the staging status until the model, with the weights copied into the version, is
-    staged. Staging that fails is started again up to ``_MAX_STAGING_RESTARTS`` times while
-    time remains.
+    staged, for at most ``timeout`` seconds. Staging that fails is started again up to
+    ``_MAX_STAGING_RESTARTS`` times while time remains.
     """
-    timeout = MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT.get()
     deadline = time.monotonic() + timeout
     restarts = 0
     _logger.info(
@@ -141,7 +146,7 @@ def wait_for_model_artifact_staging(
     while True:
         # Only the weights must be in the version before it is finalized; the serving
         # environment, the other artifact in the status, is staged independently.
-        state = status.get("model_artifact", {}).get("state")
+        state = (status.get("model_artifact") or {}).get("state")
         if state == _STATE_SUCCEEDED:
             return
         remaining = deadline - time.monotonic()
@@ -164,9 +169,10 @@ def wait_for_model_artifact_staging(
                 restarts + 1,
                 _MAX_STAGING_RESTARTS + 1,
             )
-            status = start_model_serving_staging(name, version, host_creds)
-            continue
-        if remaining <= 0:
+            # The status read right after restarting can still show the failed attempt, so the
+            # restart is judged by the next poll.
+            start_model_serving_staging(name, version, host_creds)
+        elif remaining <= 0:
             raise MlflowException(
                 f"Databricks didn't finish staging model '{name}' version {version} for Model "
                 f"Serving, which copies its weights from its Unity Catalog volume, within "

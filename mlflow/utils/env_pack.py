@@ -221,7 +221,8 @@ def _pack_env_for_databricks_model_serving(
 
         # Registering a model whose weights are in a volume already prepares it for serving, so
         # this is checked before installing its requirements or packing its environment.
-        if (model_dict.get("metadata") or {}).get(VOLUME_ARTIFACTS_PATH_METADATA_KEY):
+        metadata = model_dict.get("metadata")
+        if isinstance(metadata, dict) and metadata.get(VOLUME_ARTIFACTS_PATH_METADATA_KEY):
             raise MlflowException(
                 f"The model at '{model_uri}' keeps its weights in a Unity Catalog volume "
                 f"('{VOLUME_ARTIFACTS_PATH_METADATA_KEY}' in its metadata), and registering it "

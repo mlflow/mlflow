@@ -6,9 +6,9 @@ import pytest
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.store._unity_catalog.registry import volume_weights
 from mlflow.store._unity_catalog.registry.volume_weights import (
+    get_staging_timeout,
     get_volume_artifacts_path,
     start_model_serving_staging,
-    volume_weights_in_model_dir,
     wait_for_model_artifact_staging,
 )
 
@@ -39,7 +39,7 @@ def no_sleep():
 
 @pytest.mark.parametrize(
     "metadata",
-    [None, {}, {"other": "value"}],
+    [None, {}, {"other": "value"}, ["not", "a", "dict"]],
 )
 def test_get_volume_artifacts_path_returns_none_without_a_volume_path(metadata):
     assert get_volume_artifacts_path(SimpleNamespace(metadata=metadata)) is None
@@ -47,7 +47,7 @@ def test_get_volume_artifacts_path_returns_none_without_a_volume_path(metadata):
 
 @pytest.mark.parametrize(
     "path",
-    ["/Volumes/main/default/weights", "/Volumes/main/default/weights/qwen/v1"],
+    ["/Volumes/main/default/weights", "/Volumes/main/default/weights/qwen/v1", "/Volumes/c/s/v/"],
 )
 def test_get_volume_artifacts_path_returns_a_volume_path(path):
     model = SimpleNamespace(metadata={"volume_artifacts_path": path})
@@ -56,7 +56,16 @@ def test_get_volume_artifacts_path_returns_a_volume_path(path):
 
 @pytest.mark.parametrize(
     "path",
-    ["/dbfs/weights", "Volumes/main/default/weights", "/Volumes/main/default", 42],
+    [
+        "/dbfs/weights",
+        "Volumes/main/default/weights",
+        "/Volumes/main/default",
+        "/Volumes/main/default/weights/..",
+        "/Volumes/main//default/weights",
+        "/Volumes/main/./default/weights",
+        "",
+        42,
+    ],
 )
 def test_get_volume_artifacts_path_rejects_a_path_outside_a_volume(path):
     model = SimpleNamespace(metadata={"volume_artifacts_path": path})
@@ -65,30 +74,17 @@ def test_get_volume_artifacts_path_rejects_a_path_outside_a_volume(path):
     assert e.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
-@pytest.mark.parametrize(
-    ("volume_path", "weights_dir_name"),
-    [
-        ("/Volumes/c/s/v/weights", "weights"),
-        ("/Volumes/c/s/v/weights/", "weights"),
-        ("/Volumes/c/s/v", "v"),
-    ],
-)
-def test_volume_weights_in_model_dir_finds_weights_that_were_already_copied(
-    tmp_path, volume_path, weights_dir_name
-):
-    weights_dir = tmp_path / "artifacts" / weights_dir_name
-    weights_dir.mkdir(parents=True)
-    (weights_dir / "model.safetensors").write_text("weights")
-
-    assert volume_weights_in_model_dir(str(tmp_path), volume_path)
+def test_get_staging_timeout_defaults_to_two_hours(monkeypatch):
+    monkeypatch.delenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", raising=False)
+    assert get_staging_timeout() == 7200
 
 
-@pytest.mark.parametrize("create_empty_dir", [False, True])
-def test_volume_weights_in_model_dir_is_false_without_copied_weights(tmp_path, create_empty_dir):
-    if create_empty_dir:
-        (tmp_path / "artifacts" / "weights").mkdir(parents=True)
-
-    assert not volume_weights_in_model_dir(str(tmp_path), "/Volumes/c/s/v/weights")
+@pytest.mark.parametrize("value", ["2h", "", "0", "-5"])
+def test_get_staging_timeout_rejects_a_value_that_isnt_a_positive_number(monkeypatch, value):
+    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", value)
+    with pytest.raises(MlflowException, match="must be a positive whole number of seconds") as e:
+        get_staging_timeout()
+    assert e.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_start_model_serving_staging_returns_the_status_polled_after_staging(stage, poll):
@@ -156,7 +152,7 @@ def test_start_model_serving_staging_propagates_other_status_errors(stage, poll)
 def test_wait_returns_once_the_model_weights_are_copied(stage, poll, no_sleep):
     poll.side_effect = [_status("IN_PROGRESS"), _status("SUCCEEDED")]
 
-    wait_for_model_artifact_staging("c.s.m", "3", _status("IN_PROGRESS"), None)
+    wait_for_model_artifact_staging("c.s.m", "3", _status("IN_PROGRESS"), None, 7200)
 
     assert poll.call_count == 2
     assert no_sleep.call_count == 2
@@ -169,7 +165,7 @@ def test_wait_ignores_the_environment_artifact(stage, poll):
         "model_artifact": {"state": "SUCCEEDED"},
         "environment_artifact": {"state": "IN_PROGRESS"},
     }
-    wait_for_model_artifact_staging("c.s.m", "3", status, None)
+    wait_for_model_artifact_staging("c.s.m", "3", status, None, 7200)
     poll.assert_not_called()
 
 
@@ -177,7 +173,7 @@ def test_wait_ignores_the_environment_artifact(stage, poll):
 def test_wait_restarts_failed_staging(stage, poll, failed_state):
     poll.side_effect = [_status("IN_PROGRESS"), _status("SUCCEEDED")]
 
-    wait_for_model_artifact_staging("c.s.m", "3", _status(failed_state), None)
+    wait_for_model_artifact_staging("c.s.m", "3", _status(failed_state), None, 7200)
 
     stage.assert_called_once_with("c.s.m", "3", host_creds=None)
 
@@ -188,49 +184,63 @@ def test_wait_raises_once_restarts_are_exhausted(stage, poll):
     with pytest.raises(
         MlflowException, match="while staging it for Model Serving. Check that the volume"
     ):
-        wait_for_model_artifact_staging("c.s.m", "3", _status("FAILED"), None)
+        wait_for_model_artifact_staging("c.s.m", "3", _status("FAILED"), None, 7200)
 
     assert stage.call_count == volume_weights._MAX_STAGING_RESTARTS
-    assert poll.call_count == volume_weights._MAX_STAGING_RESTARTS
+    # Each restart reads the status once while staging and once more after waiting.
+    assert poll.call_count == 2 * volume_weights._MAX_STAGING_RESTARTS
 
 
-def test_wait_raises_when_staging_outlasts_the_timeout(stage, poll, monkeypatch):
-    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", "30")
+def test_wait_raises_when_staging_outlasts_the_timeout(stage, poll):
     poll.return_value = _status("IN_PROGRESS")
     with (
         mock.patch.object(volume_weights.time, "monotonic", side_effect=[0, 10, 20, 31]),
         pytest.raises(MlflowException, match="within 30 seconds"),
     ):
-        wait_for_model_artifact_staging("c.s.m", "3", _status("IN_PROGRESS"), None)
+        wait_for_model_artifact_staging("c.s.m", "3", _status("IN_PROGRESS"), None, 30)
 
     assert poll.call_count == 2
     stage.assert_not_called()
 
 
-def test_wait_reports_failed_staging_without_restarting_it_after_the_timeout(
-    stage, poll, monkeypatch
-):
-    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", "30")
+def test_wait_reports_failed_staging_without_restarting_it_after_the_timeout(stage, poll):
     with (
         mock.patch.object(volume_weights.time, "monotonic", side_effect=[0, 31]),
         pytest.raises(
             MlflowException, match="while staging it for Model Serving. Check that the volume"
         ),
     ):
-        wait_for_model_artifact_staging("c.s.m", "3", _status("FAILED"), None)
+        wait_for_model_artifact_staging("c.s.m", "3", _status("FAILED"), None, 30)
 
     stage.assert_not_called()
     poll.assert_not_called()
 
 
-def test_wait_does_not_sleep_past_the_timeout(stage, poll, no_sleep, monkeypatch):
-    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", "15")
+def test_wait_does_not_sleep_past_the_timeout(stage, poll, no_sleep):
     poll.return_value = _status("IN_PROGRESS")
     with (
         mock.patch.object(volume_weights.time, "monotonic", side_effect=[0, 10, 15]),
         pytest.raises(MlflowException, match="within 15 seconds"),
     ):
-        wait_for_model_artifact_staging("c.s.m", "3", _status("IN_PROGRESS"), None)
+        wait_for_model_artifact_staging("c.s.m", "3", _status("IN_PROGRESS"), None, 15)
 
     no_sleep.assert_called_once_with(5)
     assert poll.call_count == 1
+
+
+def test_wait_judges_a_restart_by_the_next_poll(stage, poll, no_sleep):
+    # Staging reads FAILED right after the restart, before the server has re-armed it.
+    poll.side_effect = [_status("FAILED"), _status("SUCCEEDED")]
+
+    wait_for_model_artifact_staging("c.s.m", "3", _status("FAILED"), None, 7200)
+
+    stage.assert_called_once_with("c.s.m", "3", host_creds=None)
+    assert no_sleep.call_count == 1
+
+
+def test_wait_keeps_polling_when_the_status_has_no_model_artifact(stage, poll):
+    poll.return_value = _status("SUCCEEDED")
+
+    wait_for_model_artifact_staging("c.s.m", "3", {"model_artifact": None}, None, 7200)
+
+    poll.assert_called_once_with("c.s.m", "3", host_creds=None)
