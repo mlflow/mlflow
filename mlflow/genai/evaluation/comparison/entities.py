@@ -59,8 +59,9 @@ class ScorerComparison:
     scorer: str
     status: Literal["ok", "insufficient_pairs", "scorer_errors"]
     n_paired: int
-    n_baseline_errors: int = 0
-    n_candidate_errors: int = 0
+    # Keyword-only so that the positional arguments after `n_paired` keep their meaning.
+    n_baseline_errors: int = field(default=0, kw_only=True)
+    n_candidate_errors: int = field(default=0, kw_only=True)
     greater_is_better: bool = True
     value_type: Literal["binary", "numeric"] | None = None
     method: (

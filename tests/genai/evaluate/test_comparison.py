@@ -398,6 +398,18 @@ def test_insufficient_pairs(n: int):
     mock_warning.assert_not_called()
 
 
+def test_scorer_comparison_error_counts_do_not_shift_positional_arguments():
+    comparison = ScorerComparison("latency", "ok", 10, False, "numeric")
+
+    assert comparison.greater_is_better is False
+    assert comparison.value_type == "numeric"
+    assert comparison.n_baseline_errors == 0
+    assert comparison.n_candidate_errors == 0
+    # The error counts keep their place next to `n_paired` in `summary()`.
+    fields = list(ScorerComparison.__dataclass_fields__)
+    assert fields[2:5] == ["n_paired", "n_baseline_errors", "n_candidate_errors"]
+
+
 @pytest.mark.parametrize("n", [6, 9, 10, 20])
 def test_small_samples_warn(n: int):
     values = np.arange(n, dtype=float)
