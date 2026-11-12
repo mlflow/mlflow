@@ -284,6 +284,8 @@ from mlflow.server._request_keys import (
     SCOPED_MCP_ACCESS_ENDPOINT_FILTER,
     SCOPED_MCP_SERVER_FILTER,
     SCOPED_REGISTERED_MODEL_FILTER,
+    SCOPED_SCORER_LIST,
+    SCORER_LIST_SCOPE_REQUIRED,
 )
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
@@ -441,6 +443,7 @@ from mlflow.server.handlers import (
     _assert_required,
     _assert_string,
     _get_ajax_path,
+    _get_list_scorers_request,
     _get_model_registry_store,
     _get_normalized_request_json,
     _get_request_message,
@@ -498,6 +501,12 @@ from mlflow.server.workspace_helpers import (
 from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.tracking.scorer_list_scope import (
+    ScorerListScope,
+    is_canonical_scorer_experiment_id,
+    parse_scorer_row_key,
+    scorer_row_key,
+)
 from mlflow.store.tracking.skill_registry.artifact_paths import (
     SkillArtifactIdentity,
     is_skill_upload_namespace,
@@ -1031,6 +1040,15 @@ class RetentionGate:
             )
             self._decided[cache_key] = decided
         return decided
+
+    def named_ids(self, resource_type: str) -> set[str]:
+        if resource_type not in self._templates:
+            raise KeyError(f"No requirement template for {resource_type!r}")
+        return {
+            key.resource_id
+            for key in self._grants
+            if key.resource_type == resource_type and key.resource_id != "*"
+        }
 
     def _fold(self, key: GrantLoadKey) -> "Permission | None":
         key = GrantLoadKey(
@@ -2014,23 +2032,15 @@ def validate_can_read_experiment():
 
 
 def validate_can_read_scorer_list():
-    # ``ListScorers`` accepts an optional ``experiment_id``. When set, gate
-    # on the experiment read permission as usual; when empty, the request is
-    # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
-    # per-row RBAC filtering, so the route itself is open to any authenticated
-    # caller.
-    #
-    # NB: this validator does not look at the newer, plural ``experiment_ids``
-    # field (added for pre-request auth scoping, see #24964). A caller that
-    # sets only ``experiment_ids`` still falls through to the ``not
-    # args.get("experiment_id")`` branch below and relies on the
-    # post-response filtering in ``filter_list_scorers`` -- basic auth does
-    # not yet use ``experiment_ids`` to scope the query before it reaches
-    # the store.
-    args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
-    if not args.get("experiment_id"):
+    # Preserve the singular parent permission gate. All selections then receive
+    # a complete private scope through _scope_list_scorers_query, enforced by the
+    # tracking store before version/payload retrieval (not response filtering).
+    message = _get_list_scorers_request()
+    if not message.experiment_id:
         return True
-    return _get_permission_from_experiment_id().can_read
+    return _get_experiment_permission(
+        message.experiment_id, authenticate_request().username
+    ).can_read
 
 
 def validate_can_read_experiment_by_name():
@@ -3067,16 +3077,17 @@ def validate_can_read_online_scoring_configs():
         _get_experiment_permission(config.experiment_id, username).can_read for config in configs
     ):
         return False
-    # A config names its scorer only by ID, while the scorer's grants are keyed by name. This
-    # lookup skips the experiments' lifecycle checks, so a deleted experiment is not an error
-    # here. It returns only scorers that still have a version: one with none left has no code
-    # to protect, so the experiment check alone decides for its config.
-    scorer_names = {
-        scorer_version.scorer_id: scorer_version.scorer_name
-        for scorer_version in tracking_store.list_scorers_across_experiments(
-            sorted({config.experiment_id for config in configs})
-        )
-    }
+    # Resolve raw grant names without loading payloads or filtering soft-deleted experiments.
+    # Only a scorer with no versions left may omit the scorer-tier decision.
+    scorer_names = tracking_store._get_scorer_names_by_ids([c.scorer_id for c in configs])
+    if scorer_names is None:
+        # Preserve the old lookup for backends without the private metadata hook.
+        scorer_names = {
+            scorer_version.scorer_id: scorer_version.scorer_name
+            for scorer_version in tracking_store.list_scorers_across_experiments(
+                sorted({config.experiment_id for config in configs})
+            )
+        }
     return all(
         authorize(
             username,
@@ -3904,7 +3915,13 @@ def _scope_logged_model_query() -> None:
     _set_request_field(message, "experiment_ids", scoped_ids)
 
 
+def _scope_list_scorers_query():
+    gate = _scorer_listing_gate(authenticate_request().username)
+    setattr(request, SCOPED_SCORER_LIST, _compile_scorer_list_scope(gate))
+
+
 REQUEST_SCOPE_FUNCTIONS = {
+    ListScorers: _scope_list_scorers_query,
     SearchExperiments: _scope_experiment_search_query,
     SearchRegisteredModels: _scope_registered_model_search_query,
     BatchGetTraces: _scope_batch_trace_query,
@@ -6330,7 +6347,16 @@ def _before_request():
     # them. A custom review queue (or rename) may not shadow a username; admins skip
     # the validators, so the guard runs here for them (non-admins hit it post-gate
     # inside the validators).
+    scope_key = (request.path, request.method)
+    scorer_head = (
+        request.method == "HEAD"
+        and REQUEST_SCOPE_HANDLERS.get((request.path, "GET")) is _scope_list_scorers_query
+    )
+    if scorer_head:
+        scope_key = (request.path, "GET")
     if sender_is_admin():
+        if REQUEST_SCOPE_HANDLERS.get(scope_key) is _scope_list_scorers_query:
+            setattr(request, SCOPED_SCORER_LIST, None)
         enforce_review_queue_name_not_username()
         enforce_model_name_rules()
         return
@@ -6355,7 +6381,12 @@ def _before_request():
         # No authorization decision resolved for this route: deny (fail-closed).
         return make_forbidden_response()
 
-    if scoper := REQUEST_SCOPE_HANDLERS.get((request.path, request.method)):
+    # Keep HEAD's existing fail-closed routing above, but accepted ListScorers
+    # dispatches must retain GET's singular parent gate as well as its scope.
+    if scorer_head and not validate_can_read_scorer_list():
+        return make_forbidden_response()
+
+    if scoper := REQUEST_SCOPE_HANDLERS.get(scope_key):
         scoper()
 
 
@@ -7004,27 +7035,10 @@ def redact_guardrail_config_scorer(resp: Response) -> None:
         resp.data = message_to_json(response_message)
 
 
-def filter_list_scorers(resp: Response) -> None:
-    """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
-
-    Single-experiment requests are already gated by ``validate_can_read_scorer_list``
-    (which delegates to ``validate_can_read_experiment``); cross-experiment requests
-    (empty ``experiment_id``) skip that gate so the response can carry scorers from
-    multiple experiments. This filter applies the experiment + scorer read
-    predicates per row so the picker doesn't leak names the caller has no grant on.
-    """
-    if sender_is_admin():
-        return
-
-    response_message = ListScorers.Response()
-    parse_dict(resp.json, response_message)
-
-    if not response_message.scorers:
-        return
-
+def _scorer_listing_gate(username: str) -> RetentionGate:
     workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
-    gate = retention_gate(
-        authenticate_request().username,
+    return retention_gate(
+        username,
         (RESOURCE_TYPE_WORKSPACE, "*"),
         [
             Requirement(RESOURCE_TYPE_SCORER_VERSION, "*", ACTION_NOT_DENIED),
@@ -7034,18 +7048,41 @@ def filter_list_scorers(resp: Response) -> None:
             Requirement(RESOURCE_TYPE_SCORER, "*", "read", fallback_if_no_grant=workspace_fallback),
         ],
     )
-    kept = []
-    for scorer in response_message.scorers:
-        experiment_id, scorer_pattern = _scorer_row_keys(scorer)
-        if (
-            gate.retains(RESOURCE_TYPE_SCORER_VERSION)
-            and gate.retains(RESOURCE_TYPE_EXPERIMENT, experiment_id)
-            and gate.retains(RESOURCE_TYPE_SCORER, scorer_pattern)
-        ):
-            kept.append(scorer)
-    response_message.ClearField("scorers")
-    response_message.scorers.extend(kept)
-    resp.data = message_to_json(response_message)
+
+
+def _compile_scorer_list_scope(gate: RetentionGate) -> ScorerListScope | None:
+    if not gate.retains(RESOURCE_TYPE_SCORER_VERSION):
+        return ScorerListScope()
+    pairs = {
+        pair
+        for pattern in gate.named_ids(RESOURCE_TYPE_SCORER)
+        if (pair := parse_scorer_row_key(pattern)) is not None
+    }
+    if not gate.retains(RESOURCE_TYPE_SCORER):
+        return ScorerListScope(
+            scorer_pairs=frozenset(
+                (e, n)
+                for e, n in pairs
+                if gate.retains(RESOURCE_TYPE_EXPERIMENT, e)
+                and gate.retains(RESOURCE_TYPE_SCORER, scorer_row_key(e, n))
+            )
+        )
+    experiments = {
+        e for e in gate.named_ids(RESOURCE_TYPE_EXPERIMENT) if is_canonical_scorer_experiment_id(e)
+    }
+    broad = gate.retains(RESOURCE_TYPE_EXPERIMENT)
+    allowed = frozenset(e for e in experiments if gate.retains(RESOURCE_TYPE_EXPERIMENT, e))
+    denied = frozenset(experiments - allowed) if broad else frozenset()
+    denied_pairs = frozenset(
+        (e, n) for e, n in pairs if not gate.retains(RESOURCE_TYPE_SCORER, scorer_row_key(e, n))
+    )
+    if broad and not denied and not denied_pairs:
+        return None
+    return ScorerListScope(
+        experiment_ids=None if broad else allowed,
+        excluded_experiment_ids=denied,
+        excluded_scorer_pairs=denied_pairs,
+    )
 
 
 def _withhold_denied_model_mappings(mappings, username: str) -> bool:
@@ -7778,7 +7815,6 @@ AFTER_REQUEST_PATH_HANDLERS = {
     UpdateRegisteredModel: redact_update_registered_model_versions,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
-    ListScorers: filter_list_scorers,
     ListEndpointGuardrailConfigs: redact_list_guardrail_config_scorers,
     AddGuardrailToEndpoint: redact_guardrail_config_scorer,
     UpdateEndpointGuardrailConfig: redact_guardrail_config_scorer,
@@ -7810,7 +7846,6 @@ AFTER_REQUEST_PATH_HANDLERS = {
 _SELF_AUTHORIZING_AFTER_REQUEST_HANDLERS = frozenset({
     filter_search_model_versions,
     filter_search_registered_models,
-    filter_list_scorers,
     filter_list_review_queues,
     filter_list_gateway_endpoints,
     filter_list_gateway_model_definitions,
@@ -10155,6 +10190,7 @@ def create_app(app: Flask = app):
     # the only browser-accessible route. the rest are client / REST
     # APIs that do not have access to the CSRF token for validation
     app.config["WTF_CSRF_CHECK_DEFAULT"] = False
+    app.config[SCORER_LIST_SCOPE_REQUIRED] = True
     csrf = CSRFProtect()
     csrf.init_app(app)
 

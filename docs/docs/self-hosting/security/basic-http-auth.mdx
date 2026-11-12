@@ -885,7 +885,7 @@ Required Permissions for accessing scorers:
       <td>List Scorers</td>
       <td>`3.0/mlflow/scorers/list`</td>
       <td>`GET`</td>
-      <td>can_read (on experiment)</td>
+      <td>Effective experiment AND scorer read permission, with no scorer-version `DENY` (see below)</td>
     </tr>
     <tr>
       <td>Get Scorer</td>
@@ -919,6 +919,73 @@ Required Permissions for accessing scorers:
     </tr>
   </tbody>
 </table>
+
+### Scorer listing authorization
+
+`ListScorers` keeps its existing experiment selectors and response format. Basic Auth
+resolves the caller's existing grants into a private, request-local scope. The SQL
+tracking store first reads bounded pages of identity metadata (scorer ID, experiment
+ID and literal name), checks the complete inclusions and exclusions, and then loads
+latest versions only for approved IDs. Denied versions/payloads do not load or reach
+gateway endpoint resolution. Both stages constrain active experiments and the
+current workspace. This is not literal SQL denial-predicate pushdown: broad scopes
+may read denied identity metadata. Bind counts and metadata pages are bounded;
+grant sets, experiment/approved-ID sets and unpaginated results still grow with size.
+
+A row must pass **both** the experiment and scorer read tiers, plus the wildcard
+scorer-version veto. Matching named and wildcard denials take precedence; positive
+default-permission floors, absent-grant rules and administrator overrides are
+unchanged. An individual scorer grant does not override an unreadable parent, and
+parent READ alone does not open a closed scorer tier. To grant only one scorer,
+make its parent readable and keep sibling scorers effectively closed. Under the
+shipped READ default, adding one positive scorer grant does not revoke sibling access.
+
+Listing retains its existing workspace fallback, including USE. In a non-inheriting
+workspace, USE plus experiment READ and no scorer grant may permit listing while
+point scorer permission denies. Without an experiment grant, the singular listing
+gate may deny while plural/open-ended listing retains rows. Workspace MANAGE and
+global administrators retain their existing overrides, including conflicting named
+denials. These listing/point-policy differences are not changed by query scoping.
+
+SQLAlchemy and workspace-aware SQLAlchemy support complete scopes. Restricted Basic
+Auth requests backed by an unsupported tracking store (including REST/Databricks
+proxy backends and legacy plugins) now fail with `NOT_IMPLEMENTED` / HTTP 501 before
+scorer I/O, rather than returning response-filtered success. There is no unfiltered
+retry. Existing validation errors still take precedence: Databricks requests with
+`experiment_ids` retain `INVALID_PARAMETER_VALUE` / HTTP 400. Ordinary REST clients
+to a SQL-backed auth server remain supported through the existing endpoint, with
+no private scope transmitted over HTTP. Unrestricted calls retain legacy store signatures.
+
+#### Private auth-plugin handoff
+
+Server integrations may import `ScorerListScope` from
+`mlflow.store.tracking.scorer_list_scope` and the shared `SCOPED_SCORER_LIST` and
+`SCORER_LIST_SCOPE_REQUIRED` keys from `mlflow.server._request_keys`. During app
+initialization, set `app.config[SCORER_LIST_SCOPE_REQUIRED] = True`; for every
+successful listing request, set `setattr(request, SCOPED_SCORER_LIST, scope)` on the
+actual Flask request object, **not** `g`. Explicit `None` is unrestricted; a default
+empty scope denies all. Missing required state or a wrong type is an internal
+configuration error, never unrestricted access. Client input cannot supply this state.
+
+The immutable value's whole-experiment inclusions and exact `(experiment_id,
+raw_name)` pairs are additive, then experiment/pair exclusions win. Inner
+`experiment_ids=None` includes all experiments subject to exclusions. The original
+caller selection still intersects the result. Parent-experiment-only plugins can
+supply finite experiment inclusions without scorer pairs, or keep an existing
+experiment restriction if it actually constrains every query path. Backends declare
+`supports_scorer_list_scope` only for complete enforcement before payload loading;
+SQL subclasses overriding listing must preserve enforcement or set it false.
+For open-ended finite scopes, the handler calls the private store hook
+`_filter_valid_scorer_experiment_ids` before active-experiment validation. Override
+its pass-through default if the backend must drop grant-derived IDs it cannot
+represent; retain the default if every supplied ID is representable. Opaque IDs
+remain valid for backends that support them. This stored-grant hygiene does not
+change validation of caller-supplied experiment selectors or suppress real store failures.
+This internal protocol is not a new public selector or a claim of compatibility
+with any untested plugin/version. Permissions are a request-local snapshot, not a
+cross-database atomic transaction.
+
+### Authentication API permission requirements
 
 MLflow Authentication provides API endpoints to manage users and permissions.
 

@@ -8,7 +8,7 @@ from unittest import mock
 from zoneinfo import ZoneInfo
 
 import pytest
-from flask import Response, g, request
+from flask import Flask, Response, g, request
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
@@ -3986,7 +3986,13 @@ def test_register_scorer_allows_decorator_scorer_when_flag_enabled(
     )
 
 
-def test_list_scorers(mock_get_request_message, mock_tracking_store):
+@pytest.fixture
+def scorer_request_context():
+    with Flask(__name__).test_request_context():
+        yield
+
+
+def test_list_scorers(mock_get_request_message, mock_tracking_store, scorer_request_context):
     experiment_id = "123"
 
     mock_get_request_message.return_value = ListScorers(experiment_id=experiment_id)
@@ -4027,7 +4033,9 @@ def test_list_scorers(mock_get_request_message, mock_tracking_store):
     assert response_data["scorers"][1]["serialized_scorer"] == "serialized_safety_scorer"
 
 
-def test_list_scorers_cross_experiment(mock_get_request_message, mock_tracking_store):
+def test_list_scorers_cross_experiment(
+    mock_get_request_message, mock_tracking_store, scorer_request_context
+):
     # Empty ``experiment_id`` switches to the cross-experiment branch: the
     # handler walks ``search_experiments`` via ``page_token`` until exhausted,
     # then makes a single ``list_scorers_across_experiments`` call with the
@@ -4082,7 +4090,7 @@ def test_list_scorers_cross_experiment(mock_get_request_message, mock_tracking_s
 
 
 def test_list_scorers_rejects_both_experiment_id_and_experiment_ids(
-    mock_get_request_message, mock_tracking_store
+    mock_get_request_message, mock_tracking_store, scorer_request_context
 ):
     mock_get_request_message.return_value = ListScorers(
         experiment_id="123", experiment_ids=["123", "456"]
@@ -4103,7 +4111,7 @@ def test_list_scorers_rejects_both_experiment_id_and_experiment_ids(
 
 @pytest.mark.parametrize("experiment_ids", [[], ["123"]])
 def test_list_scorers_with_experiment_ids_against_databricks_backend_not_supported(
-    mock_get_request_message, experiment_ids
+    mock_get_request_message, experiment_ids, scorer_request_context
 ):
     mock_get_request_message.return_value = ListScorers(experiment_ids=experiment_ids)
     creds = MlflowHostCreds("https://hello")
@@ -4121,7 +4129,9 @@ def test_list_scorers_with_experiment_ids_against_databricks_backend_not_support
     assert "experiment_ids" in body["message"]
 
 
-def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_tracking_store):
+def test_list_scorers_with_empty_experiment_ids(
+    mock_get_request_message, mock_tracking_store, scorer_request_context
+):
     mock_get_request_message.return_value = ListScorers(experiment_ids=[])
     mock_tracking_store.filter_active_experiment_ids.return_value = []
     mock_tracking_store.list_scorers_across_experiments.return_value = []
@@ -4138,7 +4148,7 @@ def test_list_scorers_with_empty_experiment_ids(mock_get_request_message, mock_t
 
 
 def test_list_scorers_with_experiment_ids_batches_validation(
-    mock_get_request_message, mock_tracking_store
+    mock_get_request_message, mock_tracking_store, scorer_request_context
 ):
     # experiment_ids should be validated via a single batched
     # filter_active_experiment_ids call rather than one get_experiment call per
@@ -4158,7 +4168,9 @@ def test_list_scorers_with_experiment_ids_batches_validation(
     assert resp.status_code == 200
 
 
-def test_list_scorers_with_invalid_experiment_id(mock_get_request_message, mock_tracking_store):
+def test_list_scorers_with_invalid_experiment_id(
+    mock_get_request_message, mock_tracking_store, scorer_request_context
+):
     mock_get_request_message.return_value = ListScorers(experiment_ids=["123", "invalid id"])
 
     with mock.patch("mlflow.server.handlers._raw_request_has_field", return_value=True):
@@ -4173,7 +4185,7 @@ def test_list_scorers_with_invalid_experiment_id(mock_get_request_message, mock_
 
 
 def test_list_scorers_with_experiment_ids_drops_inactive_or_missing(
-    mock_get_request_message, mock_tracking_store
+    mock_get_request_message, mock_tracking_store, scorer_request_context
 ):
     # Simulates "456" being inactive or nonexistent: filter_active_experiment_ids
     # only resolves "123", and the handler passes along just the surviving id

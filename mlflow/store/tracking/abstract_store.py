@@ -27,6 +27,10 @@ from mlflow.entities.trace_metrics import (
     MetricDataPoint,
     MetricViewType,
 )
+from mlflow.store.tracking.scorer_list_scope import (
+    ScorerListScope,
+    reject_unsupported_scorer_scope,
+)
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
@@ -1716,26 +1720,55 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
+    @property
+    def supports_scorer_list_scope(self) -> bool:
+        """Complete pre-payload enforcement, including exclusions; false by default."""
+        return False
+
+    def _filter_valid_scorer_experiment_ids(self, experiment_ids) -> list[str]:
+        """Filter only unrepresentable grant-derived IDs before metadata binding.
+
+        The handler calls this before active-experiment validation for open-ended
+        finite scopes. Pass-through is safe for backends accepting all supplied IDs;
+        this is not validation of caller selectors or permission to hide store errors.
+        """
+        return list(experiment_ids)
+
+    def _get_scorer_names_by_ids(self, scorer_ids: list[str]) -> dict[str, str] | None:
+        """Private auth lookup of raw names for scorers with surviving versions.
+
+        Ignore experiment lifecycle but retain workspace isolation. Return None to
+        use the legacy batch-listing lookup on backends without this metadata hook.
+        """
+        return None
+
+    def list_scorers(
+        self, experiment_id, *, scorer_scope: ScorerListScope | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
         Args:
             experiment_id: The experiment ID.
+            scorer_scope: Private authorization scope; unsupported concrete values reject.
 
         Returns:
             List of mlflow.entities.scorer.ScorerVersion objects
             (latest version for each scorer name).
         """
+        reject_unsupported_scorer_scope(scorer_scope)
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], *, scorer_scope: ScorerListScope | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers across multiple experiments in one batch. The default
         impl just iterates ``list_scorers`` per experiment; ``SqlAlchemyStore``
         overrides with a single JOIN for admin pickers that need to enumerate
         scorers across hundreds of experiments without N+1 round trips.
         """
+        reject_unsupported_scorer_scope(scorer_scope)
         result: list[ScorerVersion] = []
         for exp_id in experiment_ids:
             result.extend(self.list_scorers(exp_id))

@@ -188,6 +188,7 @@ from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStor
 from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
     SqlAlchemyMCPServerRegistryMixin,
 )
+from mlflow.store.tracking.scorer_list_scope import ScorerListScope
 from mlflow.store.tracking.skill_registry.sqlalchemy_mixin import (
     SqlAlchemySkillRegistryMixin,
 )
@@ -3044,12 +3045,20 @@ class SqlAlchemyStore(
             # Resolve gateway endpoint ID to name before returning
             return self.resolve_endpoint_in_scorer(entity)
 
-    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
+    @property
+    def supports_scorer_list_scope(self) -> bool:
+        # Subclasses overriding listing must preserve enforcement or opt out.
+        return True
+
+    def list_scorers(
+        self, experiment_id, *, scorer_scope: ScorerListScope | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
         Args:
             experiment_id: The experiment ID.
+            scorer_scope: Private authorization scope; None adds no restriction.
 
         Returns:
             List of mlflow.entities.scorer.ScorerVersion objects
@@ -3060,7 +3069,8 @@ class SqlAlchemyStore(
         # ``scorer_name`` because every row shares the same ``experiment_id``.
         experiment = self.get_experiment(experiment_id)
         self._check_experiment_is_active(experiment)
-        return self.list_scorers_across_experiments([experiment.experiment_id])
+        kwargs = {} if scorer_scope is None else {"scorer_scope": scorer_scope}
+        return self.list_scorers_across_experiments([experiment.experiment_id], **kwargs)
 
     # SQLite caps bound parameters at 999 by default; pick a chunk size well
     # below that so callers passing large ID lists (e.g. the admin scorer
@@ -3075,14 +3085,103 @@ class SqlAlchemyStore(
     # bound-parameter cap so their combined bindings remain safe.
     _TRACE_BATCH_QUERY_ID_CHUNK_SIZE = 400
 
-    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+    _SCORER_METADATA_PAGE_SIZE = 500
+
+    def _filter_valid_scorer_experiment_ids(self, experiment_ids) -> list[str]:
+        # Grant-derived identities, not caller selectors. Bound length before int/binds.
+        maximum = 2**63 - 1 if self.engine.dialect.name == "sqlite" else 2**31 - 1
+        return [
+            e
+            for e in experiment_ids
+            if isinstance(e, str)
+            and 0 < len(e) <= len(str(maximum))
+            and e.isascii()
+            and e.isdecimal()
+            and 0 <= int(e) <= maximum
+        ]
+
+    def _get_scorer_names_by_ids(self, scorer_ids: list[str]) -> dict[str, str]:
+        # Auth must still enforce scorer vetoes after experiment soft deletion.
+        # A scorer with no versions left has no code to protect; omit only that case.
+        names = {}
+        with self.ManagedSessionMaker() as session:
+            for chunk in chunk_list(list(dict.fromkeys(scorer_ids)), min(self._ID_CHUNK_SIZE, 400)):
+                rows = (
+                    session
+                    .query(SqlScorer.scorer_id, SqlScorer.scorer_name)
+                    .join(SqlExperiment, SqlScorer.experiment_id == SqlExperiment.experiment_id)
+                    .filter(
+                        SqlScorer.scorer_id.in_(chunk),
+                        SqlScorer.scorer_versions.any(),
+                        *self._experiment_where_clauses(),
+                    )
+                    .all()
+                )
+                names.update(rows)
+        return names
+
+    def _scorer_identity_page(self, session, selector, after):
+        query = (
+            session
+            .query(SqlScorer.scorer_id, SqlScorer.experiment_id, SqlScorer.scorer_name)
+            .join(SqlExperiment, SqlScorer.experiment_id == SqlExperiment.experiment_id)
+            .filter(
+                selector,
+                SqlExperiment.lifecycle_stage == LifecycleStage.ACTIVE,
+                *self._experiment_where_clauses(),
+            )
+        )
+        if after is not None:
+            query = query.filter(SqlScorer.scorer_id > after)
+        # all() drains/closes each bounded page before the next statement, including MySQL.
+        return query.order_by(SqlScorer.scorer_id).limit(self._SCORER_METADATA_PAGE_SIZE).all()
+
+    def _selected_scorer_ids(self, session, experiment_ids, scope):
+        requested = set(experiment_ids)
+        whole = (
+            requested
+            if scope is None or scope.experiment_ids is None
+            else (
+                requested
+                & {int(e) for e in self._filter_valid_scorer_experiment_ids(scope.experiment_ids)}
+            )
+        )
+        pairs = []
+        if scope is not None:
+            valid = set(self._filter_valid_scorer_experiment_ids(e for e, _ in scope.scorer_pairs))
+            pairs = sorted(
+                (int(e), n)
+                for e, n in scope.scorer_pairs
+                if e in valid and int(e) in requested and int(e) not in whole
+            )
+        selected = set()
+        # Reserve ample room for workspace/lifecycle/continuation/limit/offset binds.
+        size = min(self._ID_CHUNK_SIZE, 400)
+        selectors = [
+            SqlScorer.experiment_id.in_(chunk) for chunk in chunk_list(sorted(whole), size)
+        ] + [
+            or_(*[and_(SqlScorer.experiment_id == e, SqlScorer.scorer_name == n) for e, n in chunk])
+            for chunk in chunk_list(pairs, max(1, size // 2))
+        ]
+        for selector in selectors:
+            after = None
+            while page := self._scorer_identity_page(session, selector, after):
+                for scorer_id, e, name in page:
+                    # SQL name equality is only coarse preselection under some collations.
+                    if scope is None or scope.permits(str(e), name):
+                        selected.add(scorer_id)
+                after = page[-1].scorer_id
+        return sorted(selected)
+
+    def list_scorers_across_experiments(
+        self, experiment_ids: list[str], *, scorer_scope: ScorerListScope | None = None
+    ) -> list[ScorerVersion]:
         """
         Batched ``list_scorers``: returns the latest-version scorer for every
         ``(experiment_id, scorer_name)`` pair across the given experiments in
-        a single query plan per chunk. Used by the RBAC admin scorer picker
-        to avoid N+1 round trips. ``experiment_id`` validation and
-        active-status checks are skipped — the caller is expected to have
-        already filtered.
+        bounded metadata pages followed by approved-ID latest payload SQL. Exact
+        membership applies all exclusions before any version or payload is loaded.
+        Workspace and active lifecycle constrain both stages, including direct calls.
         """
         if not experiment_ids:
             return []
@@ -3094,23 +3193,13 @@ class SqlAlchemyStore(
         # as ``_get_experiment``.
         experiment_ids = _parse_experiment_ids(experiment_ids)
         with self.ManagedSessionMaker() as session:
-            scorer_ids: list[str] = []
-            for chunk_start in range(0, len(experiment_ids), self._ID_CHUNK_SIZE):
-                chunk = experiment_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
-                scorer_ids.extend(
-                    row.scorer_id
-                    for row in session
-                    .query(SqlScorer.scorer_id)
-                    .filter(SqlScorer.experiment_id.in_(chunk))
-                    .all()
-                )
+            scorer_ids = self._selected_scorer_ids(session, experiment_ids, scorer_scope)
             if not scorer_ids:
                 return []
             # ``scorer_ids`` is also chunked for the same reason; build the
             # latest-version subquery + final query per chunk and concat.
-            sql_scorer_versions: list[SqlScorerVersion] = []
-            for chunk_start in range(0, len(scorer_ids), self._ID_CHUNK_SIZE):
-                chunk = scorer_ids[chunk_start : chunk_start + self._ID_CHUNK_SIZE]
+            sql_scorer_versions = []
+            for chunk in chunk_list(scorer_ids, min(self._ID_CHUNK_SIZE, 400)):
                 latest_versions = (
                     session
                     .query(
@@ -3123,34 +3212,37 @@ class SqlAlchemyStore(
                 )
                 sql_scorer_versions.extend(
                     session
-                    .query(SqlScorerVersion)
+                    .query(SqlScorerVersion, SqlScorer.experiment_id, SqlScorer.scorer_name)
                     .join(
                         latest_versions,
                         (SqlScorerVersion.scorer_id == latest_versions.c.scorer_id)
                         & (SqlScorerVersion.scorer_version == latest_versions.c.max_version),
                     )
                     .join(SqlScorer, SqlScorerVersion.scorer_id == SqlScorer.scorer_id)
+                    .join(SqlExperiment, SqlScorer.experiment_id == SqlExperiment.experiment_id)
+                    .filter(
+                        SqlExperiment.lifecycle_stage == LifecycleStage.ACTIVE,
+                        *self._experiment_where_clauses(),
+                    )
                     .order_by(SqlScorer.experiment_id, SqlScorer.scorer_name)
                     .all()
                 )
             # Per-chunk order_by isn't globally stable across chunks, so
             # restore deterministic (experiment_id, scorer_name) ordering.
-            sql_scorer_versions.sort(
-                key=lambda sv: (sv.scorer.experiment_id, sv.scorer.scorer_name)
-            )
+            sql_scorer_versions.sort(key=lambda row: (row.experiment_id, row.scorer_name))
             resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers([
-                sv.serialized_scorer for sv in sql_scorer_versions
+                row[0].serialized_scorer for row in sql_scorer_versions
             ])
             return [
                 ScorerVersion(
-                    experiment_id=str(sv.scorer.experiment_id),
+                    experiment_id=str(e),
                     scorer_id=sv.scorer_id,
                     scorer_version=sv.scorer_version,
-                    scorer_name=sv.scorer.scorer_name,
+                    scorer_name=name,
                     serialized_scorer=resolved_scorers[i],
                     creation_time=sv.creation_time,
                 )
-                for i, sv in enumerate(sql_scorer_versions)
+                for i, (sv, e, name) in enumerate(sql_scorer_versions)
             ]
 
     def filter_active_experiment_ids(self, experiment_ids: list[str]) -> list[str]:
