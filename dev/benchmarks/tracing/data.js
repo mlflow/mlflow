@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794505899914,
+  "lastUpdate": 1794514430901,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "haoji.tang@databricks.com",
-            "name": "Haoji Tang",
-            "username": "tanghaoji"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bac30b4148c4f40045b4d4db07ae60ab3838803f",
-          "message": "Reject egress-steering kwargs in third-party scorer payloads (GHSA-2wqp-q3c6-ccj5) (#25890)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
-          "timestamp": "2026-09-16T08:14:43Z",
-          "tree_id": "8d26ecfaff01ada3de50b96d99c1a8fa100ac0fb",
-          "url": "https://github.com/mlflow/mlflow/commit/bac30b4148c4f40045b4d4db07ae60ab3838803f"
-        },
-        "date": 1789546686531,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 34.290353600000145,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 5.119897208333452,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 4.418196911112362,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 5.702050999999896,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 4.680255723270833,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.011743166666861,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.051302599995779,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b355c423e49fd95be5784dc8fc3d40e9eb2e6cde",
+          "message": "Pin `sentencepiece<0.2.3` for transformers cross-version tests (#27741)\n\nSigned-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-12T20:10:15Z",
+          "tree_id": "62b66bb78167051936382cca81ea0705d4034ea0",
+          "url": "https://github.com/mlflow/mlflow/commit/b355c423e49fd95be5784dc8fc3d40e9eb2e6cde"
+        },
+        "date": 1794514427604,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.7572524999986,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.4126502631575715,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.5939825507250855,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.518894748201233,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 6.083592503937388,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.155854199999112,
             "unit": "ms"
           }
         ]
