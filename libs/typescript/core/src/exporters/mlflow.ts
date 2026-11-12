@@ -24,6 +24,11 @@ import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
 import { resolveEnvironmentMetadata } from '../core/utils/environment';
+import {
+  isSpanIngestionUnsupportedError,
+  sendOtlpSpansIfSupported,
+  serializeSpansToOtlpBytes,
+} from './otlp';
 
 /**
  * Generate a MLflow-compatible trace ID for the given span.
@@ -180,6 +185,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
 export class MlflowSpanExporter implements SpanExporter {
   private _client: MlflowClient;
   private _pendingExports: Record<string, Promise<void>> = {}; // traceId -> export promise
+  private _spanIngestionUnsupported = false;
 
   constructor(client: MlflowClient) {
     this._client = client;
@@ -214,19 +220,78 @@ export class MlflowSpanExporter implements SpanExporter {
    * Export a complete trace to the MLflow backend
    * Step 1: Create trace metadata via StartTraceV3 endpoint
    * Step 2: Upload trace data (spans) via artifact repository pattern
+   * Step 3: Send OTLP spans to the span-ingestion endpoint so they land in the
+   * spans table that powers DB-backed metrics (best-effort, see
+   * {@link exportSpansToTrackingStore})
+   *
+   * Steps 2 and 3 depend only on step 1, so they run concurrently. Only the
+   * artifact upload decides whether the export succeeded.
    */
   private async exportTraceToBackend(trace: Trace): Promise<void> {
     try {
       // Step 1: Create trace metadata in backend
       const traceInfo = await this._client.createTrace(trace.info);
-      // Step 2: Upload trace data (spans) to artifact storage
-      await this._client.uploadTraceData(traceInfo, trace.data);
+      const [upload] = await Promise.allSettled([
+        // Step 2: Upload trace data (spans) to artifact storage
+        this._client.uploadTraceData(traceInfo, trace.data),
+        // Step 3: Persist spans to the tracking-store DB for cost/token metrics
+        this.exportSpansToTrackingStore(traceInfo, trace),
+      ]);
+      if (upload.status === 'rejected') {
+        throw upload.reason;
+      }
     } catch (error) {
       console.error(`Failed to export trace ${trace.info.traceId}:`, error);
       throw error;
     } finally {
       // Remove the promise from the pending exports
       delete this._pendingExports[trace.info.traceId];
+    }
+  }
+
+  /**
+   * Send the trace's spans to the tracking store's OTLP span-ingestion endpoint
+   * (mirrors the WAL daemon's sendOtlpSpans). Best-effort and never rejects: the
+   * trace is exported through the artifact, so an ingestion failure must not
+   * fail the export. Skipped for Databricks tracking URIs, for traces that are
+   * not stored in an MLflow experiment, and after the server reports that span
+   * ingestion is unsupported.
+   */
+  private async exportSpansToTrackingStore(traceInfo: TraceInfo, trace: Trace): Promise<void> {
+    const experimentId = traceInfo.traceLocation.mlflowExperiment?.experimentId;
+    if (experimentId === undefined || this._spanIngestionUnsupported) {
+      return;
+    }
+
+    try {
+      const trackingUri = getConfig().trackingUri;
+      const otlpBytes = serializeSpansToOtlpBytes(
+        trace.data.spans.map((s) => s._span),
+        trackingUri,
+      );
+      await sendOtlpSpansIfSupported(
+        trackingUri,
+        experimentId,
+        otlpBytes,
+        (id, bytes) => this._client.exportOtlpSpans(id, bytes),
+        `trace ${trace.info.traceId}`,
+      );
+    } catch (err) {
+      if (isSpanIngestionUnsupportedError(err)) {
+        if (!this._spanIngestionUnsupported) {
+          this._spanIngestionUnsupported = true;
+          console.warn(
+            `[mlflow] Span ingestion is not supported by the tracking server ` +
+              `(HTTP ${err.status}); skipping OTLP span export for the rest of this process. ` +
+              'Spans remain in the trace artifact only.',
+          );
+        }
+      } else {
+        console.warn(
+          `Failed to send OTLP spans for trace ${trace.info.traceId} to the tracking store; ` +
+            `spans remain in the trace artifact only: ${String(err)}`,
+        );
+      }
     }
   }
 

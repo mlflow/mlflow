@@ -9157,21 +9157,18 @@ class SqlAlchemyStore(
             query = self._get_query(session, SqlIssue)
 
             if include_trace_count:
-                trace_count_label = func.count(func.distinct(SqlAssessments.trace_id)).label(
-                    "trace_count"
-                )
-                query = (
-                    query
-                    .add_columns(trace_count_label)
-                    .outerjoin(
-                        SqlAssessments,
-                        and_(
-                            SqlAssessments.name == SqlIssue.issue_id,
-                            SqlAssessments.assessment_type == "issue",
-                        ),
+                # A correlated subquery avoids GROUP BY, which SQL Server rejects unless every
+                # selected column is grouped (it ignores primary-key functional dependency).
+                trace_count_label = (
+                    select(func.count(func.distinct(SqlAssessments.trace_id)))
+                    .where(
+                        SqlAssessments.name == SqlIssue.issue_id,
+                        SqlAssessments.assessment_type == "issue",
                     )
-                    .group_by(SqlIssue.issue_id)
+                    .scalar_subquery()
+                    .label("trace_count")
                 )
+                query = query.add_columns(trace_count_label)
 
             if experiment_id is not None:
                 query = query.filter(SqlIssue.experiment_id == _parse_experiment_id(experiment_id))

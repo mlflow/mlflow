@@ -1737,7 +1737,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.375,
-            "output_per_million_tokens": 1.875
+            "output_per_million_tokens": 1.875,
+            "cache_read_per_million_tokens": 0.0375
           },
           "flex": {
             "input_per_million_tokens": 0.375,
@@ -1765,7 +1766,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-flash-lite-latest": {
       "mode": "chat",
@@ -1780,7 +1781,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.15,
-            "output_per_million_tokens": 1.25
+            "output_per_million_tokens": 1.25,
+            "cache_read_per_million_tokens": 0.015
           },
           "flex": {
             "input_per_million_tokens": 0.15,
@@ -1808,7 +1810,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-gemma-2-27b-it": {
       "mode": "chat",
@@ -1983,7 +1985,8 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 1.0,
-            "output_per_million_tokens": 6.0
+            "output_per_million_tokens": 6.0,
+            "cache_read_per_million_tokens": 0.2
           },
           "flex": {
             "input_per_million_tokens": 1.0,
@@ -2019,7 +2022,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-robotics-er-1.5-preview": {
       "mode": "chat",
