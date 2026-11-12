@@ -80,7 +80,7 @@ def compare_evaluations(
             n_candidate_errors}`` for scorers with status ``"scorer_errors"``, and one
             ``compare/<baseline_short_id>.json`` artifact containing the full baseline run ID.
             ``<baseline_short_id>`` is the first 8 characters of the baseline run ID. Off by
-            default, since every compared scorer adds six metrics to the run.
+            default, since every compared scorer adds at least six metrics to the run.
 
     Returns:
         A :py:class:`ComparisonResult <mlflow.genai.evaluation.comparison.ComparisonResult>`.
@@ -160,12 +160,10 @@ def compare_evaluations(
             if baseline_value is None or candidate_value is None:
                 # A row with errored feedback only counts as an error when no feedback of the
                 # scorer on the trace has a value.
-                n_baseline_errors += (
-                    baseline_value is None and name in pair.baseline.errored_scorers
-                )
-                n_candidate_errors += (
-                    candidate_value is None and name in pair.candidate.errored_scorers
-                )
+                if baseline_value is None and name in pair.baseline.errored_scorers:
+                    n_baseline_errors += 1
+                if candidate_value is None and name in pair.candidate.errored_scorers:
+                    n_candidate_errors += 1
                 continue
             pass_fail = pass_fail and all(
                 _is_pass_fail(feedback) for feedback in (*baseline_feedbacks, *candidate_feedbacks)
