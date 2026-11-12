@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
-  FormUI,
   Radio,
   Spinner,
   Typography,
@@ -15,7 +14,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { SecretSelector } from '../../../../../gateway/components/secrets/SecretSelector';
-import { SecretInput } from '../../../../../gateway/components/secrets/SecretInput';
+import { NonAsciiApiKeyMessage, SecretInput } from '../../../../../gateway/components/secrets/SecretInput';
 import { GatewayInput } from '../../../../../gateway/components/common';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../../../../gateway/utils/providerUtils';
 import { hasNonAsciiApiKey, isApiKeySecretField } from '../../../../../gateway/utils/secretUtils';
@@ -508,16 +507,7 @@ function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }
           </TypeaheadComboboxMenu>
         )}
       </TypeaheadComboboxRoot>
-      {hasNonAsciiError && (
-        <FormUI.Message
-          type="error"
-          message={intl.formatMessage({
-            defaultMessage:
-              'API key contains non-ASCII characters. Check that your keyboard is not in a non-Latin input mode.',
-            description: 'Error shown when a masked API key input contains non-ASCII characters, e.g. from an IME',
-          })}
-        />
-      )}
+      {hasNonAsciiError && <NonAsciiApiKeyMessage />}
     </div>
   );
 }

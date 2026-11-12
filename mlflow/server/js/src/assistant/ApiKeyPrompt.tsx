@@ -48,8 +48,8 @@ export const ApiKeyPrompt = ({
   // Check the trimmed value since that is what gets saved; `trim()` also strips non-ASCII
   // whitespace such as NBSP that often comes along when pasting a key. `SecretInput` checks the raw
   // value, so only enable its inline error when the trimmed key is affected.
-  const hasNonAsciiApiKey = containsNonAsciiCharacters(trimmedApiKey);
-  const isApiKeyValid = Boolean(trimmedApiKey) && !hasNonAsciiApiKey;
+  const trimmedKeyHasNonAscii = containsNonAsciiCharacters(trimmedApiKey);
+  const isApiKeyValid = Boolean(trimmedApiKey) && !trimmedKeyHasNonAscii;
 
   const handleSave = useCallback(async () => {
     if (!isApiKeyValid) {
@@ -133,7 +133,7 @@ export const ApiKeyPrompt = ({
         }}
         placeholder={keyPlaceholderFor(gatewayVendor ?? providerId)}
         allowClear={false}
-        asciiOnly={hasNonAsciiApiKey}
+        asciiOnly={trimmedKeyHasNonAscii}
       />
 
       <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm - 1 }}>

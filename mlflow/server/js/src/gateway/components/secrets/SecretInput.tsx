@@ -26,7 +26,6 @@ export const SecretInput = ({
   ...props
 }: SecretInputProps) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   const [isVisible, setIsVisible] = useState(false);
 
   const toggleVisibility = useCallback(() => {
@@ -69,16 +68,21 @@ export const SecretInput = ({
           />
         }
       />
-      {hasNonAsciiError && (
-        <FormUI.Message
-          type="error"
-          message={intl.formatMessage({
-            defaultMessage:
-              'API key contains non-ASCII characters. Check that your keyboard is not in a non-Latin input mode.',
-            description: 'Error shown when a masked API key input contains non-ASCII characters, e.g. from an IME',
-          })}
-        />
-      )}
+      {hasNonAsciiError && <NonAsciiApiKeyMessage />}
     </>
+  );
+};
+
+export const NonAsciiApiKeyMessage = () => {
+  const intl = useIntl();
+  return (
+    <FormUI.Message
+      type="error"
+      message={intl.formatMessage({
+        defaultMessage:
+          'API key contains non-ASCII characters. Check that your keyboard is not in a non-Latin input mode.',
+        description: 'Error shown when a masked API key input contains non-ASCII characters, e.g. from an IME',
+      })}
+    />
   );
 };
