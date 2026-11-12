@@ -48,6 +48,18 @@ def failing(outputs) -> float:
 
 
 @scorer
+def flaky(outputs) -> float:
+    if outputs.get("error"):
+        raise TimeoutError("judge timed out")
+    return outputs["score"]
+
+
+@scorer(name="failing")
+def not_failing(outputs) -> float:
+    return outputs["score"]
+
+
+@scorer
 def passed_int(outputs) -> int:
     return int(outputs["passed"])
 
@@ -737,8 +749,8 @@ def test_assert_improved_rejects_an_empty_scorer_list():
 @pytest.mark.parametrize(
     ("candidate_scorers", "expected_candidate_scorers"),
     [
-        # Errored feedback is not valid, so the candidate run has no feedback to compare.
-        ([failing], []),
+        # Errored feedback counts as feedback, but the baseline run has no `failing` scorer.
+        ([failing], ["failing"]),
         ([passed], ["passed"]),
     ],
 )
@@ -763,6 +775,66 @@ def test_compare_evaluations_warns_when_no_scorers_in_common(
     assert f"candidate run: {expected_candidate_scorers}" in message
     with pytest.raises(AssertionError, match="No scorers were compared"):
         result.assert_improved()
+
+
+def test_compare_evaluations_reports_scorer_errors():
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5]
+    baseline_rows = _rows(baseline_scores)
+    candidate_rows = _rows([s + 0.1 for s in baseline_scores])
+    # Row 9 errors in both runs.
+    for i in (0, 9):
+        baseline_rows[i]["outputs"]["error"] = True
+    for i in (7, 8, 9):
+        candidate_rows[i]["outputs"]["error"] = True
+    baseline_run_id = _evaluate(baseline_rows, scorers=[score, flaky, not_failing])
+    candidate_run_id = _evaluate(candidate_rows, scorers=[score, flaky, failing])
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert list(result.scorers) == ["failing", "flaky", "score"]
+    assert result.scorers["score"].status == "ok"
+    assert result.scorers["score"].n_baseline_errors == 0
+    assert result.scorers["score"].n_candidate_errors == 0
+
+    partial = result.scorers["flaky"]
+    assert partial.status == "scorer_errors"
+    assert partial.n_paired == 6
+    assert partial.n_baseline_errors == 2
+    assert partial.n_candidate_errors == 3
+    # The statistics are still computed over the rows without errors.
+    assert partial.diff == pytest.approx(0.1)
+    assert partial.p_value is not None
+
+    # A scorer whose feedback all errored in one run is kept rather than dropped.
+    all_errored = result.scorers["failing"]
+    assert all_errored.status == "scorer_errors"
+    assert all_errored.n_paired == 0
+    assert all_errored.n_baseline_errors == 0
+    assert all_errored.n_candidate_errors == 10
+    assert all_errored.p_value is None
+
+    summary = result.summary().set_index("scorer")
+    assert summary.loc["flaky", "n_candidate_errors"] == 3
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "'failing' (0 baseline and 10 candidate row(s))" in message
+    assert "'flaky' (2 baseline and 3 candidate row(s))" in message
+    assert "'score'" not in message
+
+    result.assert_improved(["score"])
+    with pytest.raises(AssertionError, match="did not significantly improve") as exc_info:
+        result.assert_improved()
+    failures = str(exc_info.value)
+    assert "flaky: scorer_errors (n_paired=6, n_baseline_errors=2, n_candidate_errors=3)" in (
+        failures
+    )
+    assert "failing: scorer_errors (n_paired=0, n_baseline_errors=0, n_candidate_errors=10)" in (
+        failures
+    )
+    assert "- score:" not in failures
 
 
 def test_compare_evaluations_greater_is_better_override():

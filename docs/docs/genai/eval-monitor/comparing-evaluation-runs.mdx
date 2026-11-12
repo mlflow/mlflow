@@ -50,20 +50,21 @@ print(result.summary())
 
 `summary()` returns a DataFrame with one row per scorer:
 
-| Column                           | Meaning                                                                        |
-| -------------------------------- | ------------------------------------------------------------------------------ |
-| `status`                         | `ok`, or `insufficient_pairs` when fewer than six rows could be compared       |
-| `n_paired`                       | Number of paired rows with a value from both runs                              |
-| `value_type`, `method`           | Whether the scorer was treated as binary or numeric, and the test used         |
-| `baseline_mean`,`candidate_mean` | Mean of each run over the paired rows                                          |
-| `diff`                           | Mean paired difference, candidate minus baseline                               |
-| `ci_low`, `ci_high`              | BCa bootstrap confidence interval of `diff` (95% by default)                   |
-| `p_value`                        | Two-sided p-value of `method`                                                  |
-| `t_test_p_value`                 | Two-sided p-value of the paired t-test (numeric scorers only)                  |
-| `effect_size`                    | Cohen's d<sub>z</sub>: `diff` divided by the standard deviation of the deltas  |
-| `ties`                           | Number of pairs where both runs produced the same value                        |
-| `n_nonzero`                      | Number of pairs where the values differ, which is what the test is computed on |
-| `greater_is_better`              | Direction used by `assert_improved`                                            |
+| Column                                    | Meaning                                                                                                                          |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `status`                                  | `ok`, `scorer_errors` when the scorer errored on paired rows, or `insufficient_pairs` when fewer than six rows could be compared |
+| `n_paired`                                | Number of paired rows with a value from both runs                                                                                |
+| `n_baseline_errors`, `n_candidate_errors` | Number of paired rows excluded because the scorer errored in the baseline or candidate run                                       |
+| `value_type`, `method`                    | Whether the scorer was treated as binary or numeric, and the test used                                                           |
+| `baseline_mean`,`candidate_mean`          | Mean of each run over the paired rows                                                                                            |
+| `diff`                                    | Mean paired difference, candidate minus baseline                                                                                 |
+| `ci_low`, `ci_high`                       | BCa bootstrap confidence interval of `diff` (95% by default)                                                                     |
+| `p_value`                                 | Two-sided p-value of `method`                                                                                                    |
+| `t_test_p_value`                          | Two-sided p-value of the paired t-test (numeric scorers only)                                                                    |
+| `effect_size`                             | Cohen's d<sub>z</sub>: `diff` divided by the standard deviation of the deltas                                                    |
+| `ties`                                    | Number of pairs where both runs produced the same value                                                                          |
+| `n_nonzero`                               | Number of pairs where the values differ, which is what the test is computed on                                                   |
+| `greater_is_better`                       | Direction used by `assert_improved`                                                                                              |
 
 A result such as "paired difference +0.05, 95% CI [-0.01, +0.11], p = 0.09 on n = 200" tells you the improvement is plausible but not established. That is a statement the two means alone cannot make.
 
@@ -76,7 +77,11 @@ Each row of the candidate run is matched to a row of the baseline run:
 
 Inputs are hashed from their JSON form. An input without a JSON form is serialized with `str()`, and when that yields a memory address (`<Query object at 0x...>`) the hash differs between runs, so such rows cannot be paired on their inputs; the warning reports how many unpaired rows are affected. Make the inputs JSON-serializable, or evaluate a static dataset so that rows pair on the request ID.
 
-Rows that have no match, or whose key appears more than once in a run, are **not** included in the statistics. They are reported in `result.unpaired_baseline_trace_ids` and `result.unpaired_candidate_trace_ids`, and a warning is logged. Only scorers that produced feedback in both runs are compared; rows where a scorer errored in either run are skipped for that scorer.
+Rows that have no match, or whose key appears more than once in a run, are **not** included in the statistics. They are reported in `result.unpaired_baseline_trace_ids` and `result.unpaired_candidate_trace_ids`, and a warning is logged. Only scorers that produced feedback in both runs are compared, counting errored feedback; a scorer configured in only one run is not compared.
+
+## Scorer errors
+
+A paired row on which a scorer errored in either run (for example, a judge timeout or rate limit) has no value for that scorer and is excluded from its statistics. The excluded rows are counted in `n_baseline_errors` and `n_candidate_errors`, and a warning is logged. Errors are often not random: long or hard inputs time out more often, so the remaining rows can make the candidate look better than it is. A scorer with errors is therefore reported with `status="scorer_errors"`, even when every one of its feedbacks errored (`n_paired=0`). Its statistics are still computed over the remaining rows when there are at least six of them, but `assert_improved` treats it as not improved. Fix the cause of the errors and evaluate again.
 
 ## Which test is used
 
@@ -109,7 +114,7 @@ A scorer with fewer than **6** paired rows is reported with `status="insufficien
 
 ## Gating a release in CI
 
-`assert_improved` raises an `AssertionError` unless every listed scorer moved in its better direction with `p_value < alpha`. A scorer with insufficient pairs counts as not improved. When `scorers` is omitted, every compared scorer is checked, and `assert_improved` also raises if no scorers were compared at all (for example, when the two runs share no scorer with valid feedback), so a CI gate cannot pass on an empty comparison.
+`assert_improved` raises an `AssertionError` unless every listed scorer moved in its better direction with `p_value < alpha`. A scorer with insufficient pairs or scorer errors counts as not improved. When `scorers` is omitted, every compared scorer is checked, and `assert_improved` also raises if no scorers were compared at all (for example, when the two runs share no scorer), so a CI gate cannot pass on an empty comparison.
 
 ```python
 def test_candidate_beats_baseline():
