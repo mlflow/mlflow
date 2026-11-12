@@ -187,26 +187,6 @@ View traces in MLflow UI:
 
 ![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/891fed9a746477f808dd2b82d3abb2382293c564/docs/static/images/llms/tracing/quickstart/openai-tool-calling-trace-detail.png?raw=true)
 
-## Publishing
-
-Packages are published to npm by the maintainer-only `release-typescript` workflow, which uses npm trusted publishing. Do not run `npm publish` by hand.
-
-1. Run `npm run bump-version -- --version <new_version>` from this directory to bump the package versions appropriately, then run `npm install --package-lock-only` to refresh `package-lock.json`, and open a pull request with the result. The script also rewrites the `version` field of each integration's Claude Code plugin manifest (`.claude-plugin/plugin.json`, currently only `integrations/claude-code`) to the same value, so never edit that field by hand: Claude Code derives the installed plugin version from the manifest, and marketplace installs only see an update when it changes.
-2. After the pull request merges, push an annotated `ts/v<new_version>` tag that points at the merge commit:
-
-   ```bash
-   git tag -a ts/v<new_version> <merge_commit> -m "MLflow TypeScript SDK <new_version>"
-   git push origin ts/v<new_version>
-   ```
-
-3. A maintainer dispatches the `release-typescript` workflow with the tag as `ref`, first with `destination=dry-run` to check the release plan, then with `destination=npm` to publish.
-
-Keep the following in mind:
-
-- `@mlflow/mlflow-openclaw` is not part of the coordinated bump, so select the packages to release explicitly instead of using `packages=all`, which fails because its version does not match the tag.
-- The dry run does not publish anything, so it cannot detect npm permission problems. A package that the workflow has never published needs an npm trusted publisher configured for the workflow first; otherwise its publish fails with a 404 from npm.
-- The workflow publishes `@mlflow/core` first and skips versions that are already on npm, so a partially failed run can be retried safely.
-
 ## Adding New Integrations
 
 The TypeScript SDK supports pluggable auto-instrumentation packages under [`integrations/`](./integrations). To add a new integration:
