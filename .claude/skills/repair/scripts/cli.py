@@ -15,10 +15,24 @@ from typing import Any
 
 FAILED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
 EXCLUDED_WORKFLOWS = {"rerun.yml", "repair.yml"}
+PR_BATCH_SIZE = 20
+CHECK_PAGE_SIZE = 20
 CONNECTION_BATCH_SIZE = 20
 REPO = "mlflow/mlflow"
 PR_BUDGET = 5
 HISTORY_MARKER = "<!-- repair-history -->"
+APP = "mlflow-app[bot]"
+APP_ID = 191841109
+# Added test lines that skip or expect failure instead of fixing the code.
+TEST_WEAKENING_RE = re.compile(
+    r"pytest\.mark\.(skip|skipif|xfail)\b|pytest\.(skip|xfail|importorskip)\(|unittest\.skip"
+    r"|unittest\.expectedFailure|\.skipTest\(|\b(it|test|describe)\.(skip|only|todo|fixme)\("
+    r"|\b[xf](it|test|describe)\("
+)
+TEST_DEFINITION_RE = re.compile(
+    r"^\s*(?:async\s+)?def\s+(test_\w+)|^\s*(?:it|test)\(\s*([\"'`])(.+?)\2"
+)
+TEST_FILE_RE = re.compile(r"(^|/)tests?/|(^|/)test_[^/]*\.py$|\.test\.[jt]sx?$")
 
 COMMENT_FIELDS = """
   id
@@ -30,16 +44,9 @@ COMMENTS_FIELDS = f"""
   pageInfo {{ hasNextPage endCursor }}
 """
 
-STEP_FIELDS = """
-  name
-  number
-  status
-  conclusion
-"""
-# Limit the first step page to keep nested PR/check/step searches below GitHub's node limit.
-CHECK_FIELDS = f"""
+CHECK_FIELDS = """
   __typename
-  ... on CheckRun {{
+  ... on CheckRun {
     id
     databaseId
     name
@@ -47,23 +54,19 @@ CHECK_FIELDS = f"""
     conclusion
     detailsUrl
     permalink
-    steps(first: 20) {{
-      nodes {{ {STEP_FIELDS} }}
-      pageInfo {{ hasNextPage endCursor }}
-    }}
-    checkSuite {{
+    checkSuite {
       status
       conclusion
-      app {{ slug }}
-      workflowRun {{
+      app { slug }
+      workflowRun {
         databaseId
         createdAt
         event
         runAttempt
-        workflow {{ resourcePath }}
-      }}
-    }}
-  }}
+        workflow { resourcePath }
+      }
+    }
+  }
 """
 CONTEXT_FIELDS = f"""
   nodes {{ {CHECK_FIELDS} }}
@@ -79,15 +82,17 @@ PR_FIELDS = f"""
   state
   isDraft
   mergeable
+  isCrossRepository
+  author {{ __typename login }}
   comments(first: 10) {{ {COMMENTS_FIELDS} }}
   statusCheckRollup {{
     id
-    contexts(first: 100) {{ {CONTEXT_FIELDS} }}
+    contexts(first: {CHECK_PAGE_SIZE}) {{ {CONTEXT_FIELDS} }}
   }}
 """
 SEARCH_QUERY = f"""
 query($search: String!, $cursor: String) {{
-  search(query: $search, type: ISSUE, first: 100, after: $cursor) {{
+  search(query: $search, type: ISSUE, first: {PR_BATCH_SIZE}, after: $cursor) {{
     nodes {{ ... on PullRequest {{ {PR_FIELDS} }} }}
     pageInfo {{ hasNextPage endCursor }}
   }}
@@ -141,8 +146,8 @@ def fetch_prs(repository: str, numbers: list[str]) -> list[dict[str, Any]]:
     owner, name = repository.split("/")
     prs: list[dict[str, Any]] = []
     if numbers:
-        for offset in range(0, len(numbers), 100):
-            batch = numbers[offset : offset + 100]
+        for offset in range(0, len(numbers), PR_BATCH_SIZE):
+            batch = numbers[offset : offset + PR_BATCH_SIZE]
             aliases = "\n".join(
                 f"pr_{number}: pullRequest(number: {number}) {{ {PR_FIELDS} }}" for number in batch
             )
@@ -233,7 +238,7 @@ def check_connection(rollup: dict[str, Any]) -> Connection:
 
 
 def fetch_checks(rollup: dict[str, Any]) -> list[dict[str, Any]]:
-    return fetch_connections([check_connection(rollup)])[0]
+    return fetch_connections([check_connection(rollup)], page_size=CHECK_PAGE_SIZE)[0]
 
 
 def read_history(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
@@ -260,13 +265,10 @@ def read_history(pr: dict[str, Any]) -> tuple[str | None, dict[str, Any]]:
 
 
 def context_hash(context: dict[str, Any]) -> str:
-    runs = []
-    for run in context["failed_runs"]:
-        jobs = [
-            {**job, "failed_steps": sorted(job["failed_steps"], key=lambda step: step["number"])}
-            for job in run["job_runs"]
-        ]
-        runs.append({**run, "job_runs": sorted(jobs, key=lambda job: job["id"])})
+    runs = [
+        {**run, "job_runs": sorted(run["job_runs"], key=lambda job: job["id"])}
+        for run in context["failed_runs"]
+    ]
     context = {**context, "failed_runs": sorted(runs, key=lambda run: run["run_id"])}
     return hashlib.sha256(json.dumps(context, sort_keys=True).encode()).hexdigest()
 
@@ -311,20 +313,12 @@ def unfinished_jobs(runs: list[dict[str, Any]]) -> list[str]:
 
 
 def failed_job_context(check: dict[str, Any]) -> dict[str, Any]:
-    steps = (
-        fetch_connections([
-            Connection(check["id"], "CheckRun", "steps", STEP_FIELDS, check["steps"])
-        ])[0]
-        if check["steps"] is not None
-        else []
-    )
     return {
         "id": check["databaseId"],
         "name": check["name"],
         "status": check["status"],
         "conclusion": check["conclusion"],
         "url": check["detailsUrl"] or check["permalink"],
-        "failed_steps": [step for step in steps if step["conclusion"] in FAILED_CONCLUSIONS],
     }
 
 
@@ -361,8 +355,12 @@ def build_candidate(pr: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str,
             },
         )
         group["job_runs"].extend(job_runs)
+    author = pr["author"] or {}
     return {
         "number": pr["number"],
+        "author": author.get("login"),
+        "author_is_bot": author.get("__typename") == "Bot",
+        "cross_repository": pr["isCrossRepository"],
         "head_ref": pr["headRefName"],
         "head_sha": pr["headRefOid"],
         "base_ref": pr["baseRefName"],
@@ -390,7 +388,8 @@ def select_candidates(prs: list[dict[str, Any]], max_retries: int) -> list[dict[
 
     connections = [check_connection(pr["statusCheckRollup"]) for pr in eligible]
     candidates = []
-    for pr, checks in zip(eligible, fetch_connections(connections), strict=True):
+    checks_by_pr = fetch_connections(connections, page_size=CHECK_PAGE_SIZE)
+    for pr, checks in zip(eligible, checks_by_pr, strict=True):
         runs = latest_workflow_runs(checks)
         if pending := unfinished_jobs(runs):
             sys.stderr.write(
@@ -517,9 +516,9 @@ def record(args: argparse.Namespace) -> int:
     body = (
         f"{HISTORY_MARKER}\n\n"
         "### Repair history\n\n"
-        "> [!NOTE]\n> You can ignore this comment.\n\n"
-        f"{workflow} records successful live runs here and checks this history to skip repeat "
-        "contexts and enforce the per-PR limit.\n\n"
+        "> [!NOTE]\n"
+        f"> You can ignore this comment. {workflow} records live runs here and "
+        "checks this history to skip repeat contexts and enforce the per-PR limit.\n\n"
         f"{table}\n\n"
         "<details>\n<summary>History data</summary>\n\n"
         f"```json\n{json.dumps(history, indent=2)}\n```\n\n"
@@ -560,17 +559,19 @@ def record(args: argparse.Namespace) -> int:
         """,
         id=comment_id,
     )
-    write_step_summary(f"Successful repair {len(history)}/{PR_BUDGET}: {args.run_url}")
+    write_step_summary(f"Recorded repair {len(history)}/{PR_BUDGET}: {args.run_url}")
     return 0
 
 
-def validate_rerun(context: dict[str, Any], action: dict[str, Any]) -> None:
+def validate_rerun(context: dict[str, Any], action: dict[str, Any], out_dir: Path) -> None:
     allowed = {run["run_id"] for run in context["failed_runs"]}
     if not set(action["run_ids"]) <= allowed:
         raise ValueError("Rerun IDs must belong to the captured failed runs")
 
 
-def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
+def rerun_action(
+    context: dict[str, Any], action: dict[str, Any], dry_run: bool, out_dir: Path
+) -> None:
     runs = [run for run in context["failed_runs"] if run["run_id"] in action["run_ids"]]
 
     def submit(run: dict[str, Any]) -> None:
@@ -615,11 +616,11 @@ def rerun_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool)
 
 @dataclass(frozen=True)
 class ActionHandler:
-    validate: Callable[[dict[str, Any], dict[str, Any]], None]
-    execute: Callable[[dict[str, Any], dict[str, Any], bool], None]
+    validate: Callable[[dict[str, Any], dict[str, Any], Path], None]
+    execute: Callable[[dict[str, Any], dict[str, Any], bool, Path], None]
 
 
-def validate_push(context: dict[str, Any], action: dict[str, Any]) -> None:
+def validate_push(context: dict[str, Any], action: dict[str, Any], out_dir: Path) -> None:
     behind_by = subprocess.check_output(
         [
             "gh",
@@ -640,7 +641,9 @@ def fetch_head_sha(number: int) -> str:
     ).strip()
 
 
-def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) -> None:
+def push_action(
+    context: dict[str, Any], action: dict[str, Any], dry_run: bool, out_dir: Path
+) -> None:
     pr_url = f"https://github.com/{REPO}/pull/{context['number']}"
     if dry_run:
         write_step_summary(f"Would merge the base branch into {pr_url}")
@@ -664,9 +667,106 @@ def push_action(context: dict[str, Any], action: dict[str, Any], dry_run: bool) 
         raise RuntimeError("The PR head did not move within 60s")
 
 
+def is_triage_pr(context: dict[str, Any]) -> bool:
+    return (
+        context.get("author_is_bot") is True
+        and context.get("author") in {APP, APP.removesuffix("[bot]")}
+        and context["head_ref"].startswith("triage/")
+    )
+
+
+def allowed_patch_paths() -> tuple[str, ...]:
+    path = Path(__file__).resolve().parents[2] / "patch-paths.txt"
+    lines = (line.strip() for line in path.read_text().splitlines())
+    return tuple(line for line in lines if line and not line.startswith("#"))
+
+
+def validate_fix(context: dict[str, Any], action: dict[str, Any], out_dir: Path) -> None:
+    if context.get("cross_repository") is not False or not is_triage_pr(context):
+        raise ValueError("Fixes are limited to triage PRs on mlflow/mlflow branches")
+    patch = out_dir / "fix.patch"
+    if patch.is_symlink() or not patch.is_file():
+        raise ValueError("A fix needs a regular fix.patch file in the output directory")
+
+
+def check_staged_fix(git: Callable[..., str]) -> None:
+    def names(*args: str) -> list[str]:
+        return [name for name in git(*args).split("\0") if name]
+
+    if not (paths := names("diff", "--cached", "-z", "--name-only", "--no-renames")):
+        raise ValueError("fix.patch changes no files")
+    allowed = allowed_patch_paths()
+    if outside := [path for path in paths if not path.startswith(allowed)]:
+        raise ValueError(f"fix.patch changes paths outside patch-paths.txt: {outside}")
+    if any(
+        not entry.startswith(("100644 ", "100755 "))
+        for entry in names("ls-files", "-s", "-z", "--", *paths)
+    ):
+        raise ValueError("fix.patch contains a symlink or submodule")
+    deleted = names("diff", "--cached", "-z", "--name-only", "--no-renames", "--diff-filter=D")
+    if deleted_tests := [path for path in deleted if TEST_FILE_RE.search(path)]:
+        raise ValueError(f"fix.patch deletes test files: {deleted_tests}")
+    headers = ("+++ b/", "+++ /dev/null", "--- a/", "--- /dev/null")
+    added: list[tuple[str, str]] = []
+    removed: list[tuple[str, str]] = []
+    for line in git("diff", "--cached", "--no-renames", "-U0").splitlines():
+        if line.startswith("diff --git "):
+            path = line.rsplit(" b/", 1)[1]
+        elif line[:1] in ("+", "-") and not line.startswith(headers):
+            (added if line[0] == "+" else removed).append((path, line[1:]))
+    if weakening := [line.strip() for _, line in added if TEST_WEAKENING_RE.search(line)]:
+        raise ValueError(f"fix.patch skips or xfails tests: {weakening}")
+
+    def tests(source: list[tuple[str, str]]) -> set[tuple[str, str]]:
+        return {(f, m[1] or m[3]) for f, line in source if (m := TEST_DEFINITION_RE.match(line))}
+
+    if dropped := sorted(tests(removed) - tests(added)):
+        raise ValueError(f"fix.patch removes tests: {dropped}")
+
+
+def fix_action(
+    context: dict[str, Any], action: dict[str, Any], dry_run: bool, out_dir: Path
+) -> None:
+    checkout = Path(os.environ["PR_CHECKOUT"])
+
+    def git(*args: str | Path) -> str:
+        command = ["git", "-C", checkout, "-c", "core.hooksPath=/dev/null", *args]
+        return subprocess.check_output(command, text=True).strip()
+
+    if git("rev-parse", "HEAD") != context["head_sha"]:
+        raise ValueError("The PR checkout does not match the captured head")
+    git("apply", "--index", "--whitespace=error", "--", out_dir / "fix.patch")
+    check_staged_fix(git)
+    pr_url = f"https://github.com/{REPO}/pull/{context['number']}"
+    if dry_run:
+        write_step_summary(
+            f"Would push to {pr_url}:\n\n```\n{git('diff', '--cached', '--stat')}\n```"
+        )
+        return
+    identity = [
+        "-c",
+        f"user.name={APP}",
+        "-c",
+        f"user.email={APP_ID}+{APP}@users.noreply.github.com",
+    ]
+    trailer = f"Repair-Run: {os.environ['RUN_URL']}"
+    git(*identity, "commit", "-s", "-m", action["commit_message"], "-m", trailer)
+    # The lease rejects the push if the PR moved after the context was captured.
+    ref = f"refs/heads/{context['head_ref']}"
+    auth = ["-c", "credential.helper=", "-c", "credential.helper=!gh auth git-credential"]
+    lease = f"--force-with-lease={ref}:{context['head_sha']}"
+    git(*auth, "push", lease, f"https://github.com/{REPO}.git", f"HEAD:{ref}")
+    write_step_summary(f"Pushed a fix to {pr_url}: {git('rev-parse', 'HEAD')}")
+    # Ask NaiLaOpus to review the fix. A failed request mustn't stop the fix being recorded.
+    comments = f"repos/{REPO}/issues/{context['number']}/comments"
+    if subprocess.call(["gh", "api", comments, "-f", "body=/review"]) != 0:
+        write_step_summary(f"Could not request a NaiLaOpus review on {pr_url}")
+
+
 ACTION_HANDLERS = {
     "rerun": ActionHandler(validate_rerun, rerun_action),
     "push": ActionHandler(validate_push, push_action),
+    "fix": ActionHandler(validate_fix, fix_action),
 }
 
 
@@ -683,7 +783,7 @@ def load_plan(context: dict[str, Any], path: Path) -> dict[str, Any]:
         text=True,
     )
     if (action := payload["action"]) is not None:
-        ACTION_HANDLERS[action["type"]].validate(context, action)
+        ACTION_HANDLERS[action["type"]].validate(context, action, path.parent)
     return payload
 
 
@@ -702,7 +802,9 @@ def execute(args: argparse.Namespace) -> int:
         f"### Repair PR #{context['number']}\n\n```json\n{json.dumps(payload, indent=2)}\n```"
     )
     if (action := payload["action"]) is not None:
-        ACTION_HANDLERS[action["type"]].execute(context, action, args.dry_run)
+        ACTION_HANDLERS[action["type"]].execute(
+            context, action, args.dry_run, args.payload_path.parent
+        )
     return 0
 
 

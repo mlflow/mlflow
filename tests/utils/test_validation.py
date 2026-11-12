@@ -1018,6 +1018,7 @@ def test_validate_gateway_secret_region_keys_reject_non_region_names(key, value)
         "custom_llm_provider",
         "aws_bedrock_runtime_endpoint",
         "aws_sts_endpoint",
+        "gigachat_auth_url",
     ],
 )
 def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases(key):
@@ -1037,6 +1038,7 @@ def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases
         "custom_llm_provider",
         "aws_bedrock_runtime_endpoint",
         "aws_sts_endpoint",
+        "gigachat_auth_url",
     ],
 )
 def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):

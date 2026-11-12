@@ -640,7 +640,7 @@ class SqlAlchemyStore(AbstractStore):
 
         rm_query = select(SqlRegisteredModel).filter(*attribute_filters)
 
-        if not self._is_querying_prompt(parsed_filters):
+        if not SearchModelUtils.is_querying_prompt(parsed_filters):
             rm_query = self._update_query_to_exclude_prompts(
                 rm_query,
                 tag_filters,
@@ -744,7 +744,7 @@ class SqlAlchemyStore(AbstractStore):
 
         mv_query = select(SqlModelVersion).filter(*attribute_filters)
 
-        if not self._is_querying_prompt(parsed_filters):
+        if not SearchModelUtils.is_querying_prompt(parsed_filters):
             mv_query = self._update_query_to_exclude_prompts(
                 mv_query,
                 tag_filters,
@@ -825,19 +825,6 @@ class SqlAlchemyStore(AbstractStore):
             ),
             isouter=True,
         ).filter(prompts_subquery.c.name.is_(None))
-
-    @classmethod
-    def _is_querying_prompt(cls, parsed_filters: list[dict[str, Any]]) -> bool:
-        for f in parsed_filters:
-            if f["type"] != "tag" or f["key"] != IS_PROMPT_TAG_KEY:
-                continue
-
-            return (f["comparator"] == "=" and f["value"].lower() == "true") or (
-                f["comparator"] == "!=" and f["value"].lower() == "false"
-            )
-
-        # Query should return only normal models by default
-        return False
 
     @classmethod
     def _parse_search_registered_models_order_by(cls, order_by_list):
@@ -1222,6 +1209,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
 
+        version = _validate_model_version(version)
         with self.ManagedSessionMaker(read_only=False) as session:
             last_updated_time = get_current_time_millis()
 

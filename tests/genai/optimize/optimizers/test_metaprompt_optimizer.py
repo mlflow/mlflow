@@ -520,3 +520,12 @@ def test_compute_per_scorer_scores():
     per_scorer = optimizer._compute_per_scorer_scores(eval_results)
 
     assert per_scorer == {"Correctness": 0.8, "Safety": 0.6}  # Average of each scorer
+
+
+def test_call_reflection_model_attributes_gateway_usage_to_prompt_optimization(mock_llm_response):
+    from mlflow.gateway.constants import GatewayCaller
+
+    with patch(_CALL_LLM, return_value=mock_llm_response) as mock_call:
+        MetaPromptOptimizer(reflection_model="gateway:/my-endpoint")._call_reflection_model("p")
+
+    assert mock_call.call_args.kwargs["gateway_caller"] == GatewayCaller.PROMPT_OPTIMIZATION

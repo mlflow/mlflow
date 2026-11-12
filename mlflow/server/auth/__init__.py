@@ -274,7 +274,7 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server import app
+from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, app
 from mlflow.server import skill_registry_api as _skill_registry_api
 from mlflow.server._request_keys import (
     MCP_SERVER_ALLOWED_ACTIONS,
@@ -282,6 +282,7 @@ from mlflow.server._request_keys import (
     SCOPED_EXPERIMENT_IDS,
     SCOPED_MCP_ACCESS_ENDPOINT_FILTER,
     SCOPED_MCP_SERVER_FILTER,
+    SCOPED_REGISTERED_MODEL_FILTER,
 )
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
@@ -508,8 +509,9 @@ from mlflow.utils.search_utils import (
     SearchExperimentsUtils,
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
+    SearchModelUtils,
 )
-from mlflow.utils.uri import _decode, is_models_uri, validate_path_is_safe
+from mlflow.utils.uri import _decode, get_uri_scheme, is_models_uri, validate_path_is_safe
 from mlflow.utils.validation import (
     _MAX_BULK_REGISTER_SKILLS,
     _parse_experiment_id,
@@ -1261,7 +1263,13 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
 
 def _canonical_artifact_proxy_path(artifact_path: str) -> "str | None":
     try:
-        return validate_path_is_safe(artifact_path)
+        return validate_path_is_safe(
+            artifact_path,
+            validate_windows_aliases=get_uri_scheme(
+                os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR, "")
+            )
+            in {"", "file"},
+        )
     except MlflowException:
         return None
 
@@ -3549,21 +3557,11 @@ def _role_based_read_predicate(
     which. A veto is spelled out as ``ACTION_NOT_DENIED`` because that is what the route means;
     a positive action would be honoured too, and reads honestly if a caller ever needs one.
 
-    The row requirement falls back to the workspace tier, which is what the loader this replaced
-    did by folding ``(workspace, "*")`` rows in for every resource type. Tier override makes that
-    strictly safer than before: a grant on the row's own key now decides, so
-    ``(experiment, "*", DENY)`` is honoured, where previously any workspace-level grant that could
-    read still listed everything.
-
-    NOTE a pre-existing inconsistency this preserves rather than introduces: master folds a
-    workspace grant into a POINT permission only at ``MANAGE``
-    (``get_role_permission_for_resource``, mirrored here by ``is_workspace_admin_grant``), but its
-    predicate loader folded workspace rows in at ANY level. So ``(workspace, "*", USE)`` lists
-    experiments it cannot then read. Closing that would deny a caller master allows, so it is left
-    alone and reported as design feedback.
+    The row requirement has no workspace fallback, matching the point routes: a workspace grant
+    reaches a row only at ``MANAGE`` (``is_workspace_admin_grant``, applied by
+    ``retention_gate``), so ``(workspace, "*", USE)`` does not list rows it cannot then read.
     """
-    workspace_fallback = ((RESOURCE_TYPE_WORKSPACE, "*"),)
-    row_template = Requirement(resource_type, "*", "read", fallback_if_no_grant=workspace_fallback)
+    row_template = Requirement(resource_type, "*", "read")
     gate = retention_gate(username, (RESOURCE_TYPE_WORKSPACE, "*"), [row_template, *also_require])
     for requirement in also_require:
         if not gate.retains(requirement.resource_type, requirement.resource_id):
@@ -3746,6 +3744,48 @@ def _scope_experiment_search_query() -> None:
     _set_request_field(message, "filter", scoped_filter)
 
 
+# Larger scopes can exceed old SQLite's 999 variables; the per-row filter handles them.
+_MAX_SCOPED_SEARCH_NAMES = 900
+
+
+def _scope_registered_model_search_query() -> None:
+    message = _get_request_message(
+        SearchRegisteredModels(), schema={"filter": [_assert_string]}, raise_on_parse_error=True
+    )
+    # Validate before composing so caller comments cannot swallow the authorization clause.
+    parsed_filters = SearchModelUtils.parse_search_filter(message.filter)
+    # FileStore returns prompts for a LIKE on the prompt tag, so leave those to the per-row filter.
+    if any(
+        f["type"] == "tag"
+        and f["key"] == IS_PROMPT_TAG_KEY
+        and f["comparator"] in ("LIKE", "ILIKE")
+        for f in parsed_filters
+    ):
+        return
+    # Match the store, which returns either prompts or models for a given filter, never both.
+    resource_type = (
+        RESOURCE_TYPE_PROMPT
+        if SearchModelUtils.is_querying_prompt(parsed_filters)
+        else RESOURCE_TYPE_REGISTERED_MODEL
+    )
+    scope = _get_resource_read_scope_for_user(authenticate_request().username, resource_type)
+    if scope.comparator is None:
+        return
+    names = sorted(value for value in scope.resource_ids if value)
+    if len(names) > _MAX_SCOPED_SEARCH_NAMES:
+        return
+    if not names:
+        if scope.comparator == "NOT IN":
+            return
+        scope_filter = "name = '' AND name != ''"
+    else:
+        values = ", ".join(repr(value) for value in names)
+        scope_filter = f"name {scope.comparator} ({values})"
+    scoped_filter = f"{message.filter} AND {scope_filter}" if message.filter else scope_filter
+    setattr(g, SCOPED_REGISTERED_MODEL_FILTER, scoped_filter)
+    _set_request_field(message, "filter", scoped_filter)
+
+
 def _scope_experiment_ids(message, allow_missing: bool) -> list[str] | None:
     field = message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(field)
@@ -3837,6 +3877,7 @@ def _scope_logged_model_query() -> None:
 
 REQUEST_SCOPE_FUNCTIONS = {
     SearchExperiments: _scope_experiment_search_query,
+    SearchRegisteredModels: _scope_registered_model_search_query,
     BatchGetTraces: _scope_batch_trace_query,
     BatchGetTraceInfos: _scope_batch_trace_query,
     SearchLoggedModels: _scope_logged_model_query,
