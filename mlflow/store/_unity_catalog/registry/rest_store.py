@@ -133,9 +133,9 @@ from mlflow.store._unity_catalog.registry.utils import (
 )
 from mlflow.store._unity_catalog.registry.volume_weights import (
     get_volume_artifacts_path,
-    start_volume_weights_copy,
+    start_model_serving_staging,
     volume_weights_in_model_dir,
-    wait_for_volume_weights_copy,
+    wait_for_model_artifact_staging,
 )
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,
@@ -1099,7 +1099,8 @@ class UcModelRegistryStore(BaseRestStore):
         """Upload the model's files to a PENDING_REGISTRATION version so it can be finalized.
 
         A model whose weights are in a Unity Catalog volume (``volume_artifacts_path`` in its
-        metadata) has Databricks copy them into the version; this returns once that copy is done.
+        metadata) is staged for Databricks Model Serving, which copies them into the version; this
+        returns once they're copied.
         A copy of a version whose weights were already copied uploads them with its other files.
         """
         volume_path = _get_volume_artifacts_path(local_model_dir)
@@ -1108,10 +1109,10 @@ class UcModelRegistryStore(BaseRestStore):
             return
         version = str(version)
         host_creds = self.get_host_creds()
-        # Starting the copy first lets it run while the model's own files upload.
-        status = start_volume_weights_copy(full_name, version, host_creds)
+        # Staging starts first so the weights are copied while the model's own files upload.
+        status = start_model_serving_staging(full_name, version, host_creds)
         store.log_artifacts(local_dir=local_model_dir, artifact_path="")
-        wait_for_volume_weights_copy(full_name, version, status, host_creds)
+        wait_for_model_artifact_staging(full_name, version, status, host_creds)
 
     def create_model_version(
         self,

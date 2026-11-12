@@ -1,7 +1,9 @@
 """
 Registration of models whose weights are in a Unity Catalog volume. The model's own files hold
-no weights; Databricks copies them from the volume into the model version, so the version can be
-finalized only once that copy has finished.
+no weights. Registration stages the PENDING_REGISTRATION version for Databricks Model Serving,
+which copies the weights from the volume into the version as part of staging the model, and
+builds and packs the model's serving environment. The version can be finalized once the model,
+with its weights, is staged; the environment is staged independently.
 """
 
 import logging
@@ -10,7 +12,7 @@ import posixpath
 import time
 from typing import Any
 
-from mlflow.environment_variables import MLFLOW_DATABRICKS_VOLUME_WEIGHTS_COPY_TIMEOUT
+from mlflow.environment_variables import MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, INTERNAL_ERROR, ErrorCode
 from mlflow.utils.databricks_utils import (
@@ -23,8 +25,9 @@ _logger = logging.getLogger(__name__)
 VOLUME_ARTIFACTS_PATH_METADATA_KEY = "volume_artifacts_path"
 
 _POLL_INTERVAL_SECONDS = 10
-# A copy that fails is started again this many times before registration gives up.
-_MAX_COPY_RESTARTS = 2
+# Staging that fails is started again this many times before registration gives up. Databricks
+# restages only the failed model, so the environment isn't built again.
+_MAX_STAGING_RESTARTS = 2
 
 _STATE_SUCCEEDED = "SUCCEEDED"
 _STATE_FAILED = "FAILED"
@@ -58,7 +61,7 @@ def volume_weights_in_model_dir(local_model_dir: str, volume_path: str) -> bool:
     Returns whether the model's own files already hold the weights Databricks copies from the
     volume, as when registering a copy of a version whose weights were already copied.
     """
-    # Databricks copies the volume directory to artifacts/<its last path segment>/.
+    # Staging copies the volume directory to artifacts/<its last path segment>/.
     weights_dir = os.path.join(
         local_model_dir, "artifacts", posixpath.basename(volume_path.rstrip("/"))
     )
@@ -76,27 +79,30 @@ def _error_code_value(error_code_name: str) -> int:
         return INTERNAL_ERROR
 
 
-def start_volume_weights_copy(name: str, version: str, host_creds) -> dict[str, Any]:
+def start_model_serving_staging(name: str, version: str, host_creds) -> dict[str, Any]:
     """
-    Asks Databricks to copy the weights into the PENDING_REGISTRATION model version and returns
-    the copy's staging status.
+    Stages the PENDING_REGISTRATION model version for Databricks Model Serving, which copies the
+    weights from the volume into the version and prepares its serving environment, and returns
+    the staging status.
     """
     try:
         stage_model_for_databricks_model_serving(name, version, host_creds=host_creds)
     except MlflowException as e:
-        # A workspace that can't copy weights into a version that isn't finalized yet rejects
-        # the request with NOT_FOUND.
+        # A workspace that can't stage a version that isn't finalized yet rejects the request
+        # with NOT_FOUND.
         if e.error_code == "NOT_FOUND":
             raise MlflowException(
-                f"This Databricks workspace can't copy the weights of model '{name}' version "
-                f"{version} from its Unity Catalog volume yet. To register the model, log it "
-                "again with its weights in the model's own files.",
+                f"This Databricks workspace can't stage model '{name}' version {version} for "
+                "Model Serving before it's finalized, so it can't copy the weights from the "
+                "model's Unity Catalog volume. To register the model, log it again with its "
+                "weights in the model's own files.",
                 error_code=FEATURE_DISABLED,
             ) from e
         raise MlflowException(
-            f"Databricks couldn't copy the weights of model '{name}' version {version} from its "
-            f"Unity Catalog volume into the model version: {e.message} To register the model "
-            "anyway, log it again with its weights in the model's own files.",
+            f"Databricks couldn't stage model '{name}' version {version} for Model Serving, "
+            f"which copies its weights from its Unity Catalog volume into the model version: "
+            f"{e.message} To register the model anyway, log it again with its weights in the "
+            "model's own files.",
             error_code=_error_code_value(e.error_code),
         ) from e
     try:
@@ -107,63 +113,65 @@ def start_volume_weights_copy(name: str, version: str, host_creds) -> dict[str, 
         status = None
     if not status:
         raise MlflowException(
-            f"This workspace doesn't report when Databricks finishes copying the weights of model "
-            f"'{name}' version {version} from its Unity Catalog volume, so the version can't be "
-            "finalized safely. To register the model, log it again with its weights in the "
-            "model's own files."
+            f"This workspace doesn't report when Databricks finishes staging model '{name}' "
+            f"version {version} for Model Serving, which copies its weights from its Unity "
+            "Catalog volume, so the version can't be finalized safely. To register the model, "
+            "log it again with its weights in the model's own files."
         )
     return status
 
 
-def wait_for_volume_weights_copy(
+def wait_for_model_artifact_staging(
     name: str, version: str, status: dict[str, Any], host_creds
 ) -> None:
     """
-    Polls the copy until the model weights are in the version. A failed copy is started again
-    up to ``_MAX_COPY_RESTARTS`` times.
+    Polls the staging status until the model, with the weights copied into the version, is
+    staged. Staging that fails is started again up to ``_MAX_STAGING_RESTARTS`` times while
+    time remains.
     """
-    timeout = MLFLOW_DATABRICKS_VOLUME_WEIGHTS_COPY_TIMEOUT.get()
+    timeout = MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT.get()
     deadline = time.monotonic() + timeout
     restarts = 0
     _logger.info(
-        "Waiting for Databricks to copy the weights of model '%s' version %s from its Unity "
-        "Catalog volume.",
+        "Waiting for Databricks to stage model '%s' version %s for Model Serving, which copies "
+        "its weights from its Unity Catalog volume.",
         name,
         version,
     )
     while True:
         # Only the weights must be in the version before it is finalized; the serving
-        # environment, the other artifact in the status, is prepared independently.
+        # environment, the other artifact in the status, is staged independently.
         state = status.get("model_artifact", {}).get("state")
         if state == _STATE_SUCCEEDED:
             return
         remaining = deadline - time.monotonic()
         if state in (_STATE_FAILED, _STATE_NOT_STAGED):
-            # A copy started after the deadline couldn't finish in time, so report the failure.
-            if restarts == _MAX_COPY_RESTARTS or remaining <= 0:
+            # Staging started again after the deadline couldn't finish in time, so report the
+            # failure instead.
+            if restarts == _MAX_STAGING_RESTARTS or remaining <= 0:
                 raise MlflowException(
                     f"Databricks couldn't copy the weights of model '{name}' version {version} "
-                    "from its Unity Catalog volume into the model version. Check that the volume "
-                    "path in the model's metadata exists and that you can read it, then register "
-                    "the model again."
+                    "from its Unity Catalog volume into the model version while staging it for "
+                    "Model Serving. Check that the volume path in the model's metadata exists "
+                    "and that you can read it, then register the model again."
                 )
             restarts += 1
             _logger.warning(
-                "Copying the weights of model '%s' version %s failed; starting it again "
+                "Staging model '%s' version %s for Model Serving failed; starting it again "
                 "(attempt %d of %d).",
                 name,
                 version,
                 restarts + 1,
-                _MAX_COPY_RESTARTS + 1,
+                _MAX_STAGING_RESTARTS + 1,
             )
-            status = start_volume_weights_copy(name, version, host_creds)
+            status = start_model_serving_staging(name, version, host_creds)
             continue
         if remaining <= 0:
             raise MlflowException(
-                f"Databricks didn't finish copying the weights of model '{name}' version "
-                f"{version} from its Unity Catalog volume within {timeout} seconds. Register the "
-                f"model again, or raise {MLFLOW_DATABRICKS_VOLUME_WEIGHTS_COPY_TIMEOUT.name} for "
-                "larger models."
+                f"Databricks didn't finish staging model '{name}' version {version} for Model "
+                f"Serving, which copies its weights from its Unity Catalog volume, within "
+                f"{timeout} seconds. Register the model again, or raise "
+                f"{MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT.name} for larger models."
             )
         time.sleep(min(_POLL_INTERVAL_SECONDS, remaining))
         status = get_databricks_model_serving_staging_status(name, version, host_creds=host_creds)

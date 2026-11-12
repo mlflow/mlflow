@@ -1146,11 +1146,11 @@ MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT = _EnvironmentVariable(
 )
 
 #: Specifies how long, in seconds, registering a model whose weights are in a Unity Catalog volume
-#: (``volume_artifacts_path`` in its metadata) waits for Databricks to copy the weights into the
-#: model version before it gives up.
+#: (``volume_artifacts_path`` in its metadata) waits for Databricks Model Serving staging to copy
+#: the weights into the model version before it gives up.
 #: (default: ``7200``)
-MLFLOW_DATABRICKS_VOLUME_WEIGHTS_COPY_TIMEOUT = _EnvironmentVariable(
-    "MLFLOW_DATABRICKS_VOLUME_WEIGHTS_COPY_TIMEOUT", int, 7200
+MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", int, 7200
 )
 
 #: Specifies the number of connection pools to cache in urllib3. This environment variable sets the

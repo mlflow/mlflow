@@ -1853,11 +1853,11 @@ def _create_model_version_recording_steps(store, local_model_dir, steps=None):
             return_value=mock_artifact_repo,
         ),
         mock.patch(
-            f"{rest_store}.start_volume_weights_copy",
+            f"{rest_store}.start_model_serving_staging",
             side_effect=lambda *_: steps.append("stage") or {"state": "IN_PROGRESS"},
         ) as start_copy,
         mock.patch(
-            f"{rest_store}.wait_for_volume_weights_copy",
+            f"{rest_store}.wait_for_model_artifact_staging",
             side_effect=lambda *_: steps.append("wait"),
         ) as wait_copy,
     ):
