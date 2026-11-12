@@ -110,7 +110,7 @@ The confidence interval and the p-value answer related but different questions, 
 
 ## Small samples
 
-A scorer with fewer than **6** paired rows is reported with `status="insufficient_pairs"` and no statistics. Six is the smallest sample at which the exact two-sided signed-rank p-value can fall below 0.05 (2 / 2<sup>6</sup> = 0.03125), so with fewer pairs no result could ever be significant. With 6 to 9 pairs the comparison is computed (`status="ok"`) but a warning is logged: the tests have little power and the bootstrap interval is unreliable at that size.
+A scorer with fewer than **6** paired rows is reported with `status="insufficient_pairs"` and no statistics. Six is the smallest sample at which the exact two-sided signed-rank p-value can fall below 0.05 (2 / 2<sup>6</sup> = 0.03125), so with fewer pairs no result could ever be significant. With 6 to 9 pairs the comparison is computed (`status="ok"`) but a warning is logged: the tests have little power and the bootstrap interval is unreliable at that size. A scorer that also errored on some paired rows is reported with `status="scorer_errors"` instead, see [Scorer errors](#scorer-errors).
 
 ## Gating a release in CI
 
@@ -141,7 +141,7 @@ result = mlflow.genai.compare_evaluations(
 
 Pass `log_results=True` to log the comparison to the **candidate** run, so it is visible in the runs table:
 
-- Metrics `compare/<baseline_short_id>/<scorer>/{diff, ci_low, ci_high, p_value, effect_size, n_paired}`, where `<baseline_short_id>` is the first 8 characters of the baseline run ID.
+- Metrics `compare/<baseline_short_id>/<scorer>/{diff, ci_low, ci_high, p_value, effect_size, n_paired}`, where `<baseline_short_id>` is the first 8 characters of the baseline run ID. Scorers with `status="scorer_errors"` also get `n_baseline_errors` and `n_candidate_errors`, so their metrics are not mistaken for a clean result.
 - One artifact `compare/<baseline_short_id>.json` containing the full baseline run ID, so the short ID in the metric keys can be resolved back to the run.
 
 The per-row values and deltas are only available on the returned `ComparisonResult` (`paired_rows`).

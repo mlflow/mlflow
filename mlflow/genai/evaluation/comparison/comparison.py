@@ -76,10 +76,11 @@ def compare_evaluations(
         confidence_level: Confidence level of the bootstrap confidence interval.
         log_results: If True, log the comparison to the candidate run: metrics
             ``compare/<baseline_short_id>/<scorer>/{diff,ci_low,ci_high,p_value,effect_size,
-            n_paired}`` and one ``compare/<baseline_short_id>.json`` artifact containing the
-            full baseline run ID. ``<baseline_short_id>`` is the first 8 characters of the
-            baseline run ID. Off by default, since every compared scorer adds six metrics to
-            the run.
+            n_paired}``, plus ``compare/<baseline_short_id>/<scorer>/{n_baseline_errors,
+            n_candidate_errors}`` for scorers with status ``"scorer_errors"``, and one
+            ``compare/<baseline_short_id>.json`` artifact containing the full baseline run ID.
+            ``<baseline_short_id>`` is the first 8 characters of the baseline run ID. Off by
+            default, since every compared scorer adds six metrics to the run.
 
     Returns:
         A :py:class:`ComparisonResult <mlflow.genai.evaluation.comparison.ComparisonResult>`.

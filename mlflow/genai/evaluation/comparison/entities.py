@@ -142,15 +142,14 @@ class ComparisonResult:
         failures = []
         for name in names:
             comparison = self.scorers[name]
-            if comparison.status == "scorer_errors":
-                failures.append(
-                    f"{name}: {comparison.status} (n_paired={comparison.n_paired}, "
-                    f"n_baseline_errors={comparison.n_baseline_errors}, "
-                    f"n_candidate_errors={comparison.n_candidate_errors})"
-                )
-                continue
             if comparison.status != "ok":
-                failures.append(f"{name}: {comparison.status} (n_paired={comparison.n_paired})")
+                counts = f"n_paired={comparison.n_paired}"
+                if comparison.status == "scorer_errors":
+                    counts += (
+                        f", n_baseline_errors={comparison.n_baseline_errors}"
+                        f", n_candidate_errors={comparison.n_candidate_errors}"
+                    )
+                failures.append(f"{name}: {comparison.status} ({counts})")
                 continue
             direction = 1 if comparison.greater_is_better else -1
             if direction * comparison.diff <= 0 or not comparison.p_value < alpha:

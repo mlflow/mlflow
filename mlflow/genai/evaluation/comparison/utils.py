@@ -22,6 +22,9 @@ _logger = logging.getLogger(__name__)
 
 _BASELINE_SHORT_ID_LENGTH = 8
 _LOGGED_STATS = ("diff", "ci_low", "ci_high", "p_value", "effect_size", "n_paired")
+# Only logged for scorers with errors, so the metrics of a ``"scorer_errors"`` comparison are
+# not read as a clean result.
+_LOGGED_ERROR_COUNTS = ("n_baseline_errors", "n_candidate_errors")
 
 _PairedOn = Literal["eval_request_id", "inputs_hash"]
 # ``str()`` of an object without a JSON form, e.g. ``<Query object at 0x10f3b2d40>``.
@@ -236,7 +239,10 @@ def _log_comparison(result: ComparisonResult) -> None:
     timestamp = get_current_time_millis()
     metrics = []
     for name, comparison in result.scorers.items():
-        for stat in _LOGGED_STATS:
+        stats = _LOGGED_STATS
+        if comparison.status == "scorer_errors":
+            stats += _LOGGED_ERROR_COUNTS
+        for stat in stats:
             value = getattr(comparison, stat)
             if value is not None and math.isfinite(value):
                 key = _comparison_key(result.baseline_run_id, name, stat)

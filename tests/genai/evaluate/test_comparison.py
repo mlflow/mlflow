@@ -54,6 +54,15 @@ def flaky(outputs) -> float:
     return outputs["score"]
 
 
+@scorer
+def partly_errored(outputs) -> list[Feedback]:
+    # Same-name feedback on one trace of which only some errored.
+    feedbacks = [Feedback(name="partly_errored", value=outputs["score"])]
+    if outputs.get("partial_error"):
+        feedbacks.append(Feedback(name="partly_errored", error=TimeoutError("judge timed out")))
+    return feedbacks
+
+
 @scorer(name="failing")
 def not_failing(outputs) -> float:
     return outputs["score"]
@@ -791,7 +800,7 @@ def test_compare_evaluations_reports_scorer_errors():
 
     with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
         result = mlflow.genai.compare_evaluations(
-            candidate_run_id, baseline_run_id, log_results=False
+            candidate_run_id, baseline_run_id, log_results=True
         )
 
     assert list(result.scorers) == ["failing", "flaky", "score"]
@@ -835,6 +844,47 @@ def test_compare_evaluations_reports_scorer_errors():
         failures
     )
     assert "- score:" not in failures
+
+    # The error counts are logged next to the statistics of the scorers with errors only.
+    metrics = MlflowClient().get_run(candidate_run_id).data.metrics
+    flaky_prefix = _comparison_key(baseline_run_id, "flaky")
+    assert metrics[f"{flaky_prefix}/n_baseline_errors"] == 2
+    assert metrics[f"{flaky_prefix}/n_candidate_errors"] == 3
+    assert metrics[f"{flaky_prefix}/p_value"] == pytest.approx(partial.p_value)
+    failing_prefix = _comparison_key(baseline_run_id, "failing")
+    assert metrics[f"{failing_prefix}/n_baseline_errors"] == 0
+    assert metrics[f"{failing_prefix}/n_candidate_errors"] == 10
+    score_prefix = _comparison_key(baseline_run_id, "score")
+    assert f"{score_prefix}/n_baseline_errors" not in metrics
+    assert f"{score_prefix}/n_candidate_errors" not in metrics
+
+
+def test_compare_evaluations_ignores_errors_on_partly_valid_or_unpaired_rows():
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    baseline_rows = _rows(baseline_scores)
+    candidate_rows = _rows([s + 0.1 for s in baseline_scores])
+    # A baseline row with no match in the candidate run, on which `flaky` errors.
+    baseline_rows.append({
+        "inputs": {"question": "unpaired question"},
+        "outputs": {"score": 0.5, "passed": True, "error": True},
+    })
+    # One of the two `partly_errored` feedbacks on these traces errors, the other has a value.
+    for i in (0, 3):
+        candidate_rows[i]["outputs"]["partial_error"] = True
+    baseline_run_id = _evaluate(baseline_rows, scorers=[flaky, partly_errored])
+    candidate_run_id = _evaluate(candidate_rows, scorers=[flaky, partly_errored])
+
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
+
+    assert len(result.unpaired_baseline_trace_ids) == 1
+    for name in ("flaky", "partly_errored"):
+        comparison = result.scorers[name]
+        assert comparison.status == "ok"
+        assert comparison.n_paired == 8
+        assert comparison.n_baseline_errors == 0
+        assert comparison.n_candidate_errors == 0
+        assert comparison.diff == pytest.approx(0.1)
+    result.assert_improved(alpha=0.05)
 
 
 def test_compare_evaluations_greater_is_better_override():
