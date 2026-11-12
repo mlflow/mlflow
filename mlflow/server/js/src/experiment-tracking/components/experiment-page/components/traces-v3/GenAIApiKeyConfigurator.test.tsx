@@ -43,4 +43,12 @@ describe('GenAIApiKeyConfigurator', () => {
     renderConfigurator(buildValue('rkskek'));
     expect(screen.queryByText(NON_ASCII_ERROR)).not.toBeInTheDocument();
   });
+
+  test('does not show the non-ASCII error while the input is searching saved key names', () => {
+    jest
+      .mocked(useSecretsQuery)
+      .mockReturnValue({ data: [{ secret_id: 's-1', secret_name: '프로덕션-키', provider: 'openai' }] } as any);
+    renderConfigurator(buildValue('프로덕'));
+    expect(screen.queryByText(NON_ASCII_ERROR)).not.toBeInTheDocument();
+  });
 });

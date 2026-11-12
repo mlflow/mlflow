@@ -467,7 +467,12 @@ function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }
   });
 
   const isUsingExistingKey = value.mode === 'existing' && value.existingSecretId;
-  const hasNonAsciiError = value.mode === 'new' && hasNonAsciiApiKey(value.newSecret.secretFields);
+  // The input doubles as a search over saved key names, so don't flag text that still matches one.
+  const newApiKeyText = value.mode === 'new' ? (value.newSecret.secretFields[fieldName] ?? '') : '';
+  const isSearchingSavedKeys =
+    newApiKeyText !== '' && secrets.some((s) => s.secret_name.toLowerCase().includes(newApiKeyText.toLowerCase()));
+  const hasNonAsciiError =
+    value.mode === 'new' && !isSearchingSavedKeys && hasNonAsciiApiKey(value.newSecret.secretFields);
 
   return (
     <div>
