@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, and_, case, distinct, exists, false, func, literal_column, or_, true
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.entity_type import EntityAssociationType
@@ -62,11 +63,16 @@ class TraceMetricsConfig:
 TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
     TraceMetricKey.TRACE_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
-        dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.TRACE_STATUS},
+        dimensions={
+            TraceMetricDimensionKey.TRACE_NAME,
+            TraceMetricDimensionKey.TRACE_STATUS,
+            TraceMetricDimensionKey.TRACE_USER,
+            TraceMetricDimensionKey.TRACE_SESSION,
+        },
     ),
     TraceMetricKey.SESSION_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
-        dimensions=set(),
+        dimensions={TraceMetricDimensionKey.TRACE_USER},
     ),
     TraceMetricKey.LATENCY: TraceMetricsConfig(
         aggregation_types={
@@ -75,7 +81,11 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={
+            TraceMetricDimensionKey.TRACE_NAME,
+            TraceMetricDimensionKey.TRACE_USER,
+            TraceMetricDimensionKey.TRACE_SESSION,
+        },
     ),
     TraceMetricKey.INPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -85,7 +95,11 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={
+            TraceMetricDimensionKey.TRACE_NAME,
+            TraceMetricDimensionKey.TRACE_USER,
+            TraceMetricDimensionKey.TRACE_SESSION,
+        },
     ),
     TraceMetricKey.OUTPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -95,7 +109,11 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={
+            TraceMetricDimensionKey.TRACE_NAME,
+            TraceMetricDimensionKey.TRACE_USER,
+            TraceMetricDimensionKey.TRACE_SESSION,
+        },
     ),
     TraceMetricKey.TOTAL_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -105,7 +123,11 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={
+            TraceMetricDimensionKey.TRACE_NAME,
+            TraceMetricDimensionKey.TRACE_USER,
+            TraceMetricDimensionKey.TRACE_SESSION,
+        },
     ),
     TraceMetricKey.CACHE_READ_INPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -115,7 +137,11 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={
+            TraceMetricDimensionKey.TRACE_NAME,
+            TraceMetricDimensionKey.TRACE_USER,
+            TraceMetricDimensionKey.TRACE_SESSION,
+        },
     ),
     TraceMetricKey.CACHE_CREATION_INPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -125,7 +151,11 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={
+            TraceMetricDimensionKey.TRACE_NAME,
+            TraceMetricDimensionKey.TRACE_USER,
+            TraceMetricDimensionKey.TRACE_SESSION,
+        },
     ),
 }
 
@@ -161,6 +191,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            TraceMetricDimensionKey.TRACE_USER,
         },
     ),
     SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
@@ -174,6 +205,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            TraceMetricDimensionKey.TRACE_USER,
         },
     ),
     SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
@@ -187,6 +219,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            TraceMetricDimensionKey.TRACE_USER,
         },
     ),
 }
@@ -429,6 +462,23 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
     )
 
 
+def _apply_trace_user_dimension(query: Query, trace_id_column: Column) -> tuple[Query, Column]:
+    """
+    Join the `mlflow.trace.user` metadata row of each trace and return it as the dimension column.
+
+    The inner join drops traces without a user, matching how other dimensions exclude null values.
+    """
+    user_metadata = aliased(SqlTraceMetadata)
+    query = query.join(
+        user_metadata,
+        and_(
+            user_metadata.request_id == trace_id_column,
+            user_metadata.key == TraceMetadataKey.TRACE_USER,
+        ),
+    )
+    return query, user_metadata.value.label(TraceMetricDimensionKey.TRACE_USER)
+
+
 def _apply_dimension_to_query(
     query: Query, dimension: str, view_type: MetricViewType, db_type: str
 ) -> tuple[Query, Column]:
@@ -451,8 +501,16 @@ def _apply_dimension_to_query(
                     return query, SqlTraceInfo.trace_name.label(TraceMetricDimensionKey.TRACE_NAME)
                 case TraceMetricDimensionKey.TRACE_STATUS:
                     return query, SqlTraceInfo.status.label(TraceMetricDimensionKey.TRACE_STATUS)
+                case TraceMetricDimensionKey.TRACE_USER:
+                    return _apply_trace_user_dimension(query, SqlTraceInfo.request_id)
+                case TraceMetricDimensionKey.TRACE_SESSION:
+                    return query, SqlTraceInfo.session_id.label(
+                        TraceMetricDimensionKey.TRACE_SESSION
+                    )
         case MetricViewType.SPANS:
             match dimension:
+                case TraceMetricDimensionKey.TRACE_USER:
+                    return _apply_trace_user_dimension(query, SqlSpan.trace_id)
                 case SpanMetricDimensionKey.SPAN_NAME:
                     return query, SqlSpan.name.label(SpanMetricDimensionKey.SPAN_NAME)
                 case SpanMetricDimensionKey.SPAN_TYPE:

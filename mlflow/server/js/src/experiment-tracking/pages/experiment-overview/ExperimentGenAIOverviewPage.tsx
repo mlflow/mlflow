@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -7,6 +7,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
+import { shouldUseTracesV4API } from '@databricks/web-shared/genai-traces-table';
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useSqlWarehouseContextSafe } from '../experiment-page-tabs/SqlWarehouseContext';
 import { ExperimentViewTracesStatusLabels } from '@databricks/web-shared/genai-traces-table';
@@ -19,6 +20,7 @@ import {
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { LazyTraceRequestsChart } from './components/LazyTraceRequestsChart';
+import { LazyTopUsersTable } from './components/LazyTopUsersTable';
 import { LazyTraceLatencyChart } from './components/LazyTraceLatencyChart';
 import { LazyTraceErrorsChart } from './components/LazyTraceErrorsChart';
 import { LazyTraceTokenUsageChart } from './components/LazyTraceTokenUsageChart';
@@ -162,6 +164,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
     () => (isUsageTab ? translateToTracesPageFilters(metricFilters) : undefined),
     [isUsageTab, metricFilters],
   );
+  // Clicking a user in the Top Users table scopes the Usage tab to that user via the User filter
+  const handleSelectUser = useCallback((user: string) => {
+    setMetricFilters((prev) => [...prev.filter((filter) => filter.column !== 'user'), { column: 'user', value: user }]);
+  }, []);
+  // Grouping by user is only supported by the OSS trace metrics API
+  const showTopUsers = enableAllCharts && !shouldUseTracesV4API();
   const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
     () => [
       {
@@ -317,6 +325,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
             <TabContentContainer>
               {/* Requests chart - full width */}
               <LazyTraceRequestsChart />
+
+              {/* Per-user usage breakdown - full width */}
+              {showTopUsers && <LazyTopUsersTable onSelectUser={handleSelectUser} />}
 
               {/* Latency and Errors charts - side by side (latency requires UC) */}
               <ChartGrid>

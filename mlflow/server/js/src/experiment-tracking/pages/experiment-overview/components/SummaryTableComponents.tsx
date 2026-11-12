@@ -120,18 +120,25 @@ interface LinkableNameCellProps {
   /** Color for the indicator dot */
   color: string;
   /** ID of the element to scroll to when clicked */
-  scrollToElementId: string;
+  scrollToElementId?: string;
+  /** Custom click handler, used instead of scrolling when provided */
+  onClick?: () => void;
 }
 
 /**
  * Table cell displaying a clickable name with a colored indicator dot.
- * Clicking scrolls to the specified element. Used for linking summary table rows to their charts.
+ * Clicking scrolls to the specified element (used for linking summary table rows to their charts),
+ * or calls `onClick` when provided.
  */
-export const LinkableNameCell: React.FC<LinkableNameCellProps> = ({ name, color, scrollToElementId }) => {
+export const LinkableNameCell: React.FC<LinkableNameCellProps> = ({ name, color, scrollToElementId, onClick }) => {
   const { theme } = useDesignSystemTheme();
 
   const handleClick = () => {
-    const element = document.getElementById(scrollToElementId);
+    if (onClick) {
+      onClick();
+      return;
+    }
+    const element = scrollToElementId ? document.getElementById(scrollToElementId) : null;
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }

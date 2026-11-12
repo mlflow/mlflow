@@ -604,6 +604,231 @@ def test_query_trace_metrics_count_by_multiple_dimensions(store: SqlAlchemyStore
     }
 
 
+def _start_trace_with_user(
+    store: SqlAlchemyStore,
+    exp_id: str,
+    trace_id: str,
+    user: str | None,
+    *,
+    session: str | None = None,
+    state: TraceStatus = TraceStatus.OK,
+    total_tokens: int | None = None,
+):
+    trace_metadata = {}
+    if user is not None:
+        trace_metadata[TraceMetadataKey.TRACE_USER] = user
+    if session is not None:
+        trace_metadata[TraceMetadataKey.TRACE_SESSION] = session
+    if total_tokens is not None:
+        trace_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps({
+            TokenUsageKey.TOTAL_TOKENS: total_tokens
+        })
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=state,
+            tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            trace_metadata=trace_metadata,
+        )
+    )
+
+
+def test_query_trace_metrics_count_by_user(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_count_by_user")
+    for trace_id, user in [
+        ("trace1", "alice"),
+        ("trace2", "alice"),
+        ("trace3", "bob"),
+        ("trace4", None),
+    ]:
+        _start_trace_with_user(store, exp_id, trace_id, user)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.TRACE_USER],
+    )
+
+    assert [asdict(dp) for dp in result] == [
+        {
+            "metric_name": TraceMetricKey.TRACE_COUNT,
+            "dimensions": {TraceMetricDimensionKey.TRACE_USER: "alice"},
+            "values": {"COUNT": 2},
+        },
+        {
+            "metric_name": TraceMetricKey.TRACE_COUNT,
+            "dimensions": {TraceMetricDimensionKey.TRACE_USER: "bob"},
+            "values": {"COUNT": 1},
+        },
+    ]
+
+
+def test_query_trace_metrics_count_by_user_and_status(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_count_by_user_and_status")
+    for trace_id, user, state in [
+        ("trace1", "alice", TraceStatus.OK),
+        ("trace2", "alice", TraceStatus.ERROR),
+        ("trace3", "bob", TraceStatus.OK),
+    ]:
+        _start_trace_with_user(store, exp_id, trace_id, user, state=state)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.TRACE_USER, TraceMetricDimensionKey.TRACE_STATUS],
+    )
+
+    assert sorted(
+        (
+            dp.dimensions[TraceMetricDimensionKey.TRACE_USER],
+            dp.dimensions[TraceMetricDimensionKey.TRACE_STATUS],
+            dp.values["COUNT"],
+        )
+        for dp in result
+    ) == [("alice", "ERROR", 1), ("alice", "OK", 1), ("bob", "OK", 1)]
+
+
+def test_query_trace_metrics_session_count_by_user(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_session_count_by_user")
+    for trace_id, user, session in [
+        ("trace1", "alice", "session-a"),
+        ("trace2", "alice", "session-a"),
+        ("trace3", "alice", "session-b"),
+        ("trace4", "bob", "session-c"),
+        ("trace5", "bob", None),
+    ]:
+        _start_trace_with_user(store, exp_id, trace_id, user, session=session)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.SESSION_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.TRACE_USER],
+    )
+
+    assert {
+        dp.dimensions[TraceMetricDimensionKey.TRACE_USER]: dp.values["COUNT"] for dp in result
+    } == {"alice": 2, "bob": 1}
+
+
+def test_query_trace_metrics_total_tokens_by_user(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_total_tokens_by_user")
+    for trace_id, user, total_tokens in [
+        ("trace1", "alice", 100),
+        ("trace2", "alice", 50),
+        ("trace3", "bob", 30),
+    ]:
+        _start_trace_with_user(store, exp_id, trace_id, user, total_tokens=total_tokens)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TOTAL_TOKENS,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[TraceMetricDimensionKey.TRACE_USER],
+    )
+
+    assert {
+        dp.dimensions[TraceMetricDimensionKey.TRACE_USER]: dp.values["SUM"] for dp in result
+    } == {"alice": 150, "bob": 30}
+
+
+def test_query_trace_metrics_count_by_session(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_count_by_session")
+    for trace_id, session in [
+        ("trace1", "session-a"),
+        ("trace2", "session-a"),
+        ("trace3", "session-b"),
+        ("trace4", None),
+    ]:
+        _start_trace_with_user(store, exp_id, trace_id, None, session=session)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.TRACE_SESSION],
+    )
+
+    assert {
+        dp.dimensions[TraceMetricDimensionKey.TRACE_SESSION]: dp.values["COUNT"] for dp in result
+    } == {"session-a": 2, "session-b": 1}
+
+
+def test_query_trace_metrics_user_dimension_with_time_buckets(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_user_dimension_with_time_buckets")
+    for trace_id, user in [("trace1", "alice"), ("trace2", "bob"), ("trace3", "bob")]:
+        _start_trace_with_user(store, exp_id, trace_id, user)
+
+    now = get_current_time_millis()
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.TRACE_USER],
+        time_interval_seconds=3600,
+        start_time_ms=now - 3_600_000,
+        end_time_ms=now + 3_600_000,
+    )
+
+    assert sum(dp.values["COUNT"] for dp in result) == 3
+    assert {dp.dimensions[TraceMetricDimensionKey.TRACE_USER] for dp in result} == {"alice", "bob"}
+    assert all("time_bucket" in dp.dimensions for dp in result)
+
+
+def test_query_span_metrics_cost_by_user(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_cost_by_user")
+    for trace_id, user in [("trace1", "alice"), ("trace2", "bob"), ("trace3", None)]:
+        _start_trace_with_user(store, exp_id, trace_id, user)
+
+    spans = [
+        create_test_span(
+            trace_id,
+            f"llm_call_{span_id}",
+            span_id=span_id,
+            span_type="LLM",
+            start_ns=1000000000 + span_id,
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.0,
+                    "output_cost": total_cost,
+                    "total_cost": total_cost,
+                },
+                SpanAttributeKey.MODEL: "claude-sonnet",
+            },
+        )
+        for trace_id, span_id, total_cost in [
+            ("trace1", 1, 0.25),
+            ("trace1", 2, 0.5),
+            ("trace2", 3, 0.125),
+            ("trace3", 4, 1.0),
+        ]
+    ]
+    store.log_spans(exp_id, spans)
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[TraceMetricDimensionKey.TRACE_USER],
+    )
+
+    assert {
+        dp.dimensions[TraceMetricDimensionKey.TRACE_USER]: dp.values["SUM"] for dp in result
+    } == {"alice": 0.75, "bob": 0.125}
+
+
 def test_query_trace_metrics_latency_avg(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_latency_avg")
 
