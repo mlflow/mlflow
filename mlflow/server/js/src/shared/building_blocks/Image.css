@@ -5,6 +5,12 @@
   text-align: center;
 }
 
+/* Ensure rc-image thumbnails are scaled to their parent container */
+.mlflow-ui-container .rc-image img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
 .mlflow-ui-container .rc-image-preview-mask {
   position: fixed;
   top: 0;
