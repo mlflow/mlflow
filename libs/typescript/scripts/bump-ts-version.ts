@@ -29,8 +29,9 @@ const INTEGRATION_PACKAGES = [
 // Integrations that must ship a Claude Code plugin manifest. Claude Code derives
 // an installed plugin's version from the manifest's `version` field, so if it
 // lags behind `package.json`, marketplace installs never pick up a new npm
-// release. Every integration that has a manifest is bumped; the ones listed here
-// additionally fail the bump if the manifest is missing.
+// release. Never edit that field by hand; let this script keep it in sync. Every
+// integration that has a manifest is bumped; the ones listed here additionally
+// fail the bump if the manifest is missing.
 const PLUGIN_MANIFEST_PACKAGES = ['claude-code'];
 const PLUGIN_MANIFEST_RELPATH = join('.claude-plugin', 'plugin.json');
 
