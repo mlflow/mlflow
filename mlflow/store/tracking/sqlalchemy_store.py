@@ -5516,10 +5516,11 @@ class SqlAlchemyStore(
                 original_query = session.query(SqlAssessments).filter_by(
                     trace_id=trace_id, assessment_id=overridden_id
                 )
-                # Lock the original so that concurrent override creations and deletions
-                # serialize on it, and use a locking read below so the check sees their
-                # committed changes.
-                original_query.with_for_update().first()
+                # Lock the original with a no-op UPDATE so that concurrent override creations
+                # and deletions serialize on it. Unlike SELECT ... FOR UPDATE, which SQLite and
+                # SQL Server ignore, an UPDATE takes a write lock on every backend. The locking
+                # read below makes MySQL see their committed changes.
+                original_query.update({"valid": SqlAssessments.valid}, synchronize_session=False)
                 has_other_override = (
                     session
                     .query(SqlAssessments.assessment_id)
