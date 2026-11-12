@@ -1,8 +1,7 @@
 """Print a pull request's context as JSON.
 
-The output describes the PR (number, URL, title, body, state, author, base, and head) and has a
-timeline that mirrors the Conversation tab: comments and reviews in chronological order, with
-each inline thread under the review that started it.
+The output describes the PR and has a timeline that mirrors the Conversation tab: comments and
+reviews in chronological order, with each inline thread under the review that started it.
 
 Usage:
     uv run --no-project .claude/scripts/pr_context.py --repo mlflow/mlflow --pr-number 123
