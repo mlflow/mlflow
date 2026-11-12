@@ -13,15 +13,13 @@ COPILOT = "copilot-pull-request-reviewer[bot]"
 NAILAOPUS = "nailaopus[bot]"
 MAX_ROUNDS = 5
 PATCH_PATHS = Path(__file__).resolve().parents[2] / "patch-paths.txt"
+PR_TIMELINE = Path(__file__).resolve().parents[3] / "scripts" / "pr_timeline.py"
 THREADS_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
       reviewThreads(first: 100, after: $endCursor) {
-        nodes {
-          id path line originalLine isResolved isOutdated
-          comments(first: 1) { nodes { id } }
-        }
+        nodes { id isResolved }
         pageInfo { hasNextPage endCursor }
       }
     }
@@ -134,64 +132,18 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         summary(f"The PR has reached its limit of {MAX_ROUNDS} automatic review rounds.")
         return
 
-    by_root: dict[int, list[dict[str, Any]]] = {}
-    for comment in comments:
-        by_root.setdefault(comment.get("in_reply_to_id") or comment["id"], []).append(comment)
-    roots = {comment["node_id"]: comment["id"] for comment in comments}
-    pr_threads = []
-    for thread in threads(repo, number):
-        root_nodes = thread["comments"]["nodes"]
-        if not root_nodes or root_nodes[0]["id"] not in roots:
-            continue
-        conversation = by_root[roots[root_nodes[0]["id"]]]
-        pr_threads.append({
-            "id": thread["id"],
-            "path": thread["path"],
-            "line": thread["line"] or thread["originalLine"],
-            "resolved": thread["isResolved"],
-            "outdated": thread["isOutdated"],
-            "diff_hunk": conversation[0]["diff_hunk"],
-            "comments": [
-                {
-                    "id": c["id"],
-                    "author": (c["user"] or {}).get("login", ""),
-                    "created_at": c["created_at"],
-                    "body": c["body"],
-                    "review_id": c["pull_request_review_id"],
-                }
-                for c in conversation
-            ],
-        })
-    # Mirror the Conversation tab: a timeline of comments and reviews, where each thread
-    # appears under the review that started it.
-    started: dict[int, list[dict[str, Any]]] = {}
-    for thread in pr_threads:
-        started.setdefault(thread["comments"][0]["review_id"], []).append(thread)
-    timeline = [
-        {
-            "type": "comment",
-            "author": (c["user"] or {}).get("login", ""),
-            "created_at": c["created_at"],
-            "body": c["body"],
-        }
-        for c in issue_comments
-    ] + [
-        {
-            "type": "review",
-            "id": r["id"],
-            "author": (r["user"] or {}).get("login", ""),
-            "state": r["state"],
-            "created_at": r["submitted_at"],
-            "body": r["body"] or "",
-            "url": r["html_url"],
-            "threads": started.get(r["id"], []),
-        }
-        for r in list_items(f"{endpoint}/reviews")
-        # Replies made with "Add single comment" create empty reviews that GitHub doesn't
-        # show; their comments already appear in the threads they belong to.
-        if r["id"] == int(review_id) or r["body"] or r["state"] != "COMMENTED" or r["id"] in started
-    ]
-    timeline.sort(key=lambda item: item["created_at"])
+    timeline = json.loads(
+        command(
+            sys.executable,
+            PR_TIMELINE,
+            "--repo",
+            repo,
+            "--pr-number",
+            number,
+            "--review-id",
+            review_id,
+        )
+    )
     context = {
         "head_sha": pr["head"]["sha"],
         "head_ref": pr["head"]["ref"],
