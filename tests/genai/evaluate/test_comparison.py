@@ -64,6 +64,14 @@ def partly_errored(outputs) -> list[Feedback]:
 
 
 @scorer
+def returns_error(outputs) -> Feedback:
+    # Returns errored feedback rather than raising, so it is logged without the `SCORER_ERROR` code.
+    if outputs.get("error"):
+        return Feedback(name="returns_error", error=TimeoutError("judge timed out"))
+    return Feedback(name="returns_error", value=outputs["score"])
+
+
+@scorer
 def multi(outputs) -> list[Feedback]:
     # Returns feedback under names other than the scorer name.
     if outputs.get("error"):
@@ -896,6 +904,26 @@ def test_compare_evaluations_ignores_errors_on_partly_valid_or_unpaired_rows():
         assert comparison.n_candidate_errors == 0
         assert comparison.diff == pytest.approx(0.1)
     result.assert_improved(alpha=0.05)
+
+
+@pytest.mark.parametrize("candidate_error_rows", [(7, 8, 9), tuple(range(10))])
+def test_compare_evaluations_counts_errored_feedback_returned_by_scorer(candidate_error_rows):
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5]
+    baseline_rows = _rows(baseline_scores)
+    candidate_rows = _rows([s + 0.1 for s in baseline_scores])
+    baseline_rows[0]["outputs"]["error"] = True
+    for i in candidate_error_rows:
+        candidate_rows[i]["outputs"]["error"] = True
+    baseline_run_id = _evaluate(baseline_rows, scorers=[returns_error])
+    candidate_run_id = _evaluate(candidate_rows, scorers=[returns_error])
+
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
+
+    comparison = result.scorers["returns_error"]
+    assert comparison.status == "scorer_errors"
+    assert comparison.n_baseline_errors == 1
+    assert comparison.n_candidate_errors == len(candidate_error_rows)
+    assert comparison.n_paired == 10 - len({0, *candidate_error_rows})
 
 
 @pytest.mark.parametrize("candidate_error_rows", [(7, 8, 9), tuple(range(10))])
