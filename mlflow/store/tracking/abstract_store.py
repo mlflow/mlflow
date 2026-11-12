@@ -9,6 +9,7 @@ from mlflow.entities import (
     DatasetInput,
     DatasetRecord,
     Issue,
+    IssueDetectionRun,
     IssueSeverity,
     IssueStatus,
     LifecycleStage,
@@ -58,6 +59,12 @@ from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
 from mlflow.utils.async_logging.run_operations import RunOperations
+
+# A detection run is a job on the tracking server, so a local store has nowhere to run one.
+_ISSUE_DETECTION_NEEDS_A_SERVER = (
+    "Issue detection runs on an MLflow tracking server with job execution enabled. Set the "
+    "tracking URI to such a server."
+)
 
 
 @developer_stable
@@ -820,6 +827,54 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
             A PagedList of Issue entities.
         """
         raise MlflowNotImplementedException()
+
+    def detect_issues(
+        self,
+        experiment_id: str,
+        *,
+        filter_string: str | None = None,
+        model: str | None = None,
+        trace_ids: list[str] | None = None,
+    ) -> IssueDetectionRun:
+        """
+        Start an issue detection run over an experiment's traces.
+
+        Args:
+            experiment_id: The experiment whose traces to analyze.
+            filter_string: Restricts the run to traces matching this ``search_traces`` filter.
+            model: The model to analyze traces with, as ``"<provider>:/<model>"`` or
+                ``"gateway:/<endpoint>"``.
+            trace_ids: The IDs of the traces to analyze. Cannot be combined with
+                ``filter_string``.
+
+        Returns:
+            The run, which has just started.
+        """
+        raise MlflowNotImplementedException(_ISSUE_DETECTION_NEEDS_A_SERVER)
+
+    def get_issue_detection_run(self, run_id: str) -> IssueDetectionRun:
+        """
+        Get an issue detection run.
+
+        Args:
+            run_id: ID of the run.
+
+        Returns:
+            The run.
+        """
+        raise MlflowNotImplementedException(_ISSUE_DETECTION_NEEDS_A_SERVER)
+
+    def cancel_issue_detection_run(self, run_id: str) -> IssueDetectionRun:
+        """
+        Cancel an issue detection run. Canceling a run that has ended returns it unchanged.
+
+        Args:
+            run_id: ID of the run.
+
+        Returns:
+            The run.
+        """
+        raise MlflowNotImplementedException(_ISSUE_DETECTION_NEEDS_A_SERVER)
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """

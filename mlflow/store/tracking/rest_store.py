@@ -16,6 +16,7 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     Issue,
+    IssueDetectionRun,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -53,8 +54,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.issues_pb2 import (
+    CancelIssueDetectionRun,
     CreateIssue,
+    DetectIssues,
     GetIssue,
+    GetIssueDetectionRun,
     SearchIssues,
     UpdateIssue,
 )
@@ -1111,6 +1115,77 @@ class RestStore(
             if response_proto.HasField("total_count")
             else None,
         )
+
+    def detect_issues(
+        self,
+        experiment_id: str,
+        *,
+        filter_string: str | None = None,
+        model: str | None = None,
+        trace_ids: list[str] | None = None,
+    ) -> IssueDetectionRun:
+        """
+        Start an issue detection run over an experiment's traces.
+
+        Args:
+            experiment_id: The experiment whose traces to analyze.
+            filter_string: Restricts the run to traces matching this ``search_traces`` filter.
+            model: The model to analyze traces with, as ``"<provider>:/<model>"`` or
+                ``"gateway:/<endpoint>"``.
+            trace_ids: The IDs of the traces to analyze. Cannot be combined with
+                ``filter_string``.
+
+        Returns:
+            The run, which has just started.
+        """
+        req_body = message_to_json(
+            DetectIssues(
+                experiment_id=experiment_id,
+                filter_string=filter_string,
+                model=model,
+                trace_ids=trace_ids or [],
+            )
+        )
+        response_proto = self._call_endpoint(
+            DetectIssues, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/detect"
+        )
+        return IssueDetectionRun.from_proto(response_proto.issue_detection_run)
+
+    def get_issue_detection_run(self, run_id: str) -> IssueDetectionRun:
+        """
+        Get an issue detection run.
+
+        Args:
+            run_id: ID of the run.
+
+        Returns:
+            The run.
+        """
+        req_body = message_to_json(GetIssueDetectionRun(run_id=run_id))
+        response_proto = self._call_endpoint(
+            GetIssueDetectionRun,
+            req_body,
+            endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/detection-runs/{run_id}",
+        )
+        return IssueDetectionRun.from_proto(response_proto.issue_detection_run)
+
+    def cancel_issue_detection_run(self, run_id: str) -> IssueDetectionRun:
+        """
+        Cancel an issue detection run. Canceling a run that has ended returns it unchanged.
+
+        Args:
+            run_id: ID of the run.
+
+        Returns:
+            The run.
+        """
+        req_body = message_to_json(CancelIssueDetectionRun(run_id=run_id))
+        response_proto = self._call_endpoint(
+            CancelIssueDetectionRun,
+            req_body,
+            endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/detection-runs/{run_id}/cancel",
+        )
+        return IssueDetectionRun.from_proto(response_proto.issue_detection_run)
 
     # ----- Label schemas (tracking-store CRUD) -----
 

@@ -17,6 +17,7 @@ from mlflow.entities.assessment import (
     FeedbackValue,
 )
 from mlflow.entities.issue import IssueCategory, IssueSeverity, IssueStatus
+from mlflow.entities.issue_detection_run import IssueDetectionRun, IssueDetectionRunStatus
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -2789,3 +2790,145 @@ def test_unset_experiment_trace_location_does_not_auto_start_warehouse(
     with mock.patch.object(store, "_call_endpoint"):
         store.unset_experiment_trace_location(experiment_id="123", location=uc_schema)
     mock_ensure_running.assert_not_called()
+
+
+_WIRE_DETECTION_RUN = {
+    "name": "experiments/123/issue-detection-runs/987654321",
+    "job_run_id": "987654321",
+    "state": "ISSUE_DETECTION_RUN_STATE_RUNNING",
+}
+
+
+@pytest.fixture
+def detection_http(monkeypatch):
+    monkeypatch.delenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", raising=False)
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://hello"))
+    response = mock.Mock(
+        status_code=200, text=json.dumps({"issue_detection_run": _WIRE_DETECTION_RUN})
+    )
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as http:
+        yield store, http
+
+
+def test_detect_issues_databricks_contract(detection_http, monkeypatch):
+    store, http = detection_http
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "0a1b2c3d4e5f6789")
+
+    run = store.detect_issues("123", filter_string="trace.status = 'ERROR'")
+
+    request = http.call_args.kwargs
+    assert request["method"] == "POST"
+    assert request["endpoint"] == "/api/2.0/mlflow/experiments/123/issues:detect"
+    assert request["json"] == {
+        "filter_string": "trace.status = 'ERROR'",
+        "sql_warehouse_id": "0a1b2c3d4e5f6789",
+    }
+    assert run == IssueDetectionRun(
+        run_id="987654321", experiment_id="123", status=IssueDetectionRunStatus.RUNNING
+    )
+
+
+def test_detect_issues_sends_an_empty_body_without_a_filter_or_warehouse(detection_http):
+    store, http = detection_http
+
+    store.detect_issues("123")
+
+    assert http.call_args.kwargs["json"] == {}
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"model": "openai:/gpt-5-mini"}, "`model` is not supported"),
+        ({"trace_ids": ["trace-1"]}, "`trace_ids` is not supported"),
+    ],
+    ids=["model", "trace_ids"],
+)
+def test_detect_issues_rejects_unsupported_arguments_on_databricks(detection_http, kwargs, match):
+    store, http = detection_http
+
+    with pytest.raises(MlflowException, match=match):
+        store.detect_issues("123", **kwargs)
+    http.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda store: store.detect_issues(None),
+        lambda store: store.get_issue_detection_run("987654321"),
+        lambda store: store.cancel_issue_detection_run("987654321"),
+    ],
+    ids=["detect", "get", "cancel"],
+)
+def test_issue_detection_requires_experiment_on_databricks(detection_http, call):
+    store, http = detection_http
+    with pytest.raises(MlflowException, match="experiment_id"):
+        call(store)
+    http.assert_not_called()
+
+
+@pytest.mark.parametrize("run_id", ["", "jobs:"])
+@pytest.mark.parametrize("method", ["get_issue_detection_run", "cancel_issue_detection_run"])
+def test_issue_detection_rejects_an_empty_run_id_on_databricks(detection_http, method, run_id):
+    store, http = detection_http
+    with pytest.raises(MlflowException, match="run_id must be a nonempty string"):
+        getattr(store, method)(run_id, experiment_id="123")
+    http.assert_not_called()
+
+
+@pytest.mark.parametrize("run_id", ["987654321", "jobs:987654321"])
+def test_get_issue_detection_run_normalizes_databricks_response(detection_http, run_id):
+    store, http = detection_http
+    http.return_value.text = json.dumps({
+        **_WIRE_DETECTION_RUN,
+        "state": "ISSUE_DETECTION_RUN_STATE_FAILED",
+        "start_time": "1970-01-01T00:00:00.123Z",
+        "end_time": "1970-01-01T00:00:00.456Z",
+        "error_message": "The agent could not read the traces.",
+    })
+
+    run = store.get_issue_detection_run(run_id, experiment_id="123")
+
+    request = http.call_args.kwargs
+    assert request["method"] == "GET"
+    assert request["endpoint"] == "/api/2.0/mlflow/experiments/123/issue-detection-runs/987654321"
+    assert run == IssueDetectionRun(
+        run_id="987654321",
+        experiment_id="123",
+        status=IssueDetectionRunStatus.FAILED,
+        start_time=123,
+        end_time=456,
+        error_message="The agent could not read the traces.",
+    )
+
+
+def test_cancel_issue_detection_run_databricks_contract(detection_http):
+    store, http = detection_http
+    http.return_value.text = json.dumps({
+        "issue_detection_run": {
+            **_WIRE_DETECTION_RUN,
+            "state": "ISSUE_DETECTION_RUN_STATE_CANCELED",
+        }
+    })
+
+    run = store.cancel_issue_detection_run("987654321", experiment_id="123")
+
+    request = http.call_args.kwargs
+    assert request["method"] == "POST"
+    assert (
+        request["endpoint"]
+        == "/api/2.0/mlflow/experiments/123/issue-detection-runs/987654321/cancel"
+    )
+    assert run.status is IssueDetectionRunStatus.CANCELED
+
+
+def test_issue_detection_run_rejects_an_unrecognized_state(detection_http):
+    store, http = detection_http
+    http.return_value.text = json.dumps({
+        **_WIRE_DETECTION_RUN,
+        "state": "ISSUE_DETECTION_RUN_STATE_UNSPECIFIED",
+    })
+
+    with pytest.raises(MlflowException, match="unrecognized run state"):
+        store.get_issue_detection_run("987654321", experiment_id="123")
