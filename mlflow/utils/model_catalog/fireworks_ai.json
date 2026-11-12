@@ -5599,6 +5599,33 @@
       },
       "last_updated_at": "2026-09-29"
     },
+    "accounts/fireworks/routers/deepseek-flash-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.006,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.375,
+            "output_per_million_tokens": 1.5,
+            "cache_read_per_million_tokens": 0.0075
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
+    },
     "accounts/fireworks/routers/deepseek-v4p1-flash-1017-spot": {
       "mode": "chat",
       "context_window": {
@@ -5856,6 +5883,100 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "accounts/fireworks/routers/glm-fast-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.1,
+        "output_per_million_tokens": 6.6,
+        "cache_read_per_million_tokens": 0.39
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
+    },
+    "accounts/fireworks/routers/glm-flash-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.03,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.1875,
+            "output_per_million_tokens": 0.625,
+            "cache_read_per_million_tokens": 0.0375
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
+    },
+    "accounts/fireworks/routers/glm-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0.26,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 1.75,
+            "output_per_million_tokens": 5.5,
+            "cache_read_per_million_tokens": 0.325
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
+    },
+    "accounts/fireworks/routers/kimi-fast-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.5,
+        "output_per_million_tokens": 22.5,
+        "cache_read_per_million_tokens": 0.45
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
+    },
     "accounts/fireworks/routers/kimi-k2p6-fast": {
       "mode": "chat",
       "context_window": {
@@ -5964,6 +6085,86 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "accounts/fireworks/routers/kimi-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.75,
+            "output_per_million_tokens": 18.75,
+            "cache_read_per_million_tokens": 0.375
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
+    },
+    "accounts/fireworks/routers/minimax-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 512000,
+        "max_output": 512000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.06,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 0.45,
+            "output_per_million_tokens": 1.8,
+            "cache_read_per_million_tokens": 0.09
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
+    },
+    "accounts/fireworks/routers/qwen-max-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.25,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 9.0,
+            "cache_read_per_million_tokens": 0.375
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
     },
     "deepseek-v4-flash": {
       "mode": "chat",

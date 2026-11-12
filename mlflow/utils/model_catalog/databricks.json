@@ -87,6 +87,27 @@
       },
       "last_updated_at": "2026-10-29"
     },
+    "databricks-claude-fable-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 40.0,
+        "cache_read_per_million_tokens": 8.0,
+        "cache_write_per_million_tokens": 8.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "databricks-claude-haiku-4-5": {
       "mode": "chat",
       "context_window": {
@@ -1064,6 +1085,27 @@
       },
       "last_updated_at": "2026-10-29"
     },
+    "databricks-gemini-4-carbon": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 2.0,
+        "cache_write_per_million_tokens": 2.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "databricks-gemma-3-12b": {
       "mode": "chat",
       "context_window": {
@@ -1111,7 +1153,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-02-04",
+      "last_updated_at": "2026-11-12"
     },
     "databricks-glm-5-3": {
       "mode": "chat",
@@ -2220,7 +2263,7 @@
     "databricks-meta-llama-3-1-8b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 200000,
+        "max_input": 128000,
         "max_output": 128000
       },
       "pricing": {
@@ -2236,7 +2279,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "databricks-meta-llama-3-3-70b-instruct": {
       "mode": "chat",
@@ -2412,6 +2455,27 @@
       },
       "last_updated_at": "2026-10-29"
     },
+    "system.ai.claude-fable-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 40.0,
+        "cache_read_per_million_tokens": 8.0,
+        "cache_write_per_million_tokens": 8.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "system.ai.deepseek-v4-flash-0731": {
       "mode": "chat",
       "capabilities": {
@@ -2423,6 +2487,27 @@
       },
       "deprecation_date": "2026-11-05",
       "last_updated_at": "2026-11-05"
+    },
+    "system.ai.gemini-4-carbon": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 2.0,
+        "cache_write_per_million_tokens": 2.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
     },
     "system.ai.kimi-k3": {
       "mode": "chat",

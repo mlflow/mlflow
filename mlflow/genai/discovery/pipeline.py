@@ -18,6 +18,7 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
 )
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
     recluster_singletons,
@@ -223,6 +224,7 @@ def _annotate_issue_traces(
                         {"role": "user", "content": user_content},
                     ],
                     token_counter=token_counter,
+                    gateway_caller=GatewayCaller.ISSUE_DETECTION,
                 )
                 annotation = (response.choices[0].message.content or "").strip()
             except Exception:
@@ -445,6 +447,7 @@ def _dedup_issues(
             [{"role": "user", "content": prompt}],
             response_format=_DedupGroups,
             token_counter=token_counter,
+            gateway_caller=GatewayCaller.ISSUE_DETECTION,
         )
         result = _DedupGroups.model_validate_json(response.choices[0].message.content)
     except Exception:
@@ -748,13 +751,17 @@ def build_issue_discovery_scorer(
         latency_stats=latency_stats,
         instructions=instructions,
     )
-    return make_judge(
+    judge = make_judge(
         name=DEFAULT_SCORER_NAME,
         instructions=judge_instructions,
         model=model,
         feedback_value_type=dict[str, str],
         include_timing_in_conversation=include_timing,
     )
+    # This judge is part of issue detection, not one the user configured, so its gateway usage
+    # counts toward issue detection.
+    judge._gateway_caller = GatewayCaller.ISSUE_DETECTION
+    return judge
 
 
 def _lookup_by_trace_id(traces: list[Trace]) -> dict[str, Trace]:

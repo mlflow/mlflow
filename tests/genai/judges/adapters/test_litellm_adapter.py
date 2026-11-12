@@ -370,6 +370,36 @@ def test_gateway_provider_integration():
     assert call_kwargs["extra_headers"][MLFLOW_GATEWAY_CALLER_HEADER] == "judge"
 
 
+def test_gateway_provider_attributes_calls_to_the_feature_in_context():
+    from mlflow.gateway.constants import GatewayCaller
+    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
+    from mlflow.genai.utils.gateway_utils import gateway_caller
+
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "Good"}'}}]
+    )
+
+    with (
+        mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
+        mock.patch(
+            "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+        gateway_caller(GatewayCaller.ISSUE_DETECTION),
+    ):
+        _invoke_litellm_and_handle_tools(
+            provider="gateway",
+            model_name="my-endpoint",
+            messages=[ChatMessage(role="user", content="Test")],
+            trace=None,
+            num_retries=3,
+        )
+
+    assert mock_litellm.call_args.kwargs["extra_headers"][MLFLOW_GATEWAY_CALLER_HEADER] == (
+        "issue_detection"
+    )
+
+
 def test_gateway_provider_requires_http_tracking_uri():
     from mlflow.exceptions import MlflowException
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools

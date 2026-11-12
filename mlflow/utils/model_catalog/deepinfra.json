@@ -1054,8 +1054,8 @@
         "max_output": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 10.0
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
       },
       "capabilities": {
         "function_calling": true,
@@ -1064,7 +1064,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "deepseek-ai/DeepSeek-R1": {
       "mode": "chat",
@@ -2020,7 +2020,7 @@
         "max_output": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 0.019,
+        "input_per_million_tokens": 0.029,
         "output_per_million_tokens": 0.03
       },
       "capabilities": {
@@ -2030,7 +2030,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "mistralai/Mistral-Small-24B-Instruct-2501": {
       "mode": "chat",
@@ -2291,8 +2291,8 @@
         "max_input": 262144
       },
       "pricing": {
-        "input_per_million_tokens": 0.08,
-        "output_per_million_tokens": 0.2,
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.16,
         "cache_read_per_million_tokens": 0.04
       },
       "capabilities": {
@@ -2302,7 +2302,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-08-31"
+      "last_updated_at": "2026-11-12"
     },
     "nvidia/NVIDIA-Nemotron-Nano-9B-v2": {
       "mode": "chat",

@@ -8620,6 +8620,10 @@
           "flex": {
             "input_per_million_tokens": 0.3,
             "output_per_million_tokens": 1.5
+          },
+          "priority": {
+            "input_per_million_tokens": 1.05,
+            "output_per_million_tokens": 5.25
           }
         }
       },
@@ -8630,7 +8634,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "moonshotai.kimi-k3": {
       "mode": "chat",
@@ -10737,8 +10741,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-04-08",
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-04-27",
+      "last_updated_at": "2026-11-12"
     },
     "us-gov-east-1/anthropic.claude-sonnet-5": {
       "mode": "chat",
@@ -10804,8 +10808,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-04-08",
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-04-27",
+      "last_updated_at": "2026-11-12"
     },
     "us-gov-east-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -11574,8 +11578,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-04-08",
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-04-27",
+      "last_updated_at": "2026-11-12"
     },
     "us-gov-west-1/anthropic.claude-sonnet-5": {
       "mode": "chat",
@@ -11641,8 +11645,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-04-08",
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-04-27",
+      "last_updated_at": "2026-11-12"
     },
     "us-gov-west-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -11661,8 +11665,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2027-03-30",
-      "last_updated_at": "2026-11-03"
+      "deprecation_date": "2027-05-09",
+      "last_updated_at": "2026-11-12"
     },
     "us-gov-west-1/meta.llama3-8b-instruct-v1:0": {
       "mode": "chat",
@@ -11681,8 +11685,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2027-03-30",
-      "last_updated_at": "2026-11-03"
+      "deprecation_date": "2027-05-09",
+      "last_updated_at": "2026-11-12"
     },
     "us-gov-west-1/moonshotai.kimi-k3": {
       "mode": "chat",
@@ -12142,8 +12146,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-04-08",
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-04-27",
+      "last_updated_at": "2026-11-12"
     },
     "us-gov.anthropic.claude-sonnet-5": {
       "mode": "chat",
@@ -14927,6 +14931,10 @@
             "input_per_million_tokens": 0.5,
             "output_per_million_tokens": 1.6
           },
+          "flex": {
+            "input_per_million_tokens": 0.5,
+            "output_per_million_tokens": 1.6
+          },
           "priority": {
             "input_per_million_tokens": 1.75,
             "output_per_million_tokens": 5.6
@@ -14940,7 +14948,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     }
   }
 }
