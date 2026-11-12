@@ -2298,7 +2298,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 65535
+        "max_output": 65536
       },
       "pricing": {
         "input_per_million_tokens": 0.5,
@@ -2340,7 +2340,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-3-pro-image": {
       "mode": "image_generation",
@@ -2397,8 +2397,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-05-28",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-3-pro-image-preview": {
       "mode": "image_generation",
@@ -2501,7 +2500,7 @@
     "gemini-3.1-flash-image": {
       "mode": "image_generation",
       "context_window": {
-        "max_input": 65536,
+        "max_input": 131072,
         "max_output": 32768
       },
       "pricing": {
@@ -2545,8 +2544,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-05-28",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-3.1-flash-image-preview": {
       "mode": "image_generation",
@@ -2635,8 +2633,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-05-07",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-3.1-flash-lite-image": {
       "mode": "image_generation",
@@ -2807,7 +2804,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 65535
+        "max_output": 65536
       },
       "pricing": {
         "input_per_million_tokens": 1.5,
@@ -2850,8 +2847,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-05-19",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-3.5-flash-lite": {
       "mode": "chat",
@@ -2895,8 +2891,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2027-07-21",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "gemini-3.6-flash": {
       "mode": "chat",
@@ -4783,8 +4778,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2026-11-17",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "veo-3.1-fast-generate-preview": {
       "mode": "video_generation",
@@ -4812,8 +4806,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "deprecation_date": "2026-11-17",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "veo-3.1-generate-preview": {
       "mode": "video_generation",

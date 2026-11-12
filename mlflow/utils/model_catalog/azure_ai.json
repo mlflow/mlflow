@@ -3330,6 +3330,26 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "mistral-large-4-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.7,
+        "output_per_million_tokens": 2.1
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "deprecation_date": "2027-10-27",
+      "last_updated_at": "2026-11-12"
+    },
     "mistral-large-latest": {
       "mode": "chat",
       "context_window": {
