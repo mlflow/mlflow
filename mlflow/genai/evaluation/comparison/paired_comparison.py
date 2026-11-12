@@ -59,7 +59,7 @@ def _compare_paired_values(
     deltas = candidate - baseline
     diff = float(deltas.mean())
     # Differences that are equal up to floating point noise have no variance to test against.
-    constant = np.allclose(deltas, deltas[0], rtol=1e-9, atol=1e-12)
+    constant = np.allclose(deltas, deltas[0], rtol=1e-9, atol=0.0)
     std = 0.0 if constant else float(deltas.std(ddof=1))
     # Resampling a constant can only return it, and the BCa acceleration is undefined there.
     ci_low, ci_high = (diff, diff) if constant else _bootstrap_mean_ci(deltas, confidence_level)
