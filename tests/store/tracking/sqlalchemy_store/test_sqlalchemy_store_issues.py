@@ -1313,7 +1313,7 @@ def test_issue_search_facets_pagination_and_projection(store):
 @pytest.mark.parametrize("include_trace_count", [False, True])
 def test_issue_default_and_explicit_sort_use_same_tiebreaker(store, include_trace_count):
     with mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=100
+        "mlflow.store.tracking.sqlalchemy_trace_store.get_current_time_millis", return_value=100
     ) as clock:
         for issue_id in ["iss-b", "iss-c", "iss-a"]:
             store.create_issue(
@@ -1416,7 +1416,7 @@ def test_issue_concurrent_metadata_patches_preserve_unrelated_keys(store):
 def test_issue_keyset_pages_survive_list_mutations(store, order_by, mutation, include_trace_count):
     for index in range(6):
         with mock.patch(
-            "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis",
+            "mlflow.store.tracking.sqlalchemy_trace_store.get_current_time_millis",
             return_value=100 + index,
         ) as clock:
             store.create_issue(
@@ -1443,7 +1443,8 @@ def test_issue_keyset_pages_survive_list_mutations(store, order_by, mutation, in
     assert "offset" not in token
     if mutation == "insert":
         with mock.patch(
-            "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=9000
+            "mlflow.store.tracking.sqlalchemy_trace_store.get_current_time_millis",
+            return_value=9000,
         ) as clock:
             store.create_issue(
                 "0", "AAA", "", severity=IssueSeverity.HIGH, last_seen_timestamp=9000
@@ -1478,7 +1479,7 @@ def test_issue_keyset_pages_survive_list_mutations(store, order_by, mutation, in
 )
 def test_issue_keyset_ties_nulls_and_legacy_tokens(store, order_by):
     with mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=100
+        "mlflow.store.tracking.sqlalchemy_trace_store.get_current_time_millis", return_value=100
     ) as clock:
         for index in range(5):
             store.create_issue(

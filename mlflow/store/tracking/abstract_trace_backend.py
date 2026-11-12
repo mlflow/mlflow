@@ -1,18 +1,22 @@
 import asyncio
 import logging
 from abc import ABC
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Literal
 
 from mlflow.entities import Assessment, Issue, IssueSeverity, IssueStatus
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_metrics import MetricAggregation, MetricDataPoint, MetricViewType
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
+from mlflow.utils import chunk_list
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import CompletedSession
@@ -40,6 +44,50 @@ class AbstractTraceBackend(ABC):
                 "A trace backend instance cannot be shared between tracking stores."
             )
         self._tracking_store = tracking_store
+
+    def _filter_trace_ids(
+        self,
+        trace_ids: list[str],
+        filter_experiment_ids: Callable[[list[str]], Iterable[str | int]],
+    ) -> list[str]:
+        infos = [
+            info
+            for ids in chunk_list(list(trace_ids), 500)
+            for info in self.batch_get_trace_infos(ids)
+        ]
+        allowed = {
+            str(experiment_id)
+            for experiment_id in filter_experiment_ids(
+                list({str(info.experiment_id) for info in infos})
+            )
+        }
+        found = {info.trace_id for info in infos if str(info.experiment_id) in allowed}
+        return [trace_id for trace_id in trace_ids if trace_id in found]
+
+    def deprecated_start_trace_v2(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        raise MlflowNotImplementedException(
+            "Legacy V2 trace creation is not supported with a separate trace backend. "
+            "Use the V3 tracing API instead."
+        )
+
+    def deprecated_end_trace_v2(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        raise MlflowNotImplementedException(
+            "Legacy V2 trace updates are not supported with a separate trace backend. "
+            "Use the V3 tracing API instead."
+        )
 
     def on_traces_deleted(self, trace_ids: list[str]) -> None:
         """Best-effort cleanup of host references after successful backend trace deletion.

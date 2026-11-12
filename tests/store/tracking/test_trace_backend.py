@@ -26,7 +26,9 @@ BACKEND_OPERATIONS = [
 def test_unsupported_operations_raise_mlflow_exception(name):
     method = getattr(AbstractTraceBackend(), name)
     arguments = {key: getattr(mock.sentinel, key) for key in inspect.signature(method).parameters}
-    with pytest.raises(MlflowNotImplementedException, match="^$|AbstractTraceBackend") as error:
+    with pytest.raises(
+        MlflowNotImplementedException, match="^$|AbstractTraceBackend|Legacy V2"
+    ) as error:
         method(**arguments)
     assert error.value.error_code == "NOT_IMPLEMENTED"
 

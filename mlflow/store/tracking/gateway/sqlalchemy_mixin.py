@@ -5,9 +5,9 @@ import os
 import uuid
 from typing import Any
 
-from sqlalchemy import case, func
+from sqlalchemy import case
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import aliased, joinedload
+from sqlalchemy.orm import joinedload
 
 from mlflow.entities import (
     FallbackConfig,
@@ -53,7 +53,6 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
-    SqlExperiment,
     SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -63,8 +62,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
-    SqlTraceInfo,
-    SqlTraceMetadata,
 )
 from mlflow.telemetry.events import (
     GatewayCreateBudgetPolicyEvent,
@@ -86,7 +83,6 @@ from mlflow.telemetry.events import (
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -1423,7 +1419,6 @@ class SqlAlchemyGatewayStoreMixin:
                 .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
                 .all()
             ]
-
 
     # Guardrail APIs
 

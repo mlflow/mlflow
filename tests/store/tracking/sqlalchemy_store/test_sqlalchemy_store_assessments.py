@@ -5,7 +5,7 @@ from threading import Event
 
 import pytest
 
-import mlflow.store.tracking.sqlalchemy_store as sqlalchemy_store_module
+import mlflow.store.tracking.sqlalchemy_trace_store as sqlalchemy_store_module
 from mlflow.entities import (
     AssessmentSource,
     AssessmentSourceType,
@@ -142,7 +142,7 @@ def test_create_assessment_racing_with_earlier_span_uses_updated_trace_timestamp
     release_assessment = Event()
     log_worker_started = Event()
     log_spans_started = Event()
-    original_get_sql_trace_info = store._get_sql_trace_info
+    original_get_sql_trace_info = store.trace_backend._get_sql_trace_info
 
     def get_sql_trace_info_and_hold_lock(*args, **kwargs):
         sql_trace_info = original_get_sql_trace_info(*args, **kwargs)
@@ -158,7 +158,9 @@ def test_create_assessment_racing_with_earlier_span_uses_updated_trace_timestamp
             log_spans_started.set()
         return original_bulk_upsert(session, model, rows)
 
-    monkeypatch.setattr(store, "_get_sql_trace_info", get_sql_trace_info_and_hold_lock)
+    monkeypatch.setattr(
+        store.trace_backend, "_get_sql_trace_info", get_sql_trace_info_and_hold_lock
+    )
     monkeypatch.setattr(sqlalchemy_store_module, "_bulk_upsert", bulk_upsert_and_signal)
 
     feedback = Feedback(

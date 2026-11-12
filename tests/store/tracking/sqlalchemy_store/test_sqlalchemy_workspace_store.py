@@ -74,6 +74,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
     get_resource_endpoint_configs,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_trace_store import SqlAlchemyTraceStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceMetricKey
@@ -1174,7 +1175,7 @@ def test_batch_get_traces_is_workspace_scoped_with_chunking(workspace_tracking_s
             exp_b, [create_test_span(trace_id=trace_id_b, span_id=206, trace_num=920006)]
         )
 
-        monkeypatch.setattr(SqlAlchemyStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
+        monkeypatch.setattr(SqlAlchemyTraceStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
         traces = workspace_tracking_store.batch_get_traces(
             [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
         )
@@ -1221,9 +1222,9 @@ def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_track
         # The second batch hits the pre-existing trace path: it must lock the trace row and
         # recompute the trace-level usage from stored plus batch spans under the workspace store.
         with mock.patch.object(
-            workspace_tracking_store,
+            workspace_tracking_store.trace_backend,
             "_trace_row_lock_query",
-            wraps=workspace_tracking_store._trace_row_lock_query,
+            wraps=workspace_tracking_store.trace_backend._trace_row_lock_query,
         ) as mock_lock:
             workspace_tracking_store.log_spans(exp_id, [_span(2, 200)])
             mock_lock.assert_called_once()
@@ -1273,7 +1274,7 @@ def test_start_trace_conflict_update_is_workspace_scoped(
             trace_metadata={"source": "test"},
         )
 
-        original_trace_query = workspace_tracking_store._trace_query
+        original_trace_query = workspace_tracking_store.trace_backend._trace_query
         conflict_workspace = None
 
         def trace_query_side_effect(session, for_update_or_delete=False, workspace=None):
@@ -1295,7 +1296,7 @@ def test_start_trace_conflict_update_is_workspace_scoped(
             )
 
         with mock.patch.object(
-            workspace_tracking_store,
+            workspace_tracking_store.trace_backend,
             "_trace_query",
             side_effect=trace_query_side_effect,
         ):

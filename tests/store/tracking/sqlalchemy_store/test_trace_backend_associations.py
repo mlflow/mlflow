@@ -22,7 +22,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceInfo,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_trace_store import SqlAlchemyTraceStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_workspace_trace_store import (
+    WorkspaceAwareSqlAlchemyTraceStore,
+)
 from mlflow.tracing.constant import AssessmentMetadataKey, SpansLocation, TraceTagKey
 from mlflow.utils.validation import validate_delete_traces_parameters
 from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
@@ -357,6 +361,20 @@ def test_backend_owns_issue_queries_while_host_keeps_associations(backend_store)
         )
 
 
+def test_default_sql_trace_store_shares_tracking_context(store):
+    expected_type = (
+        WorkspaceAwareSqlAlchemyTraceStore if store.supports_workspaces else SqlAlchemyTraceStore
+    )
+    assert type(store.trace_backend) is expected_type
+    assert store.trace_backend._tracking_store is store
+    assert not store._has_external_trace_store
+    with mock.patch.object(
+        store.trace_backend, "get_trace_info", return_value=mock.sentinel.info
+    ) as get_info:
+        assert store.get_trace_info("tr-default") is mock.sentinel.info
+    get_info.assert_called_once_with("tr-default")
+
+
 def test_context_bypass_is_nested_exception_safe_and_store_local(backend_store, db_uri, tmp_path):
     store, backend = backend_store
     other_backend = MemoryTraceBackend()
@@ -364,11 +382,11 @@ def test_context_bypass_is_nested_exception_safe_and_store_local(backend_store, 
 
     def fail_inside_bypass():
         with store.disable_trace_backend():
-            assert store.trace_backend is None
+            assert store.trace_backend is store._default_trace_store
             assert other.trace_backend is other_backend
             with store.disable_trace_backend():
-                assert store.trace_backend is None
-            assert store.trace_backend is None
+                assert store.trace_backend is store._default_trace_store
+            assert store.trace_backend is store._default_trace_store
             raise RuntimeError("restore")
 
     try:
@@ -390,8 +408,10 @@ async def test_context_bypass_is_task_local_and_propagates_to_threads(backend_st
         with store.disable_trace_backend():
             disabled.set()
             await release.wait()
-            assert store.trace_backend is None
-            assert await asyncio.to_thread(lambda: store.trace_backend) is None
+            assert store.trace_backend is store._default_trace_store
+            assert (
+                await asyncio.to_thread(lambda: store.trace_backend) is store._default_trace_store
+            )
 
     task = asyncio.create_task(native_task())
     try:

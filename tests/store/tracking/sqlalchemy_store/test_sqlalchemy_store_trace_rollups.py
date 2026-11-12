@@ -1612,7 +1612,7 @@ def test_scattered_raw_gaps_are_queried_once(store: SqlAlchemyStore, monkeypatch
             sample_count=1,
         )
 
-    from mlflow.store.tracking import sqlalchemy_store as store_module
+    from mlflow.store.tracking import sqlalchemy_trace_store as store_module
 
     original = store_module.query_metrics
     queried_ranges = []
@@ -1651,7 +1651,7 @@ def test_too_many_raw_gaps_abandons_rollup_plan(store: SqlAlchemyStore, monkeypa
             sample_count=1,
         )
 
-    from mlflow.store.tracking import sqlalchemy_store as store_module
+    from mlflow.store.tracking import sqlalchemy_trace_store as store_module
 
     original = store_module.query_metrics
     queried_ranges = []
@@ -1722,7 +1722,7 @@ def test_raw_gap_is_read_before_final_invalidation_check(store: SqlAlchemyStore,
         sample_count=2,
     )
 
-    from mlflow.store.tracking import sqlalchemy_store as store_module
+    from mlflow.store.tracking import sqlalchemy_trace_store as store_module
 
     end_time_ms = DAY_B_START + 10_000
     raw_gap = [(DAY_B_START, end_time_ms)]
