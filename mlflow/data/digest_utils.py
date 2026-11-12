@@ -24,11 +24,14 @@ def compute_pandas_digest(df) -> str:
 
     # keep string, number, boolean, datetime, and categorical columns, drop other column types
     # (e.g. object columns of lists or dicts, which cannot be hashed)
-    # `skipna=True` keeps string columns that contain missing values. Inferring on an object
-    # array keeps categorical columns of strings, for which `infer_dtype` returns "categorical".
-    string_columns = trimmed_df.columns[
+    # `skipna=True` keeps string columns that contain missing values, as well as object columns
+    # of booleans, dates, or datetimes that contain missing values (which `select_dtypes` below
+    # doesn't match). Inferring on an object array keeps categorical columns of strings, for
+    # which `infer_dtype` returns "categorical".
+    inferred_columns = trimmed_df.columns[
         [
-            pd.api.types.infer_dtype(column.to_numpy(dtype=object), skipna=True) == "string"
+            pd.api.types.infer_dtype(column.to_numpy(dtype=object), skipna=True)
+            in ("string", "boolean", "date", "datetime")
             for _, column in trimmed_df.items()
         ]
     ]
@@ -36,7 +39,7 @@ def compute_pandas_digest(df) -> str:
         include=[np.number, "bool", "boolean", "datetime", "datetimetz", "category"]
     ).columns
 
-    desired_columns = string_columns.union(typed_columns)
+    desired_columns = inferred_columns.union(typed_columns)
     trimmed_df = trimmed_df[desired_columns]
 
     return get_normalized_md5_digest(

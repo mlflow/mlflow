@@ -1,3 +1,4 @@
+import datetime
 import json
 
 import pandas as pd
@@ -312,6 +313,11 @@ def test_digest_includes_string_columns_with_missing_values(dtype):
             pd.to_datetime(["2025-06-01", "2025-06-02", "2025-06-03"]).tz_localize("UTC"),
         ),
         (pd.Categorical([1, 2, 3]), pd.Categorical([3, 3, 1])),
+        (pd.Series([True, False, None]), pd.Series([False, True, None])),
+        (
+            pd.Series([datetime.date(2024, 1, 1), datetime.date(2024, 1, 2), None]),
+            pd.Series([datetime.date(2025, 6, 1), datetime.date(2025, 6, 2), None]),
+        ),
     ],
 )
 def test_digest_includes_boolean_datetime_and_categorical_columns(values1, values2):
