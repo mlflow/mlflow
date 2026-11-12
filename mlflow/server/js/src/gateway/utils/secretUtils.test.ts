@@ -21,6 +21,7 @@ describe('isApiKeySecretField', () => {
     expect(isApiKeySecretField('api_key')).toBe(true);
     expect(isApiKeySecretField('aws_secret_access_key')).toBe(true);
     expect(isApiKeySecretField('vertex_credentials')).toBe(false);
+    expect(isApiKeySecretField('portkey_config')).toBe(false);
   });
 });
 
@@ -38,5 +39,6 @@ describe('hasNonAsciiApiKey', () => {
 
   it('ignores JSON credential fields', () => {
     expect(hasNonAsciiApiKey({ vertex_credentials: '{"client_email": "서비스@example.com"}' })).toBe(false);
+    expect(hasNonAsciiApiKey({ api_key: 'pk-abc123', portkey_config: '{"metadata": {"팀": "검색"}}' })).toBe(false);
   });
 });

@@ -5,9 +5,9 @@ export function parseAuthConfig(secret: SecretInfo | undefined | null): Record<s
   return secret.auth_config ?? null;
 }
 
-// Secret fields that hold JSON documents (e.g. GCP service account key files) rather than API key
-// strings; these may legitimately contain non-ASCII characters.
-const JSON_CREDENTIAL_SECRET_FIELDS = new Set(['vertex_credentials']);
+// Secret fields that hold JSON documents (e.g. GCP service account key files, Portkey configs)
+// rather than API key strings; these may legitimately contain non-ASCII characters.
+const JSON_CREDENTIAL_SECRET_FIELDS = new Set(['vertex_credentials', 'portkey_config']);
 
 const NON_ASCII_PATTERN = /[\u0080-\u{10FFFF}]/u;
 
