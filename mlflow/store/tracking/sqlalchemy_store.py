@@ -5482,7 +5482,8 @@ class SqlAlchemyStore(
         Delete an assessment from a trace.
 
         If the deleted assessment was overriding another assessment, the overridden
-        assessment will be restored to valid=True.
+        assessment will be restored to valid=True unless another assessment still
+        overrides it.
 
         Args:
             trace_id: The ID of the trace containing the assessment.
@@ -5510,10 +5511,28 @@ class SqlAlchemyStore(
             )
 
             # If this assessment was overriding another assessment, restore the original
-            if assessment_to_delete.overrides:
-                session.query(SqlAssessments).filter_by(
-                    assessment_id=assessment_to_delete.overrides
-                ).update({"valid": True})
+            # unless another assessment still overrides it
+            if overridden_id := assessment_to_delete.overrides:
+                original_query = session.query(SqlAssessments).filter_by(
+                    trace_id=trace_id, assessment_id=overridden_id
+                )
+                # Lock the original so that concurrent override creations and deletions
+                # serialize on it, and use a locking read below so the check sees their
+                # committed changes.
+                original_query.with_for_update().first()
+                has_other_override = (
+                    session
+                    .query(SqlAssessments.assessment_id)
+                    .filter(
+                        SqlAssessments.trace_id == trace_id,
+                        SqlAssessments.overrides == overridden_id,
+                        SqlAssessments.assessment_id != assessment_id,
+                    )
+                    .with_for_update()
+                    .first()
+                ) is not None
+                if not has_other_override:
+                    original_query.update({"valid": True})
 
             session.delete(assessment_to_delete)
             session.commit()

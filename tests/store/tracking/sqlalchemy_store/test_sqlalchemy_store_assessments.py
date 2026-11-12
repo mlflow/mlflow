@@ -557,6 +557,41 @@ def test_delete_assessment_override_behavior(store_and_trace_info):
     assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is True
 
 
+@pytest.mark.parametrize("delete_order", [(0, 1), (1, 0)])
+def test_delete_assessment_with_multiple_overrides(store_and_trace_info, delete_order):
+    store, trace_info = store_and_trace_info
+    trace_id = trace_info.request_id
+
+    original = store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="correctness",
+            value=False,
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
+    )
+    overrides = [
+        store.create_assessment(
+            Feedback(
+                trace_id=trace_id,
+                name="correctness",
+                value=True,
+                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id=user),
+                overrides=original.assessment_id,
+            ),
+        )
+        for user in ["reviewer-a", "reviewer-b"]
+    ]
+    first, second = (overrides[i] for i in delete_order)
+
+    store.delete_assessment(trace_id, first.assessment_id)
+    assert store.get_assessment(trace_id, original.assessment_id).valid is False
+    assert store.get_assessment(trace_id, second.assessment_id).valid is True
+
+    store.delete_assessment(trace_id, second.assessment_id)
+    assert store.get_assessment(trace_id, original.assessment_id).valid is True
+
+
 def test_assessment_with_run_id(store_and_trace_info):
     store, trace_info = store_and_trace_info
 
