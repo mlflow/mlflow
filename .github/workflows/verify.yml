@@ -75,9 +75,12 @@ jobs:
         run: |
           trusted/.claude/scripts/install-claude.sh
           trusted/.claude/scripts/install-agent-browser.sh
-          sudo apt-get update --error-on=any
-          sudo apt-get install -y --no-install-recommends ffmpeg
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install FFmpeg
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          trusted/.claude/scripts/install-ffmpeg.sh
       - id: gateway
         uses: ./trusted/.github/actions/setup-gateway
         with:
@@ -192,7 +195,7 @@ jobs:
           fi
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          timeout 60m setsid bash -o pipefail -c '
+          timeout --kill-after=10s 60m setsid bash -o pipefail -c '
             echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
             # Placeholder until the /verify skill lands.
             claude --version
