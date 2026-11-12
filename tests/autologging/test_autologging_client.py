@@ -1,4 +1,5 @@
 import time
+from contextlib import nullcontext
 from unittest import mock
 
 import pytest
@@ -269,3 +270,68 @@ def test_logging_failures_are_handled_as_expected():
             in str(exc.value)
         )
         assert "Batch logging failed!" in str(exc.value)
+
+
+@pytest.mark.parametrize("flush_mode", ["sync", "async", "context"])
+@pytest.mark.parametrize("pending_run", [False, True])
+def test_client_repeated_parameters_are_idempotent(flush_mode, pending_run):
+    tracking_client = MlflowClient()
+    experiment_id = tracking_client.create_experiment("repeated-parameters")
+    queue = MlflowAutologgingQueueingClient()
+    if pending_run:
+        run_id = queue.create_run(experiment_id, start_time=5)
+    else:
+        run_id = tracking_client.create_run(experiment_id, start_time=5).info.run_id
+        tracking_client.log_param(run_id, "learning_rate", 0.1)
+
+    with queue if flush_mode == "context" else nullcontext():
+        queue.log_params(run_id, {"learning_rate": 0.1, "epochs": 8})
+        queue.log_params(run_id, {"learning_rate": "0.1", "epochs": "8", "backend": "cpu"})
+        queue.log_metrics(run_id, {"loss": 0.25}, step=2)
+        queue.set_tags(run_id, {"phase": "training"})
+        queue.set_terminated(run_id, status="FINISHED", end_time=10)
+
+    if flush_mode != "context":
+        queue.flush(synchronous=flush_mode == "sync").await_completion()
+
+    runs = tracking_client.search_runs([experiment_id])
+    assert len(runs) == 1
+    assert runs[0].data.params == {"learning_rate": "0.1", "epochs": "8", "backend": "cpu"}
+    assert runs[0].data.metrics == {"loss": 0.25}
+    assert runs[0].data.tags["phase"] == "training"
+    assert runs[0].info.status == "FINISHED"
+    assert runs[0].info.end_time == 10
+    assert tracking_client.get_metric_history(runs[0].info.run_id, "loss")[0].step == 2
+
+
+def test_client_repeated_parameters_across_batch_boundaries():
+    tracking_client = MlflowClient()
+    run_id = tracking_client.create_run("0").info.run_id
+    queue = MlflowAutologgingQueueingClient()
+    expected = {f"param_{i}": str(i % 3) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 7)}
+    for key, value in expected.items():
+        queue.log_params(run_id, {key: value})
+        queue.log_params(run_id, {key: value})
+    queue.log_metrics(run_id, {"loss": 0.5})
+    queue.flush()
+
+    run = tracking_client.get_run(run_id)
+    assert run.data.params == expected
+    assert run.data.metrics == {"loss": 0.5}
+
+
+@pytest.mark.parametrize("already_logged", [False, True])
+def test_client_repeated_parameters_do_not_hide_conflicting_values(already_logged):
+    tracking_client = MlflowClient()
+    run_id = tracking_client.create_run("0").info.run_id
+    if already_logged:
+        tracking_client.log_param(run_id, "learning_rate", "0.1")
+    queue = MlflowAutologgingQueueingClient()
+    for value in ("0.1", "0.2", "0.1"):
+        queue.log_params(run_id, {"learning_rate": value})
+
+    with pytest.raises(MlflowException, match="Duplicate parameter keys"):
+        queue.flush()
+    assert tracking_client.get_run(run_id).data.params == (
+        {"learning_rate": "0.1"} if already_logged else {}
+    )
