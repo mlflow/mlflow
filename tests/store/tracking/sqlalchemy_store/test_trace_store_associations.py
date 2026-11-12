@@ -1,9 +1,11 @@
 import asyncio
 import inspect
+import sqlite3
 from dataclasses import replace
 from unittest import mock
 
 import pytest
+from sqlalchemy.engine import make_url
 
 from mlflow.entities import Issue, IssueReference, IssueSeverity, IssueStatus, TraceInfo, ViewType
 from mlflow.entities.entity_type import EntityAssociationType
@@ -13,6 +15,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.store.db.db_types import SQLITE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 from mlflow.store.tracking.dbmodels.models import (
@@ -373,6 +376,47 @@ def test_default_sql_trace_store_shares_tracking_context(store):
     ) as get_info:
         assert store.get_trace_info("tr-default") is mock.sentinel.info
     get_info.assert_called_once_with("tr-default")
+
+
+def test_native_association_writes_use_primary_when_replica_lags(store, tmp_path):
+    if store.db_type != SQLITE:
+        pytest.skip("SQLite snapshot models a lagging read replica")
+
+    exp_id = store.create_experiment("replica-lag")
+    run = store.create_run(exp_id, "user", 1, [], "run")
+    replica_path = tmp_path / "replica.db"
+    with (
+        sqlite3.connect(make_url(store.db_uri).database) as primary,
+        sqlite3.connect(replica_path) as replica,
+    ):
+        primary.backup(replica)
+
+    create_trace(store, exp_id, "tr-new")
+    host = type(store)(
+        store.db_uri, store.artifact_root_uri, read_db_uri=f"sqlite:///{replica_path}"
+    )
+    try:
+        assert host.batch_get_trace_infos(["tr-new"]) == []
+        host.link_traces_to_run(["tr-new"], run.info.run_id)
+        with store.ManagedSessionMaker(read_only=False) as session:
+            assert (
+                session
+                .query(SqlEntityAssociation)
+                .filter(SqlEntityAssociation.source_id == "tr-new")
+                .count()
+                == 1
+            )
+        host.unlink_traces_from_run(["tr-new"], run.info.run_id)
+        with store.ManagedSessionMaker(read_only=False) as session:
+            assert (
+                session
+                .query(SqlEntityAssociation)
+                .filter(SqlEntityAssociation.source_id == "tr-new")
+                .count()
+                == 0
+            )
+    finally:
+        host.read_engine.dispose()
 
 
 def test_context_bypass_is_nested_exception_safe_and_store_local(backend_store, db_uri, tmp_path):

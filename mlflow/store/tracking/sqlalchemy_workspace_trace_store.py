@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import logging
-
 from sqlalchemy.future import select
+from sqlalchemy.orm import Session
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -13,14 +12,20 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
     SqlTraceInfo,
 )
-
-_logger = logging.getLogger(__name__)
-
-
 from mlflow.store.tracking.sqlalchemy_trace_store import SqlAlchemyTraceStore
 
 
 class WorkspaceAwareSqlAlchemyTraceStore(SqlAlchemyTraceStore):
+    def _filter_trace_ids_in_session(self, session: Session, trace_ids: list[str]) -> list[str]:
+        rows = (
+            self
+            ._trace_query(session)
+            .with_entities(SqlTraceInfo.request_id)
+            .filter(SqlTraceInfo.request_id.in_(trace_ids))
+            .all()
+        )
+        return [row[0] for row in rows]
+
     def _trace_query(self, session, for_update_or_delete=False, workspace=None):
         """
         Return a workspace-scoped trace query.

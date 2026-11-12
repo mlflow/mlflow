@@ -5,7 +5,6 @@ import logging
 import time
 import uuid
 from collections import defaultdict
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import lru_cache
@@ -231,14 +230,8 @@ class SqlAlchemyTraceStore(AbstractTraceStore):
     def supports_trace_archival(self) -> bool:
         return True
 
-    def _filter_trace_ids(
-        self,
-        trace_ids: list[str],
-        filter_experiment_ids: Callable[[list[str]], Iterable[str | int]],
-    ) -> list[str]:
-        if not self._tracking_store.supports_workspaces:
-            return trace_ids
-        return super()._filter_trace_ids(trace_ids, filter_experiment_ids)
+    def _filter_trace_ids_in_session(self, session: Session, trace_ids: list[str]) -> list[str]:
+        return trace_ids
 
     # Native SQL lifecycle cleanup runs in the tracking transaction or through foreign keys.
     def on_run_deleted(self, run_id: str) -> None:

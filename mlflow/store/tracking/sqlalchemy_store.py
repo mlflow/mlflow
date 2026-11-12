@@ -850,6 +850,8 @@ class SqlAlchemyStore(
         Hook for subclasses to filter entity IDs (e.g., for workspaces).
         """
         if entity_type == EntityAssociationType.TRACE:
+            if not self._has_external_trace_store:
+                return self._default_trace_store._filter_trace_ids_in_session(session, entity_ids)
             return self.trace_store._filter_trace_ids(
                 entity_ids, partial(self._filter_experiment_ids, session)
             )
