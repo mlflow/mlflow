@@ -589,3 +589,87 @@ class DetectIssues(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___DetectIssues: _TypeAlias = DetectIssues  # noqa: Y015
+
+@_typing.final
+class GetIssueDetectionRun(_message.Message):
+    """Request to get an issue detection run."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    @_typing.final
+    class Response(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        ISSUE_DETECTION_RUN_FIELD_NUMBER: _builtins.int
+        @_builtins.property
+        def issue_detection_run(self) -> Global___IssueDetectionRun:
+            """The run."""
+
+        def __init__(
+            self,
+            *,
+            issue_detection_run: Global___IssueDetectionRun | None = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _typing.Literal["issue_detection_run", b"issue_detection_run"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["issue_detection_run", b"issue_detection_run"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+    RUN_ID_FIELD_NUMBER: _builtins.int
+    run_id: _builtins.str
+    """ID of the run."""
+    def __init__(
+        self,
+        *,
+        run_id: _builtins.str | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["run_id", b"run_id"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["run_id", b"run_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetIssueDetectionRun: _TypeAlias = GetIssueDetectionRun  # noqa: Y015
+
+@_typing.final
+class CancelIssueDetectionRun(_message.Message):
+    """Request to cancel an issue detection run. Canceling a run that has ended returns it unchanged."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    @_typing.final
+    class Response(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        ISSUE_DETECTION_RUN_FIELD_NUMBER: _builtins.int
+        @_builtins.property
+        def issue_detection_run(self) -> Global___IssueDetectionRun:
+            """The run."""
+
+        def __init__(
+            self,
+            *,
+            issue_detection_run: Global___IssueDetectionRun | None = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _typing.Literal["issue_detection_run", b"issue_detection_run"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["issue_detection_run", b"issue_detection_run"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+    RUN_ID_FIELD_NUMBER: _builtins.int
+    run_id: _builtins.str
+    """ID of the run."""
+    def __init__(
+        self,
+        *,
+        run_id: _builtins.str | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["run_id", b"run_id"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["run_id", b"run_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___CancelIssueDetectionRun: _TypeAlias = CancelIssueDetectionRun  # noqa: Y015

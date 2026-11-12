@@ -65,6 +65,7 @@ from mlflow.entities import (
 from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
 )
+from mlflow.entities._job_status import JobStatus as EntityJobStatus
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDuration,
@@ -113,7 +114,11 @@ from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.discovery.checkpoint import MAX_SCHEDULED_SESSION_SAMPLE_SIZE
-from mlflow.genai.discovery.constants import SAMPLE_POOL_MULTIPLIER
+from mlflow.genai.discovery.constants import (
+    INVOKE_ISSUE_DETECTION_JOB_NAME,
+    SAMPLE_POOL_MULTIPLIER,
+    SCHEDULED_ISSUE_DETECTION_JOB_NAME,
+)
 from mlflow.genai.discovery.schedule import read_detection_schedule, scheduled_detection_available
 from mlflow.genai.discovery.settings import read_detection_settings
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
@@ -147,9 +152,11 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.protos.issues_pb2 import (
+    CancelIssueDetectionRun,
     CreateIssue,
     DetectIssues,
     GetIssue,
+    GetIssueDetectionRun,
     IssueDetectionRun,
     SearchIssues,
     UpdateIssue,
@@ -431,6 +438,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
+    MLFLOW_ISSUE_DETECTION_ERROR,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_GENAI_EVALUATE,
@@ -6079,6 +6087,196 @@ def _detect_issues():
     return _wrap_response(response_message)
 
 
+# A settled run says how detection ended, whatever its job says: the job finishes the run itself,
+# and a cancel marks it KILLED.
+_DETECTION_STATUS_BY_RUN_STATUS = {
+    "FINISHED": "succeeded",
+    "FAILED": "failed",
+    "KILLED": "canceled",
+}
+
+
+_DETECTION_STATUS_BY_JOB_STATUS = {
+    # Waiting for a worker. Reported as running, since that's a detail of the job queue.
+    EntityJobStatus.PENDING: "running",
+    EntityJobStatus.RUNNING: "running",
+    # A job whose worker died mid-run, which the server re-enqueues.
+    EntityJobStatus.NEEDS_RECOVERY: "running",
+    EntityJobStatus.SUCCEEDED: "succeeded",
+    EntityJobStatus.FAILED: "failed",
+    EntityJobStatus.TIMEOUT: "failed",
+    EntityJobStatus.CANCELED: "canceled",
+}
+
+
+# How a run left unsettled by a job that ended is settled.
+_RUN_STATUS_BY_ENDED_JOB_STATUS = {
+    EntityJobStatus.SUCCEEDED: RunStatus.FINISHED,
+    EntityJobStatus.FAILED: RunStatus.FAILED,
+    EntityJobStatus.TIMEOUT: RunStatus.FAILED,
+}
+
+
+def _get_issue_detection_run_and_job(store, run_id: str):
+    """
+    The detection run ``run_id`` and its job, or ``None`` for a job that is gone or never started.
+
+    Raises ``RESOURCE_DOES_NOT_EXIST`` for a run that is not an issue detection run, so these
+    endpoints cannot be used to read or end an arbitrary run.
+    """
+    from mlflow.server.jobs import get_job
+
+    run = store.get_run(run_id)
+    if run.data.tags.get(MLFLOW_RUN_TYPE) != MLFLOW_RUN_TYPE_ISSUE_DETECTION:
+        raise MlflowException(
+            f"Run '{run_id}' is not an issue detection run.", error_code=RESOURCE_DOES_NOT_EXIST
+        )
+    job = None
+    if job_id := run.data.tags.get(MLFLOW_ISSUE_DETECTION_JOB_ID):
+        try:
+            job = get_job(job_id)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                raise
+    # Anyone who can update the run can rewrite its job tag, so a job that isn't this run's
+    # detection job is ignored rather than reported, as `GET /mlflow/jobs/<id>` would refuse to.
+    if job is not None and not _is_detection_job_of_run(job, run):
+        job = None
+    return run, job
+
+
+_DETECTION_JOB_NAMES = frozenset({
+    INVOKE_ISSUE_DETECTION_JOB_NAME,
+    SCHEDULED_ISSUE_DETECTION_JOB_NAME,
+})
+
+
+def _is_detection_job_of_run(job, run) -> bool:
+    """
+    Whether ``job`` is the detection job that ``run`` records.
+
+    An ad hoc run's job names the run in its params. A scheduled run is created by its job, which
+    names only the experiment, so for one of those the experiment is all there is to match.
+    """
+    if job.job_name not in _DETECTION_JOB_NAMES:
+        return False
+    try:
+        params = json.loads(job.params)
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(params, dict):
+        return False
+    if str(params.get("experiment_id")) != str(run.info.experiment_id):
+        return False
+    return "run_id" not in params or params["run_id"] == run.info.run_id
+
+
+def _to_issue_detection_run_proto(run, job) -> IssueDetectionRun:
+    """
+    Describe a detection run from the run and its job.
+
+    A canceled job always reads as canceled. Its worker notices the cancellation only on its next
+    poll, and until then can still finish or fail the run over the KILLED status cancel set, which
+    would otherwise make a run the caller was told is canceled read as succeeded or failed.
+
+    Otherwise the run is authoritative once it has settled. Until then the job tells a job that
+    ended without settling the run -- it timed out, or its worker died -- from one still going. A
+    run whose job isn't recorded yet is running too: the handler records it right after
+    submitting.
+    """
+    status = _DETECTION_STATUS_BY_RUN_STATUS.get(run.info.status)
+    end_time = run.info.end_time if status is not None else None
+    if job is not None and job.status == EntityJobStatus.CANCELED:
+        status = "canceled"
+        end_time = end_time or job.last_update_time
+    elif status is None:
+        if job is None:
+            status = "running"
+        else:
+            status = _DETECTION_STATUS_BY_JOB_STATUS[job.status]
+            if EntityJobStatus.is_finalized(job.status):
+                end_time = job.last_update_time
+    proto = IssueDetectionRun(
+        run_id=run.info.run_id,
+        experiment_id=run.info.experiment_id,
+        status=status,
+        start_time=run.info.start_time,
+    )
+    if end_time:
+        proto.end_time = end_time
+    if status == "failed":
+        # Never the job's own error, which can be a whole traceback: `GET /mlflow/jobs/<id>` shows
+        # that only to the job's creator, while this RPC answers anyone who can read the run.
+        # The run's error tag is the one-line reason the job records for exactly this.
+        timed_out = job is not None and job.status == EntityJobStatus.TIMEOUT
+        proto.error_message = run.data.tags.get(MLFLOW_ISSUE_DETECTION_ERROR) or (
+            "The run timed out." if timed_out else "The run's job failed without recording why."
+        )
+    return proto
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_issue_detection_run(run_id):
+    """
+    A request handler for `GET /mlflow/issues/detection-runs/{run_id}` to get an issue detection
+    run.
+    """
+    run, job = _get_issue_detection_run_and_job(_get_tracking_store(), run_id)
+    response_message = GetIssueDetectionRun.Response(
+        issue_detection_run=_to_issue_detection_run_proto(run, job)
+    )
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _cancel_issue_detection_run(run_id):
+    """
+    A request handler for `POST /mlflow/issues/detection-runs/{run_id}/cancel` to cancel an issue
+    detection run.
+
+    Cancels the job and marks the run KILLED, as the Issues tab does, since a canceled job's
+    process is stopped before it can end the run itself. A run that has already ended is returned
+    unchanged, and so is one whose job ended first and settled it. A run whose job ended without
+    settling it is settled as the job ended. If the job can't be canceled while it's still going,
+    the request fails and the run is left running.
+    """
+    from mlflow.server.jobs import cancel_job, get_job
+
+    store = _get_tracking_store()
+    run, job = _get_issue_detection_run_and_job(store, run_id)
+    if run.info.status not in _DETECTION_STATUS_BY_RUN_STATUS:
+        if job is not None and not EntityJobStatus.is_finalized(job.status):
+            try:
+                job = cancel_job(job.job_id)
+            except MlflowException:
+                # The job may have ended between the read and the cancel; read how it ended. One
+                # still going was not canceled, so the caller hears why.
+                job = get_job(job.job_id)
+                if not EntityJobStatus.is_finalized(job.status):
+                    raise
+        # Read again: a job that ended meanwhile settles its run itself before it finishes.
+        run = store.get_run(run_id)
+        if run.info.status not in _DETECTION_STATUS_BY_RUN_STATUS:
+            if job is None or job.status == EntityJobStatus.CANCELED:
+                # A run with no job has nothing that will ever end it.
+                status = RunStatus.KILLED
+                end_time = get_current_time_millis()
+            else:
+                # The job ended without settling the run: it timed out, or its worker died.
+                # Settled as the job ended, which is how the run already reads, so it doesn't
+                # stay RUNNING in the store and hold up the Issues tab's next detection.
+                status = _RUN_STATUS_BY_ENDED_JOB_STATUS[job.status]
+                end_time = job.last_update_time
+            store.update_run_info(run_id, status, end_time=end_time, run_name=None)
+            run = store.get_run(run_id)
+    response_message = CancelIssueDetectionRun.Response(
+        issue_detection_run=_to_issue_detection_run_proto(run, job)
+    )
+    return _wrap_response(response_message)
+
+
 def _sync_issue_detection_schedule_state_handler():
     """
     Bring a schedule's dispatch state in line with the schedule that is now stored, and answer
@@ -9328,6 +9526,8 @@ HANDLERS = {
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
     DetectIssues: _detect_issues,
+    GetIssueDetectionRun: _get_issue_detection_run,
+    CancelIssueDetectionRun: _cancel_issue_detection_run,
     SearchIssues: _search_issues,
     # Label Schema APIs
     CreateLabelSchema: _create_label_schema,
