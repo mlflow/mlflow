@@ -62,16 +62,24 @@ def thread(root_id: int, *, resolved: bool = False) -> dict[str, Any]:
 
 def test_describe_pr(pr_context: ModuleType) -> None:
     pr = {
+        "number": 1,
+        "html_url": "https://example.com/pull/1",
         "title": "Fix foo",
         "body": None,
+        "state": "open",
+        "draft": False,
         "user": {"login": "alice", "type": "User"},
         "author_association": "MEMBER",
         "base": {"ref": "master", "sha": "a" * 40},
         "head": {"ref": "fix-foo", "sha": "b" * 40, "repo": None},
     }
     assert pr_context.describe_pr(pr) == {
+        "number": 1,
+        "url": "https://example.com/pull/1",
         "title": "Fix foo",
         "body": "",
+        "state": "open",
+        "draft": False,
         "author": {"login": "alice", "type": "User", "association": "MEMBER"},
         "base": {"ref": "master", "sha": "a" * 40},
         "head": {"ref": "fix-foo", "sha": "b" * 40, "repo": ""},
