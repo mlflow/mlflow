@@ -1,5 +1,6 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
 
@@ -34,6 +35,23 @@ describe('ApiKeyPrompt', () => {
 
     expect(screen.getByPlaceholderText('sk-...')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument();
+  });
+
+  test('blocks saving a key that contains non-ASCII characters', async () => {
+    renderPrompt();
+
+    const input = screen.getByPlaceholderText('sk-...');
+    // What the masked input holds after typing "rkskek" with a Korean IME in Hangul mode
+    await userEvent.type(input, '가나다');
+
+    expect(screen.getByText(/API key contains non-ASCII characters/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'rkskek');
+
+    expect(screen.queryByText(/API key contains non-ASCII characters/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
   });
 
   test('tells a non-admin on the server host to ask an administrator', () => {

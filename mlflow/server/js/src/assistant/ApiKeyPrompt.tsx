@@ -11,6 +11,7 @@ import { useAssistant } from './AssistantContext';
 import { updateConfig } from './AssistantService';
 import { GATEWAY_PROVIDER_ID } from './constants';
 import { SecretInput } from '../gateway/components/secrets/SecretInput';
+import { containsNonAsciiCharacters } from '../gateway/utils/secretUtils';
 
 const PROVIDER_KEY_PLACEHOLDERS = {
   openai: 'sk-...',
@@ -43,8 +44,10 @@ export const ApiKeyPrompt = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isApiKeyValid = Boolean(apiKey.trim()) && !containsNonAsciiCharacters(apiKey);
+
   const handleSave = useCallback(async () => {
-    if (!apiKey.trim()) {
+    if (!isApiKeyValid) {
       return;
     }
     setIsSaving(true);
@@ -70,7 +73,7 @@ export const ApiKeyPrompt = ({
       setError(err instanceof Error ? err.message : 'Failed to save the API key');
       setIsSaving(false);
     }
-  }, [apiKey, gatewayVendor, providerId, providerModel, onSaved]);
+  }, [apiKey, isApiKeyValid, gatewayVendor, providerId, providerModel, onSaved]);
 
   const containerCss = {
     border: `1px solid ${theme.colors.borderWarning}`,
@@ -125,6 +128,7 @@ export const ApiKeyPrompt = ({
         }}
         placeholder={keyPlaceholderFor(gatewayVendor ?? providerId)}
         allowClear={false}
+        asciiOnly
       />
 
       <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm - 1 }}>
@@ -146,7 +150,7 @@ export const ApiKeyPrompt = ({
           type="primary"
           onClick={handleSave}
           loading={isSaving}
-          disabled={!apiKey.trim()}
+          disabled={!isApiKeyValid}
         >
           <FormattedMessage
             defaultMessage="Continue"

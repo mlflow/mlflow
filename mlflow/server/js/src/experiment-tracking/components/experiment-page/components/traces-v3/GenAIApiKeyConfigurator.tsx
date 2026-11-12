@@ -18,6 +18,7 @@ import { SecretSelector } from '../../../../../gateway/components/secrets/Secret
 import { SecretInput } from '../../../../../gateway/components/secrets/SecretInput';
 import { GatewayInput } from '../../../../../gateway/components/common';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../../../../gateway/utils/providerUtils';
+import { isApiKeySecretField } from '../../../../../gateway/utils/secretUtils';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import type { AuthMode, SecretInfo } from '../../../../../gateway/types';
 import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
@@ -543,6 +544,7 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
           onChange={(e) => onChange(field.name, e.target.value)}
           placeholder={field.description}
           disabled={disabled}
+          asciiOnly={isApiKeySecretField(field.name)}
         />
       ) : (
         <GatewayInput
