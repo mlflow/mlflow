@@ -1,6 +1,7 @@
 """Session-level online scoring processor for executing scorers on completed sessions."""
 
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -137,6 +138,19 @@ class OnlineSessionScoringProcessor:
             f"[{time_window.min_last_trace_timestamp_ms}, "
             f"{time_window.max_last_trace_timestamp_ms}]"
         )
+
+        current_time_ms = int(time.time() * 1000)
+        if checkpoint is not None and checkpoint.timestamp_ms > current_time_ms:
+            _logger.warning(
+                f"Session scoring checkpoint for experiment {self._experiment_id} is in the "
+                "future; resetting it to the end of the session completion window"
+            )
+            self._checkpoint_manager.persist_checkpoint(
+                OnlineSessionScoringCheckpoint(
+                    timestamp_ms=time_window.max_last_trace_timestamp_ms, session_id=None
+                )
+            )
+            return
 
         # A larger completion buffer can move the upper bound behind the checkpoint.
         # Wait instead of rewinding the checkpoint or overwriting its session ID tie-breaker.

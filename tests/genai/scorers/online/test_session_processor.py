@@ -226,6 +226,37 @@ def test_process_sessions_waits_when_window_end_is_not_after_checkpoint(
     mock_checkpoint_manager.persist_checkpoint.assert_not_called()
 
 
+def test_process_sessions_repairs_future_checkpoint(
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_score_session,
+):
+    current_time_ms = 1_000_000
+    future_timestamp_ms = current_time_ms + 86_400_000
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineSessionScoringTimeWindow(
+        min_last_trace_timestamp_ms=future_timestamp_ms,
+        max_last_trace_timestamp_ms=current_time_ms - 60_000,
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineSessionScoringCheckpoint(
+        timestamp_ms=future_timestamp_ms, session_id="sess-001"
+    )
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
+    )
+
+    with patch("mlflow.genai.scorers.online.session_processor.time.time", return_value=1000):
+        processor.process_sessions()
+
+    mock_tracking_store.find_completed_sessions.assert_not_called()
+    mock_score_session.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == current_time_ms - 60_000
+    assert checkpoint.session_id is None
+
+
 def test_process_sessions_filters_checkpoint_boundary(
     mock_trace_loader,
     mock_checkpoint_manager,
