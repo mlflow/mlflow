@@ -15,7 +15,7 @@ from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store._unity_catalog.registry.volume_weights import VOLUME_ARTIFACTS_PATH_METADATA_KEY
+from mlflow.store._unity_catalog.registry.serving_staging import VOLUME_ARTIFACTS_PATH_METADATA_KEY
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion, get_databricks_runtime_version
 from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
 from mlflow.utils.logging_utils import eprint

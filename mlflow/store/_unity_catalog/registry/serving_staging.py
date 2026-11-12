@@ -1,9 +1,13 @@
 """
-Registration of models whose weights are in a Unity Catalog volume. The model's own files hold
-no weights. Registration stages the PENDING_REGISTRATION version for Databricks Model Serving,
-which copies the weights from the volume into the version as part of staging the model, and
-builds and packs the model's serving environment. The version can be finalized once the model,
-with its weights, is staged; the environment is staged independently.
+Stages a Unity Catalog model version for Databricks Model Serving while it is registered, for
+models whose weights are in a Unity Catalog volume (``volume_artifacts_path`` in their metadata).
+The model's own files hold no weights. Staging the PENDING_REGISTRATION version copies the
+weights from the volume into the version as part of staging the model, and builds and packs the
+model's serving environment. The version can be finalized once the model, with its weights, is
+staged; the environment is staged independently.
+
+Registering with ``env_pack`` stages a finalized version through a different path and doesn't
+use this module.
 """
 
 import logging

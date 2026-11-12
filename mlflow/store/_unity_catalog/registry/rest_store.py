@@ -125,17 +125,17 @@ from mlflow.store._unity_catalog.lineage.constants import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
 )
+from mlflow.store._unity_catalog.registry.serving_staging import (
+    get_staging_timeout,
+    get_volume_artifacts_path,
+    start_model_serving_staging,
+    wait_for_model_artifact_staging,
+)
 from mlflow.store._unity_catalog.registry.utils import (
     mlflow_tags_to_proto,
     mlflow_tags_to_proto_version_tags,
     proto_info_to_mlflow_prompt_info,
     proto_to_mlflow_prompt,
-)
-from mlflow.store._unity_catalog.registry.volume_weights import (
-    get_staging_timeout,
-    get_volume_artifacts_path,
-    start_model_serving_staging,
-    wait_for_model_artifact_staging,
 )
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,

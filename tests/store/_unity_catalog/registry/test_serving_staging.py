@@ -4,15 +4,15 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException, RestException
-from mlflow.store._unity_catalog.registry import volume_weights
-from mlflow.store._unity_catalog.registry.volume_weights import (
+from mlflow.store._unity_catalog.registry import serving_staging
+from mlflow.store._unity_catalog.registry.serving_staging import (
     get_staging_timeout,
     get_volume_artifacts_path,
     start_model_serving_staging,
     wait_for_model_artifact_staging,
 )
 
-_MODULE = "mlflow.store._unity_catalog.registry.volume_weights"
+_MODULE = "mlflow.store._unity_catalog.registry.serving_staging"
 
 
 def _status(model_state):
@@ -33,7 +33,7 @@ def poll():
 
 @pytest.fixture(autouse=True)
 def no_sleep():
-    with mock.patch.object(volume_weights.time, "sleep") as sleep:
+    with mock.patch.object(serving_staging.time, "sleep") as sleep:
         yield sleep
 
 
@@ -186,15 +186,15 @@ def test_wait_raises_once_restarts_are_exhausted(stage, poll):
     ):
         wait_for_model_artifact_staging("c.s.m", "3", _status("FAILED"), None, 7200)
 
-    assert stage.call_count == volume_weights._MAX_STAGING_RESTARTS
+    assert stage.call_count == serving_staging._MAX_STAGING_RESTARTS
     # Each restart reads the status once while staging and once more after waiting.
-    assert poll.call_count == 2 * volume_weights._MAX_STAGING_RESTARTS
+    assert poll.call_count == 2 * serving_staging._MAX_STAGING_RESTARTS
 
 
 def test_wait_raises_when_staging_outlasts_the_timeout(stage, poll):
     poll.return_value = _status("IN_PROGRESS")
     with (
-        mock.patch.object(volume_weights.time, "monotonic", side_effect=[0, 10, 20, 31]),
+        mock.patch.object(serving_staging.time, "monotonic", side_effect=[0, 10, 20, 31]),
         pytest.raises(MlflowException, match="within 30 seconds"),
     ):
         wait_for_model_artifact_staging("c.s.m", "3", _status("IN_PROGRESS"), None, 30)
@@ -205,7 +205,7 @@ def test_wait_raises_when_staging_outlasts_the_timeout(stage, poll):
 
 def test_wait_reports_failed_staging_without_restarting_it_after_the_timeout(stage, poll):
     with (
-        mock.patch.object(volume_weights.time, "monotonic", side_effect=[0, 31]),
+        mock.patch.object(serving_staging.time, "monotonic", side_effect=[0, 31]),
         pytest.raises(
             MlflowException, match="while staging it for Model Serving. Check that the volume"
         ),
@@ -219,7 +219,7 @@ def test_wait_reports_failed_staging_without_restarting_it_after_the_timeout(sta
 def test_wait_does_not_sleep_past_the_timeout(stage, poll, no_sleep):
     poll.return_value = _status("IN_PROGRESS")
     with (
-        mock.patch.object(volume_weights.time, "monotonic", side_effect=[0, 10, 15]),
+        mock.patch.object(serving_staging.time, "monotonic", side_effect=[0, 10, 15]),
         pytest.raises(MlflowException, match="within 15 seconds"),
     ):
         wait_for_model_artifact_staging("c.s.m", "3", _status("IN_PROGRESS"), None, 15)
