@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { RUNS_SEARCH_MAX_RESULTS } from '../../../actions';
-import { isArray, isEqual } from 'lodash';
+import { isEqual } from 'lodash';
 import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL, createSearchRunsParams } from '../utils/experimentPage.fetch-utils';
 import type { FetchRunsHookFunction, FetchRunsHookParams } from './useExperimentRuns';
-import type { SearchRunsApiResponse } from '../../../types';
+import type { RunEntity, SearchRunsApiResponse } from '../../../types';
 
 /**
  * Enables auto-refreshing runs on the experiment page.
@@ -13,6 +12,7 @@ import type { SearchRunsApiResponse } from '../../../types';
  * if user is currently loading runs or changes the search facets.
  */
 export const useExperimentRunsAutoRefresh = ({
+  pageSize,
   experimentIds,
   lastFetchedTime,
   fetchRuns,
@@ -22,6 +22,7 @@ export const useExperimentRunsAutoRefresh = ({
   runsData,
   isLoadingRuns,
 }: {
+  pageSize: number;
   cachedPinnedRuns: React.MutableRefObject<string[]>;
   lastFetchedTime: React.MutableRefObject<number | null>;
   enabled: boolean;
@@ -50,6 +51,8 @@ export const useExperimentRunsAutoRefresh = ({
       return;
     }
 
+    let cancelled = false;
+    const isCancelled = () => cancelled || !autoRefreshEnabledRef.current;
     const scheduleRefresh = async () => {
       const hasBeenInitialized = Boolean(lastFetchedTime.current);
       const timePassed = lastFetchedTime.current ? Date.now() - lastFetchedTime.current : 0;
@@ -58,8 +61,7 @@ export const useExperimentRunsAutoRefresh = ({
         const initialRunsCount = currentResults.current.length;
 
         // Use Math.max(1, ...) so at least one page is fetched
-        const requestedRunsCount =
-          Math.max(1, Math.ceil(initialRunsCount / RUNS_SEARCH_MAX_RESULTS)) * RUNS_SEARCH_MAX_RESULTS;
+        const requestedRunsCount = Math.max(1, Math.ceil(initialRunsCount / pageSize)) * pageSize;
 
         const requestParams = {
           ...createSearchRunsParams(
@@ -68,40 +70,43 @@ export const useExperimentRunsAutoRefresh = ({
             Date.now(),
           ),
           requestedFacets: searchFacets,
-          maxResults: requestedRunsCount,
+          maxResults: pageSize,
         };
 
         let autoRefreshFetchedPages = 0;
-        let autoRefreshResultsCount = 0;
+        const autoRefreshRunIds = new Set<string>();
+        const runsById = new Map<string, RunEntity>();
+        const matchingRunsById = new Map<string, RunEntity>();
         let currentPageToken = undefined;
 
-        const discardResultsFn = (lastRequestedParams: FetchRunsHookParams, value?: SearchRunsApiResponse) => {
-          // If it's not the final page and we still didn't reach the requested amount of runs,
-          // flag results as not to be displayed yet
-          if (autoRefreshResultsCount + (value?.runs?.length ?? 0) < requestedRunsCount && value?.next_page_token) {
-            return true;
-          }
-
-          // At this moment, check if the results from auto-refresh should be considered. If the following
-          // conditions are met, the results from auto-refresh will be discarded.
+        const prepareResults = (lastRequestedParams: FetchRunsHookParams, value: SearchRunsApiResponse) => {
           if (
-            // Skip if auto-refresh has been disabled before the results response came back
-            !autoRefreshEnabledRef.current ||
+            // Skip if auto-refresh was cancelled or disabled before the response came back
+            isCancelled() ||
             // Skip if user has loaded more runs since the last request
             initialRunsCount > requestedRunsCount ||
             // Skip if the requested facets have changed since the last request
             !isEqual(lastRequestedParams.requestedFacets, requestParams.requestedFacets)
           ) {
-            return true;
+            return null;
           }
 
-          // Otherwise, return "false" and consider the results from auto-refresh as valid
-          return false;
+          value.runs?.forEach((run) => runsById.set(run.info.runUuid, run));
+          value.runsMatchingFilter?.forEach((run) => matchingRunsById.set(run.info.runUuid, run));
+          if (runsById.size < requestedRunsCount && value.next_page_token) {
+            return null;
+          }
+
+          return {
+            ...value,
+            runs: Array.from(runsById.values()),
+            runsMatchingFilter: Array.from(matchingRunsById.values()),
+          };
         };
 
         while (autoRefreshFetchedPages === 0 || currentPageToken) {
           // We have enough results, no need to fetch more
-          if (autoRefreshResultsCount >= requestedRunsCount) {
+          if (autoRefreshRunIds.size >= requestedRunsCount) {
             break;
           }
           autoRefreshFetchedPages++;
@@ -109,10 +114,14 @@ export const useExperimentRunsAutoRefresh = ({
             { ...requestParams, pageToken: currentPageToken },
             {
               isAutoRefreshing: true,
-              discardResultsFn,
+              isCancelled,
+              prepareResults,
             },
           );
-          autoRefreshResultsCount += isArray(result?.runs) ? result.runs.length : 0;
+          if (isCancelled()) {
+            return;
+          }
+          result?.runs?.forEach(({ info }) => autoRefreshRunIds.add(info.runUuid));
           currentPageToken = result?.next_page_token;
         }
       }
@@ -128,7 +137,8 @@ export const useExperimentRunsAutoRefresh = ({
     };
     scheduleRefresh();
     return () => {
+      cancelled = true;
       clearTimeout(refreshTimeoutRef.current);
     };
-  }, [experimentIds, fetchRuns, searchFacets, enabled, cachedPinnedRuns, lastFetchedTime, isLoadingRuns]);
+  }, [experimentIds, fetchRuns, searchFacets, enabled, cachedPinnedRuns, lastFetchedTime, isLoadingRuns, pageSize]);
 };

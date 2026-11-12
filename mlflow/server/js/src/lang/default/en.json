@@ -2051,6 +2051,10 @@
     "defaultMessage": "Outcome",
     "description": "Comparison outcome direction field"
   },
+  "4hkXwM": {
+    "defaultMessage": "Runs per request (including children)",
+    "description": "Label for the experiment Runs page size selector"
+  },
   "4iVjvu": {
     "defaultMessage": "Create a user to get started.",
     "description": "Empty state description for users table"
@@ -10098,6 +10102,10 @@
   "UK9hTn": {
     "defaultMessage": "Add a run to compare against the baseline.",
     "description": "Details tab of the eval-run comparison when only the baseline run is selected"
+  },
+  "UKPSF6": {
+    "defaultMessage": "This limit includes child runs even when collapsed, so parent rows may be fewer.",
+    "description": "Explanation that the Runs page size limits all matching runs rather than parent rows"
   },
   "UL6Pya": {
     "defaultMessage": "Run stats",
