@@ -1,6 +1,6 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
-import { renderWithDesignSystem, screen } from '../../../../../common/utils/TestUtils.react18';
+import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/utils/TestUtils.react18';
 import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
 
 describe('ExperimentViewRunsTableStatusBar page size', () => {
@@ -18,6 +18,7 @@ describe('ExperimentViewRunsTableStatusBar page size', () => {
     await userEvent.hover(label);
     expect(await screen.findByRole('tooltip')).toHaveTextContent('parent rows may be fewer');
     await userEvent.click(screen.getByRole('combobox', { name: 'Runs per request (including children)' }));
+    await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['100', '250', '500']);
     await userEvent.click(screen.getByRole('option', { name: '500' }));
     expect(onChange).toHaveBeenCalledWith(500);
