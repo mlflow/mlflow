@@ -40,7 +40,7 @@ def compute_pandas_digest(df) -> str:
     ).columns
 
     desired_columns = inferred_columns.union(typed_columns)
-    trimmed_df = trimmed_df[desired_columns]
+    trimmed_df = _with_datetimes_in_nanoseconds(trimmed_df[desired_columns])
 
     return get_normalized_md5_digest(
         [
@@ -49,6 +49,37 @@ def compute_pandas_digest(df) -> str:
         ]
         + [str(x).encode() for x in df.columns]
     )
+
+
+def _with_datetimes_in_nanoseconds(df):
+    """
+    Convert the datetime columns of ``df`` to nanoseconds, so that the digest doesn't depend on
+    the unit pandas stores them in. The hash covers the stored integers, and ``pd.to_datetime``
+    on strings returns nanoseconds in pandas 2 but microseconds in pandas 3. A column outside
+    the nanosecond range keeps its unit. PyArrow timestamps are left as they are, since their
+    unit is part of the dtype.
+    """
+    import numpy as np
+    import pandas as pd
+
+    converted = None
+    for position, (_, column) in enumerate(df.items()):
+        dtype = column.dtype
+        is_datetime = isinstance(dtype, pd.DatetimeTZDtype) or (
+            isinstance(dtype, np.dtype) and dtype.kind == "M"
+        )
+        # `.dt.unit` is absent before pandas 2, which only stores nanoseconds.
+        if not is_datetime or getattr(column.dt, "unit", "ns") == "ns":
+            continue
+        try:
+            column = column.dt.as_unit("ns")
+        except pd.errors.OutOfBoundsDatetime:
+            continue
+        if converted is None:
+            converted = df.copy()
+        # Set by position, which also handles duplicate column names.
+        converted.isetitem(position, column)
+    return df if converted is None else converted
 
 
 def compute_numpy_digest(features, targets=None) -> str:
