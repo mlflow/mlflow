@@ -75,6 +75,7 @@ def describe_pr(pr: dict[str, Any]) -> dict[str, Any]:
         "author": {
             "login": user.get("login", ""),
             "type": user.get("type", ""),
+            "association": pr["author_association"],
         },
         "base": {
             "ref": pr["base"]["ref"],

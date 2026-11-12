@@ -65,13 +65,14 @@ def test_describe_pr(pr_context: ModuleType) -> None:
         "title": "Fix foo",
         "body": None,
         "user": {"login": "alice", "type": "User"},
+        "author_association": "MEMBER",
         "base": {"ref": "master", "sha": "a" * 40},
         "head": {"ref": "fix-foo", "sha": "b" * 40, "repo": None},
     }
     assert pr_context.describe_pr(pr) == {
         "title": "Fix foo",
         "body": "",
-        "author": {"login": "alice", "type": "User"},
+        "author": {"login": "alice", "type": "User", "association": "MEMBER"},
         "base": {"ref": "master", "sha": "a" * 40},
         "head": {"ref": "fix-foo", "sha": "b" * 40, "repo": ""},
     }
