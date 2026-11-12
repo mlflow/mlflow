@@ -7,7 +7,9 @@ from types import ModuleType
 from typing import Any
 from unittest import mock
 
+import jsonschema  # type: ignore[import-untyped]
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -160,6 +162,78 @@ def test_hunk_that_contradicts_its_header_is_rejected(
         validate_review.read_hunks(diff)
 
 
+@pytest.fixture(scope="module")
+def schema() -> jsonschema.Draft202012Validator:
+    return jsonschema.Draft202012Validator(
+        yaml.safe_load((ROOT / ".claude/scripts/review.schema.yml").read_text())
+    )
+
+
+COMMENT = {"path": "foo.py", "body": "x", "side": "RIGHT", "line": 4}
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"event": "APPROVE", "body": "ok", "comments": []},
+        {"event": "COMMENT", "body": "ok", "comments": [COMMENT]},
+        {"event": "REQUEST_CHANGES", "body": "ok", "commit_id": "a" * 40, "comments": [COMMENT]},
+        {
+            "event": "COMMENT",
+            "body": "ok",
+            "comments": [COMMENT | {"start_side": "LEFT", "start_line": 3}],
+        },
+    ],
+)
+def test_schema_accepts_well_formed_payloads(
+    schema: jsonschema.Draft202012Validator, payload: dict[str, Any]
+) -> None:
+    assert list(schema.iter_errors(payload)) == []
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        ({"event": "MERGE", "body": "ok", "comments": []}, "'MERGE' is not one of"),
+        ({"event": "COMMENT", "comments": []}, "'body' is a required property"),
+        ({"event": "COMMENT", "body": " ", "comments": []}, "does not match"),
+        ({"event": "COMMENT", "body": "ok", "commit_id": "abc", "comments": []}, "does not match"),
+        (
+            {"event": "COMMENT", "body": "ok", "comments": [COMMENT | {"line": 0}]},
+            "0 is less than the minimum of 1",
+        ),
+        (
+            {"event": "COMMENT", "body": "ok", "comments": [COMMENT | {"side": "BOTH"}]},
+            "'BOTH' is not one of",
+        ),
+        (
+            {"event": "COMMENT", "body": "ok", "comments": [COMMENT | {"position": 3}]},
+            "Additional properties are not allowed",
+        ),
+        (
+            {"event": "COMMENT", "body": "ok", "comments": [COMMENT | {"start_line": 3}]},
+            "'start_side' is a dependency of 'start_line'",
+        ),
+        (
+            {
+                "event": "COMMENT",
+                "body": "ok",
+                "comments": [COMMENT | {"side": "LEFT", "start_side": "RIGHT", "start_line": 3}],
+            },
+            "'RIGHT' was expected",
+        ),
+    ],
+)
+def test_schema_rejects_malformed_payloads(
+    schema: jsonschema.Draft202012Validator, payload: dict[str, Any], expected: str
+) -> None:
+    match [e.message for e in schema.iter_errors(payload)]:
+        case [message]:
+            assert expected in message
+        case messages:
+            pytest.fail(f"Expected one error, got {messages}")
+
+
 def run_main(
     validate_review: ModuleType,
     monkeypatch: pytest.MonkeyPatch,
@@ -173,7 +247,7 @@ def run_main(
     payload.write_text(json.dumps(review(**comment)))
     diff = tmp_path / "pr.diff"
     diff.write_text(DIFF)
-    argv = ["validate_review.py", "--schema", "schema.yml", "--payload", str(payload)]
+    argv = ["validate_review.py", "--payload", str(payload)]
     if with_diff:
         argv += ["--diff", str(diff)]
     monkeypatch.setattr(sys, "argv", argv)
@@ -195,7 +269,12 @@ def test_main_checks_the_schema_then_the_positions(
         validate_review, monkeypatch, tmp_path, {"side": "RIGHT", "line": 4}, with_diff=True
     )
     mock_run.assert_called_once()
-    assert mock_run.call_args.args[0][:2] == ["uvx", "check-jsonschema@0.37.4"]
+    assert mock_run.call_args.args[0][:4] == [
+        "uvx",
+        "check-jsonschema@0.37.4",
+        "--schemafile",
+        ROOT / ".claude/scripts/review.schema.yml",
+    ]
 
 
 def test_main_skips_positions_without_a_diff(

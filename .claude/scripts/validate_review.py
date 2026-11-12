@@ -1,11 +1,10 @@
 """Validate a pull request review payload in two stages.
 
-1. Shape: check the payload against a JSON Schema.
+1. Shape: check the payload against a JSON Schema (review.schema.yml unless --schema is given).
 2. Positions: with --diff, check that every comment points at a row of the diff.
 
 Usage:
-    uv run .claude/scripts/validate_review.py \\
-        --schema payload.schema.yml --payload payload.json --diff pr.diff
+    uv run .claude/scripts/validate_review.py --payload payload.json --diff pr.diff
 """
 
 from __future__ import annotations
@@ -19,6 +18,7 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Literal
 
+_SCHEMA = Path(__file__).with_name("review.schema.yml")
 _HUNK_HEADER = re.compile(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 _Side = Literal["LEFT", "RIGHT"]
 _Anchor = tuple[_Side, int]
@@ -130,7 +130,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Validate a review payload's shape and its comment positions in a Git diff."
     )
-    parser.add_argument("--schema", type=Path, required=True, help="JSON Schema for the payload")
+    parser.add_argument(
+        "--schema",
+        type=Path,
+        default=_SCHEMA,
+        help="JSON Schema for the payload (default: %(default)s)",
+    )
     parser.add_argument("--payload", type=Path, required=True, help="Review payload JSON file")
     parser.add_argument("--diff", type=Path, help="Git diff the comments must point into")
     args = parser.parse_args()
