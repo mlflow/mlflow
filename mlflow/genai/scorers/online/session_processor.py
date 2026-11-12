@@ -138,6 +138,15 @@ class OnlineSessionScoringProcessor:
             f"{time_window.max_last_trace_timestamp_ms}]"
         )
 
+        # A larger completion buffer can move the upper bound behind the checkpoint.
+        # Wait instead of rewinding the checkpoint or overwriting its session ID tie-breaker.
+        if (
+            checkpoint is not None
+            and time_window.max_last_trace_timestamp_ms <= checkpoint.timestamp_ms
+        ):
+            _logger.debug("Session completion window has not advanced, skipping")
+            return
+
         session_tasks = self._fetch_and_filter_completed_sessions(time_window, checkpoint)
 
         if not session_tasks:

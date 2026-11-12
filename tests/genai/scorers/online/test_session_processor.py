@@ -199,6 +199,33 @@ def test_process_sessions_updates_checkpoint_when_no_sessions(
     assert checkpoint.session_id is None
 
 
+@pytest.mark.parametrize("max_last_trace_timestamp_ms", [1500, 2000])
+def test_process_sessions_waits_when_window_end_is_not_after_checkpoint(
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_score_session,
+    max_last_trace_timestamp_ms,
+):
+    # e.g. the completion buffer was increased after the checkpoint was written
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineSessionScoringTimeWindow(
+        min_last_trace_timestamp_ms=2000,
+        max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineSessionScoringCheckpoint(
+        timestamp_ms=2000, session_id="sess-001"
+    )
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
+    )
+    processor.process_sessions()
+
+    mock_tracking_store.find_completed_sessions.assert_not_called()
+    mock_score_session.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_not_called()
+
+
 def test_process_sessions_filters_checkpoint_boundary(
     mock_trace_loader,
     mock_checkpoint_manager,
