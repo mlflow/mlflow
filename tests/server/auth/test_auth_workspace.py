@@ -3723,18 +3723,20 @@ def test_create_classification_folds_duplicate_prompt_tags_last_wins(
 
 
 @pytest.mark.parametrize(
-    ("path", "validator"),
+    ("path", "validator", "extra_body"),
     [
-        (CREATE_PROMPTLAB_RUN, "validate_can_create_promptlab_run"),
-        (INVOKE_ISSUE_DETECTION, "validate_can_invoke_issue_detection"),
-        (INVOKE_GENAI_EVALUATE, "validate_can_invoke_genai_evaluate"),
+        (CREATE_PROMPTLAB_RUN, "validate_can_create_promptlab_run", {}),
+        (INVOKE_ISSUE_DETECTION, "validate_can_invoke_issue_detection", {}),
+        (INVOKE_GENAI_EVALUATE, "validate_can_invoke_genai_evaluate", {}),
+        # An explicit model, so the check is the run veto alone and not the schedule's secret.
+        ("/api/3.0/mlflow/issues/detect", "validate_can_detect_issues", {"model": "gateway:/e"}),
     ],
 )
 @pytest.mark.parametrize("run_denied", [True, False])
 def test_alternate_run_creation_paths_carry_the_run_veto(
-    workspace_permission_setup, monkeypatch, path, validator, run_denied
+    workspace_permission_setup, monkeypatch, path, validator, extra_body, run_denied
 ):
-    """Three routes create a run without saying so in their name.
+    """These routes create a run without saying so in their name.
 
     Each checked only the experiment, so `(run, *, DENY)` was bypassed on every run-creation path
     except `CreateRun` itself. `run_denied=False` pins the veto-only half: with no run grant these
@@ -3748,8 +3750,29 @@ def test_alternate_run_creation_paths_carry_the_run_veto(
     if run_denied:
         rows.append(("run", "*", DENY.name))
     _grant(store, username, "team-a", rows)
-    with auth_module.app.test_request_context(path, method="POST", json={"experiment_id": "exp-2"}):
+    body = {"experiment_id": "exp-2", **extra_body}
+    with auth_module.app.test_request_context(path, method="POST", json=body):
         assert getattr(auth_module, validator)() is not run_denied
+
+
+@pytest.mark.parametrize("trace_denied", [True, False])
+def test_detect_issues_carries_the_trace_veto(
+    workspace_permission_setup, monkeypatch, trace_denied
+):
+    # Detection's job reads the experiment's traces from the store, so a trace DENY refuses it.
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("experiment", "*", EDIT.name)]
+    if trace_denied:
+        rows.append(("trace", "*", DENY.name))
+    _grant(store, username, "team-a", rows)
+    body = {"experiment_id": "exp-2", "model": "gateway:/e"}
+    with auth_module.app.test_request_context(
+        "/api/3.0/mlflow/issues/detect", method="POST", json=body
+    ):
+        assert auth_module.validate_can_detect_issues() is not trace_denied
 
 
 @pytest.mark.parametrize(

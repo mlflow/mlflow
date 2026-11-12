@@ -137,28 +137,40 @@ def _detect_issues_into_run(
             "total_cost_usd": result.total_cost_usd,
         }
     except Exception as error:
-        # Recorded before the status so a run that reads as FAILED already carries its reason,
-        # and best-effort so a store that refuses the tag cannot swallow the original failure.
-        try:
-            client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_ERROR, _describe_failure(error))
-        except Exception:
-            _logger.warning("Could not record why detection run %s failed", run_id, exc_info=True)
-        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
+        _record_failure(client, run_id, error)
         raise
+
+
+def _record_failure(client: MlflowClient, run_id: str, error: BaseException) -> None:
+    """Finish a detection run as FAILED, with why."""
+    # Recorded before the status so a run that reads as FAILED already carries its reason,
+    # and best-effort so a store that refuses the tag cannot swallow the original failure.
+    try:
+        client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_ERROR, _describe_failure(error))
+    except Exception:
+        _logger.warning("Could not record why detection run %s failed", run_id, exc_info=True)
+    client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
 
 
 @job(name="invoke_issue_detection", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
 def invoke_issue_detection_job(
     experiment_id: str,
-    trace_ids: list[str],
+    trace_ids: list[str] | None,
     categories: list[str],
     run_id: str,
     model: str | None = None,
     instructions: str | None = None,
     username: str | None = None,
-):
+    filter_string: str | None = None,
+) -> dict[str, Any]:
     """
     Job function to run issue detection on traces.
+
+    Analyzes ``trace_ids`` when given. When ``trace_ids`` is ``None``, the run samples the traces
+    matching ``filter_string`` instead -- the same way and up to the same size a scheduled
+    occurrence does -- so a filter matching a large share of the experiment cannot make one run
+    analyze an unbounded number of traces. Sampling happens here rather than in the request
+    because it reads whole traces.
 
     Note: Provider credentials should be passed via environment variables set by submit_job().
     """
@@ -168,8 +180,27 @@ def invoke_issue_detection_job(
         if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
             os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
 
+    client = MlflowClient()
+    if trace_ids is None:
+        try:
+            traces = sample_traces(
+                MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
+                search_kwargs={"experiment_ids": [experiment_id], "filter_string": filter_string},
+            )
+            trace_ids = [trace.info.trace_id for trace in traces]
+            client.set_tag(run_id, "total_traces", str(len(trace_ids)))
+            if not trace_ids:
+                # Nothing matched, so there is nothing to analyze: finish the run over zero traces
+                # rather than failing it, as a scheduled occurrence over a quiet window does.
+                client.set_tag(run_id, "total_cost_usd", 0.0)
+                client.set_tag(run_id, "total_traces_analyzed", 0)
+                client.set_terminated(run_id, RunStatus.to_string(RunStatus.FINISHED))
+                return {"total_traces_analyzed": 0, "total_cost_usd": 0.0}
+        except Exception as error:
+            _record_failure(client, run_id, error)
+            raise
     return _detect_issues_into_run(
-        MlflowClient(), experiment_id, trace_ids, categories, run_id, model, instructions
+        client, experiment_id, trace_ids, categories, run_id, model, instructions
     )
 
 

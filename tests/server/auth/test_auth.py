@@ -32,6 +32,7 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_STORE_URI,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
@@ -74,6 +75,7 @@ from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider imp
     ASSISTANT_DELEGATION_HEADER,
 )
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -9337,6 +9339,73 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
     resp = requests.post(
         url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
     )
+    assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_detect_issues_requires_use_permission_on_the_schedule_secret(client):
+    # Without `model`, issues/detect runs on the model saved in the experiment's detection
+    # schedule, decrypting the stored secret it names into the job environment. That requires
+    # USE on the secret, as issues/invoke requires for a secret named in the request: EDIT on a
+    # shared experiment whose owner saved their own key in its schedule is not enough.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    collaborator, collaborator_pw = create_user(base)
+
+    resp = requests.post(
+        f"{base}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "owner-openai-key",
+            "secret_value": {"api_key": "sk-owner"},
+            "provider": "openai",
+        },
+        auth=(owner, owner_pw),
+    )
+    resp.raise_for_status()
+    secret_id = resp.json()["secret"]["secret_id"]
+
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "shared-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    schedule = DetectionSchedule(
+        cadence=DetectionCadence.DAILY,
+        model=ScheduleModel(provider="openai", model="gpt-4o", secret_id=secret_id),
+    )
+    requests.post(
+        f"{base}/api/2.0/mlflow/experiments/set-experiment-tag",
+        json={
+            "experiment_id": exp_id,
+            "key": MLFLOW_ISSUE_DETECTION_SCHEDULE,
+            "value": schedule.to_json(),
+        },
+        auth=(owner, owner_pw),
+    ).raise_for_status()
+    grant_role_permission(base, collaborator, "experiment", exp_id, "EDIT")
+
+    url = f"{base}/api/3.0/mlflow/issues/detect"
+    payload = {"experiment_id": exp_id}
+
+    resp = requests.post(url, json=payload, auth=(collaborator, collaborator_pw))
+    assert resp.status_code == 403
+
+    grant_role_permission(base, collaborator, "gateway_secret", secret_id, "READ")
+    resp = requests.post(url, json=payload, auth=(collaborator, collaborator_pw))
+    assert resp.status_code == 403
+
+    # With USE the auth gate passes. The handler may still fail later (job execution is not
+    # enabled in this test env), so only assert it is no longer a 403.
+    grant_role_permission(base, collaborator, "gateway_secret", secret_id, "USE")
+    resp = requests.post(url, json=payload, auth=(collaborator, collaborator_pw))
+    assert resp.status_code != 403
+
+    # The owner holds the secret, so their own schedule passes the gate.
+    resp = requests.post(url, json=payload, auth=(owner, owner_pw))
     assert resp.status_code != 403
 
 

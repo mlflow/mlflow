@@ -478,3 +478,114 @@ class SearchIssues(_message.Message):
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
 Global___SearchIssues: _TypeAlias = SearchIssues  # noqa: Y015
+
+@_typing.final
+class IssueDetectionRun(_message.Message):
+    """An issue detection run: one analysis of an experiment's traces that files what it finds as
+    issues.
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    RUN_ID_FIELD_NUMBER: _builtins.int
+    EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
+    STATUS_FIELD_NUMBER: _builtins.int
+    START_TIME_FIELD_NUMBER: _builtins.int
+    END_TIME_FIELD_NUMBER: _builtins.int
+    ERROR_MESSAGE_FIELD_NUMBER: _builtins.int
+    run_id: _builtins.str
+    """ID of the run. Issues the run creates carry it as their source_run_id."""
+    experiment_id: _builtins.str
+    """Experiment ID."""
+    status: _builtins.str
+    """One of "running", "succeeded", "failed" or "canceled". A run is "running" from the moment it
+    starts, including while its job waits for a worker.
+    """
+    start_time: _builtins.int
+    """Start time of the run, in milliseconds since the epoch."""
+    end_time: _builtins.int
+    """End time of the run, in milliseconds since the epoch. Unset until the run ends."""
+    error_message: _builtins.str
+    """Why the run failed. Unset unless the status is "failed"."""
+    def __init__(
+        self,
+        *,
+        run_id: _builtins.str | None = ...,
+        experiment_id: _builtins.str | None = ...,
+        status: _builtins.str | None = ...,
+        start_time: _builtins.int | None = ...,
+        end_time: _builtins.int | None = ...,
+        error_message: _builtins.str | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["end_time", b"end_time", "error_message", b"error_message", "experiment_id", b"experiment_id", "run_id", b"run_id", "start_time", b"start_time", "status", b"status"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["end_time", b"end_time", "error_message", b"error_message", "experiment_id", b"experiment_id", "run_id", b"run_id", "start_time", b"start_time", "status", b"status"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___IssueDetectionRun: _TypeAlias = IssueDetectionRun  # noqa: Y015
+
+@_typing.final
+class DetectIssues(_message.Message):
+    """Request to start an issue detection run over an experiment's traces."""
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    @_typing.final
+    class Response(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        ISSUE_DETECTION_RUN_FIELD_NUMBER: _builtins.int
+        @_builtins.property
+        def issue_detection_run(self) -> Global___IssueDetectionRun:
+            """The run, which has just started."""
+
+        def __init__(
+            self,
+            *,
+            issue_detection_run: Global___IssueDetectionRun | None = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _typing.Literal["issue_detection_run", b"issue_detection_run"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["issue_detection_run", b"issue_detection_run"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+    EXPERIMENT_ID_FIELD_NUMBER: _builtins.int
+    FILTER_STRING_FIELD_NUMBER: _builtins.int
+    MODEL_FIELD_NUMBER: _builtins.int
+    TRACE_IDS_FIELD_NUMBER: _builtins.int
+    experiment_id: _builtins.str
+    """Experiment ID."""
+    filter_string: _builtins.str
+    """Restricts the run to traces matching this filter, in the search_traces filter syntax. The run
+    samples the matching traces: from the newest 500, it picks up to 100 sessions at random, a
+    trace without a session counting as its own, and analyzes their traces. It doesn't promise to
+    cover every match. When neither this nor trace_ids is set, it samples the experiment's newest
+    traces the same way. Cannot be combined with trace_ids.
+    """
+    model: _builtins.str
+    """The model the run analyzes traces with, as "<provider>:/<model>" or "gateway:/<endpoint>".
+    When unset, the run uses the model saved in the experiment's issue detection schedule.
+    """
+    @_builtins.property
+    def trace_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
+        with filter_string.
+        """
+
+    def __init__(
+        self,
+        *,
+        experiment_id: _builtins.str | None = ...,
+        filter_string: _builtins.str | None = ...,
+        model: _builtins.str | None = ...,
+        trace_ids: _abc.Iterable[_builtins.str] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "model", b"model"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "model", b"model", "trace_ids", b"trace_ids"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___DetectIssues: _TypeAlias = DetectIssues  # noqa: Y015
