@@ -51,6 +51,7 @@ export const useExperimentRunsAutoRefresh = ({
       return;
     }
 
+    let cancelled = false;
     const scheduleRefresh = async () => {
       const hasBeenInitialized = Boolean(lastFetchedTime.current);
       const timePassed = lastFetchedTime.current ? Date.now() - lastFetchedTime.current : 0;
@@ -68,8 +69,7 @@ export const useExperimentRunsAutoRefresh = ({
             Date.now(),
           ),
           requestedFacets: searchFacets,
-          // A refresh may span more runs than the server accepts in a single search request.
-          maxResults: Math.min(requestedRunsCount, 50_000),
+          maxResults: pageSize,
         };
 
         let autoRefreshFetchedPages = 0;
@@ -86,7 +86,8 @@ export const useExperimentRunsAutoRefresh = ({
           // At this moment, check if the results from auto-refresh should be considered. If the following
           // conditions are met, the results from auto-refresh will be discarded.
           if (
-            // Skip if auto-refresh has been disabled before the results response came back
+            // Skip if auto-refresh was cancelled or disabled before the response came back
+            cancelled ||
             !autoRefreshEnabledRef.current ||
             // Skip if user has loaded more runs since the last request
             initialRunsCount > requestedRunsCount ||
@@ -113,6 +114,9 @@ export const useExperimentRunsAutoRefresh = ({
               discardResultsFn,
             },
           );
+          if (cancelled) {
+            return;
+          }
           autoRefreshResultsCount += isArray(result?.runs) ? result.runs.length : 0;
           currentPageToken = result?.next_page_token;
         }
@@ -129,6 +133,7 @@ export const useExperimentRunsAutoRefresh = ({
     };
     scheduleRefresh();
     return () => {
+      cancelled = true;
       clearTimeout(refreshTimeoutRef.current);
     };
   }, [experimentIds, fetchRuns, searchFacets, enabled, cachedPinnedRuns, lastFetchedTime, isLoadingRuns, pageSize]);

@@ -1299,6 +1299,10 @@ module.exports = {
   "mlflow.experiment_page.sort_select_v2.toggle": "",
   "mlflow.experiment_page.table_resizer.collapse": "",
 
+  // -- mlflow.experiment_runs --
+  "mlflow.experiment_runs.page_size": "",
+  "mlflow.experiment_runs.page_size_help": "",
+
   // -- mlflow.experiment_side_nav --
   "mlflow.experiment_side_nav.assistant_beta_tag": "",
   "mlflow.experiment_side_nav.assistant_button": "",

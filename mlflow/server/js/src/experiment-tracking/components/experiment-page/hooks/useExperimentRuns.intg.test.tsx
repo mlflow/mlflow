@@ -35,10 +35,8 @@ import { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { NotFoundError, BadRequestError } from '@databricks/web-shared/errors';
 import { ErrorBoundary } from 'react-error-boundary';
 import { runInputsOutputsByUuid } from '../../../reducers/InputsOutputsReducer';
-import { useServerInfo } from '../../../hooks/useServerInfo';
 import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
-
-jest.mock('../../../hooks/useServerInfo', () => ({ useServerInfo: jest.fn() }));
+import { setLocalStorageItem } from '@databricks/web-shared/hooks';
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),
@@ -185,9 +183,7 @@ describe('useExperimentRuns - integration test', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
-    jest
-      .mocked(useServerInfo)
-      .mockReturnValue({ data: undefined, isLoading: false } as ReturnType<typeof useServerInfo>);
+    setLocalStorageItem('runs_page.page_size', 0, false, 100);
     jest.mocked(searchRunsApi).mockClear();
     jest
       .mocked(searchRunsApi)
@@ -235,10 +231,7 @@ describe('useExperimentRuns - integration test', () => {
     return result;
   };
   test('uses the configured page size for initial loading, Load more, and manual refresh', async () => {
-    jest.mocked(useServerInfo).mockReturnValue({
-      data: { runs_page_size: 250 },
-      isLoading: false,
-    } as ReturnType<typeof useServerInfo>);
+    setLocalStorageItem('runs_page.page_size', 0, false, 250);
     jest.mocked(searchRunsApi).mockReturnValue({
       type: 'SEARCH_RUNS_API',
       payload: Promise.resolve({ runs: [], next_page_token: 'next-page' }),
@@ -261,21 +254,48 @@ describe('useExperimentRuns - integration test', () => {
     expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250, pageToken: undefined }));
   });
 
-  test('waits for server info before issuing the initial runs request', async () => {
-    jest
-      .mocked(useServerInfo)
-      .mockReturnValue({ data: undefined, isLoading: true } as ReturnType<typeof useServerInfo>);
-    const { rerender } = await renderTestHook();
-    expect(searchRunsApi).not.toHaveBeenCalled();
+  test('restarts pagination when the selection changes and remembers it after remount', async () => {
+    jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => ({
+      type: 'SEARCH_RUNS_API',
+      payload: Promise.resolve({ runs: [], next_page_token: `next-${maxResults}` }),
+      meta: { id: 0 },
+    }));
+    const { result, unmount } = await renderTestHook();
+    expect(result.current.pageSizeSelect.options).toEqual([100, 250, 500]);
+    expect(result.current.pageSizeSelect.default).toBe(100);
+    await act(async () => {
+      await result.current.loadMoreRuns();
+    });
+    expect(loadMoreRunsApi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageToken: 'next-100', maxResults: 100 }),
+    );
 
-    jest.mocked(useServerInfo).mockReturnValue({
-      data: { runs_page_size: 250 },
-      isLoading: false,
-    } as ReturnType<typeof useServerInfo>);
-    rerender({ uiState: testUiState, searchFacets: testSearchFacets, experimentIds: testExperimentIds });
-    expect(searchRunsApi).toHaveBeenCalledTimes(1);
-    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250 }));
+    await act(async () => {
+      result.current.pageSizeSelect.onChange(500);
+    });
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: undefined, maxResults: 500 }));
+    await act(async () => {
+      await result.current.loadMoreRuns();
+    });
+    expect(loadMoreRunsApi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageToken: 'next-500', maxResults: 500 }),
+    );
+    unmount();
+
+    const remounted = await renderTestHook();
+    expect(remounted.result.current.pageSizeSelect.default).toBe(500);
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: undefined, maxResults: 500 }));
   });
+
+  test.each([0, -1, 25, 501, 50_000, '500', null, {}])(
+    'falls back to 100 for an invalid saved page size: %p',
+    async (value) => {
+      setLocalStorageItem('runs_page.page_size', 0, false, value);
+      const { result } = await renderTestHook();
+      expect(result.current.pageSizeSelect.default).toBe(100);
+      expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 100 }));
+    },
+  );
 
   test('should call for new runs and return processed runs data', async () => {
     // Mock two responses - one for initial runs, one for load more runs
@@ -640,36 +660,33 @@ describe('useExperimentRuns - integration test', () => {
     test('caps each auto-refresh request while retaining the target number of runs', async () => {
       const fetchRuns = jest
         .fn<FetchRunsHookFunction>()
-        .mockResolvedValueOnce({ runs: new Array(50_000), next_page_token: 'next-page' })
+        .mockResolvedValueOnce({ runs: new Array(500), next_page_token: 'next-page' })
         .mockResolvedValue({ runs: [] });
       const { unmount } = renderHook(() =>
         useExperimentRunsAutoRefresh({
-          pageSize: 50_000,
+          pageSize: 500,
           experimentIds: testExperimentIds,
           lastFetchedTime: { current: Date.now() - RUNS_AUTO_REFRESH_INTERVAL },
           fetchRuns,
           searchFacets: testSearchFacets,
           enabled: true,
           cachedPinnedRuns: { current: [] },
-          runsData: { runInfos: new Array(50_001) } as ExperimentRunsSelectorResult,
+          runsData: { runInfos: new Array(501) } as ExperimentRunsSelectorResult,
           isLoadingRuns: false,
         }),
       );
-      expect(fetchRuns).toHaveBeenCalledWith(expect.objectContaining({ maxResults: 50_000 }), expect.anything());
+      expect(fetchRuns).toHaveBeenCalledWith(expect.objectContaining({ maxResults: 500 }), expect.anything());
       await waitFor(() => expect(fetchRuns).toHaveBeenCalledTimes(2));
       expect(fetchRuns).toHaveBeenNthCalledWith(
         2,
-        expect.objectContaining({ maxResults: 50_000, pageToken: 'next-page' }),
+        expect.objectContaining({ maxResults: 500, pageToken: 'next-page' }),
         expect.anything(),
       );
       unmount();
     });
 
     test('uses the configured page size when automatically refreshing', async () => {
-      jest.mocked(useServerInfo).mockReturnValue({
-        data: { runs_page_size: 250 },
-        isLoading: false,
-      } as ReturnType<typeof useServerInfo>);
+      setLocalStorageItem('runs_page.page_size', 0, false, 250);
       const { unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
       await act(async () => {
         jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
@@ -679,6 +696,45 @@ describe('useExperimentRuns - integration test', () => {
       });
       expect(searchRunsApi).toHaveBeenCalledTimes(2);
       expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250 }));
+      unmount();
+    });
+
+    test('discards an in-flight auto-refresh when the page size changes', async () => {
+      let resolvePrevious: (value: Awaited<ReturnType<FetchRunsHookFunction>>) => void = () => {};
+      const fetchRuns = jest
+        .fn<FetchRunsHookFunction>()
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolvePrevious = resolve;
+            }),
+        )
+        .mockResolvedValue({ runs: [] });
+      const lastFetchedTime = { current: Date.now() - RUNS_AUTO_REFRESH_INTERVAL };
+      const cachedPinnedRuns = { current: [] };
+      const { rerender, unmount } = renderHook(
+        ({ pageSize }) =>
+          useExperimentRunsAutoRefresh({
+            pageSize,
+            experimentIds: testExperimentIds,
+            lastFetchedTime,
+            fetchRuns,
+            searchFacets: testSearchFacets,
+            enabled: true,
+            cachedPinnedRuns,
+            runsData: { runInfos: new Array(501) } as ExperimentRunsSelectorResult,
+            isLoadingRuns: false,
+          }),
+        { initialProps: { pageSize: 100 } },
+      );
+      const [previousParams, previousOptions] = fetchRuns.mock.calls[0];
+      rerender({ pageSize: 500 });
+      expect(previousOptions?.discardResultsFn?.(previousParams, { runs: [] })).toBe(true);
+      await act(async () => {
+        resolvePrevious({ runs: new Array(100), next_page_token: 'stale-page' });
+      });
+      expect(fetchRuns).toHaveBeenCalledTimes(2);
+      expect(fetchRuns).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 500 }), expect.anything());
       unmount();
     });
 

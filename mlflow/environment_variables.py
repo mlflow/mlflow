@@ -306,13 +306,6 @@ MLFLOW_SERVER_INFO_TRACKING_AUTH = _EnvironmentVariable(
     "MLFLOW_SERVER_INFO_TRACKING_AUTH", str, None
 )
 
-#: Number of matching runs requested per page by the experiment Runs UI, including child runs.
-#: Set on the tracking server; does not change Python client or REST API defaults.
-#: Must be an integer from 1 to 50000. Invalid values fall back to 100 with a warning.
-#: Larger values may increase response sizes and browser memory usage. (default: ``100``)
-#: Restart the tracking server and reload the UI after changing this value.
-MLFLOW_UI_RUNS_PAGE_SIZE = _EnvironmentVariable("MLFLOW_UI_RUNS_PAGE_SIZE", int, 100)
-
 #: Specifies the chunk size to use when downloading a file from GCS
 #: (default: ``None``). If None, the chunk size is automatically determined by the
 #: ``google-cloud-storage`` package.

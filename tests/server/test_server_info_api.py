@@ -30,16 +30,13 @@ def _flask_server_info(path: str) -> dict[str, Any]:
     return response.get_json()
 
 
-@pytest.mark.parametrize("runs_page_size", ["100", "250"])
-def test_server_info_matches_flask_json(monkeypatch, runs_page_size):
+def test_server_info_matches_flask_json(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", "true")
-    monkeypatch.setenv("MLFLOW_UI_RUNS_PAGE_SIZE", runs_page_size)
     with TestClient(create_fastapi_app()) as client:
         for path in _SERVER_INFO_PATHS:
             response = client.get(path)
             assert response.status_code == 200
             assert response.json() == _flask_server_info(path)
-            assert response.json()["runs_page_size"] == int(runs_page_size)
         health = client.get("/health")
         assert health.status_code == 200
         assert health.text == "OK"

@@ -17,7 +17,10 @@ import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../../commo
 import Utils from '../../../../common/utils/Utils';
 import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
 import type { RunEntity, SearchRunsApiResponse } from '../../../types';
-import { useServerInfo } from '../../../hooks/useServerInfo';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
+import type { CursorPaginationProps } from '@databricks/design-system';
+
+const RUNS_PAGE_SIZE_OPTIONS = [RUNS_SEARCH_MAX_RESULTS, 250, 500];
 
 export type FetchRunsHookParams = ReturnType<typeof createSearchRunsParams> & {
   requestedFacets: ExperimentPageSearchFacetsState;
@@ -62,8 +65,17 @@ export const useExperimentRuns = (
   disabled = false,
 ) => {
   const dispatch = useDispatch<ThunkDispatch>();
-  const { data: serverInfo, isLoading: isLoadingServerInfo } = useServerInfo();
-  const pageSize = serverInfo?.runs_page_size ?? RUNS_SEARCH_MAX_RESULTS;
+  const [storedPageSize, setPageSize] = useLocalStorage({
+    key: 'runs_page.page_size',
+    version: 0,
+    initialValue: RUNS_SEARCH_MAX_RESULTS,
+  });
+  const pageSize = RUNS_PAGE_SIZE_OPTIONS.includes(storedPageSize) ? storedPageSize : RUNS_SEARCH_MAX_RESULTS;
+  const pageSizeSelect: NonNullable<CursorPaginationProps['pageSizeSelect']> = {
+    options: RUNS_PAGE_SIZE_OPTIONS,
+    default: pageSize,
+    onChange: setPageSize,
+  };
 
   const [runsData, setRunsData] = useState<ExperimentRunsSelectorResult>(() => createEmptyRunsResult());
 
@@ -187,14 +199,14 @@ export const useExperimentRuns = (
   // Fetch runs when new request params are available
   // (e.g. after search facets change)
   useEffect(() => {
-    if (disabled || isLoadingServerInfo) {
+    if (disabled) {
       return;
     }
     const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current, pageSize);
     if (requestParams) {
       fetchRuns(requestParams);
     }
-  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds, isLoadingServerInfo, pageSize]);
+  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds, pageSize]);
 
   const loadMoreRuns = async () => {
     const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current, pageSize);
@@ -223,6 +235,7 @@ export const useExperimentRuns = (
   });
 
   return {
+    pageSizeSelect,
     isLoadingRuns,
     moreRunsAvailable: Boolean(nextPageToken),
     refreshRuns,

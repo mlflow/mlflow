@@ -42,6 +42,7 @@ import { getDatasetsCellHeight } from './cells/DatasetsCellRenderer';
 import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
+import type { CursorPaginationProps } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
@@ -84,6 +85,7 @@ export interface ExperimentViewRunsTableProps {
   moreRunsAvailable: boolean;
   onAddColumnClicked: () => void;
   loadMoreRunsFunc: () => void;
+  pageSizeSelect: NonNullable<CursorPaginationProps['pageSizeSelect']>;
   onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
   expandRows: boolean;
   uiState: ExperimentPageUIState;
@@ -108,6 +110,7 @@ export const ExperimentViewRunsTable = React.memo(
     onAddColumnClicked,
     rowsData,
     loadMoreRunsFunc,
+    pageSizeSelect,
     onDatasetSelected,
     expandRows,
     viewState,
@@ -582,7 +585,13 @@ export const ExperimentViewRunsTable = React.memo(
               isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
             />
           )}
-          {displayStatusBar && <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />}
+          {displayStatusBar && (
+            <ExperimentViewRunsTableStatusBar
+              allRunsCount={allRunsCount}
+              isLoading={isLoading}
+              pageSizeSelect={pageSizeSelect}
+            />
+          )}
         </div>
         {displayPreviewSidebar && (
           <PreviewSidebar

@@ -101,6 +101,7 @@ describe('ExperimentViewRunsTable', () => {
   });
 
   const defaultProps: ExperimentViewRunsTableProps = {
+    pageSizeSelect: { options: [100, 250, 500], default: 100, onChange: jest.fn() },
     experiments: [EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789']],
     moreRunsAvailable: false,
     isLoading: false,

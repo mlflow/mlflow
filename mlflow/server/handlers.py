@@ -96,7 +96,6 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
     MLFLOW_SERVER_INFO_TRACKING_AUTH,
-    MLFLOW_UI_RUNS_PAGE_SIZE,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -445,7 +444,6 @@ from mlflow.utils.server_info import (
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
     SERVER_INFO_PRESIGNED_UPLOAD_MODEL_ID_SUPPORTED,
     SERVER_INFO_PRESIGNED_UPLOAD_RUN_ID_SUPPORTED,
-    SERVER_INFO_RUNS_PAGE_SIZE,
     SERVER_INFO_SKILL_CONTENT_MAX_FILES,
     SERVER_INFO_SKILL_CONTENT_MAX_SIZE,
     SERVER_INFO_STORE_TYPE,
@@ -7829,16 +7827,6 @@ def build_server_info_payload() -> dict[str, Any]:
         )
         skill_content_limits = {}
 
-    try:
-        runs_page_size = MLFLOW_UI_RUNS_PAGE_SIZE.get()
-        if not 1 <= runs_page_size <= SEARCH_MAX_RESULTS_THRESHOLD:
-            raise ValueError(
-                f"MLFLOW_UI_RUNS_PAGE_SIZE must be between 1 and {SEARCH_MAX_RESULTS_THRESHOLD}"
-            )
-    except ValueError:
-        _logger.warning("Invalid MLFLOW_UI_RUNS_PAGE_SIZE; defaulting to 100.")
-        runs_page_size = MLFLOW_UI_RUNS_PAGE_SIZE.default
-
     if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
         store_type = None
         trace_archival_enabled = False
@@ -7906,7 +7894,6 @@ def build_server_info_payload() -> dict[str, Any]:
 
     return {
         SERVER_INFO_STORE_TYPE: store_type,
-        SERVER_INFO_RUNS_PAGE_SIZE: runs_page_size,
         SERVER_INFO_WORKSPACES_ENABLED: MLFLOW_ENABLE_WORKSPACES.get(),
         SERVER_INFO_TRACE_ARCHIVAL_ENABLED: trace_archival_enabled,
         SERVER_INFO_MULTIPART_UPLOADS_ENABLED: multipart_uploads_enabled,
