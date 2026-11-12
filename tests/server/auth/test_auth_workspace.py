@@ -8205,11 +8205,17 @@ def test_scorer_point_routes_unchanged_without_a_version_grant(workspace_permiss
     assert _run_scorer_point_route("validate_can_delete_scorer", "1", "s1") is True
 
 
-def _run_online_config_routes(monkeypatch, scorer_name):
+def _run_online_config_routes(monkeypatch, scorer_name, metadata_lookup):
     """Run the online scoring config update and read rules for a scorer in experiment "1"."""
     scorers = {"id-blocked": "blocked", "id-allowed": "allowed"}
     scorer_id = next(i for i, name in scorers.items() if name == scorer_name)
     tracking_store = auth_module._get_tracking_store()
+    monkeypatch.setattr(
+        tracking_store,
+        "_get_scorer_names_by_ids",
+        lambda ids: {i: scorers[i] for i in ids} if metadata_lookup else None,
+        raising=False,
+    )
     monkeypatch.setattr(
         tracking_store,
         "get_online_scoring_configs",
@@ -8237,7 +8243,10 @@ def _run_online_config_routes(monkeypatch, scorer_name):
     return update, read
 
 
-def test_online_config_routes_honor_a_scorer_deny(workspace_permission_setup, monkeypatch):
+@pytest.mark.parametrize("metadata_lookup", [False, True])
+def test_online_config_routes_honor_a_scorer_deny(
+    workspace_permission_setup, monkeypatch, metadata_lookup
+):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -8248,11 +8257,14 @@ def test_online_config_routes_honor_a_scorer_deny(workspace_permission_setup, mo
         [("experiment", "*", EDIT.name), ("scorer", "1/blocked", DENY.name)],
     )
 
-    assert _run_online_config_routes(monkeypatch, "blocked") == (False, False)
-    assert _run_online_config_routes(monkeypatch, "allowed") == (True, True)
+    assert _run_online_config_routes(monkeypatch, "blocked", metadata_lookup) == (False, False)
+    assert _run_online_config_routes(monkeypatch, "allowed", metadata_lookup) == (True, True)
 
 
-def test_online_config_routes_honor_a_scorer_version_deny(workspace_permission_setup, monkeypatch):
+@pytest.mark.parametrize("metadata_lookup", [False, True])
+def test_online_config_routes_honor_a_scorer_version_deny(
+    workspace_permission_setup, monkeypatch, metadata_lookup
+):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
@@ -8263,7 +8275,7 @@ def test_online_config_routes_honor_a_scorer_version_deny(workspace_permission_s
         [("experiment", "*", EDIT.name), ("scorer_version", "*", DENY.name)],
     )
 
-    assert _run_online_config_routes(monkeypatch, "allowed") == (False, False)
+    assert _run_online_config_routes(monkeypatch, "allowed", metadata_lookup) == (False, False)
 
 
 def _run_queue_by_name(monkeypatch, experiment_id, queue_users):
@@ -8421,23 +8433,41 @@ def test_review_queue_list_filter_honors_a_queue_manage_grant(workspace_permissi
     assert _run_list_filter(rows) == ["q1", "q2"]
 
 
-def _run_scorer_list_filter(rows):
-    from mlflow.protos.service_pb2 import ListScorers
-    from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-
-    message = ListScorers.Response()
-    parse_dict({"scorers": rows}, message)
-    resp = SimpleNamespace(json=json.loads(message_to_json(message)), data=None)
+def _run_scorer_list_scope(rows):
+    # Historical denial/version-veto vectors now exercise pre-query scope compilation.
     with auth_module.app.test_request_context("/api/2.0/mlflow/scorers/list"):
-        auth_module.filter_list_scorers(resp)
-    if resp.data is None:
-        return [r["scorer_name"] for r in rows]
-    out = ListScorers.Response()
-    parse_dict(json.loads(resp.data), out)
-    return [s.scorer_name for s in out.scorers]
+        scope = auth_module._compile_scorer_list_scope(
+            auth_module._scorer_listing_gate(auth_module.authenticate_request().username)
+        )
+    return [
+        r["scorer_name"]
+        for r in rows
+        if scope is None or scope.permits(str(r["experiment_id"]), r["scorer_name"])
+    ]
 
 
-def test_scorer_list_filter_honors_a_scorer_deny(workspace_permission_setup):
+@pytest.mark.parametrize("parent_grant", [False, True])
+def test_scorer_scope_preserves_workspace_use_list_point_divergence(
+    workspace_permission_setup, parent_grant
+):
+    store = workspace_permission_setup["store"]
+    user = workspace_permission_setup["username"]
+    _set_workspace_permission(store, user, USE.name)
+    if parent_grant:
+        _grant(store, user, "team-a", [("experiment", "1", READ.name)])
+    with auth_module.app.test_request_context("/?experiment_id=1&name=a"):
+        gate = auth_module._scorer_listing_gate(user)
+        scope = auth_module._compile_scorer_list_scope(gate)
+        assert scope is None or scope.permits("1", "a")
+        assert not auth_module._get_permission_from_scorer_name().can_read
+        assert auth_module.validate_can_read_scorer_list() is parent_grant
+    with auth_module.app.test_request_context("/?experiment_ids=1"):
+        assert auth_module.validate_can_read_scorer_list()
+    with auth_module.app.test_request_context("/"):
+        assert auth_module.validate_can_read_scorer_list()
+
+
+def test_scorer_list_scope_honors_a_scorer_deny(workspace_permission_setup):
     """The scorer tier is per-id grain, so a DENY can name ONE scorer. It must drop that row and
     leave its sibling, which the earlier predicate could not do -- it discarded DENY.
     """
@@ -8461,10 +8491,10 @@ def test_scorer_list_filter_honors_a_scorer_deny(workspace_permission_setup):
         {"experiment_id": 1, "scorer_name": "blocked"},
         {"experiment_id": 1, "scorer_name": "allowed"},
     ]
-    assert _run_scorer_list_filter(rows) == ["allowed"]
+    assert _run_scorer_list_scope(rows) == ["allowed"]
 
 
-def test_scorer_list_filter_honors_a_scorer_version_deny(workspace_permission_setup):
+def test_scorer_list_scope_honors_a_scorer_version_deny(workspace_permission_setup):
     """Every listed row is a ScorerVersion, so a version-tier DENY empties the list.
 
     The version tier is wildcard-only, so this is one constant decision for the whole response --
@@ -8488,10 +8518,10 @@ def test_scorer_list_filter_honors_a_scorer_version_deny(workspace_permission_se
         {"experiment_id": 1, "scorer_name": "s1"},
         {"experiment_id": 2, "scorer_name": "s2"},
     ]
-    assert _run_scorer_list_filter(rows) == []
+    assert _run_scorer_list_scope(rows) == []
 
 
-def test_scorer_list_filter_keeps_rows_without_a_scorer_version_grant(workspace_permission_setup):
+def test_scorer_list_scope_keeps_rows_without_a_scorer_version_grant(workspace_permission_setup):
     # No version grant: the veto passes, so the tiers above decide. The compatibility case.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -8507,10 +8537,10 @@ def test_scorer_list_filter_keeps_rows_without_a_scorer_version_grant(workspace_
     )
 
     rows = [{"experiment_id": 1, "scorer_name": "s1"}]
-    assert _run_scorer_list_filter(rows) == ["s1"]
+    assert _run_scorer_list_scope(rows) == ["s1"]
 
 
-def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup):
+def test_scorer_list_scope_honors_an_experiment_deny(workspace_permission_setup):
     # The other tier: denying the experiment drops its scorers even with a scorer grant.
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -8530,7 +8560,7 @@ def test_scorer_list_filter_honors_an_experiment_deny(workspace_permission_setup
         {"experiment_id": 1, "scorer_name": "s1"},
         {"experiment_id": 2, "scorer_name": "s2"},
     ]
-    assert _run_scorer_list_filter(rows) == ["s2"]
+    assert _run_scorer_list_scope(rows) == ["s2"]
 
 
 # ==========================================================================================
@@ -10440,7 +10470,7 @@ def test_id_grain_types_honor_deny_in_response_filtering(
 
     `_role_based_read_predicate` is what `filter_search_experiments`,
     `filter_list_gateway_model_definitions`, `filter_list_gateway_endpoints`,
-    `filter_list_gateway_secrets`, `filter_search_registered_models`, `filter_list_scorers` and the
+    `filter_list_gateway_secrets`, `filter_search_registered_models` and the
     MCP filters all build their per-row decision from, so one assertion covers the response side
     for the whole family.
     """
