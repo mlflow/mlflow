@@ -422,6 +422,33 @@ def test_pack_env_for_databricks_model_serving_rejects_existing_databricks_dir(
                 pass
 
 
+def test_pack_env_for_databricks_model_serving_rejects_a_model_with_volume_weights(
+    tmp_path, mock_dbr_version
+):
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    (artifacts_dir / "MLmodel").write_text(
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {},
+            "metadata": {"volume_artifacts_path": "/Volumes/c/s/v/weights"},
+        })
+    )
+
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("mlflow.utils.env_pack.subprocess.run") as mock_run,
+        pytest.raises(MlflowException, match="`env_pack` can't be used with it") as e,
+    ):
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test-model/1", enforce_pip_requirements=True
+        ):
+            pass
+
+    assert e.value.error_code == "INVALID_PARAMETER_VALUE"
+    mock_run.assert_not_called()
+
+
 def test_pack_env_with_local_model_path_no_mutation(tmp_path, mock_dbr_version):
     # Create a local directory with model artifacts
     local_model_dir = tmp_path / "local_model"

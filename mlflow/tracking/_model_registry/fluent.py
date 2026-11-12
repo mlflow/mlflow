@@ -15,7 +15,7 @@ from mlflow.entities.model_registry.prompt_version import PromptModelConfig
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
-from mlflow.models.model import MLMODEL_FILE_NAME, Model
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
@@ -24,10 +24,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
-)
-from mlflow.store._unity_catalog.registry.volume_weights import (
-    VOLUME_ARTIFACTS_PATH_METADATA_KEY,
-    get_volume_artifacts_path,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
@@ -168,19 +164,6 @@ def register_model(
     )
 
 
-def _reject_env_pack_for_volume_weights(local_model_dir: str, name: str) -> None:
-    # Registering a model whose weights are in a volume already prepares it for serving, so
-    # staging it again with env_pack would upload and prepare the same model twice.
-    mlmodel_path = os.path.join(local_model_dir, MLMODEL_FILE_NAME)
-    if os.path.exists(mlmodel_path) and get_volume_artifacts_path(Model.load(mlmodel_path)):
-        raise MlflowException.invalid_parameter_value(
-            f"Model '{name}' keeps its weights in a Unity Catalog volume "
-            f"('{VOLUME_ARTIFACTS_PATH_METADATA_KEY}' in its metadata), and registering it "
-            "already prepares it for Databricks Model Serving, so `env_pack` can't be used with "
-            "it. Register the model again without `env_pack`."
-        )
-
-
 def _register_model(
     model_uri,
     name,
@@ -286,7 +269,6 @@ def _register_model(
             enforce_pip_requirements=validated_env_pack.install_dependencies,
             local_model_path=local_model_path,
         ) as artifacts_path_with_env:
-            _reject_env_pack_for_volume_weights(artifacts_path_with_env, name)
             create_version_response = _create_model_version(artifacts_path_with_env)
     else:
         create_version_response = _create_model_version(local_model_path)

@@ -8,6 +8,7 @@ from mlflow.store._unity_catalog.registry import volume_weights
 from mlflow.store._unity_catalog.registry.volume_weights import (
     get_volume_artifacts_path,
     start_volume_weights_copy,
+    volume_weights_in_model_dir,
     wait_for_volume_weights_copy,
 )
 
@@ -64,6 +65,32 @@ def test_get_volume_artifacts_path_rejects_a_path_outside_a_volume(path):
     assert e.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
+@pytest.mark.parametrize(
+    ("volume_path", "weights_dir_name"),
+    [
+        ("/Volumes/c/s/v/weights", "weights"),
+        ("/Volumes/c/s/v/weights/", "weights"),
+        ("/Volumes/c/s/v", "v"),
+    ],
+)
+def test_volume_weights_in_model_dir_finds_weights_that_were_already_copied(
+    tmp_path, volume_path, weights_dir_name
+):
+    weights_dir = tmp_path / "artifacts" / weights_dir_name
+    weights_dir.mkdir(parents=True)
+    (weights_dir / "model.safetensors").write_text("weights")
+
+    assert volume_weights_in_model_dir(str(tmp_path), volume_path)
+
+
+@pytest.mark.parametrize("create_empty_dir", [False, True])
+def test_volume_weights_in_model_dir_is_false_without_copied_weights(tmp_path, create_empty_dir):
+    if create_empty_dir:
+        (tmp_path / "artifacts" / "weights").mkdir(parents=True)
+
+    assert not volume_weights_in_model_dir(str(tmp_path), "/Volumes/c/s/v/weights")
+
+
 def test_start_volume_weights_copy_returns_the_status_polled_after_staging(stage, poll):
     poll.return_value = _status("IN_PROGRESS")
     host_creds = object()
@@ -81,6 +108,20 @@ def test_start_volume_weights_copy_raises_with_the_server_reason_and_code(stage)
     with pytest.raises(MlflowException, match="wasn't registered from a logged model") as e:
         start_volume_weights_copy("c.s.m", "3", None)
     assert e.value.error_code == "BAD_REQUEST"
+
+
+def test_start_volume_weights_copy_explains_a_workspace_that_cant_copy_into_pending_versions(
+    stage, poll
+):
+    stage.side_effect = RestException({
+        "error_code": "NOT_FOUND",
+        "message": "Model must be ready for it to be staged for serving.",
+    })
+    with pytest.raises(MlflowException, match="workspace can't copy the weights") as e:
+        start_volume_weights_copy("c.s.m", "3", None)
+    assert e.value.error_code == "FEATURE_DISABLED"
+    assert "Model must be ready" not in e.value.message
+    poll.assert_not_called()
 
 
 def test_start_volume_weights_copy_maps_an_unknown_server_code_to_internal_error(stage):
@@ -162,3 +203,30 @@ def test_wait_raises_when_the_copy_outlasts_the_timeout(stage, poll, monkeypatch
 
     assert poll.call_count == 2
     stage.assert_not_called()
+
+
+def test_wait_reports_a_failed_copy_without_restarting_it_after_the_timeout(
+    stage, poll, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_COPY_TIMEOUT", "30")
+    with (
+        mock.patch.object(volume_weights.time, "monotonic", side_effect=[0, 31]),
+        pytest.raises(MlflowException, match="into the model version. Check that the volume"),
+    ):
+        wait_for_volume_weights_copy("c.s.m", "3", _status("FAILED"), None)
+
+    stage.assert_not_called()
+    poll.assert_not_called()
+
+
+def test_wait_does_not_sleep_past_the_timeout(stage, poll, no_sleep, monkeypatch):
+    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_COPY_TIMEOUT", "15")
+    poll.return_value = _status("IN_PROGRESS")
+    with (
+        mock.patch.object(volume_weights.time, "monotonic", side_effect=[0, 10, 15]),
+        pytest.raises(MlflowException, match="within 15 seconds"),
+    ):
+        wait_for_volume_weights_copy("c.s.m", "3", _status("IN_PROGRESS"), None)
+
+    no_sleep.assert_called_once_with(5)
+    assert poll.call_count == 1

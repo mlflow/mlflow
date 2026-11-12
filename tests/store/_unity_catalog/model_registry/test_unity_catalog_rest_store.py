@@ -1875,6 +1875,21 @@ def test_create_model_version_with_volume_weights_finalizes_after_the_copy(store
     wait_copy.assert_called_once_with("model_1", "1", {"state": "IN_PROGRESS"}, ANY)
 
 
+def test_create_model_version_uploads_already_copied_volume_weights_without_staging(
+    store, local_model_dir
+):
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+    weights_dir = local_model_dir / "artifacts" / "qwen"
+    weights_dir.mkdir(parents=True, exist_ok=True)
+    (weights_dir / "model.safetensors").write_text("weights")
+
+    steps, start_copy, wait_copy = _create_model_version_recording_steps(store, local_model_dir)
+
+    assert steps == ["create", "upload", "finalize"]
+    start_copy.assert_not_called()
+    wait_copy.assert_not_called()
+
+
 def test_create_model_version_without_volume_weights_does_not_stage(store, local_model_dir):
     steps, start_copy, wait_copy = _create_model_version_recording_steps(store, local_model_dir)
 

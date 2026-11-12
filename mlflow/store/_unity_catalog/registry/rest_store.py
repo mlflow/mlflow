@@ -134,6 +134,7 @@ from mlflow.store._unity_catalog.registry.utils import (
 from mlflow.store._unity_catalog.registry.volume_weights import (
     get_volume_artifacts_path,
     start_volume_weights_copy,
+    volume_weights_in_model_dir,
     wait_for_volume_weights_copy,
 )
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
@@ -1099,8 +1100,10 @@ class UcModelRegistryStore(BaseRestStore):
 
         A model whose weights are in a Unity Catalog volume (``volume_artifacts_path`` in its
         metadata) has Databricks copy them into the version; this returns once that copy is done.
+        A copy of a version whose weights were already copied uploads them with its other files.
         """
-        if _get_volume_artifacts_path(local_model_dir) is None:
+        volume_path = _get_volume_artifacts_path(local_model_dir)
+        if volume_path is None or volume_weights_in_model_dir(local_model_dir, volume_path):
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
             return
         version = str(version)

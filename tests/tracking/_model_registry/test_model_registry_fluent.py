@@ -11,7 +11,6 @@ import mlflow
 from mlflow import MlflowClient, register_model
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException, RestException
-from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     INTERNAL_ERROR,
@@ -539,36 +538,6 @@ def test_register_model_with_env_pack_config(tmp_path, install_deps, monkeypatch
             model_name="Model 1",
             model_version="1",
         )
-
-
-def test_register_model_with_env_pack_rejects_a_model_with_volume_weights(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABRICKS_CPU_ARCH", "x86_64")
-    packed_dir = tmp_path / "packed"
-    packed_dir.mkdir()
-    Model(metadata={"volume_artifacts_path": "/Volumes/c/s/v/weights"}).save(
-        str(packed_dir / "MLmodel")
-    )
-
-    with (
-        mock.patch(
-            "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving"
-        ) as mock_pack_env,
-        mock.patch(
-            "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving"
-        ) as mock_stage_model,
-        mock.patch("mlflow.MlflowClient._create_model_version") as mock_create_version,
-        mock.patch(
-            "mlflow.MlflowClient.get_model_version",
-            return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
-        ),
-    ):
-        mock_pack_env.return_value.__enter__.return_value = str(packed_dir)
-        with pytest.raises(MlflowException, match="`env_pack` can't be used with it") as e:
-            register_model("models:/test-model/1", "Model 1", env_pack="databricks_model_serving")
-
-    assert e.value.error_code == "INVALID_PARAMETER_VALUE"
-    mock_create_version.assert_not_called()
-    mock_stage_model.assert_not_called()
 
 
 def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version, monkeypatch):
