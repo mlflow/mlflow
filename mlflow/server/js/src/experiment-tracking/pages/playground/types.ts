@@ -27,6 +27,11 @@ export interface ConversationMessage extends ChatMessage {
   // at generation time so toggling the response-format control afterward does not
   // retroactively reformat past replies. Display-only; stripped before sending.
   contentIsJson?: boolean;
+  // Set only on assistant replies the playground generated: the resolved messages of the
+  // request that produced the reply. Tells a generated reply apart from an assistant turn
+  // loaded from the registry, and shows whether the prompt changed after the run.
+  // Display-only; stripped before sending.
+  requestMessages?: ChatMessage[];
 }
 
 export type ResponseFormatType = 'text' | 'json_object' | 'json_schema';

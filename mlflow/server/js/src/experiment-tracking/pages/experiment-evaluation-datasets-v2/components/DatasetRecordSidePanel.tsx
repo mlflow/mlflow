@@ -52,7 +52,8 @@ const renderSourceValue = (
     );
   }
   if (source?.human) {
-    return `Human (${source.human.user_name})`;
+    // Human sources from the SDK and the playground carry no user name.
+    return source.human.user_name ? `Human (${source.human.user_name})` : 'Human';
   }
   if (source?.document) {
     return `Document (${source.document.doc_uri})`;

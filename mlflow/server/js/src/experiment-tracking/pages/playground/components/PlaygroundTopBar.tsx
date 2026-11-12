@@ -1,4 +1,5 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import type { ChatMessage, PlaygroundParams, PlaygroundTool, ResponseFormatType, ToolChoice } from '../types';
 import { AddToDatasetButton } from './AddToDatasetButton';
@@ -6,6 +7,11 @@ import { ParametersButton } from './ParametersButton';
 import { RegistryButton } from './RegistryButton';
 import { SaveToRegistryButton } from './SaveToRegistryButton';
 import { VariablesButton } from './VariablesButton';
+
+// At or below this bar width the prompt actions (Load, Save, Add to datasets) show only
+// their icons, so the bar stays on one row. It sits just above the ~1010px the bar needs
+// with full labels and the widest (400px) endpoint selector.
+const COMPACT_ACTIONS_MAX_BAR_WIDTH = 1040;
 
 interface Props {
   endpointName: string;
@@ -60,8 +66,26 @@ export const PlaygroundTopBar = ({
 }: Props) => {
   const { theme } = useDesignSystemTheme();
 
+  // Measured on the bar, not the viewport, because the assistant panel narrows the bar
+  // without the window changing. A layout effect, so a narrow bar never paints wrapped.
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barWidth, setBarWidth] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const measure = () => {
+      if (bar.clientWidth) setBarWidth(bar.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+  const compactActions = barWidth !== null && barWidth <= COMPACT_ACTIONS_MAX_BAR_WIDTH;
+
   return (
     <div
+      ref={barRef}
       css={{
         display: 'flex',
         alignItems: 'center',
@@ -92,9 +116,9 @@ export const PlaygroundTopBar = ({
         responseFormatSchemaError={responseFormatSchemaError}
       />
       <VariablesButton messages={messages} value={variables} onChange={onVariablesChange} />
-      <RegistryButton onOpen={onOpenRegistry} />
-      <SaveToRegistryButton onOpen={onOpenSave} disabled={saveDisabled} />
-      <AddToDatasetButton onOpen={onOpenAddToDataset} disabled={addToDatasetDisabled} />
+      <RegistryButton onOpen={onOpenRegistry} compact={compactActions} />
+      <SaveToRegistryButton onOpen={onOpenSave} disabled={saveDisabled} compact={compactActions} />
+      <AddToDatasetButton onOpen={onOpenAddToDataset} disabled={addToDatasetDisabled} compact={compactActions} />
     </div>
   );
 };

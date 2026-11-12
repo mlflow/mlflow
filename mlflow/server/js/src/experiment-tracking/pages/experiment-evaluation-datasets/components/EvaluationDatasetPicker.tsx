@@ -14,7 +14,7 @@ import {
 import type { ColumnDef } from '@tanstack/react-table';
 import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCheckMultiturnDatasets } from '../hooks/useCheckMultiturnDatasets';
@@ -100,11 +100,28 @@ export const EvaluationDatasetPicker = ({
     },
   );
 
-  const rowSelection = table.getState().rowSelection;
-  const selectedDatasets = useMemo(
-    () => (datasets ?? []).filter((dataset) => rowSelection[dataset.dataset_id]),
-    [datasets, rowSelection],
+  // Kept outside the table, which only knows the rows the current search loaded, so a
+  // selection survives searching for another dataset.
+  const [selectedDatasets, setSelectedDatasets] = useState<EvaluationDataset[]>([]);
+  const selectedDatasetIds = useMemo(
+    () => new Set(selectedDatasets.map((dataset) => dataset.dataset_id)),
+    [selectedDatasets],
   );
+  const toggleDataset = (dataset: EvaluationDataset) =>
+    setSelectedDatasets((current) =>
+      current.some((selected) => selected.dataset_id === dataset.dataset_id)
+        ? current.filter((selected) => selected.dataset_id !== dataset.dataset_id)
+        : [...current, dataset],
+    );
+  // A dataset created from the picker is created to be added to, so select it right away.
+  const selectCreatedDataset = useCallback(
+    (dataset: EvaluationDataset) =>
+      setSelectedDatasets((current) =>
+        current.some((selected) => selected.dataset_id === dataset.dataset_id) ? current : [...current, dataset],
+      ),
+    [],
+  );
+
   const { data: hasMultiturnDataset = false, isLoading: isCheckingMultiturn } = useCheckMultiturnDatasets({
     datasetIds: selectedDatasets.map((dataset) => dataset.dataset_id),
   });
@@ -119,7 +136,9 @@ export const EvaluationDatasetPicker = ({
     <Table
       scrollable
       onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}
-      someRowsSelected={table.getIsSomeRowsSelected() || table.getIsAllRowsSelected()}
+      // `someRowsSelected` is what reveals the row checkboxes; keep them visible at all
+      // times so it is clear the rows can be selected, instead of only on hover.
+      someRowsSelected
       empty={
         !isLoadingDatasets &&
         !isFetching &&
@@ -136,12 +155,9 @@ export const EvaluationDatasetPicker = ({
       }
     >
       <TableRow isHeader>
-        <TableRowSelectCell
-          componentId="mlflow.eval-datasets.picker.header-checkbox"
-          checked={table.getIsAllRowsSelected()}
-          indeterminate={table.getIsSomeRowsSelected()}
-          onChange={table.getToggleAllRowsSelectedHandler()}
-        />
+        {/* No select-all: adding to every dataset in the experiment is not a real use case,
+         * and it would fire a multi-turn check request per loaded dataset. */}
+        <TableRowSelectCell componentId="mlflow.eval-datasets.picker.header-select-cell" noCheckbox />
         {table.getLeafHeaders().map((header) => (
           <TableHeader
             key={header.id}
@@ -160,8 +176,8 @@ export const EvaluationDatasetPicker = ({
             <div>
               <TableRowSelectCell
                 componentId="mlflow.eval-datasets.picker.row-checkbox"
-                checked={row.getIsSelected()}
-                onChange={row.getToggleSelectedHandler()}
+                checked={selectedDatasetIds.has(row.original.dataset_id)}
+                onChange={() => toggleDataset(row.original)}
               />
             </div>
             {row.getVisibleCells().map((cell) => (
@@ -217,7 +233,7 @@ export const EvaluationDatasetPicker = ({
           css={{ flex: 1 }}
           prefix={<SearchIcon />}
         />
-        <CreateEvaluationDatasetButton experimentId={experimentId} />
+        <CreateEvaluationDatasetButton experimentId={experimentId} onCreated={selectCreatedDataset} />
       </div>
       {tableHeight != null ? <div css={{ height: tableHeight, overflow: 'hidden' }}>{tableElement}</div> : tableElement}
     </>

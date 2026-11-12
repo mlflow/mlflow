@@ -76,8 +76,8 @@ describe('ExportTracesToDatasetModal', () => {
     const freshRows = [{ inputs: { q: 'fresh' }, expectations: { length: 50 } }];
     const refetch = jest.fn(async (_options?: { throwOnError?: boolean }) => ({ data: freshRows }));
     const upsertAsync = jest.fn(async (_payload: { datasetId: string; records: string }) => ({
-      insertedCount: 1,
-      updatedCount: 0,
+      inserted_count: 1,
+      updated_count: 0,
     }));
     const invalidateAfterUpsert = jest.fn();
 
@@ -123,8 +123,8 @@ describe('ExportTracesToDatasetModal', () => {
       throw new Error('refetch failed');
     });
     const upsertAsync = jest.fn(async (_payload: { datasetId: string; records: string }) => ({
-      insertedCount: 1,
-      updatedCount: 0,
+      inserted_count: 1,
+      updated_count: 0,
     }));
     const invalidateAfterUpsert = jest.fn();
 
@@ -164,8 +164,8 @@ describe('ExportTracesToDatasetModal', () => {
   test('waits for in-flight upserts before showing an error and re-enabling the confirm button', async () => {
     const user = userEvent.setup();
     const errorSpy = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
-    let resolveSlowUpsert: (value: { insertedCount: number; updatedCount: number }) => void = () => {};
-    const slowUpsert = new Promise<{ insertedCount: number; updatedCount: number }>((resolve) => {
+    let resolveSlowUpsert: (value: { inserted_count: number; updated_count: number }) => void = () => {};
+    const slowUpsert = new Promise<{ inserted_count: number; updated_count: number }>((resolve) => {
       resolveSlowUpsert = resolve;
     });
     const invalidateAfterUpsert = jest.fn();
@@ -203,8 +203,10 @@ describe('ExportTracesToDatasetModal', () => {
       />,
     );
 
-    // Header select-all: both datasets are selected, so the confirm button is pluralized.
-    await user.click(screen.getAllByRole('checkbox')[0]);
+    // Select both dataset rows, so the confirm button is pluralized.
+    const [firstRowCheckbox, secondRowCheckbox] = screen.getAllByRole('checkbox');
+    await user.click(firstRowCheckbox);
+    await user.click(secondRowCheckbox);
     await user.click(screen.getByRole('button', { name: 'Add to 2 datasets' }));
 
     await waitFor(() => {
@@ -216,7 +218,7 @@ describe('ExportTracesToDatasetModal', () => {
       document.querySelector('[data-component-id="mlflow.export-traces-to-dataset-modal.footer.ok"]'),
     ).toBeDisabled();
 
-    resolveSlowUpsert({ insertedCount: 1, updatedCount: 0 });
+    resolveSlowUpsert({ inserted_count: 1, updated_count: 0 });
 
     await waitFor(() => {
       expect(errorSpy).toHaveBeenCalledTimes(1);

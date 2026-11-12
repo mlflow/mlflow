@@ -2,8 +2,15 @@ import { Button, DatabaseIcon } from '@databricks/design-system';
 import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { CreateEvaluationDatasetModal } from './CreateEvaluationDatasetModal';
+import type { EvaluationDataset } from '../types';
 
-export const CreateEvaluationDatasetButton = ({ experimentId }: { experimentId: string }) => {
+export const CreateEvaluationDatasetButton = ({
+  experimentId,
+  onCreated,
+}: {
+  experimentId: string;
+  onCreated?: (dataset: EvaluationDataset) => void;
+}) => {
   const [showCreateDatasetModal, setShowCreateDatasetModal] = useState(false);
   return (
     <>
@@ -19,6 +26,7 @@ export const CreateEvaluationDatasetButton = ({ experimentId }: { experimentId: 
         experimentId={experimentId}
         visible={showCreateDatasetModal}
         onCancel={() => setShowCreateDatasetModal(false)}
+        onCreated={onCreated}
       />
     </>
   );

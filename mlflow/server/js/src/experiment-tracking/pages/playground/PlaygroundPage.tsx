@@ -15,7 +15,9 @@ import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
+import { AddedToDatasetNotification } from './components/AddedToDatasetNotification';
 import { AddToDatasetModal } from './components/AddToDatasetModal';
+import type { AddedToDatasetResult } from './components/AddToDatasetModal';
 import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
@@ -31,7 +33,7 @@ import type {
   ResponseFormatType,
   ToolChoice,
 } from './types';
-import { BLANK_JSON_SCHEMA, getEmptyVariables, getToolParametersError, substituteVariables } from './utils';
+import { BLANK_JSON_SCHEMA, buildRequestMessages, getEmptyVariables, getToolParametersError } from './utils';
 
 const EMPTY_USER_MESSAGE: ConversationMessage = { role: 'user', content: '' };
 
@@ -64,7 +66,11 @@ const PlaygroundPage = () => {
     withSettings: boolean;
   } | null>(null);
   const [savedToast, setSavedToast] = useState<{ name: string; version: string } | null>(null);
-  const [addedToDatasetToast, setAddedToDatasetToast] = useState<{ datasetNames: string[] } | null>(null);
+  // `key` remounts the toast on every add, so a second add restarts its timer.
+  const [addedToDatasetToast, setAddedToDatasetToast] = useState<{
+    key: number;
+    datasets: AddedToDatasetResult[];
+  } | null>(null);
 
   const { mutate, error, isLoading, reset } = useChatCompletionMutation();
 
@@ -79,12 +85,6 @@ const PlaygroundPage = () => {
     const t = window.setTimeout(() => setSavedToast(null), 4000);
     return () => window.clearTimeout(t);
   }, [savedToast]);
-
-  useEffect(() => {
-    if (!addedToDatasetToast) return;
-    const t = window.setTimeout(() => setAddedToDatasetToast(null), 4000);
-    return () => window.clearTimeout(t);
-  }, [addedToDatasetToast]);
 
   const handleRegistryLoad = (payload: PromptLoadPayload) => {
     setMessages(payload.messages.length > 0 ? payload.messages : [{ ...EMPTY_USER_MESSAGE }]);
@@ -109,9 +109,9 @@ const PlaygroundPage = () => {
     setSavedToast({ name, version });
   };
 
-  const handleAddedToDataset = ({ datasetNames }: { datasetNames: string[] }) => {
+  const handleAddedToDataset = ({ datasets }: { datasets: AddedToDatasetResult[] }) => {
     setShowAddToDatasetModal(false);
-    setAddedToDatasetToast({ datasetNames });
+    setAddedToDatasetToast((current) => ({ key: (current?.key ?? 0) + 1, datasets }));
   };
 
   const handleAddTool = () => {
@@ -253,7 +253,7 @@ const PlaygroundPage = () => {
       };
     }
     // Multi-turn tool conversations that forward tool_calls plus tool results are a known follow-up.
-    const wireMessages = substituteVariables(messages, variables).map(({ role, content }) => ({ role, content }));
+    const wireMessages = buildRequestMessages(messages, variables);
     mutate(
       {
         model: endpointName,
@@ -280,6 +280,7 @@ const PlaygroundPage = () => {
             ...(hasToolCalls && { tool_calls: assistant.tool_calls }),
             ...(response_format && { contentIsJson: true }),
             usage: response.usage,
+            requestMessages: wireMessages,
           };
           setMessages((current) => [...current, appended, { ...EMPTY_USER_MESSAGE }]);
         },
@@ -471,6 +472,7 @@ const PlaygroundPage = () => {
         experimentId={experimentId ?? ''}
         messages={messages}
         variables={variables}
+        linkedPrompt={loadedPrompt}
         onAdded={handleAddedToDataset}
       />
       {loadedToast && (
@@ -512,19 +514,12 @@ const PlaygroundPage = () => {
         </Notification.Provider>
       )}
       {addedToDatasetToast && (
-        <Notification.Provider>
-          <Notification.Root severity="success" componentId="mlflow.playground.add_to_dataset.added">
-            <Notification.Title>
-              <FormattedMessage
-                defaultMessage="Added to {count, plural, one {{name}} other {# datasets}}"
-                description="Success toast shown on the playground after adding the current prompt to one or more evaluation datasets"
-                values={{ count: addedToDatasetToast.datasetNames.length, name: addedToDatasetToast.datasetNames[0] }}
-              />
-            </Notification.Title>
-            <Notification.Close componentId="mlflow.playground.add_to_dataset.added.close" />
-          </Notification.Root>
-          <Notification.Viewport />
-        </Notification.Provider>
+        <AddedToDatasetNotification
+          key={addedToDatasetToast.key}
+          experimentId={experimentId ?? ''}
+          datasets={addedToDatasetToast.datasets}
+          onClose={() => setAddedToDatasetToast(null)}
+        />
       )}
     </div>
   );

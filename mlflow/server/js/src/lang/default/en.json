@@ -4527,6 +4527,10 @@
     "defaultMessage": "Create and manage judges",
     "description": "Title for the empty state of the judges page"
   },
+  "CSjnsL": {
+    "defaultMessage": "{name} (updated)",
+    "description": "A dataset in the playground success toast's dataset list whose existing record with the same inputs was updated"
+  },
   "CSrxJY": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular MCP server version.",
     "description": "Description for the edit aliases modal on the MCP server detail page"
@@ -5214,6 +5218,10 @@
   "F1JbfC": {
     "defaultMessage": "Couldn't open the selected trace",
     "description": "Title of the error shown when an evaluation run cannot validate a selected trace"
+  },
+  "F2TgRO": {
+    "defaultMessage": "Updated the existing record in {count, plural, one {# dataset} other {# datasets}}",
+    "description": "Success toast on the playground when every selected dataset already had a record with the same inputs, so those records were updated"
   },
   "F2cMi+": {
     "defaultMessage": "API providers",
@@ -6547,6 +6555,10 @@
     "defaultMessage": "Add",
     "description": "Model registry > model version table > metadata column > 'add' button label"
   },
+  "JIHfM/": {
+    "defaultMessage": "The prompt changed after the last run, so its reply is not pre-filled. Run the prompt again to pre-fill it.",
+    "description": "Hint on the playground add-to-dataset modal when the latest reply was generated from different inputs than the current prompt"
+  },
   "JJ43Fa": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in Trace Explorer UI"
@@ -7074,10 +7086,6 @@
   "KxeI8I": {
     "defaultMessage": "Current Spend",
     "description": "Budget current spend column header"
-  },
-  "KyKszW": {
-    "defaultMessage": "Added to {count, plural, one {{name}} other {# datasets}}",
-    "description": "Success toast shown on the playground after adding the current prompt to one or more evaluation datasets"
   },
   "Kya8N3": {
     "defaultMessage": "Pass",
@@ -9746,6 +9754,10 @@
   "TXwmoT": {
     "defaultMessage": "Git branch",
     "description": "Usage overview > metrics filter > git branch column option label"
+  },
+  "TYxoXz": {
+    "defaultMessage": "Tool call: {names}",
+    "description": "Preview of an assistant turn in the playground add-to-dataset modal that only calls tools; lists the called tool names"
   },
   "TZ2shB": {
     "defaultMessage": "Turn {turnNumber}",
@@ -12987,6 +12999,10 @@
     "defaultMessage": "Reject pending request",
     "description": "Title for a model version stage transition modal when rejecting a pending request"
   },
+  "e+XAgx": {
+    "defaultMessage": "Added or updated records in {count, plural, one {# dataset} other {# datasets}}",
+    "description": "Success toast on the playground when adding the prompt created a record in some datasets and updated a record with the same inputs in others"
+  },
   "e/mGnD": {
     "defaultMessage": "Variables",
     "description": "Title of the playground variables drawer"
@@ -13254,6 +13270,10 @@
   "ejy0iU": {
     "defaultMessage": "You can change this model in advanced settings",
     "description": "Tooltip suggesting users can change the default model in advanced settings"
+  },
+  "ek6trX": {
+    "defaultMessage": "Added to {name}",
+    "description": "Success toast on the playground after adding the current prompt to one evaluation dataset"
   },
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
@@ -15067,6 +15087,10 @@
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
   },
+  "jtgFGq": {
+    "defaultMessage": "Added to {count, plural, one {# dataset} other {# datasets}}",
+    "description": "Success toast on the playground after adding the current prompt to several evaluation datasets"
+  },
   "ju+BFQ": {
     "defaultMessage": "Trace statistics unavailable for one or more runs.",
     "description": "Failure loading traces for configuration comparison"
@@ -15082,6 +15106,10 @@
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
+  },
+  "jx+4tv": {
+    "defaultMessage": "Updated the existing record in {name}",
+    "description": "Success toast on the playground when the dataset already had a record with the same inputs, so adding the prompt updated that record"
   },
   "jyD5wg": {
     "defaultMessage": "Is the answer correct?",
@@ -17611,6 +17639,10 @@
     "defaultMessage": "View in evaluation runs tab",
     "description": "Button navigating to the evaluation runs page filtered to the current dataset"
   },
+  "s0zYyl": {
+    "defaultMessage": "A record with the same inputs was already in this dataset, so it was updated instead of duplicated.",
+    "description": "Explains on the playground success toast why adding the prompt updated an existing dataset record"
+  },
   "s29iQg": {
     "defaultMessage": "Session",
     "description": "Usage overview > metrics filter > session column option label"
@@ -18551,6 +18583,10 @@
     "defaultMessage": "No evidence details were recorded for this trace.",
     "description": "Experiment issues tab > Legacy evidence step > Trace has no displayable details"
   },
+  "vJL9Xs": {
+    "defaultMessage": "Add to datasets",
+    "description": "Aria label for the playground top-bar button that opens the add-to-evaluation-datasets modal"
+  },
   "vK1v9d": {
     "defaultMessage": "datasets used",
     "description": "Text for dataset count in the experiment run dataset drawer"
@@ -18650,6 +18686,10 @@
   "vbYxpI": {
     "defaultMessage": "Updated by:",
     "description": "MCP compare metadata updated by label"
+  },
+  "vbnygP": {
+    "defaultMessage": "Provide a value for {count, plural, one {the variable} other {the variables}} {names} before adding this prompt to a dataset.",
+    "description": "Warning shown in the playground add-to-dataset modal when a prompt variable has no value, which blocks adding the prompt"
   },
   "vcK5wo": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",

@@ -8,8 +8,9 @@ import {
 } from '../../experiment-evaluation-datasets/components/EvaluationDatasetPicker';
 import type { EvaluationDatasetPickerState } from '../../experiment-evaluation-datasets/components/EvaluationDatasetPicker';
 import { useUpsertDatasetRecordsMutation } from '../../experiment-evaluation-datasets/hooks/useUpsertDatasetRecordsMutation';
-import { buildPlaygroundDatasetRecord, getDatasetInputMessages, getLatestAssistantContent } from '../datasetRecord';
-import type { ConversationMessage } from '../types';
+import { buildPlaygroundDatasetRecord, getDatasetInputMessages, getInputTurns, getLatestReply } from '../datasetRecord';
+import type { ChatMessage, ConversationMessage } from '../types';
+import { getEmptyVariables } from '../utils';
 
 const { TextArea } = Input;
 
@@ -18,8 +19,18 @@ const PICKER_TABLE_HEIGHT = 240;
 
 const truncate = (s: string, cap: number) => (s.length > cap ? `${s.slice(0, cap)}…` : s);
 
+const getToolCallNames = (message: ChatMessage) =>
+  (message.tool_calls ?? []).flatMap((toolCall) => (toolCall.function?.name ? [toolCall.function.name] : []));
+
 // React Query types query/mutation errors as `unknown`; narrow to a displayable message.
 const getErrorMessage = (error: unknown): string | undefined => (error instanceof Error ? error.message : undefined);
+
+export interface AddedToDatasetResult {
+  datasetId: string;
+  name: string;
+  /** True when the dataset already had a record with these inputs, so that record was updated. */
+  updated: boolean;
+}
 
 interface Props {
   visible: boolean;
@@ -27,10 +38,20 @@ interface Props {
   experimentId: string;
   messages: ConversationMessage[];
   variables: Record<string, string>;
-  onAdded: (result: { datasetNames: string[] }) => void;
+  /** The registry prompt version loaded in the playground, linked from the record when set. */
+  linkedPrompt?: { name: string; version: string } | null;
+  onAdded: (result: { datasets: AddedToDatasetResult[] }) => void;
 }
 
-export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, variables, onAdded }: Props) => {
+export const AddToDatasetModal = ({
+  visible,
+  onCancel,
+  experimentId,
+  messages,
+  variables,
+  linkedPrompt,
+  onAdded,
+}: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -41,44 +62,44 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
   // Storing a reference answer is opt-in; unchecked, the record is created with inputs only.
   const [includeExpectedResponse, setIncludeExpectedResponse] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+  // The upsert cannot be cancelled once sent, so the modal stays open until it settles.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { selectedDatasets, hasMultiturnDataset, isCheckingMultiturn } = pickerState;
 
   const inputMessages = useMemo(() => getDatasetInputMessages(messages, variables), [messages, variables]);
+  const emptyVariables = useMemo(() => getEmptyVariables(getInputTurns(messages), variables), [messages, variables]);
+  const latestReply = useMemo(() => getLatestReply(messages, variables), [messages, variables]);
 
-  const {
-    upsertDatasetRecordsMutationAsync,
-    invalidateAfterUpsert,
-    isLoading: isAdding,
-  } = useUpsertDatasetRecordsMutation();
+  const { upsertDatasetRecordsMutationAsync, invalidateAfterUpsert } = useUpsertDatasetRecordsMutation();
 
-  // Bumped on cancel so a still-in-flight batch can tell it has been dismissed and skip
-  // the success path (toast / closing) the user no longer asked for.
-  const submissionGenerationRef = useRef(0);
-
-  // Latest snapshot of the conversation for the open-time reset below, kept out of the
-  // effect deps so editing messages while the modal is open doesn't overwrite the user's
-  // edits to the expected response.
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
+  // Read by the open-time reset below, kept out of its deps so a change while the modal is
+  // open doesn't overwrite the user's edits to the expected response.
+  const latestReplyRef = useRef(latestReply);
+  latestReplyRef.current = latestReply;
 
   // Reset the form each time the modal is opened: clear the previous selection and search
-  // (by remounting the picker), default the expected response to the latest assistant
-  // reply, and drop any prior error or leftover in-flight batch. The opt-in starts checked
-  // only when there is a reply to pre-fill, so the prompt-only case stays inputs-only.
+  // (by remounting the picker), default the expected response to the latest reply, and drop
+  // any prior error. The opt-in starts checked only when there is a reply to pre-fill, so
+  // the prompt-only case stays inputs-only.
   useEffect(() => {
     if (!visible) return;
-    submissionGenerationRef.current += 1;
     setPickerResetKey((key) => key + 1);
     setPickerState(EMPTY_EVALUATION_DATASET_PICKER_STATE);
-    const latestAssistantContent = getLatestAssistantContent(messagesRef.current);
-    setExpectedResponse(latestAssistantContent);
-    setIncludeExpectedResponse(latestAssistantContent.trim().length > 0);
+    const { content } = latestReplyRef.current;
+    setExpectedResponse(content);
+    setIncludeExpectedResponse(content.trim().length > 0);
     setSubmitError(undefined);
   }, [visible]);
 
   const hasInput = inputMessages.length > 0;
-  const canAdd = selectedDatasets.length > 0 && hasInput && !hasMultiturnDataset && !isCheckingMultiturn && !isAdding;
+  const canAdd =
+    selectedDatasets.length > 0 &&
+    hasInput &&
+    emptyVariables.length === 0 &&
+    !hasMultiturnDataset &&
+    !isCheckingMultiturn &&
+    !isSubmitting;
 
   // One confirm fans out into one upsert per selected dataset. Record counts and the open
   // records table are invalidated for the datasets that succeeded, and a partial failure
@@ -86,51 +107,55 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
   const handleAdd = async () => {
     if (!canAdd) return;
     setSubmitError(undefined);
-    const generation = submissionGenerationRef.current;
+    setIsSubmitting(true);
     const datasets = selectedDatasets;
     const records = JSON.stringify([
       buildPlaygroundDatasetRecord({
         inputMessages,
         expectedResponse: includeExpectedResponse ? expectedResponse : '',
+        linkedPrompt,
       }),
     ]);
 
-    const results = await Promise.allSettled(
-      datasets.map((dataset) => upsertDatasetRecordsMutationAsync({ datasetId: dataset.dataset_id, records })),
-    );
-    const succeeded = datasets.filter((_, index) => results[index].status === 'fulfilled');
-    invalidateAfterUpsert(succeeded.map((dataset) => dataset.dataset_id));
-
-    // The user dismissed the modal while the batch was in flight; the records still landed,
-    // but the success toast / close would be for an interaction they already abandoned.
-    if (generation !== submissionGenerationRef.current) return;
-
-    const firstRejection = results.find((result) => result.status === 'rejected');
-    if (firstRejection) {
-      setSubmitError(
-        getErrorMessage((firstRejection as PromiseRejectedResult).reason) ??
-          intl.formatMessage({
-            defaultMessage: 'Failed to add the record to the dataset',
-            description: 'Fallback error shown when adding a playground prompt to an evaluation dataset fails',
-          }),
+    try {
+      const results = await Promise.allSettled(
+        datasets.map((dataset) => upsertDatasetRecordsMutationAsync({ datasetId: dataset.dataset_id, records })),
       );
-      return;
-    }
-    onAdded({ datasetNames: succeeded.map((dataset) => dataset.name) });
-  };
+      invalidateAfterUpsert(
+        datasets.filter((_, index) => results[index].status === 'fulfilled').map((dataset) => dataset.dataset_id),
+      );
 
-  // Invalidate any in-flight batch on dismiss so a late upsert success can't fire the
-  // onAdded success path after the user has cancelled.
-  const handleCancel = () => {
-    submissionGenerationRef.current += 1;
-    onCancel();
+      const firstRejection = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (firstRejection) {
+        setSubmitError(
+          getErrorMessage(firstRejection.reason) ??
+            intl.formatMessage({
+              defaultMessage: 'Failed to add the record to the dataset',
+              description: 'Fallback error shown when adding a playground prompt to an evaluation dataset fails',
+            }),
+        );
+        return;
+      }
+      onAdded({
+        datasets: datasets.map((dataset, index) => {
+          const result = results[index];
+          return {
+            datasetId: dataset.dataset_id,
+            name: dataset.name,
+            updated: result.status === 'fulfilled' && (result.value.updated_count ?? 0) > 0,
+          };
+        }),
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Modal
       componentId="mlflow.playground.add_to_dataset"
       visible={visible}
-      onCancel={handleCancel}
+      onCancel={isSubmitting ? undefined : onCancel}
       title={
         <FormattedMessage
           defaultMessage="Add to evaluation datasets"
@@ -144,7 +169,7 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
           values={{ count: selectedDatasets.length }}
         />
       }
-      okButtonProps={{ disabled: !canAdd, loading: isAdding }}
+      okButtonProps={{ disabled: !canAdd, loading: isSubmitting }}
       onOk={handleAdd}
       cancelText={
         <FormattedMessage
@@ -152,6 +177,7 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
           description="Cancel-button label on the playground add-to-evaluation-dataset modal"
         />
       }
+      cancelButtonProps={{ disabled: isSubmitting }}
       size="wide"
       zIndex={theme.options.zIndexBase + 10}
     >
@@ -181,6 +207,21 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
               <FormattedMessage
                 defaultMessage="Add at least one non-empty message before adding this prompt to a dataset."
                 description="Warning shown in the playground add-to-dataset modal when there is no input message to store"
+              />
+            }
+          />
+        )}
+
+        {emptyVariables.length > 0 && (
+          <Alert
+            componentId="mlflow.playground.add_to_dataset.empty_variables"
+            type="warning"
+            closable={false}
+            message={
+              <FormattedMessage
+                defaultMessage="Provide a value for {count, plural, one {the variable} other {the variables}} {names} before adding this prompt to a dataset."
+                description="Warning shown in the playground add-to-dataset modal when a prompt variable has no value, which blocks adding the prompt"
+                values={{ count: emptyVariables.length, names: emptyVariables.join(', ') }}
               />
             }
           />
@@ -239,7 +280,15 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
                       {message.role}
                     </Typography.Text>
                     <Typography.Text color="secondary">
-                      {truncate(message.content ?? '', PREVIEW_CONTENT_CAP)}
+                      {message.content?.trim() ? (
+                        truncate(message.content, PREVIEW_CONTENT_CAP)
+                      ) : (
+                        <FormattedMessage
+                          defaultMessage="Tool call: {names}"
+                          description="Preview of an assistant turn in the playground add-to-dataset modal that only calls tools; lists the called tool names"
+                          values={{ names: getToolCallNames(message).join(', ') }}
+                        />
+                      )}
                     </Typography.Text>
                   </div>
                 ))}
@@ -259,11 +308,21 @@ export const AddToDatasetModal = ({ visible, onCancel, experimentId, messages, v
               description="Label of the checkbox that opts into storing an expected response on the playground add-to-dataset modal"
             />
           </Checkbox>
+          {/* One hint: the checkbox only indents the hint that directly follows it. */}
           <FormUI.Hint>
             <FormattedMessage
               defaultMessage="Stored as expectations.expected_response — the reference answer that judges such as Correctness compare against."
               description="Hint under the expected-response editor on the playground add-to-dataset modal"
             />
+            {latestReply.isOutdated && (
+              <>
+                <br />
+                <FormattedMessage
+                  defaultMessage="The prompt changed after the last run, so its reply is not pre-filled. Run the prompt again to pre-fill it."
+                  description="Hint on the playground add-to-dataset modal when the latest reply was generated from different inputs than the current prompt"
+                />
+              </>
+            )}
           </FormUI.Hint>
           {includeExpectedResponse && (
             <TextArea

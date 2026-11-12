@@ -9,9 +9,11 @@ type UpsertDatasetRecordsPayload = {
   records: string;
 };
 
+// Records are matched on their inputs: a record whose inputs already exist in the dataset
+// updates that record and counts as updated rather than inserted.
 type UpsertDatasetRecordsResponse = {
-  insertedCount: number;
-  updatedCount: number;
+  inserted_count?: number;
+  updated_count?: number;
 };
 
 export const useUpsertDatasetRecordsMutation = () => {
