@@ -1424,52 +1424,6 @@ class SqlAlchemyGatewayStoreMixin:
                 .all()
             ]
 
-    def sum_gateway_trace_cost(
-        self,
-        start_time_ms: int,
-        end_time_ms: int,
-        workspace: str | None = None,
-        endpoint_id: str | None = None,
-        username: str | None = None,
-    ) -> float:
-        with self.ManagedSessionMaker() as session:
-            query = (
-                session
-                .query(func.coalesce(func.sum(SqlTraceInfo.total_cost), 0.0))
-                .join(
-                    SqlTraceMetadata,
-                    SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
-                )
-                .filter(
-                    SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
-                    SqlTraceInfo.timestamp_ms >= start_time_ms,
-                    SqlTraceInfo.timestamp_ms < end_time_ms,
-                )
-            )
-
-            if endpoint_id is not None:
-                query = query.filter(SqlTraceMetadata.value == endpoint_id)
-
-            if workspace is not None:
-                query = query.join(
-                    SqlExperiment,
-                    SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
-                ).filter(SqlExperiment.workspace == workspace)
-
-            if username is not None:
-                # Filter to traces whose recorded auth username matches the username.
-                # Uses a separate aliased join because SqlTraceMetadata is already
-                # joined above for the gateway-endpoint marker.
-                user_metadata = aliased(SqlTraceMetadata)
-                query = query.join(
-                    user_metadata,
-                    user_metadata.request_id == SqlTraceInfo.request_id,
-                ).filter(
-                    user_metadata.key == TraceMetadataKey.AUTH_USERNAME,
-                    user_metadata.value == username,
-                )
-
-            return float(query.scalar())
 
     # Guardrail APIs
 
