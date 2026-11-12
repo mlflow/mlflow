@@ -15,6 +15,8 @@ from mlflow.genai.evaluation.comparison.paired_comparison import _compare_paired
 from mlflow.genai.evaluation.comparison.utils import _comparison_key
 from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.scorers import scorer
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.tracking.client import MlflowClient
 
 _COMPARISON_PACKAGE = "mlflow.genai.evaluation.comparison"
@@ -45,6 +47,52 @@ def rating(outputs) -> str:
 @scorer
 def failing(outputs) -> float:
     raise ValueError("scorer failed")
+
+
+@scorer
+def flaky(outputs) -> float:
+    if outputs.get("error"):
+        raise TimeoutError("judge timed out")
+    return outputs["score"]
+
+
+@scorer
+def partly_errored(outputs) -> list[Feedback]:
+    # Same-name feedback on one trace of which only some errored.
+    feedbacks = [Feedback(name="partly_errored", value=outputs["score"])]
+    if outputs.get("partial_error"):
+        feedbacks.append(Feedback(name="partly_errored", error=TimeoutError("judge timed out")))
+    return feedbacks
+
+
+@scorer
+def returns_error(outputs) -> Feedback:
+    # Returns errored feedback rather than raising, so it is logged without the `SCORER_ERROR` code.
+    if outputs.get("error"):
+        return Feedback(name="returns_error", error=TimeoutError("judge timed out"))
+    return Feedback(name="returns_error", value=outputs["score"])
+
+
+@scorer
+def multi(outputs) -> list[Feedback]:
+    # Returns feedback under names other than the scorer name.
+    if outputs.get("error"):
+        raise TimeoutError("judge timed out")
+    return [
+        Feedback(name="clarity", value=outputs["score"]),
+        Feedback(name="safety", value=outputs["passed"]),
+    ]
+
+
+@scorer(name="multi")
+def multi_down(outputs) -> list[Feedback]:
+    # A new definition of `multi` that fails on every row, so its digest matches no valid feedback.
+    raise RuntimeError("judge endpoint returned 500")
+
+
+@scorer(name="failing")
+def not_failing(outputs) -> float:
+    return outputs["score"]
 
 
 @scorer
@@ -348,6 +396,18 @@ def test_insufficient_pairs(n: int):
 
     assert result == ScorerComparison(scorer="score", status="insufficient_pairs", n_paired=n)
     mock_warning.assert_not_called()
+
+
+def test_scorer_comparison_error_counts_do_not_shift_positional_arguments():
+    comparison = ScorerComparison("latency", "ok", 10, False, "numeric")
+
+    assert comparison.greater_is_better is False
+    assert comparison.value_type == "numeric"
+    assert comparison.n_baseline_errors == 0
+    assert comparison.n_candidate_errors == 0
+    # The error counts keep their place next to `n_paired` in `summary()`.
+    fields = list(ScorerComparison.__dataclass_fields__)
+    assert fields[2:5] == ["n_paired", "n_baseline_errors", "n_candidate_errors"]
 
 
 @pytest.mark.parametrize("n", [6, 9, 10, 20])
@@ -737,8 +797,8 @@ def test_assert_improved_rejects_an_empty_scorer_list():
 @pytest.mark.parametrize(
     ("candidate_scorers", "expected_candidate_scorers"),
     [
-        # Errored feedback is not valid, so the candidate run has no feedback to compare.
-        ([failing], []),
+        # Errored feedback counts as feedback, but the baseline run has no `failing` scorer.
+        ([failing], ["failing"]),
         ([passed], ["passed"]),
     ],
 )
@@ -762,6 +822,216 @@ def test_compare_evaluations_warns_when_no_scorers_in_common(
     assert "baseline run: ['score']" in message
     assert f"candidate run: {expected_candidate_scorers}" in message
     with pytest.raises(AssertionError, match="No scorers were compared"):
+        result.assert_improved()
+
+
+def test_compare_evaluations_reports_scorer_errors():
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5]
+    baseline_rows = _rows(baseline_scores)
+    candidate_rows = _rows([s + 0.1 for s in baseline_scores])
+    # Row 9 errors in both runs.
+    for i in (0, 9):
+        baseline_rows[i]["outputs"]["error"] = True
+    for i in (7, 8, 9):
+        candidate_rows[i]["outputs"]["error"] = True
+    baseline_run_id = _evaluate(baseline_rows, scorers=[score, flaky, not_failing])
+    candidate_run_id = _evaluate(candidate_rows, scorers=[score, flaky, failing])
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=True
+        )
+
+    assert list(result.scorers) == ["failing", "flaky", "score"]
+    assert result.scorers["score"].status == "ok"
+    assert result.scorers["score"].n_baseline_errors == 0
+    assert result.scorers["score"].n_candidate_errors == 0
+
+    partial = result.scorers["flaky"]
+    assert partial.status == "scorer_errors"
+    assert partial.n_paired == 6
+    assert partial.n_baseline_errors == 2
+    assert partial.n_candidate_errors == 3
+    # The statistics are still computed over the rows without errors.
+    assert partial.diff == pytest.approx(0.1)
+    assert partial.p_value is not None
+
+    # A scorer whose feedback all errored in one run is kept rather than dropped.
+    all_errored = result.scorers["failing"]
+    assert all_errored.status == "scorer_errors"
+    assert all_errored.n_paired == 0
+    assert all_errored.n_baseline_errors == 0
+    assert all_errored.n_candidate_errors == 10
+    assert all_errored.p_value is None
+
+    summary = result.summary().set_index("scorer")
+    assert summary.loc["flaky", "n_candidate_errors"] == 3
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "'failing' (0 baseline and 10 candidate row(s))" in message
+    assert "'flaky' (2 baseline and 3 candidate row(s))" in message
+    assert "'score'" not in message
+
+    result.assert_improved(["score"])
+    with pytest.raises(AssertionError, match="did not significantly improve") as exc_info:
+        result.assert_improved()
+    failures = str(exc_info.value)
+    assert "flaky: scorer_errors (n_paired=6, n_baseline_errors=2, n_candidate_errors=3)" in (
+        failures
+    )
+    assert "failing: scorer_errors (n_paired=0, n_baseline_errors=0, n_candidate_errors=10)" in (
+        failures
+    )
+    assert "- score:" not in failures
+
+    # The error counts are logged next to the statistics of the scorers with errors only.
+    metrics = MlflowClient().get_run(candidate_run_id).data.metrics
+    flaky_prefix = _comparison_key(baseline_run_id, "flaky")
+    assert metrics[f"{flaky_prefix}/n_baseline_errors"] == 2
+    assert metrics[f"{flaky_prefix}/n_candidate_errors"] == 3
+    assert metrics[f"{flaky_prefix}/p_value"] == pytest.approx(partial.p_value)
+    failing_prefix = _comparison_key(baseline_run_id, "failing")
+    assert metrics[f"{failing_prefix}/n_baseline_errors"] == 0
+    assert metrics[f"{failing_prefix}/n_candidate_errors"] == 10
+    score_prefix = _comparison_key(baseline_run_id, "score")
+    assert f"{score_prefix}/n_baseline_errors" not in metrics
+    assert f"{score_prefix}/n_candidate_errors" not in metrics
+
+
+def test_compare_evaluations_ignores_errors_on_partly_valid_or_unpaired_rows():
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    baseline_rows = _rows(baseline_scores)
+    candidate_rows = _rows([s + 0.1 for s in baseline_scores])
+    # A baseline row with no match in the candidate run, on which `flaky` errors.
+    baseline_rows.append({
+        "inputs": {"question": "unpaired question"},
+        "outputs": {"score": 0.5, "passed": True, "error": True},
+    })
+    # One of the two `partly_errored` feedbacks on these traces errors, the other has a value.
+    for i in (0, 3):
+        candidate_rows[i]["outputs"]["partial_error"] = True
+    baseline_run_id = _evaluate(baseline_rows, scorers=[flaky, partly_errored])
+    candidate_run_id = _evaluate(candidate_rows, scorers=[flaky, partly_errored])
+
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
+
+    assert len(result.unpaired_baseline_trace_ids) == 1
+    for name in ("flaky", "partly_errored"):
+        comparison = result.scorers[name]
+        assert comparison.status == "ok"
+        assert comparison.n_paired == 8
+        assert comparison.n_baseline_errors == 0
+        assert comparison.n_candidate_errors == 0
+        assert comparison.diff == pytest.approx(0.1)
+    result.assert_improved(alpha=0.05)
+
+
+@pytest.mark.parametrize("candidate_error_rows", [(7, 8, 9), tuple(range(10))])
+def test_compare_evaluations_counts_errored_feedback_returned_by_scorer(candidate_error_rows):
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5]
+    baseline_rows = _rows(baseline_scores)
+    candidate_rows = _rows([s + 0.1 for s in baseline_scores])
+    baseline_rows[0]["outputs"]["error"] = True
+    for i in candidate_error_rows:
+        candidate_rows[i]["outputs"]["error"] = True
+    baseline_run_id = _evaluate(baseline_rows, scorers=[returns_error])
+    candidate_run_id = _evaluate(candidate_rows, scorers=[returns_error])
+
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
+
+    comparison = result.scorers["returns_error"]
+    assert comparison.status == "scorer_errors"
+    assert comparison.n_baseline_errors == 1
+    assert comparison.n_candidate_errors == len(candidate_error_rows)
+    assert comparison.n_paired == 10 - len({0, *candidate_error_rows})
+
+
+@pytest.mark.parametrize("candidate_error_rows", [(7, 8, 9), tuple(range(10))])
+def test_compare_evaluations_counts_scorer_failures_under_returned_feedback_names(
+    candidate_error_rows,
+):
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5]
+    baseline_rows = _rows(baseline_scores)
+    candidate_rows = _rows([s + 0.1 for s in baseline_scores])
+    baseline_rows[0]["outputs"]["error"] = True
+    for i in candidate_error_rows:
+        candidate_rows[i]["outputs"]["error"] = True
+    baseline_run_id = _evaluate(baseline_rows, scorers=[multi])
+    candidate_run_id = _evaluate(candidate_rows, scorers=[multi])
+
+    result = mlflow.genai.compare_evaluations(candidate_run_id, baseline_run_id, log_results=False)
+
+    # The failures are counted under the feedback names rather than as a separate `multi`.
+    assert list(result.scorers) == ["clarity", "safety"]
+    for comparison in result.scorers.values():
+        assert comparison.status == "scorer_errors"
+        assert comparison.n_baseline_errors == 1
+        assert comparison.n_candidate_errors == len(candidate_error_rows)
+        assert comparison.n_paired == 10 - len({0, *candidate_error_rows})
+    with pytest.raises(AssertionError, match="did not significantly improve"):
+        result.assert_improved()
+
+
+def test_compare_evaluations_warns_about_scorers_in_only_one_run():
+    rows = _rows([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5])
+    baseline_run_id = _evaluate(rows, scorers=[score, multi])
+    # An unregistered `multi` whose definition changed fails on every candidate row, so its
+    # failures can't be matched to the `clarity` and `safety` feedback of the baseline run.
+    candidate_run_id = _evaluate(rows, scorers=[score, multi_down])
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert list(result.scorers) == ["score"]
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "Scorers with feedback in only one run are not compared" in message
+    assert "Baseline run only: ['clarity', 'safety']" in message
+    assert "Candidate run only: ['multi']" in message
+
+
+def test_compare_evaluations_matches_failures_of_a_registered_scorer_across_versions():
+    @scorer(name="registered_multi")
+    def version_1(outputs) -> list[Feedback]:
+        return [
+            Feedback(name="clarity", value=outputs["score"]),
+            Feedback(name="safety", value=outputs["passed"]),
+        ]
+
+    @scorer(name="registered_multi")
+    def version_2(outputs) -> list[Feedback]:
+        raise RuntimeError("judge endpoint returned 500")
+
+    for version, registered_scorer in enumerate([version_1, version_2], start=1):
+        registered_scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_TRACKING,
+            experiment_id=None,
+            sampling_config=None,
+            scorer_version=version,
+        )
+    # The versions differ in definition, so only the registered name links them.
+    assert get_scorer_definition_digest(version_1) != get_scorer_definition_digest(version_2)
+    rows = _rows([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5])
+    baseline_run_id = _evaluate(rows, scorers=[score, version_1])
+    candidate_run_id = _evaluate(rows, scorers=[score, version_2])
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert list(result.scorers) == ["clarity", "safety", "score"]
+    for name in ("clarity", "safety"):
+        comparison = result.scorers[name]
+        assert comparison.status == "scorer_errors"
+        assert comparison.n_paired == 0
+        assert comparison.n_baseline_errors == 0
+        assert comparison.n_candidate_errors == 10
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert not any("only one run" in message for message in messages)
+    with pytest.raises(AssertionError, match="did not significantly improve"):
         result.assert_improved()
 
 

@@ -13,8 +13,8 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.metric import Metric
 from mlflow.entities.trace import Trace
-from mlflow.genai.evaluation.comparison.entities import ComparisonResult
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.genai.evaluation.comparison.entities import ComparisonResult, ScorerComparison
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.time import get_current_time_millis
 
@@ -22,6 +22,12 @@ _logger = logging.getLogger(__name__)
 
 _BASELINE_SHORT_ID_LENGTH = 8
 _LOGGED_STATS = ("diff", "ci_low", "ci_high", "p_value", "effect_size", "n_paired")
+# Only logged for scorers with errors, so the metrics of a ``"scorer_errors"`` comparison are
+# not read as a clean result.
+_LOGGED_ERROR_COUNTS = ("n_baseline_errors", "n_candidate_errors")
+
+# Error code of the feedback logged by `mlflow.genai.evaluate` when a scorer raises.
+_SCORER_INVOCATION_ERROR_CODE = "SCORER_ERROR"
 
 _PairedOn = Literal["eval_request_id", "inputs_hash"]
 # ``str()`` of an object without a JSON form, e.g. ``<Query object at 0x10f3b2d40>``.
@@ -48,6 +54,13 @@ class _EvalRow:
     # A trace can hold several feedbacks of one name, e.g. when a scorer returns a list of
     # feedbacks. They are averaged per trace before pairing, see ``_mean_feedback_value``.
     feedbacks: dict[str, list[Feedback]]
+    # Names of the feedback that errored on the trace. Errored feedback has no value, so it is
+    # kept out of ``feedbacks``.
+    errored_scorers: set[str]
+    # Scorers that raised on the trace, by scorer name, with their identities from
+    # ``_scorer_identities``. They are moved into ``errored_scorers`` by
+    # ``_attribute_scorer_failures``.
+    scorer_failures: dict[str, list[tuple[str, str]]]
 
 
 @dataclass
@@ -86,15 +99,23 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
     rows = []
     for trace in traces:
         feedbacks = collections.defaultdict(list)
+        errored_scorers = set()
+        scorer_failures = {}
         for assessment in trace.info.assessments:
             if (
                 isinstance(assessment, Feedback)
                 and assessment.valid is not False
-                and assessment.error is None
                 # A trace can be evaluated by several runs. Exclude feedback from other runs.
                 and assessment.run_id in (None, run_id)
             ):
-                feedbacks[assessment.name].append(assessment)
+                if assessment.error is None:
+                    feedbacks[assessment.name].append(assessment)
+                elif assessment.error.error_code == _SCORER_INVOCATION_ERROR_CODE and (
+                    identities := _scorer_identities(assessment)
+                ):
+                    scorer_failures[assessment.name] = identities
+                else:
+                    errored_scorers.add(assessment.name)
         inputs_hash, inputs_hash_unstable = _hash_inputs(trace)
         rows.append(
             _EvalRow(
@@ -103,9 +124,50 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
                 inputs_hash=inputs_hash,
                 inputs_hash_unstable=inputs_hash_unstable,
                 feedbacks=dict(feedbacks),
+                errored_scorers=errored_scorers,
+                scorer_failures=scorer_failures,
             )
         )
     return rows
+
+
+def _scorer_identities(feedback: Feedback) -> list[tuple[str, str]]:
+    """
+    Keys identifying the scorer that logged ``feedback``, most specific first: its definition
+    digest, then the name of a registered scorer, which stays the same across its versions.
+    """
+    metadata = feedback.metadata or {}
+    return [
+        (key, value)
+        for key in (AssessmentMetadataKey.SCORER_DIGEST, AssessmentMetadataKey.SCORER_NAME)
+        if (value := metadata.get(key))
+    ]
+
+
+def _attribute_scorer_failures(rows: list[_EvalRow]) -> None:
+    """
+    Count each scorer failure in ``rows`` as an error of the feedback names the scorer returns.
+
+    A scorer that raises is logged as one errored feedback named after the scorer, but a scorer
+    returning feedback of other names (e.g. ``clarity`` and ``safety``) is compared under those
+    names. The names are those of the valid feedback of the same scorer on any of ``rows``,
+    matched on its definition digest, or on its name for a registered scorer whose definition
+    changed between the runs. ``rows`` should therefore hold the rows of both runs, for a scorer
+    that failed on every row of one run. A failure of a scorer without matching valid feedback
+    is counted under the scorer name.
+    """
+    names_by_identity = collections.defaultdict(set)
+    for row in rows:
+        for name, feedbacks in row.feedbacks.items():
+            for feedback in feedbacks:
+                for identity in _scorer_identities(feedback):
+                    names_by_identity[identity].add(name)
+    for row in rows:
+        for name, identities in row.scorer_failures.items():
+            names = next(
+                (names_by_identity[i] for i in identities if i in names_by_identity), {name}
+            )
+            row.errored_scorers.update(names)
 
 
 def _mean_feedback_value(feedbacks: list[Feedback]) -> float | None:
@@ -207,12 +269,47 @@ def _warn_unpaired_rows(pairing: _Pairing) -> None:
     )
 
 
+def _warn_scorers_in_one_run(baseline_scorers: set[str], candidate_scorers: set[str]) -> None:
+    baseline_only = sorted(baseline_scorers - candidate_scorers)
+    candidate_only = sorted(candidate_scorers - baseline_scorers)
+    if not baseline_only and not candidate_only:
+        return
+    _logger.warning(
+        "Scorers with feedback in only one run are not compared. Baseline run only: "
+        f"{baseline_only}. Candidate run only: {candidate_only}. This is expected for a scorer "
+        "added or removed between the runs. Otherwise, check whether a scorer was renamed, or "
+        "whether a scorer that returns feedback under other names failed on every row of one "
+        "run after its definition changed; register the scorer so that its failures are "
+        "matched across versions."
+    )
+
+
+def _warn_scorer_errors(comparisons: dict[str, ScorerComparison]) -> None:
+    errored = [c for c in comparisons.values() if c.n_baseline_errors or c.n_candidate_errors]
+    if not errored:
+        return
+    counts = ", ".join(
+        f"{c.scorer!r} ({c.n_baseline_errors} baseline and {c.n_candidate_errors} candidate row(s))"
+        for c in errored
+    )
+    _logger.warning(
+        "Scorers returned errors on paired rows, which are excluded from their comparison: "
+        f"{counts}. Errors are often not random, e.g. judge timeouts on long inputs, so the "
+        "remaining rows can be biased. These scorers are reported with status "
+        "'scorer_errors' and fail `assert_improved()`; inspect the error of the feedback on "
+        "the traces of the runs, fix its cause and evaluate again."
+    )
+
+
 def _log_comparison(result: ComparisonResult) -> None:
     client = MlflowClient()
     timestamp = get_current_time_millis()
     metrics = []
     for name, comparison in result.scorers.items():
-        for stat in _LOGGED_STATS:
+        stats = _LOGGED_STATS
+        if comparison.status == "scorer_errors":
+            stats += _LOGGED_ERROR_COUNTS
+        for stat in stats:
             value = getattr(comparison, stat)
             if value is not None and math.isfinite(value):
                 key = _comparison_key(result.baseline_run_id, name, stat)
