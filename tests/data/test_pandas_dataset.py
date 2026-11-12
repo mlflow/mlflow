@@ -295,6 +295,31 @@ def test_digest_includes_string_columns_with_missing_values(dtype):
     assert mlflow.data.from_pandas(df1).digest != mlflow.data.from_pandas(df2).digest
 
 
+@pytest.mark.parametrize(
+    ("values1", "values2"),
+    [
+        (pd.Series([True, False, True]), pd.Series([False, True, False])),
+        (
+            pd.Series([True, False, None], dtype="boolean"),
+            pd.Series([False, True, None], dtype="boolean"),
+        ),
+        (
+            pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+            pd.to_datetime(["2025-06-01", "2025-06-02", "2025-06-03"]),
+        ),
+        (
+            pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]).tz_localize("UTC"),
+            pd.to_datetime(["2025-06-01", "2025-06-02", "2025-06-03"]).tz_localize("UTC"),
+        ),
+        (pd.Categorical([1, 2, 3]), pd.Categorical([3, 3, 1])),
+    ],
+)
+def test_digest_includes_boolean_datetime_and_categorical_columns(values1, values2):
+    df1 = pd.DataFrame({"x": [1, 2, 3], "col": values1})
+    df2 = pd.DataFrame({"x": [1, 2, 3], "col": values2})
+    assert mlflow.data.from_pandas(df1).digest != mlflow.data.from_pandas(df2).digest
+
+
 def test_df_hashing_with_dicts():
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)

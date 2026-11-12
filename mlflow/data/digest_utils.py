@@ -22,7 +22,8 @@ def compute_pandas_digest(df) -> str:
     # trim to max rows
     trimmed_df = df.head(MAX_ROWS)
 
-    # keep string and number columns, drop other column types
+    # keep string, number, boolean, datetime, and categorical columns, drop other column types
+    # (e.g. object columns of lists or dicts, which cannot be hashed)
     # `skipna=True` keeps string columns that contain missing values. Inferring on an object
     # array keeps categorical columns of strings, for which `infer_dtype` returns "categorical".
     string_columns = trimmed_df.columns[
@@ -31,9 +32,11 @@ def compute_pandas_digest(df) -> str:
             for _, column in trimmed_df.items()
         ]
     ]
-    numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
+    typed_columns = trimmed_df.select_dtypes(
+        include=[np.number, "bool", "boolean", "datetime", "datetimetz", "category"]
+    ).columns
 
-    desired_columns = string_columns.union(numeric_columns)
+    desired_columns = string_columns.union(typed_columns)
     trimmed_df = trimmed_df[desired_columns]
 
     return get_normalized_md5_digest(
