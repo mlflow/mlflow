@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/claude-code",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Claude Code and Claude Agent SDK integration package for MLflow Tracing",
   "type": "module",
   "repository": {
@@ -46,7 +46,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@mlflow/core": "^0.4.0"
+    "@mlflow/core": "^0.5.0"
   },
   "peerDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.0"

@@ -176,9 +176,9 @@
         "max_output": 64000
       },
       "pricing": {
-        "input_per_million_tokens": 0.834,
-        "output_per_million_tokens": 2.501,
-        "cache_read_per_million_tokens": 0.042
+        "input_per_million_tokens": 0.417,
+        "output_per_million_tokens": 1.2505,
+        "cache_read_per_million_tokens": 0.021
       },
       "capabilities": {
         "function_calling": true,
@@ -187,7 +187,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-09"
+      "last_updated_at": "2026-11-12"
     },
     "hy4-preview": {
       "mode": "chat",
@@ -196,9 +196,9 @@
         "max_output": 64000
       },
       "pricing": {
-        "input_per_million_tokens": 0.834,
-        "output_per_million_tokens": 2.501,
-        "cache_read_per_million_tokens": 0.042
+        "input_per_million_tokens": 0.417,
+        "output_per_million_tokens": 1.2505,
+        "cache_read_per_million_tokens": 0.021
       },
       "capabilities": {
         "function_calling": true,
@@ -207,7 +207,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-09"
+      "last_updated_at": "2026-11-12"
     },
     "kimi-k2.7-code": {
       "mode": "chat",
