@@ -15,6 +15,8 @@ from mlflow.genai.evaluation.comparison.paired_comparison import _compare_paired
 from mlflow.genai.evaluation.comparison.utils import _comparison_key
 from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.scorers import scorer
+from mlflow.genai.scorers.base import SCORER_BACKEND_TRACKING
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.tracking.client import MlflowClient
 
 _COMPARISON_PACKAGE = "mlflow.genai.evaluation.comparison"
@@ -80,6 +82,12 @@ def multi(outputs) -> list[Feedback]:
         Feedback(name="clarity", value=outputs["score"]),
         Feedback(name="safety", value=outputs["passed"]),
     ]
+
+
+@scorer(name="multi")
+def multi_down(outputs) -> list[Feedback]:
+    # A new definition of `multi` that fails on every row, so its digest matches no valid feedback.
+    raise RuntimeError("judge endpoint returned 500")
 
 
 @scorer(name="failing")
@@ -948,6 +956,69 @@ def test_compare_evaluations_counts_scorer_failures_under_returned_feedback_name
         assert comparison.n_baseline_errors == 1
         assert comparison.n_candidate_errors == len(candidate_error_rows)
         assert comparison.n_paired == 10 - len({0, *candidate_error_rows})
+    with pytest.raises(AssertionError, match="did not significantly improve"):
+        result.assert_improved()
+
+
+def test_compare_evaluations_warns_about_scorers_in_only_one_run():
+    rows = _rows([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5])
+    baseline_run_id = _evaluate(rows, scorers=[score, multi])
+    # An unregistered `multi` whose definition changed fails on every candidate row, so its
+    # failures can't be matched to the `clarity` and `safety` feedback of the baseline run.
+    candidate_run_id = _evaluate(rows, scorers=[score, multi_down])
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert list(result.scorers) == ["score"]
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "Scorers with feedback in only one run are not compared" in message
+    assert "Baseline run only: ['clarity', 'safety']" in message
+    assert "Candidate run only: ['multi']" in message
+
+
+def test_compare_evaluations_matches_failures_of_a_registered_scorer_across_versions():
+    @scorer(name="registered_multi")
+    def version_1(outputs) -> list[Feedback]:
+        return [
+            Feedback(name="clarity", value=outputs["score"]),
+            Feedback(name="safety", value=outputs["passed"]),
+        ]
+
+    @scorer(name="registered_multi")
+    def version_2(outputs) -> list[Feedback]:
+        raise RuntimeError("judge endpoint returned 500")
+
+    for version, registered_scorer in enumerate([version_1, version_2], start=1):
+        registered_scorer._set_registration_metadata(
+            backend=SCORER_BACKEND_TRACKING,
+            experiment_id=None,
+            sampling_config=None,
+            scorer_version=version,
+        )
+    # The versions differ in definition, so only the registered name links them.
+    assert get_scorer_definition_digest(version_1) != get_scorer_definition_digest(version_2)
+    rows = _rows([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5])
+    baseline_run_id = _evaluate(rows, scorers=[score, version_1])
+    candidate_run_id = _evaluate(rows, scorers=[score, version_2])
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert list(result.scorers) == ["clarity", "safety", "score"]
+    for name in ("clarity", "safety"):
+        comparison = result.scorers[name]
+        assert comparison.status == "scorer_errors"
+        assert comparison.n_paired == 0
+        assert comparison.n_baseline_errors == 0
+        assert comparison.n_candidate_errors == 10
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert not any("only one run" in message for message in messages)
     with pytest.raises(AssertionError, match="did not significantly improve"):
         result.assert_improved()
 

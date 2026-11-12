@@ -15,6 +15,7 @@ from mlflow.genai.evaluation.comparison.utils import (
     _mean_feedback_value,
     _pair_rows,
     _warn_scorer_errors,
+    _warn_scorers_in_one_run,
     _warn_unpaired_rows,
 )
 from mlflow.telemetry.events import CompareEvaluationsEvent
@@ -61,9 +62,11 @@ def compare_evaluations(
     scorers with fewer than ten. Paired rows on which a scorer errored in either run are
     excluded from that scorer's statistics and counted in ``n_baseline_errors`` and
     ``n_candidate_errors``. A row on which a scorer raised counts as an error of each
-    feedback name that the scorer returns on other rows of either run. Since errors are often
+    feedback name that the scorer returns on other rows of either run, matched on the scorer
+    definition or, for a registered scorer, on its name across versions. Since errors are often
     not random (e.g. judge timeouts on long inputs), such a scorer is reported with status
-    ``"scorer_errors"``, even when all of its feedback errored, and a warning is logged. If no
+    ``"scorer_errors"``, even when all of its feedback errored, and a warning is logged.
+    Scorers with feedback in only one run are not compared, and a warning lists them. If no
     scorer produced feedback in both runs, a warning is logged and the result has no scorers.
 
     No correction for multiple comparisons is applied across scorers.
@@ -140,6 +143,8 @@ def compare_evaluations(
             f"{sorted(baseline_scorers)}. Scorers with feedback in the candidate run: "
             f"{sorted(candidate_scorers)}."
         )
+    else:
+        _warn_scorers_in_one_run(baseline_scorers, candidate_scorers)
 
     paired_rows = [
         {

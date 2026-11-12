@@ -57,9 +57,10 @@ class _EvalRow:
     # Names of the feedback that errored on the trace. Errored feedback has no value, so it is
     # kept out of ``feedbacks``.
     errored_scorers: set[str]
-    # Scorers that raised on the trace, by scorer name, with their definition digest. They are
-    # moved into ``errored_scorers`` by ``_attribute_scorer_failures``.
-    scorer_failures: dict[str, str]
+    # Scorers that raised on the trace, by scorer name, with their identities from
+    # ``_scorer_identities``. They are moved into ``errored_scorers`` by
+    # ``_attribute_scorer_failures``.
+    scorer_failures: dict[str, list[tuple[str, str]]]
 
 
 @dataclass
@@ -110,9 +111,9 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
                 if assessment.error is None:
                     feedbacks[assessment.name].append(assessment)
                 elif assessment.error.error_code == _SCORER_INVOCATION_ERROR_CODE and (
-                    digest := _scorer_digest(assessment)
+                    identities := _scorer_identities(assessment)
                 ):
-                    scorer_failures[assessment.name] = digest
+                    scorer_failures[assessment.name] = identities
                 else:
                     errored_scorers.add(assessment.name)
         inputs_hash, inputs_hash_unstable = _hash_inputs(trace)
@@ -130,8 +131,17 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
     return rows
 
 
-def _scorer_digest(feedback: Feedback) -> str | None:
-    return (feedback.metadata or {}).get(AssessmentMetadataKey.SCORER_DIGEST)
+def _scorer_identities(feedback: Feedback) -> list[tuple[str, str]]:
+    """
+    Keys identifying the scorer that logged ``feedback``, most specific first: its definition
+    digest, then the name of a registered scorer, which stays the same across its versions.
+    """
+    metadata = feedback.metadata or {}
+    return [
+        (key, value)
+        for key in (AssessmentMetadataKey.SCORER_DIGEST, AssessmentMetadataKey.SCORER_NAME)
+        if (value := metadata.get(key))
+    ]
 
 
 def _attribute_scorer_failures(rows: list[_EvalRow]) -> None:
@@ -140,20 +150,24 @@ def _attribute_scorer_failures(rows: list[_EvalRow]) -> None:
 
     A scorer that raises is logged as one errored feedback named after the scorer, but a scorer
     returning feedback of other names (e.g. ``clarity`` and ``safety``) is compared under those
-    names. The names are those of the valid feedback of the same scorer definition, matched on
-    its digest, on any of ``rows``, so that ``rows`` should hold the rows of both runs for a
-    scorer that failed on every row of one run. A failure of a scorer without valid feedback is
-    counted under the scorer name.
+    names. The names are those of the valid feedback of the same scorer on any of ``rows``,
+    matched on its definition digest, or on its name for a registered scorer whose definition
+    changed between the runs. ``rows`` should therefore hold the rows of both runs, for a scorer
+    that failed on every row of one run. A failure of a scorer without matching valid feedback
+    is counted under the scorer name.
     """
-    names_by_digest = collections.defaultdict(set)
+    names_by_identity = collections.defaultdict(set)
     for row in rows:
         for name, feedbacks in row.feedbacks.items():
             for feedback in feedbacks:
-                if digest := _scorer_digest(feedback):
-                    names_by_digest[digest].add(name)
+                for identity in _scorer_identities(feedback):
+                    names_by_identity[identity].add(name)
     for row in rows:
-        for name, digest in row.scorer_failures.items():
-            row.errored_scorers.update(names_by_digest.get(digest) or {name})
+        for name, identities in row.scorer_failures.items():
+            names = next(
+                (names_by_identity[i] for i in identities if i in names_by_identity), {name}
+            )
+            row.errored_scorers.update(names)
 
 
 def _mean_feedback_value(feedbacks: list[Feedback]) -> float | None:
@@ -252,6 +266,21 @@ def _warn_unpaired_rows(pairing: _Pairing) -> None:
         f"{len(pairing.unpaired_baseline)} baseline row(s) and "
         f"{len(pairing.unpaired_candidate)} candidate row(s) could not be paired and are "
         "excluded from the comparison. " + " ".join(reasons)
+    )
+
+
+def _warn_scorers_in_one_run(baseline_scorers: set[str], candidate_scorers: set[str]) -> None:
+    baseline_only = sorted(baseline_scorers - candidate_scorers)
+    candidate_only = sorted(candidate_scorers - baseline_scorers)
+    if not baseline_only and not candidate_only:
+        return
+    _logger.warning(
+        "Scorers with feedback in only one run are not compared. Baseline run only: "
+        f"{baseline_only}. Candidate run only: {candidate_only}. This is expected for a scorer "
+        "added or removed between the runs. Otherwise, check whether a scorer was renamed, or "
+        "whether a scorer that returns feedback under other names failed on every row of one "
+        "run after its definition changed; register the scorer so that its failures are "
+        "matched across versions."
     )
 
 
