@@ -105,7 +105,9 @@ jobs:
         with:
           ref: ${{ steps.trusted.outputs.ref }}
           persist-credentials: false
-          sparse-checkout: .claude/skills/resolve
+          sparse-checkout: |
+            .claude/skills/resolve
+            .claude/scripts
       - name: Collect review context
         id: context
         env:
