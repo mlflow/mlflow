@@ -1,10 +1,10 @@
-"""Print a pull request's conversation as a JSON timeline of comments and reviews.
+"""Print a pull request's context as JSON: its title, body, and conversation timeline.
 
-The timeline mirrors the Conversation tab: items are in chronological order, and each inline
-thread appears under the review that started it.
+The timeline mirrors the Conversation tab: comments and reviews in chronological order, with
+each inline thread under the review that started it.
 
 Usage:
-    uv run --no-project .claude/scripts/pr_timeline.py --repo mlflow/mlflow --pr-number 123
+    uv run --no-project .claude/scripts/pr_context.py --repo mlflow/mlflow --pr-number 123
 """
 
 from __future__ import annotations
@@ -132,7 +132,7 @@ def build_timeline(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Print a pull request's conversation as a JSON timeline."
+        description="Print a pull request's title, body, and conversation timeline as JSON."
     )
     parser.add_argument("--repo", required=True, help="Repository as <owner>/<name>")
     parser.add_argument("--pr-number", type=int, required=True, help="Pull request number")
@@ -151,7 +151,8 @@ def main() -> None:
         threads=_list_threads(args.repo, args.pr_number),
         review_id=args.review_id,
     )
-    json.dump(timeline, sys.stdout)
+    pr = _api(endpoint)
+    json.dump({"title": pr["title"], "body": pr["body"] or "", "timeline": timeline}, sys.stdout)
 
 
 if __name__ == "__main__":

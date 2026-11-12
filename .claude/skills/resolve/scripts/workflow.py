@@ -13,19 +13,7 @@ COPILOT = "copilot-pull-request-reviewer[bot]"
 NAILAOPUS = "nailaopus[bot]"
 MAX_ROUNDS = 5
 PATCH_PATHS = Path(__file__).resolve().parents[2] / "patch-paths.txt"
-PR_TIMELINE = Path(__file__).resolve().parents[3] / "scripts" / "pr_timeline.py"
-THREADS_QUERY = """
-query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      reviewThreads(first: 100, after: $endCursor) {
-        nodes { id isResolved }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }
-}
-"""
+PR_CONTEXT = Path(__file__).resolve().parents[3] / "scripts" / "pr_context.py"
 CLOSE_THREAD = """
 mutation($id: ID!) {
   resolveReviewThread(input: {threadId: $id}) { thread { isResolved } }
@@ -67,26 +55,21 @@ def eligible(pr: dict[str, Any], repo: str) -> bool:
     )
 
 
-def threads(repo: str, number: str) -> list[dict[str, Any]]:
-    owner, name = repo.split("/")
-    pages = api(
-        "graphql",
-        "--paginate",
-        "--slurp",
-        "-f",
-        f"query={THREADS_QUERY}",
-        "-f",
-        f"owner={owner}",
-        "-f",
-        f"name={name}",
-        "-F",
-        f"number={number}",
+def fetch_timeline(repo: str, number: str, review_id: str) -> list[dict[str, Any]]:
+    pr_context = json.loads(
+        command(
+            sys.executable,
+            PR_CONTEXT,
+            "--repo",
+            repo,
+            "--pr-number",
+            number,
+            "--review-id",
+            review_id,
+        )
     )
-    return [
-        thread
-        for page in pages
-        for thread in page["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
-    ]
+    timeline: list[dict[str, Any]] = pr_context["timeline"]
+    return timeline
 
 
 def app_comment(comment: dict[str, Any]) -> bool:
@@ -132,18 +115,7 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         summary(f"The PR has reached its limit of {MAX_ROUNDS} automatic review rounds.")
         return
 
-    timeline = json.loads(
-        command(
-            sys.executable,
-            PR_TIMELINE,
-            "--repo",
-            repo,
-            "--pr-number",
-            number,
-            "--review-id",
-            review_id,
-        )
-    )
+    timeline = fetch_timeline(repo, number, review_id)
     context = {
         "head_sha": pr["head"]["sha"],
         "head_ref": pr["head"]["ref"],
@@ -350,7 +322,9 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     if "review" in responses:
         previous += list_items(issue_comments)
     posted = {comment["body"].rpartition("\n")[2] for comment in previous if app_comment(comment)}
-    closed = {thread["id"] for thread in threads(repo, number) if thread["isResolved"]}
+    # Threads may have been resolved since the context was collected.
+    latest = {"timeline": fetch_timeline(repo, number, review_id)}
+    closed = {thread["id"] for thread in all_threads(latest) if thread["resolved"]}
     current = current_review(context)
     roots = {thread["id"]: thread["comments"][0]["id"] for thread in all_threads(context)}
     blocked = False

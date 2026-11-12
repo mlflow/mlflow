@@ -9,9 +9,9 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture(scope="module")
-def pr_timeline() -> ModuleType:
+def pr_context() -> ModuleType:
     spec = importlib.util.spec_from_file_location(
-        "pr_timeline", ROOT / ".claude/scripts/pr_timeline.py"
+        "pr_context", ROOT / ".claude/scripts/pr_context.py"
     )
     assert spec is not None
     assert spec.loader is not None
@@ -60,8 +60,8 @@ def thread(root_id: int, *, resolved: bool = False) -> dict[str, Any]:
     }
 
 
-def test_threads_appear_under_the_review_that_started_them(pr_timeline: ModuleType) -> None:
-    timeline = pr_timeline.build_timeline(
+def test_threads_appear_under_the_review_that_started_them(pr_context: ModuleType) -> None:
+    timeline = pr_context.build_timeline(
         issue_comments=[{"user": None, "created_at": "2026-01-02T00:00:00Z", "body": "hi"}],
         reviews=[
             review(100, "2026-01-01T00:00:00Z", body="summary"),
@@ -124,12 +124,12 @@ def test_threads_appear_under_the_review_that_started_them(pr_timeline: ModuleTy
     ],
 )
 def test_empty_comment_reviews_are_hidden_unless_requested(
-    pr_timeline: ModuleType,
+    pr_context: ModuleType,
     reviews: list[dict[str, Any]],
     review_id: int | None,
     expected: list[int],
 ) -> None:
-    timeline = pr_timeline.build_timeline(
+    timeline = pr_context.build_timeline(
         issue_comments=[], reviews=reviews, review_comments=[], threads=[], review_id=review_id
     )
     assert [item["id"] for item in timeline] == expected
