@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { isArray, isEqual } from 'lodash';
+import { isEqual } from 'lodash';
 import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL, createSearchRunsParams } from '../utils/experimentPage.fetch-utils';
@@ -52,6 +52,7 @@ export const useExperimentRunsAutoRefresh = ({
     }
 
     let cancelled = false;
+    const isCancelled = () => cancelled || !autoRefreshEnabledRef.current;
     const scheduleRefresh = async () => {
       const hasBeenInitialized = Boolean(lastFetchedTime.current);
       const timePassed = lastFetchedTime.current ? Date.now() - lastFetchedTime.current : 0;
@@ -73,13 +74,15 @@ export const useExperimentRunsAutoRefresh = ({
         };
 
         let autoRefreshFetchedPages = 0;
-        let autoRefreshResultsCount = 0;
+        const autoRefreshRunIds = new Set<string>();
         let currentPageToken = undefined;
 
         const discardResultsFn = (lastRequestedParams: FetchRunsHookParams, value?: SearchRunsApiResponse) => {
+          const responseRunIds = new Set(value?.runs?.map(({ info }) => info.runUuid));
+          const newRunsCount = Array.from(responseRunIds).filter((id) => !autoRefreshRunIds.has(id)).length;
           // If it's not the final page and we still didn't reach the requested amount of runs,
           // flag results as not to be displayed yet
-          if (autoRefreshResultsCount + (value?.runs?.length ?? 0) < requestedRunsCount && value?.next_page_token) {
+          if (autoRefreshRunIds.size + newRunsCount < requestedRunsCount && value?.next_page_token) {
             return true;
           }
 
@@ -87,8 +90,7 @@ export const useExperimentRunsAutoRefresh = ({
           // conditions are met, the results from auto-refresh will be discarded.
           if (
             // Skip if auto-refresh was cancelled or disabled before the response came back
-            cancelled ||
-            !autoRefreshEnabledRef.current ||
+            isCancelled() ||
             // Skip if user has loaded more runs since the last request
             initialRunsCount > requestedRunsCount ||
             // Skip if the requested facets have changed since the last request
@@ -103,7 +105,7 @@ export const useExperimentRunsAutoRefresh = ({
 
         while (autoRefreshFetchedPages === 0 || currentPageToken) {
           // We have enough results, no need to fetch more
-          if (autoRefreshResultsCount >= requestedRunsCount) {
+          if (autoRefreshRunIds.size >= requestedRunsCount) {
             break;
           }
           autoRefreshFetchedPages++;
@@ -111,13 +113,14 @@ export const useExperimentRunsAutoRefresh = ({
             { ...requestParams, pageToken: currentPageToken },
             {
               isAutoRefreshing: true,
+              isCancelled,
               discardResultsFn,
             },
           );
-          if (cancelled) {
+          if (isCancelled()) {
             return;
           }
-          autoRefreshResultsCount += isArray(result?.runs) ? result.runs.length : 0;
+          result?.runs?.forEach(({ info }) => autoRefreshRunIds.add(info.runUuid));
           currentPageToken = result?.next_page_token;
         }
       }

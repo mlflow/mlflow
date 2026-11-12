@@ -37,6 +37,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { runInputsOutputsByUuid } from '../../../reducers/InputsOutputsReducer';
 import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
+import type { RunEntity } from '../../../types';
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),
@@ -108,21 +109,28 @@ const createInitialRunsResponse = () =>
     ),
   );
 
+const createRuns = (n: number, prefix = 'run'): RunEntity[] =>
+  Array.from({ length: n }, (_, index) => ({
+    info: {
+      runUuid: `${prefix}_${index}`,
+      experimentId: 'test-experiment',
+      runName: `${prefix}_${index}_name`,
+      lifecycleStage: 'active',
+      artifactUri: '',
+      startTime: 0,
+      endTime: 1,
+      status: 'FINISHED',
+    },
+    data: { metrics: [], params: [], tags: [] },
+  }));
+
 const createNRunsResponse = (n = 100) =>
   new Promise((resolve) =>
     setTimeout(
       () =>
         resolve({
           next_page_token: 'some_page_token',
-          runs: new Array(n).fill({}).map((_, index) => ({
-            info: {
-              runUuid: `run_${index}`,
-              experimentId: 'test-experiment',
-              runName: `run_${index}_name`,
-              lifecycleStage: 'active',
-            },
-            data: { metrics: [], params: [], tags: [] },
-          })),
+          runs: createRuns(n),
         }),
       MOCK_RESPONSE_DELAY,
     ),
@@ -735,6 +743,160 @@ describe('useExperimentRuns - integration test', () => {
       });
       expect(fetchRuns).toHaveBeenCalledTimes(2);
       expect(fetchRuns).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 500 }), expect.anything());
+      unmount();
+    });
+
+    test.each(['success', 'failure'])(
+      'ignores stale auto-refresh %s while a new page size is loading',
+      async (outcome) => {
+        const runs = createRuns(500);
+        let settlePrevious = () => {};
+        const previousResponse = new Promise((resolve, reject) => {
+          settlePrevious =
+            outcome === 'success'
+              ? () => resolve({ runs: runs.slice(0, 100), next_page_token: '100' })
+              : () => reject(new BadRequestError({}));
+        });
+        let resolveCurrent: (value: Awaited<ReturnType<FetchRunsHookFunction>>) => void = () => {};
+        const currentResponse = new Promise((resolve) => {
+          resolveCurrent = resolve;
+        });
+        let initialRequest = true;
+        jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => {
+          const payload =
+            maxResults === 500
+              ? currentResponse
+              : initialRequest
+                ? Promise.resolve({ runs: runs.slice(0, 100), next_page_token: '100' })
+                : previousResponse;
+          initialRequest = false;
+          return { type: 'SEARCH_RUNS_API', payload, meta: { id: 0 } };
+        });
+        const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+        await act(async () => {
+          jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+        });
+        await act(async () => {
+          result.current.pageSizeSelect.onChange(500);
+        });
+        expect(result.current.isLoadingRuns).toBe(true);
+        await act(async () => {
+          settlePrevious();
+        });
+        expect(result.current.isLoadingRuns).toBe(true);
+        expect(result.current.requestError).toBeNull();
+        await act(async () => {
+          resolveCurrent({ runs, next_page_token: '500' });
+        });
+        expect(result.current.runsData.runInfos).toHaveLength(500);
+        unmount();
+      },
+    );
+
+    test.each(['success', 'failure'])('ignores stale auto-refresh %s before loading the next page', async (outcome) => {
+      const runs = createRuns(1000);
+      let settlePrevious = () => {};
+      const previousResponse = new Promise((resolve, reject) => {
+        settlePrevious =
+          outcome === 'success'
+            ? () => resolve({ runs: runs.slice(0, 100), next_page_token: '100' })
+            : () => reject(new BadRequestError({}));
+      });
+      let initialRequest = true;
+      jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => {
+        const payload =
+          maxResults === 500
+            ? Promise.resolve({ runs: runs.slice(0, 500), next_page_token: '500' })
+            : initialRequest
+              ? Promise.resolve({ runs: runs.slice(0, 100), next_page_token: '100' })
+              : previousResponse;
+        initialRequest = false;
+        return { type: 'SEARCH_RUNS_API', payload, meta: { id: 0 } };
+      });
+      jest.mocked(loadMoreRunsApi).mockReturnValue({
+        type: 'LOAD_MORE_RUNS_API',
+        payload: Promise.resolve({ runs: runs.slice(500) }),
+        meta: { id: 0 },
+      });
+      const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+      await act(async () => {
+        result.current.pageSizeSelect.onChange(500);
+      });
+      expect(result.current.runsData.runInfos).toHaveLength(500);
+      await act(async () => {
+        settlePrevious();
+      });
+      expect(store.getState().entities.runInfoOrderByUuid).toHaveLength(500);
+      expect(result.current.requestError).toBeNull();
+      await act(async () => {
+        await result.current.loadMoreRuns();
+      });
+      expect(loadMoreRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: '500', maxResults: 500 }));
+      expect(result.current.runsData.runInfos).toHaveLength(1000);
+      unmount();
+    });
+
+    test('retains unique runs when auto-refresh pages repeat missing parents', async () => {
+      setLocalStorageItem('runs_page.page_size', 0, false, 500);
+      const parents = createRuns(500, 'parent');
+      const children = createRuns(2000, 'child').map((run, index) => ({
+        ...run,
+        data: { ...run.data, tags: [{ key: 'mlflow.parentRunId', value: `parent_${index % 500}` }] },
+      }));
+      const page = (start: number, size: number) =>
+        Promise.resolve({
+          runs: [...children.slice(start, start + size), ...parents],
+          next_page_token: start + size < children.length ? String(start + size) : undefined,
+        });
+      jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => ({
+        type: 'SEARCH_RUNS_API',
+        payload: page(0, maxResults),
+        meta: { id: 0 },
+      }));
+      jest.mocked(loadMoreRunsApi).mockImplementation(({ pageToken, maxResults }) => ({
+        type: 'LOAD_MORE_RUNS_API',
+        payload: page(Number(pageToken), maxResults),
+        meta: { id: 0 },
+      }));
+      const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+      await act(async () => {
+        await result.current.loadMoreRuns();
+      });
+      await act(async () => {
+        await result.current.loadMoreRuns();
+      });
+      expect(result.current.runsData.runInfos).toHaveLength(2000);
+      jest.mocked(searchRunsApi).mockClear();
+      jest.mocked(loadMoreRunsApi).mockClear();
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+      expect(result.current.runsData.runInfos).toHaveLength(2000);
+      expect(searchRunsApi).toHaveBeenCalledTimes(1);
+      expect(loadMoreRunsApi).toHaveBeenCalledTimes(2);
+      expect(loadMoreRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 500 }));
+      unmount();
+    });
+
+    test('reports a current auto-refresh failure', async () => {
+      const error = new BadRequestError({});
+      jest
+        .mocked(searchRunsApi)
+        .mockReturnValueOnce({
+          type: 'SEARCH_RUNS_API',
+          payload: Promise.resolve({ runs: createRuns(100) }),
+          meta: { id: 0 },
+        })
+        .mockImplementation(() => ({ type: 'SEARCH_RUNS_API', payload: Promise.reject(error), meta: { id: 0 } }));
+      const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+      expect(result.current.requestError).toBe(error);
+      expect(result.current.isLoadingRuns).toBe(false);
       unmount();
     });
 

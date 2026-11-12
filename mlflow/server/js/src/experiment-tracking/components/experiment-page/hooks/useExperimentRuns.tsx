@@ -19,6 +19,7 @@ import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
 import type { RunEntity, SearchRunsApiResponse } from '../../../types';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import type { CursorPaginationProps } from '@databricks/design-system';
+import { fulfilled, rejected } from '../../../../common/utils/ActionUtils';
 
 const RUNS_PAGE_SIZE_OPTIONS = [RUNS_SEARCH_MAX_RESULTS, 250, 500];
 
@@ -30,6 +31,7 @@ export type FetchRunsHookFunction = (
   params: FetchRunsHookParams,
   options?: {
     isAutoRefreshing?: boolean;
+    isCancelled?: () => boolean;
     discardResultsFn?: (lastRequestedParams: FetchRunsHookParams, response?: SearchRunsApiResponse) => boolean;
   },
 ) => Promise<{ runs: RunEntity[]; next_page_token?: string }>;
@@ -148,8 +150,34 @@ export const useExperimentRuns = (
           setIsLoadingRuns(true);
           lastRequestedParams.current = fetchParams;
         }
-        return thunkDispatch((fetchParams.pageToken ? loadMoreRunsApi : searchRunsApi)(fetchParams))
+        const requestedParams = lastRequestedParams.current;
+        const isObsolete = () =>
+          Boolean(
+            options.isAutoRefreshing && (options.isCancelled?.() || lastRequestedParams.current !== requestedParams),
+          );
+        const action = (fetchParams.pageToken ? loadMoreRunsApi : searchRunsApi)(fetchParams);
+        // Validate background responses before Redux promise middleware can overwrite the current runs.
+        const response = options.isAutoRefreshing
+          ? action.payload.then(
+              (value: SearchRunsApiResponse) => {
+                if (!isObsolete()) {
+                  thunkDispatch({ ...action, type: fulfilled(action.type), payload: value });
+                }
+                return { value };
+              },
+              (error: ErrorWrapper | PredefinedError) => {
+                if (!isObsolete()) {
+                  thunkDispatch({ ...action, type: rejected(action.type), payload: error, error: true });
+                }
+                throw error;
+              },
+            )
+          : thunkDispatch(action);
+        return response
           .then(async ({ value }) => {
+            if (isObsolete()) {
+              return { runs: [] };
+            }
             lastFetchedTime.current = Date.now();
 
             setIsLoadingRuns(false);
@@ -173,6 +201,9 @@ export const useExperimentRuns = (
             return value;
           })
           .catch((e: ErrorWrapper | PredefinedError) => {
+            if (isObsolete()) {
+              return;
+            }
             setIsLoadingRuns(false);
             setIsInitialLoadingRuns(false);
             if (shouldUsePredefinedErrorsInExperimentTracking()) {
