@@ -72,8 +72,14 @@ def describe_pr(pr: dict[str, Any]) -> dict[str, Any]:
     return {
         "title": pr["title"],
         "body": pr["body"] or "",
-        "author": {"login": user.get("login", ""), "type": user.get("type", "")},
-        "base": {"ref": pr["base"]["ref"], "sha": pr["base"]["sha"]},
+        "author": {
+            "login": user.get("login", ""),
+            "type": user.get("type", ""),
+        },
+        "base": {
+            "ref": pr["base"]["ref"],
+            "sha": pr["base"]["sha"],
+        },
         "head": {
             "ref": pr["head"]["ref"],
             "sha": pr["head"]["sha"],
