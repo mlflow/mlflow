@@ -82,7 +82,7 @@ def compare_evaluations(
             n_candidate_errors}`` for scorers with status ``"scorer_errors"``, and one
             ``compare/<baseline_short_id>.json`` artifact containing the full baseline run ID.
             ``<baseline_short_id>`` is the first 8 characters of the baseline run ID. Off by
-            default, since every compared scorer adds at least six metrics to the run.
+            default, since every compared scorer adds up to eight metrics to the run.
 
     Returns:
         A :py:class:`ComparisonResult <mlflow.genai.evaluation.comparison.ComparisonResult>`.
