@@ -31,6 +31,10 @@ export interface ConversationMessage extends ChatMessage {
   // a message the user writes stays editable even with the assistant role (e.g. an
   // example response for priming). Display-only; stripped before sending.
   isModelReply?: boolean;
+  // Set on model replies: the resolved messages of the request that produced the reply,
+  // so a later change to the prompt or its variables can be detected. Display-only;
+  // stripped before sending.
+  requestMessages?: ChatMessage[];
 }
 
 export type ResponseFormatType = 'text' | 'json_object' | 'json_schema';

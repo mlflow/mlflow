@@ -318,7 +318,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                           onClick={handleExportToDatasets}
                         >
                           {intl.formatMessage({
-                            defaultMessage: 'Add to evaluation dataset',
+                            defaultMessage: 'Add to evaluation datasets',
                             description: 'Add traces to evaluation dataset action',
                           })}
                         </DropdownMenu.Item>

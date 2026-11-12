@@ -2,22 +2,26 @@ import { FormUI, Input, Modal, useDesignSystemTheme } from '@databricks/design-s
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useCreateEvaluationDatasetMutation } from '../hooks/useCreateEvaluationDatasetMutation';
 import { useCallback, useState } from 'react';
+import type { EvaluationDataset } from '../types';
 
 export const CreateEvaluationDatasetModal = ({
   visible,
   experimentId,
   onCancel,
+  onCreated,
 }: {
   visible: boolean;
   experimentId: string;
   onCancel: () => void;
+  onCreated?: (dataset: EvaluationDataset) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [datasetName, setDatasetName] = useState('');
   const [datasetNameError, setDatasetNameError] = useState('');
   const { createEvaluationDatasetMutation, isLoading } = useCreateEvaluationDatasetMutation({
-    onSuccess: () => {
+    onSuccess: (dataset) => {
+      onCreated?.(dataset);
       // close modal when dataset is created
       onCancel();
     },

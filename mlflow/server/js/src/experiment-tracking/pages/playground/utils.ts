@@ -35,6 +35,13 @@ export const substituteVariables = (messages: ChatMessage[], values: Record<stri
 };
 
 /**
+ * The messages sent to the gateway for a run: variables resolved, each turn reduced to
+ * `{ role, content }`.
+ */
+export const buildRequestMessages = (messages: ChatMessage[], values: Record<string, string>): ChatMessage[] =>
+  substituteVariables(messages, values).map(({ role, content }) => ({ role, content }));
+
+/**
  * Returns the unique declared variable names whose corresponding value is
  * missing or trims to an empty string. Used to surface a pre-submit warning
  * when placeholders would silently substitute as `''`.

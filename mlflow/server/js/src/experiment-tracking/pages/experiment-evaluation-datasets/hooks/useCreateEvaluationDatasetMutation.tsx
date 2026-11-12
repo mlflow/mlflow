@@ -17,7 +17,7 @@ export const useCreateEvaluationDatasetMutation = ({
   onSuccess,
   onError,
 }: {
-  onSuccess?: () => void;
+  onSuccess?: (dataset: EvaluationDataset) => void;
   onError?: (error: any) => void;
 }) => {
   const queryClient = useQueryClient();
@@ -36,10 +36,10 @@ export const useCreateEvaluationDatasetMutation = ({
 
       return response.dataset;
     },
-    onSuccess: () => {
+    onSuccess: (dataset) => {
       queryClient.invalidateQueries({ queryKey: [SEARCH_EVALUATION_DATASETS_QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: [V2_DATASETS_PAGE_QUERY_KEY] });
-      onSuccess?.();
+      onSuccess?.(dataset);
     },
     onError: (error) => {
       onError?.(error);

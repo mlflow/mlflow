@@ -309,14 +309,14 @@ describe('TracesV4PageContent (interactions)', () => {
       return screen.findByRole('menu');
     };
 
-    test('always offers "Run scorers" and "Add to evaluation dataset" for a selection', async () => {
+    test('always offers "Run scorers" and "Add to evaluation datasets" for a selection', async () => {
       const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
       renderPage();
       const menu = await openActionsMenuForFirstTrace(user);
 
       // These two are always available (no extra feature gate) — the core evaluation actions.
       expect(within(menu).getByRole('menuitem', { name: 'Run scorers' })).toBeInTheDocument();
-      expect(within(menu).getByRole('menuitem', { name: 'Add to evaluation dataset' })).toBeInTheDocument();
+      expect(within(menu).getByRole('menuitem', { name: 'Add to evaluation datasets' })).toBeInTheDocument();
       // Delete remains, below the evaluation group. In OSS traces have no UC gate, so it's enabled.
       const deleteItem = within(menu).getByRole('menuitem', { name: /Delete/ });
       expect(deleteItem).toBeInTheDocument();
