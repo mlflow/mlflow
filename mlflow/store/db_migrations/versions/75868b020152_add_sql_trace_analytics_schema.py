@@ -66,8 +66,12 @@ def upgrade():
         _drop_dimension_attributes,
         _create_analytics_indexes,
     ]
+    # Every new database runs this migration on first use. Without traces there is nothing to
+    # migrate, so keep the step lines out of the default INFO output.
+    level = logging.INFO if _has_traces() else logging.DEBUG
     for step, operation in enumerate(operations, start=1):
-        _logger.info(
+        _logger.log(
+            level,
             "Trace analytics migration step %d/%d: %s",
             step,
             len(operations),
@@ -76,7 +80,15 @@ def upgrade():
         operation()
 
 
+def _has_traces():
+    trace_info = sa.table("trace_info", sa.column("request_id"))
+    return op.get_bind().execute(sa.select(trace_info.c.request_id).limit(1)).first() is not None
+
+
 def _log_progress(operation, batch_count, *, done=False, **counts):
+    # No batches means the table had no rows to process, so there is nothing to report.
+    if batch_count == 0:
+        return
     if done or batch_count == 1 or batch_count % _PROGRESS_EVERY_BATCHES == 0:
         _logger.info(
             "Trace analytics %s %s: %s",

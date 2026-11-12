@@ -449,6 +449,8 @@ def test_trace_analytics_migration_operation_order(monkeypatch):
 
     for operation in expected_operations:
         monkeypatch.setattr(MIGRATION_MODULE, operation, record(operation))
+    # `upgrade()` runs outside an Alembic context here, so it can't query the database.
+    monkeypatch.setattr(MIGRATION_MODULE, "_has_traces", lambda: True)
 
     MIGRATION_MODULE.upgrade()
 
@@ -1081,6 +1083,27 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 )
     finally:
         engine.dispose()
+
+
+def test_trace_analytics_migration_logs_steps_at_debug_on_an_empty_database(tmp_path, caplog):
+    caplog.set_level(logging.DEBUG, logger="mlflow.store.db_migrations")
+    engine, config = _prepare_database(tmp_path)
+    try:
+        command.upgrade(config, REVISION)
+    finally:
+        engine.dispose()
+
+    migration_logs = [
+        (record.levelno, record.getMessage())
+        for record in caplog.records
+        if record.name == MIGRATION_MODULE._logger.name
+    ]
+    # Only the step lines remain, all at DEBUG; the backfills and cleanups had nothing to process.
+    assert len(migration_logs) == 13
+    assert all(level == logging.DEBUG for level, _ in migration_logs)
+    assert all(
+        message.startswith("Trace analytics migration step ") for _, message in migration_logs
+    )
 
 
 def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
