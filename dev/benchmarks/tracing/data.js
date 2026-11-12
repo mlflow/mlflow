@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794454848815,
+  "lastUpdate": 1794465220523,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "63851589+aytero@users.noreply.github.com",
-            "name": "Asiet Dzharimova",
-            "username": "aytero"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "6fd7a5057af837f1d45deeb13cd7624a8e2b59e7",
-          "message": "Fix Gemini `thoughtSignature` placement in AI Gateway adapter (#25865)\n\nSigned-off-by: Asiet Dzharimova <asidzharimova@gmail.com>\nCo-authored-by: Haoji Tang <haoji.tang@databricks.com>",
-          "timestamp": "2026-09-15T12:45:01Z",
-          "tree_id": "4700548c9d199cafff90433b93892b30a1ba89b9",
-          "url": "https://github.com/mlflow/mlflow/commit/6fd7a5057af837f1d45deeb13cd7624a8e2b59e7"
-        },
-        "date": 1789476532107,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 66.28036954999956,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 4.844615986111794,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 4.907726322404468,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 5.0517957786880645,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 4.338469638554529,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 13.715121333333968,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.798826714285139,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d9ad047615619e9bb46e0565a1e3aab168962a40",
+          "message": "Convert multi-column DataFrames to `list[dict]` for `list[dict[...]]` type-hinted pyfunc inputs (#27697)\n\nSigned-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-11-12T06:30:30Z",
+          "tree_id": "ea5cb9cfa0f06534f31a1185977bcc6bc1092a46",
+          "url": "https://github.com/mlflow/mlflow/commit/d9ad047615619e9bb46e0565a1e3aab168962a40"
+        },
+        "date": 1794465216737,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 49.68912814999982,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.295318610390314,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.530892068323271,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.539827528735821,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.043507785234666,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.7862482000008413,
             "unit": "ms"
           }
         ]
