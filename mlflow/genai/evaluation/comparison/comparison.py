@@ -3,7 +3,7 @@
 import logging
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.evaluation.comparison.entities import ComparisonResult
+from mlflow.genai.evaluation.comparison.entities import ComparisonResult, ScorerComparison
 from mlflow.genai.evaluation.comparison.paired_comparison import _compare_paired_values
 from mlflow.genai.evaluation.comparison.utils import (
     _EvalRow,
@@ -12,6 +12,7 @@ from mlflow.genai.evaluation.comparison.utils import (
     _log_comparison,
     _mean_feedback_value,
     _pair_rows,
+    _warn_scorer_errors,
     _warn_unpaired_rows,
 )
 from mlflow.telemetry.events import CompareEvaluationsEvent
@@ -56,7 +57,13 @@ def compare_evaluations(
     fewer than six paired values, the smallest sample at which a result can be significant at
     0.05, is reported with status ``"insufficient_pairs"``, and a warning is logged for
     scorers with fewer than ten. If no scorer produced valid feedback in both runs, a warning
-    is logged and the result has no scorers.
+    is logged and no scorer is compared.
+
+    Rows where a scorer errored are excluded from that scorer's comparison and counted in
+    ``n_baseline_errors`` and ``n_candidate_errors``, and a warning is logged when either
+    count is not zero. A scorer with no paired values left because it errored is reported
+    with status ``"scorer_errors"``, so ``assert_improved()`` fails on it instead of
+    silently skipping it.
 
     No correction for multiple comparisons is applied across scorers.
 
@@ -112,14 +119,16 @@ def compare_evaluations(
     def scorer_names(rows: list[_EvalRow]) -> set[str]:
         return {name for row in rows for name in row.feedbacks}
 
-    baseline_scorers = scorer_names([
-        *pairing.unpaired_baseline,
-        *(p.baseline for p in pairing.pairs),
-    ])
-    candidate_scorers = scorer_names([
-        *pairing.unpaired_candidate,
-        *(p.candidate for p in pairing.pairs),
-    ])
+    baseline_rows = [*pairing.unpaired_baseline, *(p.baseline for p in pairing.pairs)]
+    candidate_rows = [*pairing.unpaired_candidate, *(p.candidate for p in pairing.pairs)]
+    baseline_scorers = scorer_names(baseline_rows)
+    candidate_scorers = scorer_names(candidate_rows)
+    # Scorers whose feedback only records errors have no valid feedback to compare. They are
+    # still reported, with status "scorer_errors", so that `assert_improved()` fails on them
+    # instead of silently skipping them (#27709).
+    errored_scorers = {
+        name for row in (*baseline_rows, *candidate_rows) for name in row.errored_scorers
+    }
     common_scorers = sorted(baseline_scorers & candidate_scorers)
     if not common_scorers:
         _logger.warning(
@@ -128,6 +137,7 @@ def compare_evaluations(
             f"{sorted(baseline_scorers)}. Scorers with valid feedback in the candidate run: "
             f"{sorted(candidate_scorers)}."
         )
+    compared_scorers = sorted(set(common_scorers) | errored_scorers)
 
     paired_rows = [
         {
@@ -139,15 +149,21 @@ def compare_evaluations(
         for pair in pairing.pairs
     ]
     comparisons = {}
-    for name in common_scorers:
+    for name in compared_scorers:
         baseline_values = []
         candidate_values = []
+        n_baseline_errors = 0
+        n_candidate_errors = 0
         pass_fail = True
         for pair, paired_row in zip(pairing.pairs, paired_rows):
             baseline_feedbacks = pair.baseline.feedbacks.get(name, [])
             candidate_feedbacks = pair.candidate.feedbacks.get(name, [])
             baseline_value = _mean_feedback_value(baseline_feedbacks)
             candidate_value = _mean_feedback_value(candidate_feedbacks)
+            if baseline_value is None and name in pair.baseline.errored_scorers:
+                n_baseline_errors += 1
+            if candidate_value is None and name in pair.candidate.errored_scorers:
+                n_candidate_errors += 1
             if baseline_value is None or candidate_value is None:
                 continue
             pass_fail = pass_fail and all(
@@ -161,7 +177,20 @@ def compare_evaluations(
                 "delta": candidate_value - baseline_value,
             }
 
-        comparisons[name] = _compare_paired_values(
+        if not baseline_values and (n_baseline_errors or n_candidate_errors):
+            # No paired row has a value because the scorer errored. Report the scorer with
+            # its error counts instead of dropping it, so `assert_improved()` fails on it.
+            comparisons[name] = ScorerComparison(
+                scorer=name,
+                status="scorer_errors",
+                n_paired=0,
+                n_baseline_errors=n_baseline_errors,
+                n_candidate_errors=n_candidate_errors,
+                greater_is_better=greater_is_better.get(name, True),
+            )
+            continue
+
+        comparison = _compare_paired_values(
             name,
             np.array(baseline_values, dtype=float),
             np.array(candidate_values, dtype=float),
@@ -169,6 +198,11 @@ def compare_evaluations(
             greater_is_better=greater_is_better.get(name, True),
             confidence_level=confidence_level,
         )
+        comparison.n_baseline_errors = n_baseline_errors
+        comparison.n_candidate_errors = n_candidate_errors
+        comparisons[name] = comparison
+
+    _warn_scorer_errors(comparisons)
 
     result = ComparisonResult(
         candidate_run_id=candidate_run_id,

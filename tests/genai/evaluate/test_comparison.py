@@ -78,6 +78,23 @@ def duplicated(outputs) -> list[Feedback]:
     ]
 
 
+@scorer
+def sometimes_failing(outputs) -> bool:
+    if outputs["fail"]:
+        raise RuntimeError("judge timed out")
+    return outputs["passed"]
+
+
+@scorer(name="safety")
+def safety_ok(outputs) -> bool:
+    return True
+
+
+@scorer(name="safety")
+def safety_down(outputs) -> bool:
+    raise RuntimeError("judge endpoint returned 500")
+
+
 def _rows(scores: list[float], passes: list[bool] | None = None) -> list[dict[str, Any]]:
     passes = passes or [s > 0.5 for s in scores]
     return [
@@ -734,20 +751,11 @@ def test_assert_improved_rejects_an_empty_scorer_list():
     result.assert_improved(scorers=None)
 
 
-@pytest.mark.parametrize(
-    ("candidate_scorers", "expected_candidate_scorers"),
-    [
-        # Errored feedback is not valid, so the candidate run has no feedback to compare.
-        ([failing], []),
-        ([passed], ["passed"]),
-    ],
-)
-def test_compare_evaluations_warns_when_no_scorers_in_common(
-    candidate_scorers, expected_candidate_scorers: list[str]
-):
+def test_compare_evaluations_warns_when_no_scorers_in_common():
+    # A scorer with valid feedback in only one run is not compared.
     rows = _rows([0.1, 0.2, 0.3])
     baseline_run_id = _evaluate(rows, scorers=[score])
-    candidate_run_id = _evaluate(rows, scorers=candidate_scorers)
+    candidate_run_id = _evaluate(rows, scorers=[passed])
 
     with mock.patch(f"{_COMPARISON_PACKAGE}.comparison._logger.warning") as mock_warning:
         result = mlflow.genai.compare_evaluations(
@@ -760,8 +768,95 @@ def test_compare_evaluations_warns_when_no_scorers_in_common(
     message = mock_warning.call_args[0][0]
     assert "No scorers were compared" in message
     assert "baseline run: ['score']" in message
-    assert f"candidate run: {expected_candidate_scorers}" in message
+    assert "candidate run: ['passed']" in message
     with pytest.raises(AssertionError, match="No scorers were compared"):
+        result.assert_improved()
+
+
+def test_compare_evaluations_reports_a_scorer_that_only_errored():
+    # `failing` runs in the candidate only and errors on every row. It is reported instead
+    # of dropped (#27709), while `score`, which never ran in the candidate, is still
+    # dropped.
+    rows = _rows([0.1, 0.2, 0.3])
+    baseline_run_id = _evaluate(rows, scorers=[score])
+    candidate_run_id = _evaluate(rows, scorers=[failing])
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.comparison._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    assert list(result.scorers) == ["failing"]
+    comparison = result.scorers["failing"]
+    assert comparison.status == "scorer_errors"
+    assert comparison.n_paired == 0
+    assert comparison.n_baseline_errors == 0
+    assert comparison.n_candidate_errors == 3
+    mock_warning.assert_called_once()
+    assert "No scorers were compared" in mock_warning.call_args[0][0]
+    with pytest.raises(AssertionError, match="failing: scorer_errors"):
+        result.assert_improved()
+
+
+def test_compare_evaluations_counts_and_warns_about_scorer_errors():
+    # The judge errors on 6 baseline rows and 4 candidate rows. Those paired rows are
+    # excluded from the scorer's test and must be counted and warned about (#27709).
+    data = [{"inputs": {"question": f"question {i}"}} for i in range(20)]
+
+    def run(*, failed: set[int], passed: set[int]) -> str:
+        def predict_fn(question: str) -> dict[str, Any]:
+            i = int(question.split()[-1])
+            return {"passed": i in passed, "fail": i in failed}
+
+        return mlflow.genai.evaluate(
+            data=data, predict_fn=predict_fn, scorers=[sometimes_failing]
+        ).run_id
+
+    baseline_run_id = run(failed=set(range(6)), passed=set(range(10)))
+    candidate_run_id = run(failed=set(range(6, 10)), passed=set(range(10, 20)))
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    comparison = result.scorers["sometimes_failing"]
+    assert comparison.status == "ok"
+    assert comparison.n_paired == 10
+    assert comparison.n_baseline_errors == 6
+    assert comparison.n_candidate_errors == 4
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "'sometimes_failing'" in message
+    assert "6 baseline / 4 candidate" in message
+
+
+def test_compare_evaluations_reports_a_fully_errored_scorer_and_fails_assert_improved():
+    # `safety` errors on every candidate row. It used to drop out of the result without a
+    # trace, so `assert_improved()` passed a worse candidate without checking it (#27709).
+    baseline_scores = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.5, 0.6, 0.4]
+    candidate_scores = [s + 0.4 for s in baseline_scores]
+    baseline_run_id = _evaluate(_rows(baseline_scores), scorers=[score, safety_ok])
+    candidate_run_id = _evaluate(_rows(candidate_scores), scorers=[score, safety_down])
+
+    with mock.patch(f"{_COMPARISON_PACKAGE}.utils._logger.warning") as mock_warning:
+        result = mlflow.genai.compare_evaluations(
+            candidate_run_id, baseline_run_id, log_results=False
+        )
+
+    safety = result.scorers["safety"]
+    assert safety.status == "scorer_errors"
+    assert safety.n_paired == 0
+    assert safety.n_baseline_errors == 0
+    assert safety.n_candidate_errors == 12
+    assert result.scorers["score"].status == "ok"
+    assert result.scorers["score"].n_paired == 12
+    mock_warning.assert_called_once()
+    message = mock_warning.call_args[0][0]
+    assert "'safety'" in message
+    assert "0 baseline / 12 candidate" in message
+    # The default gate does not pass a run whose scorer only errored.
+    with pytest.raises(AssertionError, match="safety: scorer_errors"):
         result.assert_improved()
 
 

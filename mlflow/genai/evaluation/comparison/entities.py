@@ -20,9 +20,15 @@ class ScorerComparison:
 
     Args:
         scorer: Name of the scorer.
-        status: ``"ok"``, or ``"insufficient_pairs"`` when fewer than six rows have a value
-            for this scorer in both runs. All statistics are ``None`` in the latter case.
+        status: ``"ok"``, ``"insufficient_pairs"`` when fewer than six rows have a value
+            for this scorer in both runs, or ``"scorer_errors"`` when no paired row has a
+            value for this scorer because it errored. All statistics are ``None`` unless
+            ``"ok"``.
         n_paired: Number of paired rows with a value for this scorer in both runs.
+        n_baseline_errors: Number of paired rows excluded from this comparison because the
+            scorer errored on the baseline row.
+        n_candidate_errors: Number of paired rows excluded from this comparison because the
+            scorer errored on the candidate row.
         greater_is_better: Whether a higher value of this scorer is better.
         value_type: ``"binary"`` when every feedback of the scorer is a boolean or a yes/no
             rating, ``"numeric"`` otherwise. Describes the feedback, not the test: that is
@@ -50,8 +56,10 @@ class ScorerComparison:
     """
 
     scorer: str
-    status: Literal["ok", "insufficient_pairs"]
+    status: Literal["ok", "insufficient_pairs", "scorer_errors"]
     n_paired: int
+    n_baseline_errors: int = 0
+    n_candidate_errors: int = 0
     greater_is_better: bool = True
     value_type: Literal["binary", "numeric"] | None = None
     method: (
@@ -78,8 +86,10 @@ class ComparisonResult:
     Args:
         candidate_run_id: ID of the candidate evaluation run.
         baseline_run_id: ID of the baseline evaluation run.
-        scorers: Per-scorer comparison, keyed by scorer name, for the scorers present in
-            both runs.
+        scorers: Per-scorer comparison, keyed by scorer name, for the scorers with valid
+            feedback in both runs, plus the scorers that only produced errored feedback,
+            reported with status ``"scorer_errors"``. Scorers with valid feedback in only
+            one run are dropped.
         paired_rows: One entry per paired row, holding the trace IDs of both runs, how the
             row was paired, and the baseline value, candidate value and delta of each scorer.
         unpaired_baseline_trace_ids: Trace IDs of baseline rows with no match in the candidate.
@@ -106,7 +116,8 @@ class ComparisonResult:
         """
         Raise ``AssertionError`` unless every listed scorer improved significantly, i.e. moved
         in its better direction with ``p_value < alpha``. The confidence interval is not
-        consulted. A scorer with insufficient pairs is treated as not improved.
+        consulted. A scorer with insufficient pairs or with only errored feedback
+        (``"scorer_errors"``) is treated as not improved.
 
         Args:
             scorers: Names of the scorers to check. Defaults to all compared scorers, in which
@@ -132,8 +143,16 @@ class ComparisonResult:
         failures = []
         for name in names:
             comparison = self.scorers[name]
+            scorer_errors = ""
+            if comparison.n_baseline_errors or comparison.n_candidate_errors:
+                scorer_errors = (
+                    f", scorer errors: {comparison.n_baseline_errors} baseline, "
+                    f"{comparison.n_candidate_errors} candidate"
+                )
             if comparison.status != "ok":
-                failures.append(f"{name}: {comparison.status} (n_paired={comparison.n_paired})")
+                failures.append(
+                    f"{name}: {comparison.status} (n_paired={comparison.n_paired}{scorer_errors})"
+                )
                 continue
             direction = 1 if comparison.greater_is_better else -1
             if direction * comparison.diff <= 0 or not comparison.p_value < alpha:
@@ -141,6 +160,7 @@ class ComparisonResult:
                     f"{name}: diff={comparison.diff:+.4g} "
                     f"(greater_is_better={comparison.greater_is_better}), "
                     f"p_value={comparison.p_value:.4g}, n_paired={comparison.n_paired}"
+                    f"{scorer_errors}"
                 )
         if failures:
             raise AssertionError(

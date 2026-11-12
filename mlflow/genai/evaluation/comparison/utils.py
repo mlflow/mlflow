@@ -13,7 +13,7 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.metric import Metric
 from mlflow.entities.trace import Trace
-from mlflow.genai.evaluation.comparison.entities import ComparisonResult
+from mlflow.genai.evaluation.comparison.entities import ComparisonResult, ScorerComparison
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.time import get_current_time_millis
@@ -48,6 +48,10 @@ class _EvalRow:
     # A trace can hold several feedbacks of one name, e.g. when a scorer returns a list of
     # feedbacks. They are averaged per trace before pairing, see ``_mean_feedback_value``.
     feedbacks: dict[str, list[Feedback]]
+    # Scorer names whose feedback on this trace only records errors. Such rows are excluded
+    # from the scorer's comparison and counted in ``ScorerComparison.n_baseline_errors`` and
+    # ``ScorerComparison.n_candidate_errors`` instead of being dropped without a trace.
+    errored_scorers: set[str]
 
 
 @dataclass
@@ -86,15 +90,18 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
     rows = []
     for trace in traces:
         feedbacks = collections.defaultdict(list)
+        errored_scorers = set()
         for assessment in trace.info.assessments:
             if (
                 isinstance(assessment, Feedback)
                 and assessment.valid is not False
-                and assessment.error is None
                 # A trace can be evaluated by several runs. Exclude feedback from other runs.
                 and assessment.run_id in (None, run_id)
             ):
-                feedbacks[assessment.name].append(assessment)
+                if assessment.error is None:
+                    feedbacks[assessment.name].append(assessment)
+                else:
+                    errored_scorers.add(assessment.name)
         inputs_hash, inputs_hash_unstable = _hash_inputs(trace)
         rows.append(
             _EvalRow(
@@ -103,6 +110,7 @@ def _load_eval_rows(run_id: str) -> list[_EvalRow]:
                 inputs_hash=inputs_hash,
                 inputs_hash_unstable=inputs_hash_unstable,
                 feedbacks=dict(feedbacks),
+                errored_scorers=errored_scorers,
             )
         )
     return rows
@@ -204,6 +212,28 @@ def _warn_unpaired_rows(pairing: _Pairing) -> None:
         f"{len(pairing.unpaired_baseline)} baseline row(s) and "
         f"{len(pairing.unpaired_candidate)} candidate row(s) could not be paired and are "
         "excluded from the comparison. " + " ".join(reasons)
+    )
+
+
+def _warn_scorer_errors(comparisons: dict[str, ScorerComparison]) -> None:
+    errored = {
+        name: comparison
+        for name, comparison in comparisons.items()
+        if comparison.n_baseline_errors or comparison.n_candidate_errors
+    }
+    if not errored:
+        return
+    details = ", ".join(
+        f"{name!r}: {comparison.n_baseline_errors} baseline / "
+        f"{comparison.n_candidate_errors} candidate"
+        for name, comparison in sorted(errored.items())
+    )
+    _logger.warning(
+        f"Some paired rows were excluded from a scorer's comparison because the scorer "
+        f"errored on them ({details}). These rows are left out of the scorer's paired "
+        "test, which biases the comparison when the errors are not random. See the "
+        "`n_baseline_errors` and `n_candidate_errors` fields of `ScorerComparison` for "
+        "the affected scorers."
     )
 
 
