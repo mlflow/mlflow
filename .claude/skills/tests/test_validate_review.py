@@ -128,6 +128,20 @@ def test_no_newline_marker_is_not_a_row(validate_review: ModuleType) -> None:
     }
 
 
+def test_empty_line_is_a_blank_context_row(validate_review: ModuleType) -> None:
+    # `diff.suppressBlankEmpty` drops the leading space of a blank context line.
+    diff = "--- a/f\n+++ b/f\n@@ -1,3 +1,3 @@\n a\n\n-b\n+c\n"
+    hunk = validate_review.read_hunks(diff)["f"][0]
+    assert hunk == {
+        ("LEFT", 1): 0,
+        ("RIGHT", 1): 0,
+        ("LEFT", 2): 1,
+        ("RIGHT", 2): 1,
+        ("LEFT", 3): 2,
+        ("RIGHT", 3): 3,
+    }
+
+
 def test_deleted_file_is_addressed_by_its_old_path(validate_review: ModuleType) -> None:
     diff = "diff --git a/gone.py b/gone.py\n--- a/gone.py\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-a\n-b\n"
     assert (
@@ -244,11 +258,12 @@ def run_main(
     *,
     with_diff: bool,
     schema_exit: int = 0,
+    diff_text: str = DIFF,
 ) -> mock.MagicMock:
     payload = tmp_path / "payload.json"
     payload.write_text(json.dumps(review(**comment)))
     diff = tmp_path / "pr.diff"
-    diff.write_text(DIFF)
+    diff.write_text(diff_text)
     argv = ["validate_review.py", "--payload", str(payload)]
     if with_diff:
         argv += ["--diff", str(diff)]
@@ -277,6 +292,20 @@ def test_main_checks_the_schema_then_the_positions(
         "--schemafile",
         ROOT / ".claude/scripts/review.schema.yml",
     ]
+
+
+def test_main_reports_a_malformed_diff(
+    validate_review: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    with pytest.raises(SystemExit, match="Invalid diff: Diff ends inside hunk"):
+        run_main(
+            validate_review,
+            monkeypatch,
+            tmp_path,
+            {"side": "RIGHT", "line": 4},
+            with_diff=True,
+            diff_text="--- a/foo.py\n+++ b/foo.py\n@@ -1,3 +1,3 @@\n a\n",
+        )
 
 
 def test_main_skips_positions_without_a_diff(

@@ -155,7 +155,11 @@ def main() -> None:
     if args.diff is None:
         return
     payload = json.loads(args.payload.read_text())
-    if errors := check_positions(payload, args.diff.read_text()):
+    try:
+        errors = check_positions(payload, args.diff.read_text())
+    except ValueError as e:
+        raise SystemExit(f"Invalid diff: {e}")
+    if errors:
         raise SystemExit("\n".join(errors))
 
 
