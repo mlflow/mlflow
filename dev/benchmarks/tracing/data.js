@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794486451909,
+  "lastUpdate": 1794488535045,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "haoji.tang@databricks.com",
-            "name": "Haoji Tang",
-            "username": "tanghaoji"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7e90050109819dff7e0a0404cd12f3849c6fac10",
-          "message": "Redact tracking URI credentials in the `mlflow-artifacts` scheme error (GHSA-c8c4-r4p8-p4m4) (#25874)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
-          "timestamp": "2026-09-16T02:00:33Z",
-          "tree_id": "73eff3bcad913553f6f8a549576cc3698582ce2c",
-          "url": "https://github.com/mlflow/mlflow/commit/7e90050109819dff7e0a0404cd12f3849c6fac10"
-        },
-        "date": 1789524261148,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 49.260519600002795,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 4.546460805557552,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 3.7375174190477383,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 4.926529128048273,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 3.9468609251329285,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 5.149856428569625,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 5.010743799996931,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8a158349ec5ce27f715b8b1dd4a92dd7d409b8a",
+          "message": "Update model catalog from upstream sources (#27727)\n\nCo-authored-by: mlflow-app[bot] <mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-12T12:58:42Z",
+          "tree_id": "3607debe31fe63775024dd40b7e70d59067f8ee5",
+          "url": "https://github.com/mlflow/mlflow/commit/e8a158349ec5ce27f715b8b1dd4a92dd7d409b8a"
+        },
+        "date": 1794488530866,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.58587324999938,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.326687309859344,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.738116625000011,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.665035022387002,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.901875141935317,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.034090200002538,
             "unit": "ms"
           }
         ]
