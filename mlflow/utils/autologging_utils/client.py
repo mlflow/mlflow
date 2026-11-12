@@ -326,6 +326,7 @@ class MlflowAutologgingQueueingClient:
                 experiment_id=pending_operations.create_run.experiment_id,
                 start_time=pending_operations.create_run.start_time,
                 tags={tag.key: tag.value for tag in create_run_tags},
+                run_name=pending_operations.create_run.run_name,
             )
             pending_operations.run_id = new_run.info.run_id
 
