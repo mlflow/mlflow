@@ -4,7 +4,7 @@ import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearc
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL, createSearchRunsParams } from '../utils/experimentPage.fetch-utils';
 import type { FetchRunsHookFunction, FetchRunsHookParams } from './useExperimentRuns';
-import type { SearchRunsApiResponse } from '../../../types';
+import type { RunEntity, SearchRunsApiResponse } from '../../../types';
 
 /**
  * Enables auto-refreshing runs on the experiment page.
@@ -75,19 +75,11 @@ export const useExperimentRunsAutoRefresh = ({
 
         let autoRefreshFetchedPages = 0;
         const autoRefreshRunIds = new Set<string>();
+        const runsById = new Map<string, RunEntity>();
+        const matchingRunsById = new Map<string, RunEntity>();
         let currentPageToken = undefined;
 
-        const discardResultsFn = (lastRequestedParams: FetchRunsHookParams, value?: SearchRunsApiResponse) => {
-          const responseRunIds = new Set(value?.runs?.map(({ info }) => info.runUuid));
-          const newRunsCount = Array.from(responseRunIds).filter((id) => !autoRefreshRunIds.has(id)).length;
-          // If it's not the final page and we still didn't reach the requested amount of runs,
-          // flag results as not to be displayed yet
-          if (autoRefreshRunIds.size + newRunsCount < requestedRunsCount && value?.next_page_token) {
-            return true;
-          }
-
-          // At this moment, check if the results from auto-refresh should be considered. If the following
-          // conditions are met, the results from auto-refresh will be discarded.
+        const prepareResults = (lastRequestedParams: FetchRunsHookParams, value: SearchRunsApiResponse) => {
           if (
             // Skip if auto-refresh was cancelled or disabled before the response came back
             isCancelled() ||
@@ -96,11 +88,20 @@ export const useExperimentRunsAutoRefresh = ({
             // Skip if the requested facets have changed since the last request
             !isEqual(lastRequestedParams.requestedFacets, requestParams.requestedFacets)
           ) {
-            return true;
+            return null;
           }
 
-          // Otherwise, return "false" and consider the results from auto-refresh as valid
-          return false;
+          value.runs?.forEach((run) => runsById.set(run.info.runUuid, run));
+          value.runsMatchingFilter?.forEach((run) => matchingRunsById.set(run.info.runUuid, run));
+          if (runsById.size < requestedRunsCount && value.next_page_token) {
+            return null;
+          }
+
+          return {
+            ...value,
+            runs: Array.from(runsById.values()),
+            runsMatchingFilter: Array.from(matchingRunsById.values()),
+          };
         };
 
         while (autoRefreshFetchedPages === 0 || currentPageToken) {
@@ -114,7 +115,7 @@ export const useExperimentRunsAutoRefresh = ({
             {
               isAutoRefreshing: true,
               isCancelled,
-              discardResultsFn,
+              prepareResults,
             },
           );
           if (isCancelled()) {

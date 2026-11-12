@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDispatch } from 'react-redux';
 import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
-import { loadMoreRunsApi, RUNS_SEARCH_MAX_RESULTS, searchRunsApi } from '../../../actions';
+import { loadMoreRunsApi, RUNS_SEARCH_MAX_RESULTS, SEARCH_RUNS_API, searchRunsApi } from '../../../actions';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { createSearchRunsParams, fetchModelVersionsForRuns } from '../utils/experimentPage.fetch-utils';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
@@ -32,7 +32,10 @@ export type FetchRunsHookFunction = (
   options?: {
     isAutoRefreshing?: boolean;
     isCancelled?: () => boolean;
-    discardResultsFn?: (lastRequestedParams: FetchRunsHookParams, response?: SearchRunsApiResponse) => boolean;
+    prepareResults?: (
+      lastRequestedParams: FetchRunsHookParams,
+      response: SearchRunsApiResponse,
+    ) => SearchRunsApiResponse | null;
   },
 ) => Promise<{ runs: RunEntity[]; next_page_token?: string }>;
 
@@ -156,15 +159,10 @@ export const useExperimentRuns = (
             options.isAutoRefreshing && (options.isCancelled?.() || lastRequestedParams.current !== requestedParams),
           );
         const action = (fetchParams.pageToken ? loadMoreRunsApi : searchRunsApi)(fetchParams);
-        // Validate background responses before Redux promise middleware can overwrite the current runs.
+        // Background pages are published together after the refresh is complete and still current.
         const response = options.isAutoRefreshing
           ? action.payload.then(
-              (value: SearchRunsApiResponse) => {
-                if (!isObsolete()) {
-                  thunkDispatch({ ...action, type: fulfilled(action.type), payload: value });
-                }
-                return { value };
-              },
+              (value: SearchRunsApiResponse) => ({ value }),
               (error: ErrorWrapper | PredefinedError) => {
                 if (!isObsolete()) {
                   thunkDispatch({ ...action, type: rejected(action.type), payload: error, error: true });
@@ -178,18 +176,24 @@ export const useExperimentRuns = (
             if (isObsolete()) {
               return { runs: [] };
             }
+            const results =
+              lastRequestedParams.current && options.prepareResults
+                ? options.prepareResults(lastRequestedParams.current, value)
+                : value;
+            if (!results) {
+              return value;
+            }
+            if (options.isAutoRefreshing) {
+              thunkDispatch({ ...action, type: fulfilled(SEARCH_RUNS_API), payload: results });
+            }
             lastFetchedTime.current = Date.now();
 
             setIsLoadingRuns(false);
             setIsInitialLoadingRuns(false);
             setRequestError(null);
 
-            if (lastRequestedParams.current && options.discardResultsFn?.(lastRequestedParams.current, value)) {
-              return value;
-            }
-
             lastSuccessfulRequestedParams.current = fetchParams;
-            setNextPageToken(value.next_page_token || null);
+            setNextPageToken(results.next_page_token || null);
 
             // We rely on redux reducer to update the state with new runs data,
             // then we pick it up from the store. This benefits other pages that use same data
@@ -197,7 +201,7 @@ export const useExperimentRuns = (
             setResultRunsData(getStore(), fetchParams.experimentIds, fetchParams.requestedFacets);
 
             // In the end, load model versions for the fetched runs
-            loadModelVersions(value.runs || []);
+            loadModelVersions(results.runs || []);
             return value;
           })
           .catch((e: ErrorWrapper | PredefinedError) => {
@@ -249,9 +253,9 @@ export const useExperimentRuns = (
 
   const refreshRuns = useCallback(() => {
     if (lastSuccessfulRequestedParams.current) {
-      fetchRuns({ ...lastSuccessfulRequestedParams.current, pageToken: undefined });
+      fetchRuns({ ...lastSuccessfulRequestedParams.current, pageToken: undefined, maxResults: pageSize });
     }
-  }, [fetchRuns]);
+  }, [fetchRuns, pageSize]);
 
   useExperimentRunsAutoRefresh({
     pageSize,

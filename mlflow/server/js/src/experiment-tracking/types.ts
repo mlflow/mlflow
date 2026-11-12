@@ -461,6 +461,7 @@ export interface GetRunApiResponse {
 
 export interface SearchRunsApiResponse {
   runs?: RunEntity[];
+  runsMatchingFilter?: RunEntity[];
   next_page_token?: string;
 }
 
