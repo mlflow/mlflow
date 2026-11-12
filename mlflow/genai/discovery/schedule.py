@@ -163,6 +163,11 @@ class ScheduleModel:
             return f"gateway:/{self.endpoint_name}"
         return f"{self.provider.lower()}:/{self.model}"
 
+    @property
+    def credential_secret_id(self) -> str:
+        """The stored secret a run with this model decrypts, or ``""`` when it decrypts none."""
+        return "" if self.endpoint_name else self.secret_id
+
     def to_dict(self) -> dict[str, str]:
         if self.endpoint_name:
             return {"endpointName": self.endpoint_name}
@@ -515,6 +520,18 @@ def parse_detection_schedule(
         fire_time=_parse_fire_time(parsed.get("fireTime")),
         weekday=_parse_weekday(parsed.get("weekday")),
     )
+
+
+def scheduled_detection_secret_id(raw_value: str | None) -> str:
+    """
+    The stored secret a schedule tag value would have the dispatcher decrypt, or ``""``.
+
+    Read with the dispatcher's own parser, so the answer is the secret it would act on.
+    """
+    schedule = parse_detection_schedule(raw_value)
+    if schedule is None or schedule.model is None:
+        return ""
+    return schedule.model.credential_secret_id
 
 
 def parse_detection_schedule_state(raw_value: str | None) -> DetectionScheduleState | None:

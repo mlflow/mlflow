@@ -30,6 +30,7 @@ from mlflow.genai.discovery.schedule import (
 )
 from mlflow.genai.discovery.scheduler import (
     MAX_EXPERIMENTS_PER_PASS,
+    _provider_credentials,
     run_issue_detection_scheduler,
 )
 from mlflow.server import (
@@ -811,6 +812,23 @@ def test_a_schedule_with_no_named_secret_leaves_the_run_on_the_server_environmen
     dispatch(ONE_PM_MS)
 
     assert dispatch(ONE_PM_MS + DAY_MS).call_args.kwargs["extra_envs"] == {}
+
+
+def test_only_a_direct_selection_has_its_secret_decrypted(store):
+    secret = store.create_gateway_secret(
+        secret_name="openai-key", secret_value={"api_key": "sk-chosen"}, provider="openai"
+    )
+
+    direct = ScheduleModel(provider="openai", model="gpt-5.6-sol", secret_id=secret.secret_id)
+    assert _provider_credentials(store, direct) == {"OPENAI_API_KEY": "sk-chosen"}
+
+    # An endpoint carries its own credential, so a secret id alongside it is ignored.
+    endpoint = ScheduleModel(endpoint_name="prod-gateway", secret_id=secret.secret_id)
+    with mock.patch.object(store, "_get_decrypted_secret") as decrypt:
+        assert _provider_credentials(store, endpoint) == {}
+    decrypt.assert_not_called()
+
+    assert _provider_credentials(store, None) == {}
 
 
 def test_a_key_stored_for_another_provider_is_not_used(store, dispatch):

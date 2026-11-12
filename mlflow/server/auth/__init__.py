@@ -67,6 +67,7 @@ from mlflow.environment_variables import (
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
+from mlflow.genai.discovery.schedule import scheduled_detection_secret_id
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -504,6 +505,7 @@ from mlflow.store.tracking.skill_registry.artifact_paths import (
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import (
@@ -2039,6 +2041,26 @@ def validate_can_update_experiment():
     return _get_permission_from_experiment_id().can_update
 
 
+def _can_use_secret_named_by_experiment_tag(key: str, value: str) -> bool:
+    """USE on the gateway secret an issue-detection schedule tag names, if it names one.
+
+    The dispatcher decrypts that secret later with no request to authorize, so the tag write is
+    the only place the caller can be checked.
+    """
+    if key != MLFLOW_ISSUE_DETECTION_SCHEDULE:
+        return True
+    if not (secret_id := scheduled_detection_secret_id(value)):
+        return True
+    return _get_gateway_secret_permission(secret_id).can_use
+
+
+def validate_can_set_experiment_tag():
+    if not _get_permission_from_experiment_id().can_update:
+        return False
+    msg = _get_request_message(SetExperimentTag())
+    return _can_use_secret_named_by_experiment_tag(msg.key, msg.value)
+
+
 # Every experiment-scoped tier. A soft delete marks only the experiment and its runs, but the rest
 # become unreachable with their experiment, so the delete reaches them all the same -- and
 # ``_hard_delete_experiment`` (``mlflow gc``) destroys them outright through the scorers and
@@ -2831,9 +2853,15 @@ def _workspace_create_not_denied(created_type: str, resource_id: str = "*") -> b
 
 
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace() and _workspace_create_not_denied(
-        RESOURCE_TYPE_EXPERIMENT
-    )
+    if not (
+        _user_can_create_in_workspace() and _workspace_create_not_denied(RESOURCE_TYPE_EXPERIMENT)
+    ):
+        return False
+    if not has_request_context():
+        return True
+    # An experiment can be created already carrying a schedule tag.
+    msg = _get_request_message(CreateExperiment())
+    return all(_can_use_secret_named_by_experiment_tag(tag.key, tag.value) for tag in msg.tags)
 
 
 def validate_can_create_registered_model() -> bool:
@@ -5327,7 +5355,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteExperiment: validate_can_delete_experiment,
     RestoreExperiment: validate_can_delete_experiment,
     UpdateExperiment: validate_can_update_experiment,
-    SetExperimentTag: validate_can_update_experiment,
+    SetExperimentTag: validate_can_set_experiment_tag,
     DeleteExperimentTag: validate_can_update_experiment,
     # Routes for runs
     CreateRun: validate_can_create_run,

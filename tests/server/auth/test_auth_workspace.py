@@ -63,6 +63,7 @@ from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
@@ -3357,6 +3358,65 @@ def test_cross_workspace_gateway_secret_access_denied(workspace_permission_setup
         assert not auth_module.validate_can_read_gateway_secret()
         assert not auth_module.validate_can_update_gateway_secret()
         assert not auth_module.validate_can_delete_gateway_secret()
+
+
+@pytest.mark.parametrize(
+    ("model", "secret_grant", "allowed"),
+    [
+        ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-1"}, None, False),
+        ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-1"}, READ.name, False),
+        ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-1"}, USE.name, True),
+        # The grant is in this workspace; the secret is in another.
+        ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-other-ws"}, USE.name, False),
+        ({"provider": "openai", "model": "gpt-4o", "secretId": "secret-gone"}, USE.name, False),
+        # No secret to decrypt.
+        ({"provider": "openai", "model": "gpt-4o"}, None, True),
+        ({"endpointName": "endpoint-1", "secretId": "secret-1"}, None, True),
+    ],
+    ids=[
+        "no-grant",
+        "read-only",
+        "use",
+        "other-workspace",
+        "missing-secret",
+        "no-secret",
+        "endpoint",
+    ],
+)
+def test_issue_detection_schedule_tag_requires_use_on_the_secret_it_names(
+    workspace_permission_setup, monkeypatch, model, secret_grant, allowed
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    monkeypatch.setattr(auth_module, "sender_is_admin", lambda: False)
+    auth_module._get_tracking_store()._gateway_secret_workspaces["secret-other-ws"] = "team-b"
+    _set_workspace_permission(store, username, USE.name)
+    rows = [("experiment", "*", EDIT.name)]
+    if secret_grant and (secret_id := model.get("secretId")):
+        rows.append(("gateway_secret", secret_id, secret_grant))
+    _grant(store, username, "team-a", rows)
+    tag = {
+        "key": MLFLOW_ISSUE_DETECTION_SCHEDULE,
+        "value": json.dumps({"version": 1, "cadence": "daily", "model": model}),
+    }
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/set-experiment-tag",
+        method="POST",
+        json={"experiment_id": "exp-1", **tag},
+    ):
+        assert auth_module.validate_can_set_experiment_tag() is allowed
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/create", method="POST", json={"name": "x", "tags": [tag]}
+    ):
+        assert auth_module.validate_can_create_experiment() is allowed
+    # Other tag keys are not checked.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/experiments/set-experiment-tag",
+        method="POST",
+        json={"experiment_id": "exp-1", "key": "notes", "value": tag["value"]},
+    ):
+        assert auth_module.validate_can_set_experiment_tag() is True
 
 
 def test_cross_workspace_gateway_endpoint_access_denied(workspace_permission_setup, monkeypatch):
