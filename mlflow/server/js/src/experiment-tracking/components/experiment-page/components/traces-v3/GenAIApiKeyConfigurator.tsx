@@ -18,7 +18,7 @@ import { SecretSelector } from '../../../../../gateway/components/secrets/Secret
 import { SecretInput } from '../../../../../gateway/components/secrets/SecretInput';
 import { GatewayInput } from '../../../../../gateway/components/common';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../../../../gateway/utils/providerUtils';
-import { isApiKeySecretField } from '../../../../../gateway/utils/secretUtils';
+import { hasNonAsciiApiKey, isApiKeySecretField } from '../../../../../gateway/utils/secretUtils';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import type { AuthMode, SecretInfo } from '../../../../../gateway/types';
 import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
@@ -468,6 +468,7 @@ function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }
   });
 
   const isUsingExistingKey = value.mode === 'existing' && value.existingSecretId;
+  const hasNonAsciiError = value.mode === 'new' && hasNonAsciiApiKey(value.newSecret.secretFields);
 
   return (
     <div>
@@ -507,6 +508,16 @@ function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }
           </TypeaheadComboboxMenu>
         )}
       </TypeaheadComboboxRoot>
+      {hasNonAsciiError && (
+        <FormUI.Message
+          type="error"
+          message={intl.formatMessage({
+            defaultMessage:
+              'API key contains non-ASCII characters. Check that your keyboard is not in a non-Latin input mode.',
+            description: 'Error shown when a masked API key input contains non-ASCII characters, e.g. from an IME',
+          })}
+        />
+      )}
     </div>
   );
 }

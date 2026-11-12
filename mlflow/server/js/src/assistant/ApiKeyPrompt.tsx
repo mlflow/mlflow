@@ -44,7 +44,12 @@ export const ApiKeyPrompt = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isApiKeyValid = Boolean(apiKey.trim()) && !containsNonAsciiCharacters(apiKey);
+  const trimmedApiKey = apiKey.trim();
+  // Check the trimmed value since that is what gets saved; `trim()` also strips non-ASCII
+  // whitespace such as NBSP that often comes along when pasting a key. `SecretInput` checks the raw
+  // value, so only enable its inline error when the trimmed key is affected.
+  const hasNonAsciiApiKey = containsNonAsciiCharacters(trimmedApiKey);
+  const isApiKeyValid = Boolean(trimmedApiKey) && !hasNonAsciiApiKey;
 
   const handleSave = useCallback(async () => {
     if (!isApiKeyValid) {
@@ -58,14 +63,14 @@ export const ApiKeyPrompt = ({
           providers: {
             [GATEWAY_PROVIDER_ID]: {
               gateway_vendor: gatewayVendor,
-              api_key: apiKey.trim(),
+              api_key: trimmedApiKey,
               model: providerModel ?? undefined,
               selected: true,
             },
           },
         });
       } else {
-        await updateConfig({ providers: { [providerId]: { api_key: apiKey.trim() } } });
+        await updateConfig({ providers: { [providerId]: { api_key: trimmedApiKey } } });
       }
       setIsSaving(false);
       onSaved();
@@ -73,7 +78,7 @@ export const ApiKeyPrompt = ({
       setError(err instanceof Error ? err.message : 'Failed to save the API key');
       setIsSaving(false);
     }
-  }, [apiKey, isApiKeyValid, gatewayVendor, providerId, providerModel, onSaved]);
+  }, [trimmedApiKey, isApiKeyValid, gatewayVendor, providerId, providerModel, onSaved]);
 
   const containerCss = {
     border: `1px solid ${theme.colors.borderWarning}`,
@@ -128,7 +133,7 @@ export const ApiKeyPrompt = ({
         }}
         placeholder={keyPlaceholderFor(gatewayVendor ?? providerId)}
         allowClear={false}
-        asciiOnly
+        asciiOnly={hasNonAsciiApiKey}
       />
 
       <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm - 1 }}>

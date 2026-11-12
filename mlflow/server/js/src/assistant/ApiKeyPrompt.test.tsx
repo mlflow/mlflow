@@ -54,6 +54,15 @@ describe('ApiKeyPrompt', () => {
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
   });
 
+  test('accepts a key with surrounding non-ASCII whitespace that is trimmed before saving', async () => {
+    renderPrompt();
+
+    await userEvent.type(screen.getByPlaceholderText('sk-...'), 'sk-abc123\u00a0\u3000');
+
+    expect(screen.queryByText(/API key contains non-ASCII characters/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
+  });
+
   test('tells a non-admin on the server host to ask an administrator', () => {
     mockCanEditServerSettings = false;
     renderPrompt();
