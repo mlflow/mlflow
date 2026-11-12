@@ -96,7 +96,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
     MLFLOW_SERVER_INFO_TRACKING_AUTH,
-    MLFLOW_TRACE_BACKEND,
+    MLFLOW_TRACE_STORE,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -560,7 +560,7 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
         return FileStore(store_uri, artifact_uri)
 
     @classmethod
-    def _get_sqlalchemy_store(cls, store_uri, artifact_uri, trace_backend=None):
+    def _get_sqlalchemy_store(cls, store_uri, artifact_uri, trace_store=None):
         from mlflow.server.constants import READ_REPLICA_BACKEND_STORE_URI_ENV_VAR
         from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
         from mlflow.store.tracking.sqlalchemy_workspace_store import (
@@ -571,9 +571,9 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
         store_cls = (
             WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
         )
-        if trace_backend is not None:
+        if trace_store is not None:
             return store_cls(
-                store_uri, artifact_uri, read_db_uri=read_db_uri, trace_backend=trace_backend
+                store_uri, artifact_uri, read_db_uri=read_db_uri, trace_store=trace_store
             )
         return store_cls(store_uri, artifact_uri, read_db_uri=read_db_uri)
 
@@ -804,9 +804,9 @@ def _get_tracking_store(
     if _tracking_store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
-        if kind := MLFLOW_TRACE_BACKEND.get():
+        if kind := MLFLOW_TRACE_STORE.get():
             _tracking_store = _tracking_store_registry.get_store(
-                store_uri, artifact_root, trace_backend_kind=kind
+                store_uri, artifact_root, trace_store_kind=kind
             )
         else:
             _tracking_store = _tracking_store_registry.get_store(store_uri, artifact_root)
@@ -1861,7 +1861,7 @@ def _delete_workspace_handler(workspace_name: str):
         )
     store = _get_workspace_store()
     try:
-        tracking_store = _get_tracking_store() if MLFLOW_TRACE_BACKEND.get() else None
+        tracking_store = _get_tracking_store() if MLFLOW_TRACE_STORE.get() else None
         if tracking_store is not None:
             tracking_store.before_workspace_deleted(workspace_name, mode)
         store.delete_workspace(workspace_name, mode=mode)
@@ -1872,7 +1872,7 @@ def _delete_workspace_handler(workspace_name: str):
             tracking_store.on_workspace_deleted(workspace_name)
         except Exception:
             _logger.exception(
-                "Trace backend hook failed after cascading workspace deletion %s.", workspace_name
+                "Trace store hook failed after cascading workspace deletion %s.", workspace_name
             )
     return Response(status=204)
 

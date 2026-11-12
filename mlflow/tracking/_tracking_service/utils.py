@@ -11,7 +11,7 @@ from typing import Generator
 from mlflow.environment_variables import (
     _MLFLOW_SERVER_BOOT_ID,
     MLFLOW_ENABLE_WORKSPACES,
-    MLFLOW_TRACE_BACKEND,
+    MLFLOW_TRACE_STORE,
     MLFLOW_TRACKING_URI,
 )
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -186,7 +186,7 @@ def _get_file_store(store_uri, **_):
     return FileStore(store_uri, store_uri)
 
 
-def _get_sqlalchemy_store(store_uri, artifact_uri, trace_backend=None):
+def _get_sqlalchemy_store(store_uri, artifact_uri, trace_store=None):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 
@@ -200,8 +200,8 @@ def _get_sqlalchemy_store(store_uri, artifact_uri, trace_backend=None):
         )
 
     store_cls = WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
-    if trace_backend is not None:
-        return store_cls(store_uri, artifact_uri, trace_backend=trace_backend)
+    if trace_store is not None:
+        return store_cls(store_uri, artifact_uri, trace_store=trace_store)
     return store_cls(store_uri, artifact_uri)
 
 
@@ -270,20 +270,20 @@ def _register(scheme, builder):
 _register_tracking_stores()
 
 
-def _get_store(store_uri=None, artifact_uri=None, *, trace_backend_kind=None):
-    if trace_backend_kind is None and _should_configure_trace_backend(store_uri):
-        trace_backend_kind = MLFLOW_TRACE_BACKEND.get()
-    if trace_backend_kind:
+def _get_store(store_uri=None, artifact_uri=None, *, trace_store_kind=None):
+    if trace_store_kind is None and _should_configure_trace_store(store_uri):
+        trace_store_kind = MLFLOW_TRACE_STORE.get()
+    if trace_store_kind:
         return _tracking_store_registry.get_store(
-            store_uri, artifact_uri, trace_backend_kind=trace_backend_kind
+            store_uri, artifact_uri, trace_store_kind=trace_store_kind
         )
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
-def _should_configure_trace_backend(store_uri: str | None = None) -> bool:
-    """Route server-owned clients to the trace backend only for the server's own database URI."""
+def _should_configure_trace_store(store_uri: str | None = None) -> bool:
+    """Route server-owned clients to the trace store only for the server's own database URI."""
     return bool(
-        MLFLOW_TRACE_BACKEND.get()
+        MLFLOW_TRACE_STORE.get()
         and (
             os.environ.get("_MLFLOW_SERVER_JOB_ID")
             or _MLFLOW_SERVER_BOOT_ID.get() is not None

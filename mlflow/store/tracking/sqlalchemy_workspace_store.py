@@ -81,11 +81,11 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     Workspace-aware variant of the SQLAlchemy tracking store.
     """
 
-    def __init__(self, db_uri, default_artifact_root, read_db_uri=None, trace_backend=None):
+    def __init__(self, db_uri, default_artifact_root, read_db_uri=None, trace_store=None):
         self._workspace_provider = None
         self._workspace_store_uri = workspace_utils.resolve_workspace_store_uri(tracking_uri=db_uri)
         super().__init__(
-            db_uri, default_artifact_root, read_db_uri=read_db_uri, trace_backend=trace_backend
+            db_uri, default_artifact_root, read_db_uri=read_db_uri, trace_store=trace_store
         )
 
     def _create_default_trace_store(self) -> WorkspaceAwareSqlAlchemyTraceStore:

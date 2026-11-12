@@ -115,7 +115,7 @@ def test_postgres_span_query_materializes_trace_filters_before_span_join(
             "span.status = 'ERROR'",
         ])
         query = _apply_filters(
-            store.trace_backend._trace_query(session), trace_filters, MetricViewType.SPANS
+            store.trace_store._trace_query(session), trace_filters, MetricViewType.SPANS
         )
         query = _apply_postgres_trace_first_span_query(query)
         query = _apply_filters(query, span_filters, MetricViewType.SPANS)
@@ -169,7 +169,7 @@ def test_postgres_span_time_range_uses_metric_authoritative_timestamp(
         query_metrics(
             view_type=MetricViewType.SPANS,
             db_type=db_types.POSTGRES,
-            query=store.trace_backend._trace_query(session).filter(SqlTraceInfo.experiment_id == 7),
+            query=store.trace_store._trace_query(session).filter(SqlTraceInfo.experiment_id == 7),
             metric_name=metric_name,
             aggregations=aggregations,
             dimensions=None,
@@ -212,7 +212,7 @@ def test_postgres_span_cost_trace_filter_keeps_materialized_trace_ids(
         query_metrics(
             view_type=MetricViewType.SPANS,
             db_type=db_types.POSTGRES,
-            query=store.trace_backend._trace_query(session).filter(SqlTraceInfo.experiment_id == 7),
+            query=store.trace_store._trace_query(session).filter(SqlTraceInfo.experiment_id == 7),
             metric_name=SpanMetricKey.TOTAL_COST,
             aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
             dimensions=None,
@@ -256,7 +256,7 @@ def test_postgres_span_cost_query_filters_null_metric_values(
         query_metrics(
             view_type=MetricViewType.SPANS,
             db_type=db_types.POSTGRES,
-            query=store.trace_backend._trace_query(session),
+            query=store.trace_store._trace_query(session),
             metric_name=metric_name,
             aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
             dimensions=None,

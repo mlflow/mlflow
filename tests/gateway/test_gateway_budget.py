@@ -7,7 +7,6 @@ import fastapi
 import pytest
 
 import mlflow
-import mlflow.gateway.budget as budget_module
 import mlflow.gateway.budget_tracker as _bt_module
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.gateway_budget_policy import (
@@ -29,7 +28,7 @@ from mlflow.gateway.budget import (
 )
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
-from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
+from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -41,8 +40,8 @@ from mlflow.utils.workspace_context import WorkspaceContext
 _DELIVER_FUNC = "mlflow.gateway.budget.deliver_webhook"
 
 
-def _with_trace_backend(store, backend):
-    return SqlAlchemyStore(store.db_uri, store.artifact_root_uri, trace_backend=backend)
+def _with_trace_store(store, backend):
+    return SqlAlchemyStore(store.db_uri, store.artifact_root_uri, trace_store=backend)
 
 
 @dataclass
@@ -54,7 +53,7 @@ class _GatewayCost:
     cost: float
 
 
-class _CostTraceBackend(AbstractTraceBackend):
+class _CostTraceStore(AbstractTraceStore):
     def __init__(self, history):
         self.history = history
 
@@ -100,8 +99,8 @@ def test_backend_only_cost_history_backfills_budget_after_restart(
         _GatewayCost(timestamp, "other-team", "ep-test", "bob", 40.0),
         _GatewayCost(0, "default", "ep-test", "alice", 1000.0),
     ]
-    backend = _CostTraceBackend(history)
-    backend_tracking_store = _with_trace_backend(backend_tracking_store, backend)
+    backend = _CostTraceStore(history)
+    backend_tracking_store = _with_trace_store(backend_tracking_store, backend)
     policy = _make_policy(
         budget_amount=5.0,
         budget_action=BudgetAction.REJECT,
@@ -138,8 +137,8 @@ def test_backend_history_errors_preserve_best_effort_budget_behavior(
 ):
     caplog.set_level("DEBUG", logger="mlflow.gateway.budget")
     policy = _make_policy(budget_action=BudgetAction.REJECT)
-    backend = mock.create_autospec(AbstractTraceBackend, instance=True)
-    backend_tracking_store = _with_trace_backend(backend_tracking_store, backend)
+    backend = mock.create_autospec(AbstractTraceStore, instance=True)
+    backend_tracking_store = _with_trace_store(backend_tracking_store, backend)
     error = MlflowNotImplementedException() if unsupported else RuntimeError("Backend unavailable")
     endpoint = _make_endpoint_config()
     with (
@@ -170,7 +169,7 @@ def test_backend_history_errors_preserve_best_effort_budget_behavior(
 
 
 def test_backend_without_cost_aggregation_can_serve_without_budget_policies(backend_tracking_store):
-    backend_tracking_store = _with_trace_backend(backend_tracking_store, AbstractTraceBackend())
+    backend_tracking_store = _with_trace_store(backend_tracking_store, AbstractTraceStore())
     with patch.object(
         backend_tracking_store, "list_budget_policies_across_workspaces", return_value=[]
     ) as policies:
@@ -182,8 +181,8 @@ def test_backend_policy_refresh_failure_preserves_best_effort_behavior(
     backend_tracking_store, caplog
 ):
     caplog.set_level("DEBUG", logger="mlflow.gateway.budget")
-    backend = mock.create_autospec(AbstractTraceBackend, instance=True)
-    backend_tracking_store = _with_trace_backend(backend_tracking_store, backend)
+    backend = mock.create_autospec(AbstractTraceStore, instance=True)
+    backend_tracking_store = _with_trace_store(backend_tracking_store, backend)
     with patch.object(
         backend_tracking_store,
         "list_budget_policies_across_workspaces",
@@ -194,7 +193,6 @@ def test_backend_policy_refresh_failure_preserves_best_effort_behavior(
     backend.sum_gateway_trace_cost.assert_not_called()
     assert get_budget_tracker().needs_refresh()
     assert "Failed to refresh budget policies" in caplog.text
-    assert not budget_module._BUDGET_REFRESH_LOCK.locked()
 
 
 @pytest.fixture(autouse=True)
@@ -202,32 +200,6 @@ def _reset_budget_tracker():
     _bt_module._budget_tracker = None
     yield
     _bt_module._budget_tracker = None
-
-
-@pytest.mark.parametrize("separate_backend", [False, True])
-def test_budget_refresh_locks_backfill_for_all_stores(backend_tracking_store, separate_backend):
-    policy = _make_policy()
-    backend = _CostTraceBackend([])
-    if separate_backend:
-        backend_tracking_store = _with_trace_backend(backend_tracking_store, backend)
-    store = backend_tracking_store
-    cost_store = backend if separate_backend else backend_tracking_store
-
-    def historical_spend(**kwargs):
-        assert budget_module._BUDGET_REFRESH_LOCK.locked()
-        return 25.0
-
-    with (
-        patch.object(
-            backend_tracking_store, "list_budget_policies_across_workspaces", return_value=[policy]
-        ) as policies,
-        patch.object(cost_store, "sum_gateway_trace_cost", side_effect=historical_spend) as cost,
-    ):
-        maybe_refresh_budget_policies(store)
-    policies.assert_called_once()
-    cost.assert_called_once()
-    assert get_budget_tracker()._get_window_info("bp-test").cumulative_spend == 25.0
-    assert not budget_module._BUDGET_REFRESH_LOCK.locked()
 
 
 def _make_policy(

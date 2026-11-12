@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import get_endpoints
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
-from tests.store.tracking.sqlalchemy_store.test_trace_backend_associations import MemoryTraceBackend
+from tests.store.tracking.sqlalchemy_store.test_trace_store_associations import MemoryTraceStore
 
 
 @pytest.fixture(autouse=True)
@@ -460,9 +460,9 @@ def test_delete_workspace_endpoint(app, mock_workspace_store):
 def test_backend_workspace_hooks_run_through_host(
     app, mock_workspace_store, monkeypatch, db_uri, tmp_path, mode, status
 ):
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
-    backend = MemoryTraceBackend()
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    backend = MemoryTraceStore()
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=backend)
     backend.traces["tr-orphan"] = ("team-e", mock.Mock())
     try:
         with mock.patch(
@@ -485,9 +485,9 @@ def test_backend_workspace_hooks_run_through_host(
 def test_backend_workspace_cleanup_failure_is_logged_after_provider_success(
     app, mock_workspace_store, monkeypatch, db_uri, tmp_path, caplog
 ):
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
-    backend = MemoryTraceBackend()
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    backend = MemoryTraceStore()
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=backend)
     try:
         with (
             mock.patch(

@@ -35,7 +35,7 @@ from mlflow.tracking._tracking_service.utils import (
     _has_existing_mlruns_data,
     _resolve_custom_scheme,
     _resolve_tracking_uri,
-    _should_configure_trace_backend,
+    _should_configure_trace_store,
     _use_tracking_uri,
     get_tracking_uri,
     set_tracking_uri,
@@ -59,10 +59,10 @@ pytestmark = pytest.mark.notrackingurimock
     ("job_id", "boot_id", "is_running_as_server"),
     list(itertools.product([None, "job"], [None, "boot"], [False, True])),
 )
-def test_should_configure_trace_backend_server_detection(
+def test_should_configure_trace_store_server_detection(
     monkeypatch, job_id, boot_id, is_running_as_server
 ):
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
     for name, value in (
         ("_MLFLOW_SERVER_JOB_ID", job_id),
@@ -76,13 +76,13 @@ def test_should_configure_trace_backend_server_detection(
         sys.modules, "mlflow.server", SimpleNamespace(is_running_as_server=is_running_as_server)
     )
 
-    result = _should_configure_trace_backend("sqlite:///server.db")
+    result = _should_configure_trace_store("sqlite:///server.db")
 
     assert result is bool(job_id or boot_id or is_running_as_server)
 
 
 @pytest.mark.parametrize(
-    ("trace_backend", "backend_uri", "store_uri"),
+    ("trace_store", "backend_uri", "store_uri"),
     [
         (None, "sqlite:///server.db", "sqlite:///server.db"),
         ("", "sqlite:///server.db", "sqlite:///server.db"),
@@ -92,12 +92,12 @@ def test_should_configure_trace_backend_server_detection(
         ("test", "sqlite:///server.db", "https://remote"),
     ],
 )
-def test_should_configure_trace_backend_requires_selection_and_matching_uri(
-    monkeypatch, trace_backend, backend_uri, store_uri
+def test_should_configure_trace_store_requires_selection_and_matching_uri(
+    monkeypatch, trace_store, backend_uri, store_uri
 ):
     monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", "job")
     for name, value in (
-        ("MLFLOW_TRACE_BACKEND", trace_backend),
+        ("MLFLOW_TRACE_STORE", trace_store),
         ("MLFLOW_BACKEND_STORE_URI", backend_uri),
     ):
         if value is None:
@@ -105,23 +105,23 @@ def test_should_configure_trace_backend_requires_selection_and_matching_uri(
         else:
             monkeypatch.setenv(name, value)
 
-    assert _should_configure_trace_backend(store_uri) is False
+    assert _should_configure_trace_store(store_uri) is False
 
 
 @pytest.mark.parametrize("tracking_uri", ["sqlite:///server.db", "sqlite:///other.db"])
-def test_should_configure_trace_backend_resolves_default_tracking_uri(monkeypatch, tracking_uri):
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
+def test_should_configure_trace_store_resolves_default_tracking_uri(monkeypatch, tracking_uri):
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
     monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", "job")
     monkeypatch.setenv("MLFLOW_TRACKING_URI", tracking_uri)
     monkeypatch.setattr("mlflow.tracking._tracking_service.utils._tracking_uri", None)
 
-    assert _should_configure_trace_backend() is (tracking_uri == "sqlite:///server.db")
+    assert _should_configure_trace_store() is (tracking_uri == "sqlite:///server.db")
 
 
 @pytest.mark.parametrize("server_module", [None, SimpleNamespace()])
-def test_should_configure_trace_backend_does_not_import_server(monkeypatch, server_module):
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
+def test_should_configure_trace_store_does_not_import_server(monkeypatch, server_module):
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
     monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
     monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
@@ -130,7 +130,7 @@ def test_should_configure_trace_backend_does_not_import_server(monkeypatch, serv
     else:
         monkeypatch.setitem(sys.modules, "mlflow.server", server_module)
 
-    assert _should_configure_trace_backend("sqlite:///server.db") is False
+    assert _should_configure_trace_store("sqlite:///server.db") is False
     assert sys.modules.get("mlflow.server") is server_module
 
 

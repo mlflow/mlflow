@@ -35,7 +35,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
+from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 from mlflow.store.tracking.gateway import GatewayStoreMixin
 from mlflow.store.tracking.mcp_server_registry import MCPServerRegistryMixin
 from mlflow.store.tracking.skill_registry import SkillRegistryMixin
@@ -48,32 +48,32 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 @developer_stable
 class AbstractStore(
-    SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixin, AbstractTraceBackend
+    SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixin, AbstractTraceStore
 ):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
     """
 
-    def __init__(self, trace_backend: AbstractTraceBackend | None = None):
+    def __init__(self, trace_store: AbstractTraceStore | None = None):
         """
         Initialize shared tracking-store state.
 
         Args:
-            trace_backend: Optional backend requiring explicit host support. Concrete hosts
+            trace_store: Optional backend requiring explicit host support. Concrete hosts
                 bind its tracking-store context after their own initialization succeeds.
         """
-        if trace_backend is not None and not self.supports_trace_backends():
+        if trace_store is not None and not self.supports_trace_stores():
             raise MlflowException.invalid_parameter_value(
-                "This tracking store does not support trace backends."
+                "This tracking store does not support trace stores."
             )
         self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
 
     @staticmethod
-    def supports_trace_backends() -> bool:
+    def supports_trace_stores() -> bool:
         return False
 
-    def disable_trace_backend(self) -> AbstractContextManager[None]:
+    def use_default_trace_store(self) -> AbstractContextManager[None]:
         """Temporarily use native operations; supporting hosts must preserve context isolation."""
         raise MlflowNotImplementedException()
 

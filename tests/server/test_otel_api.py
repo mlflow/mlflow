@@ -21,7 +21,7 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware, create_fastapi_app
 from mlflow.server.otel_api import otel_router
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
+from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
@@ -57,10 +57,10 @@ def _make_test_client():
     return TestClient(app)
 
 
-def test_otlp_ingestion_routes_to_trace_backend(monkeypatch, db_uri, tmp_path):
-    backend = mock.create_autospec(AbstractTraceBackend, instance=True)
+def test_otlp_ingestion_routes_to_trace_store(monkeypatch, db_uri, tmp_path):
+    backend = mock.create_autospec(AbstractTraceStore, instance=True)
     backend.log_spans_async.return_value = []
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=backend)
     monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
     response = _make_test_client().post(
         OTLP_TRACES_PATH,

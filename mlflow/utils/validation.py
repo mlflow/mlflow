@@ -969,7 +969,7 @@ def validate_delete_traces_parameters(
     max_traces: int | None = None,
     trace_ids: list[str] | None = None,
 ) -> None:
-    """Validate deletion criteria shared by trace backend implementations."""
+    """Validate deletion criteria shared by trace store implementations."""
     if max_timestamp_millis is None and not trace_ids:
         raise MlflowException.invalid_parameter_value(
             "Either `max_timestamp_millis` or `trace_ids` must be specified.",

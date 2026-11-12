@@ -1579,7 +1579,7 @@ def test_assessment_bulk_invalidation_materializes_only_distinct_days(
 
     monkeypatch.setattr(sqlalchemy_store_module, "enqueue_rollup_rebuild_partitions", capture)
     with store.ManagedSessionMaker(read_only=False) as session:
-        store.trace_backend._enqueue_assessment_rebuilds_for_filter(
+        store.trace_store._enqueue_assessment_rebuilds_for_filter(
             session,
             SqlAssessments.experiment_id == int(exp_id),
         )
@@ -1596,12 +1596,12 @@ def test_trace_delete_uses_single_locking_select_when_rollups_are_disabled(
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     trace_id = _new_trace(store, exp_id, DAY_A_MS)
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "false")
-    select_ids = Mock(wraps=store.trace_backend._select_trace_ids_for_delete)
-    enqueue = Mock(wraps=store.trace_backend._enqueue_rollup_rebuilds_for_trace_delete)
-    relock = Mock(wraps=store.trace_backend._lock_trace_ids_for_delete)
-    monkeypatch.setattr(store.trace_backend, "_select_trace_ids_for_delete", select_ids)
-    monkeypatch.setattr(store.trace_backend, "_enqueue_rollup_rebuilds_for_trace_delete", enqueue)
-    monkeypatch.setattr(store.trace_backend, "_lock_trace_ids_for_delete", relock)
+    select_ids = Mock(wraps=store.trace_store._select_trace_ids_for_delete)
+    enqueue = Mock(wraps=store.trace_store._enqueue_rollup_rebuilds_for_trace_delete)
+    relock = Mock(wraps=store.trace_store._lock_trace_ids_for_delete)
+    monkeypatch.setattr(store.trace_store, "_select_trace_ids_for_delete", select_ids)
+    monkeypatch.setattr(store.trace_store, "_enqueue_rollup_rebuilds_for_trace_delete", enqueue)
+    monkeypatch.setattr(store.trace_store, "_lock_trace_ids_for_delete", relock)
 
     assert store.delete_traces(exp_id, trace_ids=[trace_id]) == 1
 

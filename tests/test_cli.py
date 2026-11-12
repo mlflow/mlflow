@@ -39,7 +39,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
-from mlflow.store.tracking.trace_backend_registry import TraceBackendRegistry
+from mlflow.store.tracking.trace_store_registry import TraceStoreRegistry
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceSqlAlchemyStore
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import ShellCommandException
@@ -51,7 +51,7 @@ from tests.helper_functions import (
     get_safe_port,
     kill_process_tree,
 )
-from tests.store.tracking.sqlalchemy_store.test_trace_backend_associations import MemoryTraceBackend
+from tests.store.tracking.sqlalchemy_store.test_trace_store_associations import MemoryTraceStore
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -264,35 +264,35 @@ def test_server_initializes_backend_store_when_tracking_enabled(monkeypatch, tmp
 @pytest.mark.parametrize(
     ("args", "environment", "expected"),
     [
-        (["--trace-backend", "cli-backend"], None, "cli-backend"),
+        (["--trace-store", "cli-backend"], None, "cli-backend"),
         ([], "env-backend", "env-backend"),
-        (["--trace-backend", "cli-backend"], "env-backend", "cli-backend"),
+        (["--trace-store", "cli-backend"], "env-backend", "cli-backend"),
     ],
 )
-def test_server_trace_backend_selection(monkeypatch, tmp_path, args, environment, expected):
+def test_server_trace_store_selection(monkeypatch, tmp_path, args, environment, expected):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("MLFLOW_TRACE_BACKEND", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACE_STORE", raising=False)
     if environment:
-        monkeypatch.setenv("MLFLOW_TRACE_BACKEND", environment)
+        monkeypatch.setenv("MLFLOW_TRACE_STORE", environment)
     with (
         monkeypatch.context() as cli_env,
         mock.patch("mlflow.server.handlers.initialize_backend_stores") as initialize,
         mock.patch("mlflow.server._run_server") as run_server,
     ):
-        cli_env.setenv("MLFLOW_TRACE_BACKEND", environment or "")
+        cli_env.setenv("MLFLOW_TRACE_STORE", environment or "")
         result = CliRunner().invoke(server, args)
-        assert os.environ["MLFLOW_TRACE_BACKEND"] == expected
+        assert os.environ["MLFLOW_TRACE_STORE"] == expected
     assert result.exit_code == 0
-    assert os.environ.get("MLFLOW_TRACE_BACKEND") == environment
+    assert os.environ.get("MLFLOW_TRACE_STORE") == environment
     initialize.assert_called_once()
     run_server.assert_called_once()
 
 
-def test_server_trace_backend_rejects_artifacts_only(monkeypatch):
-    monkeypatch.delenv("MLFLOW_TRACE_BACKEND", raising=False)
-    result = CliRunner().invoke(server, ["--artifacts-only", "--trace-backend", "test"])
+def test_server_trace_store_rejects_artifacts_only(monkeypatch):
+    monkeypatch.delenv("MLFLOW_TRACE_STORE", raising=False)
+    result = CliRunner().invoke(server, ["--artifacts-only", "--trace-store", "test"])
     assert result.exit_code != 0
-    assert "--trace-backend cannot be used with --artifacts-only" in result.output
+    assert "--trace-store cannot be used with --artifacts-only" in result.output
 
 
 def test_server_skips_backend_store_init_in_artifacts_only_mode(monkeypatch, tmp_path):
@@ -1219,16 +1219,16 @@ def test_gc_constructs_host_with_backend_without_server_markers(
 ):
     monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
     monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, str(workspace_mode).lower())
     cls = WorkspaceAwareSqlAlchemyStore if workspace_mode else SqlAlchemyStore
     store = cls(db_uri, tmp_path.as_uri())
-    backend = MemoryTraceBackend()
-    registry = TraceBackendRegistry()
+    backend = MemoryTraceStore()
+    registry = TraceStoreRegistry()
     builder = mock.Mock(return_value=backend)
     registry.register("test", builder)
     monkeypatch.setattr(
-        "mlflow.store.tracking.trace_backend_registry._trace_backend_registry", registry
+        "mlflow.store.tracking.trace_store_registry._trace_store_registry", registry
     )
     try:
         with WorkspaceContext("default" if workspace_mode else None):

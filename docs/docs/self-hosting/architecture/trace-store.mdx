@@ -1,0 +1,100 @@
+# Trace Stores
+
+MLflow separates trace storage from experiment and run storage. By default, the SQL tracking
+store delegates tracing to a SQL trace store using the same database and session infrastructure.
+Install a trace store plugin to store and search traces independently without replacing the
+tracking store.
+
+## Configure a Trace Store
+
+Install the plugin in the server and worker environments, then select its registered kind:
+
+```bash
+mlflow server --backend-store-uri postgresql://... --trace-store my-traces
+
+# Alternatively:
+export MLFLOW_TRACE_STORE=my-traces
+mlflow server --backend-store-uri postgresql://...
+```
+
+The CLI option takes precedence over `MLFLOW_TRACE_STORE`. Selection is server-side, so remote
+clients keep their existing tracking URI and tracing code. The plugin reads connection settings
+from its own environment variables or configuration files; the selected kind identifies the plugin,
+not its storage endpoint.
+
+Invalid configuration fails startup. Unsupported trace operations return HTTP 501 rather than
+silently falling back to SQL.
+
+## Develop a Trace Store Plugin
+
+Implement `AbstractTraceStore` and register a builder in your package:
+
+```toml
+# pyproject.toml
+[project.entry-points."mlflow.trace_stores"]
+my-traces = "my_plugin.traces:build_store"
+```
+
+```python
+# my_plugin/traces.py
+from mlflow.exceptions import MlflowNotImplementedException
+from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
+
+
+class MyTraceStore(AbstractTraceStore):
+    def __init__(self, store_config):
+        # Initialize trace storage using provider-owned configuration.
+        ...
+
+    def start_trace(self, trace_info):
+        raise MlflowNotImplementedException()
+
+    def log_spans(self, location, spans, tracking_uri=None):
+        raise MlflowNotImplementedException()
+
+    # Implement other supported AbstractTraceStore operations.
+
+
+def build_store(store_config):
+    return MyTraceStore(store_config)
+```
+
+The builder's configuration dictionary is currently empty. After initialization, `set_tracking_store`
+provides optional tracking-store access for experiment/run metadata queries or hybrid storage.
+Each trace store instance belongs to one tracking store instance.
+
+Trace stores own traces, assessments, issues, and their search and analytics. The tracking store
+owns other metadata, associations, and cross-store lifecycle coordination. Implement the lifecycle
+hooks to clean up plugin-owned data when runs, experiments, or workspaces are deleted. After deleting
+traces, call `on_traces_deleted` with the IDs actually deleted to clean up tracking-store references.
+
+### Reuse Native SQL Storage
+
+Hybrid plugins can explicitly select the default SQL trace store for an operation:
+
+```python
+class HybridTraceStore(AbstractTraceStore):
+    def get_trace_info(self, trace_id):
+        with self._tracking_store.use_default_trace_store():
+            return self._tracking_store.get_trace_info(trace_id)
+```
+
+The context manager selects the default SQL implementation rather than disabling trace storage.
+Routing is restored when the block exits, including on exceptions. Workspace access checks remain
+in effect. Ordinary experiment and run metadata queries do not need this context.
+
+See the [AbstractTraceStore interface](https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/abstract_trace_store.py)
+for operation and lifecycle contracts.
+
+## Compatibility and Operations
+
+- SQL-backed servers support trace plugins; custom tracking stores must explicitly opt in.
+  File and REST stores cannot host trace plugins.
+- Use the V3 tracing API with plugins. Legacy V2 writes, `--artifacts-only`, and workspace
+  reassignment are not supported with a separate trace store.
+- Run `mlflow gc` with the same trace store and provider configuration as the server.
+- Historical gateway budget reconstruction is best-effort. Implement `sum_gateway_trace_cost`
+  to supply plugin-owned history; unavailable history can cause budgets to undercount.
+
+See [Backend Stores](/self-hosting/architecture/backend-store) for tracking storage configuration
+and [Flexible Trace Storage](/genai/tracing/trace-stores) for a tracing-oriented overview.

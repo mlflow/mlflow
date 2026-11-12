@@ -32,11 +32,11 @@ from tests.tracing.helper import create_test_trace_info
 
 @pytest.fixture
 def json_backend_server(tmp_path, db_uri):
-    distribution = tmp_path / "test_json_trace_backend-0.0.0.dist-info"
+    distribution = tmp_path / "test_json_trace_store-0.0.0.dist-info"
     distribution.mkdir()
-    (distribution / "METADATA").write_text("Name: test-json-trace-backend\nVersion: 0.0.0\n")
+    (distribution / "METADATA").write_text("Name: test-json-trace-store\nVersion: 0.0.0\n")
     (distribution / "entry_points.txt").write_text(
-        "[mlflow.trace_backends]\njson-test = tests.server.trace_backend_plugin:build_backend\n"
+        "[mlflow.trace_stores]\njson-test = tests.server.trace_store_plugin:build_store\n"
     )
     repository = Path(__file__).resolve().parents[2]
     env = {
@@ -48,8 +48,8 @@ def json_backend_server(tmp_path, db_uri):
         ]),
         BACKEND_STORE_URI_ENV_VAR: db_uri,
         ARTIFACT_ROOT_ENV_VAR: tmp_path.as_uri(),
-        "MLFLOW_TRACE_BACKEND": "json-test",
-        "MLFLOW_TEST_JSON_TRACE_BACKEND_PATH": str(tmp_path / "traces.json"),
+        "MLFLOW_TRACE_STORE": "json-test",
+        "MLFLOW_TEST_JSON_TRACE_STORE_PATH": str(tmp_path / "traces.json"),
         "MLFLOW_ENABLE_TELEMETRY": "false",
     }
 
@@ -77,7 +77,7 @@ def json_backend_server(tmp_path, db_uri):
                 deadline = time.monotonic() + 60
                 while time.monotonic() < deadline:
                     if process.poll() is not None:
-                        raise RuntimeError(f"Trace backend server exited: {process.returncode}")
+                        raise RuntimeError(f"Trace store server exited: {process.returncode}")
                     try:
                         response = requests.get(f"{uri}/health", timeout=1)
                     except requests.ConnectionError:
@@ -87,7 +87,7 @@ def json_backend_server(tmp_path, db_uri):
                             break
                     time.sleep(0.1)
                 else:
-                    raise TimeoutError("Trace backend server did not become healthy")
+                    raise TimeoutError("Trace store server did not become healthy")
                 yield MlflowClient(uri), TracingClient(uri)
             finally:
                 process.terminate()

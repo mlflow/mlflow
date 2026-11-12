@@ -1611,7 +1611,7 @@ def test_search_traces_span_filters_use_correlated_exists(store: SqlAlchemyStore
         cases_orderby, parsed_orderby, sorting_joins = (
             sqlalchemy_store_module._get_orderby_clauses_for_search_traces([], session)
         )
-        stmt = store.trace_backend._trace_query(session)
+        stmt = store.trace_store._trace_query(session)
         if cases_orderby:
             stmt = stmt.add_columns(*cases_orderby)
 
@@ -1628,11 +1628,11 @@ def test_search_traces_span_filters_use_correlated_exists(store: SqlAlchemyStore
             ),
             session,
             store._get_dialect(),
-            store.trace_backend._trace_query(session).filter(
+            store.trace_store._trace_query(session).filter(
                 SqlTraceInfo.experiment_id == int(exp_id)
             ),
         )
-        stmt = store.trace_backend._apply_trace_filter_clauses(
+        stmt = store.trace_store._apply_trace_filter_clauses(
             stmt,
             attribute_filters,
             non_attribute_filters,
@@ -4118,7 +4118,7 @@ async def test_log_spans_async_offloads_to_worker_thread(store: SqlAlchemyStore)
         worker_idents.append(threading.get_ident())
         return spans
 
-    with mock.patch.object(store.trace_backend, "log_spans", side_effect=fake_log_spans):
+    with mock.patch.object(store.trace_store, "log_spans", side_effect=fake_log_spans):
         result = await store.log_spans_async("1", [])
 
     assert result == []
@@ -4134,7 +4134,7 @@ async def test_log_spans_async_allows_concurrent_store_calls(store: SqlAlchemySt
         barrier.wait()
         return spans
 
-    with mock.patch.object(store.trace_backend, "log_spans", side_effect=fake_log_spans):
+    with mock.patch.object(store.trace_store, "log_spans", side_effect=fake_log_spans):
         results = await asyncio.gather(
             store.log_spans_async("1", []),
             store.log_spans_async("1", []),
@@ -5615,7 +5615,7 @@ def test_trace_row_lock_query_locks_only_trace_rows(
     with store.ManagedSessionMaker() as session:
         with mock.patch.object(store, "db_type", db_type):
             sql = str(
-                store.trace_backend._trace_row_lock_query(session, [trace_id]).statement.compile(
+                store.trace_store._trace_row_lock_query(session, [trace_id]).statement.compile(
                     dialect=dialects[db_type].dialect(),
                     compile_kwargs={"literal_binds": True},
                 )
@@ -5649,9 +5649,9 @@ def test_log_spans_locks_preexisting_trace_rows_only(store: SqlAlchemyStore) -> 
         )
 
     with mock.patch.object(
-        store.trace_backend,
+        store.trace_store,
         "_trace_row_lock_query",
-        wraps=store.trace_backend._trace_row_lock_query,
+        wraps=store.trace_store._trace_row_lock_query,
     ) as mock_lock:
         # The trace does not exist yet: it is created by this call, so no lock is taken.
         store.log_spans(experiment_id, [_span(1, 100)])
@@ -5685,7 +5685,7 @@ def test_stored_span_rows_query_locking_read_only_on_mysql(
     with store.ManagedSessionMaker() as session:
         with mock.patch.object(store, "db_type", db_type):
             sql = str(
-                store.trace_backend._stored_span_rows_query(session, [trace_id]).statement.compile(
+                store.trace_store._stored_span_rows_query(session, [trace_id]).statement.compile(
                     dialect=dialects[db_type].dialect(),
                     compile_kwargs={"literal_binds": True},
                 )
@@ -5766,14 +5766,14 @@ def test_log_spans_recompute_reads_only_locked_traces(store: SqlAlchemyStore) ->
 
     with (
         mock.patch.object(
-            store.trace_backend,
+            store.trace_store,
             "_trace_row_lock_query",
-            wraps=store.trace_backend._trace_row_lock_query,
+            wraps=store.trace_store._trace_row_lock_query,
         ) as mock_lock,
         mock.patch.object(
-            store.trace_backend,
+            store.trace_store,
             "_stored_span_rows_query",
-            wraps=store.trace_backend._stored_span_rows_query,
+            wraps=store.trace_store._stored_span_rows_query,
         ) as mock_stored,
     ):
         # The trace created by this call carries usage too, so a recompute derived from every
@@ -7681,7 +7681,7 @@ def _archive_traces(
         return store.archive_traces(**kwargs)
 
     with mock.patch.object(
-        store.trace_backend, "_get_archive_traces_now_millis", return_value=now_millis
+        store.trace_store, "_get_archive_traces_now_millis", return_value=now_millis
     ):
         return store.archive_traces(**kwargs)
 
@@ -8433,12 +8433,12 @@ def test_archive_traces_treats_unset_max_traces_per_pass_as_unbounded(
         return True
 
     monkeypatch.setattr(
-        store.trace_backend,
+        store.trace_store,
         "_find_archivable_trace_candidates_for_experiments",
         _capture_find_archivable_trace_candidates_for_experiments,
     )
     monkeypatch.setattr(
-        store.trace_backend,
+        store.trace_store,
         "_archive_trace_candidate",
         _capture_archive_trace_candidate,
     )
@@ -8668,7 +8668,7 @@ def test_archive_traces_skips_regular_pass_when_archive_now_covers_retention(
         return []
 
     monkeypatch.setattr(
-        store.trace_backend,
+        store.trace_store,
         "_find_archivable_trace_candidates_for_experiments",
         _capture_find_archivable_trace_candidates_for_experiments,
     )
@@ -8737,12 +8737,12 @@ def test_archive_traces_keeps_oldest_archive_now_candidates_when_bounded(
         return True
 
     monkeypatch.setattr(
-        store.trace_backend,
+        store.trace_store,
         "_find_archivable_trace_candidates_for_experiments",
         _capture_find_archivable_trace_candidates_for_experiments,
     )
     monkeypatch.setattr(
-        store.trace_backend,
+        store.trace_store,
         "_archive_trace_candidate",
         _capture_archive_trace_candidate,
     )
@@ -8773,7 +8773,7 @@ def test_archive_traces_groups_regular_candidate_queries_by_shared_cutoff(
         return []
 
     monkeypatch.setattr(
-        store.trace_backend,
+        store.trace_store,
         "_find_archivable_trace_candidates_for_experiments",
         _capture_find_archivable_trace_candidates_for_experiments,
     )
@@ -8944,12 +8944,12 @@ def test_archive_traces_queries_all_archive_now_groups_before_selecting_bounded_
 
     with (
         mock.patch.object(
-            store.trace_backend,
+            store.trace_store,
             "_find_archivable_trace_candidates_for_experiments",
             side_effect=[[first_candidate], [second_candidate]],
         ) as mock_find_candidates,
         mock.patch.object(
-            store.trace_backend, "_archive_trace_candidate", side_effect=record_archive_candidate
+            store.trace_store, "_archive_trace_candidate", side_effect=record_archive_candidate
         ) as mock_archive_candidate,
     ):
         archived = _archive_traces(
@@ -9007,12 +9007,12 @@ def test_archive_traces_queries_all_regular_groups_before_selecting_bounded_batc
 
     with (
         mock.patch.object(
-            store.trace_backend,
+            store.trace_store,
             "_find_archivable_trace_candidates_for_experiments",
             side_effect=find_candidates,
         ) as mock_find_candidates,
         mock.patch.object(
-            store.trace_backend, "_archive_trace_candidate", side_effect=record_archive_candidate
+            store.trace_store, "_archive_trace_candidate", side_effect=record_archive_candidate
         ) as mock_archive_candidate,
     ):
         archived = _archive_traces(
@@ -9513,12 +9513,12 @@ def test_archive_traces_keeps_new_archive_now_request_added_mid_pass(
         return True
 
     monkeypatch.setattr(
-        store.trace_backend,
+        store.trace_store,
         "_find_archivable_trace_candidates_for_experiments",
         _find_candidates,
     )
-    monkeypatch.setattr(store.trace_backend, "_archive_trace_candidate", _archive_candidate)
-    monkeypatch.setattr(store.trace_backend, "_get_archive_now_remaining_state", lambda **_: "done")
+    monkeypatch.setattr(store.trace_store, "_archive_trace_candidate", _archive_candidate)
+    monkeypatch.setattr(store.trace_store, "_get_archive_now_remaining_state", lambda **_: "done")
 
     archived = _archive_traces(
         store,
@@ -9691,7 +9691,7 @@ def test_archive_traces_raises_unexpected_deserialization_errors(
         archive_root = Path(tmp.path("archive"))
         archive_root.mkdir()
         with mock.patch.object(
-            store.trace_backend,
+            store.trace_store,
             "_serialize_trace_archival_span_rows_to_pb",
             side_effect=RuntimeError("simulated unexpected serialize failure"),
         ):
@@ -9801,7 +9801,7 @@ def test_archive_traces_leaves_sqlalchemy_errors_retryable(
         archive_root = Path(tmp.path("archive"))
         archive_root.mkdir()
         with mock.patch.object(
-            store.trace_backend,
+            store.trace_store,
             "_load_trace_archival_data",
             side_effect=SQLAlchemyError("simulated retryable db failure"),
         ):
@@ -9896,7 +9896,7 @@ def test_log_spans_then_start_trace_advances_db_payload_generation(store: SqlAlc
         trace_num=12345,
     )
     store.log_spans(experiment_id, [span])
-    snapshot = store.trace_backend._load_trace_archival_data(trace_id)
+    snapshot = store.trace_store._load_trace_archival_data(trace_id)
     assert snapshot is not None
     _, db_payload_generation, _ = snapshot
     assert db_payload_generation == 1
@@ -9918,7 +9918,7 @@ def test_log_spans_then_start_trace_advances_db_payload_generation(store: SqlAlc
         )
         assert sql_trace_info.db_payload_generation == 2
 
-    assert not store.trace_backend._finalize_archived_trace(
+    assert not store.trace_store._finalize_archived_trace(
         trace_id=trace_id,
         artifact_uri="file:///unused-archive-root",
         db_payload_generation=db_payload_generation,
@@ -9978,7 +9978,7 @@ def test_advance_db_payload_generations_reports_deleted_traces(store: SqlAlchemy
             MlflowException,
             match=f"Cannot log spans to traces that no longer exist: '{trace_id}'",
         ) as exc_info:
-            store.trace_backend._advance_db_payload_generations_for_db_span_writes(
+            store.trace_store._advance_db_payload_generations_for_db_span_writes(
                 session, [trace_id]
             )
 
@@ -10010,7 +10010,7 @@ def test_log_spans_then_start_trace_reports_deleted_conflicting_trace(store: Sql
         trace_metadata={"source": "test"},
     )
 
-    original_trace_query = store.trace_backend._trace_query
+    original_trace_query = store.trace_store._trace_query
 
     class DeletingQuery:
         def __init__(self, query):
@@ -10021,7 +10021,7 @@ def test_log_spans_then_start_trace_reports_deleted_conflicting_trace(store: Sql
             return self
 
         def one_or_none(self):
-            with mock.patch.object(store.trace_backend, "_trace_query", original_trace_query):
+            with mock.patch.object(store.trace_store, "_trace_query", original_trace_query):
                 store.delete_traces(experiment_id=experiment_id, trace_ids=[trace_id])
             return self._query.one_or_none()
 
@@ -10035,7 +10035,7 @@ def test_log_spans_then_start_trace_reports_deleted_conflicting_trace(store: Sql
             return DeletingQuery(query)
         return query
 
-    with mock.patch.object(store.trace_backend, "_trace_query", side_effect=deleting_trace_query):
+    with mock.patch.object(store.trace_store, "_trace_query", side_effect=deleting_trace_query):
         with pytest.raises(
             MlflowException,
             match=f"Trace with ID '{trace_id}' no longer exists.",
@@ -10074,7 +10074,7 @@ def test_log_spans_then_start_trace_uses_locking_reread(store: SqlAlchemyStore):
         trace_metadata={"source": "test"},
     )
 
-    original_trace_query = store.trace_backend._trace_query
+    original_trace_query = store.trace_store._trace_query
     seen_locking_calls = []
 
     def tracked_trace_query(session, for_update_or_delete=False, workspace=None):
@@ -10085,7 +10085,7 @@ def test_log_spans_then_start_trace_uses_locking_reread(store: SqlAlchemyStore):
             workspace=workspace,
         )
 
-    with mock.patch.object(store.trace_backend, "_trace_query", side_effect=tracked_trace_query):
+    with mock.patch.object(store.trace_store, "_trace_query", side_effect=tracked_trace_query):
         store.start_trace(trace_info_for_start)
 
     assert True in seen_locking_calls
@@ -10130,7 +10130,7 @@ def test_finalize_archived_trace_rejects_stale_snapshot_generation(store: SqlAlc
             .update({SqlTraceInfo.db_payload_generation: 0}, synchronize_session=False)
         )
 
-    snapshot = store.trace_backend._load_trace_archival_data(trace_id)
+    snapshot = store.trace_store._load_trace_archival_data(trace_id)
     assert snapshot is not None
     _, db_payload_generation, _ = snapshot
     assert db_payload_generation == 0
@@ -10147,7 +10147,7 @@ def test_finalize_archived_trace_rejects_stale_snapshot_generation(store: SqlAlc
         ],
     )
 
-    assert not store.trace_backend._finalize_archived_trace(
+    assert not store.trace_store._finalize_archived_trace(
         trace_id=trace_id,
         artifact_uri="file:///unused-archive-root",
         db_payload_generation=db_payload_generation,
@@ -10272,7 +10272,7 @@ def test_trace_query_for_update_uses_backend_specific_lock_clause(store: SqlAlch
     with store.ManagedSessionMaker() as session:
         with mock.patch.object(store, "db_type", POSTGRES):
             postgres_sql = str(
-                store.trace_backend
+                store.trace_store
                 ._trace_query(session, for_update_or_delete=True)
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .statement.compile(
@@ -10283,7 +10283,7 @@ def test_trace_query_for_update_uses_backend_specific_lock_clause(store: SqlAlch
 
         with mock.patch.object(store, "db_type", MYSQL):
             mysql_sql = str(
-                store.trace_backend
+                store.trace_store
                 ._trace_query(session, for_update_or_delete=True)
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .statement.compile(
@@ -10294,7 +10294,7 @@ def test_trace_query_for_update_uses_backend_specific_lock_clause(store: SqlAlch
 
         with mock.patch.object(store, "db_type", MSSQL):
             mssql_sql = str(
-                store.trace_backend
+                store.trace_store
                 ._trace_query(session, for_update_or_delete=True)
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .statement.compile(
@@ -10322,7 +10322,7 @@ def test_mark_trace_archival_failure_keeps_joined_tags_out_of_postgres_lock_quer
     with store.ManagedSessionMaker() as session:
         with mock.patch.object(store, "db_type", POSTGRES):
             postgres_sql = str(
-                store.trace_backend
+                store.trace_store
                 ._trace_query(session, for_update_or_delete=True)
                 .options(sqlalchemy.orm.selectinload(SqlTraceInfo.tags))
                 .filter(SqlTraceInfo.request_id == trace_id)
@@ -10417,10 +10417,10 @@ def test_finalize_archived_trace_rejects_writer_after_finalization(store: SqlAlc
         ],
     )
 
-    snapshot = store.trace_backend._load_trace_archival_data(trace_id)
+    snapshot = store.trace_store._load_trace_archival_data(trace_id)
     assert snapshot is not None
     _, db_payload_generation, _ = snapshot
-    assert store.trace_backend._finalize_archived_trace(
+    assert store.trace_store._finalize_archived_trace(
         trace_id=trace_id,
         artifact_uri="file:///unused-archive-root",
         db_payload_generation=db_payload_generation,
@@ -10480,7 +10480,7 @@ def test_archive_traces_stale_malformed_snapshot_does_not_mark_new_generation_te
             .update({SqlSpan.content: "not-json"}, synchronize_session=False)
         )
 
-    original_serialize = store.trace_backend._serialize_trace_archival_span_rows_to_pb
+    original_serialize = store.trace_store._serialize_trace_archival_span_rows_to_pb
 
     def serialize_after_repair(span_rows):
         store.log_spans(
@@ -10500,7 +10500,7 @@ def test_archive_traces_stale_malformed_snapshot_does_not_mark_new_generation_te
         archive_root = Path(tmp.path("archive"))
         archive_root.mkdir()
         with mock.patch.object(
-            store.trace_backend,
+            store.trace_store,
             "_serialize_trace_archival_span_rows_to_pb",
             side_effect=serialize_after_repair,
         ):
@@ -11191,7 +11191,7 @@ def test_delete_archived_trace_payloads_limits_workers(
     with mock.patch.object(
         sqlalchemy_store_module, "ThreadPoolExecutor", wraps=ThreadPoolExecutor
     ) as pool:
-        assert store.trace_backend._delete_archived_trace_payloads(selections) == [
+        assert store.trace_store._delete_archived_trace_payloads(selections) == [
             selection.trace_id for selection in selections
         ]
     if expected_workers is None:
@@ -11235,7 +11235,7 @@ def test_delete_archived_trace_payloads_keeps_order_and_continues_after_errors(
         "mlflow.store.tracking.sqlalchemy_trace_store.get_artifact_repository",
         side_effect=repositories.__getitem__,
     ) as get_repo:
-        assert store.trace_backend._delete_archived_trace_payloads(selections) == [
+        assert store.trace_store._delete_archived_trace_payloads(selections) == [
             "tr-slow",
             "tr-missing",
             "tr-fast",
@@ -11508,7 +11508,7 @@ def test_delete_traces_deletes_preselected_trace_ids(store: SqlAlchemyStore):
     # The timestamp filter would not match this trace, so this verifies the final DB delete
     # uses the preselected ID set directly instead of re-evaluating the original filters.
     with mock.patch.object(
-        store.trace_backend, "_select_trace_ids_for_delete", return_value=[trace_id]
+        store.trace_store, "_select_trace_ids_for_delete", return_value=[trace_id]
     ):
         assert store.delete_traces(exp_id, max_timestamp_millis=0) == 1
 

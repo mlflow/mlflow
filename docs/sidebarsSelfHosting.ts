@@ -29,6 +29,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'architecture/trace-store',
+          label: 'Trace Store',
+        },
+        {
+          type: 'doc',
           id: 'architecture/artifact-store',
           label: 'Artifact Store',
         },

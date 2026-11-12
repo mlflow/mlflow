@@ -7,10 +7,10 @@ from mlflow.entities import Assessment, Issue, Span, Trace, TraceData, TraceInfo
 from mlflow.exceptions import MlflowNotImplementedException
 from mlflow.utils.workspace_context import get_request_workspace
 
-from tests.store.tracking.sqlalchemy_store.test_trace_backend_associations import MemoryTraceBackend
+from tests.store.tracking.sqlalchemy_store.test_trace_store_associations import MemoryTraceStore
 
 
-class JsonTraceBackend(MemoryTraceBackend):
+class JsonTraceStore(MemoryTraceStore):
     """Single-writer test plugin persisting traces independently of the tracking database."""
 
     def __init__(self, path: Path):
@@ -144,6 +144,6 @@ class JsonTraceBackend(MemoryTraceBackend):
         self._save()
 
 
-def build_backend(config):
+def build_store(config):
     assert config == {}
-    return JsonTraceBackend(Path(os.environ["MLFLOW_TEST_JSON_TRACE_BACKEND_PATH"]))
+    return JsonTraceStore(Path(os.environ["MLFLOW_TEST_JSON_TRACE_STORE_PATH"]))

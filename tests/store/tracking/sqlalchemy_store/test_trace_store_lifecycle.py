@@ -16,16 +16,16 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.utils.workspace_context import WorkspaceContext
 
-from tests.store.tracking.sqlalchemy_store.test_trace_backend_associations import (
-    MemoryTraceBackend,
+from tests.store.tracking.sqlalchemy_store.test_trace_store_associations import (
+    MemoryTraceStore,
     create_trace,
 )
 
 
 @pytest.fixture
 def backend_store(store):
-    backend = MemoryTraceBackend()
-    host = type(store)(store.db_uri, store.artifact_root_uri, trace_backend=backend)
+    backend = MemoryTraceStore()
+    host = type(store)(store.db_uri, store.artifact_root_uri, trace_store=backend)
     try:
         yield host, backend
     finally:

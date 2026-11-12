@@ -1,0 +1,28 @@
+---
+title: Flexible Trace Storage
+---
+
+# Flexible Trace Storage
+
+MLflow Tracing supports pluggable trace stores so you can choose where trace data lives without
+replacing experiment and run storage or changing your application's instrumentation.
+
+## Default SQL Storage
+
+SQL-backed MLflow servers use a SQL trace store by default. It shares the tracking database and
+supports existing tracing operations, including search, assessments, analytics, and archival.
+No additional configuration is required.
+
+## Independent Trace Storage
+
+For deployments that need a dedicated trace database or a different storage and analytics engine,
+install a trace store plugin on the server and select it with `--trace-store` or `MLFLOW_TRACE_STORE`.
+The plugin controls trace persistence, retrieval, assessments, issues, and analytics, while
+experiments and runs remain in the tracking store.
+
+Applications continue to use their existing MLflow tracking server URI and V3 tracing APIs.
+Feature availability depends on the selected plugin; unsupported operations return an explicit
+error instead of writing to a different store.
+
+See the [self-hosting trace store guide](/self-hosting/architecture/trace-store) for server
+configuration, plugin development, lifecycle requirements, and compatibility limitations.

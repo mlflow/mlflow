@@ -189,6 +189,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/lightweight-sdk',
                   label: 'Production Tracing SDK',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/trace-stores',
+                  label: 'Flexible Trace Storage',
+                },
               ],
             },
           ],

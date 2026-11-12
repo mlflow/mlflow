@@ -22,12 +22,7 @@ import sqlalchemy
 import sqlalchemy.orm
 from sqlalchemy import and_, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Query, Session, selectinload
-from sqlalchemy.sql.selectable import Select
-
-from mlflow.utils.crypto import KEKManager, _decrypt_secret
-
-_SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
+from sqlalchemy.orm import Session, selectinload
 
 import mlflow.store.db.utils
 from mlflow.entities import (
@@ -108,7 +103,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
+from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
     SqlEntityAssociation,
@@ -159,6 +154,7 @@ from mlflow.store.tracking.utils.trace_cleanup import (
     delete_trace_associations,
 )
 from mlflow.tracing.trace_archival_config import get_trace_archival_server_config
+from mlflow.utils.crypto import KEKManager, _decrypt_secret
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
@@ -224,21 +220,18 @@ _DB_WRITE_MAX_DEADLOCK_RETRIES = 2
 # and https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.mapper.Mapper
 sqlalchemy.orm.configure_mappers()
 
-_SPAN_SEARCH_TIMESTAMP_TOLERANCE_MS = 10_000
-
-
 _TraceParams = ParamSpec("_TraceParams")
 _TraceReturn = TypeVar("_TraceReturn")
 
 
 def _delegate_trace_operation(
-    method: Callable[Concatenate[AbstractTraceBackend, _TraceParams], _TraceReturn],
+    method: Callable[Concatenate[AbstractTraceStore, _TraceParams], _TraceReturn],
 ) -> Callable[Concatenate["SqlAlchemyStore", _TraceParams], _TraceReturn]:
     @wraps(method)
     def wrapper(
         self: SqlAlchemyStore, *args: _TraceParams.args, **kwargs: _TraceParams.kwargs
     ) -> _TraceReturn:
-        return getattr(self.trace_backend, method.__name__)(*args, **kwargs)
+        return getattr(self.trace_store, method.__name__)(*args, **kwargs)
 
     return wrapper
 
@@ -304,7 +297,7 @@ class SqlAlchemyStore(
         db_uri,
         default_artifact_root,
         read_db_uri=None,
-        trace_backend: AbstractTraceBackend | None = None,
+        trace_store: AbstractTraceStore | None = None,
     ):
         """
         Create a database backed store.
@@ -321,11 +314,11 @@ class SqlAlchemyStore(
                 read operations (e.g. search_runs, get_experiment) are routed to this URI
                 while write operations use ``db_uri``. If not provided, all operations
                 use ``db_uri``.
-            trace_backend: Optional independently constructed trace backend. Its tracking-store
+            trace_store: Optional independently constructed trace store. Its tracking-store
                 context is bound after database and store initialization succeeds.
         """
-        self._trace_backend_disabled = ContextVar("mlflow_trace_backend_disabled", default=False)
-        super().__init__(trace_backend=trace_backend)
+        self._trace_store_disabled = ContextVar("mlflow_trace_store_disabled", default=False)
+        super().__init__(trace_store=trace_store)
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = resolve_uri_if_local(default_artifact_root)
@@ -367,42 +360,38 @@ class SqlAlchemyStore(
         # when the artifact root is local but never actually used.
 
         self._default_trace_store = self._create_default_trace_store()
-        self._trace_backend = (
-            trace_backend if trace_backend is not None else self._default_trace_store
-        )
+        self._trace_store = trace_store if trace_store is not None else self._default_trace_store
         self._initialize_store_state()
-        if trace_backend is not None:
-            trace_backend.set_tracking_store(self)
+        if trace_store is not None:
+            trace_store.set_tracking_store(self)
 
     @staticmethod
-    def supports_trace_backends() -> bool:
+    def supports_trace_stores() -> bool:
         return True
 
     def _create_default_trace_store(self) -> SqlAlchemyTraceStore:
         return SqlAlchemyTraceStore(self)
 
     @property
-    def trace_backend(self) -> AbstractTraceBackend:
-        return (
-            self._default_trace_store if self._trace_backend_disabled.get() else self._trace_backend
-        )
+    def trace_store(self) -> AbstractTraceStore:
+        return self._default_trace_store if self._trace_store_disabled.get() else self._trace_store
 
     @property
     def _has_external_trace_store(self) -> bool:
-        return self.trace_backend is not self._default_trace_store
+        return self.trace_store is not self._default_trace_store
 
     @contextmanager
-    def disable_trace_backend(self) -> Iterator[None]:
+    def use_default_trace_store(self) -> Iterator[None]:
         """Use native store operations in this store's current context without changing scope.
 
         Nested blocks and exceptions restore the prior routing state. Async tasks and
         ``asyncio.to_thread`` inherit context; do not spawn unrelated background work here.
         """
-        token = self._trace_backend_disabled.set(True)
+        token = self._trace_store_disabled.set(True)
         try:
             yield
         finally:
-            self._trace_backend_disabled.reset(token)
+            self._trace_store_disabled.reset(token)
 
     @property
     def supports_workspaces(self) -> bool:
@@ -410,72 +399,68 @@ class SqlAlchemyStore(
 
     @property
     def supports_trace_archival(self) -> bool:
-        return self.trace_backend.supports_trace_archival
+        return self.trace_store.supports_trace_archival
 
     async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        return await self.trace_backend.log_spans_async(location, spans)
+        return await self.trace_store.log_spans_async(location, spans)
 
-    sum_gateway_trace_cost = _delegate_trace_operation(AbstractTraceBackend.sum_gateway_trace_cost)
+    sum_gateway_trace_cost = _delegate_trace_operation(AbstractTraceStore.sum_gateway_trace_cost)
 
     get_online_trace_details = _delegate_trace_operation(
-        AbstractTraceBackend.get_online_trace_details
+        AbstractTraceStore.get_online_trace_details
     )
 
-    start_trace = _delegate_trace_operation(AbstractTraceBackend.start_trace)
+    start_trace = _delegate_trace_operation(AbstractTraceStore.start_trace)
 
-    get_trace_info = _delegate_trace_operation(AbstractTraceBackend.get_trace_info)
+    get_trace_info = _delegate_trace_operation(AbstractTraceStore.get_trace_info)
 
-    search_traces = _delegate_trace_operation(AbstractTraceBackend.search_traces)
+    search_traces = _delegate_trace_operation(AbstractTraceStore.search_traces)
 
-    find_completed_sessions = _delegate_trace_operation(
-        AbstractTraceBackend.find_completed_sessions
-    )
+    find_completed_sessions = _delegate_trace_operation(AbstractTraceStore.find_completed_sessions)
 
-    query_trace_metrics = _delegate_trace_operation(AbstractTraceBackend.query_trace_metrics)
+    query_trace_metrics = _delegate_trace_operation(AbstractTraceStore.query_trace_metrics)
 
-    set_trace_tag = _delegate_trace_operation(AbstractTraceBackend.set_trace_tag)
+    set_trace_tag = _delegate_trace_operation(AbstractTraceStore.set_trace_tag)
 
-    delete_trace_tag = _delegate_trace_operation(AbstractTraceBackend.delete_trace_tag)
+    delete_trace_tag = _delegate_trace_operation(AbstractTraceStore.delete_trace_tag)
 
-    delete_traces = _delegate_trace_operation(AbstractTraceBackend.delete_traces)
+    delete_traces = _delegate_trace_operation(AbstractTraceStore.delete_traces)
 
-    create_assessment = _delegate_trace_operation(AbstractTraceBackend.create_assessment)
+    create_assessment = _delegate_trace_operation(AbstractTraceStore.create_assessment)
 
-    get_assessment = _delegate_trace_operation(AbstractTraceBackend.get_assessment)
+    get_assessment = _delegate_trace_operation(AbstractTraceStore.get_assessment)
 
-    update_assessment = _delegate_trace_operation(AbstractTraceBackend.update_assessment)
+    update_assessment = _delegate_trace_operation(AbstractTraceStore.update_assessment)
 
-    delete_assessment = _delegate_trace_operation(AbstractTraceBackend.delete_assessment)
+    delete_assessment = _delegate_trace_operation(AbstractTraceStore.delete_assessment)
 
     calculate_trace_filter_correlation = _delegate_trace_operation(
-        AbstractTraceBackend.calculate_trace_filter_correlation
+        AbstractTraceStore.calculate_trace_filter_correlation
     )
 
-    log_spans = _delegate_trace_operation(AbstractTraceBackend.log_spans)
+    log_spans = _delegate_trace_operation(AbstractTraceStore.log_spans)
 
-    get_trace = _delegate_trace_operation(AbstractTraceBackend.get_trace)
+    get_trace = _delegate_trace_operation(AbstractTraceStore.get_trace)
 
-    batch_get_traces = _delegate_trace_operation(AbstractTraceBackend.batch_get_traces)
+    batch_get_traces = _delegate_trace_operation(AbstractTraceStore.batch_get_traces)
 
-    batch_get_trace_infos = _delegate_trace_operation(AbstractTraceBackend.batch_get_trace_infos)
+    batch_get_trace_infos = _delegate_trace_operation(AbstractTraceStore.batch_get_trace_infos)
 
-    archive_traces = _delegate_trace_operation(AbstractTraceBackend.archive_traces)
+    archive_traces = _delegate_trace_operation(AbstractTraceStore.archive_traces)
 
     deprecated_start_trace_v2 = _delegate_trace_operation(
-        AbstractTraceBackend.deprecated_start_trace_v2
+        AbstractTraceStore.deprecated_start_trace_v2
     )
 
-    deprecated_end_trace_v2 = _delegate_trace_operation(
-        AbstractTraceBackend.deprecated_end_trace_v2
-    )
+    deprecated_end_trace_v2 = _delegate_trace_operation(AbstractTraceStore.deprecated_end_trace_v2)
 
-    create_issue = _delegate_trace_operation(AbstractTraceBackend.create_issue)
+    create_issue = _delegate_trace_operation(AbstractTraceStore.create_issue)
 
-    get_issue = _delegate_trace_operation(AbstractTraceBackend.get_issue)
+    get_issue = _delegate_trace_operation(AbstractTraceStore.get_issue)
 
-    update_issue = _delegate_trace_operation(AbstractTraceBackend.update_issue)
+    update_issue = _delegate_trace_operation(AbstractTraceStore.update_issue)
 
-    search_issues = _delegate_trace_operation(AbstractTraceBackend.search_issues)
+    search_issues = _delegate_trace_operation(AbstractTraceStore.search_issues)
 
     def _get_active_workspace(self) -> str:
         """
@@ -865,7 +850,7 @@ class SqlAlchemyStore(
         Hook for subclasses to filter entity IDs (e.g., for workspaces).
         """
         if entity_type == EntityAssociationType.TRACE:
-            return self.trace_backend._filter_trace_ids(
+            return self.trace_store._filter_trace_ids(
                 entity_ids, partial(self._filter_experiment_ids, session)
             )
         return entity_ids
@@ -961,7 +946,7 @@ class SqlAlchemyStore(
             self.on_experiment_deleted(str(experiment_id))
         except Exception:
             _logger.exception(
-                "Trace backend hook failed after experiment deletion %s.", experiment_id
+                "Trace store hook failed after experiment deletion %s.", experiment_id
             )
 
     def _hard_delete_experiment(self, experiment_id):
@@ -981,31 +966,31 @@ class SqlAlchemyStore(
             self.on_experiment_permanently_deleted(str(experiment_id))
         except Exception:
             _logger.exception(
-                "Trace backend hook failed after permanent experiment deletion %s.", experiment_id
+                "Trace store hook failed after permanent experiment deletion %s.", experiment_id
             )
 
     def on_run_deleted(self, run_id: str) -> None:
-        self.trace_backend.on_run_deleted(run_id)
+        self.trace_store.on_run_deleted(run_id)
 
     def on_run_permanently_deleted(self, run_id: str) -> None:
-        self.trace_backend.on_run_permanently_deleted(run_id)
+        self.trace_store.on_run_permanently_deleted(run_id)
 
     def on_experiment_deleted(self, experiment_id: str) -> None:
-        self.trace_backend.on_experiment_deleted(experiment_id)
+        self.trace_store.on_experiment_deleted(experiment_id)
 
     def on_experiment_permanently_deleted(self, experiment_id: str) -> None:
-        self.trace_backend.on_experiment_permanently_deleted(experiment_id)
+        self.trace_store.on_experiment_permanently_deleted(experiment_id)
 
     def before_workspace_deleted(self, workspace_name: str, mode: WorkspaceDeletionMode) -> None:
         if self._has_external_trace_store:
             if mode == WorkspaceDeletionMode.SET_DEFAULT:
                 raise MlflowException.invalid_parameter_value(
-                    "Workspace reassignment is not supported with a separate trace backend."
+                    "Workspace reassignment is not supported with a separate trace store."
                 )
-        self.trace_backend.before_workspace_deleted(workspace_name, mode)
+        self.trace_store.before_workspace_deleted(workspace_name, mode)
 
     def on_workspace_deleted(self, workspace_name: str) -> None:
-        self.trace_backend.on_workspace_deleted(workspace_name)
+        self.trace_store.on_workspace_deleted(workspace_name)
 
     def on_traces_deleted(self, trace_ids: list[str]) -> None:
         if trace_ids:
@@ -1260,7 +1245,7 @@ class SqlAlchemyStore(
         try:
             self.on_run_deleted(run_id)
         except Exception:
-            _logger.exception("Trace backend hook failed after run deletion %s.", run_id)
+            _logger.exception("Trace store hook failed after run deletion %s.", run_id)
 
     def _hard_delete_run(self, run_id):
         """
@@ -1287,7 +1272,7 @@ class SqlAlchemyStore(
         try:
             self.on_run_permanently_deleted(run_id)
         except Exception:
-            _logger.exception("Trace backend hook failed after permanent run deletion %s.", run_id)
+            _logger.exception("Trace store hook failed after permanent run deletion %s.", run_id)
 
     def _get_deleted_runs(self, older_than=0):
         """
@@ -2966,11 +2951,6 @@ class SqlAlchemyStore(
     # ``too many SQL variables``. Shared by every batch query in this class
     # that chunks an ``IN (...)`` clause.
     _ID_CHUNK_SIZE = 500
-
-    # Batch trace queries contain one ``IN (...)`` clause for trace IDs and
-    # another for experiment IDs. Keep each list well below SQLite's default
-    # bound-parameter cap so their combined bindings remain safe.
-    _TRACE_BATCH_QUERY_ID_CHUNK_SIZE = 400
 
     def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
         """

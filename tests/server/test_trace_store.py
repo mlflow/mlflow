@@ -8,28 +8,28 @@ from mlflow.entities import IssueReference
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.server import app, handlers
-from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
+from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 from mlflow.store.tracking.dbmodels.models import SqlIssue
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.tracking.trace_backend_registry import TraceBackendRegistry
+from mlflow.store.tracking.trace_store_registry import TraceStoreRegistry
 from mlflow.tracking._tracking_service import utils
 
-from tests.store.tracking.sqlalchemy_store.test_trace_backend_associations import (
-    MemoryTraceBackend,
+from tests.store.tracking.sqlalchemy_store.test_trace_store_associations import (
+    MemoryTraceStore,
     create_trace,
 )
 
 
 @pytest.fixture
 def selected_backend(monkeypatch):
-    registry = TraceBackendRegistry()
-    builder = mock.Mock(side_effect=lambda config: MemoryTraceBackend())
+    registry = TraceStoreRegistry()
+    builder = mock.Mock(side_effect=lambda config: MemoryTraceStore())
     registry.register("test", builder)
     monkeypatch.setattr(
-        "mlflow.store.tracking.trace_backend_registry._trace_backend_registry", registry
+        "mlflow.store.tracking.trace_store_registry._trace_store_registry", registry
     )
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
     return builder
 
 
@@ -38,7 +38,7 @@ def test_server_constructs_backend_aware_host_once(monkeypatch, selected_backend
     store = handlers._get_tracking_store(db_uri, tmp_path.as_uri())
     assert handlers._get_tracking_store() is store
     assert isinstance(store, SqlAlchemyStore)
-    assert store.trace_backend._tracking_store is store
+    assert store.trace_store._tracking_store is store
     selected_backend.assert_called_once_with({})
 
 
@@ -47,7 +47,7 @@ def test_only_server_owned_clients_select_backend(monkeypatch, job_id):
     monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
     monkeypatch.setattr(server_module, "is_running_as_server", False)
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///primary.db")
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
     if job_id:
         monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", job_id)
     else:
@@ -57,23 +57,23 @@ def test_only_server_owned_clients_select_backend(monkeypatch, job_id):
     ) as get_store:
         assert utils._get_store("sqlite:///primary.db") is mock.sentinel.store
     if job_id:
-        get_store.assert_called_once_with("sqlite:///primary.db", None, trace_backend_kind="test")
+        get_store.assert_called_once_with("sqlite:///primary.db", None, trace_store_kind="test")
     else:
         get_store.assert_called_once_with("sqlite:///primary.db", None)
 
 
 def test_invalid_backend_fails_server_construction(monkeypatch, db_uri, tmp_path):
-    monkeypatch.setenv("MLFLOW_TRACE_BACKEND", "not-registered")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE", "not-registered")
     monkeypatch.setattr(handlers, "_tracking_store", None)
-    with pytest.raises(MlflowException, match="Unknown trace backend"):
+    with pytest.raises(MlflowException, match="Unknown trace store"):
         handlers._get_tracking_store(db_uri, tmp_path.as_uri())
     assert handlers._tracking_store is None
 
 
 @pytest.mark.parametrize("async_export", [False, True])
 def test_gateway_generated_traces_use_host_backend(monkeypatch, db_uri, tmp_path, async_export):
-    backend = MemoryTraceBackend()
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    backend = MemoryTraceStore()
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=backend)
     experiment_id = store.create_experiment("gateway-backend")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(async_export).lower())
     try:
@@ -94,7 +94,7 @@ def test_gateway_generated_traces_use_host_backend(monkeypatch, db_uri, tmp_path
             mlflow.flush_trace_async_logging()
             get_store.assert_called()
         assert len(backend.traces) == 1
-        with store.disable_trace_backend():
+        with store.use_default_trace_store():
             assert store.search_traces([experiment_id])[0] == []
     finally:
         store._dispose_engine()
@@ -110,8 +110,8 @@ def test_gateway_generated_traces_use_host_backend(monkeypatch, db_uri, tmp_path
 def test_legacy_writes_cannot_fall_through_to_sql(
     monkeypatch, db_uri, tmp_path, method, path, payload
 ):
-    backend = MemoryTraceBackend()
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    backend = MemoryTraceStore()
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=backend)
     monkeypatch.setattr(handlers, "_tracking_store", store)
     try:
         with app.test_client() as client:
@@ -126,7 +126,7 @@ def test_legacy_writes_cannot_fall_through_to_sql(
 
 
 def test_unsupported_trace_mutation_returns_structured_501(monkeypatch, db_uri, tmp_path):
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=AbstractTraceBackend())
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=AbstractTraceStore())
     monkeypatch.setattr(handlers, "_tracking_store", store)
     try:
         with app.test_client() as client:
@@ -140,8 +140,8 @@ def test_unsupported_trace_mutation_returns_structured_501(monkeypatch, db_uri, 
 
 
 def test_issue_http_crud_and_counted_search_use_backend_storage(monkeypatch, db_uri, tmp_path):
-    backend = MemoryTraceBackend()
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    backend = MemoryTraceStore()
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=backend)
     monkeypatch.setattr(handlers, "_tracking_store", store)
     try:
         exp_id = store.create_experiment("backend-http-issues")

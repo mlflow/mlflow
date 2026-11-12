@@ -142,7 +142,7 @@ def test_create_assessment_racing_with_earlier_span_uses_updated_trace_timestamp
     release_assessment = Event()
     log_worker_started = Event()
     log_spans_started = Event()
-    original_get_sql_trace_info = store.trace_backend._get_sql_trace_info
+    original_get_sql_trace_info = store.trace_store._get_sql_trace_info
 
     def get_sql_trace_info_and_hold_lock(*args, **kwargs):
         sql_trace_info = original_get_sql_trace_info(*args, **kwargs)
@@ -158,9 +158,7 @@ def test_create_assessment_racing_with_earlier_span_uses_updated_trace_timestamp
             log_spans_started.set()
         return original_bulk_upsert(session, model, rows)
 
-    monkeypatch.setattr(
-        store.trace_backend, "_get_sql_trace_info", get_sql_trace_info_and_hold_lock
-    )
+    monkeypatch.setattr(store.trace_store, "_get_sql_trace_info", get_sql_trace_info_and_hold_lock)
     monkeypatch.setattr(sqlalchemy_store_module, "_bulk_upsert", bulk_upsert_and_signal)
 
     feedback = Feedback(

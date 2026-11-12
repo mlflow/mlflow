@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 
-class AbstractTraceBackend(ABC):
+class AbstractTraceStore(ABC):
     """Trace persistence, retrieval, and analytics independently of the tracking metadata store.
 
     Backends own traces, assessments, issues, and their search and analytics. The hosting
@@ -36,12 +36,12 @@ class AbstractTraceBackend(ABC):
         """Bind optional host context after the tracking store finishes initialization.
 
         Overrides should call ``super().set_tracking_store(tracking_store)``. Hybrid backends can
-        use ``with tracking_store.disable_trace_backend():`` for native host trace operations.
+        use ``with tracking_store.use_default_trace_store():`` for native host trace operations.
         A backend instance must not be shared between tracking store instances.
         """
         if hasattr(self, "_tracking_store") and self._tracking_store is not tracking_store:
             raise MlflowException.invalid_parameter_value(
-                "A trace backend instance cannot be shared between tracking stores."
+                "A trace store instance cannot be shared between tracking stores."
             )
         self._tracking_store = tracking_store
 
@@ -72,7 +72,7 @@ class AbstractTraceBackend(ABC):
         tags: dict[str, str],
     ) -> TraceInfoV2:
         raise MlflowNotImplementedException(
-            "Legacy V2 trace creation is not supported with a separate trace backend. "
+            "Legacy V2 trace creation is not supported with a separate trace store. "
             "Use the V3 tracing API instead."
         )
 
@@ -85,7 +85,7 @@ class AbstractTraceBackend(ABC):
         tags: dict[str, str],
     ) -> TraceInfoV2:
         raise MlflowNotImplementedException(
-            "Legacy V2 trace updates are not supported with a separate trace backend. "
+            "Legacy V2 trace updates are not supported with a separate trace store. "
             "Use the V3 tracing API instead."
         )
 

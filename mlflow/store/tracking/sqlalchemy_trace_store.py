@@ -5,10 +5,11 @@ import logging
 import time
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Iterable, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Iterable, Literal, TypeVar
 
 import sqlalchemy
 from sqlalchemy import and_, case, exists, func, or_, select, sql
@@ -76,7 +77,7 @@ from mlflow.store.tracking import (
     SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
-from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
+from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlEntityAssociation,
@@ -208,26 +209,33 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.workspace_context import get_request_workspace
 
-_T = TypeVar("_T")
+if TYPE_CHECKING:
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 _logger = logging.getLogger(__name__)
 
 _SPAN_SEARCH_TIMESTAMP_TOLERANCE_MS = 10_000
 
 
-class SqlAlchemyTraceStore(AbstractTraceBackend):
+class SqlAlchemyTraceStore(AbstractTraceStore):
+    _tracking_store: SqlAlchemyStore
     ARTIFACTS_FOLDER_NAME = "artifacts"
     TRACE_FOLDER_NAME = "traces"
+    # Keep combined trace/experiment IN bindings below supported dialect limits.
     _TRACE_BATCH_QUERY_ID_CHUNK_SIZE = 400
 
-    def __init__(self, tracking_store):
+    def __init__(self, tracking_store: SqlAlchemyStore):
         self.set_tracking_store(tracking_store)
 
     @property
     def supports_trace_archival(self) -> bool:
         return True
 
-    def _filter_trace_ids(self, trace_ids, filter_experiment_ids):
+    def _filter_trace_ids(
+        self,
+        trace_ids: list[str],
+        filter_experiment_ids: Callable[[list[str]], Iterable[str | int]],
+    ) -> list[str]:
         if not self._tracking_store.supports_workspaces:
             return trace_ids
         return super()._filter_trace_ids(trace_ids, filter_experiment_ids)

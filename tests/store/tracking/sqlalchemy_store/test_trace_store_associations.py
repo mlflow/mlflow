@@ -14,7 +14,7 @@ from mlflow.entities.workspace import WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking.abstract_trace_backend import AbstractTraceBackend
+from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlEntityAssociation,
@@ -32,7 +32,7 @@ from mlflow.utils.validation import validate_delete_traces_parameters
 from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 
 
-class MemoryTraceBackend(AbstractTraceBackend):
+class MemoryTraceStore(AbstractTraceStore):
     """Test storage plugin owning issues and assessments but not SQL associations."""
 
     def __init__(self):
@@ -242,7 +242,7 @@ class MemoryTraceBackend(AbstractTraceBackend):
             any(workspace == workspace_name for workspace, _ in self.traces.values())
             or any(workspace == workspace_name for workspace, _ in self.issues.values())
         ):
-            raise MlflowException.invalid_parameter_value("Trace backend resources remain")
+            raise MlflowException.invalid_parameter_value("Trace store resources remain")
 
     def on_workspace_deleted(self, workspace_name):
         self._delete_ids([
@@ -259,9 +259,9 @@ class MemoryTraceBackend(AbstractTraceBackend):
 
 @pytest.fixture
 def backend_store(db_uri, tmp_path, workspaces_enabled):
-    backend = MemoryTraceBackend()
+    backend = MemoryTraceStore()
     cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
-    store = cls(db_uri, tmp_path.as_uri(), trace_backend=backend)
+    store = cls(db_uri, tmp_path.as_uri(), trace_store=backend)
     try:
         yield store, backend
     finally:
@@ -365,11 +365,11 @@ def test_default_sql_trace_store_shares_tracking_context(store):
     expected_type = (
         WorkspaceAwareSqlAlchemyTraceStore if store.supports_workspaces else SqlAlchemyTraceStore
     )
-    assert type(store.trace_backend) is expected_type
-    assert store.trace_backend._tracking_store is store
+    assert type(store.trace_store) is expected_type
+    assert store.trace_store._tracking_store is store
     assert not store._has_external_trace_store
     with mock.patch.object(
-        store.trace_backend, "get_trace_info", return_value=mock.sentinel.info
+        store.trace_store, "get_trace_info", return_value=mock.sentinel.info
     ) as get_info:
         assert store.get_trace_info("tr-default") is mock.sentinel.info
     get_info.assert_called_once_with("tr-default")
@@ -377,23 +377,23 @@ def test_default_sql_trace_store_shares_tracking_context(store):
 
 def test_context_bypass_is_nested_exception_safe_and_store_local(backend_store, db_uri, tmp_path):
     store, backend = backend_store
-    other_backend = MemoryTraceBackend()
-    other = type(store)(db_uri, tmp_path.as_uri(), trace_backend=other_backend)
+    other_backend = MemoryTraceStore()
+    other = type(store)(db_uri, tmp_path.as_uri(), trace_store=other_backend)
 
     def fail_inside_bypass():
-        with store.disable_trace_backend():
-            assert store.trace_backend is store._default_trace_store
-            assert other.trace_backend is other_backend
-            with store.disable_trace_backend():
-                assert store.trace_backend is store._default_trace_store
-            assert store.trace_backend is store._default_trace_store
+        with store.use_default_trace_store():
+            assert store.trace_store is store._default_trace_store
+            assert other.trace_store is other_backend
+            with store.use_default_trace_store():
+                assert store.trace_store is store._default_trace_store
+            assert store.trace_store is store._default_trace_store
             raise RuntimeError("restore")
 
     try:
-        assert store.trace_backend is backend
+        assert store.trace_store is backend
         with pytest.raises(RuntimeError, match="restore"):
             fail_inside_bypass()
-        assert store.trace_backend is backend
+        assert store.trace_store is backend
     finally:
         other._dispose_engine()
 
@@ -405,22 +405,20 @@ async def test_context_bypass_is_task_local_and_propagates_to_threads(backend_st
     release = asyncio.Event()
 
     async def native_task():
-        with store.disable_trace_backend():
+        with store.use_default_trace_store():
             disabled.set()
             await release.wait()
-            assert store.trace_backend is store._default_trace_store
-            assert (
-                await asyncio.to_thread(lambda: store.trace_backend) is store._default_trace_store
-            )
+            assert store.trace_store is store._default_trace_store
+            assert await asyncio.to_thread(lambda: store.trace_store) is store._default_trace_store
 
     task = asyncio.create_task(native_task())
     try:
         await asyncio.wait_for(disabled.wait(), timeout=5)
-        assert store.trace_backend is backend
+        assert store.trace_store is backend
     finally:
         release.set()
         await task
-    assert store.trace_backend is backend
+    assert store.trace_store is backend
 
 
 def test_hybrid_backend_can_call_native_methods_without_recursion(backend_store):
@@ -428,15 +426,15 @@ def test_hybrid_backend_can_call_native_methods_without_recursion(backend_store)
     exp_id = store.create_experiment("hybrid")
 
     def native_start(info):
-        with store.disable_trace_backend():
+        with store.use_default_trace_store():
             return store.start_trace(info)
 
     with mock.patch.object(backend, "start_trace", side_effect=native_start) as start:
         info = create_trace(store, exp_id, "tr-native")
     start.assert_called_once()
-    with store.disable_trace_backend():
+    with store.use_default_trace_store():
         assert store.get_trace_info(info.trace_id).trace_id == "tr-native"
-    assert store.trace_backend is backend
+    assert store.trace_store is backend
 
 
 def test_reverse_association_search_batches_visibility_and_pages_over_hidden_ids(backend_store):
@@ -529,15 +527,15 @@ def test_host_enforces_workspace_isolation_with_backend_only_traces(backend_stor
     "operation",
     [
         name
-        for name, value in vars(AbstractTraceBackend).items()
+        for name, value in vars(AbstractTraceStore).items()
         if inspect.isfunction(value)
         and not name.startswith(("_", "on_", "before_"))
         and name not in ("set_tracking_store", "log_spans_async")
     ],
 )
 def test_host_routes_complete_trace_contract_with_all_arguments(store, operation):
-    backend = mock.create_autospec(AbstractTraceBackend, instance=True)
-    host = type(store)(store.db_uri, store.artifact_root_uri, trace_backend=backend)
+    backend = mock.create_autospec(AbstractTraceStore, instance=True)
+    host = type(store)(store.db_uri, store.artifact_root_uri, trace_store=backend)
     try:
         backend.set_tracking_store.assert_called_once_with(host)
         method = getattr(backend, operation)
@@ -593,11 +591,11 @@ def test_reverse_association_pagination_deduplicates_across_destinations(
 
 
 def test_host_associations_work_with_default_batch_metadata_implementation(store):
-    class PointReadBackend(MemoryTraceBackend):
-        batch_get_trace_infos = AbstractTraceBackend.batch_get_trace_infos
+    class PointReadBackend(MemoryTraceStore):
+        batch_get_trace_infos = AbstractTraceStore.batch_get_trace_infos
 
     backend = PointReadBackend()
-    host = type(store)(store.db_uri, store.artifact_root_uri, trace_backend=backend)
+    host = type(store)(store.db_uri, store.artifact_root_uri, trace_store=backend)
     try:
         exp_id = host.create_experiment("point-read-backend")
         run = host.create_run(exp_id, "user", 1, [], "run")
@@ -620,11 +618,11 @@ def test_hybrid_backend_can_delegate_issue_operations_to_native_sql(backend_stor
     exp_id = store.create_experiment("hybrid-issues")
 
     def native_create(*args, **kwargs):
-        with store.disable_trace_backend():
+        with store.use_default_trace_store():
             return store.create_issue(*args, **kwargs)
 
     def native_search(*args, **kwargs):
-        with store.disable_trace_backend():
+        with store.use_default_trace_store():
             return store.search_issues(*args, **kwargs)
 
     with mock.patch.object(backend, "create_issue", side_effect=native_create) as create:
