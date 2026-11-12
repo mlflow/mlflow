@@ -153,7 +153,11 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
 )
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    is_databricks_unity_catalog_uri,
+    is_databricks_uri,
+    redact_uri_credentials,
+)
 from mlflow.utils.validation import (
     _parse_skill_identities,
     _validate_alias_name,
@@ -331,7 +335,8 @@ class MlflowClient:
             except UnsupportedModelRegistryStoreURIException as exc:
                 raise MlflowException(
                     "Model Registry features are not supported by the store with URI:"
-                    f" '{self._registry_uri}'. Stores with the following URI schemes are supported:"
+                    f" '{redact_uri_credentials(self._registry_uri)}'. "
+                    "Stores with the following URI schemes are supported:"
                     f" {exc.supported_uri_schemes}.",
                     FEATURE_DISABLED,
                 )
@@ -352,7 +357,8 @@ class MlflowClient:
         except UnsupportedWorkspaceStoreURIException as exc:
             raise MlflowException(
                 "Workspace operations are not supported by the configured workspace URI "
-                f"'{self._workspace_store_uri}'. Stores with the following URI schemes are "
+                f"'{redact_uri_credentials(self._workspace_store_uri)}'. "
+                "Stores with the following URI schemes are "
                 + f"supported: {exc.supported_uri_schemes}. Configure a supported workspace store "
                 + "to use workspace APIs.",
                 error_code=FEATURE_DISABLED,
@@ -3501,6 +3507,8 @@ class MlflowClient:
             # for data like {"inputs": "What is MLflow?"}
             except ValueError:
                 data = pd.DataFrame([data])
+        else:
+            data = data.copy()
 
         # Check if the column is a `PIL.Image.Image` or `mlflow.Image` object
         # and save filepath

@@ -219,6 +219,42 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "claude-fable-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 40.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 10.0,
+        "cache_write_1hr_per_million_tokens": 16.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 20.0,
+            "cache_read_per_million_tokens": 0.1
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-10"
+    },
     "claude-haiku-4-5": {
       "mode": "chat",
       "context_window": {
@@ -393,6 +429,42 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "claude-mythos-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 40.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 10.0,
+        "cache_write_1hr_per_million_tokens": 16.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 20.0,
+            "cache_read_per_million_tokens": 0.1
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-11"
     },
     "claude-mythos-preview": {
       "mode": "chat",

@@ -152,7 +152,7 @@ def is_telemetry_disabled() -> bool:
         # TelemetryClient._process_records so it is never hit from inside DBR.
         return (
             MLFLOW_DISABLE_TELEMETRY.get()
-            or os.environ.get("DO_NOT_TRACK", "false").lower() == "true"
+            or os.environ.get("DO_NOT_TRACK", "false").lower() in ("true", "1")
             or _IS_IN_CI_ENV_OR_TESTING
             or _IS_MLFLOW_DEV_VERSION
         )

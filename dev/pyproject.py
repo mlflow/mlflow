@@ -355,6 +355,7 @@ def build(package_type: PackageType) -> None:
                     "azureml-core>=1.2.0",
                     # Required to log artifacts to SFTP artifact locations
                     "pysftp",
+                    "paramiko<4",
                     # Required by the mlflow.projects module, when running projects against
                     # a remote Kubernetes cluster
                     "kubernetes",

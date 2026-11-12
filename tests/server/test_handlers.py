@@ -13,6 +13,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
 import mlflow
+import mlflow.server
 from mlflow.entities import (
     Experiment,
     FallbackStrategy,
@@ -77,6 +78,7 @@ from mlflow.genai.review_queues.review_queues import (
     ReviewStatus,
 )
 from mlflow.genai.scorers import Completeness
+from mlflow.genai.scorers.base import _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -154,6 +156,8 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     SetTraceTag,
     SetTraceTagV3,
+    StartTrace,
+    StartTraceV3,
     TraceLocation,
     TraceTag,
     UpdateGatewaySecret,
@@ -164,6 +168,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import (
     GatewayModelLinkageType as ProtoGatewayModelLinkageType,
 )
+from mlflow.protos.service_pb2 import Trace as ProtoTrace
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
     ARTIFACT_ROOT_ENV_VAR,
@@ -213,6 +218,7 @@ from mlflow.server.handlers import (
     _delete_workspace_handler,
     _deprecated_end_trace_v2,
     _deprecated_search_traces_v2,
+    _deprecated_start_trace_v2,
     _download_artifact,
     _get_ajax_path,
     _get_dataset_experiment_ids_handler,
@@ -264,6 +270,7 @@ from mlflow.server.handlers import (
     _set_review_queue_item_status,
     _set_trace_tag,
     _set_trace_tag_v3,
+    _start_trace_v3,
     _transition_stage,
     _update_gateway_secret,
     _update_issue,
@@ -5766,6 +5773,61 @@ def test_deprecated_end_trace_v2_handler_drops_immutable_tags(
     assert mock_tracking_store.deprecated_end_trace_v2.call_args.kwargs["tags"] == {"user_tag": "v"}
 
 
+def test_start_trace_v3_handler_drops_immutable_tags(mock_get_request_message, mock_tracking_store):
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=EntityTraceLocation.from_experiment_id("0"),
+        request_time=0,
+        state=TraceState.OK,
+        tags={
+            MLFLOW_ARTIFACT_LOCATION: "file:///tmp/other",
+            TraceTagKey.SPANS_LOCATION: "archive_repo",
+            TraceTagKey.ARCHIVE_LOCATION: "file:///tmp/archive",
+            TraceTagKey.ARCHIVAL_FAILURE: "failed",
+            "user_tag": "v",
+        },
+    )
+    mock_get_request_message.return_value = StartTraceV3(
+        trace=ProtoTrace(trace_info=trace_info.to_proto())
+    )
+    mock_tracking_store.start_trace.side_effect = lambda trace_info: trace_info
+
+    response = _start_trace_v3()
+
+    assert response.status_code == 200
+    assert mock_tracking_store.start_trace.call_args.args[0].tags == {"user_tag": "v"}
+
+
+def test_deprecated_start_trace_v2_handler_drops_immutable_tags(
+    mock_get_request_message, mock_tracking_store
+):
+    mock_get_request_message.return_value = StartTrace(
+        experiment_id="0",
+        timestamp_ms=0,
+        tags=[
+            TraceTag(key=MLFLOW_ARTIFACT_LOCATION, value="file:///tmp/other"),
+            TraceTag(key=TraceTagKey.SPANS_LOCATION, value="archive_repo"),
+            TraceTag(key=TraceTagKey.ARCHIVE_LOCATION, value="file:///tmp/archive"),
+            TraceTag(key=TraceTagKey.ARCHIVAL_FAILURE, value="failed"),
+            TraceTag(key="user_tag", value="v"),
+        ],
+    )
+    mock_tracking_store.deprecated_start_trace_v2.return_value = TraceInfoV2(
+        request_id="tr-123",
+        experiment_id="0",
+        timestamp_ms=0,
+        execution_time_ms=None,
+        status=TraceStatus.IN_PROGRESS,
+    )
+
+    response = _deprecated_start_trace_v2()
+
+    assert response.status_code == 200
+    assert mock_tracking_store.deprecated_start_trace_v2.call_args.kwargs["tags"] == {
+        "user_tag": "v"
+    }
+
+
 def test_link_prompts_to_trace_handler(mock_get_request_message, mock_tracking_store):
     """Test link_prompts_to_trace handler.
 
@@ -6361,7 +6423,10 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
     )
     mock_tracking_store.batch_get_trace_infos.return_value = [trace1, trace2]
 
-    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
+    ):
         mock_job = mock.MagicMock()
         mock_job.job_id = "test-job-123"
         mock_submit.return_value = mock_job
@@ -6385,6 +6450,7 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace1", "trace2"])
         mock_submit.assert_called_once()
         assert mock_submit.call_args.kwargs["params"]["experiment_id"] == "exp-123"
+        assert mock_submit.call_args.kwargs["params"]["username"] == "alice"
 
 
 def test_invoke_scorer_deduplicates_trace_ids(mock_tracking_store):
@@ -6567,6 +6633,10 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
         monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
     else:
         monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    # Whichever WSGI/ASGI server runs the app, the handler must not reconstruct the scorer's code.
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+    monkeypatch.setattr(mlflow.server, "is_running_as_server", False)
     stored_scorer = json.dumps({
         "name": "s",
         "mlflow_version": mlflow.__version__,
@@ -6584,7 +6654,9 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
     )
 
     with (
-        mock.patch("mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]),
+        mock.patch(
+            "mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]
+        ) as mock_batches,
         mock.patch("mlflow.server.jobs.submit_job"),
         app.test_client() as c,
     ):
@@ -6602,6 +6674,7 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
 
     if custom_scorers_enabled:
         assert response.status_code == 200, response.get_json()
+        assert isinstance(mock_batches.call_args.args[1], _UnexecutedDecoratorScorer)
     else:
         assert response.status_code == 400
         assert "custom" in response.get_json()["message"].lower()
@@ -11043,6 +11116,7 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch, mock_tracking
         mock.patch("mlflow.start_run", return_value=mock_run),
         mock.patch("mlflow.set_tag"),
         mock.patch("mlflow.end_run"),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
         app.test_client() as c,
     ):
         resp = c.post(
@@ -11057,6 +11131,7 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch, mock_tracking
 
         call_kwargs = mock_submit_job.call_args.kwargs
         assert call_kwargs["params"]["model"] == "gateway:/my-endpoint"
+        assert call_kwargs["params"]["username"] == "alice"
 
 
 def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
@@ -11297,7 +11372,7 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch, mock_tracking_store)
         assert submit_kwargs["params"]["scorer_versions"] == [None, None]
         assert submit_kwargs["params"]["experiment_id"] == "exp-123"
         assert submit_kwargs["params"]["run_id"] == "run-genai-1"
-        # No basic auth on the test client -> no username propagated.
+        # No auth plugin stamps an authenticated user here, so no username is propagated.
         assert submit_kwargs["params"]["username"] is None
 
         mock_client.set_tag.assert_called_once_with(
@@ -11715,11 +11790,11 @@ def test_invoke_genai_evaluate_handler_missing_required_fields(monkeypatch):
             mock_submit_job.assert_not_called()
 
 
-def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
+def test_invoke_genai_evaluate_handler_propagates_authenticated_username(
     monkeypatch, mock_tracking_store
 ):
-    """Username comes from HTTP Basic auth and feeds the job's gateway-auth
-    path so judge LLM calls are made *as* the user.
+    """Username comes from the auth plugin's authenticated user and feeds the
+    job's gateway-auth path so judge LLM calls are made *as* the user.
     """
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
@@ -11738,14 +11813,10 @@ def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
         mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
         app.test_client() as c,
     ):
-        # Encoded form of "alice:hunter2"
-        resp = c.post(
-            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
-            json=request_json,
-            headers={"Authorization": "Basic YWxpY2U6aHVudGVyMg=="},
-        )
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
         assert resp.status_code == 200
         assert mock_submit_job.call_args.kwargs["params"]["username"] == "alice"
 

@@ -592,6 +592,7 @@ class BaseProvider(ABC):
                 accumulated_usage.update(chunk_usage)
                 yield chunk
         finally:
+            accumulated_usage = self._normalize_streaming_token_usage(accumulated_usage)
             # Calculate total if we have input and output but no total
             if (
                 TokenUsageKey.INPUT_TOKENS in accumulated_usage
@@ -603,6 +604,10 @@ class BaseProvider(ABC):
                     + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
                 )
             self._set_span_token_usage(accumulated_usage)
+
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        """Normalize provider-specific counts after merging all streaming usage updates."""
+        return token_usage
 
     def _extract_streaming_token_usage(self, chunk: Any) -> dict[str, int]:
         """Extract token usage from a streaming chunk.

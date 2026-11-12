@@ -21,6 +21,7 @@ import { PidLock, tryAcquirePidLock } from './pid_lock';
 import { appendDeadLetter, compact, readPending, walSize } from './storage';
 import { isDaemonAlive } from './supervisor';
 import { WalRecord } from './types';
+import { isSpanIngestionUnsupportedError, sendOtlpSpansIfSupported } from '../otlp';
 
 const MAX_BACKOFF_MS = 5 * 60_000;
 
@@ -342,6 +343,12 @@ function isAuthRefreshableError(err: unknown): boolean {
 }
 
 /**
+ * Tracking URIs whose server reported that OTLP span ingestion is unsupported
+ * (see {@link isSpanIngestionUnsupportedError}).
+ */
+const spanIngestionUnsupportedUris = new Set<string>();
+
+/**
  * Perform the create-trace + upload-trace-data sequence, then send
  * the captured OTLP spans to the tracking-store DB.
  */
@@ -357,16 +364,35 @@ async function performUpload(client: MlflowClient, record: WalRecord): Promise<v
  * Ship the record's captured OTLP spans to the tracking store's
  * span-ingestion endpoint (`exportOtlpSpans` → `/v1/traces`) so they land in the
  * `SqlSpan` table that powers DB-backed span metrics (e.g. the "Tool calls"
- * overview).
+ * overview). Records written for Databricks tracking URIs carry no spans, and
+ * the shared helper also skips any stale records that still do. Once a server
+ * reports that span ingestion is unsupported, later records for that tracking
+ * URI skip the POST for the rest of this daemon's lifetime.
  */
 async function sendOtlpSpans(client: MlflowClient, record: WalRecord): Promise<void> {
-  if (!record.otlpSpans) {
+  if (spanIngestionUnsupportedUris.has(record.trackingUri)) {
     return;
   }
   try {
-    const bytes = Buffer.from(record.otlpSpans, 'base64');
-    await client.exportOtlpSpans(record.experimentId, bytes);
+    const bytes = record.otlpSpans ? Buffer.from(record.otlpSpans, 'base64') : undefined;
+    await sendOtlpSpansIfSupported(
+      record.trackingUri,
+      record.experimentId,
+      bytes,
+      (experimentId, otlpBytes) => client.exportOtlpSpans(experimentId, otlpBytes),
+      `record ${record.id}`,
+      log,
+    );
   } catch (err) {
+    if (isSpanIngestionUnsupportedError(err)) {
+      spanIngestionUnsupportedUris.add(record.trackingUri);
+      log(
+        `Span ingestion is not supported by ${record.trackingUri} (HTTP ${err.status}); ` +
+          'skipping OTLP span export for this server until the daemon restarts. ' +
+          'Spans remain in the JSON artifact only.',
+      );
+      return;
+    }
     log(
       `Failed to log OTLP spans for record ${record.id} to ${record.trackingUri}; ` +
         `spans remain in the JSON artifact only: ${formatError(err)}`,

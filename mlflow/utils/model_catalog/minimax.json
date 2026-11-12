@@ -155,6 +155,25 @@
         "response_schema": false
       },
       "last_updated_at": "2026-06-22"
+    },
+    "MiniMax-M3.1-Flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.015
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-10"
     }
   }
 }

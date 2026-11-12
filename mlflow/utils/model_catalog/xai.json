@@ -1958,6 +1958,13 @@
         "input_per_million_tokens": 2.0,
         "output_per_million_tokens": 6.0,
         "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.6,
+            "output_per_million_tokens": 4.8,
+            "cache_read_per_million_tokens": 0.4
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -1979,7 +1986,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-10-29"
     },
     "grok-beta": {
       "mode": "chat",

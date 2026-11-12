@@ -1,8 +1,6 @@
 import hashlib
 from typing import Any
 
-from packaging.version import Version
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -25,10 +23,14 @@ def compute_pandas_digest(df) -> str:
     trimmed_df = df.head(MAX_ROWS)
 
     # keep string and number columns, drop other column types
-    if Version(pd.__version__) >= Version("2.1.0"):
-        string_columns = trimmed_df.columns[(df.map(type) == str).all(0)]
-    else:
-        string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
+    # `skipna=True` keeps string columns that contain missing values. Inferring on an object
+    # array keeps categorical columns of strings, for which `infer_dtype` returns "categorical".
+    string_columns = trimmed_df.columns[
+        [
+            pd.api.types.infer_dtype(column.to_numpy(dtype=object), skipna=True) == "string"
+            for _, column in trimmed_df.items()
+        ]
+    ]
     numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
 
     desired_columns = string_columns.union(numeric_columns)
@@ -71,6 +73,7 @@ def compute_numpy_digest(features, targets=None) -> str:
 
     def hash_dict_of_arrays(array_dict):
         for key in sorted(array_dict.keys()):
+            hashable_elements.append(str(key).encode())
             hash_array(array_dict[key])
 
     for item in [features, targets]:

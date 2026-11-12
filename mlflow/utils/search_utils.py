@@ -1311,6 +1311,19 @@ class SearchModelUtils(SearchUtils):
     LIST_SUPPORTED_KEYS = frozenset({"name"})
 
     @classmethod
+    def is_querying_prompt(cls, parsed_filters: list[dict[str, Any]]) -> bool:
+        for f in parsed_filters:
+            if f["type"] != "tag" or f["key"] != IS_PROMPT_TAG_KEY:
+                continue
+
+            return (f["comparator"] == "=" and f["value"].lower() == "true") or (
+                f["comparator"] == "!=" and f["value"].lower() == "false"
+            )
+
+        # Query should return only normal models by default
+        return False
+
+    @classmethod
     def _does_registered_model_match_clauses(cls, model, sed):
         key_type = sed.get("type")
         key = sed.get("key")

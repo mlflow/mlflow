@@ -33,6 +33,7 @@ from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
     SERVER_INFO_MULTIPART_DOWNLOADS_ENABLED,
     SERVER_INFO_MULTIPART_UPLOADS_ENABLED,
+    ServerInfoRequestError,
     ServerInfoResponse,
 )
 
@@ -67,6 +68,40 @@ def test_canonical_http_artifact_uri_discovers_server_capabilities(monkeypatch):
 
     host_creds = mock_fetch_server_info.call_args.args[0]
     assert host_creds.host == "https://artifacts.example.com/mlflow"
+    mock_fetch_server_info.assert_called_once()
+
+
+def test_server_capabilities_fetch_failure_is_not_cached():
+    repo = HttpArtifactRepository(
+        "https://artifacts.example.com/api/2.0/mlflow-artifacts/artifacts/run-id"
+    )
+    response = ServerInfoResponse(
+        status_code=200, data={SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: True}
+    )
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.fetch_server_info",
+        side_effect=[ServerInfoRequestError("Read timed out"), response],
+    ) as mock_fetch_server_info:
+        assert repo._is_artifacts_presigned_only() is False
+        assert repo._is_artifacts_presigned_only() is True
+        assert repo._is_artifacts_presigned_only() is True
+
+    assert mock_fetch_server_info.call_count == 2
+
+
+def test_server_capabilities_non_200_response_is_cached():
+    repo = HttpArtifactRepository(
+        "https://artifacts.example.com/api/2.0/mlflow-artifacts/artifacts/run-id"
+    )
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.fetch_server_info",
+        return_value=ServerInfoResponse(status_code=404, text="Not Found"),
+    ) as mock_fetch_server_info:
+        assert repo._is_artifacts_presigned_only() is False
+        assert repo._is_artifacts_presigned_only() is False
+
     mock_fetch_server_info.assert_called_once()
 
 
@@ -661,6 +696,34 @@ def test_delete_artifacts(http_artifact_repo, remote_file_path):
             "DELETE",
             stream=True,
         )
+
+
+@pytest.mark.parametrize(
+    ("operation", "expected_endpoint"),
+    [
+        (lambda repo, f: repo.log_artifact(f, "cv#1"), "/cv%231/a%23b.txt"),
+        (lambda repo, f: repo._download_file("cv#1/a?b.txt", f), "/cv%231/a%3Fb.txt"),
+        (lambda repo, f: repo.delete_artifacts("cv#1/a?b.txt"), "/cv%231/a%3Fb.txt"),
+        (
+            lambda repo, f: repo._get_presigned_download_url("cv#1/a?b.txt"),
+            "/mlflow-artifacts/presigned/cv%231/a%3Fb.txt",
+        ),
+        (
+            lambda repo, f: repo.create_multipart_upload(f, 1, "cv#1"),
+            "/mlflow-artifacts/mpu/create/cv%231",
+        ),
+    ],
+)
+def test_endpoints_quote_artifact_paths(http_artifact_repo, tmp_path, operation, expected_endpoint):
+    local_file = tmp_path / "a#b.txt"
+    local_file.write_text("data")
+    response = MockStreamResponse("data", 200)
+    response.json = lambda: {"url": "https://example.com", "upload_id": "id", "credentials": []}
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.http_request", return_value=response
+    ) as mock_request:
+        operation(http_artifact_repo, str(local_file))
+    assert mock_request.call_args.args[1] == expected_endpoint
 
 
 def test_create_multipart_upload(http_artifact_repo, monkeypatch):

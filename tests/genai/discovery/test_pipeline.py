@@ -6,6 +6,7 @@ import pytest
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.discovery.clustering import recluster_singletons
 from mlflow.genai.discovery.constants import (
     DEFAULT_MODEL,
@@ -1083,6 +1084,86 @@ def test_an_issue_refreshed_by_the_run_that_filed_it_is_not_counted_as_new(make_
     assert result.new_issue_count == 0
 
 
+def test_the_run_reads_running_until_its_issues_have_been_filed(make_trace):
+    """
+    Every consumer reads the run, not the pipeline, so a run that settles before its issues
+    exist reads as a detection that completed and found nothing.
+    """
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    status_when_filed = []
+
+    def _file_issue(*args, **kwargs):
+        status_when_filed.append(mlflow.get_run(run_id).info.status)
+        return _make_issue(name="slow_response")
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failure_labels",
+            return_value=(["label1", "label2"], [0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0, 1]]),
+        patch(
+            "mlflow.genai.discovery.pipeline.summarize_cluster",
+            return_value=create_identified_issue(name="slow_response", example_indices=[0, 1]),
+        ),
+        patch("mlflow.genai.discovery.pipeline.read_match_candidates", return_value=[]),
+        patch("mlflow.tracing.client.TracingClient._create_issue", side_effect=_file_issue),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces"),
+    ):
+        result = discover_issues(traces=traces, run_id=run_id)
+
+    assert len(result.issues) == 1
+    assert status_when_filed == ["RUNNING"]
+    # Still settles once the pipeline is done, rather than being left dangling.
+    assert mlflow.get_run(run_id).info.status == "FINISHED"
+
+
+def test_a_run_whose_later_phase_raises_reads_failed(make_trace):
+    traces = [make_trace() for _ in range(3)]
+    failing = traces[:2]
+    rationale_map = {trace.info.trace_id: "bad" for trace in failing}
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    with (
+        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(run_id),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult(failing, rationale_map, {}),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline._cluster_and_identify",
+            side_effect=RuntimeError("clustering failed"),
+        ),
+        pytest.raises(RuntimeError, match="clustering failed"),
+    ):
+        discover_issues(traces=traces, run_id=run_id)
+
+    assert mlflow.get_run(run_id).info.status == "FAILED"
+
+
 def test_discover_issues_returns_total_cost_usd_field(make_trace):
     from mlflow.entities.assessment import Feedback
     from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -1745,3 +1826,71 @@ def test_only_unknown_severities_still_sort():
     # Two unknowns compare against each other, which is where a naive sentinel would raise.
     issues.sort(key=_severity_sort_key, reverse=True)
     assert len(issues) == 3
+
+
+def test_build_issue_discovery_scorer_attributes_its_gateway_usage_to_issue_detection():
+    scorer = build_issue_discovery_scorer(model="gateway:/my-endpoint")
+
+    assert scorer._gateway_caller == GatewayCaller.ISSUE_DETECTION
+
+
+def test_annotate_traces_attributes_llm_calls_to_issue_detection():
+    issues = [_make_issue(name="Slow responses", description="Too slow", root_causes=["Queries"])]
+
+    with (
+        patch(
+            "mlflow.genai.discovery.pipeline._call_llm",
+            return_value=_make_litellm_response("This trace is slow."),
+        ) as mock_call,
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue"),
+    ):
+        _annotate_issue_traces(
+            issues, {issues[0].issue_id: ["trace-1"]}, {"trace-1": "slow"}, {}, "gateway:/my-ep"
+        )
+
+    assert mock_call.call_args.kwargs["gateway_caller"] == GatewayCaller.ISSUE_DETECTION
+
+
+def test_dedup_issues_attributes_llm_calls_to_issue_detection():
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm", return_value=_make_dedup_response([[0, 1]])
+    ) as mock_call:
+        _dedup_issues([create_identified_issue(), create_identified_issue()])
+
+    assert mock_call.call_args.kwargs["gateway_caller"] == GatewayCaller.ISSUE_DETECTION
+
+
+def test_generate_trace_evidence_attributes_llm_calls_to_issue_detection():
+    from mlflow.genai.discovery.evidence import generate_trace_evidence
+
+    trace = _evidence_trace()
+    retrieve = next(s.span_id for s in trace.data.spans if s.name == "retrieve")
+    generated = json.dumps({
+        "summary": "Retrieval returned nothing and the agent answered anyway.",
+        "steps": [
+            {
+                "span_id": retrieve,
+                "text": "Retrieval returned 0 documents.",
+                "highlights": ["0 documents"],
+                "highlight_tone": "error",
+            }
+        ],
+        "primary_span_id": retrieve,
+    })
+
+    with patch(
+        "mlflow.genai.discovery.evidence._call_llm",
+        return_value=_make_litellm_response(generated),
+    ) as mock_call:
+        generate_trace_evidence(
+            issue_name="Answers from an empty context",
+            issue_description="The agent answers when retrieval returned nothing",
+            root_causes="retrieve_documents returns no documents",
+            trace=trace,
+            trace_content="agent > retrieve > generate",
+            triage_rationale="Answered without documents",
+            categories=None,
+            model="gateway:/my-endpoint",
+        )
+
+    assert mock_call.call_args.kwargs["gateway_caller"] == GatewayCaller.ISSUE_DETECTION

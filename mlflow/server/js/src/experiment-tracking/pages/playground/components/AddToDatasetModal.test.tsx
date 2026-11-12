@@ -57,6 +57,7 @@ const CONVERSATION: ConversationMessage[] = [
   {
     role: 'assistant',
     content: 'MLflow is an ML platform.',
+    isModelReply: true,
     requestMessages: [{ role: 'user', content: 'What is MLflow?' }],
   },
   { role: 'user', content: '' },
@@ -231,6 +232,7 @@ describe('AddToDatasetModal', () => {
         {
           role: 'assistant',
           content: 'Paris',
+          isModelReply: true,
           requestMessages: [{ role: 'user', content: 'What is the capital of France?' }],
         },
         { role: 'user', content: '' },
@@ -262,6 +264,7 @@ describe('AddToDatasetModal', () => {
           role: 'assistant',
           content: '',
           tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'get_weather', arguments: '{}' } }],
+          isModelReply: true,
           requestMessages: [{ role: 'user', content: 'Weather in Paris?' }],
         },
         { role: 'user', content: 'And in Tokyo?' },

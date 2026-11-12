@@ -514,14 +514,14 @@ class OpenAICompatibleProvider(AssistantProvider):
                         # The gateway commits a 200 before proxying upstream, so an upstream
                         # failure (e.g. a bad API key → 401) surfaces as a truncated body
                         # rather than a non-200 status. We can't rely on a positive completion
-                        # signal to detect this: `[DONE]` is stripped by the gateway and not
-                        # every OpenAI-compatible server emits it or a `finish_reason`. So key
-                        # on whether the stream yielded anything meaningful — content, tool
-                        # calls, or a normal terminal. If it stays false the stream was empty
-                        # and unterminated (the common case: auth failure before any token
-                        # streams) and we surface an error instead of a silent `done`. Any
-                        # signal at all counts as success, so no productive turn is ever
-                        # falsely flagged whatever the server's terminator conventions.
+                        # signal to detect this: not every OpenAI-compatible server emits
+                        # `[DONE]` or a `finish_reason`. So key on whether the stream yielded
+                        # anything meaningful — content, tool calls, or a normal terminal. If it
+                        # stays false the stream was empty and unterminated (the common case:
+                        # auth failure before any token streams) and we surface an error
+                        # instead of a silent `done`. Any signal at all counts as success, so
+                        # no productive turn is ever falsely flagged whatever the server's
+                        # terminator conventions.
                         stream_had_signal = False
                         async with session.post(
                             chat_url,
@@ -578,8 +578,8 @@ class OpenAICompatibleProvider(AssistantProvider):
                                 # can track token consumption and cost, then move on. A usage
                                 # summary means the server processed the request and reported
                                 # real work, so it counts as a signal — a stream whose only
-                                # payload is usage (some backends send it after a [DONE] the
-                                # gateway strips) must not be flagged as truncated.
+                                # payload is usage (some backends send it as a separate final
+                                # chunk) must not be flagged as truncated.
                                 if usage := chunk.get("usage"):
                                     stream_had_signal = True
                                     yield _build_usage_event(usage, model)

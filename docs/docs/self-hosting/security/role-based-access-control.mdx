@@ -89,7 +89,7 @@ exception out of a broad grant. `(experiment, *, EDIT)` together with
 level; the only way to withhold access is to leave the grant out.
 :::
 
-Two limits are worth knowing before relying on it:
+Three limits are worth knowing before relying on it:
 
 - A **workspace administrator is not restrictable**. A
   `(workspace, *, MANAGE)` grant short-circuits resolution to `MANAGE`
@@ -99,6 +99,30 @@ Two limits are worth knowing before relying on it:
   parent to an unrelated resource type; see
   [Permission resolution](#permission-resolution) for how a grant on one
   tier overrides another.
+- **Registered model and prompt grants are keyed by name.** Renaming a
+  model or prompt does not rewrite grants that admin-created roles hold on it
+  by exact name. To keep a `DENY` on the old name from silently lifting, and
+  a grant on the new name from silently applying, the server rejects a rename
+  while any role in the workspace has an exact-name grant (of any permission)
+  on the old or new name, for every caller including admins. An admin must
+  update or remove those role grants first, then retry the rename and
+  re-add the grants under the new name if they should still apply. Only
+  platform and workspace administrators see in the error which role grants
+  blocked the rename. Wildcard (`*`) grants and direct grants on the old name
+  (see [Direct grants without a role](#direct-grants-without-a-role)) do not
+  block a rename; direct grants follow the model to its new name. The server
+  also rejects a rename onto a name that has no model or prompt yet while any
+  user has a direct grant on that name, since that grant would start applying
+  to the renamed model. An admin must revoke those direct grants first. Only
+  platform and workspace administrators see in the error which users hold them.
+  Deleting a model or prompt is rejected the same way, for every caller
+  including admins, while a role has an exact-name grant other than `DENY`
+  on its name, because the grant would otherwise apply to the next model or
+  prompt created with that name. A leftover `DENY` only restricts that next
+  model, so it does not block a delete. Direct grants are removed with the
+  model and do not block a delete. If a user's only permission to delete the
+  model or prompt comes from such a role grant, removing the grant also removes
+  that permission, so ask a platform or workspace administrator to delete it.
 
 ### Sub-resource tiers
 

@@ -14,6 +14,7 @@ import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery
 import { SELECTED_EVALUATION_ID_PARAM } from '../../../shared/web-shared/genai-traces-table';
 import { SELECTED_ISSUE_ID_PARAM, SELECTED_ISSUE_SPAN_ID_PARAM } from '../../constants';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../hooks/useServerInfo';
+import Routes from '../../routes';
 import { ExperimentIssueDetail } from './ExperimentIssueDetail';
 import { ExperimentIssueRow } from './ExperimentIssueRow';
 import { ExperimentIssuesFilterChips, ExperimentIssuesSortControl } from './ExperimentIssuesToolbar';
@@ -414,6 +415,12 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
             isDetecting={isDetectionButtonLoading}
             detectionEnabled={detectionEnabled}
             onRunIssueDetection={startDetection}
+            // Only once something has run. `detection.run` is the newest detection run, found with
+            // the same search the history page uses, and a stalled submission still left one
+            // behind -- which is exactly a run somebody would want to go and look at.
+            runHistoryRoute={
+              detection.run || detection.submissionStalled ? Routes.getIssueDetectionRunsRoute(experimentId) : undefined
+            }
           />
         </CenteredState>
       ) : (
@@ -434,6 +441,10 @@ const ExperimentIssuesPage = () => {
   const { experimentId } = useParams<{ experimentId: string }>();
   const workspace = useActiveWorkspace();
   const server = useServerInfo();
+  // Read here rather than in the content below, because the providers that carry it to the trace
+  // drawer are mounted above that content.
+  const [pageParams] = useSearchParams();
+  const selectedIssueId = pageParams.get(SELECTED_ISSUE_ID_PARAM) ?? undefined;
   if (server.isLoading) return <TableSkeleton lines={5} />;
   if (!shouldEnableExperimentIssuesTab()) return <PageNotFoundView />;
   if (server.isError || server.data?.store_type === undefined || server.data.store_type === '') {
@@ -466,7 +477,7 @@ const ExperimentIssuesPage = () => {
   }
   if (!experimentId) return null;
   return (
-    <IssueTraceDrawerProviders experimentId={experimentId}>
+    <IssueTraceDrawerProviders experimentId={experimentId} selectedIssueId={selectedIssueId}>
       <ExperimentIssuesContent key={`${workspace}:${experimentId}`} experimentId={experimentId} />
     </IssueTraceDrawerProviders>
   );

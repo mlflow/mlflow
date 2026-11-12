@@ -2,12 +2,12 @@ import { describe, it, expect } from '@jest/globals';
 import { buildPlaygroundDatasetRecord, getDatasetInputMessages, getInputTurns, getLatestReply } from './datasetRecord';
 import type { ChatMessage, ConversationMessage } from './types';
 
-// A reply as the playground appends it after a run: tagged with the request that produced it.
+// A reply as the playground appends it after a run: a model reply that keeps its request.
 const generatedReply = (
   content: string | null,
   requestMessages: ChatMessage[],
   extra: Partial<ConversationMessage> = {},
-): ConversationMessage => ({ role: 'assistant', content, requestMessages, ...extra });
+): ConversationMessage => ({ role: 'assistant', content, isModelReply: true, requestMessages, ...extra });
 
 const EMPTY_COMPOSER: ConversationMessage = { role: 'user', content: '' };
 

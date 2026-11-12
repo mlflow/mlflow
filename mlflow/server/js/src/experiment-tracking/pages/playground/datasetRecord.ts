@@ -8,14 +8,14 @@ const hasContentAfterIndex = (messages: ConversationMessage[], index: number): b
 
 /**
  * Index of the reply that answers the current prompt, or -1 when there is none. Only a
- * reply the playground generated counts, and only while nothing but the empty next-turn
- * composer follows it. An assistant turn loaded from the registry (a prefill or a
- * few-shot example) is part of the prompt, and once the user types a new turn the reply
- * becomes conversation context.
+ * model reply counts, and only while nothing but the empty next-turn composer follows it.
+ * An assistant turn the user wrote or loaded from the registry (a prefill or a few-shot
+ * example) is part of the prompt, and once the user types a new turn the reply becomes
+ * conversation context.
  */
 const findReplyIndex = (messages: ConversationMessage[]): number => {
   const lastAssistantIndex = findLastIndex(messages, (message) => message.role === 'assistant');
-  if (lastAssistantIndex < 0 || !messages[lastAssistantIndex].requestMessages) {
+  if (lastAssistantIndex < 0 || !messages[lastAssistantIndex].isModelReply) {
     return -1;
   }
   return hasContentAfterIndex(messages, lastAssistantIndex) ? -1 : lastAssistantIndex;

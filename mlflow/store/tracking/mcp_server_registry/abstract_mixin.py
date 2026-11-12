@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
-
-from typing_extensions import NotRequired
+from typing import Any, Literal, NotRequired, TypedDict
 
 from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool

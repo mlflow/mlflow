@@ -27,10 +27,13 @@ export interface ConversationMessage extends ChatMessage {
   // at generation time so toggling the response-format control afterward does not
   // retroactively reformat past replies. Display-only; stripped before sending.
   contentIsJson?: boolean;
-  // Set only on assistant replies the playground generated: the resolved messages of the
-  // request that produced the reply. Tells a generated reply apart from an assistant turn
-  // loaded from the registry, and shows whether the prompt changed after the run.
-  // Display-only; stripped before sending.
+  // True when the endpoint generated this message. Replies render read-only, while
+  // a message the user writes stays editable even with the assistant role (e.g. an
+  // example response for priming). Display-only; stripped before sending.
+  isModelReply?: boolean;
+  // Set on model replies: the resolved messages of the request that produced the reply,
+  // so a later change to the prompt or its variables can be detected. Display-only;
+  // stripped before sending.
   requestMessages?: ChatMessage[];
 }
 

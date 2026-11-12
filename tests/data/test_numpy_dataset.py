@@ -163,6 +163,23 @@ def test_digest_property_has_expected_value():
     assert dataset_with_features_and_targets.digest == "1387de76"
 
 
+@pytest.mark.parametrize(
+    ("features", "other_features"),
+    [
+        (
+            {"image": np.array([1, 2]), "mask": np.array([3])},
+            {"img": np.array([1, 2]), "msk": np.array([3])},
+        ),
+        ({"a": np.array([1, 2, 3])}, np.array([1, 2, 3])),
+    ],
+)
+def test_digest_includes_dict_keys(features, other_features):
+    source = SampleDatasetSource._resolve("test:/my/test/uri")
+    dataset = NumpyDataset(features=features, source=source, name="testname")
+    other_dataset = NumpyDataset(features=other_features, source=source, name="testname")
+    assert dataset.digest != other_dataset.digest
+
+
 def test_features_property():
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)

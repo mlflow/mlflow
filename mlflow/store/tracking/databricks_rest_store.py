@@ -69,7 +69,12 @@ from mlflow.protos.databricks_tracing_pb2 import (
 )
 from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.issues_pb2 import CreateIssue, GetIssue, SearchIssues, UpdateIssue
-from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
+from mlflow.protos.service_pb2 import (
+    DeleteExperimentTag,
+    GetOnlineTraceDetails,
+    MlflowService,
+    SearchUnifiedTraces,
+)
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
@@ -96,6 +101,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V4_REST_API_PATH_PREFIX,
     _V4_TRACE_REST_API_PATH_PREFIX,
+    call_endpoint,
     extract_api_info_for_service,
     get_single_assessment_endpoint_v4,
     get_single_trace_endpoint_v4,
@@ -301,7 +307,8 @@ class DatabricksTracingRestStore(RestStore):
                 _logger.debug("MLflow experiment is not set for trace, cannot fallback to V3 API.")
                 raise
             _logger.debug(f"Falling back to V3 API due to {e!s}")
-        return super().start_trace(trace_info)
+        # The Databricks backend assigns assessment IDs itself.
+        return self._start_trace_v3(trace_info, assign_missing_assessment_ids=False)
 
     def _start_trace_v4(self, trace_info: TraceInfo) -> TraceInfo:
         location, otel_trace_id = parse_trace_id_v4(trace_info.trace_id)
@@ -419,6 +426,30 @@ class DatabricksTracingRestStore(RestStore):
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
         raise MlflowNotImplementedException()
+
+    def delete_experiment_tag(self, experiment_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified experiment.
+
+        Databricks doesn't serve the OSS ``POST /mlflow/experiments/delete-experiment-tag``
+        endpoint; it exposes ``DELETE /mlflow/experiments/{experiment_id}/tags/{key}`` instead.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            key: String name of the tag to be deleted.
+        """
+        # The key is a single path segment, so characters such as `/` must be percent-encoded.
+        endpoint = (
+            f"{_REST_API_PATH_PREFIX}/mlflow/experiments/{quote(experiment_id, safe='')}"
+            f"/tags/{quote(key, safe='')}"
+        )
+        call_endpoint(
+            self.get_host_creds(),
+            endpoint,
+            "DELETE",
+            None,
+            DeleteExperimentTag.Response(),
+        )
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
