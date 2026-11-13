@@ -472,6 +472,7 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
+    _validate_judge_inference_params,
     _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
@@ -6478,10 +6479,10 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
     `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
     ensemble is caught too (see `custom_scorer_execution_blocked`). Decorator scorers with empty
-    source code, which can never run, are rejected too. Third-party scorer kwargs that
-    would steer the judge's outbound requests are always rejected, independent of that flag.
-    Applied to caller payloads and to registered scorers fetched from the store, since rows
-    written before these checks existed can carry the same fields.
+    source code, which can never run, are rejected too. Third-party scorer kwargs and judge
+    inference params that would steer the judge's outbound requests are always rejected,
+    independent of that flag. Applied to caller payloads and to registered scorers fetched from
+    the store, since rows written before these checks existed can carry the same fields.
     """
     try:
         serialized_data = json.loads(serialized_scorer)
@@ -6497,6 +6498,7 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
             custom_scorer_without_source_error_message(name)
         )
     _validate_third_party_scorer_data(serialized_data)
+    _validate_judge_inference_params(serialized_data)
 
 
 @catch_mlflow_exception
