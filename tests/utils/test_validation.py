@@ -14,6 +14,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
     GATEWAY_DESTINATION_KEYS,
+    GATEWAY_REGION_KEYS,
     MAX_TAG_VAL_LENGTH,
     _find_destination_keys,
     _is_numeric,
@@ -1307,12 +1308,31 @@ def test_validate_judge_inference_params_names_every_offending_key():
 
 
 @pytest.mark.parametrize(
+    ("make_scorer", "field"),
+    [
+        (_instructions_judge, "instructions_judge_pydantic_data"),
+        (_builtin_judge, "builtin_scorer_pydantic_data"),
+    ],
+)
+@pytest.mark.parametrize("key", sorted(GATEWAY_REGION_KEYS))
+@pytest.mark.parametrize("value", ["us-east-1.example.com", "US-EAST-1", "us-east-1\n", 1])
+def test_validate_judge_inference_params_rejects_non_region_names(make_scorer, field, key, value):
+    with pytest.raises(
+        MlflowException, match=f"{field}.inference_params '{key}' must contain only"
+    ) as exc:
+        _validate_judge_inference_params(make_scorer({key: value}))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
     "serialized_scorer",
     [
         _instructions_judge(None),
         _instructions_judge({}),
         _instructions_judge({"temperature": 0.0, "max_tokens": 256, "top_p": 0.9}),
         _builtin_judge({"temperature": 0.0}),
+        _instructions_judge({"aws_region_name": "us-east-1"}),
+        _builtin_judge({"vertex_location": "europe-west4", "vertex_ai_location": ""}),
         {"name": "judge", "instructions_judge_pydantic_data": {"instructions": "x", "model": "y"}},
         {"name": "builtin", "builtin_scorer_class": "Safety"},
         {"name": "not-a-dict", "instructions_judge_pydantic_data": "x"},

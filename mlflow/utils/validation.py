@@ -1370,7 +1370,8 @@ def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
     kwargs last, so they would take precedence over the endpoint the server configured. The
     judge endpoint is configured on the server, so the gateway destination keys rejected for
     third-party scorer kwargs are rejected here too, at any nesting depth and inside any
-    wrapping scorer.
+    wrapping scorer. Providers build request hosts from the region keys, so those must be bare
+    region names.
     """
     for field, data in _iter_judge_pydantic_data(serialized_scorer):
         params = data.get("inference_params")
@@ -1387,6 +1388,7 @@ def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
                 "the judge endpoint on the server instead, for example through a gateway "
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
+        _validate_gateway_region_keys(params, f"{field}.inference_params")
 
 
 def _validate_icon_url(url: str) -> None:

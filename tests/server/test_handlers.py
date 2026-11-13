@@ -6893,6 +6893,37 @@ def test_invoke_scorer_rejects_judge_destination_inference_params(make_scorer, f
         mock_submit.assert_not_called()
 
 
+def test_invoke_scorer_rejects_judge_non_region_inference_params():
+    # Providers such as SageMaker build the request host from `aws_region_name`.
+    judge = make_judge(
+        name="judge",
+        instructions="Is {{ outputs }} polite?",
+        model="sagemaker:/my-endpoint",
+        inference_params={"aws_region_name": "us-east-1.example.com"},
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": json.dumps(judge.model_dump()),
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert (
+            "instructions_judge_pydantic_data.inference_params 'aws_region_name' must contain only"
+            in response.get_json()["message"]
+        )
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
 def test_invoke_scorer_accepts_judge_sampling_inference_params(mock_tracking_store):
     judge = _judge_with_params({"temperature": 0.0, "max_tokens": 64})
     with (
