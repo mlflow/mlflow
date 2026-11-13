@@ -10,15 +10,15 @@ if [ "${CI:-}" != "true" ]; then
   exit 1
 fi
 
-VERSION="0.39.1"
+VERSION="0.43.0"
 case "$(uname -m)" in
   x86_64)
     PLATFORM="linux-x64"
-    CHECKSUM="6906d3a2a67b05809932a93d99e53d1132373f0a52a617b2d6032dbb954df6fc"
+    CHECKSUM="8e69c9fb662514c9cf36e4911e94e913742ba066e55102486350e049dd847612"
     ;;
   aarch64 | arm64)
     PLATFORM="linux-arm64"
-    CHECKSUM="9d8fdc586056df65747927ae166157c83af91b52cea287175e5544afd2591d33"
+    CHECKSUM="34be55c2b92d8d199fb9d1d62a905ee5b6ac5b1f3e8c24e5b20597f370d905e5"
     ;;
   *)
     echo "Error: unsupported architecture $(uname -m)" >&2
