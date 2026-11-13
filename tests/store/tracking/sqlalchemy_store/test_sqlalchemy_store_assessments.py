@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 
 import pytest
-from sqlalchemy import event
 
 import mlflow.store.tracking.sqlalchemy_store as sqlalchemy_store_module
 from mlflow.entities import (
@@ -593,12 +592,48 @@ def test_delete_assessment_with_multiple_overrides(store_and_trace_info, delete_
     assert store.get_assessment(trace_id, original.assessment_id).valid is True
 
 
-def test_concurrent_delete_of_overrides_restores_original(store_and_trace_info):
-    store, trace_info = store_and_trace_info
-    if store.db_type in (MYSQL, SQLITE):
-        pytest.skip(f"{store.db_type} does not support this concurrent row-lock test")
+def _run_while_holding_trace_lock(store, monkeypatch, first_op, second_op):
+    """
+    Run ``first_op`` and pause it right after it takes the trace row lock, then run ``second_op``
+    and check that it blocks on the same lock until ``first_op`` commits.
+    """
+    first_has_lock = Event()
+    release_first = Event()
+    second_reached_lock = Event()
+    second_has_lock = Event()
+    original_get_sql_trace_info = store._get_sql_trace_info
 
-    trace_id = trace_info.request_id
+    def get_sql_trace_info_and_hold_lock(*args, **kwargs):
+        if not kwargs.get("for_update"):
+            return original_get_sql_trace_info(*args, **kwargs)
+        if not first_has_lock.is_set():
+            sql_trace_info = original_get_sql_trace_info(*args, **kwargs)
+            first_has_lock.set()
+            assert release_first.wait(timeout=10)
+            return sql_trace_info
+        second_reached_lock.set()
+        sql_trace_info = original_get_sql_trace_info(*args, **kwargs)
+        second_has_lock.set()
+        return sql_trace_info
+
+    monkeypatch.setattr(store, "_get_sql_trace_info", get_sql_trace_info_and_hold_lock)
+
+    with ThreadPoolExecutor(
+        max_workers=2, thread_name_prefix="test-override-trace-lock"
+    ) as executor:
+        first_future = executor.submit(first_op)
+        assert first_has_lock.wait(timeout=10)
+        second_future = executor.submit(second_op)
+        try:
+            assert second_reached_lock.wait(timeout=10)
+            assert not second_has_lock.wait(timeout=0.5)
+        finally:
+            release_first.set()
+        first_future.result(timeout=10)
+        return second_future.result(timeout=10)
+
+
+def _create_original_and_overrides(store, trace_id, reviewers):
     original = store.create_assessment(
         Feedback(
             trace_id=trace_id,
@@ -607,58 +642,66 @@ def test_concurrent_delete_of_overrides_restores_original(store_and_trace_info):
             source=AssessmentSource(source_type=AssessmentSourceType.CODE),
         ),
     )
-    first, second = (
-        store.create_assessment(
-            Feedback(
-                trace_id=trace_id,
-                name="correctness",
-                value=True,
-                source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id=user),
-                overrides=original.assessment_id,
-            ),
-        )
-        for user in ["reviewer-a", "reviewer-b"]
+    overrides = [_create_override(store, trace_id, original, user) for user in reviewers]
+    return original, overrides
+
+
+def _create_override(store, trace_id, original, user):
+    return store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="correctness",
+            value=True,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id=user),
+            overrides=original.assessment_id,
+        ),
     )
 
-    first_delete_has_locks = Event()
-    release_first_delete = Event()
-    second_delete_started = Event()
 
-    # Pause the first deletion right before its DELETE statement, after it has taken the
-    # row locks on the original and the remaining override.
-    def hold_first_delete(conn, cursor, statement, parameters, context, executemany):
-        if statement.lstrip().upper().startswith("DELETE FROM ASSESSMENTS") and (
-            not first_delete_has_locks.is_set()
-        ):
-            first_delete_has_locks.set()
-            assert release_first_delete.wait(timeout=10)
+def test_concurrent_delete_of_overrides_restores_original(store_and_trace_info, monkeypatch):
+    store, trace_info = store_and_trace_info
+    if store.db_type == SQLITE:
+        pytest.skip("SQLite does not support this concurrent row-lock test")
 
-    def delete_second():
-        second_delete_started.set()
-        store.delete_assessment(trace_id, second.assessment_id)
+    trace_id = trace_info.request_id
+    original, (first, second) = _create_original_and_overrides(
+        store, trace_id, ["reviewer-a", "reviewer-b"]
+    )
 
-    event.listen(store.engine, "before_cursor_execute", hold_first_delete)
-    try:
-        with ThreadPoolExecutor(
-            max_workers=2, thread_name_prefix="test-concurrent-override-delete"
-        ) as executor:
-            first_future = executor.submit(store.delete_assessment, trace_id, first.assessment_id)
-            assert first_delete_has_locks.wait(timeout=10)
-            second_future = executor.submit(delete_second)
-            assert second_delete_started.wait(timeout=10)
-            try:
-                # The second deletion must wait for the first one to commit
-                time.sleep(0.5)
-                assert not second_future.done()
-            finally:
-                release_first_delete.set()
-            first_future.result(timeout=10)
-            second_future.result(timeout=10)
-    finally:
-        event.remove(store.engine, "before_cursor_execute", hold_first_delete)
+    _run_while_holding_trace_lock(
+        store,
+        monkeypatch,
+        lambda: store.delete_assessment(trace_id, first.assessment_id),
+        lambda: store.delete_assessment(trace_id, second.assessment_id),
+    )
 
-    # Without the locks, each deletion would see the other override and skip the restore
+    # Without the lock, each deletion would see the other override and skip the restore
     assert store.get_assessment(trace_id, original.assessment_id).valid is True
+
+
+@pytest.mark.parametrize("delete_first", [True, False])
+def test_concurrent_create_and_delete_of_overrides_keeps_original_invalid(
+    store_and_trace_info, monkeypatch, delete_first
+):
+    store, trace_info = store_and_trace_info
+    if store.db_type == SQLITE:
+        pytest.skip("SQLite does not support this concurrent row-lock test")
+
+    trace_id = trace_info.request_id
+    original, (existing,) = _create_original_and_overrides(store, trace_id, ["reviewer-a"])
+    created = []
+
+    def delete_existing():
+        store.delete_assessment(trace_id, existing.assessment_id)
+
+    def create_new():
+        created.append(_create_override(store, trace_id, original, "reviewer-b"))
+
+    ops = (delete_existing, create_new) if delete_first else (create_new, delete_existing)
+    _run_while_holding_trace_lock(store, monkeypatch, *ops)
+
+    assert store.get_assessment(trace_id, original.assessment_id).valid is False
+    assert store.get_assessment(trace_id, created[0].assessment_id).valid is True
 
 
 def test_assessment_with_run_id(store_and_trace_info):
