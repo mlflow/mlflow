@@ -388,6 +388,22 @@ def test_store_methods_reject_non_numeric_experiment_id(
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+def test_search_runs_and_traces_reject_duplicate_order_by_as_invalid_parameter(tmp_sqlite_uri):
+    store = SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
+    exp_id = store.create_experiment("exp")
+    match = "`order_by` contains duplicate fields"
+
+    with pytest.raises(MlflowException, match=match) as e:
+        store.search_runs(
+            [exp_id], None, entities.ViewType.ALL, order_by=["metrics.m", "metrics.m DESC"]
+        )
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with pytest.raises(MlflowException, match=match) as e:
+        store.search_traces([exp_id], order_by=["timestamp_ms", "timestamp_ms DESC"])
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_store_methods_accept_valid_experiment_id(store):
     exp_id = store.create_experiment("valid-experiment-id")
 

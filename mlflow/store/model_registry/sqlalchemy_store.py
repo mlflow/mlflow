@@ -851,7 +851,10 @@ class SqlAlchemyStore(AbstractStore):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 if field.key in observed_order_by_clauses:
-                    raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+                    raise MlflowException(
+                        f"`order_by` contains duplicate fields: {order_by_list}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 observed_order_by_clauses.add(field.key)
                 if ascending:
                     clauses.append(field.asc())
@@ -1408,7 +1411,10 @@ class SqlAlchemyStore(AbstractStore):
                     else:
                         field = getattr(SqlModelVersion, key)
                 if field.key in observed_order_by_clauses:
-                    raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+                    raise MlflowException(
+                        f"`order_by` contains duplicate fields: {order_by_list}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
                 observed_order_by_clauses.add(field.key)
                 if ascending:
                     clauses.append(field.asc())
