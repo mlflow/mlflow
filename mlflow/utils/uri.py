@@ -486,13 +486,18 @@ def resolve_uri_if_local(local_uri):
         scheme = get_uri_scheme(local_uri)
         cwd = pathlib.Path.cwd()
         local_path = local_file_uri_to_path(local_uri)
+        # urlunsplit only emits the "//" authority marker when the path starts with "/", so a
+        # Windows drive path ("C:/...") must be given a leading slash to yield "file:///C:/..."
+        resolved_path = cwd.joinpath(local_path).as_posix()
+        if not resolved_path.startswith("/"):
+            resolved_path = f"/{resolved_path}"
         if not pathlib.Path(local_path).is_absolute():
             if scheme == "":
                 if is_windows():
                     return urllib.parse.urlunsplit((
                         "file",
                         None,
-                        cwd.joinpath(local_path).as_posix(),
+                        resolved_path,
                         None,
                         None,
                     ))
@@ -501,7 +506,7 @@ def resolve_uri_if_local(local_uri):
             return urllib.parse.urlunsplit((
                 local_uri_split.scheme,
                 None,
-                cwd.joinpath(local_path).as_posix(),
+                resolved_path,
                 local_uri_split.query,
                 local_uri_split.fragment,
             ))
