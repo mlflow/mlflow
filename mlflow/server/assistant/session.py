@@ -36,6 +36,7 @@ class Session:
     # expire a day after their last activity, see _SESSION_MAX_AGE_SECONDS), not a claim path for
     # the first caller.
     owner: str | None = None
+    workspace: str | None = None
     context: dict[str, Any] = field(default_factory=dict)
     messages: list[Message] = field(default_factory=list)
     pending_message: Message | None = None
@@ -95,6 +96,7 @@ class Session:
         """
         return {
             "owner": self.owner,
+            "workspace": self.workspace,
             "context": self.context,
             "messages": [msg.model_dump() for msg in self.messages],
             "pending_message": self.pending_message.model_dump() if self.pending_message else None,
@@ -120,6 +122,7 @@ class Session:
 
         return cls(
             owner=data.get("owner"),
+            workspace=data.get("workspace"),
             context=data.get("context", {}),
             messages=messages,
             pending_message=pending_msg,

@@ -56,7 +56,7 @@ def test_no_username_mints_nothing(signing_key):
     assert mint_delegation_credential("") is None
 
 
-@pytest.mark.parametrize("bad", [None, "", "garbage", "v1:alice", "v2:alice:1:sig"])
+@pytest.mark.parametrize("bad", [None, "", "garbage", "v1:alice", "v2:alice:1:sig", "v1:alice:1:é"])
 def test_malformed_credential_rejected(signing_key, bad):
     assert verify_delegation_credential(bad) is None
 

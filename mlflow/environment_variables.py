@@ -1991,6 +1991,12 @@ _MLFLOW_ASSISTANT_DELEGATION_TOKEN = _EnvironmentVariable(
     "_MLFLOW_ASSISTANT_DELEGATION_TOKEN", str, None
 )
 
+#: Enable Assistant tool delegation for a custom auth app that verifies MLflow's
+#: user-scoped delegation credentials. Built-in basic-auth enables it automatically.
+MLFLOW_ENABLE_ASSISTANT_DELEGATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ASSISTANT_DELEGATION", False
+)
+
 # The key the server uses to sign and verify Assistant delegation credentials (see
 # mlflow.server.assistant.delegation). The server generates it at startup and shares it only among
 # its own worker processes: unlike the internal gateway token it is deliberately withheld from job

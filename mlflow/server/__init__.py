@@ -28,6 +28,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SERVER_TLS_LISTENER,
     _MLFLOW_SGI_NAME,
     MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
+    MLFLOW_ENABLE_ASSISTANT_DELEGATION,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
@@ -640,6 +641,7 @@ def _run_server(
         # whether job execution is available.
         env_map[_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name] = secrets.token_hex(32)
 
+    if app_name and (app_name == "basic-auth" or MLFLOW_ENABLE_ASSISTANT_DELEGATION.get()):
         # Key for signing and verifying MLflow Assistant delegation credentials. Generated here so
         # all worker processes share it, but deliberately excluded from the job runner env below so
         # that code running in a job subprocess (e.g. a user-supplied scorer) cannot mint one. A
