@@ -1,7 +1,10 @@
-# Smoke-test a branch: gh workflow run verify.yml --ref <branch> -F pr_number=<number>
-name: Verify PR behavior
+# Preview a branch: gh workflow run verify.yml --ref <branch> -F pr_number=<number>
+# Add -F dry_run=false to publish the review on the specified PR.
+name: Verify
 
 on:
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -30,7 +33,17 @@ on:
         default: true
 
 concurrency:
-  group: verify-${{ inputs.pr_number }}
+  # Queue verification per PR; give unrelated events unique groups so they don't delay it.
+  # Examples:
+  # - verify-12345: workflow dispatch or /verify on PR #12345
+  # - verify-ignored-123456789: unrelated event with run ID 123456789
+  group: >-
+    ${{ format('verify-{0}',
+      github.event_name == 'workflow_dispatch' && inputs.pr_number ||
+      github.event.issue.pull_request != null && github.event.issue.state == 'open' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+      startsWith(github.event.comment.body, '/verify') && github.event.issue.number ||
+      format('ignored-{0}', github.run_id)) }}
   cancel-in-progress: false
   queue: max
 
@@ -42,8 +55,66 @@ permissions: {}
 cache-mode: none
 
 jobs:
+  gate:
+    if: >-
+      github.repository == 'mlflow/mlflow' && vars.VERIFY_DISABLED != 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.issue.pull_request != null && github.event.issue.state == 'open' &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+        startsWith(github.event.comment.body, '/verify')))
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      allowed: ${{ steps.pr.outputs.allowed }}
+      head: ${{ steps.pr.outputs.head }}
+    steps:
+      # The workflow ref is the default branch for /verify and the selected ref for dispatch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .claude/skills/verify
+            .claude/scripts
+      - name: Check authorization and snapshot PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
+          COMMENT: ${{ github.event_name == 'workflow_dispatch' && '/verify' || github.event.comment.body }}
+        run: |
+          python3 .claude/skills/verify/scripts/cli.py collect --repo "$REPO" --pr-number "$PR_NUMBER" \
+            --comment "$COMMENT" --out-path "$RUNNER_TEMP/pr_context.json"
+      - name: Add run link to trigger comment
+        if: steps.pr.outputs.allowed == 'true' && github.event_name == 'issue_comment'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}?pr=${{ github.event.issue.number }}
+        run: |
+          marker="<!-- verify-run:$GITHUB_RUN_ID -->"
+          body=$(gh api "repos/$REPO/issues/comments/$COMMENT_ID" --jq .body)
+          if [[ "$body" != *"$marker"* ]]; then
+            body=$(printf '%s\n\n---\n\n[Verification run](%s) %s' "$body" "$RUN_URL" "$marker")
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" -X PATCH -f body="$body" > /dev/null
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.pr.outputs.allowed == 'true'
+        with:
+          name: verify-in-${{ github.run_id }}
+          path: ${{ runner.temp }}/pr_context.json
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 1
+
   verify:
-    if: github.repository == 'mlflow/mlflow'
+    needs: gate
+    if: needs.gate.outputs.allowed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     env:
@@ -54,6 +125,7 @@ jobs:
       issues: read
       pull-requests: read
     steps:
+      # The workflow ref is the default branch for /verify and the selected ref for dispatch.
       - parallel:
           - name: Checkout trusted workflow files
             id: trusted
@@ -65,12 +137,35 @@ jobs:
           - name: Checkout PR merge
             uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             with:
-              ref: refs/pull/${{ inputs.pr_number }}/merge
+              ref: refs/pull/${{ github.event.issue.number || inputs.pr_number }}/merge
               path: pr
               persist-credentials: false
               fetch-depth: 2
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: verify-in-${{ github.run_id }}
+          path: ${{ env.VERIFY_TMP_DIR }}/in
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
+      - name: Prepare PR diff
+        env:
+          HEAD_SHA: ${{ needs.gate.outputs.head }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
+        working-directory: pr
+        run: |
+          if [ "$(git rev-parse HEAD^2)" != "$HEAD_SHA" ]; then
+            echo '::error::PR head changed before checkout; run /verify again.'
+            exit 1
+          fi
+          gh pr diff "$PR_NUMBER" --repo "$REPO" \
+            | "$GITHUB_WORKSPACE/trusted/.claude/scripts/mask-diff.sh" > "$VERIFY_TMP_DIR/in/pr.diff"
+          pr=$(gh api "repos/$REPO/pulls/$PR_NUMBER")
+          if ! jq -e --arg head "$HEAD_SHA" '.head.sha == $head' <<< "$pr" > /dev/null; then
+            echo '::error::PR head changed while fetching the diff; run /verify again.'
+            exit 1
+          fi
       - name: Install agent tools
         run: |
           trusted/.claude/scripts/install-claude.sh
@@ -185,7 +280,7 @@ jobs:
           OTEL_LOG_ASSISTANT_RESPONSES: "1"
           OTEL_LOG_TOOL_DETAILS: "1"
           OTEL_LOG_TOOL_CONTENT: "1"
-          OTEL_RESOURCE_ATTRIBUTES: github.pr_number=${{ inputs.pr_number }},github.pr_url=${{ github.server_url }}/${{ github.repository }}/pull/${{ inputs.pr_number }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OTEL_RESOURCE_ATTRIBUTES: github.pr_number=${{ github.event.issue.number || inputs.pr_number }},github.pr_url=${{ github.server_url }}/${{ github.repository }}/pull/${{ github.event.issue.number || inputs.pr_number }},github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AGENT_BROWSER_ARGS: --no-sandbox
           AGENT_BROWSER_SCREENSHOT_DIR: ${{ env.VERIFY_TMP_DIR }}/out/media
         run: |
@@ -197,8 +292,21 @@ jobs:
           echo "::stop-commands::$token"
           timeout --kill-after=10s 60m setsid bash -o pipefail -c '
             echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
-            # Placeholder until the /verify skill lands.
-            claude --version
+            printf -v skill_inputs "\"%s\" \"%s\" \"%s\"" \
+              "$GITHUB_WORKSPACE/trusted" \
+              "$GITHUB_WORKSPACE/pr" \
+              "$VERIFY_TMP_DIR"
+            claude \
+              --model "$MODEL" \
+              --effort "$EFFORT" \
+              --session-id "$SESSION_ID" \
+              --max-budget-usd 5 \
+              --permission-mode auto \
+              --disallowed-tools "WebSearch,WebFetch" \
+              --print \
+              --verbose \
+              --output-format stream-json \
+              "/verify $skill_inputs" | "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh"
           ' || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Stop agent processes
@@ -221,6 +329,18 @@ jobs:
             printf '%s\n' "$status"
             exit 1
           fi
+      - name: Validate review
+        run: |
+          uv run --no-project python "$GITHUB_WORKSPACE/trusted/.claude/skills/verify/scripts/cli.py" validate \
+            --payload "$VERIFY_TMP_DIR/out/payload.json" --media-dir "$VERIFY_TMP_DIR/out/media" \
+            --diff "$VERIFY_TMP_DIR/in/pr.diff"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verify-out-${{ github.run_id }}
+          path: ${{ env.VERIFY_TMP_DIR }}/out/
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 1
       - name: Stop proxies
         if: always()
         run: |
@@ -232,3 +352,75 @@ jobs:
               kill "$(cat "$RUNNER_TEMP/verify-$proxy-proxy.pid")" 2>/dev/null || true
             fi
           done
+
+  publish:
+    needs: [gate, verify]
+    if: always() && needs.gate.result == 'success' && needs.gate.outputs.allowed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    # Keep absolute media references from the verification payload valid on this runner.
+    env:
+      VERIFY_TMP_DIR: /tmp/verify
+    steps:
+      - name: Checkout trusted workflow files
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+        if: needs.verify.result == 'success'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.verify.result == 'success'
+        with:
+          name: verify-out-${{ github.run_id }}
+          path: ${{ env.VERIFY_TMP_DIR }}/out
+      - name: Validate review
+        id: validate
+        if: needs.verify.result == 'success'
+        run: |
+          uv run --no-project python .claude/skills/verify/scripts/cli.py validate \
+            --payload "$VERIFY_TMP_DIR/out/payload.json" --media-dir "$VERIFY_TMP_DIR/out/media"
+      - name: Embed review media
+        id: embed
+        if: needs.verify.result == 'success' && (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
+        env:
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          uv run --no-project python .claude/skills/verify/scripts/cli.py embed \
+            --payload "$VERIFY_TMP_DIR/out/payload.json" --media-dir "$VERIFY_TMP_DIR/out/media"
+      # The review app posts the review and enables auto-merge; a preview only reads the PR.
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        if: always() && (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
+        with:
+          client-id: ${{ secrets.REVIEW_CLIENT_ID }}
+          private-key: ${{ secrets.REVIEW_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          # Enabling auto-merge needs write access to contents.
+          permission-contents: write
+          permission-pull-requests: write
+      # Runs even when verification failed, so it relies on the runner's Python rather than uv.
+      - name: Publish or preview review
+        if: always()
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
+          HEAD_SHA: ${{ needs.gate.outputs.head }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+          REVIEW_READY: ${{ needs.verify.result == 'success' && steps.validate.outcome == 'success' && (github.event_name == 'workflow_dispatch' && inputs.dry_run || steps.embed.outcome == 'success') }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+        run: |
+          args=(--repo "$REPO" --pr-number "$PR_NUMBER" --head-sha "$HEAD_SHA" --run-url "$RUN_URL")
+          if [ "$REVIEW_READY" = true ]; then
+            args+=(--payload "$VERIFY_TMP_DIR/out/payload.json")
+          fi
+          if [ "$DRY_RUN" != true ]; then
+            args+=(--no-dry-run)
+          fi
+          python3 .claude/skills/verify/scripts/cli.py publish "${args[@]}"
