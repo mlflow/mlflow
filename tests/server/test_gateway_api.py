@@ -4382,3 +4382,21 @@ def test_invocations_passes_username_to_budget_enforcement(store: SqlAlchemyStor
     mock_on_complete.assert_called()
     assert mock_on_complete.call_args.kwargs["username"] == "alice@example.com"
     assert mock_on_complete.call_args.kwargs["endpoint_id"] == "test-endpoint-id"
+
+
+def test_validate_store_accepts_custom_gateway_store_mixin_and_rejects_unimplemented():
+    from mlflow.server.gateway_api import _validate_store
+    from mlflow.store.tracking.abstract_store import AbstractStore
+
+    class CustomGatewayTrackingStore(AbstractStore):
+        def get_endpoint_config(self, endpoint_name: str) -> GatewayEndpointConfig:
+            return GatewayEndpointConfig(endpoint_id="ep-1", endpoint_name=endpoint_name, models=[])
+
+    class UnimplementedTrackingStore(AbstractStore):
+        pass
+
+    _validate_store(CustomGatewayTrackingStore())
+
+    with pytest.raises(HTTPException, match="UnimplementedTrackingStore") as exc_info:
+        _validate_store(UnimplementedTrackingStore())
+    assert exc_info.value.status_code == 500

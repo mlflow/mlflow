@@ -66,6 +66,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceInfo,
     SqlTraceMetadata,
 )
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.telemetry.events import (
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
@@ -1655,3 +1656,24 @@ class SqlAlchemyGatewayStoreMixin:
                 .all()
             )
             return [c.to_mlflow_entity() for c in configs]
+
+    def get_resource_endpoint_configs(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> list[GatewayEndpointConfig]:
+        from mlflow.store.tracking.gateway.config_resolver import (
+            _get_sqlalchemy_resource_endpoint_configs,
+        )
+
+        return _get_sqlalchemy_resource_endpoint_configs(self, resource_type, resource_id)
+
+    def get_endpoint_config(
+        self,
+        endpoint_name: str,
+    ) -> GatewayEndpointConfig:
+        from mlflow.store.tracking.gateway.config_resolver import (
+            _get_sqlalchemy_endpoint_config,
+        )
+
+        return _get_sqlalchemy_endpoint_config(self, endpoint_name)

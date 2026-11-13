@@ -12,12 +12,14 @@ import logging
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
 )
+from mlflow.store.tracking.gateway.abstract_mixin import GatewayStoreMixin
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.utils import _get_store
@@ -30,7 +32,7 @@ _logger = logging.getLogger(__name__)
 def get_resource_endpoint_configs(
     resource_type: str,
     resource_id: str,
-    store: SqlAlchemyStore | None = None,
+    store: AbstractStore | None = None,
 ) -> list[GatewayEndpointConfig]:
     """
     Get complete endpoint configurations for a resource (server-side only).
@@ -41,13 +43,12 @@ def get_resource_endpoint_configs(
     called server-side and never exposed to clients.
 
     If no store is provided, this function automatically retrieves the tracking
-    store from the current MLflow configuration. It only works with SqlAlchemyStore
-    backends.
+    store from the current MLflow configuration.
 
     Args:
         resource_type: Type of resource (e.g., "scorer").
         resource_id: Unique identifier for the resource instance.
-        store: Optional SqlAlchemyStore instance. If not provided, the current
+        store: Optional tracking store instance. If not provided, the current
             tracking store is used.
 
     Returns:
@@ -56,17 +57,33 @@ def get_resource_endpoint_configs(
         ready to pass to litellm.completion().
 
     Raises:
-        MlflowException: If the tracking store is not a SqlAlchemyStore,
-            or if an endpoint, model definition, or secret is not found.
+        MlflowException: If the tracking store does not support gateway endpoint
+            configuration, or if an endpoint, model definition, or secret is not found.
     """
     if store is None:
         store = _get_store()
-    if not isinstance(store, SqlAlchemyStore):
-        raise MlflowException(
-            "Gateway endpoint configuration is only supported with SqlAlchemyStore backends. "
-            f"Current store type: {type(store).__name__}"
-        )
+    if isinstance(store, SqlAlchemyStore):
+        return _get_sqlalchemy_resource_endpoint_configs(store, resource_type, resource_id)
+    if (
+        isinstance(store, GatewayStoreMixin)
+        and type(store).get_resource_endpoint_configs
+        is not GatewayStoreMixin.get_resource_endpoint_configs
+    ):
+        try:
+            return store.get_resource_endpoint_configs(resource_type, resource_id)
+        except NotImplementedError:
+            pass
+    raise MlflowException(
+        "Gateway endpoint configuration is only supported with SqlAlchemyStore or "
+        f"GatewayStoreMixin backends. Current store type: {type(store).__name__}"
+    )
 
+
+def _get_sqlalchemy_resource_endpoint_configs(
+    store: SqlAlchemyStore,
+    resource_type: str,
+    resource_id: str,
+) -> list[GatewayEndpointConfig]:
     with store.ManagedSessionMaker() as session:
         sql_bindings = (
             store
@@ -151,7 +168,7 @@ def get_resource_endpoint_configs(
 
 def get_endpoint_config(
     endpoint_name: str,
-    store: SqlAlchemyStore | None = None,
+    store: AbstractStore | None = None,
 ) -> GatewayEndpointConfig:
     """
     Get complete endpoint configuration for a specific endpoint (server-side only).
@@ -161,12 +178,11 @@ def get_endpoint_config(
     that should only be called server-side and never exposed to clients.
 
     If no store is provided, this function automatically retrieves the tracking
-    store from the current MLflow configuration. It only works with SqlAlchemyStore
-    backends.
+    store from the current MLflow configuration.
 
     Args:
         endpoint_name: Unique identifier for the endpoint.
-        store: Optional SqlAlchemyStore instance. If not provided, the current
+        store: Optional tracking store instance. If not provided, the current
             tracking store is used.
 
     Returns:
@@ -174,17 +190,31 @@ def get_endpoint_config(
         list of GatewayModelConfig with decrypted secret_value and auth_config.
 
     Raises:
-        MlflowException: If the tracking store is not a SqlAlchemyStore,
-            or if the endpoint, model definition, or secret is not found.
+        MlflowException: If the tracking store does not support gateway endpoint
+            configuration, or if the endpoint, model definition, or secret is not found.
     """
     if store is None:
         store = _get_store()
-    if not isinstance(store, SqlAlchemyStore):
-        raise MlflowException(
-            "Gateway endpoint configuration is only supported with SqlAlchemyStore backends. "
-            f"Current store type: {type(store).__name__}"
-        )
+    if isinstance(store, SqlAlchemyStore):
+        return _get_sqlalchemy_endpoint_config(store, endpoint_name)
+    if (
+        isinstance(store, GatewayStoreMixin)
+        and type(store).get_endpoint_config is not GatewayStoreMixin.get_endpoint_config
+    ):
+        try:
+            return store.get_endpoint_config(endpoint_name)
+        except NotImplementedError:
+            pass
+    raise MlflowException(
+        "Gateway endpoint configuration is only supported with SqlAlchemyStore or "
+        f"GatewayStoreMixin backends. Current store type: {type(store).__name__}"
+    )
 
+
+def _get_sqlalchemy_endpoint_config(
+    store: SqlAlchemyStore,
+    endpoint_name: str,
+) -> GatewayEndpointConfig:
     workspace = get_request_workspace() or ""
     cache_key = f"endpoint_config:{workspace}:{endpoint_name}"
     if cached := store.secret_cache.get(cache_key):

@@ -3771,3 +3771,44 @@ def test_sum_gateway_trace_cost_username_and_workspace(store: SqlAlchemyStore):
         start_time_ms=0, end_time_ms=5000, workspace="workspace-p", username="alice"
     )
     assert abs(total - 0.10) < 1e-9
+
+
+def test_config_resolver_delegates_to_custom_gateway_store_mixin():
+    from mlflow.store.tracking.abstract_store import AbstractStore
+
+    expected_config = GatewayEndpointConfig(
+        endpoint_id="ep-custom",
+        endpoint_name="custom-ep",
+        models=[],
+    )
+
+    class CustomGatewayTrackingStore(AbstractStore):
+        def get_endpoint_config(self, endpoint_name: str) -> GatewayEndpointConfig:
+            assert endpoint_name == "custom-ep"
+            return expected_config
+
+        def get_resource_endpoint_configs(
+            self, resource_type: str, resource_id: str
+        ) -> list[GatewayEndpointConfig]:
+            assert resource_type == "scorer"
+            assert resource_id == "scorer-1"
+            return [expected_config]
+
+    custom_store = CustomGatewayTrackingStore()
+    assert get_endpoint_config("custom-ep", store=custom_store) == expected_config
+    assert get_resource_endpoint_configs("scorer", "scorer-1", store=custom_store) == [
+        expected_config
+    ]
+
+
+def test_config_resolver_rejects_store_without_gateway_implementation():
+    from mlflow.store.tracking.abstract_store import AbstractStore
+
+    class UnimplementedTrackingStore(AbstractStore):
+        pass
+
+    unimplemented_store = UnimplementedTrackingStore()
+    with pytest.raises(MlflowException, match="Current store type: UnimplementedTrackingStore"):
+        get_endpoint_config("ep", store=unimplemented_store)
+    with pytest.raises(MlflowException, match="Current store type: UnimplementedTrackingStore"):
+        get_resource_endpoint_configs("scorer", "scorer-1", store=unimplemented_store)
