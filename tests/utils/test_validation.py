@@ -13,6 +13,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
+    GATEWAY_DESTINATION_KEYS,
+    GATEWAY_REGION_KEYS,
     MAX_TAG_VAL_LENGTH,
     _find_destination_keys,
     _is_numeric,
@@ -29,6 +31,7 @@ from mlflow.utils.validation import (
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
     _validate_icon_url,
+    _validate_judge_inference_params,
     _validate_list_param,
     _validate_metric_name,
     _validate_model_name,
@@ -1185,6 +1188,159 @@ def test_validate_third_party_scorer_data_names_every_offending_key():
 )
 def test_validate_third_party_scorer_data_accepts_benign_payloads(serialized_scorer):
     _validate_third_party_scorer_data(serialized_scorer)
+
+
+def _instructions_judge(inference_params):
+    return {
+        "name": "judge",
+        "instructions_judge_pydantic_data": {
+            "instructions": "Is {{ outputs }} polite?",
+            "model": "hosted_vllm:/x",
+            "inference_params": inference_params,
+        },
+    }
+
+
+def _builtin_judge(inference_params):
+    return {
+        "name": "correctness",
+        "builtin_scorer_class": "Correctness",
+        "builtin_scorer_pydantic_data": {
+            "name": "correctness",
+            "model": "hosted_vllm:/x",
+            "inference_params": inference_params,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    ("make_scorer", "field"),
+    [
+        (_instructions_judge, "instructions_judge_pydantic_data"),
+        (_builtin_judge, "builtin_scorer_pydantic_data"),
+    ],
+)
+@pytest.mark.parametrize("key", sorted(GATEWAY_DESTINATION_KEYS))
+def test_validate_judge_inference_params_rejects_destination_keys(make_scorer, field, key):
+    # The LiteLLM judge adapter merges inference_params last, so any of these would take
+    # precedence over the endpoint configured on the server.
+    with pytest.raises(
+        MlflowException, match=f"{field}.inference_params must not contain '{key}'"
+    ) as exc:
+        _validate_judge_inference_params(
+            make_scorer({"temperature": 0.0, key: "http://localhost:8000/v1"})
+        )
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    "inference_params",
+    [
+        {"fallbacks": [{"model": "openai/gpt-4o", "api_base": "http://localhost:8000/v1"}]},
+        {"extra_body": {"base_url": "http://localhost:8001/v1"}},
+        {"extra_body": [["api_base", "http://localhost:8001/v1"]]},
+    ],
+)
+def test_validate_judge_inference_params_rejects_nested_destination_keys(inference_params):
+    with pytest.raises(MlflowException, match="inference_params must not contain"):
+        _validate_judge_inference_params(_instructions_judge(inference_params))
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        {
+            "name": "ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {"name": "builtin", "builtin_scorer_class": "Safety"},
+                    _instructions_judge({"api_base": "http://localhost:8000/v1"}),
+                ],
+            },
+        },
+        {
+            "name": "nested-ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {
+                        "name": "inner",
+                        "ensemble_scorer_data": {
+                            "ensemble_fn": "majority_vote",
+                            "scorers": [_builtin_judge({"base_url": "http://localhost:8001/v1"})],
+                        },
+                    }
+                ],
+            },
+        },
+        {
+            "name": "memalign",
+            "memory_augmented_judge_data": {
+                "base_judge": _instructions_judge({"api_base": "http://localhost:8000/v1"}),
+                "semantic_memory": [],
+            },
+        },
+    ],
+)
+def test_validate_judge_inference_params_rejects_wrapped_judges(serialized_scorer):
+    with pytest.raises(MlflowException, match="inference_params must not contain"):
+        _validate_judge_inference_params(serialized_scorer)
+
+
+def test_validate_judge_inference_params_rejects_non_object_params():
+    # `dict.update` also accepts a list of key/value pairs, so the shape is checked before the
+    # key search.
+    with pytest.raises(
+        MlflowException, match="inference_params must be a JSON object, got list"
+    ) as exc:
+        _validate_judge_inference_params(
+            _instructions_judge([["api_base", "http://localhost:8000/v1"]])
+        )
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_validate_judge_inference_params_names_every_offending_key():
+    with pytest.raises(MlflowException, match="'api_base', 'custom_llm_provider'"):
+        _validate_judge_inference_params(
+            _instructions_judge({"api_base": "http://a/", "custom_llm_provider": "openai"})
+        )
+
+
+@pytest.mark.parametrize(
+    ("make_scorer", "field"),
+    [
+        (_instructions_judge, "instructions_judge_pydantic_data"),
+        (_builtin_judge, "builtin_scorer_pydantic_data"),
+    ],
+)
+@pytest.mark.parametrize("key", sorted(GATEWAY_REGION_KEYS))
+@pytest.mark.parametrize("value", ["us-east-1.example.com", "US-EAST-1", "us-east-1\n", 1])
+def test_validate_judge_inference_params_rejects_non_region_names(make_scorer, field, key, value):
+    with pytest.raises(
+        MlflowException, match=f"{field}.inference_params '{key}' must contain only"
+    ) as exc:
+        _validate_judge_inference_params(make_scorer({key: value}))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        _instructions_judge(None),
+        _instructions_judge({}),
+        _instructions_judge({"temperature": 0.0, "max_tokens": 256, "top_p": 0.9}),
+        _builtin_judge({"temperature": 0.0}),
+        _instructions_judge({"aws_region_name": "us-east-1"}),
+        _builtin_judge({"vertex_location": "europe-west4", "vertex_ai_location": ""}),
+        {"name": "judge", "instructions_judge_pydantic_data": {"instructions": "x", "model": "y"}},
+        {"name": "builtin", "builtin_scorer_class": "Safety"},
+        {"name": "not-a-dict", "instructions_judge_pydantic_data": "x"},
+        _trulens_scorer({"threshold": 0.7}),
+    ],
+)
+def test_validate_judge_inference_params_accepts_benign_payloads(serialized_scorer):
+    _validate_judge_inference_params(serialized_scorer)
 
 
 def test_validate_gateway_secret_auth_config_rejects_private_api_base():

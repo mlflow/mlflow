@@ -1341,6 +1341,56 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
             )
 
 
+# Serialized judges whose data carries ``inference_params``: ``InstructionsJudge`` (``make_judge``)
+# and the built-in scorers.
+_JUDGE_PYDANTIC_DATA_FIELDS = ("instructions_judge_pydantic_data", "builtin_scorer_pydantic_data")
+
+
+def _iter_judge_pydantic_data(value: Any) -> Iterator[tuple[str, dict[str, Any]]]:
+    """Yield ``(field, data)`` for every judge's data nested anywhere in a serialized scorer.
+
+    Like ``_iter_third_party_scorer_data``, this reaches judges wrapped by ensembles and MemAlign.
+    """
+    if isinstance(value, dict):
+        for field in _JUDGE_PYDANTIC_DATA_FIELDS:
+            data = value.get(field)
+            if isinstance(data, dict):
+                yield field, data
+        for nested in value.values():
+            yield from _iter_judge_pydantic_data(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _iter_judge_pydantic_data(nested)
+
+
+def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
+    """Reject judge ``inference_params`` that set where the judge's requests are sent.
+
+    The LiteLLM judge adapter merges ``inference_params`` into the ``litellm.completion()``
+    kwargs last, so they would take precedence over the endpoint the server configured. The
+    judge endpoint is configured on the server, so the gateway destination keys rejected for
+    third-party scorer kwargs are rejected here too, at any nesting depth and inside any
+    wrapping scorer. Providers build request hosts from the region keys, so those must be bare
+    region names.
+    """
+    for field, data in _iter_judge_pydantic_data(serialized_scorer):
+        params = data.get("inference_params")
+        # The adapter applies these with `dict.update`, which also accepts a list of key/value
+        # pairs, so only a mapping (or null) is a valid shape.
+        if params is not None and not isinstance(params, dict):
+            raise MlflowException.invalid_parameter_value(
+                f"{field}.inference_params must be a JSON object, got {type(params).__name__}."
+            )
+        if found := sorted(_find_destination_keys(params)):
+            raise MlflowException.invalid_parameter_value(
+                f"{field}.inference_params must not contain {', '.join(map(repr, found))}: "
+                "these options choose where the judge's LLM client sends requests. Configure "
+                "the judge endpoint on the server instead, for example through a gateway "
+                "endpoint ('gateway:/<name>') or the provider's environment variables."
+            )
+        _validate_gateway_region_keys(params, f"{field}.inference_params")
+
+
 def _validate_icon_url(url: str) -> None:
     """Validate a registry icon URL on write/update requests.
 

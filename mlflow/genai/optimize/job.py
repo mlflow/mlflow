@@ -26,6 +26,10 @@ from mlflow.telemetry.events import OptimizePromptsJobEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import set_experiment, start_run
+from mlflow.utils.validation import (
+    _validate_judge_inference_params,
+    _validate_third_party_scorer_data,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -188,13 +192,18 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
         # Load from the registered scorer store if not a built-in scorer
         try:
             scorer = get_scorer(name=name, experiment_id=experiment_id)
-            scorers.append(scorer)
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Scorer '{name}' not found. It is neither a built-in scorer "
                 f"(e.g., 'Correctness', 'Safety') nor a registered scorer in "
                 f"experiment '{experiment_id}'. Error: {e}"
             )
+        # Scorers registered before the server checked scorer payloads can carry options the
+        # server now rejects, so the same checks run on the stored form here.
+        serialized = scorer.model_dump()
+        _validate_third_party_scorer_data(serialized)
+        _validate_judge_inference_params(serialized)
+        scorers.append(scorer)
 
     return scorers
 
