@@ -2,8 +2,9 @@ name: Update Model Catalog
 
 on:
   schedule:
-    # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
-    - cron: "0 0,12 * * 1-5"
+    # Every 2 hours, every day. Catalog PRs take ~1h to pass CI and merge, so a 2h interval
+    # avoids force-pushing over one still in CI. Minute 17 avoids top-of-hour scheduler delays.
+    - cron: "17 */2 * * *"
   workflow_dispatch:
   push:
     branches:
@@ -153,7 +154,7 @@ jobs:
           else
             pr_url=$(gh pr create \
               --title "Update model catalog from upstream sources" \
-              --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+              --body "Scheduled refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
               --label auto-repair \
               --label team-review)
             echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
