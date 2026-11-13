@@ -319,7 +319,9 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
                 {
                     "role": None,
                     "content_parts": [],
-                    "tool_calls_by_index": {},
+                    "tool_calls": [],
+                    "current_tool_call_by_index": {},
+                    "tool_calls_by_index_and_id": {},
                     "finish_reason": None,
                 },
             )
@@ -331,13 +333,24 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
             if choice.finish_reason:
                 state["finish_reason"] = choice.finish_reason
             if delta.tool_calls:
+                calls_by_key = state["tool_calls_by_index_and_id"]
+                current_call_by_index = state["current_tool_call_by_index"]
                 for tc_delta in delta.tool_calls:
-                    tc = state["tool_calls_by_index"].setdefault(
-                        tc_delta.index,
-                        {"id": None, "type": "function", "name": "", "arguments": ""},
-                    )
+                    # Parallel tool calls may share an index or an id, but not both.
+                    key = (tc_delta.index, tc_delta.id)
+                    tc = calls_by_key.get(key) or current_call_by_index.get(tc_delta.index)
+                    if tc is None or (
+                        tc_delta.id
+                        and tc["id"]
+                        and tc_delta.id != tc["id"]
+                        and tc_delta.function.name
+                    ):
+                        tc = {"id": None, "type": "function", "name": "", "arguments": ""}
+                        state["tool_calls"].append(tc)
+                    current_call_by_index[tc_delta.index] = tc
                     if tc_delta.id:
                         tc["id"] = tc_delta.id
+                        calls_by_key[key] = tc
                     if tc_delta.type:
                         tc["type"] = tc_delta.type
                     if tc_delta.function:
@@ -352,14 +365,14 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
             "role": state["role"] or "assistant",
             "content": "".join(state["content_parts"]) or None,
         }
-        if state["tool_calls_by_index"]:
+        if state["tool_calls"]:
             message["tool_calls"] = [
                 {
                     "id": tc["id"],
                     "type": tc["type"],
                     "function": {"name": tc["name"], "arguments": tc["arguments"]},
                 }
-                for tc in state["tool_calls_by_index"].values()
+                for tc in state["tool_calls"]
             ]
         aggregated_choices.append({
             "index": choice_index,

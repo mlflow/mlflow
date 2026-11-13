@@ -167,6 +167,130 @@ def test_reduce_chat_stream_chunks_aggregates_tool_calls():
     assert tool_calls[0]["function"]["arguments"] == '{"location": "SF"}'
 
 
+def _tool_call_delta(index, id=None, name=None, arguments=None):
+    return ToolCallDelta(
+        index=index,
+        id=id,
+        type="function" if name else None,
+        function=Function(name=name, arguments=arguments),
+    )
+
+
+@pytest.mark.parametrize(
+    "tool_call_chunks",
+    [
+        pytest.param(
+            [
+                [_tool_call_delta(0, "call_a", "get_weather", '{"city": ')],
+                [_tool_call_delta(0, arguments='"Paris"}')],
+                [_tool_call_delta(1, "call_b", "get_time", '{"tz": ')],
+                [_tool_call_delta(1, arguments='"CET"}')],
+            ],
+            id="distinct_indexes",
+        ),
+        pytest.param(
+            [
+                [_tool_call_delta(0, "call_a", "get_weather", '{"city": ')],
+                [_tool_call_delta(1, "call_b", "get_time", '{"tz": ')],
+                [_tool_call_delta(0, arguments='"Paris"}')],
+                [_tool_call_delta(1, arguments='"CET"}')],
+            ],
+            id="distinct_indexes_interleaved",
+        ),
+        pytest.param(
+            [
+                [_tool_call_delta(0, "call_a", "get_weather", '{"city": ')],
+                [_tool_call_delta(0, arguments='"Paris"}')],
+                [_tool_call_delta(0, "call_b", "get_time", '{"tz": ')],
+                [_tool_call_delta(0, arguments='"CET"}')],
+            ],
+            id="same_index",
+        ),
+        pytest.param(
+            [
+                [_tool_call_delta(0, "call_a", "get_weather", '{"city": ')],
+                [_tool_call_delta(0, "call_a", arguments='"Paris"}')],
+                [_tool_call_delta(0, "call_b", "get_time", '{"tz": ')],
+                [_tool_call_delta(0, "call_b", arguments='"CET"}')],
+            ],
+            id="same_index_repeated_ids",
+        ),
+        pytest.param(
+            [
+                [_tool_call_delta(0, "call_a", "get_weather", '{"city": ')],
+                [_tool_call_delta(0, "call_b", "get_time", '{"tz": ')],
+                [_tool_call_delta(0, "call_a", arguments='"Paris"}')],
+                [_tool_call_delta(0, "call_b", arguments='"CET"}')],
+            ],
+            id="same_index_repeated_ids_interleaved",
+        ),
+        pytest.param(
+            [
+                [
+                    _tool_call_delta(0, "call_a", "get_weather", '{"city": "Paris"}'),
+                    _tool_call_delta(0, "call_b", "get_time", '{"tz": "CET"}'),
+                ],
+            ],
+            id="same_index_single_delta",
+        ),
+    ],
+)
+def test_reduce_chat_stream_chunks_parallel_tool_calls(tool_call_chunks):
+    chunks = [_make_chunk(tool_calls=tool_calls) for tool_calls in tool_call_chunks]
+    chunks.append(_make_chunk(finish_reason="tool_calls"))
+    result = aggregate_chat_stream_chunks(chunks)
+
+    assert result["choices"][0]["message"]["tool_calls"] == [
+        {
+            "id": "call_a",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        },
+        {
+            "id": "call_b",
+            "type": "function",
+            "function": {"name": "get_time", "arguments": '{"tz": "CET"}'},
+        },
+    ]
+
+
+def test_reduce_chat_stream_chunks_same_id_distinct_indexes():
+    chunks = [
+        _make_chunk(
+            tool_calls=[_tool_call_delta(0, "call_md5", "get_weather", '{"city": "Paris"}')]
+        ),
+        _make_chunk(
+            tool_calls=[_tool_call_delta(1, "call_md5", "get_weather", '{"city": "Paris"}')]
+        ),
+        _make_chunk(finish_reason="tool_calls"),
+    ]
+    result = aggregate_chat_stream_chunks(chunks)
+
+    expected_call = {
+        "id": "call_md5",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+    assert result["choices"][0]["message"]["tool_calls"] == [expected_call, expected_call]
+
+
+def test_reduce_chat_stream_chunks_new_id_without_name_continues_call():
+    chunks = [
+        _make_chunk(tool_calls=[_tool_call_delta(0, "call_1", "get_weather", '{"city": ')]),
+        _make_chunk(tool_calls=[_tool_call_delta(0, "call_2", arguments='"Paris"}')]),
+        _make_chunk(finish_reason="tool_calls"),
+    ]
+    result = aggregate_chat_stream_chunks(chunks)
+
+    assert result["choices"][0]["message"]["tool_calls"] == [
+        {
+            "id": "call_2",
+            "type": "function",
+            "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        },
+    ]
+
+
 def test_reduce_chat_stream_chunks_derives_role_from_delta():
     chunks = [
         _make_chunk(role="developer", content="Hello"),
