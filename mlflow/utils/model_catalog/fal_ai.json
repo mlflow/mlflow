@@ -1079,6 +1079,39 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "bytedance/seedream/v5.5/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "bytedance/seedream/v5.5/layerize": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "bytedance/seedream/v5.5/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "bytedance/seedream/v5/flash/edit": {
       "mode": "image_generation",
       "capabilities": {
@@ -1243,6 +1276,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/auto-caption": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "fal-ai/bagel": {
       "mode": "image_generation",
@@ -2707,6 +2751,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/flux-pro/v1/vto": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "fal-ai/flux-pulid": {
       "mode": "image_generation",
       "capabilities": {
@@ -3201,6 +3256,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/hunyuan-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/hunyuan-video-image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "fal-ai/hunyuan-video-v1.5/image-to-video": {
       "mode": "video_generation",
@@ -4016,6 +4093,17 @@
       },
       "last_updated_at": "2026-05-28"
     },
+    "fal-ai/infinity-star/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "fal-ai/instant-character": {
       "mode": "image_generation",
       "capabilities": {
@@ -4819,6 +4907,61 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/ltx-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/ltx-video-13b-distilled": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/ltx-video-13b-distilled/extend": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/ltx-video-13b-distilled/multiconditioning": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/ltx-video/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "fal-ai/ltxv-13b-098-distilled": {
       "mode": "video_generation",
       "capabilities": {
@@ -4940,6 +5083,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/minimax/hailuo-2.3-fast/pro/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "fal-ai/minimax/image-01": {
       "mode": "image_generation",
       "capabilities": {
@@ -4961,6 +5115,83 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/minimax/video-01": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/minimax/video-01-director": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/minimax/video-01-director/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/minimax/video-01-live": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/minimax/video-01-live/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/minimax/video-01-subject-reference": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/minimax/video-01/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "fal-ai/mmaudio-v2": {
       "mode": "video_generation",
@@ -5164,6 +5395,28 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/ovi": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/ovi/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "fal-ai/patina": {
       "mode": "image_generation",
       "capabilities": {
@@ -5174,6 +5427,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/patina/material": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/patina/material/extract": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "fal-ai/phota/enhance": {
       "mode": "image_generation",
@@ -6176,6 +6451,17 @@
       },
       "last_updated_at": "2026-11-12"
     },
+    "fal-ai/vidu/template-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "fal-ai/wan-22-vace-fun-a14b/depth": {
       "mode": "video_generation",
       "capabilities": {
@@ -6263,6 +6549,39 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/wan-i2v-lora": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/wan-pro/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "fal-ai/wan-t2v-lora": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "fal-ai/wan-vace-14b": {
       "mode": "video_generation",
@@ -6385,6 +6704,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/wan/v2.2-5b/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "fal-ai/wan/v2.2-5b/text-to-image": {
       "mode": "image_generation",
       "capabilities": {
@@ -6395,6 +6725,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "fal-ai/wan/v2.2-5b/text-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "fal-ai/wan/v2.2-a14b/image-to-image": {
       "mode": "image_generation",
@@ -6817,6 +7158,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-12"
+    },
+    "google/nano-banana-2.1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "google/nano-banana-2.1/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "google/virtual-try-on": {
       "mode": "image_generation",
@@ -9127,6 +9490,39 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-12"
+    },
+    "moonvalley/marey/motion-transfer": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "moonvalley/marey/pose-transfer": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "mureka/api/generate/lyrics-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "nvidia/cosmos-3-super/image-to-video": {
       "mode": "video_generation",

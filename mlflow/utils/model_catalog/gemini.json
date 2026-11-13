@@ -1580,6 +1580,50 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "gemini-4-hydrogen": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.075,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.75,
+            "cache_read_per_million_tokens": 0.0375
+          },
+          "flex": {
+            "input_per_million_tokens": 0.75,
+            "output_per_million_tokens": 3.75,
+            "cache_read_per_million_tokens": 0.0375
+          },
+          "priority": {
+            "input_per_million_tokens": 2.7,
+            "output_per_million_tokens": 13.5,
+            "cache_read_per_million_tokens": 0.135
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "gemini-embedding-001": {
       "mode": "embedding",
       "context_window": {
