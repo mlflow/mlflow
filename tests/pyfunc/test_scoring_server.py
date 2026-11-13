@@ -164,7 +164,11 @@ def pandas_df_with_csv_types():
         "long": np.array([1, 2, 3], np.int64),
         "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
-        "datetime": pd.to_datetime(["2024-01-01 10:00:00", "2024-01-02 11:30:00", "2024-01-03 00:00:01"]),
+        "datetime": pd.to_datetime([
+            "2024-01-01 10:00:00",
+            "2024-01-02 11:30:00",
+            "2024-01-03 00:00:01",
+        ]),
     })
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
