@@ -632,7 +632,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "anthropic.claude-3-5-sonnet-20241022-v2:0": {
       "mode": "chat",
@@ -653,7 +654,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "anthropic.claude-3-7-sonnet-20240620-v1:0": {
       "mode": "chat",
@@ -695,7 +697,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "anthropic.claude-3-haiku-20240307-v1:0": {
       "mode": "chat",
@@ -5219,7 +5222,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "eu.anthropic.claude-3-5-sonnet-20241022-v2:0": {
       "mode": "chat",
@@ -5240,7 +5244,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "eu.anthropic.claude-3-7-sonnet-20250219-v1:0": {
       "mode": "chat",
@@ -5261,7 +5266,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "eu.anthropic.claude-3-haiku-20240307-v1:0": {
       "mode": "chat",
@@ -5925,7 +5931,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 163840,
-        "max_output": 163840
+        "max_output": 8000
       },
       "pricing": {
         "input_per_million_tokens": 0.74,
@@ -5944,7 +5950,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "eu.meta.llama3-2-1b-instruct-v1:0": {
       "mode": "chat",
@@ -7367,7 +7373,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "jp.amazon.nova-2-lite-v1:0": {
       "mode": "chat",
@@ -13066,7 +13073,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "us.anthropic.claude-3-5-sonnet-20241022-v2:0": {
       "mode": "chat",
@@ -13087,7 +13095,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "us.anthropic.claude-3-7-sonnet-20250219-v1:0": {
       "mode": "chat",
@@ -13108,7 +13117,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-11-13",
+      "last_updated_at": "2026-11-13"
     },
     "us.anthropic.claude-3-haiku-20240307-v1:0": {
       "mode": "chat",
@@ -13867,7 +13877,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 163840,
-        "max_output": 163840
+        "max_output": 8000
       },
       "pricing": {
         "input_per_million_tokens": 0.62,
@@ -13894,7 +13904,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "us.meta.llama3-1-405b-instruct-v1:0": {
       "mode": "chat",
