@@ -1074,8 +1074,10 @@ def test_aggregate_openai_responses_stream_chunks_returns_completed_response():
         ),
     ],
 )
+# An empty terminator exercises the trailing-bytes flush path.
+@pytest.mark.parametrize("terminator", ["\n", ""])
 def test_aggregate_openai_responses_stream_chunks_non_completed_terminal_events(
-    event_type: str, status: str, details: dict[str, Any]
+    event_type: str, status: str, details: dict[str, Any], terminator: str
 ):
     response = {
         "id": "resp_1",
@@ -1093,7 +1095,8 @@ def test_aggregate_openai_responses_stream_chunks_non_completed_terminal_events(
         "usage": {"input_tokens": 37, "output_tokens": 1, "total_tokens": 38},
         **details,
     }
-    terminal = f"data: {json.dumps({'type': event_type, 'response': response})}\n".encode()
+    event = {"type": event_type, "response": response}
+    terminal = f"data: {json.dumps(event)}{terminator}".encode()
     chunks = [_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA, terminal]
 
     assert aggregate_openai_responses_stream_chunks(chunks) == response
