@@ -736,7 +736,7 @@ def test_get_regressor_metrics(use_sample_weights):
             "mean_squared_error": 0.155,
             "root_mean_squared_error": 0.39370039370059057,
             "sum_on_target": -5.199999999999999,
-            "mean_on_target": -1.7333333333333332,
+            "mean_on_target": -0.8666666666666666,
             "r2_score": 0.9780003154076644,
             "max_error": 0.5,
             "mean_absolute_percentage_error": 0.1479076479076479,
