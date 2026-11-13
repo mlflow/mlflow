@@ -19,7 +19,7 @@ def _assoc_list_to_map(lst):
     """
     d = {}
     for run_id, metric in lst:
-        d[run_id] = d[run_id] + [metric] if run_id in d else [metric]
+        d.setdefault(run_id, []).append(metric)
     return d
 
 
@@ -35,14 +35,10 @@ def flush_metrics_queue():
         # flush operation should proceed; all others are redundant and should be dropped
         acquired_lock = _metrics_queue_lock.acquire(blocking=False)
         if acquired_lock:
-            # For thread safety and to avoid modifying a list while iterating over it, we record a
-            # separate list of the items being flushed and remove each one from the metric queue,
-            # rather than clearing the metric queue or reassigning it (clearing / reassigning is
-            # dangerous because we don't block threads from adding to the queue while a flush is
-            # in progress)
+            # Producers only append, so remove the captured prefix while preserving any metrics
+            # added after the snapshot. Other flushes cannot remove items while this lock is held.
             snapshot = _metrics_queue[:]
-            for item in snapshot:
-                _metrics_queue.remove(item)
+            del _metrics_queue[: len(snapshot)]
 
             # Only create MlflowClient if there are metrics to log
             if snapshot:
