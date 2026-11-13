@@ -2,7 +2,7 @@
  * Remote model-catalog lookup, mirroring Python's `mlflow/utils/providers.py`.
  *
  * Rates are fetched from the published catalog (a GitHub Release asset updated
- * weekly by CI) so pricing stays current between npm releases. Python caches
+ * by CI) so pricing stays current between npm releases. Python caches
  * fetches in memory with a TTL; the Stop hook is a short-lived process that runs
  * after every assistant turn, so the cache lives on the filesystem instead.
  * Like Python, a failed fetch is also cached for the TTL (as a `rates: null`
