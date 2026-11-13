@@ -1,9 +1,16 @@
 name: "show-versions"
 description: "Show python package versions sorted by release date"
+inputs:
+  output-json:
+    description: "Path to save installed package versions as JSON"
+    required: false
+    default: ""
 runs:
   using: "composite"
   steps:
     - shell: bash
+      env:
+        OUTPUT_JSON: ${{ inputs.output-json }}
       run: |
         # Activate the virtual environment if .venv exists
         if [ -d .venv ]; then
@@ -14,8 +21,12 @@ runs:
           fi
         fi
         pip --disable-pip-version-check install ./dev/pypi > /dev/null
+        args=()
+        if [[ -n "$OUTPUT_JSON" ]]; then
+          args+=(--output-json "$OUTPUT_JSON")
+        fi
         echo ">>> package versions"
         status=0
-        python dev/show_package_release_dates.py || status=$?
+        python dev/show_package_release_dates.py "${args[@]}" || status=$?
         echo "<<< package versions"
         exit $status

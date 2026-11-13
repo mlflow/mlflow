@@ -37,6 +37,7 @@ import {
   METADATA_KEY_WORKING_DIRECTORY,
   buildUsageDict,
   extractContentAndTools,
+  getCurrentUser,
   sanitizeForSpan,
 } from './_internal.js';
 
@@ -381,7 +382,7 @@ export class LiveTracingContext {
       if (this.sessionId) {
         metadata[TraceMetadataKey.TRACE_SESSION] = this.sessionId;
       }
-      const user = process.env.USER;
+      const user = getCurrentUser();
       if (user) {
         metadata[TraceMetadataKey.TRACE_USER] = user;
       }

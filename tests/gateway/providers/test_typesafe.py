@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, TypeSafeConfig
+from mlflow.gateway.constants import TYPESAFE_API_BASE_URL
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.provider_registry import provider_registry
 from mlflow.gateway.providers.base import PassthroughAction
@@ -47,6 +48,31 @@ def test_typesafe_api_key_config(monkeypatch):
 
     with pytest.raises(MlflowException, match="not a string"):
         TypeSafeConfig(typesafe_api_key=None)
+
+
+@pytest.mark.asyncio
+async def test_typesafe_api_base_config(provider):
+    assert provider.base_url == TYPESAFE_API_BASE_URL
+
+    custom_provider = TypeSafeProvider(
+        EndpointConfig(
+            name="custom-jev-evaluator",
+            endpoint_type="llm/v1/chat",
+            model={
+                "provider": "typesafe",
+                "name": "jev-1.13.0",
+                "config": {
+                    "typesafe_api_key": "typesafe-test-key",
+                    "typesafe_api_base": "https://typesafe.example.com/v1",
+                },
+            },
+        )
+    )
+    assert custom_provider.base_url == "https://typesafe.example.com/v1"
+
+    with patch("mlflow.gateway.providers.typesafe.send_request", return_value={}) as send:
+        await custom_provider.passthrough(PassthroughAction.TYPESAFE_SYSTEM_ONE, {})
+    assert send.await_args.kwargs["base_url"] == "https://typesafe.example.com/v1"
 
 
 @pytest.mark.parametrize(

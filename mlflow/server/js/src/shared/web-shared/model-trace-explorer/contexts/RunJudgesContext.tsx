@@ -51,6 +51,12 @@ export interface ModelTraceExplorerRunJudgeConfig {
   /** Reset/cancel evaluations. If requestKey is provided, cancels only that evaluation. */
   reset?: (requestKey?: string) => void;
   scope?: 'sessions' | 'traces';
+  /**
+   * Optionally translate a raw judge/scorer error message into a user-facing action. Injected
+   * by the feature layer so the generic trace explorer stays unaware of specific backend errors.
+   * Returns null when the message is not recognized.
+   */
+  formatErrorMessage?: (errorMessage: string) => string | null;
 }
 
 const ModelTraceExplorerRunJudgesContext = React.createContext<ModelTraceExplorerRunJudgeConfig>({
@@ -58,6 +64,7 @@ const ModelTraceExplorerRunJudgesContext = React.createContext<ModelTraceExplore
   evaluations: undefined,
   subscribeToScorerFinished: undefined,
   reset: undefined,
+  formatErrorMessage: undefined,
 });
 
 /**
@@ -74,12 +81,13 @@ export const ModelTraceExplorerRunJudgesContextProvider = ({
   subscribeToScorerFinished,
   reset,
   scope,
+  formatErrorMessage,
 }: ModelTraceExplorerRunJudgeConfig & {
   children: React.ReactNode;
 }) => {
   const contextValue = useMemo(
-    () => ({ renderRunJudgeModal, evaluations, subscribeToScorerFinished, reset, scope }),
-    [renderRunJudgeModal, evaluations, subscribeToScorerFinished, reset, scope],
+    () => ({ renderRunJudgeModal, evaluations, subscribeToScorerFinished, reset, scope, formatErrorMessage }),
+    [renderRunJudgeModal, evaluations, subscribeToScorerFinished, reset, scope, formatErrorMessage],
   );
   return (
     <ModelTraceExplorerRunJudgesContext.Provider value={contextValue}>

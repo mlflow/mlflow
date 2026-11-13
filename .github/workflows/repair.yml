@@ -1,0 +1,407 @@
+name: Repair
+
+on:
+  schedule:
+    # Run every 20 minutes.
+    - cron: "*/20 * * * *"
+      timezone: Asia/Tokyo
+  workflow_dispatch:
+    inputs:
+      pr_numbers:
+        description: "Comma-separated PR numbers; leave empty to search"
+        type: string
+        required: false
+        default: ""
+      model:
+        description: AI Gateway Claude model
+        type: string
+      effort:
+        description: Claude reasoning effort
+        type: choice
+        default: high
+        options: [low, medium, high, xhigh, max]
+      dry_run:
+        description: Print eligible reruns without submitting them
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow_ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+env:
+  GH_REPO: ${{ github.repository }}
+  DRY_RUN: ${{ inputs.dry_run || false }}
+  TRUSTED_REF: ${{ github.sha }}
+  CONTEXT_PATH: /tmp/repair-context/context.json
+  OUT_DIR: /tmp/repair-out
+  SCRIPT: .claude/skills/repair/scripts/cli.py
+
+jobs:
+  discover:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 15
+    permissions:
+      pull-requests: read # to find candidate PRs
+      actions: read # to read workflow run metadata
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+      is_empty: ${{ steps.discover.outputs.is_empty }}
+    steps:
+      - name: Check dispatch ref
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        env:
+          EXPECTED_REF: refs/heads/${{ github.event.repository.default_branch }}
+        run: |
+          test "$GITHUB_REF" = "$EXPECTED_REF"
+      - name: Fetch repair script
+        run: |
+          curl -fsSL --retry 3 --connect-timeout 10 --max-time 30 \
+            --write-out 'curl: %{time_total}s\n' \
+            "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/.claude/skills/repair/scripts/cli.py" \
+            -o "$RUNNER_TEMP/cli.py"
+
+      - name: Discover candidate PRs
+        id: discover
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAX_RETRIES: "3"
+          PR_NUMBERS: ${{ inputs.pr_numbers }}
+        run: |
+          python3 "$RUNNER_TEMP/cli.py" discover --out-path "$RUNNER_TEMP/candidates.json"
+          candidates=$(jq -c '.[:10]' "$RUNNER_TEMP/candidates.json")
+          matrix=$(jq -c '{
+            name: map("pr-\(.number)"),
+            include: map({name: "pr-\(.number)", pr: .})
+          }' <<< "$candidates")
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "is_empty=$(jq 'length == 0' <<< "$candidates")" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Repair candidates"
+            echo
+            echo '```json'
+            jq . <<< "$candidates"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  repair:
+    needs: discover
+    if: needs.discover.outputs.is_empty == 'false'
+    concurrency:
+      group: repair-pr-${{ matrix.pr.number }}
+      cancel-in-progress: false
+      queue: max
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Write repair context
+        env:
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
+        run: |
+          mkdir -p "$(dirname "$CONTEXT_PATH")" "$OUT_DIR"
+          printf '%s\n' "$CANDIDATE" > "$CONTEXT_PATH"
+      - parallel:
+          - name: Checkout trusted workflow files
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ env.TRUSTED_REF }}
+              path: trusted
+              persist-credentials: false
+          - name: Checkout PR head
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ matrix.pr.head_sha }}
+              path: pr
+              persist-credentials: false
+      - uses: ./trusted/.github/actions/setup-python
+      - uses: ./trusted/.github/actions/setup-node
+      - name: Install Claude Code
+        working-directory: trusted
+        run: |
+          .claude/scripts/install-claude.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - id: gateway
+        uses: ./trusted/.github/actions/setup-gateway
+        with:
+          task: pr-repair
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start gateway proxy
+        id: gateway-proxy
+        working-directory: trusted
+        env:
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN \
+            GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
+            > "$RUNNER_TEMP/repair-gateway-proxy.log" 2>&1 &
+          printf '%s\n' "$!" > "$RUNNER_TEMP/repair-gateway-proxy.pid"
+          unset GATEWAY_TOKEN placeholder_token
+          curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
+            -fsS http://127.0.0.1:8080/healthz > /dev/null
+      # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
+      # the token, like the gateway proxy. Disabled unless REPAIR_MLFLOW_TRACE_LOCATION is set to the
+      # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.REPAIR_MLFLOW_TRACE_LOCATION != ''
+        uses: ./trusted/.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start telemetry proxy
+        id: telemetry-proxy
+        if: steps.telemetry.outcome == 'success'
+        working-directory: trusted
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.REPAIR_MLFLOW_TRACE_LOCATION }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            node .claude/sandbox/otel-proxy.mjs \
+            > "$RUNNER_TEMP/repair-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN placeholder_token
+          printf '%s\n' "$proxy_pid" > "$RUNNER_TEMP/repair-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/repair-telemetry-proxy.log"
+          echo "::error::Telemetry proxy did not become ready"
+          exit 1
+      - name: Resolve agent model and effort
+        id: agent
+        env:
+          # Triage PRs can get a pushed code fix, so they use a model at least as capable as the
+          # triage bot's. Other PRs only get reruns or base merges.
+          MODEL: ${{ inputs.model || (matrix.pr.author_is_bot && startsWith(matrix.pr.head_ref, 'triage/') && (vars.REPAIR_FIX_MODEL || 'databricks-claude-opus-5-5')) || vars.REPAIR_MODEL || 'databricks-claude-sonnet-5-5' }}
+          EFFORT: ${{ inputs.effort || (matrix.pr.author_is_bot && startsWith(matrix.pr.head_ref, 'triage/') && (vars.REPAIR_FIX_EFFORT || 'high')) || vars.REPAIR_EFFORT || 'high' }}
+        run: |
+          # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
+          [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
+          case "$EFFORT" in
+            low | medium | high | xhigh | max) ;;
+            *)
+              echo "::error::Invalid effort '$EFFORT'. Check the REPAIR_EFFORT or REPAIR_FIX_EFFORT repository variable."
+              exit 1
+              ;;
+          esac
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
+          echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check repair budget
+        id: budget
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python "$SCRIPT" check-budget --context "$CONTEXT_PATH"
+      - name: Repair PR
+        if: steps.budget.outputs.eligible == 'true'
+        working-directory: trusted
+        env:
+          MODEL: ${{ steps.agent.outputs.model }}
+          EFFORT: ${{ steps.agent.outputs.effort }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
+          # OTEL_LOG_* flags include prompt, response, and tool content, which are redacted by default.
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ steps.telemetry.outcome == 'success' && format('Authorization={0} {1}', 'Bearer', steps.telemetry-proxy.outputs.placeholder-token) || '' }}
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf -v prompt '/repair "%s" "%s" "%s" "%s"' \
+            "$GITHUB_WORKSPACE/trusted" \
+            "$GITHUB_WORKSPACE/pr" \
+            "$CONTEXT_PATH" \
+            "$OUT_DIR"
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
+          timeout --kill-after=10s 30m claude \
+            --model "$MODEL" \
+            --effort "$EFFORT" \
+            --max-budget-usd 5 \
+            --permission-mode auto \
+            --disallowed-tools "WebSearch,WebFetch" \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "$prompt" | .claude/scripts/stream.sh
+      - name: Stop proxies
+        if: always()
+        run: |
+          for proxy in gateway telemetry; do
+            if [ -f "$RUNNER_TEMP/repair-$proxy-proxy.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/repair-$proxy-proxy.pid")" 2>/dev/null || true
+            fi
+          done
+      - name: Validate repair plan
+        if: steps.budget.outputs.eligible == 'true'
+        id: validate
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python "$SCRIPT" validate \
+            --payload "$OUT_DIR/payload.json" \
+            --context "$CONTEXT_PATH"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.validate.outcome == 'success'
+        with:
+          name: repair-plan-${{ matrix.pr.number }}
+          overwrite: true
+          path: ${{ env.OUT_DIR }}
+          if-no-files-found: error
+          retention-days: 7
+
+  apply:
+    needs: [discover, repair]
+    if: always() && needs.discover.outputs.is_empty == 'false'
+    concurrency:
+      group: repair-pr-${{ matrix.pr.number }}
+      cancel-in-progress: false
+      queue: max
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        id: plan
+        continue-on-error: true
+        with:
+          name: repair-plan-${{ matrix.pr.number }}
+          path: ${{ env.OUT_DIR }}
+      - name: Write repair context
+        if: steps.plan.outcome == 'success'
+        env:
+          CANDIDATE: ${{ toJSON(matrix.pr) }}
+        run: |
+          mkdir -p "$(dirname "$CONTEXT_PATH")"
+          printf '%s\n' "$CANDIDATE" > "$CONTEXT_PATH"
+      - name: Checkout trusted workflow files
+        if: steps.plan.outcome == 'success'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TRUSTED_REF }}
+          path: trusted
+          persist-credentials: false
+      - if: steps.plan.outcome == 'success'
+        uses: ./trusted/.github/actions/setup-python
+      - name: Validate repair plan
+        if: steps.plan.outcome == 'success'
+        id: validate
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python "$SCRIPT" validate \
+            --payload "$OUT_DIR/payload.json" \
+            --context "$CONTEXT_PATH"
+      - name: Checkout PR head
+        if: steps.validate.outputs.action_type == 'fix'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.pr.head_sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        if: steps.validate.outputs.action_type != '' && env.DRY_RUN != 'true'
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-actions: ${{ steps.validate.outputs.action_type == 'rerun' && 'write' || '' }}
+          permission-pull-requests: ${{ contains(fromJSON('["push", "fix"]'), steps.validate.outputs.action_type) && 'write' || '' }}
+          permission-contents: ${{ contains(fromJSON('["push", "fix"]'), steps.validate.outputs.action_type) && 'write' || '' }}
+      - name: Execute or preview repair plan
+        if: steps.validate.outcome == 'success'
+        id: execute
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.GITHUB_TOKEN }}
+          DRY_RUN_FLAG: ${{ env.DRY_RUN == 'true' && '--dry-run' || '--no-dry-run' }}
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python "$SCRIPT" execute \
+            --payload "$OUT_DIR/payload.json" \
+            --context "$CONTEXT_PATH" \
+            "$DRY_RUN_FLAG"
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        if: always() && (steps.execute.outcome == 'success' || steps.validate.outputs.action_type == 'fix') && env.DRY_RUN != 'true'
+        id: history-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-pull-requests: write
+      - name: Record or preview repair history
+        if: always() && (steps.execute.outcome == 'success' || steps.validate.outputs.action_type == 'fix')
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ steps.history-token.outputs.token || secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DRY_RUN_FLAG: ${{ env.DRY_RUN == 'true' && '--dry-run' || '--no-dry-run' }}
+        run: |
+          python "$SCRIPT" record \
+            --context "$CONTEXT_PATH" \
+            --run-url "$RUN_URL" \
+            "$DRY_RUN_FLAG"

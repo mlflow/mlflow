@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
-
-from typing_extensions import NotRequired
+from typing import Any, Literal, NotRequired, TypedDict
 
 from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-
-NOT_SET = object()
+from mlflow.store.tracking import NOT_SET, SEARCH_MAX_RESULTS_DEFAULT
 
 
 class MCPIcon(TypedDict):

@@ -13,6 +13,21 @@ When you have a fix to recommend, use two short sections for the finding:
 
 **🔧 Fix:** Start with the change you recommend, adding only the detail needed to implement it.
 
+When recommending a concrete code change, include a unified diff that mirrors the Suggested changeset directly in the comment body after the Fix section, inside a collapsed `<details>` block with a fenced `diff` code block:
+
+<details>
+<summary>Suggested patch</summary>
+
+```diff
+diff --git a/example.py b/example.py
+@@ -1,2 +1,2 @@
+ def greet(name: str) -> str:
+-    return f"Hello, {name}"
++    return f"Hello, {name}!"
+```
+
+</details>
+
 ## Knowledge Cutoff
 
 Your training data has a cutoff. Treat anything you don't recognize as **new, not wrong**. Here are things you might flag as incorrect but are actually valid:

@@ -4,10 +4,11 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import sys
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass, replace
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
@@ -16,6 +17,7 @@ from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 
+from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_URI
 from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
@@ -30,6 +32,7 @@ from mlflow.tracing.constant import (
     CostKey as CostKey,
 )
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.providers import _cost_per_token_from_custom_catalog
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
@@ -49,7 +52,7 @@ def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
         bound_arguments.apply_defaults()
 
         # Remove `self` from bound arguments if it exists
-        if bound_arguments.arguments.get("self"):
+        if "self" in bound_arguments.arguments:
             del bound_arguments.arguments["self"]
 
         # Remove `cls` from bound arguments if it's the first parameter and it's a type
@@ -74,7 +77,15 @@ class TraceJSONEncoder(json.JSONEncoder):
 
     def default(self, obj):
         if isinstance(obj, pydantic.BaseModel):
-            return obj.model_dump()
+            return obj.model_dump(warnings=False)
+
+        # NumPy is looked up lazily so this module stays importable without it (mlflow-skinny).
+        np = sys.modules.get("numpy")
+        if np is not None and isinstance(obj, (np.ndarray, np.generic)):
+            converted = obj.tolist()
+            # Extended-precision types (e.g. np.longdouble) convert to themselves, which would
+            # re-enter default() indefinitely, so fall back to their string representation.
+            return str(obj) if isinstance(converted, np.generic) else converted
 
         # Some dataclass object defines __str__ method that doesn't return the full object
         # representation, so we use dict representation instead.
@@ -308,12 +319,28 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     return aggregate_usage_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.CHAT_USAGE))
 
 
+def _with_total_tokens(usage: dict[str, Any]) -> dict[str, Any]:
+    # Spans such as embeddings may report only input tokens. Derive the missing total so
+    # those tokens still reach the trace-level total. An explicit total (including 0) is kept.
+    if usage.get(TokenUsageKey.TOTAL_TOKENS) is not None:
+        return usage
+    return {
+        **usage,
+        TokenUsageKey.TOTAL_TOKENS: usage.get(TokenUsageKey.INPUT_TOKENS, 0)
+        + usage.get(TokenUsageKey.OUTPUT_TOKENS, 0),
+    }
+
+
 def aggregate_usage_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, int] | None:
     """Aggregate token usage information from span nodes.
 
     Used by the tracking store, which rebuilds the span tree from stored rows instead of
     holding live spans in memory.
     """
+    nodes = [
+        replace(node, data=_with_total_tokens(node.data)) if node.data is not None else node
+        for node in nodes
+    ]
     return _aggregate_from_nodes(
         nodes,
         keys=[TokenUsageKey.INPUT_TOKENS, TokenUsageKey.OUTPUT_TOKENS, TokenUsageKey.TOTAL_TOKENS],
@@ -361,6 +388,14 @@ def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
 _SKIP_COST_PREFIXES = ("gateway:/", "endpoints:/")
 
 
+@lru_cache(maxsize=8)
+def _warn_model_catalog_error(uri: str) -> None:
+    _logger.warning(
+        f"Failed to read model prices from MLFLOW_MODEL_CATALOG_URI={uri!r}; using litellm prices.",
+        exc_info=True,
+    )
+
+
 def calculate_cost_by_model_and_token_usage(
     model_name: str | None, usage: dict[str, int] | None, model_provider: str | None = None
 ) -> dict[str, float] | None:
@@ -370,7 +405,9 @@ def calculate_cost_by_model_and_token_usage(
     if model_name.startswith(_SKIP_COST_PREFIXES):
         return None
 
-    if not model_provider and model_name.startswith(("databricks-", "databricks/")):
+    # Databricks endpoint names are priced from the Databricks catalog, even when the span
+    # names the upstream provider (e.g. Anthropic autolog calling the Databricks AI Gateway).
+    if model_name.startswith(("databricks-", "databricks/")):
         model_provider = "databricks"
 
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
@@ -385,6 +422,12 @@ def calculate_cost_by_model_and_token_usage(
     if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
 
+    # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
+    # litellm's signature does not accept it, so only pass it to the builtin.
+    builtin_cache_kwargs = dict(cache_kwargs)
+    if (above_1hr := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR)) is not None:
+        builtin_cache_kwargs["cache_creation_input_tokens_above_1hr"] = above_1hr
+
     try:
         import litellm
         from litellm import cost_per_token
@@ -392,15 +435,23 @@ def calculate_cost_by_model_and_token_usage(
         from mlflow.utils.providers import cost_per_token
 
         litellm = None
+        cache_kwargs = builtin_cache_kwargs
 
-    # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
-    # litellm's signature does not accept it, so only pass it when falling back to the builtin.
-    if (
-        litellm is None
-        and (above_1hr := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR))
-        is not None
-    ):
-        cache_kwargs["cache_creation_input_tokens_above_1hr"] = above_1hr
+    result = None
+    # litellm doesn't read MLFLOW_MODEL_CATALOG_URI and would otherwise shadow a catalog the user
+    # configured (e.g. by reporting unknown ollama models as free), so prices that catalog lists
+    # take precedence. Without litellm, the builtin lookup below already reads it.
+    if litellm is not None and model_provider:
+        try:
+            result = _cost_per_token_from_custom_catalog(
+                model=model_name,
+                provider=model_provider.lower(),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                **builtin_cache_kwargs,
+            )
+        except Exception:
+            _warn_model_catalog_error(MLFLOW_MODEL_CATALOG_URI.get())
 
     if litellm is not None:
         original_suppress = getattr(litellm, "suppress_debug_info")
@@ -413,8 +464,7 @@ def calculate_cost_by_model_and_token_usage(
 
         # When provider is known, try it first — this is a fast single-provider lookup
         # and avoids the slower all-provider scan.
-        result = None
-        if model_provider:
+        if result is None and model_provider:
             try:
                 result = cost_per_token(
                     model=model_name,
@@ -912,6 +962,22 @@ def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:
                     f"Expected format: {TRACE_ID_V4_PREFIX}<location>/<trace_id>"
                 )
     return None, trace_id
+
+
+def serialize_session_id(session_id: Any) -> Any:
+    """
+    Convert a session ID to its trace metadata form. A list identifies a hierarchical session
+    (outermost level first) and is stored as a compact JSON array string. Any other value is
+    returned unchanged to preserve the existing handling of non-list session IDs.
+    """
+    if not isinstance(session_id, list):
+        return session_id
+    if session_id and all(isinstance(level, str) for level in session_id):
+        return json.dumps(session_id, separators=(",", ":"), ensure_ascii=False)
+    raise MlflowException.invalid_parameter_value(
+        "The `session_id` parameter must be a string or a non-empty list of strings, "
+        f"but got {session_id!r}."
+    )
 
 
 def construct_trace_id_v4(location: str, trace_id: str) -> str:

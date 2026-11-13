@@ -1442,7 +1442,7 @@ def test_log_input_polars(tmp_path):
     assert len(dataset_inputs) == 1
     assert dataset_inputs[0].dataset.name == "dataset"
     # Digest value varies across Polars versions due to hash_rows() implementation changes
-    assert re.match(r"^\d+$", dataset_inputs[0].dataset.digest)
+    assert re.match(r"^[0-9a-f]{8}$", dataset_inputs[0].dataset.digest)
     assert dataset_inputs[0].dataset.source_type == "local"
 
 
@@ -1614,6 +1614,17 @@ def test_set_tag_async():
     assert parent_run.data.tags["async single tag"] == "1"
     for num in range(100):
         assert parent_run.data.tags[f"async batch tag {num}"] == str(num)
+
+
+def test_set_tag_async_applies_last_value():
+    final_values = []
+    for _ in range(5):
+        with mlflow.start_run() as run:
+            for i in range(20):
+                mlflow.set_tag("stage", str(i), synchronous=False)
+        final_values.append(mlflow.get_run(run.info.run_id).data.tags["stage"])
+
+    assert final_values == ["19"] * 5
 
 
 @pytest.fixture

@@ -439,9 +439,14 @@ def path_to_local_sqlite_uri(path):
     """
     Convert local filesystem path to sqlite uri.
     """
-    path = posixpath.abspath(pathname2url(os.path.abspath(path)))
-    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:///"
-    return prefix + path
+    posix_path = pathlib.Path(os.path.abspath(path)).as_posix()
+    if importlib.util.find_spec("sqlalchemy") is None:
+        return f"sqlite:///{posix_path}"
+    # Whether SQLAlchemy URL-decodes SQLite database paths (e.g. `%2B`) depends on its version
+    # (2.1+ does, 1.4/2.0 don't), so let the installed version escape the path.
+    from sqlalchemy.engine import URL
+
+    return URL.create("sqlite", database=posix_path).render_as_string()
 
 
 def local_file_uri_to_path(uri):
@@ -470,7 +475,9 @@ def get_local_path_or_none(path_or_uri):
         return None
 
 
-def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, headers=None):
+def download_file_using_http_uri(
+    http_uri, download_path, chunk_size=100000000, headers=None, verify=True
+):
     """
     Downloads a file specified using the `http_uri` to a local `download_path`. This function
     uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
@@ -480,7 +487,9 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
     """
     if headers is None:
         headers = {}
-    with cloud_storage_http_request("get", http_uri, stream=True, headers=headers) as response:
+    with cloud_storage_http_request(
+        "get", http_uri, stream=True, headers=headers, verify=verify
+    ) as response:
         augmented_raise_for_status(response)
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):

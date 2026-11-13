@@ -29,6 +29,12 @@ interface ModelSelectorModalProps {
   provider: string;
   /** Current model name value, used to pre-populate the modal when editing */
   initialValue?: string;
+  /**
+   * Lifts this modal above a host that raises its own stacking context. Needed when the form it
+   * belongs to is itself inside a raised modal, which would otherwise render over it. Left unset,
+   * the design system's default applies.
+   */
+  zIndex?: number;
 }
 
 interface CapabilityFilter {
@@ -43,7 +49,14 @@ interface FilterState {
   capabilities: CapabilityFilter;
 }
 
-export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initialValue }: ModelSelectorModalProps) => {
+export const ModelSelectorModal = ({
+  isOpen,
+  onClose,
+  onSelect,
+  provider,
+  initialValue,
+  zIndex,
+}: ModelSelectorModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
@@ -187,6 +200,7 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
       visible={isOpen}
       onCancel={handleClose}
       size="wide"
+      zIndex={zIndex}
       footer={
         <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <div>
@@ -274,7 +288,13 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
                 </div>
               </Button>
             </Popover.Trigger>
-            <Popover.Content align="end" css={{ padding: theme.spacing.md, minWidth: 200 }}>
+            <Popover.Content
+              align="end"
+              css={{ padding: theme.spacing.md, minWidth: 200 }}
+              // Raising the modal has to raise what opens inside it too, or this popover lands
+              // behind the dialog that hosts it.
+              style={zIndex === undefined ? undefined : { zIndex: zIndex + 10 }}
+            >
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
                 <div css={{ fontWeight: theme.typography.typographyBoldFontWeight, marginBottom: theme.spacing.xs }}>
                   <FormattedMessage defaultMessage="Capabilities" description="Filter section label for capabilities" />

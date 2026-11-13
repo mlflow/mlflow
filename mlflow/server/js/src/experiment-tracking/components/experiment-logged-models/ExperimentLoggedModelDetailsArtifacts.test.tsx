@@ -1,4 +1,4 @@
-import { afterAll, afterEach, jest, describe, beforeAll, test, expect } from '@jest/globals';
+import { afterAll, afterEach, jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
@@ -14,10 +14,14 @@ import { apis, artifactsByRunUuid } from '../../reducers/Reducers';
 import { ExperimentLoggedModelDetailsArtifacts } from './ExperimentLoggedModelDetailsArtifacts';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
-import { getWorkspacesEnabledSync } from '../../hooks/useServerInfo';
+import {
+  getLoggedModelArtifactReadCredentialsSupportedSync,
+  getWorkspacesEnabledSync,
+} from '../../hooks/useServerInfo';
 
 jest.mock('../../hooks/useServerInfo', () => ({
   ...jest.requireActual<typeof import('../../hooks/useServerInfo')>('../../hooks/useServerInfo'),
+  getLoggedModelArtifactReadCredentialsSupportedSync: jest.fn(),
   getWorkspacesEnabledSync: jest.fn(),
 }));
 
@@ -25,10 +29,14 @@ const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   const { history } = setupTestRouter();
-  let capturedRequests: { url: string; workspaceHeader: string | null }[] = [];
+  let capturedRequests: { url: string; workspaceHeader: string | null; storageHeader: string | null }[] = [];
   const server = setupServer(
     rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/directories/, (req, res, ctx) => {
-      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
+      capturedRequests.push({
+        url: req.url.toString(),
+        workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE'),
+        storageHeader: req.headers.get('x-storage-header'),
+      });
       return res(
         ctx.json({
           root_uri: 'dbfs:/databricks/mlflow-tracking/123/logged_models/test-model-id/artifacts',
@@ -47,13 +55,40 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
         }),
       );
     }),
-    rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/files/, (req, res, ctx) => {
-      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
-      return res(ctx.text('this is text file content of ' + req.url.searchParams.get('artifact_file_path')));
-    }),
-    rest.get(/\/?get-artifact/, (req, res, ctx) => {
-      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
-      return res(ctx.text('this is text file content of ' + req.url.searchParams.get('path')));
+    rest.post(
+      /\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/credentials-for-download/,
+      async (req, res, ctx) => {
+        capturedRequests.push({
+          url: req.url.toString(),
+          workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE'),
+          storageHeader: req.headers.get('x-storage-header'),
+        });
+        const body = (await req.json()) as { paths: string[] };
+        const path = body.paths[0];
+        return res(
+          ctx.json({
+            credentials: [
+              {
+                credential_info: {
+                  type: 'AWS_PRESIGNED_URL',
+                  signed_uri: `https://storage.example/artifacts/${encodeURIComponent(path)}`,
+                  path,
+                  headers: [{ name: 'x-storage-header', value: 'required' }],
+                },
+              },
+            ],
+          }),
+        );
+      },
+    ),
+    rest.get(/^https:\/\/storage\.example\/artifacts\//, (req, res, ctx) => {
+      capturedRequests.push({
+        url: req.url.toString(),
+        workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE'),
+        storageHeader: req.headers.get('x-storage-header'),
+      });
+      const path = decodeURIComponent(req.url.pathname.split('/').pop() ?? '');
+      return res(ctx.text('this is text file content of ' + path));
     }),
   );
 
@@ -92,9 +127,38 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
 
   beforeAll(() => {
     getWorkspacesEnabledSyncMock.mockReturnValue(true);
+    jest.mocked(getLoggedModelArtifactReadCredentialsSupportedSync).mockReturnValue(true);
     setActiveWorkspace('team-a');
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
     server.listen();
+  });
+
+  beforeEach(() => {
+    const mswFetch = global.fetch;
+    jest.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
+      const response = await mswFetch(input, init);
+      const url = input instanceof Request ? input.url : String(input);
+      if (url.startsWith('https://storage.example/artifacts/')) {
+        // MSW's Response polyfill has a Node stream body. Expose the browser
+        // reader contract so this integration exercises the bounded text reader.
+        const bytes = new TextEncoder().encode(await response.text());
+        let delivered = false;
+        Object.defineProperty(response, 'body', {
+          value: {
+            getReader: () => ({
+              read: async () => {
+                if (delivered) return { done: true, value: undefined };
+                delivered = true;
+                return { done: false, value: bytes };
+              },
+              cancel: async () => {},
+              releaseLock: () => {},
+            }),
+          },
+        });
+      }
+      return response;
+    });
   });
 
   afterAll(() => {
@@ -104,6 +168,7 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     capturedRequests = [];
     server.resetHandlers();
   });
@@ -122,10 +187,17 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
       expect(getByText('this is text file content of requirements.txt')).toBeInTheDocument();
     });
 
-    // Verify all requests included the workspace header
-    expect(capturedRequests.length).toBeGreaterThan(0);
-    for (const req of capturedRequests) {
+    const trackingServerRequests = capturedRequests.filter((req) => !req.url.startsWith('https://storage.example/'));
+    expect(trackingServerRequests.length).toBeGreaterThan(0);
+    for (const req of trackingServerRequests) {
       expect(req.workspaceHeader).toBe('team-a');
     }
+    expect(
+      capturedRequests.some((req) => req.url.includes('/artifacts/files') || req.url.includes('/get-artifact')),
+    ).toBe(false);
+    expect(capturedRequests.find((req) => req.url.startsWith('https://storage.example/'))).toEqual(
+      expect.objectContaining({ workspaceHeader: null, storageHeader: 'required' }),
+    );
+    expect(getLoggedModelArtifactReadCredentialsSupportedSync).toHaveBeenCalled();
   });
 });

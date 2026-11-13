@@ -5,6 +5,32 @@ description: GitHub Actions workflow and composite action conventions for MLflow
 
 # GitHub Actions Workflow Guidelines
 
+## Name Steps When the Name Adds Information
+
+GitHub Actions UI shows only the first line of an unnamed `run:` step. Add a short,
+action-oriented `name:` when it explains the whole step better than that line,
+even if the first command is clear:
+
+```yaml
+# Bad: the GitHub Actions UI shows only the condition.
+- run: |
+    if [ "$RUN_TESTS" = true ]; then
+      npm test
+    fi
+
+# Good: the name explains the step.
+- name: Run tests
+  run: |
+    if [ "$RUN_TESTS" = true ]; then
+      npm test
+    fi
+```
+
+Omit a name that merely restates a self-explanatory command, such as
+`Install dependencies` for `npm ci`. An action path like
+`./.github/actions/setup-python` can also speak for itself. Keep names concise;
+the job name often supplies enough context.
+
 ## Reinvent the Wheel When It's Cheap
 
 Prefer a small `run:` step or repository script over a third-party action when
@@ -117,6 +143,25 @@ use `gh` CLI instead of `actions/github-script`. It avoids the need for
   run: |
     gh pr comment ...
 ```
+
+## Benchmark GraphQL Queries to Avoid Timeouts
+
+GitHub terminates any GraphQL request that runs longer than 10 seconds and
+returns a `502` or `504`. A timeout also deducts extra points from the primary
+rate limit for the next hour
+([docs](https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api#timeouts)).
+Nested connections multiply the work, so a query that is fast on a small PR can
+time out on a large one.
+
+Before adding a GraphQL query to a workflow, time it against realistic inputs,
+including some large ones (e.g., a PR with many review threads):
+
+```bash
+time gh api graphql -F owner=mlflow -F repo=mlflow -F number=12345 -f query='...' > /dev/null
+```
+
+If it is not comfortably under the limit, lower `first`/`last` and paginate,
+reduce nesting, request fewer fields, or split the query.
 
 ## Prefer `GITHUB_TOKEN` When Its Scope and Trigger Behavior Are Sufficient
 
@@ -261,3 +306,23 @@ use for the secret never holds it.
 
 The same holds for a secret that comes straight from `secrets.*`: put it in the
 consuming step's `env:` block rather than exporting it job-wide.
+
+## Run Independent Steps in Parallel
+
+Group independent steps under
+[`parallel`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsparallel)
+to overlap their execution and reduce elapsed job time. The job waits for all
+steps in the group to finish before continuing. For example, install JavaScript
+and Python dependencies concurrently:
+
+```yaml
+- parallel:
+    - run: |
+        npm ci
+    - run: |
+        uv sync
+```
+
+Complete shared prerequisites before the group. Only group steps that do not
+depend on each other's outputs or side effects, and avoid concurrent writes to
+the same files or package-manager state. Keep dependent work sequential.

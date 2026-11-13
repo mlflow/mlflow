@@ -5,6 +5,10 @@ from unittest import mock
 
 import pytest
 from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
 import mlflow
@@ -32,6 +36,7 @@ from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
+    _add_span_processor_first,
     _get_span_processor,
     _get_tracer,
     _initialize_tracer_provider,
@@ -840,6 +845,7 @@ def test_otel_resource_attributes(monkeypatch):
         attributes.pop("service.instance.id", None)
         return attributes
 
+    default_service_name = Resource.create({}).attributes["service.name"]
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
     assert resource_attributes(tracer) == {
@@ -859,7 +865,7 @@ def test_otel_resource_attributes(monkeypatch):
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
-        "service.name": "unknown_service",
+        "service.name": default_service_name,
     }
 
     # Service name should be propagated from the env var
@@ -880,7 +886,7 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     tracer = _get_tracer("test")
     assert resource_attributes(tracer) == {
-        "service.name": "unknown_service",
+        "service.name": default_service_name,
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
@@ -1288,3 +1294,19 @@ def test_serving_tracing_destination_env_wins_over_experiment_binding(
         assert spans_table == "envcat.envsch.mlflow_experiment_trace_otel_spans"
 
     mlflow.tracing.reset()
+
+
+def test_add_span_processor_first_runs_new_processor_before_existing_ones():
+    tracer_provider = SDKTracerProvider()
+    existing_a = SimpleSpanProcessor(InMemorySpanExporter())
+    existing_b = SimpleSpanProcessor(InMemorySpanExporter())
+    tracer_provider.add_span_processor(existing_a)
+    tracer_provider.add_span_processor(existing_b)
+    new = SimpleSpanProcessor(InMemorySpanExporter())
+
+    _add_span_processor_first(tracer_provider, new)
+
+    active = tracer_provider._active_span_processor
+    assert active._span_processors == (new, existing_a, existing_b)
+    # The reorder holds the composite's lock, and releases it.
+    assert not active._lock.locked()

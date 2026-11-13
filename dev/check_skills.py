@@ -43,7 +43,10 @@ def validate_description(description: Any) -> list[str]:
 
 
 def check(path: Path) -> list[str]:
-    fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+    try:
+        fm = parse_frontmatter(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as e:
+        return [f"malformed frontmatter YAML: {e}"]
     if fm is None:
         return ["missing frontmatter"]
     errors = [
@@ -52,6 +55,25 @@ def check(path: Path) -> list[str]:
     ]
     if "allowed-tools" in fm:
         errors.append("remove `allowed-tools`: auto mode handles tool permissions")
+    if (
+        path.resolve().is_relative_to(Path(__file__).resolve().parents[1] / ".claude" / "skills")
+        and fm.get("disable-model-invocation") is True
+    ):
+        policy_path = path.parent / "agents" / "openai.yaml"
+        if not policy_path.is_file():
+            return [*errors, "missing `agents/openai.yaml` for disabled model invocation"]
+        try:
+            policy = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as e:
+            return [*errors, f"malformed `agents/openai.yaml`: {e}"]
+        if not isinstance(policy, dict) or not isinstance(policy.get("policy"), dict):
+            errors.append(
+                "`agents/openai.yaml` must contain `policy.allow_implicit_invocation: false`"
+            )
+        elif policy["policy"].get("allow_implicit_invocation") is not False:
+            errors.append(
+                "`agents/openai.yaml` must set `policy.allow_implicit_invocation` to boolean false"
+            )
     return errors
 
 

@@ -96,6 +96,7 @@ TRACING_INCLUDE_FILES = [
     "mlflow.mistral*",
     "mlflow.openai*",
     "mlflow.strands*",
+    "mlflow.typesafe*",
     "mlflow.haystack*",
     # Other necessary modules
     "mlflow.azure*",
@@ -354,6 +355,7 @@ def build(package_type: PackageType) -> None:
                     "azureml-core>=1.2.0",
                     # Required to log artifacts to SFTP artifact locations
                     "pysftp",
+                    "paramiko<4",
                     # Required by the mlflow.projects module, when running projects against
                     # a remote Kubernetes cluster
                     "kubernetes",
@@ -365,6 +367,8 @@ def build(package_type: PackageType) -> None:
                     # Required to use MySQL, PostgreSQL, or SQL Server as the backend store
                     "PyMySQL",
                     "psycopg2-binary",
+                    # Default driver for postgresql:// URLs in SQLAlchemy 2.1+
+                    "psycopg[binary]",
                     "pymssql",
                 ],
                 "databricks": [

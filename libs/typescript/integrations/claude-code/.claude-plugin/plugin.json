@@ -1,6 +1,6 @@
 {
   "name": "mlflow-tracing",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "description": "Observability plugin for Claude Code with MLflow tracing",
   "author": {
     "name": "MLflow",

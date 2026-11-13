@@ -10,6 +10,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.providers.openai import OpenAIConfig
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
@@ -24,7 +25,7 @@ from mlflow.genai.judges.adapters.gateway_adapter import (
 )
 from mlflow.genai.judges.adapters.utils import ChatCompletionError, is_context_window_error
 from mlflow.genai.judges.utils.tool_calling_utils import _remove_oldest_tool_call_pair
-from mlflow.genai.utils.gateway_utils import GatewayConfig
+from mlflow.genai.utils.gateway_utils import GatewayConfig, gateway_caller
 from mlflow.metrics.genai.model_utils import _get_provider_instance, _MlflowGatewayProvider
 from mlflow.types.llm import ChatMessage
 
@@ -176,6 +177,34 @@ def test_invoke_without_trace_uses_tool_calling_loop():
         result = adapter.invoke(input_params)
 
     mock_invoke.assert_called_once()
+    assert result.feedback.value == "yes"
+
+
+@pytest.mark.parametrize(
+    "model_uri", ["bedrock:/anthropic.claude-v2", "amazon-bedrock:/anthropic.claude-v2"]
+)
+@pytest.mark.parametrize(
+    "prompt", ["test", [ChatMessage(role="user", content="test")]], ids=["str", "messages"]
+)
+def test_invoke_bedrock_without_trace_skips_tool_calling_loop(model_uri, prompt):
+    adapter = GatewayAdapter()
+    input_params = AdapterInvocationInput(
+        model_uri=model_uri,
+        prompt=prompt,
+        assessment_name="test_metric",
+    )
+
+    with (
+        mock.patch.object(adapter, "_invoke_and_handle_tools") as mock_tools,
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+            return_value=json.dumps({"result": "yes", "rationale": "ok"}),
+        ) as mock_gateway,
+    ):
+        result = adapter.invoke(input_params)
+
+    mock_tools.assert_not_called()
+    mock_gateway.assert_called_once()
     assert result.feedback.value == "yes"
 
 
@@ -1349,3 +1378,58 @@ def test_invoke_and_handle_tools_forwards_workspace_header():
         )
 
     assert captured_headers["X-MLFLOW-WORKSPACE"] == "my-workspace"
+
+
+@pytest.mark.parametrize(
+    ("caller", "expected"),
+    [(None, "judge"), (GatewayCaller.ISSUE_DETECTION, "issue_detection")],
+)
+def test_invoke_via_gateway_attributes_calls_to_the_owning_feature(caller, expected):
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+            return_value='{"result": "yes", "rationale": "ok"}',
+        ) as mock_score,
+        gateway_caller(caller),
+    ):
+        _invoke_via_gateway(
+            model_uri="gateway:/my-endpoint",
+            provider="gateway",
+            prompt="Is this helpful?",
+        )
+
+    assert mock_score.call_args.kwargs["extra_headers"][MLFLOW_GATEWAY_CALLER_HEADER] == expected
+
+
+@pytest.mark.parametrize(
+    ("caller", "expected"),
+    [(None, "judge"), (GatewayCaller.ISSUE_DETECTION, "issue_detection")],
+)
+def test_invoke_and_handle_tools_attributes_calls_to_the_owning_feature(caller, expected):
+    captured_headers = {}
+
+    def capture_and_raise(**kwargs):
+        captured_headers.update(kwargs.get("headers", {}))
+        raise MlflowException("stop")
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=capture_and_raise,
+        ),
+        gateway_caller(caller),
+        pytest.raises(MlflowException, match="stop"),
+    ):
+        GatewayAdapter()._invoke_and_handle_tools(
+            provider="gateway",
+            model_name="my-endpoint",
+            messages=[ChatMessage(role="user", content="evaluate this")],
+            trace=None,
+            num_retries=0,
+        )
+
+    assert captured_headers[MLFLOW_GATEWAY_CALLER_HEADER] == expected

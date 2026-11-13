@@ -31,9 +31,31 @@ from mlflow.utils.search_utils import (
     SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
     SearchMCPServerVersionUtils,
+    SearchModelUtils,
+    SearchModelVersionUtils,
     SearchTraceUtils,
     SearchUtils,
 )
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "search_type"),
+    [
+        (SearchModelUtils, "registered model"),
+        (SearchModelVersionUtils, "model version"),
+    ],
+)
+@pytest.mark.parametrize("identifier", ["tags.stage", "name"])
+@pytest.mark.parametrize("comparator", ["IS NULL", "IS NOT NULL", "is null", "is not null"])
+def test_model_registry_search_rejects_null_comparisons(
+    search_utils, search_type, identifier, comparator
+):
+    with pytest.raises(
+        MlflowException,
+        match=f"IS NULL / IS NOT NULL is not supported for {search_type} search",
+    ) as exc:
+        search_utils.parse_search_filter(f"{identifier} {comparator}")
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 @pytest.mark.parametrize(
@@ -166,6 +188,101 @@ def test_numeric_attribute_values_are_parsed_as_integers(search_utils, filter_st
 
     assert condition["value"] == 1234
     assert isinstance(condition["value"], int)
+
+
+def test_evaluation_dataset_name_in_filter():
+    assert SearchEvaluationDatasetsUtils.parse_search_filter(
+        "name IN ('dataset-a', 'dataset-b')"
+    ) == [
+        {
+            "type": "attribute",
+            "key": "name",
+            "comparator": "IN",
+            "value": ("dataset-a", "dataset-b"),
+        }
+    ]
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize("names", ["('dataset-a')", "('dataset-a', 'dataset-b')"])
+def test_evaluation_dataset_name_list_requires_in(comparator, names):
+    with pytest.raises(
+        MlflowException,
+        match="List values for 'name' are only supported with the IN comparator",
+        check=lambda e: e.error_code == "INVALID_PARAMETER_VALUE",
+    ):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"name {comparator} {names}")
+
+
+@pytest.mark.parametrize("key", ["created_by", "last_updated_by"])
+def test_evaluation_dataset_in_filter_rejects_other_string_attributes(key):
+    with pytest.raises(MlflowException, match="Only .* attributes support comparison with a list"):
+        SearchEvaluationDatasetsUtils.parse_search_filter(f"{key} IN ('user-a', 'user-b')")
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("server_name = 'Com.Example/MyServer'", [("server_name", "=", "Com.Example/MyServer")]),
+        (
+            "server_name IN ('Com.Example/MyServer', 'com.example/other')",
+            [("server_name", "IN", ("Com.Example/MyServer", "com.example/other"))],
+        ),
+        (
+            "server_name NOT IN ('Com.Example/MyServer')",
+            [("server_name", "NOT IN", ("Com.Example/MyServer",))],
+        ),
+        (
+            "transport_type = 'sse' AND server_name = 'Com.Example/MyServer'",
+            [("transport_type", "=", "sse"), ("server_name", "=", "Com.Example/MyServer")],
+        ),
+        (
+            "server_name = 'Com.Example/MyServer' AND transport_type = 'sse'",
+            [("server_name", "=", "Com.Example/MyServer"), ("transport_type", "=", "sse")],
+        ),
+    ],
+)
+def test_mcp_access_endpoint_server_name_filter(filter_string, expected):
+    parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
+    assert [
+        (condition["key"], condition["comparator"], condition["value"]) for condition in parsed
+    ] == expected
+
+
+def test_mcp_access_endpoint_server_name_rejects_or():
+    with pytest.raises(MlflowException, match="Invalid clause"):
+        SearchMCPAccessEndpointUtils.parse_search_filter(
+            "server_name = 'com.example/one' OR transport_type = 'sse'"
+        )
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "<", "<=", ">", ">="])
+def test_mcp_server_version_filter(comparator):
+    [condition] = SearchMCPServerVersionUtils.parse_search_filter(
+        f"version {comparator} '1.0.0-Alpha+Build'"
+    )
+
+    assert condition == {
+        "type": "attribute",
+        "key": "version",
+        "comparator": comparator,
+        "value": "1.0.0-Alpha+Build",
+    }
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "match"),
+    [
+        ("version = '1.0.0' OR status = 'draft'", "Invalid clause.*'OR'"),
+        ("version IN ('1.0.0', '2.0.0')", r"Only \['status'\] attributes support comparison"),
+        ("select = '1.0.0'", "Invalid clause.*'select'"),
+    ],
+)
+def test_mcp_server_version_rejects_invalid_filters(filter_string, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        SearchMCPServerVersionUtils.parse_search_filter(filter_string)
+
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_float_numeric_attribute_value_is_parsed_as_float():
@@ -956,3 +1073,46 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+def _mysql_sql(comparator, expression, value):
+    from sqlalchemy.dialects import mysql
+
+    func = SearchUtils.get_sql_expression_comparison_func(comparator, "mysql")
+    return str(func(expression, value).compile(dialect=mysql.dialect()))
+
+
+def _collated_column():
+    from mlflow.store.tracking.dbmodels.models import SqlSkillVersion
+
+    # A collated column is an expression rather than a mapped column, so it has
+    # no .class_ for the raw BINARY SQL that get_sql_comparison_func builds.
+    return SqlSkillVersion.status.__clause_element__().collate("utf8mb4_bin")
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE"])
+def test_sql_expression_comparison_func_is_case_sensitive_on_mysql(comparator):
+    assert "binary(" in _mysql_sql(comparator, _collated_column(), "Act%")
+
+
+def test_sql_expression_comparison_func_keeps_ilike_case_insensitive_on_mysql():
+    from sqlalchemy.dialects import mysql
+
+    column = _collated_column()
+    expected = str(column.ilike("ACT%").compile(dialect=mysql.dialect()))
+    assert _mysql_sql("ILIKE", column, "ACT%") == expected
+    assert "lower(" in expected
+
+
+@pytest.mark.parametrize("comparator", ["IN", "NOT IN"])
+def test_sql_expression_comparison_func_binds_lists_on_mysql(comparator):
+    assert "binary(" in _mysql_sql(comparator, _collated_column(), ["active", "draft"])
+
+
+@pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mssql"])
+@pytest.mark.parametrize("comparator", ["=", "LIKE", "ILIKE"])
+def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, comparator):
+    column = _collated_column()
+    expression_func = SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
+    column_func = SearchUtils.get_sql_comparison_func(comparator, dialect)
+    assert expression_func(column, "act%").compare(column_func(column, "act%"))

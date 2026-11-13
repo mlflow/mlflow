@@ -581,10 +581,12 @@ def _convert_data_to_type_hint(data: Any, type_hint: type[Any]) -> Any:
                 f"with a single column. But got {_type_hint_repr(type_hint)}."
             )
         element_type = _get_element_type_of_list_type_hint(type_hint)
-        # This is needed for list[dict] or list[pydantic.BaseModel] type hints
+        # This is needed for list[dict[...]] or list[pydantic.BaseModel] type hints
         # since the data can be converted to pandas DataFrame with multiple columns
-        # inside spark_udf
-        if element_type is dict or _is_pydantic_type_hint(element_type):
+        # inside spark_udf. A single-column DataFrame with a list[dict[...]] type hint
+        # is unpacked below because its column may already contain dictionaries.
+        is_dict_element = _get_origin_type(element_type) is dict
+        if _is_pydantic_type_hint(element_type) or (is_dict_element and len(data.columns) > 1):
             # if the column is 0, then each row is a dictionary
             if list(data.columns) == [0]:
                 result = data.iloc[:, 0].tolist()

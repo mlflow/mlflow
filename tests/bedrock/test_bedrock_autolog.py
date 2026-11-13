@@ -11,6 +11,7 @@ from botocore.response import StreamingBody
 from packaging.version import Version
 
 import mlflow
+from mlflow.bedrock.utils import capture_exception
 from mlflow.entities import SpanLogLevel
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -459,6 +460,69 @@ def test_bedrock_autolog_invoke_model_stream():
     assert usage["total_tokens"] == 20  # Calculated as input + output
 
 
+def test_bedrock_autolog_invoke_model_stream_openai_chat_chunks():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    model_id = "us.openai.gpt-6-sol"
+    request_body = json.dumps({
+        "messages": [{"role": "user", "content": "Hi"}],
+        "max_completion_tokens": 64,
+    })
+
+    # OpenAI chat.completion.chunk bodies have no "type" key
+    dummy_chunks = [
+        {
+            "object": "chat.completion.chunk",
+            "model": model_id,
+            "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}}],
+        },
+        {
+            "object": "chat.completion.chunk",
+            "model": model_id,
+            "choices": [{"index": 0, "delta": {"content": "pong"}}],
+        },
+        {
+            "object": "chat.completion.chunk",
+            "model": model_id,
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            "usage": {"prompt_tokens": 13, "completion_tokens": 5, "total_tokens": 18},
+            "amazon-bedrock-invocationMetrics": {"invocationLatency": 612},
+        },
+    ]
+
+    def dummy_stream():
+        for chunk in dummy_chunks:
+            yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"body": dummy_stream()},
+    ):
+        response = client.invoke_model_with_response_stream(body=request_body, modelId=model_id)
+
+    events = list(response["body"])
+    assert len(events) == len(dummy_chunks)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert [event.name for event in span.events] == ["chunk"] * len(dummy_chunks)
+    assert [json.loads(event.attributes["json"]) for event in span.events] == dummy_chunks
+    _assert_token_usage_matches(span, {"input_tokens": 13, "output_tokens": 5, "total_tokens": 18})
+
+
+def test_capture_exception_does_not_raise_outside_tests(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TESTING", "false")
+
+    @capture_exception("Failed")
+    def fail():
+        raise ValueError("boom")
+
+    assert fail() is None
+
+
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
 def test_bedrock_autolog_trace_disabled(config):
     mlflow.bedrock.autolog(**config)
@@ -632,6 +696,32 @@ _CONVERSE_TOOL_CALLING_RESPONSE = {
     "stopReason": "end_turn",
     "usage": {"inputTokens": 8, "outputTokens": 12},
     "metrics": {"latencyMs": 551},
+}
+
+_CONVERSE_PARALLEL_TOOL_CALLING_RESPONSE = {
+    **_CONVERSE_TOOL_CALLING_RESPONSE,
+    "output": {
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"text": "I'll check the weather in both cities."},
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_2",
+                        "name": "get_weather",
+                        "input": '{"location": "Paris, France"}',
+                    }
+                },
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_3",
+                        "name": "get_weather",
+                        "input": '{"location": "Tokyo, Japan"}',
+                    }
+                },
+            ],
+        },
+    },
 }
 
 _CONVERSE_TOOL_CALLING_EXPECTED_CHAT_ATTRIBUTE = [
@@ -932,6 +1022,14 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
             _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
             {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
+        # 3. Parallel tool calls in a single turn
+        (
+            _CONVERSE_TOOL_CALLING_REQUEST,
+            _CONVERSE_PARALLEL_TOOL_CALLING_RESPONSE,
+            None,
+            _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
+        ),
     ],
 )
 def test_bedrock_autolog_converse_stream(
@@ -985,6 +1083,53 @@ def test_bedrock_autolog_converse_stream(
         assert span.llm_cost == expected_cost
 
 
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
+def test_bedrock_autolog_converse_stream_with_redacted_reasoning():
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    request = {
+        "modelId": "us.openai.gpt-6-luna",
+        "messages": [{"role": "user", "content": [{"text": "Is 391 a prime number?"}]}],
+    }
+    # OpenAI GPT-6 models stream their reasoning only as redactedContent bytes
+    stream_events = [
+        {"messageStart": {"role": "assistant"}},
+        {
+            "contentBlockDelta": {
+                "delta": {"reasoningContent": {"redactedContent": b"rsn_abc"}},
+                "contentBlockIndex": 0,
+            }
+        },
+        {"contentBlockStop": {"contentBlockIndex": 0}},
+        {"contentBlockDelta": {"delta": {"text": "No."}, "contentBlockIndex": 1}},
+        {"contentBlockStop": {"contentBlockIndex": 1}},
+        {"messageStop": {"stopReason": "end_turn"}},
+        {
+            "metadata": {
+                "usage": {"inputTokens": 18, "outputTokens": 27, "totalTokens": 45},
+                "metrics": {"latencyMs": 550},
+            }
+        },
+    ]
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"stream": iter(stream_events)},
+    ):
+        response = client.converse_stream(**request)
+
+    assert list(response["stream"]) == stream_events
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == len(stream_events)
+    assert span.outputs["output"]["message"]["content"] == [{"text": "No."}]
+    _assert_token_usage_matches(span, {"input_tokens": 18, "output_tokens": 27, "total_tokens": 45})
+
+
 def _event_stream(raw_response, chunk_size=10):
     """Split the raw response into chunks to simulate the event stream."""
     content = raw_response["output"]["message"]["content"]
@@ -1005,7 +1150,9 @@ def _event_stream(raw_response, chunk_size=10):
 
 
 def _generate_tool_use_chunks_if_present(content, chunk_size=10):
-    if len(content) > 1 and (tool_content := content[1].get("toolUse")):
+    for block in content[1:]:
+        if not (tool_content := block.get("toolUse")):
+            continue
         yield {
             "contentBlockStart": {
                 "start": {

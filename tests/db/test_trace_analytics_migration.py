@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from contextlib import contextmanager
 from datetime import date
@@ -448,6 +449,8 @@ def test_trace_analytics_migration_operation_order(monkeypatch):
 
     for operation in expected_operations:
         monkeypatch.setattr(MIGRATION_MODULE, operation, record(operation))
+    # `upgrade()` runs outside an Alembic context here, so it can't query the database.
+    monkeypatch.setattr(MIGRATION_MODULE, "_has_traces", lambda: True)
 
     MIGRATION_MODULE.upgrade()
 
@@ -772,6 +775,7 @@ def test_trace_analytics_migration_downgrade_and_reupgrade(tmp_path):
 
 
 def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, caplog):
+    caplog.set_level(logging.INFO, logger="mlflow.store.db_migrations")
     engine, config = _prepare_database(tmp_path)
     try:
         with engine.begin() as conn:
@@ -973,6 +977,31 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
             "model_name=3, model_provider=2"
         ]
 
+        progress_logs = [
+            record.getMessage()
+            for record in caplog.records
+            if record.name.startswith("mlflow.")
+            and record.getMessage().startswith("Trace analytics ")
+        ]
+        assert "Trace analytics migration step 1/13: validate_required_trace_joins" in progress_logs
+        assert "Trace analytics migration step 13/13: create_analytics_indexes" in progress_logs
+        trace_backfill_logs = [
+            message for message in progress_logs if message.startswith("Trace analytics trace ")
+        ]
+        # Progress is logged for the first batch and on completion; the 11 batches here stay
+        # below the every-N-batches interval.
+        assert len(trace_backfill_logs) == 2
+        assert trace_backfill_logs[0].startswith(
+            "Trace analytics trace backfill progress: scanned=250, updated="
+        )
+        assert trace_backfill_logs[1].startswith(
+            "Trace analytics trace backfill completed: scanned="
+        )
+        assert any(
+            message.startswith("Trace analytics span_metrics legacy row cleanup completed: ")
+            for message in progress_logs
+        )
+
         with engine.connect() as conn:
             trace_info = _table(conn, "trace_info")
             assert (
@@ -1037,8 +1066,44 @@ def test_trace_analytics_migration_backfills_multiple_keyset_pages(tmp_path, cap
                 1_800_000_000_000 + _PAGINATION_ROW_COUNT - 1,
                 float(_PAGINATION_ROW_COUNT - 1),
             )
+
+            # The legacy cleanup deletes in cursor-paged batches; every batch must be removed.
+            for table_name, key in (
+                ("trace_tags", TraceTagKey.TRACE_NAME),
+                ("trace_request_metadata", TraceMetadataKey.TRACE_SESSION),
+                ("trace_metrics", TokenUsageKey.INPUT_TOKENS),
+                ("span_metrics", CostKey.TOTAL_COST),
+            ):
+                table = _table(conn, table_name)
+                assert (
+                    conn.execute(
+                        sa.select(sa.func.count()).select_from(table).where(table.c.key == key)
+                    ).scalar_one()
+                    == 0
+                )
     finally:
         engine.dispose()
+
+
+def test_trace_analytics_migration_logs_steps_at_debug_on_an_empty_database(tmp_path, caplog):
+    caplog.set_level(logging.DEBUG, logger="mlflow.store.db_migrations")
+    engine, config = _prepare_database(tmp_path)
+    try:
+        command.upgrade(config, REVISION)
+    finally:
+        engine.dispose()
+
+    migration_logs = [
+        (record.levelno, record.getMessage())
+        for record in caplog.records
+        if record.name == MIGRATION_MODULE._logger.name
+    ]
+    # Only the step lines remain, all at DEBUG; the backfills and cleanups had nothing to process.
+    assert len(migration_logs) == 13
+    assert all(level == logging.DEBUG for level, _ in migration_logs)
+    assert all(
+        message.startswith("Trace analytics migration step ") for _, message in migration_logs
+    )
 
 
 def test_trace_analytics_migration_rejects_orphaned_assessments(tmp_path):
@@ -1259,6 +1324,68 @@ def test_span_metrics_for_keys_query_matches_exact_pairs():
         ("trace-1", "span-1", CostKey.INPUT_COST, 1.0),
         ("trace-2", "span-2", CostKey.INPUT_COST, 4.0),
     }
+
+
+@pytest.mark.parametrize(
+    ("dialect", "uses_row_value"),
+    [
+        (postgresql.dialect(), True),
+        (sqlite.dialect(), True),
+        (mysql.dialect(), False),
+        (mssql.dialect(), False),
+    ],
+)
+def test_span_key_after_compiles_for_supported_dialects(dialect, uses_row_value):
+    spans = sa.table(
+        "spans", sa.column("trace_id", sa.String(50)), sa.column("span_id", sa.String(50))
+    )
+
+    condition = MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1", dialect.name)
+
+    sql = str(condition.compile(dialect=dialect))
+    if uses_row_value:
+        assert sql.startswith("(spans.trace_id, spans.span_id) > (")
+        assert " OR " not in sql
+    else:
+        assert sql.startswith("spans.trace_id >= ")
+        assert " OR spans.trace_id = " in sql
+
+
+@pytest.mark.skipif(
+    not (USE_EXTERNAL_DB and DB_URI.startswith("postgresql")), reason="PostgreSQL query plan"
+)
+def test_span_key_after_seeks_the_spans_primary_key_on_postgres(tmp_path):
+    engine, _ = _prepare_database(tmp_path)
+    try:
+        with engine.begin() as conn:
+            spans = _table(conn, "spans")
+            page = (
+                sa
+                .select(spans.c.trace_id, spans.c.span_id)
+                .where(
+                    MIGRATION_MODULE._span_key_after(spans, "trace-1", "span-1", conn.dialect.name)
+                )
+                .order_by(spans.c.trace_id, spans.c.span_id)
+                .limit(MIGRATION_MODULE._BATCH_SIZE)
+            )
+            sql = str(page.compile(conn, compile_kwargs={"literal_binds": True}))
+            # An empty table plans a sequential scan; force the index to inspect how it is used.
+            conn.exec_driver_sql("SET LOCAL enable_seqscan = off")
+            [[plan]] = conn.exec_driver_sql(f"EXPLAIN (FORMAT JSON) {sql}").all()
+    finally:
+        engine.dispose()
+
+    def scan_nodes(node):
+        yield node
+        for child in node.get("Plans", []):
+            yield from scan_nodes(child)
+
+    [scan] = [node for node in scan_nodes(plan[0]["Plan"]) if "Index Name" in node]
+    # The whole (trace_id, span_id) key must be the index condition. If any part of it is left
+    # as a filter, each page within a trace rescans the spans earlier pages already returned.
+    assert scan["Index Name"] == "spans_pk"
+    assert "span_id" in scan["Index Cond"]
+    assert "Filter" not in scan
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,13 @@
+from importlib.metadata import version
 from unittest.mock import patch
 
-import httpx
 import pytest
+from packaging.version import Version
+
+if Version(version("mistralai")).major >= 3:
+    import httpx2 as httpx
+else:
+    import httpx
 
 try:
     from mistralai.client import Mistral  # mistralai >= 2.0

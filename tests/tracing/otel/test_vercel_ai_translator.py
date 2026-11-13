@@ -5,7 +5,10 @@ import pytest
 
 from mlflow.entities.span import Span
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.otel.translation import translate_span_when_storing
+from mlflow.tracing.otel.translation import (
+    strip_otlp_double_encoding,
+    translate_span_when_storing,
+)
 
 
 @pytest.mark.parametrize(
@@ -189,7 +192,10 @@ from mlflow.tracing.otel.translation import translate_span_when_storing
 def test_parse_vercel_ai_generate_text(attributes, expected_inputs, expected_outputs):
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
-    span_dict = {"attributes": {k: json.dumps(v) for k, v in attributes.items()}}
+    # Mirror the OTLP ingest path: the endpoint strips the extra encoding layer first
+    span_dict = {
+        "attributes": strip_otlp_double_encoding({k: json.dumps(v) for k, v in attributes.items()})
+    }
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)

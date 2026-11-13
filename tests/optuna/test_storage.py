@@ -18,7 +18,9 @@ from optuna.trial import FrozenTrial, TrialState
 
 import mlflow
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.exceptions import MlflowException
 from mlflow.optuna.storage import MlflowStorage
+from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
 
 ALL_STATES = list(TrialState)
 
@@ -285,6 +287,33 @@ def test_create_new_study(setup_storage):
     assert all(s.study_name.startswith(DEFAULT_STUDY_NAME_PREFIX) for s in frozen_studies)
 
 
+def test_get_all_studies_ignores_trial_runs(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE], study_name="study")
+    storage.create_new_trial(study_id)
+    frozen_studies = storage.get_all_studies()
+    assert len(frozen_studies) == 1
+    assert frozen_studies[0]._study_id == study_id
+    assert frozen_studies[0].study_name == "study"
+
+
+def test_searches_return_runs_beyond_the_first_page(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE], study_name="study")
+    trial_ids = {storage.create_new_trial(study_id) for _ in range(3)}
+
+    # The store returns at most max_results runs per call, 1000 by default; use 2 instead
+    search_runs = storage._mlflow_client.search_runs
+
+    def search_runs_in_pages_of_two(*args, max_results=1000, **kwargs):
+        return search_runs(*args, max_results=min(max_results, 2), **kwargs)
+
+    with patch.object(storage._mlflow_client, "search_runs", search_runs_in_pages_of_two):
+        assert storage.get_n_trials(study_id) == 3
+        assert {t._trial_id for t in storage.get_all_trials(study_id)} == trial_ids
+        assert [s._study_id for s in storage.get_all_studies()] == [study_id]
+
+
 def test_delete_study(setup_storage):
     storage = setup_storage
     study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
@@ -314,6 +343,15 @@ def test_get_study_id_from_name_and_get_study_name_from_id(setup_storage):
 
     with pytest.raises(mlflow.exceptions.MlflowException, match="Run .* not found"):
         storage.get_study_name_from_id(study_id + "1")
+
+
+@pytest.mark.parametrize("study_name", ["alice's-tuning", '"alice"-tuning'])
+def test_get_study_id_from_name_with_quotes(setup_storage, study_name):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE], study_name=study_name)
+
+    assert storage.get_study_id_from_name(study_name) == study_id
+    assert storage.get_study_id_by_name_if_exists(study_name) == study_id
 
 
 def test_set_and_get_study_directions(setup_storage):
@@ -507,6 +545,215 @@ def test_set_trial_state_values_for_state(setup_storage):
             assert storage.get_trial(trial_id).datetime_complete is None
 
 
+def test_set_trial_state_values_transitions_waiting_trial_to_running(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = storage.create_new_trial(study_id)
+
+    assert storage.set_trial_state_values(trial_id, state=TrialState.WAITING)
+    assert storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+    assert storage.get_trial(trial_id).state == TrialState.RUNNING
+    assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+
+
+def test_set_trial_state_values_uses_existing_run_state_for_waiting_trial(setup_storage):
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = storage.create_new_trial(study_id)
+    assert storage.set_trial_state_values(trial_id, state=TrialState.WAITING)
+
+    with (
+        patch.object(
+            storage._mlflow_client,
+            "get_run",
+            return_value=MagicMock(info=MagicMock(status="SCHEDULED")),
+        ) as get_run,
+        patch.object(storage._mlflow_client, "update_run") as update_run,
+    ):
+        assert storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+
+    get_run.assert_called_once_with(trial_id)
+    update_run.assert_called_once_with(trial_id, status="RUNNING")
+
+    with patch.object(storage._mlflow_client, "get_run") as get_run:
+        get_run.return_value.info.status = "RUNNING"
+        assert not storage.set_trial_state_values(trial_id, state=TrialState.RUNNING)
+
+    get_run.assert_called_once_with(trial_id)
+
+
+@pytest.fixture
+def writer_and_reader(setup_storage):
+    # Two storages on the same experiment simulate two parallel workers. The writer's large
+    # flush interval and threshold ensure nothing is flushed in the background.
+    writer = MlflowStorage(
+        experiment_id=setup_storage._experiment_id,
+        batch_flush_interval=60,
+        batch_size_threshold=100,
+    )
+    return writer, setup_storage
+
+
+@pytest.mark.parametrize(
+    ("directions", "values"),
+    [
+        ([StudyDirection.MINIMIZE], [1.0]),
+        ([StudyDirection.MINIMIZE, StudyDirection.MAXIMIZE], [1.0, 2.0]),
+    ],
+)
+def test_set_trial_state_values_persists_value_before_terminating(
+    writer_and_reader, directions, values
+):
+    writer, reader = writer_and_reader
+    study_id = writer.create_new_study(directions=directions)
+    trial_id = writer.create_new_trial(study_id)
+
+    writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=values)
+
+    trial = reader.get_trial(trial_id)
+    assert trial.state == TrialState.COMPLETE
+    assert trial.values == values
+
+
+def test_set_trial_state_values_logs_value_before_set_terminated(writer_and_reader):
+    writer, _ = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+
+    with patch.object(writer, "_mlflow_client", wraps=writer._mlflow_client) as client:
+        writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    call_names = [name for name, _, _ in client.mock_calls]
+    value_log_index = next(
+        i
+        for i, (name, _, kwargs) in enumerate(client.mock_calls)
+        if name == "log_batch" and any(m.key == "value" for m in kwargs.get("metrics", []))
+    )
+    assert value_log_index < call_names.index("set_terminated")
+
+
+def test_set_trial_state_values_raises_and_does_not_terminate_on_value_write_failure(
+    writer_and_reader,
+):
+    writer, _ = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+    writer.flush_all_batches()
+
+    with (
+        patch.object(
+            writer._mlflow_client,
+            "log_batch",
+            side_effect=MlflowException("Too many requests", error_code=REQUEST_LIMIT_EXCEEDED),
+        ) as log_batch,
+        pytest.raises(MlflowException, match="Too many requests"),
+    ):
+        writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    log_batch.assert_called_once()
+    assert writer._mlflow_client.get_run(trial_id).info.status == "RUNNING"
+
+
+def test_set_trial_state_values_persists_value_before_terminating_with_async_logging(
+    writer_and_reader, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "true")
+    writer, reader = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+
+    writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    trial = reader.get_trial(trial_id)
+    assert trial.state == TrialState.COMPLETE
+    assert trial.values == [1.0]
+
+
+def test_set_trial_state_values_logs_synchronously_with_async_logging(
+    writer_and_reader, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "true")
+    writer, _ = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+
+    with patch.object(
+        writer._mlflow_client, "log_batch", wraps=writer._mlflow_client.log_batch
+    ) as log_batch:
+        writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    # One call flushes the pending trial data, the other writes the value.
+    assert log_batch.call_count == 2
+    assert all(c.kwargs.get("synchronous") is True for c in log_batch.call_args_list)
+
+
+def test_set_trial_state_values_raises_on_value_write_failure_with_async_logging(
+    writer_and_reader, monkeypatch
+):
+    writer, _ = writer_and_reader
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+    writer.flush_all_batches()
+
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "true")
+    # Patch the store rather than the client so the failure happens inside the write that
+    # async logging would otherwise defer to a background thread.
+    store = writer._mlflow_client._tracking_client.store
+    with (
+        patch.object(
+            store,
+            "_log_metrics",
+            side_effect=MlflowException("Too many requests", error_code=REQUEST_LIMIT_EXCEEDED),
+        ) as log_metrics,
+        pytest.raises(MlflowException, match="Too many requests"),
+    ):
+        writer.set_trial_state_values(trial_id, state=TrialState.COMPLETE, values=[1.0])
+
+    log_metrics.assert_called_once()
+    assert writer._mlflow_client.get_run(trial_id).info.status == "RUNNING"
+
+
+def test_flush_batch_raise_on_error_keeps_batch(setup_storage):
+    storage = setup_storage
+    run_id = "test-run-id"
+    metrics = [Metric("test_metric", 1.0, int(time.time() * 1000), 0)]
+    storage._batch_queue[run_id] = {"metrics": metrics[:], "params": [], "tags": []}
+
+    with (
+        patch.object(
+            storage._mlflow_client, "log_batch", side_effect=MlflowException("Internal error")
+        ) as log_batch,
+        pytest.raises(MlflowException, match="Internal error"),
+    ):
+        storage._flush_batch(run_id, raise_on_error=True)
+
+    log_batch.assert_called_once()
+    assert storage._batch_queue[run_id]["metrics"] == metrics
+
+
+def test_set_trial_param_flushes_value_and_distribution_together(setup_storage):
+    reader = setup_storage
+    writer = MlflowStorage(
+        experiment_id=reader._experiment_id, batch_flush_interval=60, batch_size_threshold=1
+    )
+    study_id = writer.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = writer.create_new_trial(study_id)
+    distribution = CategoricalDistribution(choices=("a", "b"))
+
+    with patch.object(
+        writer._mlflow_client, "log_batch", wraps=writer._mlflow_client.log_batch
+    ) as log_batch:
+        writer.set_trial_param(trial_id, "x", 1, distribution)
+
+    log_batch.assert_called_once()
+    tag_keys = {tag.key for tag in log_batch.call_args.kwargs["tags"]}
+    assert {"param_internal_val_x", "param_directions"} <= tag_keys
+
+    trial = reader.get_trial(trial_id)
+    assert trial.params == {"x": "b"}
+    assert trial.distributions == {"x": distribution}
+
+
 def test_get_trial_param_and_get_trial_params(setup_storage):
     storage = setup_storage
     _, study_to_trials = _setup_studies(storage, n_study=2, n_trial=5, seed=1)
@@ -674,6 +921,43 @@ def test_get_n_trials(setup_storage):
     study_id_to_frozen_studies, _ = _setup_studies(storage, n_study=2, n_trial=7, seed=50)
     for study_id in study_id_to_frozen_studies:
         assert storage.get_n_trials(study_id) == 7
+
+
+@pytest.mark.parametrize(
+    ("states", "expected"),
+    [
+        (TrialState.COMPLETE, 1),
+        (TrialState.FAIL, 1),
+        (TrialState.RUNNING, 1),
+        ((TrialState.COMPLETE, TrialState.FAIL), 2),
+        ((), 0),
+        (None, 3),
+        (tuple(TrialState), 3),
+    ],
+)
+def test_get_n_trials_with_states(setup_storage, states, expected):
+    storage = setup_storage
+    study_id = storage.create_new_study([StudyDirection.MINIMIZE])
+    failed = storage.create_new_trial(study_id)
+    storage.set_trial_state_values(failed, TrialState.FAIL)
+    completed = storage.create_new_trial(study_id)
+    storage.set_trial_state_values(completed, TrialState.COMPLETE, [1.0])
+    storage.create_new_trial(study_id)
+
+    assert storage.get_n_trials(study_id, states) == expected
+
+
+@pytest.mark.parametrize("states", [None, (TrialState.COMPLETE,)])
+def test_get_all_trials_ordered_by_trial_number(setup_storage, states):
+    storage = setup_storage
+    study_id = storage.create_new_study([StudyDirection.MINIMIZE])
+    for i in range(3):
+        trial_id = storage.create_new_trial(study_id)
+        storage.set_trial_state_values(trial_id, TrialState.COMPLETE, [float(i)])
+
+    trials = storage.get_all_trials(study_id, states=states)
+    assert [t.number for t in trials] == [0, 1, 2]
+    assert [t.value for t in trials] == [0.0, 1.0, 2.0]
 
 
 def test_study_exists_method(setup_storage):

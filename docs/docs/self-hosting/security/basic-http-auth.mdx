@@ -879,7 +879,7 @@ Required Permissions for accessing scorers:
       <td>Register Scorer</td>
       <td>`3.0/mlflow/scorers/register`</td>
       <td>`POST`</td>
-      <td>can_update (on experiment)</td>
+      <td>can_update (on experiment), and no `DENY` on the scorer or its versions</td>
     </tr>
     <tr>
       <td>List Scorers</td>
@@ -904,6 +904,18 @@ Required Permissions for accessing scorers:
       <td>`3.0/mlflow/scorers/list-versions`</td>
       <td>`GET`</td>
       <td>can_read</td>
+    </tr>
+    <tr>
+      <td>Get Online Scoring Configs</td>
+      <td>`3.0/mlflow/scorers/online-configs`</td>
+      <td>`GET`</td>
+      <td>can_read (on each config's experiment), and no `DENY` on the scorer or its versions</td>
+    </tr>
+    <tr>
+      <td>Update Online Scoring Config</td>
+      <td>`3.0/mlflow/scorers/online-config`</td>
+      <td>`PUT`</td>
+      <td>can_update (on experiment), and no `DENY` on the scorer or its versions</td>
     </tr>
   </tbody>
 </table>
@@ -1125,6 +1137,16 @@ on that experiment, so that the creator can grant or revoke other users' access 
     </tr>
   </tbody>
 </table>
+
+### Routes Without a Permission Rule
+
+From MLflow 3.16.0 onwards, a request from a non-admin user to a route that has no permission rule,
+for example one added by a plugin, is rejected with `403 Permission denied` instead of being served
+without access control.
+
+Setting `MLFLOW_BASIC_AUTH_FAIL_CLOSED=false` disables the fallback rejection for routes without an
+authorization decision. Flask still requires authentication, while native FastAPI routes may also
+bypass authentication. Use this only as a temporary workaround.
 
 ### Permissions Database
 

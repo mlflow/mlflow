@@ -191,6 +191,18 @@ def test_from_huggingface_dataset_digest_is_consistent_for_large_ordered_dataset
     assert mlflow_ds.digest == "1dda4ce8"
 
 
+def test_from_huggingface_dataset_with_no_rows():
+    ds = datasets.Dataset.from_dict({"text": ["a", "b"], "label": [0, 1]}).filter(
+        lambda row: row["label"] > 1
+    )
+    assert ds.num_rows == 0
+
+    mlflow_ds = mlflow.data.from_huggingface(ds, path="x")
+    assert mlflow_ds.digest == "6e10a051"
+    assert mlflow_ds.schema == _infer_schema(ds.to_pandas())
+    assert mlflow_ds.schema.input_names() == ["text", "label"]
+
+
 def test_from_huggingface_dataset_throws_for_dataset_dict():
     ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes")
     assert isinstance(ds, datasets.DatasetDict)
@@ -273,6 +285,44 @@ def test_to_evaluation_dataset():
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert evaluation_dataset.features_data.equals(dataset.ds.to_pandas().drop("label", axis=1))
     assert np.array_equal(evaluation_dataset.labels_data, dataset.ds.to_pandas()["label"].values)
+
+
+def test_to_evaluation_dataset_with_nested_variable_length_arrays():
+    data = {
+        "id": ["1", "2"],
+        "expected_results": [
+            [
+                {
+                    "id": "1",
+                    "text": (
+                        "The main idea of the document is to provide an overview of the project."
+                    ),
+                },
+                {
+                    "id": "2",
+                    "text": (
+                        "The expected outcomes of the project were to gain insights and "
+                        "develop a robust solution."
+                    ),
+                },
+            ],
+            [
+                {
+                    "id": "3",
+                    "text": "Another result.",
+                }
+            ],
+        ],
+    }
+
+    ds = datasets.Dataset.from_dict(data)
+    dataset = mlflow.data.from_huggingface(ds, targets="expected_results")
+
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    evaluation_dataset_2 = dataset.to_evaluation_dataset()
+
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.hash == evaluation_dataset_2.hash
 
 
 def test_from_huggingface_dataset_with_sample_source():

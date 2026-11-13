@@ -1,12 +1,20 @@
 import pytest
 
 from mlflow.utils.string_utils import (
+    _create_table,
     format_table_cell_value,
     is_string_type,
     mslex_quote,
     strip_prefix,
     strip_suffix,
 )
+
+
+def test_create_table_empty_rows_keeps_headers():
+    assert _create_table([], ["Name", "ID"]).splitlines() == [
+        "Name    ID  ",
+        "------  ----",
+    ]
 
 
 @pytest.mark.parametrize(

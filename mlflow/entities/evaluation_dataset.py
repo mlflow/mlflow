@@ -265,7 +265,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
             record_dicts = self._process_trace_records(records)
         else:
-            record_dicts = records
+            # Copy so the source and tags filled in below don't leak into the caller's records
+            record_dicts = [dict(r) if isinstance(r, dict) else r for r in records]
 
         self._validate_record_dicts(record_dicts)
 
@@ -288,13 +289,19 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         context_tags = context_registry.resolve_tags()
         if user_tag := context_tags.get(MLFLOW_USER):
             for record in record_dicts:
-                if "tags" not in record:
-                    record["tags"] = {}
-                if MLFLOW_USER not in record["tags"]:
-                    record["tags"][MLFLOW_USER] = user_tag
+                record["tags"] = {MLFLOW_USER: user_tag, **(record.get("tags") or {})}
 
         tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
         self._records = None
+
+        # The upsert updates the digest, schema, and profile in the backend; refresh them so
+        # this object's identity matches its records when logged as a run input.
+        updated_dataset = tracking_store.get_dataset(self.dataset_id)
+        self._digest = updated_dataset.digest
+        self._schema = updated_dataset.schema
+        self._profile = updated_dataset.profile
+        self.last_update_time = updated_dataset.last_update_time
+        self.last_updated_by = updated_dataset.last_updated_by
 
         return self
 
@@ -481,6 +488,14 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             dataset_record_ids=record_ids,
         )
         self._records = None  # Clear cached records
+
+        # The deletion updates the profile in the backend; refresh it so this object's
+        # metadata matches its records when logged as a run input.
+        updated_dataset = tracking_store.get_dataset(self.dataset_id)
+        self._profile = updated_dataset.profile
+        self.last_update_time = updated_dataset.last_update_time
+        self.last_updated_by = updated_dataset.last_updated_by
+
         return deleted_count
 
     @record_usage_event(DatasetToDataFrameEvent)

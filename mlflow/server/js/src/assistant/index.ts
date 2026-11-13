@@ -5,7 +5,11 @@
  */
 export { AssistantProvider, useAssistant } from './AssistantContext';
 export { AssistantChatPanel } from './AssistantChatPanel';
-export { useRegisterFloatingObstruction, useFloatingObstructionWidth } from './useFloatingObstruction';
+export {
+  useCoverFloatingBottomObstructions,
+  useRegisterFloatingObstruction,
+  useFloatingObstructionWidth,
+} from './useFloatingObstruction';
 export { AssistantSparkleIcon } from './AssistantIconButton';
 export {
   AssistantRouteContextProvider,

@@ -1,13 +1,15 @@
 """Built-in local subprocess job executor."""
 
+import collections
 import os
 import select
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_TRACKING_URI
@@ -41,15 +43,70 @@ class _LocalJobSubmissionTimedOut(Exception):
 
 
 _STDERR_TAIL_MAX_CHARS = 4000
+# A line of job output longer than this, with no newline yet, is forwarded in pieces.
+_FORWARD_MAX_LINE_BYTES = 8 * 1024
+# Job output waiting to be written to the server's stderr, in lines and in bytes. When
+# either is reached, new lines are dropped rather than slowing down the job.
+_FORWARD_MAX_QUEUED_LINES = 1000
+_FORWARD_MAX_QUEUED_BYTES = 1024 * 1024
+
+
+def _utf8_boundary(data: bytearray, cut: int) -> int:
+    """Move ``cut`` back to the start of the UTF-8 character that it falls inside, if any."""
+    # Continuation bytes look like 0b10xxxxxx, and a character has at most 3 of them.
+    for start in range(cut, max(cut - 4, 0), -1):
+        if data[start] & 0xC0 != 0x80:
+            return start
+    return cut
+
+
+def _stderr_writer() -> Callable[[bytes], None] | None:
+    """A function that writes bytes to this process's stderr, or None if there is none."""
+    stderr = sys.stderr
+    if stderr is None:
+        return None
+    try:
+        buffer = stderr.buffer
+    except AttributeError:
+        # A text-only stream, such as io.StringIO.
+        try:
+            write_text = stderr.write
+        except AttributeError:
+            return None
+
+        def write(data: bytes) -> None:
+            write_text(data.decode("utf-8", errors="replace"))
+            stderr.flush()
+
+        return write
+
+    def write(data: bytes) -> None:
+        buffer.write(data)
+        buffer.flush()
+
+    return write
 
 
 class _BoundedStderrReader:
-    """Drain a subprocess's stderr into a bounded in-memory tail.
+    """Drain a subprocess's stderr into a bounded in-memory tail, and forward it to this
+    process's stderr.
 
     A background thread reads the stream continuously so a job that emits a large
     volume of stderr can neither deadlock ``process.wait()`` (as an unread PIPE
     would once its buffer fills) nor force the server to hold all of it in memory.
     Only the trailing ``max_bytes`` bytes are retained.
+
+    Each complete line read is also forwarded to this process's stderr, prefixed with
+    ``[job <job_id>]``, so what a job logs reaches the server log even when the job
+    succeeds. A line is forwarded once it is complete, or in pieces of at most
+    ``_FORWARD_MAX_LINE_BYTES``, cut between UTF-8 characters, if it has no newline yet.
+    A separate writer thread does the writing, so a slow or blocked stderr never slows
+    the drain: when the writer falls behind, lines are dropped, and a note where they are
+    missing says how many. If stderr stays blocked, the writer outlives its job, holding
+    the lines still queued, until stderr takes them.
+    Unlike a job that inherits the server's stderr, output is delayed until a line is
+    complete, a newline is added to a last line that has none, and what a descendant
+    writes after the reader stops is lost.
 
     The drain loop polls the raw fd with ``select`` on a short interval and reads
     with ``os.read`` rather than blocking in ``stream.read()``. This keeps the
@@ -64,19 +121,50 @@ class _BoundedStderrReader:
     _POLL_INTERVAL = 0.5
     _MAX_READS_AFTER_STOP = 4
 
-    def __init__(self, stream: Any, max_bytes: int = _STDERR_TAIL_MAX_CHARS * 4) -> None:
+    def __init__(
+        self,
+        stream: Any,
+        max_bytes: int = _STDERR_TAIL_MAX_CHARS * 4,
+        job_id: str | None = None,
+    ) -> None:
         self._stream = stream
         self._max_bytes = max_bytes
         self._buffer = bytearray()
         self._truncated = False
         self._lock = threading.Lock()
         self._stop = threading.Event()
+        self._prefix = f"[job {job_id}] ".encode() if job_id else b""
+        self._write = _stderr_writer()
+        self._partial_line = bytearray()
+        # Each item is (lines dropped just before this line, the line or None at the end).
+        self._lines: collections.deque[tuple[int, bytes | None]] = collections.deque()
+        self._queued_bytes = 0
+        self._dropped_lines = 0
+        self._pending_drops = 0
+        self._drain_done = False
+        self._lines_ready = threading.Condition()
+        # Started with the first line to forward.
+        self._writer: threading.Thread | None = None
         self._thread = threading.Thread(
             target=self._drain, name="local-job-stderr-reader", daemon=True
         )
         self._thread.start()
 
     def _drain(self) -> None:
+        try:
+            self._drain_stream()
+        finally:
+            if self._partial_line:
+                self._enqueue(bytes(self._partial_line))
+                self._partial_line.clear()
+            with self._lines_ready:
+                if self._pending_drops:
+                    self._lines.append((self._pending_drops, None))
+                    self._pending_drops = 0
+                self._drain_done = True
+                self._lines_ready.notify()
+
+    def _drain_stream(self) -> None:
         try:
             fd = self._stream.fileno()
         except (OSError, ValueError, AttributeError):
@@ -106,6 +194,7 @@ class _BoundedStderrReader:
                         if overflow > 0:
                             del self._buffer[:overflow]
                             self._truncated = True
+                    self._forward(chunk)
                     if self._stop.is_set():
                         reads_after_stop += 1
                         if reads_after_stop >= self._MAX_READS_AFTER_STOP:
@@ -120,10 +209,77 @@ class _BoundedStderrReader:
             except (OSError, ValueError):
                 pass
 
+    def _forward(self, chunk: bytes) -> None:
+        if self._write is None:
+            return
+        self._partial_line.extend(chunk)
+        while True:
+            end = self._partial_line.find(b"\n") + 1
+            if not end:
+                # Wait for a byte past the cut, to tell whether the cut splits a character.
+                if len(self._partial_line) <= _FORWARD_MAX_LINE_BYTES:
+                    return
+                end = _utf8_boundary(self._partial_line, _FORWARD_MAX_LINE_BYTES)
+            self._enqueue(bytes(self._partial_line[:end]))
+            del self._partial_line[:end]
+
+    def _enqueue(self, line: bytes) -> None:
+        with self._lines_ready:
+            if self._write is None:
+                return
+            if (
+                len(self._lines) >= _FORWARD_MAX_QUEUED_LINES
+                or self._queued_bytes + len(line) > _FORWARD_MAX_QUEUED_BYTES
+            ):
+                self._pending_drops += 1
+                self._dropped_lines += 1
+                return
+            self._lines.append((self._pending_drops, line))
+            self._pending_drops = 0
+            self._queued_bytes += len(line)
+            if self._writer is None:
+                self._writer = threading.Thread(
+                    target=self._write_lines, name="local-job-stderr-writer", daemon=True
+                )
+                self._writer.start()
+            self._lines_ready.notify()
+
+    def _write_lines(self) -> None:
+        while True:
+            with self._lines_ready:
+                while not self._lines and not self._drain_done:
+                    self._lines_ready.wait()
+                if not self._lines:
+                    # The drain has finished and every line is written.
+                    return
+                dropped, line = self._lines.popleft()
+                if line is not None:
+                    self._queued_bytes -= len(line)
+            try:
+                if dropped:
+                    self._write(
+                        self._prefix
+                        + f"({dropped} lines of job output were not forwarded because the "
+                        "server's stderr was too slow)\n".encode()
+                    )
+                if line is not None:
+                    self._write(self._prefix + (line if line.endswith(b"\n") else line + b"\n"))
+            except Exception:
+                # Forwarding is best effort: a failing stderr must not affect the job.
+                with self._lines_ready:
+                    self._write = None
+                    self._lines.clear()
+                    self._queued_bytes = 0
+                return
+
     def close(self) -> None:
         """Stop the reader and wait for it, so no daemon thread lingers."""
         self._stop.set()
         self._thread.join(timeout=5)
+        if self._writer is not None:
+            # Give the writer a moment to write the last lines, without waiting on a stderr
+            # that does not take them.
+            self._writer.join(timeout=0.5)
 
     def tail(self, max_chars: int = _STDERR_TAIL_MAX_CHARS) -> str:
         """Return the trailing captured stderr, stopping the reader first."""
@@ -335,17 +491,18 @@ class LocalJobExecutor(AbstractJobExecutor):
                     raise _LocalJobSubmissionTimedOut
 
                 # Capture the job subprocess stderr so a diagnostic tail can be
-                # surfaced if the subprocess crashes. A background reader drains
-                # the pipe into a bounded buffer, which both avoids deadlocking
-                # process.wait() (an unread PIPE stalls once its buffer fills) and
-                # caps how much stderr the server holds in memory.
+                # surfaced if the subprocess crashes, and forwarded to the server's
+                # stderr. A background reader drains the pipe into a bounded buffer,
+                # which both avoids deadlocking process.wait() (an unread PIPE stalls
+                # once its buffer fills) and caps how much stderr the server holds in
+                # memory.
                 process = subprocess.Popen(
                     prepared_subprocess.command,
                     env=prepared_subprocess.env,
                     stderr=subprocess.PIPE,
                     start_new_session=True,
                 )
-                record.stderr_reader = _BoundedStderrReader(process.stderr)
+                record.stderr_reader = _BoundedStderrReader(process.stderr, job_id=job_id)
                 record.active_process = process
                 record.job_process_launched = True
         except _LocalJobSubmissionCanceled:

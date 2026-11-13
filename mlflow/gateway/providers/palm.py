@@ -60,7 +60,7 @@ class PaLMProvider(BaseProvider):
         for m in payload["messages"]:
             m["author"] = m.pop("role")
 
-        # Map 'messages', 'examples, and 'context' to 'prompt'
+        # Map 'messages', 'examples', and 'context' to 'prompt'
         prompt = {"messages": payload.pop("messages")}
         if "examples" in payload:
             prompt["examples"] = payload.pop("examples")

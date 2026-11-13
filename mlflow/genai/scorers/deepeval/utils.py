@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from mlflow.entities.span import SpanAttributeKey, SpanType
+from mlflow.entities.span import SpanAttributeKey
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.trace_utils import (
     _extract_tool_name_from_span,
+    _search_tool_call_spans,
     _to_dict,
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -81,18 +82,26 @@ def _extract_tool_calls_from_trace(trace: Trace):
     if not trace:
         return None
 
-    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+    tool_spans = _search_tool_call_spans(trace)
     if not tool_spans:
         return None
 
     return [
         DeepEvalToolCall(
             name=_extract_tool_name_from_span(span),
-            input_parameters=span.attributes.get(SpanAttributeKey.INPUTS),
+            input_parameters=_normalize_tool_inputs(span.attributes.get(SpanAttributeKey.INPUTS)),
             output=span.attributes.get(SpanAttributeKey.OUTPUTS),
         )
         for span in tool_spans
     ]
+
+
+def _normalize_tool_inputs(inputs: Any) -> dict[str, Any] | None:
+    # DeepEval's ToolCall.input_parameters only accepts a dict, but tool spans can record
+    # non-dict inputs (e.g. a plain string from LangChain's tool.invoke("...")).
+    if inputs is None or isinstance(inputs, dict):
+        return inputs
+    return {"input": inputs}
 
 
 def _dict_to_kv_list(d: dict[str, Any]) -> list[str]:
@@ -203,6 +212,7 @@ def map_session_to_deepeval_conversational_test_case(
         assistant_turn = Turn(
             role="assistant",
             content=parse_outputs_to_str(outputs),
+            tools_called=_extract_tool_calls_from_trace(trace),
         )
         turns.append(assistant_turn)
 

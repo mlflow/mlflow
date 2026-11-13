@@ -2,8 +2,9 @@ name: Update Model Catalog
 
 on:
   schedule:
-    # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
-    - cron: "0 0,12 * * 1-5"
+    # Every 30 minutes, off the top of the hour when GitHub delays scheduled runs most.
+    # `create-pr` leaves an in-flight catalog PR alone, so frequent runs don't restart its CI.
+    - cron: "17,47 * * * *"
   workflow_dispatch:
   push:
     branches:
@@ -50,13 +51,11 @@ jobs:
           persist-credentials: false
 
       - uses: ./.github/actions/setup-python
-        with:
-          pin-micro-version: false
-
       - uses: ./.github/actions/setup-node
 
       - name: Fetch and transform model catalog
-        run: uv run python dev/update_model_catalog.py
+        run: |
+          uv run python dev/update_model_catalog.py
 
       - name: Regenerate claude-code pricing snapshot
         working-directory: libs/typescript
@@ -88,7 +87,7 @@ jobs:
             git diff -- $CATALOG_PATHS > model-catalog.patch
           fi
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.diff.outputs.changed == 'true'
         with:
           name: model-catalog-patch
@@ -104,7 +103,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
@@ -120,7 +119,7 @@ jobs:
           persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
 
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: model-catalog-patch
 
@@ -133,28 +132,42 @@ jobs:
         id: pr
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Log API requests to diagnose labels occasionally being applied twice
+          GH_DEBUG: api
         run: |
+          branch="update-model-catalog"
+          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing_pr" ]; then
+            # Pushing restarts CI (~45 min) and drops the PR from the merge queue, so leave a PR
+            # that is still in CI or about to merge alone; a later run picks up the new changes.
+            # Push anyway if its checks failed or it has been stuck for 3 hours.
+            checks_rc=0
+            gh pr checks "$existing_pr" > /dev/null || checks_rc=$?
+            pushed_at=$(gh pr view "$existing_pr" --json commits --jq '.commits[-1].committedDate | fromdate')
+            if [ "$checks_rc" -ne 1 ] && [ $(( $(date +%s) - pushed_at )) -lt 10800 ]; then
+              echo "PR #$existing_pr is still in CI or the merge queue — skipping update."
+              exit 0
+            fi
+          fi
           git config user.name 'mlflow-app[bot]'
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-          branch="update-model-catalog"
           git checkout -b "$branch"
           git add $CATALOG_PATHS
           git commit -m "Update model catalog from upstream sources"
           git push -f -u origin "$branch"
-          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
           if [ -n "$existing_pr" ]; then
             echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
             gh pr edit "$existing_pr" \
               --remove-reviewer TomeHirata \
-              --add-label auto-rerun \
+              --add-label auto-repair \
               --add-label team-review
             echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
           else
             pr_url=$(gh pr create \
               --title "Update model catalog from upstream sources" \
-              --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-              --label auto-rerun \
+              --body "Scheduled refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+              --label auto-repair \
               --label team-review)
             echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
@@ -193,4 +206,5 @@ jobs:
       - name: Publish to GitHub Releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash dev/publish_model_catalog.sh
+        run: |
+          bash dev/publish_model_catalog.sh

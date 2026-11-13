@@ -20,6 +20,7 @@ _MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE = 10000
 
 if TYPE_CHECKING:
     import datasets
+    import pandas as pd
 
 
 class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
@@ -63,12 +64,17 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-        df = next(
+        return compute_pandas_digest(self._first_rows_as_pandas())
+
+    def _first_rows_as_pandas(self) -> "pd.DataFrame":
+        if self._ds.num_rows == 0:
+            # The batched conversion yields nothing for an empty dataset.
+            return self._ds.to_pandas()
+        return next(
             self._ds.to_pandas(
                 batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True
             )
         )
-        return compute_pandas_digest(df)
 
     def to_dict(self) -> dict[str, str]:
         """Create config dictionary for the dataset.
@@ -132,12 +138,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         The MLflow ColSpec schema of the Hugging Face dataset.
         """
         try:
-            df = next(
-                self._ds.to_pandas(
-                    batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True
-                )
-            )
-            return _infer_schema(df)
+            return _infer_schema(self._first_rows_as_pandas())
         except Exception as e:
             _logger.warning("Failed to infer schema for Hugging Face dataset. Exception: %s", e)
             return None

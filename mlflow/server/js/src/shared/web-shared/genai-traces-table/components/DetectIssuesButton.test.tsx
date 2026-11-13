@@ -1,10 +1,14 @@
 import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { IntlProvider } from '@databricks/i18n';
 
-import { DetectIssuesButton, DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY } from './DetectIssuesButton';
+import {
+  DetectIssuesButton,
+  markDetectIssuesGuidanceSeen,
+  DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY,
+} from './DetectIssuesButton';
 
 describe('DetectIssuesButton', () => {
   const onClickMock = jest.fn();
@@ -20,15 +24,45 @@ describe('DetectIssuesButton', () => {
     localStorage.clear();
   });
 
-  const renderTestComponent = () =>
-    render(<DetectIssuesButton componentId={componentId} onClick={onClickMock} />, {
+  const renderTestComponent = (props: { loading?: boolean; disabled?: boolean } = {}) =>
+    render(<DetectIssuesButton componentId={componentId} onClick={onClickMock} {...props} />, {
       wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
     });
+
+  test.each([false, true])(
+    'synchronizes guidance dismissal from another surface (storage denied: %s)',
+    async (denied) => {
+      renderTestComponent();
+      expect(await screen.findByText('Detect Issues in Your Traces')).toBeInTheDocument();
+      if (denied) {
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+          throw new Error('Storage denied');
+        });
+      }
+      act(() => markDetectIssuesGuidanceSeen());
+      await waitFor(() => expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument());
+      await userEvent.click(screen.getByRole('button', { name: 'Detect issues in traces' }));
+      expect(onClickMock).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('renders the Detect Issues button', () => {
     renderTestComponent();
     expect(screen.getByText('Detect Issues')).toBeInTheDocument();
   });
+
+  test.each([{ loading: true }, { disabled: true }])(
+    'prevents detection and guidance when unavailable (%o)',
+    async (props) => {
+      renderTestComponent(props);
+      const button = screen.getByRole('button', { name: 'Detect issues in traces' });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute('aria-busy', String(Boolean(props.loading)));
+      expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
+      await userEvent.click(button);
+      expect(onClickMock).not.toHaveBeenCalled();
+    },
+  );
 
   test('shows guidance popover on first visit when hasSeenGuidance is false', async () => {
     renderTestComponent();

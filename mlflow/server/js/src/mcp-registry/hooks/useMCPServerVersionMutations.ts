@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { ignoreNotFound, settleAll } from '../../common/utils/registryWrites';
 import { MCPRegistryApi } from '../api';
 import type { ConnectOptionsMap, MCPStatus } from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
@@ -45,13 +46,14 @@ export const useUpdateMCPServerVersion = (serverName: string) => {
       if (aliases) {
         promises.push(
           ...aliases.add.map((alias) => MCPRegistryApi.setMCPServerAlias(serverName, { alias, version })),
-          ...aliases.remove.map((alias) => MCPRegistryApi.deleteMCPServerAlias(serverName, alias)),
+          ...aliases.remove.map((alias) => ignoreNotFound(MCPRegistryApi.deleteMCPServerAlias(serverName, alias))),
         );
       }
 
-      await Promise.all(promises);
+      await settleAll(promises);
     },
-    onSuccess: () => invalidate(serverName),
+    // Even a partly failed save changed the server, so the page refreshes either way.
+    onSettled: () => invalidate(serverName),
   });
 };
 

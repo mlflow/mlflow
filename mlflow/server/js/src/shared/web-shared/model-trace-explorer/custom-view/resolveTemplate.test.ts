@@ -11,14 +11,25 @@ const makeNode = (node: Partial<ModelTraceSpanNode> & { key: string; start: numb
   node as unknown as ModelTraceSpanNode;
 
 const nodeMap = {
-  root: makeNode({ key: 'root', start: 0, title: 'agent', type: ModelSpanType.AGENT }),
+  root: makeNode({
+    key: 'root',
+    start: 0,
+    title: 'agent',
+    type: ModelSpanType.AGENT,
+    inputs: {
+      reference_image: 'mlflow-attachment://before?content_type=image%2Fjpeg&trace_id=tr-123',
+    },
+  }),
   tool0: makeNode({
     key: 'tool0',
     start: 10,
     parentId: 'root',
     title: 'run_sql_query',
     type: ModelSpanType.TOOL,
-    outputs: { choices: [{ message: { content: 'The answer is 42.' } }] },
+    outputs: {
+      choices: [{ message: { content: 'The answer is 42.' } }],
+      image: 'mlflow-attachment://after?content_type=image%2Fjpeg&trace_id=tr-123',
+    },
   }),
 } satisfies Record<string, ModelTraceSpanNode>;
 
@@ -99,6 +110,79 @@ describe('resolveTemplate', () => {
     const [markdown] = componentsOf(resolved);
     expect(markdown.text).toBe('The answer is 42.');
     expect(markdown.title).toBe('Model answer');
+  });
+
+  it('resolves before and after TraceImage bindings to attachment URIs', () => {
+    const resolved = resolveTemplate(
+      [
+        updateComponents([
+          {
+            id: 'before',
+            component: 'TraceImage',
+            uri: { $source: 'spanField', spanRef: 'root', field: 'inputs', path: ['reference_image'] },
+          },
+          {
+            id: 'after',
+            component: 'TraceImage',
+            uri: {
+              $source: 'spanField',
+              spanRef: { type: 'TOOL', nth: 0 },
+              field: 'outputs',
+              path: ['image'],
+            },
+          },
+        ]),
+      ],
+      ctx,
+    );
+    const [before, after] = componentsOf(resolved);
+    expect(before.uri).toBe('mlflow-attachment://before?content_type=image%2Fjpeg&trace_id=tr-123');
+    expect(after.uri).toBe('mlflow-attachment://after?content_type=image%2Fjpeg&trace_id=tr-123');
+  });
+
+  it('resolves one TraceAudio template to each trace’s own audio attachment', () => {
+    const geminiRoot = (uri: string) => ({
+      root: makeNode({
+        key: 'root',
+        start: 0,
+        title: 'Models.generate_content',
+        type: ModelSpanType.LLM,
+        inputs: {
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: 'Transcribe this.' }, { inline_data: { mime_type: 'audio/wav', data: uri } }],
+            },
+          ],
+        },
+      }),
+    });
+    const template = [
+      updateComponents([
+        {
+          id: 'clip',
+          component: 'TraceAudio',
+          uri: {
+            $source: 'spanField',
+            spanRef: 'root',
+            field: 'inputs',
+            path: ['contents', 0, 'parts', 1, 'inline_data', 'data'],
+          },
+        },
+      ]),
+    ];
+    const wavUri = 'mlflow-attachment://wav-id?content_type=audio%2Fwav&trace_id=tr-a&size=265914';
+    const mp3Uri = 'mlflow-attachment://mp3-id?content_type=audio%2Fmpeg&trace_id=tr-b&size=137601';
+
+    const [first] = componentsOf(resolveTemplate(template, { viewData, nodeMap: geminiRoot(wavUri) }));
+    const [second] = componentsOf(resolveTemplate(template, { viewData, nodeMap: geminiRoot(mp3Uri) }));
+
+    expect(first.uri).toBe(wavUri);
+    expect(second.uri).toBe(mp3Uri);
+    expect(
+      (template[0] as { updateComponents: { components: { uri: { $source: string } }[] } }).updateComponents
+        .components[0].uri,
+    ).toMatchObject({ $source: 'spanField' });
   });
 
   // Backs the catalog guidance to point a Markdown binding at a SCALAR leaf: a

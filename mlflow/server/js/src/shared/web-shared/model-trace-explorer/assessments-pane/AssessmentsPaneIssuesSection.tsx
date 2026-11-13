@@ -1,6 +1,7 @@
 import { Button, ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useVisibleIssueReferenceAssessments } from '../hooks/useVisibleIssueReferences';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { isEmpty } from 'lodash';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
@@ -75,21 +76,18 @@ export const AssessmentsPaneIssuesSection = ({
   issues: IssueReferenceAssessment[];
   selectedIssueId?: string;
 }) => {
-  const sortedIssues = useMemo(
-    () => issues.toSorted((left, right) => left.assessment_name.localeCompare(right.assessment_name)),
-    [issues],
+  // Deduped and status-filtered here, where the count below is rendered: every detection run leaves
+  // its own reference on a trace it flags, so taking them as they come showed a card per run and an
+  // "Issues (n)" that climbed with each rerun, counting issues already dismissed as not an issue.
+  // Neither pass is memoized: the hook returns a fresh array each render, so a memo keyed on it
+  // would never hit, and both run over the handful of issues one trace carries.
+  const sortedIssues = useVisibleIssueReferenceAssessments(issues).toSorted((left, right) =>
+    left.assessment_name.localeCompare(right.assessment_name),
   );
-
-  // Filter issues to only show the selected issue if one is selected
-  const filteredIssues = useMemo(() => {
-    if (!selectedIssueId) {
-      return sortedIssues;
-    }
-    return sortedIssues.filter((issue) => {
-      // issue_id is stored as assessment name
-      return issue.assessment_name === selectedIssueId;
-    });
-  }, [sortedIssues, selectedIssueId]);
+  // issue_id is stored as the assessment name.
+  const filteredIssues = selectedIssueId
+    ? sortedIssues.filter((issue) => issue.assessment_name === selectedIssueId)
+    : sortedIssues;
 
   const { theme } = useDesignSystemTheme();
 

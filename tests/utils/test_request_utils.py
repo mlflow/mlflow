@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 from mlflow.utils import request_utils
 from mlflow.utils.request_utils import (
@@ -64,6 +65,38 @@ def test_download_chunk_incomplete_read(tmp_path):
                 download_path=download_path,
                 http_uri="https://example.com",
             )
+
+
+@pytest.mark.parametrize("verify", [True, False, None])
+def test_download_chunk_verify(tmp_path, verify):
+    mock_response = mock.MagicMock()
+    mock_response.headers = {}
+    mock_response.content = b"chunk_data"
+    with (
+        mock.patch.object(
+            request_utils,
+            "cloud_storage_http_request",
+            return_value=mock.MagicMock(__enter__=mock.MagicMock(return_value=mock_response)),
+        ) as mock_http_request,
+        mock.patch.object(request_utils, "augmented_raise_for_status"),
+    ):
+        download_path = tmp_path / "chunk"
+        download_path.touch()
+        kwargs = {}
+        if verify is not None:
+            kwargs["verify"] = verify
+        request_utils.download_chunk(
+            range_start=0,
+            range_end=9,
+            headers={},
+            download_path=download_path,
+            http_uri="https://example.com",
+            **kwargs,
+        )
+        if verify is not None:
+            assert mock_http_request.call_args.kwargs.get("verify") is verify
+        else:
+            assert "verify" not in mock_http_request.call_args.kwargs
 
 
 @pytest.mark.parametrize("env_value", ["0", "false", "False", "FALSE"])
@@ -251,3 +284,39 @@ def test_session_uses_tcp_keepalive_adapter():
     assert isinstance(session.get_adapter("https://example.com"), TCPKeepAliveHTTPAdapter)
     assert isinstance(session.get_adapter("http://example.com"), TCPKeepAliveHTTPAdapter)
     request_utils._cached_get_request_session.cache_clear()
+
+
+def _get_session_retry(**kwargs):
+    request_utils._cached_get_request_session.cache_clear()
+    session = request_utils._get_request_session(
+        max_retries=3,
+        backoff_factor=1,
+        backoff_jitter=0.5,
+        retry_codes=(500,),
+        raise_on_status=True,
+        respect_retry_after_header=True,
+        **kwargs,
+    )
+    request_utils._cached_get_request_session.cache_clear()
+    return session.get_adapter("https://example.com").max_retries
+
+
+def test_session_retries_errors_after_sending_by_default():
+    retry = _get_session_retry()
+    assert retry.read == 3
+    assert retry.connect == 3
+    assert retry.RETRY_AFTER_STATUS_CODES == Retry.RETRY_AFTER_STATUS_CODES
+
+
+def test_session_without_read_error_retries_still_retries_connection_errors():
+    retry = _get_session_retry(retry_read_errors=False)
+    assert retry.read is False
+    assert retry.connect == 3
+
+
+def test_session_without_retry_on_retry_after_keeps_waiting_for_retried_statuses():
+    retry = _get_session_retry(retry_on_retry_after=False)
+    assert retry.RETRY_AFTER_STATUS_CODES == frozenset()
+    assert retry.respect_retry_after_header is True
+    # `Retry.new()` builds each retry attempt, so the setting must survive it.
+    assert retry.new().RETRY_AFTER_STATUS_CODES == frozenset()

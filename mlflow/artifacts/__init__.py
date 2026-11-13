@@ -8,6 +8,8 @@ import posixpath
 import tempfile
 from typing import Any
 
+import yaml
+
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
@@ -158,6 +160,15 @@ def list_artifacts(
     return artifact_repo.list_artifacts(artifact_path)
 
 
+def _not_utf8_error(artifact_uri: str) -> MlflowException:
+    return MlflowException(
+        f"Artifact {artifact_uri!r} is not valid UTF-8. To read a file in another encoding, "
+        "download it with `mlflow.artifacts.download_artifacts` and open it with the correct "
+        "`encoding`.",
+        BAD_REQUEST,
+    )
+
+
 def load_text(artifact_uri: str) -> str:
     """Loads the artifact contents as a string.
 
@@ -185,11 +196,15 @@ def load_text(artifact_uri: str) -> str:
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
-        with open(local_artifact) as local_artifact_fd:
+        with open(local_artifact, encoding="utf-8") as local_artifact_fd:
             try:
                 return str(local_artifact_fd.read())
-            except Exception:
-                raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
+            except UnicodeDecodeError as e:
+                raise _not_utf8_error(artifact_uri) from e
+            except Exception as e:
+                raise MlflowException(
+                    "Unable to form a str object from file content", BAD_REQUEST
+                ) from e
 
 
 def load_dict(artifact_uri: str) -> dict[str, Any]:
@@ -219,11 +234,22 @@ def load_dict(artifact_uri: str) -> dict[str, Any]:
     """
     with tempfile.TemporaryDirectory() as tmpdir:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
-        with open(local_artifact) as local_artifact_fd:
+        with open(local_artifact, encoding="utf-8") as local_artifact_fd:
             try:
+                # Mirror `log_dict`, which infers the format from the file extension
+                if pathlib.Path(local_artifact).suffix in (".yml", ".yaml"):
+                    return yaml.safe_load(local_artifact_fd)
                 return json.load(local_artifact_fd)
-            except json.JSONDecodeError:
-                raise MlflowException("Unable to form a JSON object from file content", BAD_REQUEST)
+            except UnicodeDecodeError as e:
+                raise _not_utf8_error(artifact_uri) from e
+            except json.JSONDecodeError as e:
+                raise MlflowException(
+                    "Unable to form a JSON object from file content", BAD_REQUEST
+                ) from e
+            except yaml.YAMLError as e:
+                raise MlflowException(
+                    "Unable to form a YAML object from file content", BAD_REQUEST
+                ) from e
 
 
 def load_image(artifact_uri: str):

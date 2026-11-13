@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useEditKeyValueTagsModal } from '../../common/hooks/useEditKeyValueTagsModal';
 import { MCPRegistryApi } from '../api';
+import { ignoreNotFound, settleAll } from '../../common/utils/registryWrites';
 import type { MCPServerVersion } from '../types';
 import { MCP_QUERY_KEYS, tagsRecordToArray } from '../utils';
 import { useCallback } from 'react';
@@ -20,10 +21,17 @@ export const useUpdateMCPServerVersionMetadataModal = ({ serverName }: { serverN
 
   const updateMutation = useMutation<unknown, Error, UpdateMCPServerVersionMetadataPayload>({
     mutationFn: async ({ serverName: name, version, toAdd, toDelete }) => {
-      return Promise.all([
+      return settleAll([
         ...toAdd.map(({ key, value }) => MCPRegistryApi.setMCPServerVersionTag(name, version, { key, value })),
-        ...toDelete.map(({ key }) => MCPRegistryApi.deleteMCPServerVersionTag(name, version, key)),
+        ...toDelete.map(({ key }) => ignoreNotFound(MCPRegistryApi.deleteMCPServerVersionTag(name, version, key))),
       ]);
+    },
+    // Even a partly failed save changed the server, so the page refreshes either way.
+    onSettled: () => {
+      queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER_VERSIONS, serverName]);
+      queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER, serverName]);
+      queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER_LATEST_VERSION, serverName]);
+      queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVERS_LIST]);
     },
   });
 
@@ -51,13 +59,7 @@ export const useUpdateMCPServerVersionMetadataModal = ({ serverName }: { serverN
             toDelete: deletedTags,
           },
           {
-            onSuccess: () => {
-              queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER_VERSIONS, serverName]);
-              queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER, serverName]);
-              queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER_LATEST_VERSION, serverName]);
-              queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVERS_LIST]);
-              resolve();
-            },
+            onSuccess: () => resolve(),
             onError: reject,
           },
         );

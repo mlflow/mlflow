@@ -5,7 +5,10 @@ import type { IssueCategory } from '../IssueDetectionCategories';
 interface InvokeIssueDetectionParams {
   experimentId: string;
   traceIds: string[];
-  categories: IssueCategory[];
+  /** Built-in ids plus any custom focus areas saved in the experiment's detection settings. */
+  categories: (IssueCategory | string)[];
+  /** The experiment's saved detection priorities, if it has any. */
+  instructions?: string;
   provider: string;
   model: string;
   secret_id?: string;
@@ -26,6 +29,7 @@ export const useInvokeIssueDetection = () => {
           experiment_id: params.experimentId,
           trace_ids: params.traceIds,
           categories: params.categories,
+          instructions: params.instructions,
           provider: params.provider,
           model: params.model,
           secret_id: params.secret_id,

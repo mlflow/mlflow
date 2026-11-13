@@ -1,5 +1,4 @@
 import inspect
-import os
 import sys
 from collections import Counter
 from enum import Enum
@@ -9,12 +8,25 @@ from urllib.parse import urlparse
 from mlflow.entities import Feedback
 from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.entities.mcp_server import MCPStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
+from mlflow.entities.skill import SkillStatus
+from mlflow.entities.skill_source import SkillSourceType
+from mlflow.environment_variables import (
+    _MLFLOW_SERVER_JOB_ID,
+    _MLFLOW_SERVER_JOB_NAME,
+    MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
+)
+from mlflow.exceptions import MlflowException
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
     KNOWN_FLAVORS,
     MODULES_TO_CHECK_IMPORT,
 )
+from mlflow.telemetry.issue_detection_utils import (
+    count_issues_by_category,
+    get_issue_detection_trigger,
+    normalize_issue_categories,
+)
+from mlflow.utils.skill_uris import parse_skill_uri
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.base import Scorer
@@ -218,6 +230,17 @@ class GenAIEvaluateEvent(Event):
             return None
 
         return telemetry_data
+
+
+class CompareEvaluationsEvent(Event):
+    name: str = "compare_evaluations"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "greater_is_better_provided": arguments.get("greater_is_better") is not None,
+            "log_results": bool(arguments.get("log_results")),
+        }
 
 
 class CreateLoggedModelEvent(Event):
@@ -581,6 +604,86 @@ class McpRegistryCreateAccessEndpointEvent(Event):
         }
 
 
+# Skill Registry Events
+class SkillRegistryCreateSkillVersionEvent(Event):
+    """Store-side single-version creation; bulk registration has its own event."""
+
+    name: str = "skill_registry_create_skill_version"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        source_type = arguments.get("source_type")
+        try:
+            source_type = SkillSourceType(source_type).value if source_type is not None else None
+        except (TypeError, ValueError):
+            source_type = "other"
+        try:
+            status = SkillStatus(arguments.get("status", SkillStatus.ACTIVE)).value
+        except (TypeError, ValueError):
+            status = "other"
+        return {"source_type": source_type, "status": status}
+
+
+class SkillRegistryBulkRegisterSkillsEvent(Event):
+    name: str = "skill_registry_bulk_register_skills"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        definitions = arguments.get("skill_definitions")
+        return {"num_skills": len(definitions) if isinstance(definitions, list) else None}
+
+
+class SkillRegistryRegisterSkillEvent(Event):
+    """Client workflow; successful registration also emits a store creation event."""
+
+    name: str = "skill_registry_register_skill"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        # Import lazily: importing mlflow.genai during telemetry initialization creates a cycle.
+        from mlflow.genai.skill_content.sources import resolve_source_type
+
+        try:
+            resolved = resolve_source_type(arguments.get("source"))
+            source_type = "local" if resolved.is_local else resolved.source_type.value
+        except (MlflowException, TypeError, ValueError):
+            source_type = "other"
+        return {
+            "source_type": source_type if source_type in {"local", "git", "oci", "zip"} else "other"
+        }
+
+
+class SkillRegistryImportSkillsEvent(Event):
+    name: str = "skill_registry_import_skills"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        return {"filters_by_name": arguments.get("skill_names") is not None}
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any]:
+        # Returned versions may be reused, so this is not a count of newly created versions.
+        return {"num_returned": len(result)} if isinstance(result, list) else {}
+
+
+class SkillRegistryPullEvent(Event):
+    name: str = "skill_registry_pull"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        try:
+            parsed = parse_skill_uri(arguments.get("uri"))
+            if parsed.version is not None:
+                reference_type = "version"
+            elif parsed.alias is not None and parsed.alias != "latest":
+                reference_type = "alias"
+            else:
+                reference_type = "latest"
+        except (MlflowException, TypeError, ValueError):
+            reference_type = "other"
+        return {"reference_type": reference_type}
+
+
 class TrackingServerStartEvent(Event):
     name: str = "tracking_server_start"
 
@@ -940,9 +1043,8 @@ class ScorerCallEvent(Event):
             ONLINE_SESSION_SCORER_JOB_NAME,
             ONLINE_TRACE_SCORER_JOB_NAME,
         )
-        from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
 
-        job_name = os.environ.get(MLFLOW_SERVER_JOB_NAME_ENV_VAR)
+        job_name = _MLFLOW_SERVER_JOB_NAME.get()
         if job_name in (ONLINE_TRACE_SCORER_JOB_NAME, ONLINE_SESSION_SCORER_JOB_NAME):
             callsite = "online_scoring"
         else:
@@ -981,20 +1083,24 @@ class DiscoverIssuesEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        return {
+        trigger = get_issue_detection_trigger()
+        params = {
+            "trigger": trigger,
             "model": arguments.get("model"),
             "trace_count": len(arguments.get("traces") or []),
-            "categories": arguments.get("categories"),
-            "source_run_id": arguments.get("run_id"),
+            "categories": normalize_issue_categories(arguments.get("categories")),
         }
+        if trigger != "sdk" and (job_id := _MLFLOW_SERVER_JOB_ID.get()):
+            params["job_id"] = job_id
+        return params
 
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any] | None:
         return {
-            "issue_count": len(result.issues),
-            "total_traces_analyzed": result.total_traces_analyzed,
-            "total_cost_usd": result.total_cost_usd,
-            "triage_run_id": result.triage_run_id,
+            "issue_count": len(result.issues) if result else None,
+            "issue_counts_by_category": count_issues_by_category(result.issues) if result else None,
+            "total_traces_analyzed": result.total_traces_analyzed if result else None,
+            "total_cost_usd": result.total_cost_usd if result else None,
         }
 
 

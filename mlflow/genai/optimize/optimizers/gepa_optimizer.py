@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 
@@ -20,6 +21,29 @@ EVAL_RESULTS_FILE = "eval_results.json"
 SCORES_FILE = "scores.json"
 
 
+def _gateway_reflection_lm(reflection_model: str, inference_params: dict[str, Any] | None):
+    """
+    A GEPA reflection model that calls an MLflow AI Gateway endpoint.
+
+    GEPA resolves a model string through LiteLLM, which cannot route ``gateway:/`` URIs, so a
+    gateway endpoint is passed to GEPA as a callable instead.
+    """
+
+    def reflection_lm(prompt: str | list[dict[str, Any]]) -> str:
+        from mlflow.genai.utils.llm_utils import _call_llm
+
+        messages = [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
+        response = _call_llm(
+            reflection_model,
+            messages,
+            inference_params=inference_params,
+            gateway_caller=GatewayCaller.PROMPT_OPTIMIZATION,
+        )
+        return response.choices[0].message.content
+
+    return reflection_lm
+
+
 class GepaPromptOptimizer(BasePromptOptimizer):
     """
     A prompt adapter that uses GEPA (Genetic-Pareto) optimization algorithm
@@ -32,7 +56,8 @@ class GepaPromptOptimizer(BasePromptOptimizer):
     Args:
         reflection_model: Name of the model to use for reflection and optimization.
             Format: "<provider>:/<model>"
-            (e.g., "openai:/gpt-4o", "anthropic:/claude-3-5-sonnet-20241022").
+            (e.g., "openai:/gpt-4o", "anthropic:/claude-3-5-sonnet-20241022"), or
+            "gateway:/<endpoint-name>" to call an MLflow AI Gateway endpoint.
         max_metric_calls: Maximum number of evaluation calls during optimization.
             Higher values may lead to better results but increase optimization time.
             Default: 100
@@ -343,11 +368,19 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             eval_fn, target_prompts, enable_tracking, full_dataset_size=len(train_data)
         )
 
+        if provider == "gateway":
+            # GEPA applies reflection_lm_kwargs only to a model string, so forward them here.
+            reflection_lm = _gateway_reflection_lm(
+                self.reflection_model, self.gepa_kwargs.get("reflection_lm_kwargs")
+            )
+        else:
+            reflection_lm = f"{provider}/{model}"
+
         kwargs = self.gepa_kwargs | {
             "seed_candidate": target_prompts,
             "trainset": train_data,
             "adapter": adapter,
-            "reflection_lm": f"{provider}/{model}",
+            "reflection_lm": reflection_lm,
             "max_metric_calls": self.max_metric_calls,
             "display_progress_bar": self.display_progress_bar,
             "use_mlflow": enable_tracking,

@@ -1,9 +1,11 @@
 import json
 import uuid
+from unittest import mock
 
 import pytest
 
-from mlflow.genai.scorers.base import ScorerStatus
+from mlflow.genai import scorer
+from mlflow.genai.scorers.base import Scorer, ScorerStatus, _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.builtin_scorers import Completeness, ConversationCompleteness
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
@@ -168,3 +170,41 @@ def test_sample_dense_waterfall_behavior(entity_id):
         assert "low" not in result_names
     if "medium" not in result_names and "high" in result_names:
         assert "low" not in result_names
+
+
+def _custom_scorer():
+    @scorer
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    return output_length
+
+
+def test_custom_scorer_is_loaded_without_running_its_code_when_it_runs_in_a_container():
+    configs = [make_online_scorer(_custom_scorer()), make_online_scorer(Completeness())]
+    with mock.patch.object(
+        Scorer, "_reconstruct_decorator_scorer", side_effect=AssertionError("ran scorer code")
+    ):
+        sampler = OnlineScorerSampler(configs, run_custom_scorers_on_host=False)
+
+    scorers = sampler.group_scorers_by_filter(session_level=False)[None]
+    assert [type(s) for s in scorers] == [_UnexecutedDecoratorScorer, Completeness]
+    assert sampler.online_scorer("output_length") is configs[0]
+    assert sampler.scorer("output_length") is scorers[0]
+
+
+def test_custom_scorer_ensemble_is_skipped_when_custom_scorers_run_in_a_container():
+    custom = make_online_scorer(_custom_scorer())
+    ensemble_data = {
+        "name": "ensemble",
+        "ensemble_scorer_data": {"scorers": [json.loads(custom.serialized_scorer)]},
+    }
+    ensemble = OnlineScorer(
+        name="ensemble",
+        serialized_scorer=json.dumps(ensemble_data),
+        online_config=custom.online_config,
+    )
+
+    sampler = OnlineScorerSampler([ensemble], run_custom_scorers_on_host=False)
+
+    assert sampler.group_scorers_by_filter(session_level=False) == {}

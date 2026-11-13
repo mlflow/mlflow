@@ -7,9 +7,16 @@ MLFLOW_GATEWAY_OVERHEAD_HEADER = "X-MLflow-Gateway-Overhead-Duration-Ms"
 
 
 class GatewayCaller(str, Enum):
-    """Known callers of the gateway, sent via the X-MLflow-Gateway-Caller header."""
+    """
+    Built-in MLflow features that call the gateway, sent via the X-MLflow-Gateway-Caller header.
+
+    The gateway records the value on each trace so usage can be broken down by feature.
+    """
 
     JUDGE = "judge"
+    SIMULATOR = "simulator"
+    ISSUE_DETECTION = "issue_detection"
+    PROMPT_OPTIMIZATION = "prompt_optimization"
 
 
 MLFLOW_GATEWAY_HEALTH_ENDPOINT = "/health"
@@ -36,6 +43,14 @@ MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset([
 # Provider constants
 TYPESAFE_API_BASE_URL = "https://api.typesafe.ai/v1"
 TYPESAFE_SYSTEM_ONE_PATH = "systemone"
+
+# Detail returned by ordinary (chat) Gateway routes when the endpoint only serves System One
+# models. Gateway-backed judges use it to detect a System One endpoint and switch to the
+# System One route. Keep this in sync with the frontend matcher in judgeModelErrors.ts.
+SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL = (
+    "System One models only support structured evaluation through "
+    "/gateway/typesafe/v1/systemone. Use a chat model for chat completions."
+)
 
 MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS = 1_000_000
 # Max for Claude 3.5 Sonnet. Newer models have higher limits.

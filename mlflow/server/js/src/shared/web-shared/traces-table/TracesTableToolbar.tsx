@@ -1,4 +1,4 @@
-import { type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Input, type InputRef, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import { TRACES_TOOLBAR_COLLAPSE_QUERY, TRACES_TOOLBAR_CONTAINER_NAME } from './TracesToolbarResponsive';
@@ -15,6 +15,15 @@ export interface TracesTableToolbarProps {
   searchPlaceholder?: string;
   /** Node rendered inside the search input's `suffix` slot (e.g. an AI-filter toggle button). */
   searchSuffix?: React.ReactNode;
+  /** Consumer-owned search experience, rendered in place of the standard input when provided. */
+  searchControl?: React.ReactNode;
+  /**
+   * Let a consumer search containing filter pills fill the available toolbar width. The search moves
+   * to its own row below the controls when `searchMinimumWidth` doesn't fit beside them.
+   */
+  expandSearch?: boolean;
+  /** Intrinsic width needed for the consumer search, including its applied filter pills. */
+  searchMinimumWidth?: number;
   /** Commit the current search (wired to the search `<Input>`'s `onPressEnter`); no-op when omitted. */
   onSearchSubmit?: () => void;
   /** Controls placed before the search box (e.g. a date-range selector). */
@@ -35,12 +44,37 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
   searchInputRef,
   searchPlaceholder,
   searchSuffix,
+  searchControl,
+  expandSearch,
+  searchMinimumWidth = 340,
   onSearchSubmit,
   leftControls,
   rightControls,
 }: TracesTableToolbarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const leftControlsRef = useRef<HTMLDivElement>(null);
+  const rightControlsRef = useRef<HTMLDivElement>(null);
+  const [inlineSearchSpace, setInlineSearchSpace] = useState(Infinity);
+  useLayoutEffect(() => {
+    if (!expandSearch) return;
+    const toolbar = toolbarRef.current;
+    const left = leftControlsRef.current;
+    const right = rightControlsRef.current;
+    if (!toolbar || !left || !right) return;
+    const measure = () => {
+      if (!toolbar.clientWidth) return;
+      setInlineSearchSpace(
+        Math.max(0, toolbar.clientWidth - left.offsetWidth - right.offsetWidth - 2 * theme.spacing.sm),
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    [toolbar, left, right].forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [expandSearch, theme.spacing.sm]);
+  const searchOnNewRow = expandSearch && searchMinimumWidth > inlineSearchSpace;
 
   const placeholder =
     searchPlaceholder ??
@@ -65,6 +99,54 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
     />
   );
 
+  if (expandSearch) {
+    return (
+      <div
+        ref={toolbarRef}
+        data-search-layout={searchOnNewRow ? 'below-controls' : 'inline'}
+        css={{
+          display: 'grid',
+          gridTemplateColumns: searchOnNewRow ? 'max-content minmax(0, 1fr)' : 'max-content minmax(0, 1fr) max-content',
+          alignItems: 'center',
+          gap: theme.spacing.sm,
+          containerType: 'inline-size',
+          containerName: TRACES_TOOLBAR_CONTAINER_NAME,
+        }}
+      >
+        <div
+          ref={leftControlsRef}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            width: 'max-content',
+            gridColumn: 1,
+            gridRow: 1,
+          }}
+        >
+          {leftControls}
+        </div>
+        <div css={{ minWidth: 0, gridColumn: searchOnNewRow ? '1 / -1' : 2, gridRow: searchOnNewRow ? 2 : 1 }}>
+          {searchControl ?? searchInput}
+        </div>
+        <div
+          ref={rightControlsRef}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            width: 'max-content',
+            justifySelf: 'end',
+            gridColumn: searchOnNewRow ? 2 : 3,
+            gridRow: 1,
+          }}
+        >
+          {rightControls}
+        </div>
+      </div>
+    );
+  }
+
   return (
     // Query container so the controls collapse on the toolbar's own width, not the viewport's.
     // Wraps to a second row when the contents (e.g. the fixed-width CUSTOM-date RangePicker) can't
@@ -83,7 +165,7 @@ export const TracesTableToolbar: React.FC<TracesTableToolbarProps> = ({
       {/* Caps out so a wide window doesn't stretch the search box across the row; drops its floor
           once labels collapse so the trailing controls fit on one row. */}
       <div css={{ flex: 3, minWidth: 240, maxWidth: 480, [TRACES_TOOLBAR_COLLAPSE_QUERY]: { minWidth: 120 } }}>
-        {searchInput}
+        {searchControl ?? searchInput}
       </div>
       {rightControls}
     </div>

@@ -221,13 +221,6 @@ try:
     _dataset_source_registry.register(UCVolumeDatasetSource)
 except ImportError:
     pass
-try:
-    from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
-        DatabricksEvaluationDatasetSource,
-        DatabricksUCTableDatasetSource,
-    )
-
-    _dataset_source_registry.register(DatabricksEvaluationDatasetSource)
-    _dataset_source_registry.register(DatabricksUCTableDatasetSource)
-except ImportError:
-    pass
+# NB: The Databricks evaluation dataset sources are registered in
+# `mlflow.genai.datasets.databricks_evaluation_dataset_source`. Importing them here would load
+# `mlflow.genai` while `mlflow.entities.evaluation_dataset` is still partially initialized.

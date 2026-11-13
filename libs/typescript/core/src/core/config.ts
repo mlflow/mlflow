@@ -32,6 +32,40 @@ function isValidHttpUri(uri: string): boolean {
   }
 }
 
+/** Parse a catalog.schema.table_prefix UC location, or return null when invalid. */
+export function parseUnityCatalogTraceLocation(
+  value: string | undefined,
+): UnityCatalogLocationOptions | null {
+  if (value === undefined || value.trim().length === 0) {
+    return null;
+  }
+
+  const parts = value.split('.').map((part) => part.trim());
+  if (parts.length !== 3 || parts.some((part) => !part)) {
+    return null;
+  }
+
+  const [catalogName, schemaName, tablePrefix] = parts;
+  return { catalogName, schemaName, tablePrefix };
+}
+
+function traceLocationFromEnvironment(
+  value: string | undefined,
+): UnityCatalogLocationOptions | undefined {
+  if (value === undefined || value.trim().length === 0) {
+    return undefined;
+  }
+
+  const traceLocation = parseUnityCatalogTraceLocation(value);
+  if (!traceLocation) {
+    throw new Error(
+      'Invalid MLFLOW_TRACE_LOCATION: expected catalog.schema.table_prefix with three non-empty parts. ' +
+        'Unset it to use experiment-backed tracing.',
+    );
+  }
+  return traceLocation;
+}
+
 /**
  * Configuration options for the MLflow tracing SDK
  */
@@ -100,16 +134,16 @@ export interface MLflowTracingConfig {
    * traces use the V3 experiment-backed path.
    *
    * The UC trace location must already be provisioned in the workspace; the
-   * TS SDK does not upsert it.
+   * TS SDK does not upsert it. If omitted, MLFLOW_TRACE_LOCATION can supply
+   * `catalog.schema.table_prefix` instead.
    */
   traceLocation?: UnityCatalogLocationOptions;
 }
 
 /**
- * Initialization options for the MLflow tracing SDK. The trackingUri and experimentId
- * can be omitted and will be resolved from environment variables when available. Since
- * this is used on the client side, we need to make sure the trackingUri and experimentId
- * are required.
+ * Initialization options for the MLflow tracing SDK. The trackingUri, experimentId,
+ * and traceLocation can be resolved from environment variables when omitted. The
+ * trackingUri and experimentId are still required after resolution.
  */
 export type MLflowTracingInitOptions = Partial<MLflowTracingConfig>;
 
@@ -267,6 +301,16 @@ export function init(config: MLflowTracingInitOptions): void {
     );
   }
 
+  const traceLocation =
+    config.traceLocation ?? traceLocationFromEnvironment(process.env.MLFLOW_TRACE_LOCATION);
+
+  if (traceLocation && !isDatabricksUri(trackingUri)) {
+    throw new Error(
+      `traceLocation requires a Databricks tracking URI, but got '${trackingUri}'. ` +
+        'Unset MLFLOW_TRACE_LOCATION or omit traceLocation to use a non-Databricks server.',
+    );
+  }
+
   // Create the authentication provider - this is the single source of truth
   // for credential resolution. It handles env vars, config files, OAuth, etc.
   globalAuthProvider = createAuthProvider({
@@ -286,6 +330,7 @@ export function init(config: MLflowTracingInitOptions): void {
     ...config,
     trackingUri,
     experimentId,
+    traceLocation,
     databricksConfigPath,
     host: globalAuthProvider.getHost(),
     databricksToken: globalAuthProvider.getDatabricksToken(),

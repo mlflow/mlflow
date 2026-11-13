@@ -1,0 +1,416 @@
+# Preview with: gh workflow run resolve.yml --ref <branch> -F pr_number=<number> -F review_id=<id>
+# Opus/high is the default for review runs unless the RESOLVE_MODEL or RESOLVE_EFFORT repository
+# variables override them; previews can pick another, e.g. `-f model=databricks-claude-sonnet-5-5`.
+name: Resolve feedback
+
+on:
+  pull_request_review:
+    types: [submitted]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number
+        type: number
+        required: true
+      review_id:
+        description: ID of the submitted review
+        type: number
+        required: true
+      dry_run:
+        description: Preview the patch, replies, and thread closures
+        type: boolean
+        default: true
+      # Supported models: https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/supported-models
+      model:
+        description: "AI Gateway Claude model for the resolve agent, e.g. databricks-claude-sonnet-5-5"
+        required: false
+        type: string
+      effort:
+        description: "Reasoning effort for the resolve agent"
+        required: false
+        type: choice
+        default: high
+        options:
+          - low
+          - medium
+          - high
+          - xhigh
+          - max
+
+concurrency:
+  group: resolve-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: false
+  queue: max
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+env:
+  GH_REPO: ${{ github.repository }}
+  PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+  REVIEW_ID: ${{ github.event.review.id || inputs.review_id }}
+  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+  CONTEXT_PATH: /tmp/resolve-context/context.json
+  OUT_DIR: /tmp/resolve-out
+  SCRIPT: .claude/skills/resolve/scripts/workflow.py
+
+jobs:
+  gate:
+    if: >-
+      github.repository == 'mlflow/mlflow' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.pull_request.user.login == 'mlflow-app[bot]' &&
+        github.event.pull_request.user.type == 'Bot' &&
+        github.event.review.user.login != 'mlflow-app[bot]' &&
+        startsWith(github.event.pull_request.head.ref, 'triage/') &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.base.ref == github.event.repository.default_branch &&
+        github.event.pull_request.state == 'open' && !github.event.pull_request.draft))
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      head_sha: ${{ steps.context.outputs.head_sha }}
+      trusted_ref: ${{ steps.trusted.outputs.ref }}
+    steps:
+      - name: Check dispatch ref
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        env:
+          EXPECTED_REF: refs/heads/${{ github.event.repository.default_branch }}
+        run: |
+          test "$GITHUB_REF" = "$EXPECTED_REF"
+      - name: Resolve trusted ref
+        id: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request_review ]; then
+            # GITHUB_SHA is the PR merge commit, which contains PR code. Its first parent is
+            # the base commit this workflow file was merged with. The event's base.sha can
+            # predate this workflow file and lack scripts it runs.
+            ref=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA" --jq '.parents[0].sha')
+          else
+            ref=$GITHUB_SHA
+          fi
+          test -n "$ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.trusted.outputs.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            .claude/skills/resolve
+            .claude/scripts
+      - name: Collect review context
+        id: context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$(dirname "$CONTEXT_PATH")"
+          python3 "$SCRIPT" collect
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.context.outputs.head_sha != ''
+        with:
+          name: resolve-context-${{ github.run_id }}
+          path: ${{ env.CONTEXT_PATH }}
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+
+  resolve:
+    needs: gate
+    if: needs.gate.outputs.head_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - parallel:
+          - name: Checkout trusted workflow files
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ needs.gate.outputs.trusted_ref }}
+              path: trusted
+              persist-credentials: false
+          - name: Checkout PR head
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ needs.gate.outputs.head_sha }}
+              path: pr
+              persist-credentials: false
+          - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+            with:
+              name: resolve-context-${{ github.run_id }}
+              path: /tmp/resolve-context
+      - uses: ./trusted/.github/actions/setup-python
+      - uses: ./trusted/.github/actions/setup-node
+      - name: Install agent tools
+        working-directory: trusted
+        run: |
+          .claude/scripts/install-claude.sh
+          .claude/scripts/install-agent-browser.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install FFmpeg
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          .claude/scripts/install-ffmpeg.sh
+      - id: gateway
+        uses: ./trusted/.github/actions/setup-gateway
+        with:
+          task: pr-resolve
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start gateway proxy
+        id: gateway-proxy
+        working-directory: trusted
+        env:
+          GATEWAY_TOKEN: ${{ steps.gateway.outputs.token }}
+          GATEWAY_URL: ${{ steps.gateway.outputs.base-url }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$GATEWAY_TOKEN" "$placeholder_token" | env -u GATEWAY_TOKEN \
+            GATEWAY_URL="$GATEWAY_URL" node .claude/sandbox/gateway-proxy.mjs \
+            > "/tmp/resolve-gateway-proxy.log" 2>&1 &
+          printf '%s\n' "$!" > "/tmp/resolve-gateway-proxy.pid"
+          unset GATEWAY_TOKEN placeholder_token
+          curl --noproxy '*' --retry 30 --retry-connrefused --retry-delay 1 \
+            -fsS http://127.0.0.1:8080/healthz > /dev/null
+      # Claude Code exports OpenTelemetry traces and logs to MLflow through a local proxy that holds
+      # the token, like the gateway proxy. Disabled unless RESOLVE_MLFLOW_TRACE_LOCATION is set to the
+      # <catalog>.<schema>.<table_prefix> of a UC-linked experiment.
+      - id: telemetry
+        name: Mint telemetry token
+        if: vars.RESOLVE_MLFLOW_TRACE_LOCATION != ''
+        uses: ./trusted/.github/actions/mint-telemetry-token
+        with:
+          host: ${{ secrets.DATABRICKS_HOST }}
+          client-id: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          client-secret: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Start telemetry proxy
+        id: telemetry-proxy
+        if: steps.telemetry.outcome == 'success'
+        working-directory: trusted
+        env:
+          TELEMETRY_TOKEN: ${{ steps.telemetry.outputs.token }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          TRACE_LOCATION: ${{ vars.RESOLVE_MLFLOW_TRACE_LOCATION }}
+        run: |
+          placeholder_token=$(openssl rand -hex 32)
+          echo "::add-mask::$placeholder_token"
+          printf 'placeholder-token=%s\n' "$placeholder_token" >> "$GITHUB_OUTPUT"
+          printf '%s\n%s\n' "$TELEMETRY_TOKEN" "$placeholder_token" | env -u TELEMETRY_TOKEN \
+            DATABRICKS_HOST="$DATABRICKS_HOST" TRACE_LOCATION="$TRACE_LOCATION" \
+            node .claude/sandbox/otel-proxy.mjs \
+            > "/tmp/resolve-telemetry-proxy.log" 2>&1 &
+          proxy_pid=$!
+          unset TELEMETRY_TOKEN placeholder_token
+          printf '%s\n' "$proxy_pid" > "/tmp/resolve-telemetry-proxy.pid"
+          for _ in $(seq 1 30); do
+            if ! kill -0 "$proxy_pid" 2>/dev/null; then
+              break
+            fi
+            if curl -fsS http://127.0.0.1:8081/healthz > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "/tmp/resolve-telemetry-proxy.log"
+          echo "::error::Telemetry proxy did not become ready"
+          exit 1
+      - name: Resolve agent model and effort
+        id: agent
+        env:
+          MODEL: ${{ inputs.model || vars.RESOLVE_MODEL || 'databricks-claude-opus-5-5' }}
+          EFFORT: ${{ inputs.effort || vars.RESOLVE_EFFORT || 'high' }}
+        run: |
+          # $GITHUB_OUTPUT is line-based; a newline in the model could inject another output.
+          [[ "$MODEL" != *$'\n'* ]] || { echo "::error::Model must be a single line."; exit 1; }
+          case "$EFFORT" in
+            low | medium | high | xhigh | max) ;;
+            *)
+              echo "::error::Invalid effort '$EFFORT'. Check the RESOLVE_EFFORT repository variable."
+              exit 1
+              ;;
+          esac
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "effort=$EFFORT" >> "$GITHUB_OUTPUT"
+          echo "Agent model: \`$MODEL\`, effort: \`$EFFORT\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Address review feedback
+        working-directory: trusted
+        env:
+          MODEL: ${{ steps.agent.outputs.model }}
+          EFFORT: ${{ steps.agent.outputs.effort }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
+          ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
+          ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
+          ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5
+          AGENT_BROWSER_ARGS: --no-sandbox
+          # OpenTelemetry export through the telemetry proxy. Spans need the enhanced telemetry beta;
+          # OTEL_LOG_* flags include prompt, response, and tool content, which are redacted by default.
+          CLAUDE_CODE_ENABLE_TELEMETRY: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: ${{ steps.telemetry.outcome == 'success' && '1' || '0' }}
+          OTEL_TRACES_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_LOGS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_METRICS_EXPORTER: ${{ steps.telemetry.outcome == 'success' && 'otlp' || 'none' }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ steps.telemetry.outcome == 'success' && format('Authorization={0} {1}', 'Bearer', steps.telemetry-proxy.outputs.placeholder-token) || '' }}
+          OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://localhost:8081/v1/traces
+          OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://localhost:8081/v1/logs
+          OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: http://localhost:8081/v1/metrics
+          OTEL_LOG_USER_PROMPTS: "1"
+          OTEL_LOG_ASSISTANT_RESPONSES: "1"
+          OTEL_LOG_TOOL_DETAILS: "1"
+          OTEL_LOG_TOOL_CONTENT: "1"
+          OTEL_RESOURCE_ATTRIBUTES: github.run_url=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          mkdir -p "$OUT_DIR/media"
+          printf -v prompt '/resolve "%s" "%s" "%s"' "$GITHUB_WORKSPACE/pr" "$CONTEXT_PATH" "$OUT_DIR"
+          token=$(cat /proc/sys/kernel/random/uuid)
+          echo "::stop-commands::$token"
+          trap 'echo "::$token::"' EXIT
+          timeout --kill-after=10s 30m claude \
+            --model "$MODEL" \
+            --effort "$EFFORT" \
+            --max-budget-usd 5 \
+            --permission-mode auto \
+            --disallowed-tools "WebSearch,WebFetch" \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "$prompt" | .claude/scripts/stream.sh
+      - name: Stop proxies
+        if: always()
+        run: |
+          for proxy in gateway telemetry; do
+            if [ -f "/tmp/resolve-$proxy-proxy.pid" ]; then
+              kill "$(cat "/tmp/resolve-$proxy-proxy.pid")" 2>/dev/null || true
+            fi
+          done
+      # The agent could plant symlinks in its output directory or modules in the trusted checkout.
+      # Copy only regular files, with an isolated interpreter. The publish job validates the copies
+      # on a fresh runner.
+      - name: Stage agent output for upload
+        working-directory: /tmp
+        run: |
+          python -I - <<'PY'
+          import os
+          import shutil
+          import stat
+          from pathlib import Path
+
+          stage = Path("/tmp/resolve-staged")
+          stage.mkdir(mode=0o700)
+          flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+
+
+          def copy_regular(directory_fd, name, destination):
+              fd = os.open(name, flags, dir_fd=directory_fd)
+              with os.fdopen(fd, "rb") as source:
+                  if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                      raise ValueError(f"{name} is not a regular file")
+                  with destination.open("xb") as target:
+                      shutil.copyfileobj(source, target)
+
+
+          out_fd = os.open(os.environ["OUT_DIR"], flags | os.O_DIRECTORY)
+          try:
+              copy_regular(out_fd, "payload.json", stage / "payload.json")
+              try:
+                  copy_regular(out_fd, "fix.patch", stage / "fix.patch")
+              except FileNotFoundError:
+                  pass
+              media_fd = os.open("media", flags | os.O_DIRECTORY, dir_fd=out_fd)
+              try:
+                  (stage / "media").mkdir()
+                  for name in os.listdir(media_fd):
+                      copy_regular(media_fd, name, stage / "media" / name)
+              finally:
+                  os.close(media_fd)
+          finally:
+              os.close(out_fd)
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: resolve-output-${{ github.run_id }}
+          path: /tmp/resolve-staged
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+
+  publish:
+    needs: [gate, resolve]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - parallel:
+          - name: Checkout trusted workflow files
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ needs.gate.outputs.trusted_ref }}
+              path: trusted
+              persist-credentials: false
+          - name: Checkout PR head
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ needs.gate.outputs.head_sha }}
+              path: pr
+              persist-credentials: false
+          - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+            with:
+              name: resolve-context-${{ github.run_id }}
+              path: /tmp/resolve-context
+          - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+            with:
+              name: resolve-output-${{ github.run_id }}
+              path: ${{ env.OUT_DIR }}
+      - uses: ./trusted/.github/actions/setup-python
+      - name: Validate resolution
+        working-directory: trusted
+        env:
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+        run: |
+          python "$SCRIPT" validate
+      - name: Embed reply media
+        if: env.DRY_RUN == 'false'
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ secrets.UPLOAD_MEDIA_TOKEN }}
+          REPOSITORY_ID: ${{ github.repository_id }}
+        run: |
+          python "$SCRIPT" embed
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        if: env.DRY_RUN == 'false'
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Publish or preview resolution
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          python "$SCRIPT" publish

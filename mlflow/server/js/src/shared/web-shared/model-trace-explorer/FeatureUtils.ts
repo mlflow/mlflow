@@ -1,3 +1,5 @@
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+
 export const shouldBlockLargeTraceDisplay = () => {
   return false;
 };
@@ -51,6 +53,9 @@ export const shouldUseUnifiedModelTraceComparisonUI = () => {
   }
   return true;
 };
+
+/** Gates the unified V2 trace comparison, part of the new eval runs UI. */
+export const shouldEnableModelTraceComparisonV2 = (): boolean => shouldEnableNewEvalRunsUi();
 
 /**
  * Determines if running scorers from trace details drawer is enabled

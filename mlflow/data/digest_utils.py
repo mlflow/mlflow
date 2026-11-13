@@ -1,8 +1,6 @@
 import hashlib
 from typing import Any
 
-from packaging.version import Version
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -24,15 +22,25 @@ def compute_pandas_digest(df) -> str:
     # trim to max rows
     trimmed_df = df.head(MAX_ROWS)
 
-    # keep string and number columns, drop other column types
-    if Version(pd.__version__) >= Version("2.1.0"):
-        string_columns = trimmed_df.columns[(df.map(type) == str).all(0)]
-    else:
-        string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
-    numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
+    # keep string, number, boolean, datetime, and categorical columns, drop other column types
+    # (e.g. object columns of lists or dicts, which cannot be hashed)
+    # `skipna=True` keeps string columns that contain missing values, as well as object columns
+    # of booleans, dates, or datetimes that contain missing values (which `select_dtypes` below
+    # doesn't match). Inferring on an object array keeps categorical columns of strings, for
+    # which `infer_dtype` returns "categorical".
+    inferred_columns = trimmed_df.columns[
+        [
+            pd.api.types.infer_dtype(column.to_numpy(dtype=object), skipna=True)
+            in ("string", "boolean", "date", "datetime")
+            for _, column in trimmed_df.items()
+        ]
+    ]
+    typed_columns = trimmed_df.select_dtypes(
+        include=[np.number, "bool", "boolean", "datetime", "datetimetz", "category"]
+    ).columns
 
-    desired_columns = string_columns.union(numeric_columns)
-    trimmed_df = trimmed_df[desired_columns]
+    desired_columns = inferred_columns.union(typed_columns)
+    trimmed_df = _with_datetimes_in_nanoseconds(trimmed_df[desired_columns])
 
     return get_normalized_md5_digest(
         [
@@ -41,6 +49,37 @@ def compute_pandas_digest(df) -> str:
         ]
         + [str(x).encode() for x in df.columns]
     )
+
+
+def _with_datetimes_in_nanoseconds(df):
+    """
+    Convert the datetime columns of ``df`` to nanoseconds, so that the digest doesn't depend on
+    the unit pandas stores them in. The hash covers the stored integers, and ``pd.to_datetime``
+    on strings returns nanoseconds in pandas 2 but microseconds in pandas 3. A column outside
+    the nanosecond range keeps its unit. PyArrow timestamps are left as they are, since their
+    unit is part of the dtype.
+    """
+    import numpy as np
+    import pandas as pd
+
+    converted = None
+    for position, (_, column) in enumerate(df.items()):
+        dtype = column.dtype
+        is_datetime = isinstance(dtype, pd.DatetimeTZDtype) or (
+            isinstance(dtype, np.dtype) and dtype.kind == "M"
+        )
+        # `.dt.unit` is absent before pandas 2, which only stores nanoseconds.
+        if not is_datetime or getattr(column.dt, "unit", "ns") == "ns":
+            continue
+        try:
+            column = column.dt.as_unit("ns")
+        except pd.errors.OutOfBoundsDatetime:
+            continue
+        if converted is None:
+            converted = df.copy()
+        # Set by position, which also handles duplicate column names.
+        converted.isetitem(position, column)
+    return df if converted is None else converted
 
 
 def compute_numpy_digest(features, targets=None) -> str:
@@ -71,6 +110,7 @@ def compute_numpy_digest(features, targets=None) -> str:
 
     def hash_dict_of_arrays(array_dict):
         for key in sorted(array_dict.keys()):
+            hashable_elements.append(str(key).encode())
             hash_array(array_dict[key])
 
     for item in [features, targets]:
