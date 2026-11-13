@@ -1,3 +1,4 @@
+import shutil
 from unittest import mock
 
 import pytest
@@ -76,3 +77,30 @@ def test_serve_benign_host():
     mock_execute.assert_called_once_with(
         "mlflow::mlflow_rfunc_serve('/tmp/model', port = 5000, host = '127.0.0.1')"
     )
+
+
+def test_generate_dockerfile_without_model(tmp_path):
+    RFuncBackend(config={}).generate_dockerfile(model_uri=None, output_dir=str(tmp_path))
+
+    dockerfile = (tmp_path / "Dockerfile").read_text()
+    assert "FROM rocker/r-ver:4.4.2" in dockerfile
+    assert "install.packages('mlflow'" in dockerfile
+    assert "No model baked in" in dockerfile
+    assert 'ENTRYPOINT ["Rscript", "-e", "mlflow::mlflow_rfunc_serve(' in dockerfile
+    assert "EXPOSE 8080" in dockerfile
+
+
+def test_generate_dockerfile_with_model_copies_it(tmp_path):
+    src_model = tmp_path / "src_model"
+    src_model.mkdir()
+    (src_model / "MLmodel").write_text("flavors: {}\n")
+    out = tmp_path / "out"
+
+    def fake_download(uri, output_path):
+        shutil.copytree(src_model, output_path)
+
+    with mock.patch("mlflow.rfunc.backend._download_artifact_from_uri", side_effect=fake_download):
+        RFuncBackend(config={}).generate_dockerfile(model_uri="models:/m/1", output_dir=str(out))
+
+    assert "COPY model /opt/ml/model" in (out / "Dockerfile").read_text()
+    assert (out / "model" / "MLmodel").exists()
