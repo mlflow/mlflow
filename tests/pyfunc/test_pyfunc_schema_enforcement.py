@@ -659,14 +659,15 @@ def test_column_schema_enforcement_datetime_from_strings():
     m.signature = ModelSignature(inputs=Schema([ColSpec("datetime", "d")]))
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     expected = [pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-02 03:04:05")]
-    # pandas 3 infers the first frame's column as StringDtype; object is what pandas 2 infers
-    for dtype in (None, object):
+    # pandas 3 infers the first frame's column as StringDtype; object is what pandas 2 infers.
+    # "string" gives StringDtype on both.
+    for dtype in (None, object, "string"):
         pdf = pd.DataFrame({"d": ["2024-01-01", "2024-01-02 03:04:05"]}, dtype=dtype)
         res = pyfunc_model.predict(pdf)
         assert res["d"].dtype == np.dtype("datetime64[ns]")
         assert res["d"].tolist() == expected
-    with pytest.raises(MlflowException, match="Failed to convert column d"):
-        pyfunc_model.predict(pd.DataFrame({"d": ["not a date"]}))
+        with pytest.raises(MlflowException, match="Failed to convert column d"):
+            pyfunc_model.predict(pd.DataFrame({"d": ["not a date"]}, dtype=dtype))
 
 
 def test_column_schema_enforcement_no_col_names():
