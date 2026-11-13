@@ -14,13 +14,23 @@ describe('useGatewayFeatureUsageData', () => {
   const server = setupServer();
   let capturedRequests: any[] = [];
 
-  const respondWith = (valuesByMetric: Record<string, ValuesByCaller>) => {
+  // Queries grouped by caller get a data point per caller. Ungrouped totals default to the sum over
+  // the callers; `totals` overrides them to include traces that have no caller.
+  const respondWith = (valuesByMetric: Record<string, ValuesByCaller>, totals: Record<string, number> = {}) => {
     server.use(
       rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         capturedRequests.push(body);
         const aggregation = body.aggregations[0].aggregation_type;
         const values: ValuesByCaller = valuesByMetric[body.metric_name] ?? {};
+        if (!body.dimensions?.includes('gateway_caller')) {
+          const total = totals[body.metric_name] ?? Object.values(values).reduce((sum, value) => sum + value, 0);
+          return res(
+            ctx.json({
+              data_points: [{ metric_name: body.metric_name, dimensions: {}, values: { [aggregation]: total } }],
+            }),
+          );
+        }
         return res(
           ctx.json({
             data_points: Object.entries(values).map(([caller, value]) => ({
@@ -71,7 +81,37 @@ describe('useGatewayFeatureUsageData', () => {
     expect(result.current.hasFeatureUsage).toBe(true);
   });
 
-  it('groups requests, tokens and cost by gateway caller within the chart filters', async () => {
+  it('counts gateway traces without a caller as other usage', async () => {
+    // Grouping by caller leaves out traces without one, such as requests sent with neither a caller
+    // header nor a User-Agent, but the totals the other charts show include them.
+    respondWith(
+      {
+        trace_count: { judge: 2, OpenAI: 1 },
+        total_tokens: { judge: 300, OpenAI: 150 },
+        total_cost: { judge: 0.5, OpenAI: 0.25 },
+      },
+      { trace_count: 5, total_tokens: 750, total_cost: 1.25 },
+    );
+
+    const { result } = renderHook(() => useGatewayFeatureUsageData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.usage).toEqual([
+      { feature: 'judge', requests: 2, tokens: 300, cost: 0.5 },
+      { feature: OTHER_CALLERS, requests: 3, tokens: 450, cost: 0.75 },
+    ]);
+  });
+
+  it('leaves out other usage when MLflow features made every request', async () => {
+    respondWith({ trace_count: { judge: 2 }, total_tokens: { judge: 300 }, total_cost: { judge: 0.1 } });
+
+    const { result } = renderHook(() => useGatewayFeatureUsageData(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.usage).toEqual([{ feature: 'judge', requests: 2, tokens: 300, cost: 0.1 }]);
+  });
+
+  it('queries usage by gateway caller and the totals within the chart filters', async () => {
     respondWith({});
 
     const { result } = renderHook(() => useGatewayFeatureUsageData(), { wrapper });
@@ -104,6 +144,14 @@ describe('useGatewayFeatureUsageData', () => {
           dimensions: ['gateway_caller'],
           filters: ['trace.status = "OK"'],
         },
+        {
+          view_type: 'TRACES',
+          metric_name: 'trace_count',
+          dimensions: ['trace_status'],
+          filters: ['trace.status = "OK"'],
+        },
+        { view_type: 'TRACES', metric_name: 'total_tokens', dimensions: undefined, filters: ['trace.status = "OK"'] },
+        { view_type: 'SPANS', metric_name: 'total_cost', dimensions: undefined, filters: ['trace.status = "OK"'] },
       ]),
     );
     expect(result.current.usage).toEqual([]);

@@ -80,6 +80,6 @@ Each request is attributed to the feature that made it, and the **Usage by Featu
 
 - **Judges** covers the judges and scorers you configure, wherever they run, including when prompt optimization uses them to score candidate prompts.
 - **Issue detection** covers all of its analysis, including the judge it runs internally to triage traces.
-- **Other** covers requests that no MLflow feature made, such as calls from your applications or the playground.
+- **Other** covers requests that no MLflow feature made, such as calls from your applications or the playground. It also includes requests the gateway recorded without a caller, such as those from before it tracked callers.
 
 MLflow identifies the feature with the `X-MLflow-Gateway-Caller` request header, which the gateway records as the `mlflow.gateway.caller` metadata of each trace.
