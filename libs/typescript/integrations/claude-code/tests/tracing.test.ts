@@ -117,6 +117,7 @@ jest.mock('@mlflow/core', () => {
       TOTAL_TOKENS: 'total_tokens',
       CACHE_READ_INPUT_TOKENS: 'cache_read_input_tokens',
       CACHE_CREATION_INPUT_TOKENS: 'cache_creation_input_tokens',
+      CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: 'cache_creation_input_tokens_above_1hr',
     },
     InMemoryTraceManager: {
       getInstance: jest.fn(() => ({
@@ -357,6 +358,57 @@ describe('processTranscript', () => {
           total_tokens: expectedInput + 25,
           ...cacheTokens,
         });
+      },
+    );
+
+    it.each([
+      {
+        cacheCreation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 100 },
+        expectedAbove1hr: 100,
+      },
+      {
+        cacheCreation: { ephemeral_5m_input_tokens: 60, ephemeral_1h_input_tokens: 40 },
+        expectedAbove1hr: 40,
+      },
+      {
+        cacheCreation: { ephemeral_5m_input_tokens: 100, ephemeral_1h_input_tokens: 0 },
+        expectedAbove1hr: 0,
+      },
+      { cacheCreation: { ephemeral_5m_input_tokens: 100 }, expectedAbove1hr: undefined },
+      { cacheCreation: undefined, expectedAbove1hr: undefined },
+    ])(
+      'records 1-hour cache writes and prices them at the 1-hour rate: $cacheCreation',
+      async ({ cacheCreation, expectedAbove1hr }) => {
+        const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+        const transcriptPath = resolve(tmpDir, 'cache-1h.jsonl');
+        const entries = readFileSync(resolve(FIXTURES_DIR, 'with-usage.jsonl'), 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line) as TranscriptEntry);
+        // claude-opus-4-8: input=5, cacheWrite=6.25, cacheWrite1h=10, output=25 per MTok
+        entries[1].message!.model = 'claude-opus-4-8';
+        entries[1].message!.usage = {
+          input_tokens: 10,
+          output_tokens: 25,
+          cache_creation_input_tokens: 100,
+          ...(cacheCreation && { cache_creation: cacheCreation }),
+        };
+        writeFileSync(transcriptPath, entries.map((entry) => JSON.stringify(entry)).join('\n'));
+        await processTranscript(transcriptPath, 'test-session-cache-1h');
+
+        const llms = getSpansByType('LLM');
+        expect(llms).toHaveLength(1);
+
+        const tokenUsage = llms[0].attributes['mlflow.chat.tokenUsage'];
+        expect(tokenUsage.cache_creation_input_tokens).toBe(100);
+        expect(tokenUsage.cache_creation_input_tokens_above_1hr).toBe(expectedAbove1hr);
+
+        const oneHour = expectedAbove1hr ?? 0;
+        const cost = llms[0].attributes['mlflow.llm.cost'];
+        expect(cost.input_cost).toBeCloseTo(
+          (10 * 5 + (100 - oneHour) * 6.25 + oneHour * 10) / 1e6,
+          12,
+        );
       },
     );
 

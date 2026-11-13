@@ -40,6 +40,9 @@ const lines = entries.map(([name, entry]) => {
   if (pricing.cache_write_per_million_tokens != null) {
     fields.push(`cacheWrite: ${pricing.cache_write_per_million_tokens}`);
   }
+  if (pricing.cache_write_1hr_per_million_tokens != null) {
+    fields.push(`cacheWrite1h: ${pricing.cache_write_1hr_per_million_tokens}`);
+  }
   return `  '${name}': { ${fields.join(', ')} },`;
 });
 
@@ -64,6 +67,8 @@ export interface AnthropicModelRate {
   cacheRead?: number;
   /** USD per million cache-write (cache creation) input tokens. */
   cacheWrite?: number;
+  /** USD per million cache-write input tokens with the 1-hour cache TTL. */
+  cacheWrite1h?: number;
 }
 
 export const ANTHROPIC_MODEL_RATES: Readonly<Record<string, AnthropicModelRate>> = {

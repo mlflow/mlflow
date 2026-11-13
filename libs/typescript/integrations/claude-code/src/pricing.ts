@@ -78,13 +78,23 @@ export function calculateCost(
 
   const cacheRead = usage.cache_read_input_tokens || 0;
   const cacheWrite = usage.cache_creation_input_tokens || 0;
+  // The 1-hour share of the cache writes (a subset of cacheWrite) is billed at
+  // the model's 1-hour rate and the rest at the standard 5-minute rate, matching
+  // Python's cost_per_token.
+  const cacheWrite1h = Math.min(
+    Math.max(usage.cache_creation?.ephemeral_1h_input_tokens || 0, 0),
+    cacheWrite,
+  );
 
   // Cache rates come from the catalog per model; fall back to the base input
-  // rate when missing, matching Python's cost_per_token.
+  // rate (or, for 1-hour writes, the standard cache-write rate) when missing,
+  // matching Python's cost_per_token.
+  const cacheWriteRate = rate.cacheWrite ?? rate.input;
   const inputCost =
     inputTokens * rate.input * PER_MTOK +
     cacheRead * (rate.cacheRead ?? rate.input) * PER_MTOK +
-    cacheWrite * (rate.cacheWrite ?? rate.input) * PER_MTOK;
+    (cacheWrite - cacheWrite1h) * cacheWriteRate * PER_MTOK +
+    cacheWrite1h * (rate.cacheWrite1h ?? cacheWriteRate) * PER_MTOK;
   const outputCost = outputTokens * rate.output * PER_MTOK;
 
   return {

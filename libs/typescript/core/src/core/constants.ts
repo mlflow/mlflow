@@ -167,6 +167,7 @@ export const TokenUsageKey = {
   TOTAL_TOKENS: 'total_tokens',
   CACHE_READ_INPUT_TOKENS: 'cache_read_input_tokens',
   CACHE_CREATION_INPUT_TOKENS: 'cache_creation_input_tokens',
+  CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: 'cache_creation_input_tokens_above_1hr',
 };
 
 /**
