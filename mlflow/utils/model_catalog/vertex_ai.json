@@ -3103,11 +3103,6 @@
             "output_per_million_tokens": 5.0,
             "cache_read_per_million_tokens": 0.05
           },
-          "flex": {
-            "input_per_million_tokens": 1.0,
-            "output_per_million_tokens": 5.0,
-            "cache_read_per_million_tokens": 0.05
-          },
           "priority": {
             "input_per_million_tokens": 3.6,
             "output_per_million_tokens": 18.0,
@@ -3134,7 +3129,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "gemini-4-argon-cyber-permissive": {
       "mode": "chat",
@@ -3148,11 +3143,6 @@
         "cache_read_per_million_tokens": 0.2,
         "service_tiers": {
           "batch": {
-            "input_per_million_tokens": 2.0,
-            "output_per_million_tokens": 10.0,
-            "cache_read_per_million_tokens": 0.1
-          },
-          "flex": {
             "input_per_million_tokens": 2.0,
             "output_per_million_tokens": 10.0,
             "cache_read_per_million_tokens": 0.1
@@ -3183,7 +3173,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "gemini-4-carbon": {
       "mode": "chat",
@@ -3285,11 +3275,6 @@
         "cache_read_per_million_tokens": 0.075,
         "service_tiers": {
           "batch": {
-            "input_per_million_tokens": 0.75,
-            "output_per_million_tokens": 3.75,
-            "cache_read_per_million_tokens": 0.0375
-          },
-          "flex": {
             "input_per_million_tokens": 0.75,
             "output_per_million_tokens": 3.75,
             "cache_read_per_million_tokens": 0.0375
