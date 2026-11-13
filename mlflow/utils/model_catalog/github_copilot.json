@@ -443,6 +443,26 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "gemini-4-hydrogen": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.075
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "gpt-3.5-turbo": {
       "mode": "chat",
       "context_window": {

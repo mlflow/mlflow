@@ -1295,10 +1295,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-01"
+      "last_updated_at": "2026-11-13"
     },
     "accounts/fireworks/models/ernie-4p5-21b-a3b-pt": {
       "mode": "chat",
@@ -1855,10 +1855,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "accounts/fireworks/models/gpt-oss-120b": {
       "mode": "chat",
@@ -2310,10 +2310,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-05"
+      "last_updated_at": "2026-11-13"
     },
     "accounts/fireworks/models/llama-guard-2-8b": {
       "mode": "chat",
@@ -3020,10 +3020,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "accounts/fireworks/models/ministral-3-14b-instruct-2512": {
       "mode": "chat",
@@ -5458,10 +5458,10 @@
         "function_calling": false,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-05"
+      "last_updated_at": "2026-11-13"
     },
     "accounts/fireworks/models/yi-34b": {
       "mode": "chat",
@@ -6549,10 +6549,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": false,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "glm-5p3-flash-us": {
       "mode": "chat",

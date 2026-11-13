@@ -742,7 +742,8 @@
         "max_input": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 0.1
+        "input_per_million_tokens": 0.1,
+        "cache_read_per_million_tokens": 0.01
       },
       "capabilities": {
         "function_calling": false,
@@ -751,7 +752,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "mistral-embed-2312": {
       "mode": "embedding",
@@ -759,7 +760,8 @@
         "max_input": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 0.1
+        "input_per_million_tokens": 0.1,
+        "cache_read_per_million_tokens": 0.01
       },
       "capabilities": {
         "function_calling": false,
@@ -768,7 +770,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "mistral-large-2402": {
       "mode": "chat",
