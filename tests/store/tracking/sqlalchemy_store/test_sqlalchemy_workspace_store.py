@@ -76,7 +76,12 @@ from mlflow.store.tracking.gateway.config_resolver import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceMetricKey
+from mlflow.tracing.constant import (
+    SpanAttributeKey,
+    TraceMetadataKey,
+    TraceMetricDimensionKey,
+    TraceMetricKey,
+)
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -219,6 +224,33 @@ def test_trace_rollup_invalidation_is_workspace_scoped(workspace_tracking_store,
                     "trace_metric",
                     "assessment",
                 }
+
+
+def test_query_trace_metrics_by_gateway_caller_is_workspace_scoped(workspace_tracking_store):
+    experiment_ids = {}
+    for workspace, caller in (("team-gateway-a", "judge"), ("team-gateway-b", "simulator")):
+        with WorkspaceContext(workspace):
+            experiment_id = workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            experiment_ids[workspace] = experiment_id
+            _create_trace(
+                workspace_tracking_store,
+                f"trace-{workspace}",
+                experiment_id,
+                trace_metadata={TraceMetadataKey.GATEWAY_CALLER: caller},
+            )
+
+    for workspace, caller in (("team-gateway-a", "judge"), ("team-gateway-b", "simulator")):
+        with WorkspaceContext(workspace):
+            result = workspace_tracking_store.query_trace_metrics(
+                experiment_ids=list(experiment_ids.values()),
+                view_type=MetricViewType.TRACES,
+                metric_name=TraceMetricKey.TRACE_COUNT,
+                aggregations=[MetricAggregation(AggregationType.COUNT)],
+                dimensions=[TraceMetricDimensionKey.GATEWAY_CALLER],
+            )
+            assert [(dp.dimensions, dp.values) for dp in result] == [
+                ({TraceMetricDimensionKey.GATEWAY_CALLER: caller}, {"COUNT": 1})
+            ]
 
 
 def test_query_trace_metrics_serves_rollups_only_for_active_workspace(

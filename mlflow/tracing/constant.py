@@ -269,6 +269,9 @@ class TraceMetricDimensionKey:
 
     TRACE_NAME = "trace_name"
     TRACE_STATUS = "trace_status"
+    # Who made an AI Gateway request, from the trace's ``mlflow.gateway.caller`` metadata.
+    # Traces without it (non-gateway traces) are left out of the results.
+    GATEWAY_CALLER = "gateway_caller"
 
 
 class SpanMetricKey:
@@ -297,6 +300,8 @@ class SpanMetricDimensionKey:
     SPAN_STATUS = "span_status"
     SPAN_MODEL_NAME = "span_model_name"
     SPAN_MODEL_PROVIDER = "span_model_provider"
+    # The caller of the AI Gateway request the span belongs to (a trace-level value).
+    GATEWAY_CALLER = TraceMetricDimensionKey.GATEWAY_CALLER
 
 
 class AssessmentMetricKey:

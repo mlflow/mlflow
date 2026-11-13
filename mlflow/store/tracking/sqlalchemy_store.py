@@ -4754,6 +4754,10 @@ class SqlAlchemyStore(
         page_token: str | None = None,
     ) -> PagedList[list[MetricDataPoint]]:
         validate_query_trace_metrics_params(view_type, metric_name, aggregations, dimensions)
+        # A dimension backed by a join (e.g. gateway_caller) would otherwise join the same aliased
+        # table once per repeat, which is invalid SQL.
+        if dimensions:
+            dimensions = list(dict.fromkeys(dimensions))
 
         if time_interval_seconds and (start_time_ms is None or end_time_ms is None):
             raise MlflowException.invalid_parameter_value(
