@@ -396,12 +396,31 @@ def test_python_type_hints_validation(type_hint, example):
     assert _validate_data_against_type_hint(data=example, type_hint=type_hint) == example
 
 
+@pytest.mark.parametrize(
+    ("type_hint", "data", "expected"),
+    [
+        (float, 1, 1.0),
+        (float | None, 1, 1.0),
+        (list[float], [1, 2.5], [1.0, 2.5]),
+        (dict[str, float], {"a": 1}, {"a": 1.0}),
+        (list[dict[str, float]], [{"a": 1}], [{"a": 1.0}]),
+    ],
+)
+def test_type_hints_validation_accepts_int_for_float(type_hint, data, expected):
+    result = _validate_data_against_type_hint(data=data, type_hint=type_hint)
+    assert result == expected
+    assert repr(result) == repr(expected)
+
+
 def test_type_hints_validation_errors():
     with pytest.raises(MlflowException, match=r"Data doesn't match type hint"):
         _validate_data_against_type_hint({"long_field": 1, "str_field": "a"}, CustomModel)
 
     with pytest.raises(MlflowException, match=r"Expected type int, but got str"):
         _validate_data_against_type_hint("a", int)
+
+    with pytest.raises(MlflowException, match=r"Expected type float, but got bool"):
+        _validate_data_against_type_hint(True, float)
 
     with pytest.raises(MlflowException, match=r"Expected list, but got str"):
         _validate_data_against_type_hint("a", list[str])
