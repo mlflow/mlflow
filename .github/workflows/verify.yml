@@ -403,6 +403,8 @@ jobs:
           repositories: mlflow
           # Enabling auto-merge needs write access to contents.
           permission-contents: write
+          # Lets a merge the app enabled close the PR's linked issues.
+          permission-issues: write
           permission-pull-requests: write
       # Runs even when verification failed, so it relies on the runner's Python rather than uv.
       - name: Publish or preview review
