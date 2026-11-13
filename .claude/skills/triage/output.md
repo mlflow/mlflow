@@ -41,17 +41,22 @@ Before creating `fix.patch`:
 
 - Keep only the fix and any regression tests in the checkout.
 - If the patch changes Python files, invoke the `python-style` skill and follow its guidance.
-- Run pre-commit on all changed files; fix and rerun failures.
 
-Write the patch:
+Write the patch. This runs pre-commit on the changed files first and writes nothing if it
+fails or reformats a file:
 
 ```bash
 mapfile -t paths < <(printf '%s\n' "$TRIAGE_PATCH_PATH_ALLOWLIST" | sed '/^$/d')
 [ "${#paths[@]}" -gt 0 ] || exit 1
 git add -N -- "${paths[@]}"
+git diff HEAD --name-only --diff-filter=d -z -- "${paths[@]}" |
+  xargs -0 uv run --only-group lint pre-commit run --files || exit 1
 git diff HEAD -- "${paths[@]}" > "$out_dir/fix.patch"
 git diff HEAD --stat
 ```
+
+If pre-commit fails, fix what it reports and rerun the whole block. Rerun it after any later
+edit too, so `fix.patch` always matches a checkout that passes pre-commit.
 
 The last command must list only the files in the patch. Then add `pull_request` to the payload
 using `pull_request` from the selected action's payload schema.
