@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, and_, case, distinct, exists, false, func, literal_column, or_, true
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.query import Query
 
 from mlflow.entities.entity_type import EntityAssociationType
@@ -62,7 +63,11 @@ class TraceMetricsConfig:
 TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
     TraceMetricKey.TRACE_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
-        dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.TRACE_STATUS},
+        dimensions={
+            TraceMetricDimensionKey.TRACE_NAME,
+            TraceMetricDimensionKey.TRACE_STATUS,
+            TraceMetricDimensionKey.GATEWAY_CALLER,
+        },
     ),
     TraceMetricKey.SESSION_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
@@ -85,7 +90,7 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.GATEWAY_CALLER},
     ),
     TraceMetricKey.OUTPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -95,7 +100,7 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.GATEWAY_CALLER},
     ),
     TraceMetricKey.TOTAL_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -105,7 +110,7 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.GATEWAY_CALLER},
     ),
     TraceMetricKey.CACHE_READ_INPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -115,7 +120,7 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.GATEWAY_CALLER},
     ),
     TraceMetricKey.CACHE_CREATION_INPUT_TOKENS: TraceMetricsConfig(
         aggregation_types={
@@ -125,7 +130,7 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
             AggregationType.MAX,
             AggregationType.PERCENTILE,
         },
-        dimensions={TraceMetricDimensionKey.TRACE_NAME},
+        dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.GATEWAY_CALLER},
     ),
 }
 
@@ -161,6 +166,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.GATEWAY_CALLER,
         },
     ),
     SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
@@ -174,6 +180,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.GATEWAY_CALLER,
         },
     ),
     SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
@@ -187,6 +194,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.GATEWAY_CALLER,
         },
     ),
 }
@@ -233,6 +241,8 @@ _SPAN_COST_COLUMNS = {
     SpanMetricKey.OUTPUT_COST: SqlSpan.output_cost,
     SpanMetricKey.TOTAL_COST: SqlSpan.total_cost,
 }
+# Aliased so the dimension join never collides with the metadata table used by filters.
+_GATEWAY_CALLER_METADATA = aliased(SqlTraceMetadata, name="gateway_caller_metadata")
 
 
 def get_percentile_aggregation(
@@ -451,8 +461,14 @@ def _apply_dimension_to_query(
                     return query, SqlTraceInfo.trace_name.label(TraceMetricDimensionKey.TRACE_NAME)
                 case TraceMetricDimensionKey.TRACE_STATUS:
                     return query, SqlTraceInfo.status.label(TraceMetricDimensionKey.TRACE_STATUS)
+                case TraceMetricDimensionKey.GATEWAY_CALLER:
+                    return _join_gateway_caller(query, SqlTraceInfo.request_id)
         case MetricViewType.SPANS:
             match dimension:
+                case SpanMetricDimensionKey.GATEWAY_CALLER:
+                    # Joined through the span, which every PostgreSQL span query keeps even when
+                    # it drops trace_info.
+                    return _join_gateway_caller(query, SqlSpan.trace_id)
                 case SpanMetricDimensionKey.SPAN_NAME:
                     return query, SqlSpan.name.label(SpanMetricDimensionKey.SPAN_NAME)
                 case SpanMetricDimensionKey.SPAN_TYPE:
@@ -478,6 +494,17 @@ def _apply_dimension_to_query(
     raise MlflowException.invalid_parameter_value(
         f"Unsupported dimension `{dimension}` with view type {view_type}"
     )
+
+
+def _join_gateway_caller(query: Query, trace_id_column: Column) -> tuple[Query, Column]:
+    query = query.join(
+        _GATEWAY_CALLER_METADATA,
+        and_(
+            _GATEWAY_CALLER_METADATA.request_id == trace_id_column,
+            _GATEWAY_CALLER_METADATA.key == TraceMetadataKey.GATEWAY_CALLER,
+        ),
+    )
+    return query, _GATEWAY_CALLER_METADATA.value.label(TraceMetricDimensionKey.GATEWAY_CALLER)
 
 
 def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
