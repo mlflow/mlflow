@@ -710,6 +710,9 @@ def test_standardize_scorer_value_numpy_scalars(value, expected):
         np.float64("nan"),
         Feedback(value=float("nan"), rationale="judge reply was empty"),
         [Feedback(name="a", value=float("nan"))],
+        float("inf"),
+        float("-inf"),
+        Feedback(value=float("inf"), rationale="ratio with zero denominator"),
     ],
 )
 def test_standardize_scorer_value_turns_nan_into_error(value):

@@ -363,13 +363,13 @@ def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
 
 
 def _replace_nan_value_with_error(feedback: Feedback) -> None:
-    # NaN cannot be serialized into the trace (protobuf Value rejects it), which drops the
-    # whole per-row result table. Record it as a scorer error so the row stays visible.
+    # NaN and infinity cannot be serialized into the trace (protobuf Value rejects them), which
+    # drops the whole per-row result table. Record it as a scorer error so the row stays visible.
     value = feedback.value
-    if feedback.error is None and isinstance(value, float) and math.isnan(value):
+    if feedback.error is None and isinstance(value, float) and not math.isfinite(value):
         error = AssessmentError(
             error_code="INVALID_SCORER_VALUE",
-            error_message="Scorer returned NaN, which is not a valid feedback value.",
+            error_message="Scorer returned NaN or infinity, which is not a valid feedback value.",
         )
         feedback.value = None
         feedback.error = error
