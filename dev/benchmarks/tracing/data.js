@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794588930293,
+  "lastUpdate": 1794591314693,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "joshua.wong@databricks.com",
-            "name": "joshuawong-db",
-            "username": "joshuawong-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f8e943f9c2cc6834aa8cebe4051013bf3c59b56a",
-          "message": "Reduce unsolicited MLflow Assistant response padding (#25925)\n\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-09-17T03:37:29Z",
-          "tree_id": "37cdc9bd78bf84931dcae9448123972afb56f1f0",
-          "url": "https://github.com/mlflow/mlflow/commit/f8e943f9c2cc6834aa8cebe4051013bf3c59b56a"
-        },
-        "date": 1789616480951,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 39.500441250004314,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 4.4632286799996255,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 3.818117417086972,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 4.48009096732031,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 4.609083562500419,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 5.225826428573198,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.623372599999811,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "atwkdeveloper@gmail.com",
+            "name": "Aaron Teo",
+            "username": "aaronteo-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7e30b6dc7cc560973ebbdf18c0c0d1d4130c538a",
+          "message": "Validate judge `inference_params` in serialized scorer payloads (#27763)",
+          "timestamp": "2026-11-13T17:31:34Z",
+          "tree_id": "74eb080bb20bdf7cdc842a957a46c59fbff6bb54",
+          "url": "https://github.com/mlflow/mlflow/commit/7e30b6dc7cc560973ebbdf18c0c0d1d4130c538a"
+        },
+        "date": 1794591310458,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 20.700594350000046,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 3.4971858807343357,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.2695742956524723,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 2.8663989881887137,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 3.019986012930903,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 2.8082160000002836,
             "unit": "ms"
           }
         ]
