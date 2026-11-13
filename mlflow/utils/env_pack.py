@@ -7,6 +7,7 @@ import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Generator, Literal
 
 import yaml
@@ -15,6 +16,10 @@ from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store._unity_catalog.registry.serving_staging import (
+    VOLUME_ARTIFACTS_PATH_METADATA_KEY,
+    get_volume_artifacts_path,
+)
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion, get_databricks_runtime_version
 from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
 from mlflow.utils.logging_utils import eprint
@@ -215,6 +220,18 @@ def _pack_env_for_databricks_model_serving(
             raise MlflowException(
                 f"Source artifacts contain a '{_ARTIFACT_PATH}' directory and is not "
                 "eligible for use with env_pack.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Registering a model whose weights are in a volume already prepares it for serving, so
+        # this is checked before installing its requirements or packing its environment. A
+        # malformed volume path is rejected here too, as registration would reject it later.
+        if get_volume_artifacts_path(SimpleNamespace(metadata=model_dict.get("metadata"))):
+            raise MlflowException(
+                f"The model at '{model_uri}' keeps its weights in a Unity Catalog volume "
+                f"('{VOLUME_ARTIFACTS_PATH_METADATA_KEY}' in its metadata), and registering it "
+                "already prepares it for Databricks Model Serving, so `env_pack` can't be used "
+                "with it. Register the model again without `env_pack`.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

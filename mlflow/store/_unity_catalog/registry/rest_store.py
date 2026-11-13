@@ -125,6 +125,14 @@ from mlflow.store._unity_catalog.lineage.constants import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
 )
+from mlflow.store._unity_catalog.registry.serving_staging import (
+    check_volume_staging_source,
+    get_staging_timeout,
+    get_volume_artifacts_path,
+    is_model_version_copy,
+    start_model_serving_staging,
+    wait_for_model_artifact_staging,
+)
 from mlflow.store._unity_catalog.registry.utils import (
     mlflow_tags_to_proto,
     mlflow_tags_to_proto_version_tags,
@@ -231,6 +239,17 @@ def _raise_unsupported_method(method, message=None):
     if message is not None:
         messages.append(message)
     raise MlflowException(" ".join(messages))
+
+
+def _get_volume_artifacts_path(local_model_dir):
+    # Imported here for the same circular-import reason as in _load_model.
+    from mlflow.models.model import MLMODEL_FILE_NAME
+
+    # A directory without an MLmodel file has no volume weights; the checks that need an MLmodel
+    # file reject it themselves.
+    if not os.path.exists(os.path.join(local_model_dir, MLMODEL_FILE_NAME)):
+        return None
+    return get_volume_artifacts_path(_load_model(local_model_dir))
 
 
 def _load_model(local_model_dir):
@@ -1009,6 +1028,18 @@ class UcModelRegistryStore(BaseRestStore):
             if not bypass_signature_validation:
                 self._validate_model_signature(local_model_dir)
             self._download_model_weights_if_not_saved(local_model_dir)
+            # Rejects a malformed volume path, a source the version can't get the weights from or
+            # a bad staging timeout before the version is created.
+            volume_path = _get_volume_artifacts_path(local_model_dir)
+            if volume_path is not None:
+                check_volume_staging_source(
+                    source,
+                    volume_path,
+                    local_model_dir,
+                    model_id=getattr(_load_model(local_model_dir), "model_id", None),
+                )
+                if not is_model_version_copy(source):
+                    get_staging_timeout()
             feature_deps = get_feature_dependencies(local_model_dir)
             other_model_deps = (
                 [] if model_id_cleared else get_model_version_dependencies(local_model_dir)
@@ -1067,9 +1098,35 @@ class UcModelRegistryStore(BaseRestStore):
         ).model_version
 
         store = self._get_artifact_repo(model_version, full_name)
-        store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        self._upload_model_version_files(
+            full_name=full_name,
+            version=model_version.version,
+            store=store,
+            local_model_dir=local_model_dir,
+            source=source,
+        )
         finalized_mv = self._finalize_model_version(name=full_name, version=model_version.version)
         return model_version_from_uc_proto(finalized_mv)
+
+    def _upload_model_version_files(self, *, full_name, version, store, local_model_dir, source):
+        """Upload the model's files to a PENDING_REGISTRATION version so it can be finalized.
+
+        A model whose weights are in a Unity Catalog volume (``volume_artifacts_path`` in its
+        metadata) is staged for Databricks Model Serving, which copies them into the version; this
+        returns once they're copied. A copy of a registered model version already has the directory
+        its weights were staged into (checked before the version is created), so it's uploaded
+        like any model.
+        """
+        if _get_volume_artifacts_path(local_model_dir) is None or is_model_version_copy(source):
+            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+            return
+        version = str(version)
+        host_creds = self.get_host_creds()
+        timeout = get_staging_timeout()
+        # Staging starts first so the weights are copied while the model's own files upload.
+        status = start_model_serving_staging(full_name, version, host_creds)
+        store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        wait_for_model_artifact_staging(full_name, version, status, host_creds, timeout)
 
     def create_model_version(
         self,

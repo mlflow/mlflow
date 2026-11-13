@@ -1671,10 +1671,10 @@ def get_databricks_local_temp_dir():
         return entry_point.getReplLocalTempDir()
 
 
-def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
+def stage_model_for_databricks_model_serving(model_name: str, model_version: str, host_creds=None):
     endpoint = "/api/2.0/serving-endpoints:stageDeployment"
     response = http_request(
-        host_creds=get_databricks_host_creds(),
+        host_creds=host_creds or get_databricks_host_creds(),
         endpoint=endpoint,
         method="POST",
         raise_on_status=False,
@@ -1685,6 +1685,21 @@ def stage_model_for_databricks_model_serving(model_name: str, model_version: str
     )
     # Raises RestException so callers can act on the server's error_code.
     verify_rest_response(response, endpoint)
+
+
+def get_databricks_model_serving_staging_status(
+    model_name: str, model_version: str, host_creds=None
+) -> dict[str, Any]:
+    endpoint = "/api/2.0/serving-endpoints:checkModelDeploymentStagingStatus"
+    response = http_request(
+        host_creds=host_creds or get_databricks_host_creds(),
+        endpoint=endpoint,
+        method="POST",
+        raise_on_status=False,
+        json={"model": model_name, "model_version": model_version},
+    )
+    verify_rest_response(response, endpoint)
+    return response.json().get("status") or {}
 
 
 P = ParamSpec("P")

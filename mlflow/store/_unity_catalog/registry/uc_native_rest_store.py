@@ -484,7 +484,13 @@ class UcNativeModelRegistryStore(UcModelRegistryStore):
             full_name,
             storage_location=model_version.storage_location,
         )
-        store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        self._upload_model_version_files(
+            full_name=full_name,
+            version=created_version,
+            store=store,
+            local_model_dir=local_model_dir,
+            source=source,
+        )
         finalize_req = message_to_json(
             FinalizeModelVersion(full_name=full_name, version=created_version)
         )
