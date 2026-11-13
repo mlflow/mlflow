@@ -16,6 +16,8 @@ const OTEL_OUTPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.output_tokens';
 const OTEL_LEGACY_INPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.prompt_tokens';
 const OTEL_LEGACY_OUTPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.completion_tokens';
 const OTEL_CACHE_READ_INPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.cache_read.input_tokens';
+// cache_write is the current registry key; cache_creation is its pre-rename spelling, kept as a fallback.
+const OTEL_CACHE_WRITE_INPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.cache_write.input_tokens';
 const OTEL_CACHE_CREATION_INPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.cache_creation.input_tokens';
 // The underscore spelling is non-standard but still emitted by some producers.
 const OTEL_LEGACY_CACHE_READ_INPUT_TOKENS_ATTRIBUTE = 'gen_ai.usage.cache_read_input_tokens';
@@ -108,6 +110,7 @@ const getOtelCacheTokens = (
     getFiniteNumber(getAttribute(attributes, OTEL_CACHE_READ_INPUT_TOKENS_ATTRIBUTE)) ??
     getFiniteNumber(getAttribute(attributes, OTEL_LEGACY_CACHE_READ_INPUT_TOKENS_ATTRIBUTE));
   const cacheCreationInputTokens =
+    getFiniteNumber(getAttribute(attributes, OTEL_CACHE_WRITE_INPUT_TOKENS_ATTRIBUTE)) ??
     getFiniteNumber(getAttribute(attributes, OTEL_CACHE_CREATION_INPUT_TOKENS_ATTRIBUTE)) ??
     getFiniteNumber(getAttribute(attributes, OTEL_LEGACY_CACHE_CREATION_INPUT_TOKENS_ATTRIBUTE));
 

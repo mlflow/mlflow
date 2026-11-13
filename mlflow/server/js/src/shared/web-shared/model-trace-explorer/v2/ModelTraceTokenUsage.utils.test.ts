@@ -271,4 +271,54 @@ describe('getSpanTokenUsage', () => {
       });
     });
   });
+
+  describe('cache_write OTEL attribute spelling', () => {
+    it('reads cache creation tokens from the spec cache_write key', () => {
+      const span = {
+        attributes: {
+          'gen_ai.usage.input_tokens': 10,
+          'gen_ai.usage.output_tokens': 5,
+          'gen_ai.usage.cache_write.input_tokens': 3,
+        },
+      };
+
+      expect(getSpanTokenUsage(span)).toEqual({
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+        cache_creation_input_tokens: 3,
+      });
+    });
+
+    it('prefers the cache_write key over both cache_creation spellings when all are present', () => {
+      const span = {
+        attributes: {
+          'gen_ai.usage.input_tokens': 10,
+          'gen_ai.usage.output_tokens': 5,
+          'gen_ai.usage.cache_write.input_tokens': 3,
+          'gen_ai.usage.cache_creation.input_tokens': 99,
+          'gen_ai.usage.cache_creation_input_tokens': 88,
+        },
+      };
+
+      expect(getSpanTokenUsage(span)?.cache_creation_input_tokens).toBe(3);
+    });
+
+    it('reads cache creation tokens from the cache_write key in V4 array-form attributes', () => {
+      const span = {
+        attributes: [
+          { key: 'gen_ai.usage.input_tokens', value: { int_value: 10 } },
+          { key: 'gen_ai.usage.output_tokens', value: { int_value: 5 } },
+          { key: 'gen_ai.usage.cache_write.input_tokens', value: { int_value: 3 } },
+        ],
+      };
+
+      expect(getSpanTokenUsage(span)).toEqual({
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+        cache_creation_input_tokens: 3,
+      });
+    });
+  });
 });
