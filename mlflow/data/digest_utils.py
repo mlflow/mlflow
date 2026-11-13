@@ -98,8 +98,7 @@ def compute_numpy_digest(features, targets=None) -> str:
     hashable_elements = []
 
     def hash_array(array):
-        flattened_array = array.flatten()
-        trimmed_array = flattened_array[0:MAX_ROWS]
+        trimmed_array = array.flat[:MAX_ROWS]
         try:
             hashable_elements.append(pd.util.hash_array(trimmed_array))
         except TypeError:
