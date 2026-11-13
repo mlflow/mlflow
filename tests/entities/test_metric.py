@@ -101,3 +101,63 @@ def test_metric_from_dictionary_missing_keys():
         match=re.escape("Missing required keys ['value', 'timestamp'] in metric dictionary"),
     ):
         Metric.from_dictionary(another_incomplete_dict)
+
+
+def test_metric_fractional_timestamp_and_step_rejected():
+    # A fractional timestamp/step cannot be represented in the metric store: the file
+    # store writes them verbatim but parses them back with int(), so logging used to
+    # succeed and every subsequent read of the metric failed.
+    with pytest.raises(MlflowException, match="timestamp must be an integer"):
+        Metric("m", 0.5, 1750000000123.5, 0)
+
+    with pytest.raises(MlflowException, match="step must be an integer"):
+        Metric("m", 0.5, 1750000000123, 1.5)
+
+
+def test_metric_integral_float_timestamp_and_step_coerced_to_int():
+    # Integrations may emit integral floats (e.g. PyTorch Lightning logging epoch steps
+    # as floats); normalize them to ints so the stored metric stays parseable
+    metric = Metric("m", 0.5, 1750000000123.0, 2.0)
+
+    assert metric.timestamp == 1750000000123
+    assert type(metric.timestamp) is int
+    assert metric.step == 2
+    assert type(metric.step) is int
+
+
+def test_metric_bool_timestamp_and_step_rejected():
+    # bool is an instance of numbers.Integral but is never a valid timestamp/step
+    with pytest.raises(MlflowException, match="timestamp must be an integer"):
+        Metric("m", 0.5, True, 0)
+
+    with pytest.raises(MlflowException, match="step must be an integer"):
+        Metric("m", 0.5, 1750000000123, False)
+
+
+def test_metric_numpy_numeric_types_normalized():
+    np = pytest.importorskip("numpy")
+
+    metric = Metric("m", 0.5, np.int64(1750000000123), np.float64(2.0))
+    assert metric.timestamp == 1750000000123
+    assert type(metric.timestamp) is int
+    assert metric.step == 2
+    assert type(metric.step) is int
+
+    with pytest.raises(MlflowException, match="timestamp must be an integer"):
+        Metric("m", 0.5, np.float64(1750000000123.5), 0)
+
+    with pytest.raises(MlflowException, match="step must be an integer"):
+        Metric("m", 0.5, 1750000000123, np.float64(1.5))
+
+
+def test_metric_decimal_timestamp_and_step_normalized():
+    from decimal import Decimal
+
+    metric = Metric("m", 0.5, Decimal("1750000000123.0"), Decimal("2"))
+    assert metric.timestamp == 1750000000123
+    assert type(metric.timestamp) is int
+    assert metric.step == 2
+    assert type(metric.step) is int
+
+    with pytest.raises(MlflowException, match="timestamp must be an integer"):
+        Metric("m", 0.5, Decimal("1750000000123.5"), 0)

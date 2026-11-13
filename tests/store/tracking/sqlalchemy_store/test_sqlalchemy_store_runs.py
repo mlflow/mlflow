@@ -534,6 +534,30 @@ def test_log_metric(store: SqlAlchemyStore):
         assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
 
+def test_log_metric_with_fractional_timestamp_or_step_raises_exception(store: SqlAlchemyStore):
+    # A fractional timestamp/step cannot be represented in the metric store. Integral
+    # floats are normalized at write time; fractional values must be rejected instead of
+    # being persisted in a form the store cannot read back
+    run = _run_factory(store)
+
+    with pytest.raises(MlflowException, match="timestamp must be an integer"):
+        store.log_metric(run.info.run_id, Metric("test", 0.5, 1750000000123.5, 0))
+
+    with pytest.raises(MlflowException, match="step must be an integer"):
+        store.log_metric(run.info.run_id, Metric("test", 0.5, 1750000000123, 1.5))
+
+
+def test_log_metric_with_integral_float_timestamp_and_step_round_trips(store: SqlAlchemyStore):
+    # Integral floats (e.g. epoch steps emitted by PyTorch Lightning) are coerced to
+    # ints at write time so the persisted metric stays readable
+    run = _run_factory(store)
+
+    store.log_metric(run.info.run_id, Metric("test", 0.5, 1750000000123.0, 2.0))
+
+    history = store.get_metric_history(run.info.run_id, "test")
+    assert [(m.timestamp, m.step, m.value) for m in history] == [(1750000000123, 2, 0.5)]
+
+
 @pytest.mark.skipif(
     is_windows(),
     reason="Flaky on Windows due to SQLite database locking issues with concurrent writes",
