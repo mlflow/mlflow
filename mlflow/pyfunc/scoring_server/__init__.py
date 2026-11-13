@@ -36,7 +36,7 @@ from mlflow.environment_variables import (
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
-from mlflow.types import ParamSchema, Schema
+from mlflow.types import DataType, ParamSchema, Schema
 from mlflow.utils import reraise
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
@@ -200,7 +200,17 @@ def parse_csv_input(csv_input, schema: Schema = None):
             return pd.read_csv(csv_input)
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
-            return pd.read_csv(csv_input, dtype=dtypes)
+            # `read_csv` rejects datetime dtypes, so read those columns as strings and
+            # convert them afterwards, as `cast_df_types_according_to_schema` does for JSON
+            datetime_dtype = DataType.datetime.to_pandas()
+            datetime_columns = [name for name, dtype in dtypes.items() if dtype == datetime_dtype]
+            for name in datetime_columns:
+                dtypes[name] = str
+            df = pd.read_csv(csv_input, dtype=dtypes)
+            for name in datetime_columns:
+                if name in df.columns:
+                    df[name] = df[name].astype(datetime_dtype)
+            return df
     except Exception as e:
         _handle_serving_error(
             error_message=(

@@ -19,6 +19,7 @@ from sklearn import datasets
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
+from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
@@ -163,6 +164,7 @@ def pandas_df_with_csv_types():
         "long": np.array([1, 2, 3], np.int64),
         "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
         "double": [math.pi, 2 * math.pi, 3 * math.pi],
+        "datetime": pd.to_datetime(["2024-01-01 10:00:00", "2024-01-02 11:30:00", "2024-01-03 00:00:01"]),
     })
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
     return pdf
@@ -570,6 +572,23 @@ def test_parse_with_schema_csv(pandas_df_with_csv_types):
     csv_str = df.to_csv(index=False)
     df = pyfunc_scoring_server.parse_csv_input(StringIO(csv_str), schema=schema)
     assert schema == infer_signature(df[schema.input_names()]).inputs
+
+
+def test_parse_csv_with_datetime_schema_handles_missing_and_mixed_formats():
+    schema = Schema([ColSpec("datetime", "ts"), ColSpec("double", "x")])
+    csv_str = "ts,x\n2024-01-01 10:00:00,1.5\n,2.5\n2024-01-03T00:00:00.000,3.5\n"
+    df = pyfunc_scoring_server.parse_csv_input(StringIO(csv_str), schema=schema)
+    assert df["ts"].dtype == DataType.datetime.to_pandas()
+    assert df["ts"].tolist()[0] == pd.Timestamp("2024-01-01 10:00:00")
+    assert pd.isna(df["ts"].tolist()[1])
+    assert df["ts"].tolist()[2] == pd.Timestamp("2024-01-03")
+
+
+def test_parse_csv_with_datetime_schema_rejects_invalid_values():
+    schema = Schema([ColSpec("datetime", "ts")])
+    with pytest.raises(MlflowException, match="Failed to parse input as a Pandas DataFrame") as e:
+        pyfunc_scoring_server.parse_csv_input(StringIO("ts\nnot-a-date\n"), schema=schema)
+    assert e.value.error_code == ErrorCode.Name(BAD_REQUEST)
 
 
 def test_parse_parquet_schema(pandas_df_with_all_types):
