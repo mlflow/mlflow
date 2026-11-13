@@ -489,6 +489,7 @@ class UcNativeModelRegistryStore(UcModelRegistryStore):
             version=created_version,
             store=store,
             local_model_dir=local_model_dir,
+            source=source,
         )
         finalize_req = message_to_json(
             FinalizeModelVersion(full_name=full_name, version=created_version)

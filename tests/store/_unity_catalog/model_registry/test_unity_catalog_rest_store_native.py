@@ -2001,4 +2001,5 @@ def test_create_and_finalize_model_version_uploads_through_the_shared_hook(store
         version=7,
         store=get_artifact_repo.return_value,
         local_model_dir=tmp_path,
+        source=str(tmp_path),
     )

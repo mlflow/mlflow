@@ -1817,11 +1817,15 @@ def _set_volume_artifacts_path(model_dir, path):
     mlmodel_path.write_text(yaml.dump(mlmodel))
 
 
-def _create_model_version_recording_steps(store, local_model_dir, steps=None):
+_LOGGED_MODEL_SOURCE = "models:/m-0123456789abcdef0123456789abcdef"
+
+
+def _create_model_version_recording_steps(
+    store, local_model_dir, steps=None, source="s3://model/version/source"
+):
     """Registers ``local_model_dir`` with REST calls and uploads mocked; returns the steps taken."""
     model_name = "model_1"
     version = "1"
-    source = "s3://model/version/source"
     steps = [] if steps is None else steps
     request = get_request_mock(
         name=model_name,
@@ -1865,10 +1869,21 @@ def _create_model_version_recording_steps(store, local_model_dir, steps=None):
     return steps, start_copy, wait_copy
 
 
-def test_create_model_version_with_volume_weights_finalizes_after_the_copy(store, local_model_dir):
+@pytest.mark.parametrize(
+    "source",
+    [
+        _LOGGED_MODEL_SOURCE,
+        "dbfs:/databricks/mlflow-tracking/1/logged_models/m-0123456789abcdef/artifacts",
+    ],
+)
+def test_create_model_version_with_volume_weights_finalizes_after_the_copy(
+    store, local_model_dir, source
+):
     _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
 
-    steps, start_copy, wait_copy = _create_model_version_recording_steps(store, local_model_dir)
+    steps, start_copy, wait_copy = _create_model_version_recording_steps(
+        store, local_model_dir, source=source
+    )
 
     assert steps == ["create", "stage", "upload", "wait", "finalize"]
     start_copy.assert_called_once_with("model_1", "1", ANY)
@@ -1903,7 +1918,60 @@ def test_create_model_version_rejects_a_bad_staging_timeout_before_creating(
     steps = []
 
     with pytest.raises(MlflowException, match="must be a positive whole number of seconds"):
-        _create_model_version_recording_steps(store, local_model_dir, steps)
+        _create_model_version_recording_steps(
+            store, local_model_dir, steps, source=_LOGGED_MODEL_SOURCE
+        )
+
+    assert steps == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["s3://model/version/source", "runs:/abc123/model", "/local/model", "models:/c.s.m"],
+)
+def test_create_model_version_rejects_a_volume_model_without_a_logged_model_before_creating(
+    store, local_model_dir, source
+):
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+    steps = []
+
+    with pytest.raises(MlflowException, match="must be registered from its logged model"):
+        _create_model_version_recording_steps(store, local_model_dir, steps, source=source)
+
+    assert steps == []
+
+
+@pytest.mark.parametrize("source", ["models:/c.s.m/3", "models:/c.s.m@champion"])
+def test_create_model_version_copies_a_volume_model_version_without_staging(
+    store, local_model_dir, source, monkeypatch
+):
+    # A copied version's files already hold the weights staged into the source version.
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+    local_model_dir.joinpath("artifacts", "qwen").mkdir(parents=True)
+    local_model_dir.joinpath("artifacts", "qwen", "model.safetensors").write_text("weights")
+    # A deliberately invalid timeout: nothing is staged, so it isn't checked.
+    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", "2h")
+
+    steps, start_copy, wait_copy = _create_model_version_recording_steps(
+        store, local_model_dir, source=source
+    )
+
+    assert steps == ["create", "upload", "finalize"]
+    start_copy.assert_not_called()
+    wait_copy.assert_not_called()
+
+
+def test_create_model_version_rejects_a_copy_without_the_weights_before_creating(
+    store, local_model_dir
+):
+    # For example a version copied from a registry that doesn't stage the weights.
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+    steps = []
+
+    with pytest.raises(MlflowException, match="doesn't contain the weights"):
+        _create_model_version_recording_steps(
+            store, local_model_dir, steps, source="models:/c.s.m/3"
+        )
 
     assert steps == []
 

@@ -449,6 +449,34 @@ def test_pack_env_for_databricks_model_serving_rejects_a_model_with_volume_weigh
     mock_run.assert_not_called()
 
 
+@pytest.mark.parametrize("path", ["", "/dbfs/weights"])
+def test_pack_env_for_databricks_model_serving_rejects_a_malformed_volume_path_before_packing(
+    tmp_path, mock_dbr_version, path
+):
+    artifacts_dir = tmp_path / "artifacts"
+    artifacts_dir.mkdir()
+    (artifacts_dir / "MLmodel").write_text(
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {},
+            "metadata": {"volume_artifacts_path": path},
+        })
+    )
+
+    with (
+        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(artifacts_dir)),
+        mock.patch("mlflow.utils.env_pack.subprocess.run") as mock_run,
+        pytest.raises(MlflowException, match="must be a Unity Catalog volume path") as e,
+    ):
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test-model/1", enforce_pip_requirements=True
+        ):
+            pass
+
+    assert e.value.error_code == "INVALID_PARAMETER_VALUE"
+    mock_run.assert_not_called()
+
+
 def test_pack_env_for_databricks_model_serving_packs_a_model_whose_metadata_isnt_a_dict(
     tmp_path, mock_dbr_version
 ):
