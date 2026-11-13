@@ -1230,6 +1230,25 @@
       },
       "last_updated_at": "2026-11-05"
     },
+    "google/gemini-4-carbon": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.1
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "google/gemma-4-26b-a4b-it": {
       "mode": "chat",
       "context_window": {
@@ -2056,6 +2075,33 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-05"
+    },
+    "xai/grok4.7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.5,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 1.0,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 12.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-13"
     },
     "zai-org/GLM-4.5-Air-FP8": {
       "mode": "chat",
