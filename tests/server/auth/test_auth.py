@@ -97,6 +97,42 @@ _PACKAGED_BASIC_AUTH_INI = Path(auth_module.__file__).parent / "basic_auth.ini"
 _TEST_DIR = Path(__file__).parent
 
 
+@pytest.mark.parametrize(
+    "client",
+    [
+        {"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"},
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            "_MLFLOW_STATIC_PREFIX": "/scope-prefix",
+        },
+    ],
+    indirect=True,
+)
+def test_scorer_scope_ordinary_rest_client_loopback(client, monkeypatch, request):
+    # Real RestStore serialization and Basic Auth initialization, no private wire state.
+    if prefix := request.node.callspec.params["client"].get("_MLFLOW_STATIC_PREFIX", ""):
+        client = MlflowClient(client.tracking_uri + prefix)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        e = client.create_experiment(f"scope-http-{random_str()}")
+        remote = client._tracking_client.store
+        remote.register_scorer(e, "allowed", '{"name":"allowed"}')
+        remote.register_scorer(e, "denied", '{"name":"denied"}')
+    username, password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, username, "experiment", e, "READ")
+    grant_role_permission(client.tracking_uri, username, "scorer", f"{e}/allowed", "READ")
+    with User(username, password, monkeypatch):
+        with mock.patch.object(remote, "_call_endpoint", wraps=remote._call_endpoint) as transport:
+            assert [s.scorer_name for s in remote.list_scorers(e)] == ["allowed"]
+            assert json.loads(transport.call_args.args[1]) == {"experiment_id": e}
+    # A second identity has broad access with one denial, not the first user's state.
+    broad, broad_password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, broad, "experiment", e, "READ")
+    grant_role_permission(client.tracking_uri, broad, "scorer", "*", "READ")
+    grant_role_permission(client.tracking_uri, broad, "scorer", f"{e}/denied", "DENY")
+    with User(broad, broad_password, monkeypatch):
+        assert [s.scorer_name for s in remote.list_scorers(e)] == ["allowed"]
+
+
 def _isolate_auth_config(extra_env: dict[str, str], tmp_path: Path) -> dict[str, str]:
     """Redirect the auth store's SQLite DB to a tmp_path-scoped file.
 
@@ -6187,6 +6223,38 @@ def test_online_scoring_configs_of_a_deleted_experiment_are_gated_not_rejected(c
     # The gate decides from permissions only, whatever state the experiment is in.
     assert _get_online_configs(uri, [scorer_id], (owner, owner_pw)) == 200
     assert _get_online_configs(uri, [scorer_id], (other, other_pw)) == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("veto", ["scorer", "scorer_version"])
+def test_online_scoring_configs_deleted_experiment_retains_veto(client, monkeypatch, veto):
+    uri = client.tracking_uri
+    owner, owner_pw = create_user(uri)
+    reader, reader_pw = create_user(uri)
+    other, other_pw = create_user(uri)
+    with User(owner, owner_pw, monkeypatch):
+        e = client.create_experiment("online_deleted_veto")
+    sid = _register_online_scorer(uri, e, "a/b", (owner, owner_pw))
+    grant_role_permission(uri, reader, "experiment", e, "READ")
+    grant_role_permission(
+        uri,
+        reader,
+        veto,
+        auth_module.store._scorer_pattern(e, "a/b") if veto == "scorer" else "*",
+        "DENY",
+    )
+    for deleted in (False, True):
+        if deleted:
+            with User(owner, owner_pw, monkeypatch):
+                client.delete_experiment(e)
+        for prefix in ("api", "ajax-api"):
+            assert _get_online_configs(uri, [sid], (reader, reader_pw), prefix) == 403
+            assert _get_online_configs(uri, [sid], (owner, owner_pw), prefix) == 200
+            assert _get_online_configs(uri, [sid], (other, other_pw), prefix) == 403
 
 
 def test_online_scoring_config_of_a_scorer_with_no_versions_left_stays_readable(

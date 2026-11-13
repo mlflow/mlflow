@@ -159,6 +159,10 @@ from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
 from mlflow.store.tracking.mcp_server_registry.rest_mixin import RestMCPServerRegistryMixin
+from mlflow.store.tracking.scorer_list_scope import (
+    ScorerListScope,
+    reject_unsupported_scorer_scope,
+)
 from mlflow.store.tracking.skill_registry.rest_mixin import RestSkillRegistryMixin
 from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -1882,16 +1886,20 @@ class RestStore(
             scorer_id=response_proto.scorer_id,
         )
 
-    def list_scorers(self, experiment_id: str) -> list[ScorerVersion]:
+    def list_scorers(
+        self, experiment_id: str, *, scorer_scope: ScorerListScope | None = None
+    ) -> list[ScorerVersion]:
         """
         List all scorers for an experiment (latest version for each scorer name).
 
         Args:
             experiment_id: String ID of the experiment.
+            scorer_scope: Private authorization scope; unsupported concrete values reject.
 
         Returns:
             List of Scorer entities.
         """
+        reject_unsupported_scorer_scope(scorer_scope)
         req_body = message_to_json(ListScorers(experiment_id=experiment_id))
         # Scorer APIs are v3.0 endpoints
         response_proto = self._call_endpoint(

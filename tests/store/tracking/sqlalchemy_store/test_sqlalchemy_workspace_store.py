@@ -73,6 +73,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
     get_resource_endpoint_configs,
 )
+from mlflow.store.tracking.scorer_list_scope import ScorerListScope
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
@@ -102,6 +103,34 @@ from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store_scorers import 
 
 def _now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def test_scorer_scope_direct_workspace_isolation(workspace_tracking_store):
+    store = workspace_tracking_store
+    with WorkspaceContext("scope-a"):
+        a = store.create_experiment("same")
+        store.register_scorer(a, "same", "{}")
+    with WorkspaceContext("scope-b"):
+        b = store.create_experiment("same")
+        store.register_scorer(b, "same", "{}")
+        deleted = store.create_experiment("deleted")
+        store.register_scorer(deleted, "same", "{}")
+        store.delete_experiment(deleted)
+        scope = ScorerListScope(experiment_ids=None)
+        assert [
+            (s.experiment_id, s.scorer_name)
+            for s in store.list_scorers_across_experiments(
+                [a, b, deleted, "999999"], scorer_scope=scope
+            )
+        ] == [(b, "same")]
+        assert [s.experiment_id for s in store.list_scorers(b, scorer_scope=scope)] == [b]
+        with pytest.raises(MlflowException, match="No Experiment"):
+            store.list_scorers(a, scorer_scope=scope)
+    with WorkspaceContext("scope-a"):
+        assert [
+            s.experiment_id
+            for s in store.list_scorers_across_experiments([a, b], scorer_scope=scope)
+        ] == [a]
 
 
 def _create_run(

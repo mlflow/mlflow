@@ -15,3 +15,8 @@ SCOPED_REGISTERED_MODEL_FILTER = "mlflow_scoped_registered_model_filter"
 SCOPED_MCP_SERVER_FILTER = "mlflow_scoped_mcp_server_filter"
 SCOPED_MCP_ACCESS_ENDPOINT_FILTER = "mlflow_scoped_mcp_access_endpoint_filter"
 MCP_SERVER_ALLOWED_ACTIONS = "mcp_server_allowed_actions"
+
+# Actual Flask request attribute, NOT g: ScorerListScope | None. Missing is not None.
+SCOPED_SCORER_LIST = "mlflow_scoped_scorer_list"
+# App-level opt-in: every successful ListScorers dispatch must receive a decision.
+SCORER_LIST_SCOPE_REQUIRED = "MLFLOW_INTERNAL_SCORER_LIST_SCOPE_REQUIRED"

@@ -353,6 +353,8 @@ from mlflow.server._request_keys import (
     SCOPED_EXPERIMENT_FILTER,
     SCOPED_EXPERIMENT_IDS,
     SCOPED_REGISTERED_MODEL_FILTER,
+    SCOPED_SCORER_LIST,
+    SCORER_LIST_SCOPE_REQUIRED,
 )
 from mlflow.server._search_limits import translate_scoped_search_limits
 from mlflow.server.artifact_transfer import (
@@ -392,6 +394,10 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.tracking.scorer_list_scope import (
+    ScorerListScope,
+    reject_unsupported_scorer_scope,
+)
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.telemetry import get_telemetry_client
 from mlflow.telemetry.installation_id import get_or_create_installation_id
@@ -1192,7 +1198,10 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     JSON body for POST) to distinguish the two cases.
     """
     try:
-        if request.method == "GET" and request.args:
+        if (
+            request.method == "GET"
+            or (request.method == "HEAD" and field.containing_type == ListScorers.DESCRIPTOR)
+        ) and request.args:
             return field.name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
@@ -1215,7 +1224,12 @@ def _get_scoped_registered_model_filter() -> str | None:
 def _get_request_message(
     request_message, flask_request=request, schema=None, *, raise_on_parse_error=False
 ):
-    if flask_request.method == "GET" and flask_request.args:
+    # Flask dispatches HEAD to the ListScorers GET view. Keep its selector parsing
+    # identical without changing method policy for unrelated endpoints.
+    if (
+        flask_request.method == "GET"
+        or (flask_request.method == "HEAD" and isinstance(request_message, ListScorers))
+    ) and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
         # protobuf does not know how to read the query parameters directly. The query parser above
@@ -6553,40 +6567,75 @@ def _search_active_experiment_ids(store):
     return experiment_ids
 
 
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _list_scorers():
-    request_message = _get_request_message(
+def _get_list_scorers_request():
+    message = _get_request_message(
         ListScorers(),
         schema={
             "experiment_id": [_assert_string],
             "experiment_ids": [_assert_array, _assert_item_type_string],
         },
     )
-    response_message = ListScorers.Response()
-    store = _get_tracking_store()
-    experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
-    has_experiment_ids = _raw_request_has_field(experiment_ids_field)
-    if request_message.experiment_id and has_experiment_ids:
+    field = message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    if message.experiment_id and _raw_request_has_field(field):
         raise MlflowException(
             "Cannot specify both 'experiment_id' and 'experiment_ids'. Use "
             "'experiment_ids' to scope the query to multiple experiments, or "
             "'experiment_id' to scope it to a single experiment.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    return message
+
+
+def _get_scorer_list_scope():
+    missing = object()
+    scope = getattr(request, SCOPED_SCORER_LIST, missing)
+    if scope is missing:
+        if not current_app.config.get(SCORER_LIST_SCOPE_REQUIRED, False):
+            return None
+        raise MlflowException(
+            "Missing required internal scorer-list authorization scope", INTERNAL_ERROR
+        )
+    if scope is not None and not isinstance(scope, ScorerListScope):
+        raise MlflowException("Invalid internal scorer-list authorization scope", INTERNAL_ERROR)
+    return scope
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_scorers():
+    request_message = _get_list_scorers_request()
+    scope = _get_scorer_list_scope()
+    response_message = ListScorers.Response()
+    store = _get_tracking_store()
+    kwargs = {} if scope is None else {"scorer_scope": scope}
+    field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
+    has_experiment_ids = _raw_request_has_field(field)
     if has_experiment_ids:
         requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
         for eid in requested_experiment_ids:
             _validate_experiment_id(eid)
         valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
-        scorers = store.list_scorers_across_experiments(valid_experiment_ids)
+        if not getattr(store, "supports_scorer_list_scope", False):
+            reject_unsupported_scorer_scope(scope)
+        scorers = store.list_scorers_across_experiments(valid_experiment_ids, **kwargs)
     elif request_message.experiment_id:
-        scorers = store.list_scorers(request_message.experiment_id)
+        # Singular store dispatch preserves its original experiment/resource validation.
+        if not getattr(store, "supports_scorer_list_scope", False):
+            reject_unsupported_scorer_scope(scope)
+        scorers = store.list_scorers(request_message.experiment_id, **kwargs)
     else:
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
+        if not getattr(store, "supports_scorer_list_scope", False):
+            reject_unsupported_scorer_scope(scope)
+        if scope is not None and scope.experiment_ids is not None:
+            candidate_ids = scope.experiment_ids | {e for e, _ in scope.scorer_pairs}
+            valid_ids = store._filter_valid_scorer_experiment_ids(candidate_ids)
+            experiment_ids = store.filter_active_experiment_ids(valid_ids)
+        else:
+            experiment_ids = _search_active_experiment_ids(store)
+        scorers = store.list_scorers_across_experiments(experiment_ids, **kwargs)
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
