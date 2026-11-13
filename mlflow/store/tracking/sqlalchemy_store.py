@@ -5486,7 +5486,8 @@ class SqlAlchemyStore(
         Delete an assessment from a trace.
 
         If the deleted assessment was overriding another assessment, the overridden
-        assessment will be restored to valid=True.
+        assessment will be restored to valid=True unless another assessment still
+        overrides it.
 
         Args:
             trace_id: The ID of the trace containing the assessment.
@@ -5514,10 +5515,31 @@ class SqlAlchemyStore(
             )
 
             # If this assessment was overriding another assessment, restore the original
-            if assessment_to_delete.overrides:
-                session.query(SqlAssessments).filter_by(
-                    assessment_id=assessment_to_delete.overrides
-                ).update({"valid": True})
+            # unless another assessment still overrides it
+            if overridden_id := assessment_to_delete.overrides:
+                # Lock the trace row, as create_assessment() does after acquiring the queue key,
+                # so that concurrent override creations and deletions on this trace serialize
+                # before reading or locking any assessment rows.
+                self._get_sql_trace_info(session, trace_id, for_update=True)
+                original_query = session.query(SqlAssessments).filter_by(
+                    trace_id=trace_id, assessment_id=overridden_id
+                )
+                # SQLite ignores row locks, so take its write lock with a no-op UPDATE before
+                # checking for other overrides.
+                original_query.update({"valid": SqlAssessments.valid}, synchronize_session=False)
+                other_override_query = session.query(SqlAssessments.assessment_id).filter(
+                    SqlAssessments.trace_id == trace_id,
+                    SqlAssessments.overrides == overridden_id,
+                    SqlAssessments.assessment_id != assessment_id,
+                )
+                # Under InnoDB's REPEATABLE READ, a plain SELECT reads the snapshot taken before
+                # the trace row lock and could miss an override committed while we waited. The
+                # other backends already see committed rows once the lock wait ends.
+                if self.db_type == MYSQL:
+                    other_override_query = other_override_query.with_for_update()
+                has_other_override = other_override_query.first() is not None
+                if not has_other_override:
+                    original_query.update({"valid": True})
 
             session.delete(assessment_to_delete)
             session.commit()
