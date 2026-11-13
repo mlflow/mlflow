@@ -208,6 +208,11 @@ def parse_csv_input(csv_input, schema: Schema = None):
                 dtypes[name] = str
             df = pd.read_csv(csv_input, dtype=dtypes)
             for name in datetime_columns:
+                # Unnamed schemas key `dtypes` by column position, while CSV labels are strings
+                if not schema.has_input_names():
+                    if name >= len(df.columns):
+                        continue
+                    name = df.columns[name]
                 if name in df.columns:
                     df[name] = df[name].astype(datetime_dtype)
             return df

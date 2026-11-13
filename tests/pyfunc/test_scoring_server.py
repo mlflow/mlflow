@@ -588,6 +588,15 @@ def test_parse_csv_with_datetime_schema_handles_missing_and_mixed_formats():
     assert df["ts"].tolist()[2] == pd.Timestamp("2024-01-03")
 
 
+def test_parse_csv_with_unnamed_datetime_schema():
+    schema = Schema([ColSpec("datetime"), ColSpec("double")])
+    csv_str = "0,1\n2024-01-01 10:00:00,1.5\n2024-01-02,2.5\n"
+    df = pyfunc_scoring_server.parse_csv_input(StringIO(csv_str), schema=schema)
+    assert df["0"].dtype == DataType.datetime.to_pandas()
+    assert df["0"].tolist() == [pd.Timestamp("2024-01-01 10:00:00"), pd.Timestamp("2024-01-02")]
+    assert df["1"].dtype == "float64"
+
+
 def test_parse_csv_with_datetime_schema_rejects_invalid_values():
     schema = Schema([ColSpec("datetime", "ts")])
     with pytest.raises(MlflowException, match="Failed to parse input as a Pandas DataFrame") as e:
