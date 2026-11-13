@@ -200,8 +200,10 @@ def parse_csv_input(csv_input, schema: Schema = None):
             return pd.read_csv(csv_input)
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
-            # `read_csv` rejects datetime dtypes, so read those columns as strings and
-            # convert them afterwards, as `cast_df_types_according_to_schema` does for JSON
+            # `read_csv` rejects datetime dtypes, so read those columns as strings and convert
+            # them afterwards with `astype`, the conversion schema enforcement applies to string
+            # columns. Unlike `pd.to_datetime` on the JSON path, it parses each value separately,
+            # so a column can mix formats such as `2024-01-01 10:00:00` and `2024-01-03T00:00:00`
             datetime_dtype = DataType.datetime.to_pandas()
             datetime_columns = [name for name, dtype in dtypes.items() if dtype == datetime_dtype]
             for name in datetime_columns:
