@@ -20,7 +20,8 @@ on:
       - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  # Non-PR runs share one group so an older sync can't publish over a newer one.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'catalog-update' }}
   # Only PR runs are safe to cancel. The `create-pr` and `publish` jobs push
   # changes and release assets, and are skipped on `pull_request`.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -199,10 +200,6 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    # Scheduled and push runs use different workflow-level groups, so serialize publishes here
-    concurrency:
-      group: ${{ github.workflow }}-publish
-      cancel-in-progress: false
     permissions:
       contents: write
     steps:
