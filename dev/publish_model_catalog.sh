@@ -10,7 +10,7 @@
 #   --catalog-dir mlflow/utils/model_catalog
 #
 # The script creates the release if it doesn't exist, then synchronizes its JSON
-# assets with the catalog directory. Existing assets with the same name are
+# assets with the catalog directory. Assets whose content differs are
 # overwritten, and stale JSON assets are deleted.
 
 set -euo pipefail
@@ -50,15 +50,25 @@ if ! gh release view "$TAG" --repo "$REPO" >/dev/null; then
     --latest=false
 fi
 
-# Upload all JSON files as release assets.
+# Upload only the files that differ from the published assets, so a run with no
+# changes is a no-op and unchanged assets are never taken offline.
 # --clobber overwrites existing assets (delete + re-upload per file).
 # There is a brief window where each asset is missing during the overwrite,
 # but clients fall back to the bundled catalog so this is safe.
-echo "Uploading $file_count files to release $TAG ..."
-gh release upload "$TAG" \
-  --repo "$REPO" \
-  --clobber \
-  "$CATALOG_DIR"/*.json
+live_dir=$(mktemp -d)
+trap 'rm -rf "$live_dir"' EXIT
+# Fails when the release has no JSON assets yet; every file then counts as changed.
+gh release download "$TAG" --repo "$REPO" --pattern '*.json' --dir "$live_dir" || true
+changed=()
+for f in "$CATALOG_DIR"/*.json; do
+  cmp -s "$f" "$live_dir/$(basename "$f")" || changed+=("$f")
+done
+if [[ ${#changed[@]} -eq 0 ]]; then
+  echo "All $file_count files already match release $TAG."
+else
+  echo "Uploading ${#changed[@]} changed files to release $TAG ..."
+  gh release upload "$TAG" --repo "$REPO" --clobber "${changed[@]}"
+fi
 
 # Remove catalog assets whose source files no longer exist. Do this after the
 # upload succeeds so a transient upload failure does not delete valid assets.
