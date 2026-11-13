@@ -62,7 +62,7 @@ pytestmark = pytest.mark.notrackingurimock
 def test_should_configure_trace_store_server_detection(
     monkeypatch, job_id, boot_id, is_running_as_server
 ):
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
     for name, value in (
         ("_MLFLOW_SERVER_JOB_ID", job_id),
@@ -86,10 +86,10 @@ def test_should_configure_trace_store_server_detection(
     [
         (None, "sqlite:///server.db", "sqlite:///server.db"),
         ("", "sqlite:///server.db", "sqlite:///server.db"),
-        ("test", None, "sqlite:///server.db"),
-        ("test", "", "sqlite:///server.db"),
-        ("test", "sqlite:///server.db", "sqlite:///other.db"),
-        ("test", "sqlite:///server.db", "https://remote"),
+        ("test://host/traces", None, "sqlite:///server.db"),
+        ("test://host/traces", "", "sqlite:///server.db"),
+        ("test://host/traces", "sqlite:///server.db", "sqlite:///other.db"),
+        ("test://host/traces", "sqlite:///server.db", "https://remote"),
     ],
 )
 def test_should_configure_trace_store_requires_selection_and_matching_uri(
@@ -97,7 +97,7 @@ def test_should_configure_trace_store_requires_selection_and_matching_uri(
 ):
     monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", "job")
     for name, value in (
-        ("MLFLOW_TRACE_STORE", trace_store),
+        ("MLFLOW_TRACE_STORE_URI", trace_store),
         ("MLFLOW_BACKEND_STORE_URI", backend_uri),
     ):
         if value is None:
@@ -110,7 +110,7 @@ def test_should_configure_trace_store_requires_selection_and_matching_uri(
 
 @pytest.mark.parametrize("tracking_uri", ["sqlite:///server.db", "sqlite:///other.db"])
 def test_should_configure_trace_store_resolves_default_tracking_uri(monkeypatch, tracking_uri):
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
     monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", "job")
     monkeypatch.setenv("MLFLOW_TRACKING_URI", tracking_uri)
@@ -121,7 +121,7 @@ def test_should_configure_trace_store_resolves_default_tracking_uri(monkeypatch,
 
 @pytest.mark.parametrize("server_module", [None, SimpleNamespace()])
 def test_should_configure_trace_store_does_not_import_server(monkeypatch, server_module):
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
     monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
     monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)

@@ -25,7 +25,7 @@ class TrackingStoreRegistry(StoreRegistry):
     def __init__(self):
         super().__init__("mlflow.tracking_store")
 
-    def get_store(self, store_uri=None, artifact_uri=None, *, trace_store_kind=None):
+    def get_store(self, store_uri=None, artifact_uri=None, *, trace_store_uri=None):
         """Get a store from the registry based on the scheme of store_uri
 
         Args:
@@ -34,8 +34,9 @@ class TrackingStoreRegistry(StoreRegistry):
                 is passed to the constructor of the implementation.
             artifact_uri: Artifact repository URI. Passed through to the tracking store
                 implementation.
-            trace_store_kind: Optional server/admin-selected plugin kind. The builder receives
-                its backend instance through the trace_store constructor keyword.
+            trace_store_uri: Optional server/admin-selected trace store URI. Its scheme selects
+                the plugin, whose builder receives the full URI. The tracking-store builder
+                receives the resulting instance through the trace_store constructor keyword.
 
         Returns:
             An instance of `mlflow.store.tracking.AbstractStore` that fulfills the store URI
@@ -45,11 +46,11 @@ class TrackingStoreRegistry(StoreRegistry):
         from mlflow.tracking._tracking_service import utils
 
         resolved_store_uri = utils._resolve_tracking_uri(store_uri)
-        return self._get_store_with_resolved_uri(resolved_store_uri, artifact_uri, trace_store_kind)
+        return self._get_store_with_resolved_uri(resolved_store_uri, artifact_uri, trace_store_uri)
 
     @lru_cache(maxsize=100)
     def _get_store_with_resolved_uri(
-        self, resolved_store_uri, artifact_uri=None, trace_store_kind=None
+        self, resolved_store_uri, artifact_uri=None, trace_store_uri=None
     ):
         """
         Retrieve the store associated with a resolved (non-None) store URI and an artifact URI.
@@ -58,7 +59,7 @@ class TrackingStoreRegistry(StoreRegistry):
         """
         with _building_store_lock:
             builder = self.get_store_builder(resolved_store_uri)
-            if trace_store_kind:
+            if trace_store_uri:
                 # Imported only for explicit server/admin selection to avoid client import cycles.
                 from mlflow.exceptions import MlflowException
                 from mlflow.store.tracking.trace_store_registry import _trace_store_registry
@@ -74,7 +75,7 @@ class TrackingStoreRegistry(StoreRegistry):
                         "The selected tracking-store builder does not accept a trace_store "
                         "constructor argument."
                     ) from e
-                backend = _trace_store_registry.get_store(trace_store_kind)
+                backend = _trace_store_registry.get_store(trace_store_uri)
                 store = builder(
                     store_uri=resolved_store_uri,
                     artifact_uri=artifact_uri,

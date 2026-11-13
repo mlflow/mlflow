@@ -11,7 +11,7 @@ from typing import Generator
 from mlflow.environment_variables import (
     _MLFLOW_SERVER_BOOT_ID,
     MLFLOW_ENABLE_WORKSPACES,
-    MLFLOW_TRACE_STORE,
+    MLFLOW_TRACE_STORE_URI,
     MLFLOW_TRACKING_URI,
 )
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -270,12 +270,12 @@ def _register(scheme, builder):
 _register_tracking_stores()
 
 
-def _get_store(store_uri=None, artifact_uri=None, *, trace_store_kind=None):
-    if trace_store_kind is None and _should_configure_trace_store(store_uri):
-        trace_store_kind = MLFLOW_TRACE_STORE.get()
-    if trace_store_kind:
+def _get_store(store_uri=None, artifact_uri=None, *, trace_store_uri=None):
+    if trace_store_uri is None and _should_configure_trace_store(store_uri):
+        trace_store_uri = MLFLOW_TRACE_STORE_URI.get()
+    if trace_store_uri:
         return _tracking_store_registry.get_store(
-            store_uri, artifact_uri, trace_store_kind=trace_store_kind
+            store_uri, artifact_uri, trace_store_uri=trace_store_uri
         )
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
@@ -283,7 +283,7 @@ def _get_store(store_uri=None, artifact_uri=None, *, trace_store_kind=None):
 def _should_configure_trace_store(store_uri: str | None = None) -> bool:
     """Route server-owned clients to the trace store only for the server's own database URI."""
     return bool(
-        MLFLOW_TRACE_STORE.get()
+        MLFLOW_TRACE_STORE_URI.get()
         and (
             os.environ.get("_MLFLOW_SERVER_JOB_ID")
             or _MLFLOW_SERVER_BOOT_ID.get() is not None

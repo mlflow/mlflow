@@ -16,7 +16,9 @@ No additional configuration is required.
 ## Independent Trace Storage
 
 For deployments that need a dedicated trace database or a different storage and analytics engine,
-install a trace store plugin on the server and select it with `--trace-store` or `MLFLOW_TRACE_STORE`.
+install a trace store plugin on the server and configure its URI with `--trace-store-uri` or
+`MLFLOW_TRACE_STORE_URI` (for example, `my-traces://host/namespace`). The URI scheme selects the
+plugin, which receives the full URI and interprets its connection settings.
 The plugin controls trace persistence, retrieval, assessments, issues, and analytics, while
 experiments and runs remain in the tracking store.
 

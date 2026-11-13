@@ -48,8 +48,9 @@ def json_backend_server(tmp_path, db_uri):
         ]),
         BACKEND_STORE_URI_ENV_VAR: db_uri,
         ARTIFACT_ROOT_ENV_VAR: tmp_path.as_uri(),
-        "MLFLOW_TRACE_STORE": "json-test",
-        "MLFLOW_TEST_JSON_TRACE_STORE_PATH": str(tmp_path / "traces.json"),
+        "MLFLOW_TRACE_STORE_URI": (tmp_path / "traces.json")
+        .as_uri()
+        .replace("file:", "json-test:", 1),
         "MLFLOW_ENABLE_TELEMETRY": "false",
     }
 

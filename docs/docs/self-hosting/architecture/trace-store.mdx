@@ -7,27 +7,30 @@ tracking store.
 
 ## Configure a Trace Store
 
-Install the plugin in the server and worker environments, then select its registered kind:
+Install the plugin in the server and worker environments, then configure its trace store URI:
 
 ```bash
-mlflow server --backend-store-uri postgresql://... --trace-store my-traces
+mlflow server --backend-store-uri postgresql://... --trace-store-uri my-traces://host/namespace
 
 # Alternatively:
-export MLFLOW_TRACE_STORE=my-traces
+export MLFLOW_TRACE_STORE_URI=my-traces://host/namespace
 mlflow server --backend-store-uri postgresql://...
 ```
 
-The CLI option takes precedence over `MLFLOW_TRACE_STORE`. Selection is server-side, so remote
-clients keep their existing tracking URI and tracing code. The plugin reads connection settings
-from its own environment variables or configuration files; the selected kind identifies the plugin,
-not its storage endpoint.
+The CLI option takes precedence over `MLFLOW_TRACE_STORE_URI`. Selection is server-side, so remote
+clients keep their existing tracking URI and tracing code. The URI scheme (`my-traces` above)
+selects the registered plugin, and the complete URI is passed unchanged to its builder.
+The plugin defines the meaning of the host, path, and any query parameters; MLflow does not
+define a shared query-parameter configuration format. Plugins can also read their own environment
+variables or configuration files. Prefer those mechanisms for credentials rather than embedding
+secrets in the URI.
 
 Invalid configuration fails startup. Unsupported trace operations return HTTP 501 rather than
 silently falling back to SQL.
 
 ## Develop a Trace Store Plugin
 
-Implement `AbstractTraceStore` and register a builder in your package:
+Implement `AbstractTraceStore` and register a builder under its URI scheme in your package:
 
 ```toml
 # pyproject.toml
@@ -42,8 +45,8 @@ from mlflow.store.tracking.abstract_trace_store import AbstractTraceStore
 
 
 class MyTraceStore(AbstractTraceStore):
-    def __init__(self, store_config):
-        # Initialize trace storage using provider-owned configuration.
+    def __init__(self, store_uri):
+        # Initialize trace storage from the URI and provider-owned configuration.
         ...
 
     def start_trace(self, trace_info):
@@ -55,12 +58,13 @@ class MyTraceStore(AbstractTraceStore):
     # Implement other supported AbstractTraceStore operations.
 
 
-def build_store(store_config):
-    return MyTraceStore(store_config)
+def build_store(store_uri):
+    return MyTraceStore(store_uri)
 ```
 
-The builder's configuration dictionary is currently empty. After initialization, `set_tracking_store`
-provides optional tracking-store access for experiment/run metadata queries or hybrid storage.
+The builder receives the full URI, not a parsed configuration dictionary.
+After initialization, `set_tracking_store` provides optional tracking-store access for
+experiment/run metadata queries or hybrid storage.
 Each trace store instance belongs to one tracking store instance.
 
 Trace stores own traces, assessments, issues, and their search and analytics. The tracking store

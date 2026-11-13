@@ -460,7 +460,7 @@ def test_delete_workspace_endpoint(app, mock_workspace_store):
 def test_backend_workspace_hooks_run_through_host(
     app, mock_workspace_store, monkeypatch, db_uri, tmp_path, mode, status
 ):
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
     backend = MemoryTraceStore()
     store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=backend)
     backend.traces["tr-orphan"] = ("team-e", mock.Mock())
@@ -485,7 +485,7 @@ def test_backend_workspace_hooks_run_through_host(
 def test_backend_workspace_cleanup_failure_is_logged_after_provider_success(
     app, mock_workspace_store, monkeypatch, db_uri, tmp_path, caplog
 ):
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
     backend = MemoryTraceStore()
     store = SqlAlchemyStore(db_uri, tmp_path.as_uri(), trace_store=backend)
     try:

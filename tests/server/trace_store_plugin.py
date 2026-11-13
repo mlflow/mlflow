@@ -1,10 +1,11 @@
 import json
-import os
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 from mlflow.entities import Assessment, Issue, Span, Trace, TraceData, TraceInfo
 from mlflow.exceptions import MlflowNotImplementedException
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.workspace_context import get_request_workspace
 
 from tests.store.tracking.sqlalchemy_store.test_trace_store_associations import MemoryTraceStore
@@ -144,6 +145,6 @@ class JsonTraceStore(MemoryTraceStore):
         self._save()
 
 
-def build_store(config):
-    assert config == {}
-    return JsonTraceStore(Path(os.environ["MLFLOW_TEST_JSON_TRACE_STORE_PATH"]))
+def build_store(store_uri):
+    file_uri = urlparse(store_uri)._replace(scheme="file").geturl()
+    return JsonTraceStore(Path(local_file_uri_to_path(file_uri)))

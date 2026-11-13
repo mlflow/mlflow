@@ -12,6 +12,8 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.trace_store_registry import TraceStoreRegistry
+from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.tracking._tracking_service.utils import _get_sqlalchemy_store
 
 BACKEND_OPERATIONS = [
     name
@@ -84,14 +86,22 @@ def test_default_deleted_trace_hook_logs_failed_cleanup(caplog):
     assert "cleanup unavailable" in caplog.text
 
 
-def test_registry_constructs_backend_without_tracking_store():
+@pytest.mark.parametrize(
+    "store_uri",
+    [
+        "test://host/namespace?option=value%2Fother#fragment",
+        "test:///local/path",
+        "test:/namespace",
+        "TEST://host/namespace",
+    ],
+)
+def test_registry_constructs_backend_with_full_uri_without_tracking_store(store_uri):
     registry = TraceStoreRegistry()
     backend = AbstractTraceStore()
     builder = mock.Mock(return_value=backend)
     registry.register("test", builder)
-    config = {"setting": "value"}
-    assert registry.get_store("test", config) is backend
-    builder.assert_called_once_with(config)
+    assert registry.get_store(store_uri) is backend
+    builder.assert_called_once_with(store_uri)
     assert not hasattr(backend, "_tracking_store")
 
 
@@ -107,13 +117,25 @@ def test_registry_discovers_entrypoints():
         registry.register_entrypoints()
     entries.assert_called_once_with("mlflow.trace_stores")
     entrypoint.load.assert_called_once()
-    assert registry.get_store("test") is backend
-    builder.assert_called_once_with({})
+    assert registry.get_store("test://host") is backend
+    builder.assert_called_once_with("test://host")
 
 
-def test_registry_rejects_unknown_kind():
-    with pytest.raises(MlflowException, match="Unknown trace store"):
-        TraceStoreRegistry().get_store("missing")
+def test_registry_rejects_unknown_scheme_without_exposing_uri_credentials():
+    with pytest.raises(MlflowException, match="Unknown trace store") as error:
+        TraceStoreRegistry().get_store("missing://user:secret@host/path")
+    assert "secret" not in str(error.value)
+
+
+@pytest.mark.parametrize("store_uri", ["", "test", "/local/path", "test://["])
+def test_registry_rejects_invalid_uri_before_building_store(store_uri):
+    registry = TraceStoreRegistry()
+    builder = mock.Mock()
+    registry.register("test", builder)
+    with pytest.raises(MlflowException, match="trace store URI|Trace store URI") as error:
+        registry.get_store(store_uri)
+    assert error.value.error_code == "INVALID_PARAMETER_VALUE"
+    builder.assert_not_called()
 
 
 def test_registry_rejects_invalid_builder_result():
@@ -121,8 +143,31 @@ def test_registry_rejects_invalid_builder_result():
     builder = mock.Mock(return_value=object())
     registry.register("test", builder)
     with pytest.raises(MlflowException, match="must return an AbstractTraceStore"):
-        registry.get_store("test")
-    builder.assert_called_once_with({})
+        registry.get_store("test://host")
+    builder.assert_called_once_with("test://host")
+
+
+def test_tracking_store_cache_distinguishes_full_trace_store_uris(monkeypatch, db_uri, tmp_path):
+    trace_registry = TraceStoreRegistry()
+    builder = mock.Mock(side_effect=lambda uri: AbstractTraceStore())
+    trace_registry.register("test", builder)
+    monkeypatch.setattr(
+        "mlflow.store.tracking.trace_store_registry._trace_store_registry", trace_registry
+    )
+    registry = TrackingStoreRegistry()
+    registry.register("sqlite", _get_sqlalchemy_store)
+    first_uri = "test://host/first?option=one"
+    second_uri = "test://host/first?option=two"
+    first = registry.get_store(db_uri, tmp_path.as_uri(), trace_store_uri=first_uri)
+    second = registry.get_store(db_uri, tmp_path.as_uri(), trace_store_uri=second_uri)
+    try:
+        assert registry.get_store(db_uri, tmp_path.as_uri(), trace_store_uri=first_uri) is first
+        assert first is not second
+        assert first.trace_store is not second.trace_store
+        assert builder.call_args_list == [mock.call(first_uri), mock.call(second_uri)]
+    finally:
+        first._dispose_engine()
+        second._dispose_engine()
 
 
 @pytest.mark.parametrize(

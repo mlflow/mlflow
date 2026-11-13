@@ -24,12 +24,12 @@ from tests.store.tracking.sqlalchemy_store.test_trace_store_associations import 
 @pytest.fixture
 def selected_backend(monkeypatch):
     registry = TraceStoreRegistry()
-    builder = mock.Mock(side_effect=lambda config: MemoryTraceStore())
+    builder = mock.Mock(side_effect=lambda uri: MemoryTraceStore())
     registry.register("test", builder)
     monkeypatch.setattr(
         "mlflow.store.tracking.trace_store_registry._trace_store_registry", registry
     )
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
     return builder
 
 
@@ -39,7 +39,7 @@ def test_server_constructs_backend_aware_host_once(monkeypatch, selected_backend
     assert handlers._get_tracking_store() is store
     assert isinstance(store, SqlAlchemyStore)
     assert store.trace_store._tracking_store is store
-    selected_backend.assert_called_once_with({})
+    selected_backend.assert_called_once_with("test://host/traces")
 
 
 @pytest.mark.parametrize("job_id", [None, "job"])
@@ -47,7 +47,7 @@ def test_only_server_owned_clients_select_backend(monkeypatch, job_id):
     monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
     monkeypatch.setattr(server_module, "is_running_as_server", False)
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///primary.db")
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
     if job_id:
         monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", job_id)
     else:
@@ -57,13 +57,15 @@ def test_only_server_owned_clients_select_backend(monkeypatch, job_id):
     ) as get_store:
         assert utils._get_store("sqlite:///primary.db") is mock.sentinel.store
     if job_id:
-        get_store.assert_called_once_with("sqlite:///primary.db", None, trace_store_kind="test")
+        get_store.assert_called_once_with(
+            "sqlite:///primary.db", None, trace_store_uri="test://host/traces"
+        )
     else:
         get_store.assert_called_once_with("sqlite:///primary.db", None)
 
 
 def test_invalid_backend_fails_server_construction(monkeypatch, db_uri, tmp_path):
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "not-registered")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "not-registered://host/traces")
     monkeypatch.setattr(handlers, "_tracking_store", None)
     with pytest.raises(MlflowException, match="Unknown trace store"):
         handlers._get_tracking_store(db_uri, tmp_path.as_uri())

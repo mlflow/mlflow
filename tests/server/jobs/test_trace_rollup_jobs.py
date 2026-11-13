@@ -76,9 +76,16 @@ def test_register_periodic_tasks_includes_locked_rollup_scheduler(monkeypatch):
     assert huey.locks["sql_trace_rollup_scheduler"] == "sql-trace-rollup-scheduler-lock"
 
 
-def test_periodic_worker_initializes_tracking_store_from_public_server_config(monkeypatch):
+@pytest.mark.parametrize("trace_store_uri", [None, "test://host/namespace?option=value"])
+def test_periodic_worker_initializes_tracking_store_from_public_server_config(
+    monkeypatch, trace_store_uri
+):
     monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///primary.db")
     monkeypatch.setenv("MLFLOW_DEFAULT_ARTIFACT_ROOT", "file:///artifacts")
+    if trace_store_uri is None:
+        monkeypatch.delenv("MLFLOW_TRACE_STORE_URI", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", trace_store_uri)
     expected = Mock(engine=object())
     get_store = Mock(return_value=expected)
     monkeypatch.setattr("mlflow.tracking._tracking_service.utils._get_store", get_store)
@@ -87,6 +94,7 @@ def test_periodic_worker_initializes_tracking_store_from_public_server_config(mo
     get_store.assert_called_once_with(
         store_uri="sqlite:///primary.db",
         artifact_uri="file:///artifacts",
+        **({"trace_store_uri": trace_store_uri} if trace_store_uri else {}),
     )
 
 

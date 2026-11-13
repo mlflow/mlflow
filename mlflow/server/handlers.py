@@ -96,7 +96,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
     MLFLOW_SERVER_INFO_TRACKING_AUTH,
-    MLFLOW_TRACE_STORE,
+    MLFLOW_TRACE_STORE_URI,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -804,9 +804,9 @@ def _get_tracking_store(
     if _tracking_store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
-        if kind := MLFLOW_TRACE_STORE.get():
+        if trace_store_uri := MLFLOW_TRACE_STORE_URI.get():
             _tracking_store = _tracking_store_registry.get_store(
-                store_uri, artifact_root, trace_store_kind=kind
+                store_uri, artifact_root, trace_store_uri=trace_store_uri
             )
         else:
             _tracking_store = _tracking_store_registry.get_store(store_uri, artifact_root)
@@ -1861,7 +1861,7 @@ def _delete_workspace_handler(workspace_name: str):
         )
     store = _get_workspace_store()
     try:
-        tracking_store = _get_tracking_store() if MLFLOW_TRACE_STORE.get() else None
+        tracking_store = _get_tracking_store() if MLFLOW_TRACE_STORE_URI.get() else None
         if tracking_store is not None:
             tracking_store.before_workspace_deleted(workspace_name, mode)
         store.delete_workspace(workspace_name, mode=mode)

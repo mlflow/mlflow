@@ -264,35 +264,41 @@ def test_server_initializes_backend_store_when_tracking_enabled(monkeypatch, tmp
 @pytest.mark.parametrize(
     ("args", "environment", "expected"),
     [
-        (["--trace-store", "cli-backend"], None, "cli-backend"),
-        ([], "env-backend", "env-backend"),
-        (["--trace-store", "cli-backend"], "env-backend", "cli-backend"),
+        (["--trace-store-uri", "test://cli/traces"], None, "test://cli/traces"),
+        ([], "test://env/traces", "test://env/traces"),
+        (
+            ["--trace-store-uri", "test://cli/traces"],
+            "test://env/traces",
+            "test://cli/traces",
+        ),
     ],
 )
 def test_server_trace_store_selection(monkeypatch, tmp_path, args, environment, expected):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("MLFLOW_TRACE_STORE", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACE_STORE_URI", raising=False)
     if environment:
-        monkeypatch.setenv("MLFLOW_TRACE_STORE", environment)
+        monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", environment)
     with (
         monkeypatch.context() as cli_env,
         mock.patch("mlflow.server.handlers.initialize_backend_stores") as initialize,
         mock.patch("mlflow.server._run_server") as run_server,
     ):
-        cli_env.setenv("MLFLOW_TRACE_STORE", environment or "")
+        cli_env.setenv("MLFLOW_TRACE_STORE_URI", environment or "")
         result = CliRunner().invoke(server, args)
-        assert os.environ["MLFLOW_TRACE_STORE"] == expected
+        assert os.environ["MLFLOW_TRACE_STORE_URI"] == expected
     assert result.exit_code == 0
-    assert os.environ.get("MLFLOW_TRACE_STORE") == environment
+    assert os.environ.get("MLFLOW_TRACE_STORE_URI") == environment
     initialize.assert_called_once()
     run_server.assert_called_once()
 
 
 def test_server_trace_store_rejects_artifacts_only(monkeypatch):
-    monkeypatch.delenv("MLFLOW_TRACE_STORE", raising=False)
-    result = CliRunner().invoke(server, ["--artifacts-only", "--trace-store", "test"])
+    monkeypatch.delenv("MLFLOW_TRACE_STORE_URI", raising=False)
+    result = CliRunner().invoke(
+        server, ["--artifacts-only", "--trace-store-uri", "test://host/traces"]
+    )
     assert result.exit_code != 0
-    assert "--trace-store cannot be used with --artifacts-only" in result.output
+    assert "--trace-store-uri cannot be used with --artifacts-only" in result.output
 
 
 def test_server_skips_backend_store_init_in_artifacts_only_mode(monkeypatch, tmp_path):
@@ -1219,7 +1225,7 @@ def test_gc_constructs_host_with_backend_without_server_markers(
 ):
     monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
     monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
-    monkeypatch.setenv("MLFLOW_TRACE_STORE", "test")
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, str(workspace_mode).lower())
     cls = WorkspaceAwareSqlAlchemyStore if workspace_mode else SqlAlchemyStore
     store = cls(db_uri, tmp_path.as_uri())
@@ -1250,7 +1256,7 @@ def test_gc_constructs_host_with_backend_without_server_markers(
                 catch_exceptions=False,
             )
         assert result.exit_code == 0
-        builder.assert_called_once_with({})
+        builder.assert_called_once_with("test://host/traces")
         assert backend.traces == {}
         with WorkspaceContext("default" if workspace_mode else None):
             with pytest.raises(MlflowException, match="not found"):
