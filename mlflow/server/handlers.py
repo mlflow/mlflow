@@ -8560,6 +8560,8 @@ def _remove_dataset_from_experiments_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),
@@ -8569,6 +8571,11 @@ def _get_dataset_records_handler(dataset_id):
         },
     )
 
+    if request_message.max_results < 0:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid value {request_message.max_results} for parameter 'max_results' "
+            "supplied. It must be a non-negative integer."
+        )
     max_results = request_message.max_results or 1000
     page_token = request_message.page_token or None
 

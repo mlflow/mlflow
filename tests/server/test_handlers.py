@@ -3755,6 +3755,18 @@ def test_get_dataset_records_empty(mock_tracking_store):
     assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
 
 
+@pytest.mark.parametrize("max_results", ["-1", "-5"])
+def test_get_dataset_records_rejects_negative_max_results(mock_tracking_store, max_results):
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    with app.test_request_context(method="GET", query_string={"max_results": max_results}):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    assert resp.status_code == 400
+    assert resp.get_json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "non-negative" in resp.get_json()["message"]
+    mock_tracking_store._load_dataset_records.assert_not_called()
+
+
 def test_get_dataset_records_pagination(mock_tracking_store):
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     all_records = []
