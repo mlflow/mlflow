@@ -484,6 +484,9 @@ class BuiltInEvaluator(ModelEvaluator):
             eval_fn_args.append(copy.deepcopy(self.aggregate_metrics))
         # eval_fn can have parameters like (predictions, targets, metrics, random_col)
         else:
+            # Model outputs are positional. Give every metric column the input's row labels
+            # so pandas arithmetic cannot join unrelated prediction and feature indexes.
+            eval_df_copy.index = input_df.index
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
 
@@ -513,7 +516,7 @@ class BuiltInEvaluator(ModelEvaluator):
                     # is part of the output_df(other than predictions)
                     elif other_output_df is not None and column in other_output_df.columns:
                         self.other_output_columns_for_eval.add(column)
-                        eval_fn_args.append(other_output_df[column])
+                        eval_fn_args.append(other_output_df[column].set_axis(input_df.index))
 
                     # case where the param is defined as part of the evaluator_config
                     elif column in self.evaluator_config:
@@ -700,10 +703,13 @@ class BuiltInEvaluator(ModelEvaluator):
         exceptions = []
         first_row_df = eval_df.iloc[[0]]
         first_row_input_df = self.X.copy_to_avoid_mutation().iloc[[0]]
+        first_row_other_output_df = (
+            other_output_df.iloc[[0]] if other_output_df is not None else None
+        )
         for metric in metrics:
             try:
                 _, eval_fn_args = self._get_args_for_metrics(
-                    metric, first_row_df, first_row_input_df, other_output_df
+                    metric, first_row_df, first_row_input_df, first_row_other_output_df
                 )
                 if metric_value := metric.evaluate(eval_fn_args):
                     name = f"{metric.name}/{metric.version}" if metric.version else metric.name
