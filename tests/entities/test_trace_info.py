@@ -1,3 +1,4 @@
+import copy
 from unittest import mock
 
 import pytest
@@ -123,6 +124,25 @@ def test_backwards_compatibility_with_v2():
     assert trace_info.request_metadata == {"foo": "bar"}
     assert trace_info.timestamp_ms == 1234567890
     assert trace_info.execution_time_ms is None
+
+
+def test_from_dict_does_not_mutate_v2_input():
+    trace_info_dict = {
+        "request_id": "trace_id",
+        "experiment_id": "123",
+        "timestamp_ms": 1234567890,
+        "execution_time_ms": 100,
+        "status": "OK",
+        "request_metadata": {"foo": "bar"},
+        "tags": {"baz": "qux"},
+        "assessments": [],
+    }
+    original = copy.deepcopy(trace_info_dict)
+
+    TraceInfo.from_dict(trace_info_dict)
+
+    assert type(trace_info_dict["status"]) is str
+    assert trace_info_dict == original
 
 
 def test_trace_info_v4():
