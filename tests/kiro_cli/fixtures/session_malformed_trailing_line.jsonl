@@ -1,0 +1,3 @@
+{"kind": "Prompt", "message_id": "msg-001", "content": [{"kind": "text", "data": "Hello"}], "meta": {"timestamp": 1736946000}}
+{"kind": "AssistantMessage", "message_id": "msg-002", "content": [{"kind": "text", "data": "Hi there!"}]}
+{"kind": "AssistantMessage", "message_id": "msg-003", "content": [{"kind": "text
