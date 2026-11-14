@@ -885,7 +885,7 @@ def test_get_multiclass_classifier_metrics_suppresses_roc_auc_error(monkeypatch)
     monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "true")
     with mock.patch(
         "mlflow.models.evaluation.evaluators.classifier.sk_metrics.roc_auc_score",
-        side_effect=ValueError("Only one class present in y_true."),
+        side_effect=ValueError("boom"),
     ):
         metrics = _get_multiclass_classifier_metrics(
             y_true=[0, 0, 2, 2],
@@ -901,6 +901,41 @@ def test_get_multiclass_classifier_metrics_suppresses_roc_auc_error(monkeypatch)
 
     assert "roc_auc" not in metrics
     assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
+
+
+def test_multi_classifier_evaluation_when_roc_auc_raises_for_absent_class(
+    multiclass_logistic_regressor_model_uri,
+):
+    # scikit-learn < 1.6 raises this error when a class is absent from y_true.
+    X, y = load_iris(return_X_y=True)
+    mask = y != 1
+    with (
+        mock.patch(
+            "mlflow.models.evaluation.evaluators.classifier.sk_metrics.roc_auc_score",
+            side_effect=ValueError(
+                "Only one class present in y_true. ROC AUC score is not defined in that case."
+            ),
+        ),
+        mlflow.start_run() as run,
+    ):
+        result = evaluate(
+            multiclass_logistic_regressor_model_uri,
+            X[mask],
+            model_type="classifier",
+            targets=y[mask],
+            evaluators="default",
+        )
+
+    assert np.isnan(result.metrics["roc_auc"])
+    assert result.metrics["log_loss"] > 0
+    _, _, _, artifacts = get_run_data(run.info.run_id)
+    assert {"roc_curve_plot.png", "per_class_metrics.csv"} <= set(artifacts)
+    per_class_metrics = pd.read_csv(
+        mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id, artifact_path="per_class_metrics.csv"
+        )
+    )
+    assert per_class_metrics["roc_auc"].isna().all()
 
 
 def test_gen_binary_precision_recall_curve_no_sample_weights():
