@@ -1599,6 +1599,10 @@
     "defaultMessage": "Hidden from Connect tab. Click to show.",
     "description": "Tooltip for hidden connect option toggle"
   },
+  "3HWEcr": {
+    "defaultMessage": "Requests",
+    "description": "Column header for gateway request count"
+  },
   "3JAJtl": {
     "defaultMessage": "Current password",
     "description": "Label for the current-password field"
@@ -1778,6 +1782,10 @@
   "42O0S4": {
     "defaultMessage": "Clear all demo data",
     "description": "Clear demo data button"
+  },
+  "42P2c9": {
+    "defaultMessage": "To track their usage here, use {modelUri} as the model for judges, the conversation simulator, issue detection or prompt optimization.",
+    "description": "Gateway usage > usage by feature > hint for routing MLflow features through an endpoint"
   },
   "43FXJM": {
     "defaultMessage": "Updating Assistant settings is not allowed for a remote MLflow server. Contact your server admin to update the settings.",
@@ -2631,6 +2639,10 @@
     "defaultMessage": "Delete",
     "description": "Gateway > Endpoints list > Delete button"
   },
+  "6dHe3a": {
+    "defaultMessage": "Other",
+    "description": "Gateway usage > usage by feature > row for requests not made by an MLflow feature"
+  },
   "6dK+y+": {
     "defaultMessage": "Comparison is limited to {limit, number} traces per run. Sessions may have missing turns, and matches and summaries may be incomplete.",
     "description": "Loaded session summaries may be partial when the trace cap is reached"
@@ -2863,6 +2875,10 @@
     "defaultMessage": "Tags",
     "description": "Label for the tags section"
   },
+  "7KPehV": {
+    "defaultMessage": "Prompt optimization",
+    "description": "Gateway usage > MLflow feature name for prompt optimization"
+  },
   "7KTbHL": {
     "defaultMessage": "Tool Call Correctness",
     "description": "LLM template option"
@@ -3070,6 +3086,10 @@
   "7tlSUw": {
     "defaultMessage": "Delete runs",
     "description": "Delete evaluation runs action"
+  },
+  "7ulNHG": {
+    "defaultMessage": "Judges",
+    "description": "Gateway usage > MLflow feature name for LLM judges and scorers"
   },
   "7vws6u": {
     "defaultMessage": "Trace",
@@ -9199,6 +9219,10 @@
     "defaultMessage": "You're not assigned to this queue, so you can't submit reviews here.",
     "description": "Review focused view: viewing a queue the reviewer is not assigned to"
   },
+  "RQMby+": {
+    "defaultMessage": "Usage by Feature",
+    "description": "Title for the gateway usage breakdown by built-in MLflow feature"
+  },
   "RQad6L": {
     "defaultMessage": "Capture inputs, tool calls, latency, and cost to understand how your agent behaves.",
     "description": "Trace step description"
@@ -9710,6 +9734,10 @@
   "T3RjOb": {
     "defaultMessage": "Go to the run",
     "description": "Tooltip for the run name cell in the evaluation runs table, opening the run page in a new tab"
+  },
+  "T4NU1X": {
+    "defaultMessage": "Feature",
+    "description": "Column header for the MLflow feature name"
   },
   "T4eipT": {
     "defaultMessage": "Line Smoothness",
@@ -11683,6 +11711,10 @@
     "defaultMessage": "Tall",
     "description": "Traces table row-height option: tall rows with longer text previews"
   },
+  "ZIerTz": {
+    "defaultMessage": "Feature",
+    "description": "Gateway usage > metrics filter > MLflow feature column option label"
+  },
   "ZJK1e+": {
     "defaultMessage": "The Sessions view has moved to the Traces tab.",
     "description": "Explanation that the Sessions view has moved to the Traces tab"
@@ -12990,6 +13022,10 @@
   "dYpolB": {
     "defaultMessage": "Oldest first",
     "description": "Active ascending sort direction for a date in evaluation comparison"
+  },
+  "dZ7CVH": {
+    "defaultMessage": "Tokens",
+    "description": "Column header for gateway token count"
   },
   "dd8i7f": {
     "defaultMessage": "Define custom instructions for LLM evaluation",
@@ -14479,6 +14515,10 @@
     "defaultMessage": "See more",
     "description": "Button that expands the span link attributes to show all of them"
   },
+  "htVdVs": {
+    "defaultMessage": "Cost",
+    "description": "Column header for gateway cost"
+  },
   "hv0wlb": {
     "defaultMessage": "Select or create review queues",
     "description": "Add to review queue: destination dropdown label"
@@ -15802,6 +15842,10 @@
   "luV/3W": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guidelines assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
+  },
+  "lv3Vfz": {
+    "defaultMessage": "Issue detection",
+    "description": "Gateway usage > MLflow feature name for issue detection"
   },
   "lvcGaz": {
     "defaultMessage": "e.g., 100.00",
@@ -18858,6 +18902,10 @@
   "vqWexj": {
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
+  },
+  "vrdNes": {
+    "defaultMessage": "Conversation simulator",
+    "description": "Gateway usage > MLflow feature name for the conversation simulator"
   },
   "vsxMvp": {
     "defaultMessage": "Delete this view? This removes it from the experiment for everyone.",
