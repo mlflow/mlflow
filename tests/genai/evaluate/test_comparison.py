@@ -193,6 +193,29 @@ def _scipy_bootstrap_ci(deltas: np.ndarray, method: str, confidence_level: float
     ).confidence_interval
 
 
+@pytest.mark.parametrize("scale", [2.0**-50, 1.0, 2.0**20])
+@pytest.mark.parametrize("first_delta", [0.0, 1.0])
+def test_numeric_comparison_preserves_statistics_when_scores_are_rescaled(scale, first_delta):
+    baseline = np.arange(1.0, 21.0)
+    deltas = np.array([first_delta, 2, 3, -1, 2, 4, 1, 3, -2, 2, 4, 3, 2, 1, -2, 3, 2, 1, 3, 4])
+    candidate = baseline + deltas
+    reference = _compare_paired_values("score", baseline, candidate, value_type="numeric")
+
+    result = _compare_paired_values(
+        "score", baseline * scale, candidate * scale, value_type="numeric"
+    )
+
+    assert result.p_value == pytest.approx(reference.p_value)
+    assert result.t_test_p_value == pytest.approx(stats.ttest_rel(candidate, baseline).pvalue)
+    assert result.effect_size == pytest.approx(deltas.mean() / deltas.std(ddof=1))
+    assert result.ci_low < result.diff < result.ci_high
+    assert (result.diff / scale, result.ci_low / scale, result.ci_high / scale) == pytest.approx((
+        reference.diff,
+        reference.ci_low,
+        reference.ci_high,
+    ))
+
+
 def test_bootstrap_interval_is_bca():
     rng = np.random.default_rng(4)
     baseline = rng.uniform(0, 1, size=30)
