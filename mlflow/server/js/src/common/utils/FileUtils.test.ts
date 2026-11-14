@@ -23,4 +23,8 @@ describe('FileUtils', () => {
   test('supports ipynb text previews', () => {
     expect(TEXT_EXTENSIONS.has('ipynb')).toBe(true);
   });
+
+  test('supports env text previews', () => {
+    expect(TEXT_EXTENSIONS.has('env')).toBe(true);
+  });
 });
