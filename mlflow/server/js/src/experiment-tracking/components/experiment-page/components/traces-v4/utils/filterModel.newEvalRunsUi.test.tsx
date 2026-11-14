@@ -123,6 +123,15 @@ describe('filters with the new evaluation runs UI', () => {
       ).toEqual(["feedback.`relevance` = '4'", "expectation.`expected_score` = '3'"]);
     });
 
+    test('numeric comparisons compile to unquoted literals whether or not the assessment type is known', () => {
+      expect(
+        compileFilterModel([
+          { field: 'assessment', key: 'relevance', operator: FilterOp.LESS_THAN, value: '0.4' },
+          { field: 'expectation', key: 'expected_score', operator: FilterOp.GREATER_THAN_OR_EQUALS, value: '3' },
+        ]),
+      ).toEqual(['feedback.`relevance` < 0.4', 'expectation.`expected_score` >= 3']);
+    });
+
     test('feedback and expectations with the same name are typed separately', () => {
       expect(
         compileFilterModel(
