@@ -11,7 +11,9 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
 from matplotlib.figure import Figure
+from packaging.version import Version
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
@@ -851,6 +853,10 @@ def test_get_multiclass_classifier_metrics(use_sample_weights):
     assert_dict_equal(metrics, expected_metrics, 1e-3)
 
 
+@pytest.mark.skipif(
+    Version(sklearn.__version__) < Version("1.6"),
+    reason="Older scikit-learn raises ValueError when a class is absent from y_true",
+)
 @pytest.mark.parametrize(
     ("average", "expected_roc_auc"),
     [("weighted", 1.0), ("macro", np.nan)],
@@ -872,6 +878,28 @@ def test_get_multiclass_classifier_metrics_with_class_absent_from_y_true(average
     )
 
     np.testing.assert_allclose(metrics["roc_auc"], expected_roc_auc)
+    assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
+
+
+def test_get_multiclass_classifier_metrics_suppresses_roc_auc_error(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "true")
+    with mock.patch(
+        "mlflow.models.evaluation.evaluators.classifier.sk_metrics.roc_auc_score",
+        side_effect=ValueError("Only one class present in y_true."),
+    ):
+        metrics = _get_multiclass_classifier_metrics(
+            y_true=[0, 0, 2, 2],
+            y_pred=[0, 1, 2, 2],
+            y_proba=[
+                [0.8, 0.1, 0.1],
+                [0.4, 0.5, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.2, 0.1, 0.7],
+            ],
+            labels=[0, 1, 2],
+        )
+
+    assert "roc_auc" not in metrics
     assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
 
 
