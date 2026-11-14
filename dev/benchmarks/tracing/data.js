@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794676902867,
+  "lastUpdate": 1794678412667,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "haoji.tang@databricks.com",
-            "name": "Haoji Tang",
-            "username": "tanghaoji"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9a8edef60d47a908c610758827e35a3e46a85a71",
-          "message": "Bind `trace_ids` to the authorized experiment on `issues/invoke` and `genai/evaluate/invoke` (#25873)\n\nSigned-off-by: Haoji Tang <haoji.tang@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
-          "timestamp": "2026-09-19T07:42:57Z",
-          "tree_id": "d3eac6ebca7516e380fb629addcebe075e52bfbb",
-          "url": "https://github.com/mlflow/mlflow/commit/9a8edef60d47a908c610758827e35a3e46a85a71"
-        },
-        "date": 1789803967669,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 47.0493586500055,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 6.4149063035700795,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.523825702701478,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.464779634781646,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.882347619047267,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.31671780001011,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.9067695714327817,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "atwkdeveloper@gmail.com",
+            "name": "Aaron Teo",
+            "username": "aaronteo-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a9ae3ef9905f2a8d4145bd1293ce6d16d248332f",
+          "message": "Validate region keys in third-party scorer `kwargs` (#27778)\n\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-14T17:43:17Z",
+          "tree_id": "3a87ba0a7e2070e2020e044fe876510d66948a32",
+          "url": "https://github.com/mlflow/mlflow/commit/a9ae3ef9905f2a8d4145bd1293ce6d16d248332f"
+        },
+        "date": 1794678408105,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 31.22141605000195,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.790585359999113,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.9909672185797693,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.9988547637364036,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.628678764705247,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 4.463920333331354,
             "unit": "ms"
           }
         ]
