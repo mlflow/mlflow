@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Collection
 
 from mlflow.entities import Assessment, Trace, TraceData
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
@@ -355,6 +356,27 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
 
 
 def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
+    feedbacks = _standardize_scorer_value(scorer_name, value)
+    for feedback in feedbacks:
+        _replace_nan_value_with_error(feedback)
+    return feedbacks
+
+
+def _replace_nan_value_with_error(feedback: Feedback) -> None:
+    # NaN and infinity cannot be serialized into the trace (protobuf Value rejects them), which
+    # drops the whole per-row result table. Record it as a scorer error so the row stays visible.
+    value = feedback.value
+    if feedback.error is None and isinstance(value, float) and not math.isfinite(value):
+        error = AssessmentError(
+            error_code="INVALID_SCORER_VALUE",
+            error_message="Scorer returned NaN or infinity, which is not a valid feedback value.",
+        )
+        feedback.value = None
+        feedback.error = error
+        feedback.feedback.error = error
+
+
+def _standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
     """
     Convert the scorer return value to a list of MLflow Assessment (Feedback) objects.
 
