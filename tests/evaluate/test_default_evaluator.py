@@ -917,7 +917,7 @@ def test_multi_classifier_evaluation_when_roc_auc_raises_for_absent_class(
             side_effect=ValueError(
                 "Only one class present in y_true. ROC AUC score is not defined in that case."
             ),
-        ),
+        ) as mock_roc_auc_score,
         mlflow.start_run() as run,
     ):
         result = evaluate(
@@ -928,6 +928,8 @@ def test_multi_classifier_evaluation_when_roc_auc_raises_for_absent_class(
             evaluators="default",
         )
 
+    # One aggregate call plus one per-class ROC curve call for each of the 3 labels
+    assert mock_roc_auc_score.call_count == 4
     assert np.isnan(result.metrics["roc_auc"])
     assert result.metrics["log_loss"] > 0
     _, _, _, artifacts = get_run_data(run.info.run_id)
