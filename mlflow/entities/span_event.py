@@ -35,7 +35,7 @@ class SpanEvent(_MlflowObject):
     attributes: dict[str, AttributeValue] = field(default_factory=dict)
 
     @classmethod
-    def from_exception(cls, exception: Exception) -> "SpanEvent":
+    def from_exception(cls, exception: BaseException) -> "SpanEvent":
         "Create a span event from an exception."
 
         stack_trace = cls._get_stacktrace(exception)
