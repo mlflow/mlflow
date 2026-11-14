@@ -9,8 +9,6 @@ argument-hint: "url(s) of failed GitHub Action jobs, workflow runs, or PRs"
 
 Fetch logs from failed GitHub Action jobs and produce a focused per-job failure summary.
 
-URLs provided: $ARGUMENTS
-
 If no URLs are passed as arguments, use the relevant job, run, or PR URLs already shared in the conversation. If none are available, ask for a URL and stop.
 
 ## Steps
