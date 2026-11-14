@@ -60,11 +60,17 @@ from mlflow.types.llm import (
     ChatParams,
 )
 from mlflow.types.responses import (
+    AnnotationAddedEvent,
+    FunctionCallItem,
+    FunctionCallOutputItem,
     Message,
     OutputItem,
+    ReasoningItem,
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
+    TextDeltaEvent,
+    TextOutputItem,
     create_annotation_added,
     create_function_call_item,
     create_function_call_output_item,
@@ -1035,7 +1041,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         )
 
     @staticmethod
-    def create_text_delta(delta: str, item_id: str) -> dict[str, Any]:
+    def create_text_delta(delta: str, item_id: str) -> TextDeltaEvent:
         """Helper method to create a dictionary conforming to the text delta schema for
         streaming.
 
@@ -1046,13 +1052,13 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     @staticmethod
     def create_annotation_added(
         item_id: str, annotation: dict[str, Any], annotation_index: int | None = 0
-    ) -> dict[str, Any]:
+    ) -> AnnotationAddedEvent:
         return create_annotation_added(item_id, annotation, annotation_index)
 
     @staticmethod
     def create_text_output_item(
         text: str, id: str, annotations: list[dict[str, Any]] | None = None
-    ) -> dict[str, Any]:
+    ) -> TextOutputItem:
         """Helper method to create a dictionary conforming to the text output item schema.
 
         Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
@@ -1065,7 +1071,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         return create_text_output_item(text, id, annotations)
 
     @staticmethod
-    def create_reasoning_item(id: str, reasoning_text: str) -> dict[str, Any]:
+    def create_reasoning_item(id: str, reasoning_text: str) -> ReasoningItem:
         """Helper method to create a dictionary conforming to the reasoning item schema.
 
         Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
@@ -1075,7 +1081,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
     @staticmethod
     def create_function_call_item(
         id: str, call_id: str, name: str, arguments: str
-    ) -> dict[str, Any]:
+    ) -> FunctionCallItem:
         """Helper method to create a dictionary conforming to the function call item schema.
 
         Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
@@ -1089,7 +1095,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         return create_function_call_item(id, call_id, name, arguments)
 
     @staticmethod
-    def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any]:
+    def create_function_call_output_item(call_id: str, output: str) -> FunctionCallOutputItem:
         """Helper method to create a dictionary conforming to the function call output item
         schema.
 
