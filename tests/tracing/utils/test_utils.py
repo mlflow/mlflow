@@ -1,12 +1,13 @@
 import json
 import logging
+import warnings
 from unittest import mock
 from unittest.mock import Mock, patch
 
 import litellm
 import pytest
 from opentelemetry import trace as trace_api
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 import mlflow
 from mlflow.entities import (
@@ -15,6 +16,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace_location import UCSchemaLocation
+from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_URI
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import (
@@ -24,7 +26,9 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
 )
 from mlflow.tracing.utils import (
+    TraceJSONEncoder,
     _calculate_percentile,
+    _warn_model_catalog_error,
     aggregate_cost_from_spans,
     aggregate_usage_from_spans,
     calculate_cost_by_model_and_token_usage,
@@ -39,7 +43,10 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
+    should_compute_cost_client_side,
 )
+from mlflow.utils.providers import _get_remote_cache
+from mlflow.utils.providers import cost_per_token as builtin_cost_per_token
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import create_mock_otel_span
@@ -52,6 +59,18 @@ def test_capture_function_input_args_does_not_raise():
 
     assert args is None
     assert mock_input_args.call_count > 0
+
+
+def test_capture_function_input_args_excludes_falsy_self():
+    class Queue:
+        def __len__(self):
+            return 0
+
+        def push(self, item):
+            pass
+
+    queue = Queue()
+    assert capture_function_input_args(Queue.push, (queue, "a"), {}) == {"item": "a"}
 
 
 def test_duplicate_span_names():
@@ -99,6 +118,35 @@ def test_aggregate_usage_from_spans():
         TokenUsageKey.OUTPUT_TOKENS: 45,
         TokenUsageKey.TOTAL_TOKENS: 60,
     }
+
+
+@pytest.mark.parametrize(
+    ("span_usage", "expected_total"),
+    [
+        ({TokenUsageKey.INPUT_TOKENS: 1000}, 1010),
+        ({TokenUsageKey.OUTPUT_TOKENS: 7}, 17),
+        ({TokenUsageKey.INPUT_TOKENS: 3, TokenUsageKey.OUTPUT_TOKENS: 4}, 17),
+        ({TokenUsageKey.INPUT_TOKENS: 5, TokenUsageKey.TOTAL_TOKENS: 0}, 10),
+        ({TokenUsageKey.INPUT_TOKENS: 5, TokenUsageKey.TOTAL_TOKENS: None}, 15),
+    ],
+)
+def test_aggregate_usage_from_spans_derives_missing_total_tokens(span_usage, expected_total):
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
+        for i in range(2)
+    ]
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 4,
+            TokenUsageKey.OUTPUT_TOKENS: 6,
+            TokenUsageKey.TOTAL_TOKENS: 10,
+        },
+    )
+    spans[1].set_attribute(SpanAttributeKey.CHAT_USAGE, span_usage)
+
+    usage = aggregate_usage_from_spans(spans)
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
 
 
 def test_aggregate_usage_from_spans_skips_descendant_usage():
@@ -685,6 +733,77 @@ def test_get_spans_table_name_for_trace_no_destination():
         assert result is None
 
 
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected"),
+    [
+        ("databricks", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
+        ("sagemaker:/us-east-1", False),
+        ("https://tracking.example.com", False),
+    ],
+)
+def test_should_compute_cost_client_side(tracking_uri, expected):
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value=tracking_uri
+    ):
+        assert should_compute_cost_client_side() is expected
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
+def test_sagemaker_cost_computed_when_span_ends(mock_litellm_cost):
+    span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
+    span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
+    )
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server",
+    ):
+        span.end()
+
+    assert span.get_attribute(SpanAttributeKey.LLM_COST) == {
+        CostKey.INPUT_COST: 100.0,
+        CostKey.OUTPUT_COST: 100.0,
+        CostKey.TOTAL_COST: 200.0,
+    }
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost requires litellm")
+@pytest.mark.parametrize(
+    "manual_cost",
+    [
+        None,
+        {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        },
+    ],
+)
+def test_sagemaker_preserves_manual_cost_when_span_ends(mock_litellm_cost, manual_cost):
+    span = LiveSpan(create_mock_otel_span(123, 456), trace_id="tr-123", span_type=SpanType.LLM)
+    span.set_attribute(SpanAttributeKey.MODEL, "gpt-5")
+    span.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {TokenUsageKey.INPUT_TOKENS: 100, TokenUsageKey.OUTPUT_TOKENS: 50},
+    )
+    span.set_attribute(SpanAttributeKey.LLM_COST, manual_cost)
+
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server",
+    ):
+        span.end()
+
+    assert SpanAttributeKey.LLM_COST in span._span.attributes
+    assert span.get_attribute(SpanAttributeKey.LLM_COST) == manual_cost
+    mock_litellm_cost.assert_not_called()
+
+
 @pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
@@ -803,9 +922,13 @@ def test_builtin_cost_prices_1hr_cache_creation_higher():
         "cache_creation_input_tokens": 300,
     }
     with mock.patch.dict("sys.modules", {"litellm": None}):
-        without_1hr = calculate_cost_by_model_and_token_usage(model, base_usage)
+        without_1hr = calculate_cost_by_model_and_token_usage(
+            model, base_usage, model_provider="anthropic"
+        )
         with_1hr = calculate_cost_by_model_and_token_usage(
-            model, {**base_usage, "cache_creation_input_tokens_above_1hr": 300}
+            model,
+            {**base_usage, "cache_creation_input_tokens_above_1hr": 300},
+            model_provider="anthropic",
         )
     assert without_1hr is not None
     assert with_1hr is not None
@@ -851,6 +974,184 @@ def test_builtin_cost_fallback_with_provider_case_insensitive(model_provider):
         )
     assert result is not None
     assert result["total_cost"] == pytest.approx(0.0075)
+
+
+def test_builtin_cost_uses_databricks_catalog_for_databricks_names_with_provider_hint(monkeypatch):
+    # Like mlflow-tracing, which bundles no catalogs for the provider-less fallback scan.
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "")
+    with (
+        mock.patch.dict("sys.modules", {"litellm": None}),
+        mock.patch("mlflow.utils.providers._list_provider_names", return_value=[]),
+        mock.patch(
+            "mlflow.utils.providers.cost_per_token", wraps=builtin_cost_per_token
+        ) as cost_per_token,
+    ):
+        result = calculate_cost_by_model_and_token_usage(
+            "databricks-claude-sonnet-4-6",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider="anthropic",
+        )
+    cost_per_token.assert_called_once_with(
+        model="databricks-claude-sonnet-4-6",
+        prompt_tokens=1000,
+        completion_tokens=500,
+        custom_llm_provider="databricks",
+    )
+    assert result is not None
+    assert result["total_cost"] > 0
+
+
+@pytest.fixture
+def custom_model_catalog(tmp_path, monkeypatch):
+    catalog = {
+        "schema_version": 1,
+        "models": {
+            "my-model": {
+                "mode": "chat",
+                "pricing": {
+                    "input_per_million_tokens": 10.0,
+                    "output_per_million_tokens": 10.0,
+                    "cache_write_per_million_tokens": 20.0,
+                    "cache_write_1hr_per_million_tokens": 40.0,
+                },
+            },
+            "free-model": {
+                "mode": "chat",
+                "pricing": {"input_per_million_tokens": 0.0, "output_per_million_tokens": 0.0},
+            },
+            "unpriced-model": {"mode": "chat"},
+        },
+    }
+    (tmp_path / "ollama.json").write_text(json.dumps(catalog))
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", tmp_path.as_uri())
+    _get_remote_cache().clear()
+    yield
+    _get_remote_cache().clear()
+
+
+@pytest.fixture
+def litellm_cost(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    return mock_litellm_cost
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+@pytest.mark.parametrize(
+    ("model_name", "expected_cost"),
+    [("my-model", 0.01), ("ollama/my-model", 0.01), ("free-model", 0.0)],
+)
+def test_custom_model_catalog_price_takes_precedence_over_litellm(
+    litellm_cost, model_name, expected_cost
+):
+    usage = {"input_tokens": 1000, "output_tokens": 1000}
+    result = calculate_cost_by_model_and_token_usage(model_name, usage, model_provider="ollama")
+    assert result == {
+        "input_cost": pytest.approx(expected_cost),
+        "output_cost": pytest.approx(expected_cost),
+        "total_cost": pytest.approx(expected_cost * 2),
+    }
+    litellm_cost.assert_not_called()
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+@pytest.mark.parametrize(
+    ("model_name", "model_provider"),
+    [
+        # Not in the custom catalog
+        ("other-model", "ollama"),
+        # Listed without a price
+        ("unpriced-model", "ollama"),
+        # Provider has no file in the custom catalog; bundled prices are not used instead
+        ("gpt-4o", "openai"),
+    ],
+)
+def test_custom_model_catalog_falls_back_to_litellm(litellm_cost, model_name, model_provider):
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    result = calculate_cost_by_model_and_token_usage(model_name, usage, model_provider)
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+    litellm_cost.assert_called_once_with(
+        model=model_name,
+        prompt_tokens=10,
+        completion_tokens=5,
+        custom_llm_provider=model_provider,
+    )
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_custom_model_catalog_not_used_without_provider(litellm_cost):
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    result = calculate_cost_by_model_and_token_usage("my-model", usage)
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+    litellm_cost.assert_called_once_with(model="my-model", prompt_tokens=10, completion_tokens=5)
+
+
+@pytest.mark.parametrize("uri", [None, "", MLFLOW_MODEL_CATALOG_URI.default])
+def test_litellm_used_when_model_catalog_not_customized(litellm_cost, monkeypatch, uri):
+    if uri is None:
+        monkeypatch.delenv("MLFLOW_MODEL_CATALOG_URI", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", uri)
+    with mock.patch("mlflow.utils.providers._fetch_remote_provider") as fetch:
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o", {"input_tokens": 10, "output_tokens": 5}, model_provider="openai"
+        )
+    fetch.assert_not_called()
+    assert result == {"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}
+
+
+def test_invalid_model_catalog_uri_warns_once_and_uses_litellm(litellm_cost, monkeypatch):
+    monkeypatch.setenv("MLFLOW_MODEL_CATALOG_URI", "s3://bucket/catalog")
+    _get_remote_cache().clear()
+    _warn_model_catalog_error.cache_clear()
+    usage = {"input_tokens": 10, "output_tokens": 5}
+    with mock.patch("mlflow.tracing.utils._logger.warning") as warning:
+        results = [
+            calculate_cost_by_model_and_token_usage("my-model", usage, model_provider="ollama")
+            for _ in range(2)
+        ]
+    _warn_model_catalog_error.cache_clear()
+    assert results == [{"input_cost": 10.0, "output_cost": 10.0, "total_cost": 20.0}] * 2
+    warning.assert_called_once()
+    assert "s3://bucket/catalog" in warning.call_args[0][0]
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_custom_model_catalog_prices_1hr_cache_creation(litellm_cost):
+    usage = {
+        "input_tokens": 1000,
+        "output_tokens": 500,
+        "cache_creation_input_tokens": 300,
+        "cache_creation_input_tokens_above_1hr": 100,
+    }
+    result = calculate_cost_by_model_and_token_usage("my-model", usage, model_provider="ollama")
+    # 700 regular input tokens at $10/M, 200 5-minute cache writes at $20/M, and 100 1-hour
+    # cache writes at $40/M.
+    assert result == {
+        "input_cost": pytest.approx(0.015),
+        "output_cost": pytest.approx(0.005),
+        "total_cost": pytest.approx(0.02),
+    }
+    litellm_cost.assert_not_called()
+
+
+@pytest.mark.usefixtures("custom_model_catalog")
+def test_custom_model_catalog_without_litellm_uses_builtin_once():
+    usage = {"input_tokens": 1000, "output_tokens": 1000}
+    with (
+        mock.patch.dict("sys.modules", {"litellm": None}),
+        mock.patch(
+            "mlflow.utils.providers.cost_per_token", wraps=builtin_cost_per_token
+        ) as builtin,
+    ):
+        result = calculate_cost_by_model_and_token_usage("my-model", usage, model_provider="ollama")
+    assert result["total_cost"] == pytest.approx(0.02)
+    builtin.assert_called_once_with(
+        model="my-model",
+        prompt_tokens=1000,
+        completion_tokens=1000,
+        custom_llm_provider="ollama",
+    )
 
 
 @pytest.mark.parametrize("model_name", ["gateway:/my-endpoint", "endpoints:/my-endpoint"])
@@ -925,6 +1226,8 @@ def test_dump_span_attribute_value_handles_type_error():
         ("databricks-claude-opus-4-8", None, "databricks"),
         ("databricks/databricks-claude-opus-4-8", None, "databricks"),
         ("databricks-claude-opus-4-8", "databricks", "databricks"),
+        ("databricks-claude-opus-4-8", "anthropic", "databricks"),
+        ("databricks/databricks-claude-opus-4-8", "anthropic", "databricks"),
         ("gpt-4o", None, None),
     ],
 )
@@ -946,3 +1249,68 @@ def test_cost_calculation_uses_expected_provider(model_name, model_provider, exp
     cost_per_token.assert_called_once_with(**kwargs)
     assert result is not None
     assert result[CostKey.TOTAL_COST] > 0
+
+
+def test_trace_json_encoder_does_not_warn_on_pydantic_type_mismatch():
+    class Delta(BaseModel):
+        content: str | None = None
+
+    content = [{"type": "reasoning", "summary": [{"type": "summary_text", "text": "I"}]}]
+    delta = Delta.model_construct(content=content)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = json.dumps(delta, cls=TraceJSONEncoder)
+
+    assert json.loads(result) == {"content": content}
+
+
+def test_trace_json_encoder_serializes_numpy_objects():
+    np = pytest.importorskip("numpy")
+
+    value = {
+        "array": np.arange(5000),
+        "embedding": np.full((2, 3), 0.5, dtype=np.float32),
+        "float32": np.float32(0.5),
+        "int64": np.int64(7),
+        "bool": np.bool_(True),
+    }
+
+    assert json.loads(json.dumps(value, cls=TraceJSONEncoder)) == {
+        "array": list(range(5000)),
+        "embedding": [[0.5, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        "float32": 0.5,
+        "int64": 7,
+        "bool": True,
+    }
+
+
+def test_trace_json_encoder_serializes_extended_precision_numpy_objects():
+    np = pytest.importorskip("numpy")
+
+    value = {
+        "longdouble": np.longdouble(1.5),
+        "clongdouble": np.clongdouble(1 + 2j),
+        "array": np.array([1.5, 2.5], dtype=np.longdouble),
+    }
+
+    assert json.loads(json.dumps(value, cls=TraceJSONEncoder)) == {
+        "longdouble": str(np.longdouble(1.5)),
+        "clongdouble": str(np.clongdouble(1 + 2j)),
+        "array": [str(np.longdouble(1.5)), str(np.longdouble(2.5))],
+    }
+
+
+def test_trace_decorator_records_numpy_inputs_and_outputs():
+    np = pytest.importorskip("numpy")
+
+    @mlflow.trace
+    def embed(n):
+        return {"vector": np.arange(n), "score": np.float32(0.5)}
+
+    embed(np.int64(3))
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    span = trace.data.spans[0]
+    assert span.inputs == {"n": 3}
+    assert span.outputs == {"vector": [0, 1, 2], "score": 0.5}

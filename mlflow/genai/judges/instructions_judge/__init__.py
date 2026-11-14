@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 from dataclasses import asdict
@@ -12,6 +13,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.constants import (
     _RATIONALE_FIELD_DESCRIPTION,
@@ -21,6 +23,17 @@ from mlflow.genai.judges.constants import (
 from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
+)
+from mlflow.genai.judges.model_api import ModelAPI, _parse_model_api, _select_model_api_mode
+from mlflow.genai.judges.structured_judge import (
+    _invoke_gateway_judge,
+    _is_gateway_model,
+    _is_gateway_system_one_rejection,
+)
+from mlflow.genai.judges.typesafe import (
+    _GatewayEndpointNotSystemOne,
+    _invoke_typesafe_judge,
+    _is_typesafe_model,
 )
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
@@ -35,6 +48,7 @@ from mlflow.genai.scorers.base import (
     ScorerKind,
     SerializedScorer,
 )
+from mlflow.genai.utils.gateway_utils import gateway_caller
 from mlflow.genai.utils.trace_utils import (
     resolve_conversation_from_session,
     resolve_expectations_from_session,
@@ -56,6 +70,17 @@ EXPECTATIONS_FIELD = JudgeField(
     name="expectations", description="Expected outcomes or ground truth"
 )
 TRACE_FIELD = JudgeField(name="trace", description="Trace to evaluate")
+
+
+def _attribute_gateway_calls(call):
+    """Run a judge call inside the gateway attribution of the feature that owns the judge."""
+
+    @functools.wraps(call)
+    def wrapper(self, *args, **kwargs):
+        with gateway_caller(self._gateway_caller or GatewayCaller.JUDGE):
+            return call(self, *args, **kwargs)
+
+    return wrapper
 
 
 class InstructionsJudge(Judge):
@@ -90,6 +115,11 @@ class InstructionsJudge(Judge):
     _base_url: str | None = PrivateAttr(default=None)
     _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
     _include_timing_in_conversation: bool = PrivateAttr(default=False)
+    _model_api: ModelAPI = PrivateAttr(default=ModelAPI.DEFAULT)
+    _model_api_mode: ModelAPI = PrivateAttr(default=ModelAPI.CHAT_COMPLETIONS)
+    # Set by built-in features that run their own judge (e.g. issue detection's triage judge), so
+    # its gateway usage is attributed to the feature instead of to judges.
+    _gateway_caller: GatewayCaller | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -104,6 +134,7 @@ class InstructionsJudge(Judge):
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
         include_timing_in_conversation: bool = False,
+        model_api: ModelAPI | str = ModelAPI.DEFAULT,
         **kwargs,
     ):
         """
@@ -134,6 +165,8 @@ class InstructionsJudge(Judge):
             include_timing_in_conversation: If True, append timing information (duration and
                            slowest spans) to assistant responses in conversation. Useful for
                            latency-aware evaluation. Default is False for backward compatibility.
+            model_api: API route to use for the model. ``ModelAPI.DEFAULT`` selects the
+                           provider's usual route and detects System One Gateway endpoints.
             kwargs: Additional configuration parameters
         """
         aggregations = kwargs.pop("aggregations", None)
@@ -176,6 +209,7 @@ class InstructionsJudge(Judge):
         self._base_url = base_url
         self._extra_headers = extra_headers
         self._include_timing_in_conversation = include_timing_in_conversation
+        self._model_api = model_api
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -210,6 +244,7 @@ class InstructionsJudge(Judge):
 
         self._validate_model_format()
         self._validate_instructions_template()
+        self._validate_model_api()
 
     @property
     def kind(self) -> ScorerKind:
@@ -244,6 +279,11 @@ class InstructionsJudge(Judge):
     def inference_params(self) -> dict[str, Any] | None:
         """Get the inference parameters for this judge."""
         return self._inference_params
+
+    @property
+    def model_api(self) -> ModelAPI:
+        """Get the requested model API."""
+        return self._model_api
 
     def get_input_fields(self) -> list[JudgeField]:
         """
@@ -486,6 +526,7 @@ class InstructionsJudge(Judge):
         except Exception:
             return str(value)
 
+    @_attribute_gateway_calls
     def __call__(
         self,
         *,
@@ -617,6 +658,13 @@ class InstructionsJudge(Judge):
             self._TEMPLATE_VARIABLE_TRACE in self.template_variables or is_fallback_to_trace_mode
         )
 
+        if is_trace_based and self._model_api_mode is ModelAPI.DECISIONS:
+            raise MlflowException.invalid_parameter_value(
+                "Decision API judges do not support trace-based tool calling. "
+                "Pass the referenced inputs and outputs explicitly, or record them "
+                "on the trace root span."
+            )
+
         if is_fallback_to_trace_mode:
             _logger.debug("Using trace-based (agentic) judge mode via fallback.")
         elif is_trace_based:
@@ -624,29 +672,109 @@ class InstructionsJudge(Judge):
         else:
             _logger.debug("Using standard (non-agentic) judge mode.")
 
-        system_content = self._build_system_message(is_trace_based)
-        user_content = self._build_user_message(inputs, outputs, expectations, conversation)
+        state = {
+            variable: value
+            for variable, value in (
+                (self._TEMPLATE_VARIABLE_INPUTS, inputs),
+                (self._TEMPLATE_VARIABLE_OUTPUTS, outputs),
+                (self._TEMPLATE_VARIABLE_EXPECTATIONS, expectations),
+                (self._TEMPLATE_VARIABLE_CONVERSATION, conversation),
+            )
+            if variable in self.template_variables
+        }
 
-        from mlflow.types.llm import ChatMessage
+        def _invoke_chat():
+            from mlflow.types.llm import ChatMessage
 
-        messages = [
-            ChatMessage(role="system", content=system_content),
-            ChatMessage(role="user", content=user_content),
-        ]
+            messages = [
+                ChatMessage(role="system", content=self._build_system_message(is_trace_based)),
+                ChatMessage(
+                    role="user",
+                    content=self._build_user_message(inputs, outputs, expectations, conversation),
+                ),
+            ]
+            return invoke_judge_model(
+                model_uri=self._model,
+                prompt=messages,
+                assessment_name=self.name,
+                trace=trace if is_trace_based else None,
+                response_format=self._create_response_format_model(),
+                use_case=USE_CASE_AGENTIC_JUDGE,
+                inference_params=self._inference_params,
+                base_url=self._base_url,
+                extra_headers=self._extra_headers,
+            )
 
-        response_format = self._create_response_format_model()
+        if self._model_api_mode is ModelAPI.DECISIONS:
+            if (
+                _is_typesafe_model(self._model)
+                or _is_gateway_model(self._model)
+                or self._model.startswith("databricks:/")
+            ):
+                try:
+                    feedback = _invoke_typesafe_judge(
+                        self._model,
+                        instructions=self._instructions,
+                        state=state,
+                        feedback_value_type=self._feedback_value_type,
+                        assessment_name=self.name,
+                        base_url=self._base_url,
+                        extra_headers=self._extra_headers,
+                    )
+                except _GatewayEndpointNotSystemOne:
+                    raise MlflowException.invalid_parameter_value(
+                        "This Gateway endpoint does not serve a System One model. "
+                        f"Use model_api={ModelAPI.CHAT_COMPLETIONS.value!r} or select a "
+                        "System One endpoint."
+                    ) from None
+            else:
+                from mlflow.genai.judges.decisions import _invoke_openai_decisions_judge
 
-        feedback = invoke_judge_model(
-            model_uri=self._model,
-            prompt=messages,
-            assessment_name=self.name,
-            trace=trace if is_trace_based else None,
-            response_format=response_format,
-            use_case=USE_CASE_AGENTIC_JUDGE,
-            inference_params=self._inference_params,
-            base_url=self._base_url,
-            extra_headers=self._extra_headers,
-        )
+                feedback = _invoke_openai_decisions_judge(
+                    self._model,
+                    instructions=self._instructions,
+                    input_text=self._build_user_message(
+                        inputs, outputs, expectations, conversation
+                    ),
+                    feedback_value_type=self._feedback_value_type,
+                    assessment_name=self.name,
+                    base_url=self._base_url,
+                    extra_headers=self._extra_headers,
+                )
+        elif (
+            _is_gateway_model(self._model)
+            and self._model_api_mode is ModelAPI.DEFAULT
+            and not is_trace_based
+        ):
+            # gateway:/ endpoints may serve System One (jev) models. Prefer chat so non-jev
+            # endpoints see no regression, and fall back to System One when chat is rejected.
+            # jev has no trace support, so trace-based judges stay on chat only.
+            feedback = _invoke_gateway_judge(
+                self._model,
+                chat_invoker=_invoke_chat,
+                instructions=self._instructions,
+                state=state,
+                feedback_value_type=self._feedback_value_type,
+                assessment_name=self.name,
+                inference_params=self._inference_params,
+                base_url=self._base_url,
+                extra_headers=self._extra_headers,
+            )
+        elif _is_gateway_model(self._model) and is_trace_based:
+            # jev endpoints can't evaluate traces. Chat endpoints handle trace-based judges
+            # fine, so attempt chat; if the endpoint rejects it as System One, surface the
+            # same clear message as the direct typesafe:/ path rather than the raw rejection.
+            try:
+                feedback = _invoke_chat()
+            except MlflowException as e:
+                if _is_gateway_system_one_rejection(e):
+                    raise MlflowException.invalid_parameter_value(
+                        "TypeSafe judge models do not support trace-based evaluation."
+                    ) from e
+                raise
+        else:
+            feedback = _invoke_chat()
+
         # Surface the judge instructions in assessment metadata so the UI can
         # show the criterion that was evaluated alongside each result.
         feedback.metadata = {**(feedback.metadata or {}), "guideline": self._instructions}
@@ -674,6 +802,31 @@ class InstructionsJudge(Judge):
         - "endpoints:/<endpoint-name>" for Databricks model serving endpoints
         """
         validate_judge_model(self._model)
+
+    def _validate_model_api(self) -> None:
+        self._model_api = _parse_model_api(self._model_api)
+        self._model_api_mode = _select_model_api_mode(self._model, self._model_api)
+        if self._model_api_mode is not ModelAPI.DECISIONS:
+            return
+        if self._TEMPLATE_VARIABLE_TRACE in self.template_variables:
+            raise MlflowException.invalid_parameter_value(
+                "Decision API judges do not support {{ trace }} tool calling."
+            )
+        if self._model.startswith("openai:/"):
+            from mlflow.genai.judges.decisions import _decision_question
+
+            _decision_question(self._instructions, self._feedback_value_type)
+        if self._generate_rationale_first and not (
+            _is_typesafe_model(self._model) or _is_gateway_model(self._model)
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "Decision API judges do not return a rationale; "
+                "generate_rationale_first is not supported."
+            )
+        if self._inference_params is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Decision API judges do not support inference_params."
+            )
 
     def _validate_instructions_template(self) -> None:
         """
@@ -810,21 +963,34 @@ class InstructionsJudge(Judge):
                 f"primitive type: {serialized}"
             )
 
+        # Handle enum and const before requiring a top-level type. JSON Schema omits
+        # ``type`` for mixed primitive Literals and uses ``const`` for a one-value Literal.
+        if "enum" in serialized:
+            enum_values = serialized["enum"]
+            if (
+                not isinstance(enum_values, list)
+                or not enum_values
+                or any(type(value) not in type_map.values() for value in enum_values)
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"Enum must contain primitive values: {serialized}"
+                )
+            return Literal[tuple(enum_values)]
+
+        if "const" in serialized:
+            const_value = serialized["const"]
+            if type(const_value) not in type_map.values():
+                raise MlflowException.invalid_parameter_value(
+                    f"Const must contain a primitive value: {serialized}"
+                )
+            return Literal[const_value]
+
         if "type" not in serialized:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid feedback_value_type serialization: {serialized}"
             )
 
         schema_type = serialized["type"]
-
-        # Handle enum (Literal types)
-        if "enum" in serialized:
-            enum_values = serialized["enum"]
-            if not enum_values:
-                raise MlflowException.invalid_parameter_value(
-                    f"Enum must have at least one value: {serialized}"
-                )
-            return Literal[tuple(enum_values)]
 
         # Handle basic types
         if schema_type in type_map:
@@ -884,6 +1050,8 @@ class InstructionsJudge(Judge):
             )
         if self._inference_params is not None:
             pydantic_data["inference_params"] = self._inference_params
+        if self._model_api is not ModelAPI.DEFAULT:
+            pydantic_data["model_api"] = self._model_api.value
         # Only serialize when enabled to keep existing (result-first) payloads unchanged;
         # deserialization defaults this back to False when the key is absent.
         if self._generate_rationale_first:
@@ -894,6 +1062,7 @@ class InstructionsJudge(Judge):
             description=self.description,
             aggregations=self.aggregations,
             is_session_level_scorer=self.is_session_level_scorer,
+            session_level=self.session_level,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             instructions_judge_pydantic_data=pydantic_data,

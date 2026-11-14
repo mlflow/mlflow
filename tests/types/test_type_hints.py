@@ -12,6 +12,7 @@ import pytest
 from scipy.sparse import csc_matrix, csr_matrix
 
 from mlflow.exceptions import MlflowException
+from mlflow.models.signature import _infer_signature_from_type_hints, _TypeHints
 from mlflow.models.utils import PyFuncOutput, _enforce_schema
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
 from mlflow.types.type_hints import (
@@ -448,6 +449,11 @@ def test_type_hints_validation_errors():
         (None, int | None, None),
         (pd.DataFrame({"a": ["a", "b"]}), list[str], ["a", "b"]),
         (pd.DataFrame({"a": [{"x": "x"}]}), list[dict[str, str]], [{"x": "x"}]),
+        (
+            pd.DataFrame({"a": [1, 3], "b": [2, 4]}),
+            list[dict[str, int]],
+            [{"a": 1, "b": 2}, {"a": 3, "b": 4}],
+        ),
         # This is a temp workaround for evaluate
         (pd.DataFrame({"a": ["x", "y"], "b": ["c", "d"]}), list[str], ["x", "y"]),
     ],
@@ -541,3 +547,13 @@ def test_dict_in_pyfunc_output():
         f"dict must be in PyFuncOutput for ResponsesAgent/ChatAgent/ChatModel. "
         f"Current types: {output_types}"
     )
+
+
+def test_infer_signature_from_type_hints_reports_the_underlying_error():
+    with pytest.raises(
+        MlflowException,
+        match=r"Error: Type hint `list` doesn.t contain a collection element type",
+    ):
+        _infer_signature_from_type_hints(
+            python_model=lambda x: x, context=None, type_hints=_TypeHints(input_=list)
+        )

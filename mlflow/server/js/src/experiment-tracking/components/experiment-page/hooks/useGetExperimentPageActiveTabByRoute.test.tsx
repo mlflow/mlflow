@@ -4,14 +4,18 @@ import { useGetExperimentPageActiveTabByRoute } from './useGetExperimentPageActi
 import { ExperimentPageTabName } from '../../../constants';
 import { useLocation } from '../../../../common/utils/RoutingUtils';
 import { shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
+import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../common/utils/RoutingUtils', () => ({
   useLocation: jest.fn(),
   matchPath: jest.fn((routePath: string, pathname: string) => {
-    // Anchored match with every `:param` segment replaced by a non-slash matcher, so that
-    // e.g. the chat-sessions list route does not also match a single-chat-session path.
-    const routePattern = routePath.replace(/:[^/]+/g, '[^/]+');
-    return new RegExp(`^${routePattern}$`).test(pathname);
+    // Simple implementation of matchPath for testing
+    if (routePath.includes(':')) {
+      const routePattern = routePath.replace(/:[^/]+/g, '[^/]+');
+      const regex = new RegExp(`^${routePattern}$`);
+      return regex.test(pathname);
+    }
+    return routePath === pathname;
   }),
   createMLflowRoutePath: jest.fn((path) => path),
 }));
@@ -20,12 +24,41 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
   shouldEnableSessionGrouping: jest.fn(() => true),
 }));
 
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+
 describe('useGetExperimentPageActiveTabByRoute', () => {
   beforeEach(() => {
     jest.mocked(shouldEnableSessionGrouping).mockReturnValue(true);
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
   });
 
   const testCases = [
+    {
+      name: 'selects the experiment Issues tab',
+      pathname: '/experiments/123/issues',
+      expectedTabName: ExperimentPageTabName.Issues,
+      expectedTopLevelTabName: ExperimentPageTabName.Issues,
+    },
+    {
+      name: 'should return Overview tab for the journey overview route',
+      pathname: '/experiments/123/overview',
+      expectedTabName: ExperimentPageTabName.Overview,
+      expectedTopLevelTabName: ExperimentPageTabName.Overview,
+    },
+    {
+      name: 'should return Dashboard tab for the dashboard route',
+      pathname: '/experiments/123/dashboard/usage',
+      expectedTabName: ExperimentPageTabName.Dashboard,
+      expectedTopLevelTabName: ExperimentPageTabName.Dashboard,
+    },
+    {
+      name: 'should map the legacy overview chart route to Dashboard',
+      pathname: '/experiments/123/overview/usage',
+      expectedTabName: ExperimentPageTabName.Dashboard,
+      expectedTopLevelTabName: ExperimentPageTabName.Dashboard,
+    },
     {
       name: 'should return Runs tab when on runs route',
       pathname: '/experiments/123/runs',
@@ -49,6 +82,12 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
       pathname: '/experiments/123/review-queue',
       expectedTabName: ExperimentPageTabName.ReviewQueue,
       expectedTopLevelTabName: ExperimentPageTabName.ReviewQueue,
+    },
+    {
+      name: 'should return Datasets tab when on a dataset detail route',
+      pathname: '/experiments/123/datasets/dataset-456',
+      expectedTabName: ExperimentPageTabName.Datasets,
+      expectedTopLevelTabName: ExperimentPageTabName.Datasets,
     },
     {
       name: 'should return undefined when on unknown route',
@@ -93,4 +132,25 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
 
     expect(result.current.tabName).toBe(ExperimentPageTabName.SingleChatSession);
   });
+
+  test.each([
+    { flagEnabled: true, expectedTabName: ExperimentPageTabName.EvaluationRuns },
+    { flagEnabled: false, expectedTabName: undefined },
+  ])(
+    'maps an evaluation run details route to $expectedTabName with the new eval runs UI $flagEnabled',
+    ({ flagEnabled, expectedTabName }) => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(flagEnabled);
+      jest.mocked(useLocation).mockReturnValue({
+        pathname: '/experiments/123/evaluation-runs/run-1/details',
+        state: undefined,
+        search: '',
+        hash: '',
+        key: '',
+      });
+
+      const { result } = renderHook(() => useGetExperimentPageActiveTabByRoute());
+
+      expect(result.current.tabName).toBe(expectedTabName);
+    },
+  );
 });

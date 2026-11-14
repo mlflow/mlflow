@@ -19,6 +19,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
@@ -42,7 +43,9 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -308,6 +311,14 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
         np_array = ...
         predictions = pd_model(np_array)
     """
+    # Both `paddle.jit.load` (legacy IR format) and `paddle.Model.load` unpickle
+    # files from the model artifact.
+    if not _is_pickle_loading_allowed():
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but loading a paddle model "
+            "may deserialize pickle data. The workaround is to set environment variable "
+            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'." + _deprecated_pickle_variable_hint()
+        )
     import paddle
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)

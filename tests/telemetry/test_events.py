@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pandas as pd
@@ -27,6 +28,7 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     DatasetToDataFrameEvent,
     DiscoverIssuesEvent,
+    EnvPackEvent,
     EvaluateEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
@@ -41,6 +43,7 @@ from mlflow.telemetry.events import (
     GatewayUpdateGuardrailEvent,
     GenAIEvaluateEvent,
     LogAssessmentEvent,
+    LogModelEvent,
     MakeJudgeEvent,
     McpRegistryCreateAccessEndpointEvent,
     McpRegistryCreateServerVersionEvent,
@@ -48,6 +51,7 @@ from mlflow.telemetry.events import (
     MergeRecordsEvent,
     OptimizePromptsJobEvent,
     PromptOptimizationEvent,
+    RegisterModelEvent,
     SimulateConversationEvent,
     StartTraceEvent,
     TraceAttachmentsEvent,
@@ -135,12 +139,92 @@ def test_create_model_version_parse_params(arguments, expected_params):
     assert CreateModelVersionEvent.parse(arguments) == expected_params
 
 
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "flavor": SimpleNamespace(__name__="mlflow.sklearn"),
+                "registered_model_name": None,
+                "kwargs": {},
+            },
+            {"flavor": "sklearn", "registered": False},
+        ),
+        (
+            {
+                "flavor": None,
+                "registered_model_name": "my_model",
+                "kwargs": {"flavor_name": "pyfunc.ChatModel"},
+            },
+            {"flavor": "pyfunc", "registered": True},
+        ),
+        (
+            {"kwargs": {}},
+            {"flavor": None, "registered": False},
+        ),
+        # Custom / third-party flavors are bounded to "other".
+        (
+            {
+                "flavor": SimpleNamespace(__name__="my_pkg.custom_flavor"),
+                "kwargs": {},
+            },
+            {"flavor": "other", "registered": False},
+        ),
+    ],
+)
+def test_log_model_parse_params(arguments, expected_params):
+    assert LogModelEvent.name == "log_model"
+    assert LogModelEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"model_uri": "runs:/abc123/model", "env_pack": None},
+            {"env_pack": None, "source_scheme": "runs"},
+        ),
+        (
+            {"model_uri": "models:/m/1"},
+            {"env_pack": None, "source_scheme": "models"},
+        ),
+        (
+            {"model_uri": "/tmp/model", "env_pack": "databricks_model_serving"},
+            {"env_pack": "databricks_model_serving", "source_scheme": "local"},
+        ),
+        (
+            {
+                "model_uri": "s3://bucket/model",
+                "env_pack": SimpleNamespace(name="databricks_model_serving"),
+            },
+            {"env_pack": "databricks_model_serving", "source_scheme": "s3"},
+        ),
+        # Unrecognized scheme and env_pack are bounded to "other".
+        (
+            {"model_uri": "customscheme://bucket/model", "env_pack": "made_up_pack"},
+            {"env_pack": "other", "source_scheme": "other"},
+        ),
+        # Single-slash schemes (e.g. dbfs:/) are real schemes, not local paths.
+        (
+            {"model_uri": "dbfs:/path/to/model"},
+            {"env_pack": None, "source_scheme": "dbfs"},
+        ),
+    ],
+)
+def test_register_model_parse_params(arguments, expected_params):
+    assert RegisterModelEvent.name == "register_model"
+    assert RegisterModelEvent.parse(arguments) == expected_params
+
+
 def test_event_name():
     assert AiCommandRunEvent.name == "ai_command_run"
     assert CreatePromptEvent.name == "create_prompt"
     assert CreateLoggedModelEvent.name == "create_logged_model"
     assert CreateRegisteredModelEvent.name == "create_registered_model"
     assert CreateModelVersionEvent.name == "create_model_version"
+    assert LogModelEvent.name == "log_model"
+    assert RegisterModelEvent.name == "register_model"
+    assert EnvPackEvent.name == "env_pack"
     assert CreateRunEvent.name == "create_run"
     assert CreateExperimentEvent.name == "create_experiment"
     assert LogAssessmentEvent.name == "log_assessment"
@@ -654,39 +738,89 @@ def test_optimize_prompts_job_parse_params(arguments, expected_params):
                 "run_id": "run-1",
             },
             {
+                "trigger": "sdk",
                 "model": "openai:/gpt-4",
                 "trace_count": 2,
-                "categories": ["hallucination"],
-                "source_run_id": "run-1",
+                "categories": ["Custom"],
             },
         ),
         (
             {"model": "databricks:/dbrx", "traces": [Mock()], "categories": None},
             {
+                "trigger": "sdk",
                 "model": "databricks:/dbrx",
                 "trace_count": 1,
                 "categories": None,
-                "source_run_id": None,
             },
         ),
         (
             {"model": None, "traces": [], "categories": ["accuracy", "safety"]},
             {
+                "trigger": "sdk",
                 "model": None,
                 "trace_count": 0,
-                "categories": ["accuracy", "safety"],
-                "source_run_id": None,
+                "categories": ["Custom", "safety"],
             },
         ),
         (
             {"traces": None, "categories": []},
-            {"model": None, "trace_count": 0, "categories": [], "source_run_id": None},
+            {
+                "trigger": "sdk",
+                "model": None,
+                "trace_count": 0,
+                "categories": [],
+            },
         ),
-        ({}, {"model": None, "trace_count": 0, "categories": None, "source_run_id": None}),
+        (
+            {},
+            {
+                "trigger": "sdk",
+                "model": None,
+                "trace_count": 0,
+                "categories": None,
+            },
+        ),
     ],
 )
-def test_discover_issues_parse_params(arguments, expected_params):
+def test_discover_issues_parse_params(arguments, expected_params, monkeypatch):
+    monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
     assert DiscoverIssuesEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("job_name", "trigger"),
+    [
+        ("invoke_issue_detection", "adhoc"),
+        ("scheduled_issue_detection", "schedule"),
+        ("another_job", "unknown"),
+        ("", "unknown"),
+    ],
+)
+@pytest.mark.parametrize("job_id", [None, "job-123"])
+def test_discover_issues_job_params(monkeypatch, job_name, trigger, job_id):
+    monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
+    if job_id is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", job_id)
+
+    expected = {
+        "trigger": trigger,
+        "model": "openai:/gpt-4",
+        "trace_count": 2,
+        "categories": ["correctness", "Custom"],
+    }
+    if job_id:
+        expected["job_id"] = job_id
+    assert (
+        DiscoverIssuesEvent.parse({
+            "model": "openai:/gpt-4",
+            "traces": [Mock(), Mock()],
+            "categories": [" Correctness ", "CORRECTNESS", "private category"],
+            "run_id": "source-run-id",
+        })
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -703,6 +837,7 @@ def test_discover_issues_parse_params(arguments, expected_params):
                         status=IssueStatus.PENDING,
                         created_timestamp=0,
                         last_updated_timestamp=0,
+                        categories=["correctness", "private category", "another private category"],
                     ),
                     Issue(
                         issue_id="2",
@@ -712,6 +847,7 @@ def test_discover_issues_parse_params(arguments, expected_params):
                         status=IssueStatus.PENDING,
                         created_timestamp=0,
                         last_updated_timestamp=0,
+                        categories=["correctness", "cost"],
                     ),
                     Issue(
                         issue_id="3",
@@ -730,9 +866,9 @@ def test_discover_issues_parse_params(arguments, expected_params):
             ),
             {
                 "issue_count": 3,
+                "issue_counts_by_category": {"correctness": 2, "Custom": 1, "cost": 1},
                 "total_traces_analyzed": 100,
                 "total_cost_usd": 2.5,
-                "triage_run_id": "run",
             },
         ),
         (
@@ -755,9 +891,9 @@ def test_discover_issues_parse_params(arguments, expected_params):
             ),
             {
                 "issue_count": 1,
+                "issue_counts_by_category": {},
                 "total_traces_analyzed": 50,
                 "total_cost_usd": 1.0,
-                "triage_run_id": "run",
             },
         ),
         (
@@ -770,9 +906,9 @@ def test_discover_issues_parse_params(arguments, expected_params):
             ),
             {
                 "issue_count": 0,
+                "issue_counts_by_category": {},
                 "total_traces_analyzed": 10,
                 "total_cost_usd": 0.0,
-                "triage_run_id": "run",
             },
         ),
         (
@@ -785,14 +921,28 @@ def test_discover_issues_parse_params(arguments, expected_params):
             ),
             {
                 "issue_count": 0,
+                "issue_counts_by_category": {},
                 "total_traces_analyzed": 0,
                 "total_cost_usd": None,
-                "triage_run_id": None,
+            },
+        ),
+        (
+            None,
+            {
+                "issue_count": None,
+                "issue_counts_by_category": None,
+                "total_traces_analyzed": None,
+                "total_cost_usd": None,
             },
         ),
     ],
 )
-def test_discover_issues_parse_result(result, expected_params):
+@pytest.mark.parametrize("job_name", [None, "invoke_issue_detection", "scheduled_issue_detection"])
+def test_discover_issues_parse_result(result, expected_params, monkeypatch, job_name):
+    if job_name is None:
+        monkeypatch.delenv("_MLFLOW_SERVER_JOB_NAME", raising=False)
+    else:
+        monkeypatch.setenv("_MLFLOW_SERVER_JOB_NAME", job_name)
     assert DiscoverIssuesEvent.parse_result(result) == expected_params
 
 

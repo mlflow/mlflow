@@ -19,13 +19,42 @@ interface DatasetsBreadcrumbsProps {
    * without pushing the toolbar (and its search bar) below the list page's search bar.
    */
   rightActions?: ReactNode;
+  /**
+   * Leaves out the "Datasets > name" trail when the experiment page shell already shows it. `rightActions`
+   * stay right-aligned and the dataset ID line stays below.
+   */
+  hideTrail?: boolean;
 }
 
-export const DatasetsBreadcrumbs = ({ experimentId, datasetName, dataset, rightActions }: DatasetsBreadcrumbsProps) => {
+export const DatasetsBreadcrumbs = ({
+  experimentId,
+  datasetName,
+  dataset,
+  rightActions,
+  hideTrail = false,
+}: DatasetsBreadcrumbsProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const listRoute = Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Datasets);
   const showTrailingCrumb = datasetName !== undefined;
+  const datasetIdLine = dataset && (
+    <div css={{ display: 'flex', gap: theme.spacing.xs, alignItems: 'center' }}>
+      <Typography.Text color="secondary" size="sm">
+        <FormattedMessage defaultMessage="Dataset ID" description="Label for displaying the dataset ID" />:{' '}
+        {dataset.dataset_id}
+      </Typography.Text>
+      <DatasetViewCopyDatasetId dataset={dataset} />
+    </div>
+  );
+
+  if (hideTrail) {
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        {rightActions && <div css={{ display: 'flex', justifyContent: 'flex-end' }}>{rightActions}</div>}
+        {datasetIdLine}
+      </div>
+    );
+  }
 
   // Du Bois Breadcrumb renders as a <div>, not a <nav>. Wrapping in a labelled <nav> gives
   // the breadcrumb the WAI-ARIA navigation landmark expected of breadcrumbs and surfaces
@@ -87,15 +116,7 @@ export const DatasetsBreadcrumbs = ({ experimentId, datasetName, dataset, rightA
         </div>
         {rightActions && <div css={{ flexShrink: 0, alignSelf: 'center' }}>{rightActions}</div>}
       </nav>
-      {dataset && (
-        <div css={{ display: 'flex', gap: theme.spacing.xs, alignItems: 'center' }}>
-          <Typography.Text color="secondary" size="sm">
-            <FormattedMessage defaultMessage="Dataset ID" description="Label for displaying the dataset ID" />:{' '}
-            {dataset.dataset_id}
-          </Typography.Text>
-          <DatasetViewCopyDatasetId dataset={dataset} />
-        </div>
-      )}
+      {datasetIdLine}
     </div>
   );
 };

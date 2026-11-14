@@ -27,8 +27,9 @@ def simple_job_fun(x: int, y: int, sleep_secs: int = 0) -> dict[str, Any]:
 
 
 @job(name="job_assert_tracking_uri", max_workers=1)
-def job_assert_tracking_uri(server_url: str) -> None:
-    assert mlflow.get_tracking_uri() == server_url
+def job_assert_tracking_uri(backend_store_uri: str) -> None:
+    # The job subprocess entry points tracking at the backend store, not the server.
+    assert mlflow.get_tracking_uri() == backend_store_uri
 
 
 @job(name="job_with_progress_tracking", max_workers=1)
@@ -46,8 +47,9 @@ def job_with_progress_tracking(sleep_secs: int = 1) -> str:
 
 
 class Client:
-    def __init__(self, server_url: str):
+    def __init__(self, server_url: str, backend_store_uri: str):
         self.server_url = server_url
+        self.backend_store_uri = backend_store_uri
 
     def submit_job(
         self, job_name: str, params: dict[str, Any], timeout: float | None = None
@@ -151,7 +153,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
                     break
             else:
                 raise TimeoutError("Server did not report healthy within 15 seconds")
-            yield Client(f"http://127.0.0.1:{port}")
+            yield Client(f"http://127.0.0.1:{port}", backend_store_uri)
         finally:
             # NOTE that we need to kill subprocesses
             # (uvicorn server / huey task runner)
@@ -174,9 +176,13 @@ def test_job_submit(client: Client):
         "timeout": None,
         "status": "SUCCEEDED",
         "result": {"a": 7, "b": 12},
+        "error_message": None,
         "retry_count": 0,
         "status_details": None,
         "creator": None,
+        "status_message": None,
+        "progress": None,
+        "progress_updated_at": None,
     }
 
 
@@ -208,9 +214,13 @@ def test_job_cancel(client: Client):
         "timeout": None,
         "status": "CANCELED",
         "result": None,
+        "error_message": None,
         "retry_count": 0,
         "status_details": None,
         "creator": None,
+        "status_message": None,
+        "progress": None,
+        "progress_updated_at": None,
     }
 
 
@@ -243,7 +253,7 @@ def test_job_endpoint_missing_parameters(client: Client):
 def test_job_tracking_uri(client: Client):
     job_id = client.submit_job(
         job_name="job_assert_tracking_uri",
-        params={"server_url": client.server_url},
+        params={"backend_store_uri": client.backend_store_uri},
     )["job_id"]
     job_json = client.wait_job(job_id)
     assert job_json["status"] == "SUCCEEDED"
@@ -340,10 +350,11 @@ def test_job_endpoint_search(client: Client):
         },
     )
     assert response.status_code == 422
-    assert (
-        response.json()["detail"][0]["msg"]
-        == "Input should be 'PENDING', 'RUNNING', 'SUCCEEDED', 'FAILED', 'TIMEOUT' or 'CANCELED'"
+    expected_message = (
+        "Input should be 'PENDING', 'RUNNING', 'NEEDS_RECOVERY', "
+        "'SUCCEEDED', 'FAILED', 'TIMEOUT' or 'CANCELED'"
     )
+    assert response.json()["detail"][0]["msg"] == expected_message
 
 
 # flaky: auto-detected from CI re-runs; see the weekly flaky-test report
@@ -361,3 +372,7 @@ def test_job_status_details_in_api_response(client: Client):
     assert job_json["status_details"].get("stage") == "done"
     assert job_json["status"] == "SUCCEEDED"
     assert job_json["result"] == "completed"
+    assert job_json["error_message"] is None
+    assert job_json["status_message"] is None
+    assert job_json["progress"] is None
+    assert job_json["progress_updated_at"] is None

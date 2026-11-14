@@ -18,8 +18,8 @@ MODEL_CHILD_TABLES = [
     "registered_model_aliases",
 ]
 
-# Tables that carry a workspace column but belong to non-model root resources.
-# They must also be migrated explicitly during workspace operations.
+# Tables that carry a workspace column but are not covered by the main resource-table updates.
+# They must be migrated explicitly during workspace operations.
 OTHER_WORKSPACE_CHILD_TABLES = [
     "guardrail_configs",
     "mcp_server_versions",
@@ -27,6 +27,10 @@ OTHER_WORKSPACE_CHILD_TABLES = [
     "mcp_server_version_tags",
     "mcp_server_aliases",
     "mcp_access_endpoints",
+    "skill_versions",
+    "skill_tags",
+    "skill_version_tags",
+    "skill_aliases",
 ]
 
 

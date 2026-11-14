@@ -1,6 +1,12 @@
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { context, SpanKind, ROOT_CONTEXT, trace as otelTrace } from '@opentelemetry/api';
+import {
+  context,
+  SpanKind,
+  ROOT_CONTEXT,
+  TraceFlags,
+  trace as otelTrace,
+} from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import {
   BasicTracerProvider,
@@ -10,13 +16,17 @@ import {
 
 // Mock the OTLP proto exporter (Jest can't load its dynamic http imports).
 const exporterCtors: { url?: string; headers?: Record<string, string> }[] = [];
+const exportedSpans: unknown[][] = [];
 jest.mock('@opentelemetry/exporter-trace-otlp-proto', () => ({
   OTLPTraceExporter: jest
     .fn()
     .mockImplementation((cfg: { url?: string; headers?: Record<string, string> }) => {
       exporterCtors.push(cfg);
       return {
-        export: (_spans: unknown[], cb: (r: { code: number }) => void) => cb({ code: 0 }),
+        export: (spans: unknown[], cb: (r: { code: number }) => void) => {
+          exportedSpans.push(spans);
+          cb({ code: 0 });
+        },
         shutdown: () => Promise.resolve(),
       };
     }),
@@ -37,7 +47,11 @@ import {
   DatabricksUCTableSpanProcessor,
 } from '../../src/exporters/uc_table';
 import { updateCurrentTrace } from '../../src/core/api';
-import { TraceMetadataKey, DATABRICKS_UC_TABLE_HEADER } from '../../src/core/constants';
+import {
+  DATABRICKS_UC_TABLE_HEADER,
+  SpanAttributeKey,
+  TraceMetadataKey,
+} from '../../src/core/constants';
 import { InMemoryTraceManager } from '../../src/core/trace_manager';
 import { TraceLocationType, isUcTraceLocation } from '../../src/core/entities/trace_location';
 
@@ -85,6 +99,7 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
   beforeEach(() => {
     traceInfoCalls = [];
     exporterCtors.length = 0;
+    exportedSpans.length = 0;
     server.resetHandlers();
     server.use(
       http.post(
@@ -139,6 +154,8 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     context.with(otelTrace.setSpan(context.active(), span), () => {
       updateCurrentTrace({
         tags: { user_id: 'u1', family_id: 'f1', conversation_id: 'c1' },
+        sessionId: 'session-1',
+        user: 'user-1',
       });
     });
 
@@ -149,6 +166,8 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
       'mlflow.source.git.branch': 'main',
       'mlflow.source.git.commit': 'abc123',
       'mlflow.source.git.repoURL': 'https://github.com/mlflow/mlflow.git',
+      [TraceMetadataKey.TRACE_SESSION]: 'session-1',
+      [TraceMetadataKey.TRACE_USER]: 'user-1',
     });
     expect(trace.info.tags).toMatchObject({
       user_id: 'u1',
@@ -176,5 +195,45 @@ describe('DatabricksUCTableSpanProcessor + Exporter end-to-end', () => {
     expect(exporterCtors).toHaveLength(1);
     expect(exporterCtors[0].url).toBe(`${testHost}/api/2.0/otel/v1/traces`);
     expect(exporterCtors[0].headers?.[DATABRICKS_UC_TABLE_HEADER]).toBe('cat.sch.tbl_otel_spans');
+    const exportedRootSpan = exportedSpans[0][0] as OTelReadableSpan;
+    expect(exportedRootSpan.attributes).toMatchObject({
+      [SpanAttributeKey.SESSION_ID]: JSON.stringify('session-1'),
+      [SpanAttributeKey.USER_ID]: JSON.stringify('user-1'),
+    });
+  });
+
+  it('exports a trace whose root span has a remote parent', async () => {
+    const client = new MlflowClient({
+      trackingUri: 'databricks',
+      authProvider: mockAuthProvider,
+    });
+    const location = { catalogName: 'cat', schemaName: 'sch', tablePrefix: 'tbl' };
+    const processor = new DatabricksUCTableSpanProcessor(
+      new DatabricksUCTableSpanExporter(client),
+      location,
+    );
+    const remoteParent = {
+      traceId: '0af7651916cd43dd8448eb211c80319c',
+      spanId: 'b7ad6b7169203331',
+      traceFlags: TraceFlags.SAMPLED,
+      isRemote: true,
+    };
+    const remoteCtx = otelTrace.setSpanContext(ROOT_CONTEXT, remoteParent);
+    const tracer = new BasicTracerProvider().getTracer('uc-test');
+    const span = tracer.startSpan('remote-parent-root', {}, remoteCtx) as OTelSpan;
+
+    processor.onStart(span, remoteCtx);
+    span.end();
+    processor.onEnd(span as unknown as OTelReadableSpan);
+    await processor.forceFlush();
+
+    expect(traceInfoCalls).toHaveLength(1);
+    expect(traceInfoCalls[0].body.trace_id).toBe(
+      'trace:/cat.sch.tbl/0af7651916cd43dd8448eb211c80319c',
+    );
+    const exportedRootSpan = exportedSpans[0][0] as OTelReadableSpan;
+    expect(exportedRootSpan.parentSpanContext).toBeUndefined();
+    expect(exportedRootSpan.links).toEqual([{ context: remoteParent }]);
+    expect(span.parentSpanContext?.spanId).toBe('b7ad6b7169203331');
   });
 });

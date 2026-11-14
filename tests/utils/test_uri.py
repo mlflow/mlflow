@@ -22,6 +22,7 @@ from mlflow.utils.uri import (
     is_fuse_or_uc_volumes_uri,
     is_http_uri,
     is_local_uri,
+    is_sagemaker_mlflow_tracking_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
     resolve_uri_if_local,
@@ -138,6 +139,26 @@ def test_is_local_uri_windows():
 )
 def test_is_databricks_uri(uri, expected):
     assert is_databricks_uri(uri) == expected
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/my-server", True),
+        ("arn:aws-us-gov:sagemaker:us-gov-west-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws-cn:sagemaker:cn-north-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws-future:sagemaker:us-east-1:123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker::123456789012:mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker:us-east-1::mlflow-tracking-server/test", True),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server/", False),
+        ("arn:aws:sagemaker:us-east-1:123456789012:mlflow-tracking-server-other/test", False),
+        ("arn:aws:sagemaker:us-east-1:123456789012:endpoint/my-endpoint", False),
+        ("sagemaker:/us-east-1", False),
+        ("https://example.com", False),
+    ],
+)
+def test_is_sagemaker_mlflow_tracking_uri(uri, expected):
+    assert is_sagemaker_mlflow_tracking_uri(uri) == expected
 
 
 def test_is_http_uri():
@@ -304,6 +325,12 @@ def test_append_to_uri_throws_for_malicious_query_string_in_uri(uri):
             "",
             [("new_param", "new_value")],
             "s3://bucket/key?existing_param=existing_value&new_param=new_value",
+        ),
+        (
+            "https://example.com?flag=&key=value",
+            "",
+            [("new_key", "new_value")],
+            "https://example.com?flag=&key=value&new_key=new_value",
         ),
     ],
 )
@@ -765,16 +792,122 @@ def test_validate_path_is_safe_good(path):
     validate_path_is_safe(path)
 
 
-@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     "path",
     [
-        # relative path from current directory of C: drive
+        "",
+        ".",
+        "./path/to/file.txt",
+        "path/./to/file.txt",
+        "path with spaces/to/file.v2.txt",
+        "path/to/.hidden",
+        "path/to/model~draft.txt",
+        "path/to/model.txt~",
+        "path/to/model~1draft.txt",
+    ],
+)
+def test_validate_path_is_safe_windows_good(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    assert validate_path_is_safe(path, validate_windows_aliases=True) == path
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "folder.",
+        "folder /file.txt",
+        "FOLDER~1/file.txt",
+        "folder/file:stream",
         ".../...//",
     ],
 )
-def test_validate_path_is_safe_windows_good(path):
-    validate_path_is_safe(path)
+def test_validate_path_is_safe_windows_aliases_disabled(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    assert validate_path_is_safe(path) == path
+    assert validate_path_is_safe(path, validate_windows_aliases=False) == path
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"validate_windows_aliases": False}])
+def test_validate_path_is_safe_file_uri_conversion_with_aliases_disabled(kwargs, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    # Python versions differ in whether a relative file: URI normalizes to an absolute path.
+    monkeypatch.setattr("mlflow.utils.file_utils.local_file_uri_to_path", lambda _: "stream")
+    assert validate_path_is_safe("file:stream", **kwargs) == "stream"
+
+    monkeypatch.setattr("mlflow.utils.file_utils.local_file_uri_to_path", lambda _: "/stream")
+    with pytest.raises(MlflowException, match="^Invalid path$"):
+        validate_path_is_safe("file:stream", **kwargs)
+
+
+@pytest.mark.parametrize("path", ["../file.txt", "folder/../file.txt"])
+def test_validate_path_is_safe_windows_parent_component_error(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="^Invalid path$"):
+        validate_path_is_safe(path, validate_windows_aliases=True)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "folder.",
+        "folder /file.txt",
+        "folder.../file.txt",
+        "folder/file.txt.",
+        "folder/file.txt ",
+        "folder/file.txt. ",
+        "folder%2e/file.txt",
+        "folder%20/file.txt",
+        "FOLDER~1",
+        "folder~123/file.txt",
+        "folder/AB12CD~2.TXT",
+        "folder/AB12CD%7e2.TXT",
+        "folder/file:stream",
+        "file:stream",
+        "file%3astream",
+        "folder:stream/file.txt",
+        ".../...//",
+    ],
+)
+def test_validate_path_is_safe_rejects_windows_aliases(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path") as exc:
+        validate_path_is_safe(path, validate_windows_aliases=True)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "folder./file.txt",
+        "folder /file.txt",
+        "folder/file.txt.",
+        "FOLDER~1/file.txt",
+        "folder/file:stream",
+    ],
+)
+def test_validate_path_is_safe_preserves_posix_names(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: False)
+    assert validate_path_is_safe(path, validate_windows_aliases=True) == path
+
+
+@pytest.mark.parametrize(
+    ("path", "component", "rule"),
+    [
+        ("folder/file.txt.", "file.txt.", "ends with a dot or space"),
+        (r"folder.\file.txt", "folder.", "ends with a dot or space"),
+        ("run:1.txt", "run:1.txt", "alternate data stream"),
+        ("models/x~1.csv", "x~1.csv", "DOS short-name"),
+    ],
+)
+def test_validate_path_is_safe_windows_alias_error_names_component(
+    path, component, rule, monkeypatch
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path") as exc:
+        validate_path_is_safe(path, validate_windows_aliases=True)
+    message = str(exc.value)
+    assert repr(component) in message
+    assert rule in message
 
 
 @pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")

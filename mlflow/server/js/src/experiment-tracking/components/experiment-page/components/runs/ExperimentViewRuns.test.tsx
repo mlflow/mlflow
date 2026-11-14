@@ -89,6 +89,7 @@ describe('ExperimentViewRuns', () => {
     refreshRuns: jest.fn(),
     requestError: null,
     moreRunsAvailable: false,
+    pageSizeSelect: { options: [100, 250, 500], default: 100, onChange: jest.fn() },
   };
 
   const queryClient = new QueryClient();

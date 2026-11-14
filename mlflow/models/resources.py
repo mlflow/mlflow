@@ -22,6 +22,7 @@ class ResourceType(Enum):
     TABLE = "table"
     APP = "app"
     LAKEBASE = "lakebase"
+    UC_MODEL_SERVICE = "uc_model_service"
 
 
 class Resource(ABC):
@@ -275,6 +276,25 @@ class DatabricksLakebase(DatabricksResource):
         super().__init__(database_instance_name, on_behalf_of_user)
 
 
+class DatabricksUCModelService(DatabricksResource):
+    """
+    Define a Databricks Unity Catalog (UC) Model Service dependency for Model Serving.
+
+    Args:
+        model_service_name (str): The name of the UC model service used by the model
+        on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resource is accessed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.UC_MODEL_SERVICE
+
+    def __init__(self, model_service_name: str, on_behalf_of_user: bool | None = None):
+        super().__init__(model_service_name, on_behalf_of_user)
+
+
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
     resource_classes = {
         "databricks": {
@@ -287,6 +307,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.TABLE.value: DatabricksTable,
             ResourceType.APP.value: DatabricksApp,
             ResourceType.LAKEBASE.value: DatabricksLakebase,
+            ResourceType.UC_MODEL_SERVICE.value: DatabricksUCModelService,
         }
     }
     resource = resource_classes.get(target_uri)

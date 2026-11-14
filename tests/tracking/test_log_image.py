@@ -247,6 +247,22 @@ def test_log_image_with_timestamp():
                     assert metadata["timestamp"] == 100
 
 
+def test_log_image_with_zero_timestamp():
+    import numpy as np
+
+    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image, key="dog", timestamp=0, synchronous=True)
+
+        artifact_uri = mlflow.get_artifact_uri("images/")
+        files = os.listdir(local_file_uri_to_path(artifact_uri))
+
+        assert len(files) == 2
+        for file in files:
+            assert file.startswith("dog+step+0+timestamp+0+")
+
+
 def test_duplicated_log_image_with_step():
     """
     MLflow will save both files if there are multiple calls to log_image

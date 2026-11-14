@@ -120,12 +120,12 @@ def test_infer_artifact_type_and_ext_raise_exception_for_unsupported_ext(tmp_pat
 def test_pickle_evaluation_artifact_load_raises_when_pickle_deserialization_disabled(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
 
     artifact_path = tmp_path / "artifact.pickle"
     with open(artifact_path, "wb") as f:
         pickle.dump({"key": "value"}, f)
 
     artifact = PickleEvaluationArtifact(uri="test_uri")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         artifact._load_content_from_file(artifact_path)

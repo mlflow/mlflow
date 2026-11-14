@@ -7,8 +7,11 @@ called server-side and never exposed to clients via MlflowClient.
 """
 
 import json
+import logging
 
+from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -20,6 +23,8 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.crypto import KEKManager, _decrypt_secret
 from mlflow.utils.workspace_context import get_request_workspace
+
+_logger = logging.getLogger(__name__)
 
 
 def get_resource_endpoint_configs(
@@ -195,6 +200,7 @@ def get_endpoint_config(
 
         kek_manager = KEKManager()
         model_configs = []
+        has_keyless_primary = False
 
         for sql_mapping in sql_endpoint.model_mappings:
             sql_model_def = store._get_entity_or_raise(
@@ -203,8 +209,20 @@ def get_endpoint_config(
                 {"model_definition_id": sql_mapping.model_definition_id},
                 "GatewayModelDefinition",
             )
+            linkage_type = GatewayModelLinkageType(sql_mapping.linkage_type)
 
+            # Deleting a secret sets secret_id to NULL on the model definitions that used it.
             if sql_model_def.secret_id is None:
+                # Skipping a model shifts traffic to the remaining ones (a 50/50 traffic split
+                # becomes 100/0), so leave a trace for operators.
+                _logger.warning(
+                    "Skipping %s model definition '%s' of gateway endpoint '%s': it has no "
+                    "API key (secret) attached.",
+                    linkage_type.value,
+                    sql_model_def.model_definition_id,
+                    endpoint_name,
+                )
+                has_keyless_primary |= linkage_type == GatewayModelLinkageType.PRIMARY
                 continue
 
             sql_secret = store._get_entity_or_raise(
@@ -232,9 +250,22 @@ def get_endpoint_config(
                     if sql_secret.auth_config
                     else None,
                     weight=sql_mapping.weight,
-                    linkage_type=sql_mapping.to_mlflow_entity().linkage_type,
+                    linkage_type=linkage_type,
                     fallback_order=sql_mapping.fallback_order,
                 )
+            )
+
+        # Report the missing key here; otherwise _create_provider fails with the generic
+        # "has no PRIMARY models configured", although the PRIMARY models are still attached.
+        # Model definition names are left out because the caller may not have access to them.
+        if has_keyless_primary and not any(
+            model.linkage_type == GatewayModelLinkageType.PRIMARY for model in model_configs
+        ):
+            raise MlflowException(
+                f"Endpoint '{endpoint_name}' cannot serve requests: none of its PRIMARY model "
+                "definitions has an API key (secret) attached, likely because the API key was "
+                "deleted. Attach an API key to a PRIMARY model definition to use this endpoint.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
         endpoint_entity = sql_endpoint.to_mlflow_entity()

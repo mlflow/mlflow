@@ -4,7 +4,7 @@ import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSe
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
-import { useExperimentRuns } from './useExperimentRuns';
+import { useExperimentRuns, type FetchRunsHookFunction } from './useExperimentRuns';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
 import { applyMiddleware, combineReducers, createStore } from 'redux';
 import thunk from 'redux-thunk';
@@ -23,7 +23,7 @@ import { Provider } from 'react-redux';
 import { latestMetricsByRunUuid, metricsByRunUuid } from '../../../reducers/MetricReducer';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import Utils from '../../../../common/utils/Utils';
-import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL } from '../utils/experimentPage.fetch-utils';
 import {
   shouldUsePredefinedErrorsInExperimentTracking,
@@ -35,6 +35,9 @@ import { searchModelVersionsApi } from '../../../../model-registry/actions';
 import { NotFoundError, BadRequestError } from '@databricks/web-shared/errors';
 import { ErrorBoundary } from 'react-error-boundary';
 import { runInputsOutputsByUuid } from '../../../reducers/InputsOutputsReducer';
+import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
+import { setLocalStorageItem } from '@databricks/web-shared/hooks';
+import type { RunEntity, SearchRunsApiResponse } from '../../../types';
 
 jest.mock('../../../actions', () => ({
   ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),
@@ -106,21 +109,28 @@ const createInitialRunsResponse = () =>
     ),
   );
 
+const createRuns = (n: number, prefix = 'run'): RunEntity[] =>
+  Array.from({ length: n }, (_, index) => ({
+    info: {
+      runUuid: `${prefix}_${index}`,
+      experimentId: 'test-experiment',
+      runName: `${prefix}_${index}_name`,
+      lifecycleStage: 'active',
+      artifactUri: '',
+      startTime: 0,
+      endTime: 1,
+      status: 'FINISHED',
+    },
+    data: { metrics: [], params: [], tags: [] },
+  }));
+
 const createNRunsResponse = (n = 100) =>
   new Promise((resolve) =>
     setTimeout(
       () =>
         resolve({
           next_page_token: 'some_page_token',
-          runs: new Array(n).fill({}).map((_, index) => ({
-            info: {
-              runUuid: `run_${index}`,
-              experimentId: 'test-experiment',
-              runName: `run_${index}_name`,
-              lifecycleStage: 'active',
-            },
-            data: { metrics: [], params: [], tags: [] },
-          })),
+          runs: createRuns(n),
         }),
       MOCK_RESPONSE_DELAY,
     ),
@@ -181,6 +191,7 @@ describe('useExperimentRuns - integration test', () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    setLocalStorageItem('runs_page.page_size', 0, false, 100);
     jest.mocked(searchRunsApi).mockClear();
     jest
       .mocked(searchRunsApi)
@@ -227,6 +238,132 @@ describe('useExperimentRuns - integration test', () => {
     });
     return result;
   };
+  test('uses the configured page size for initial loading, Load more, and manual refresh', async () => {
+    setLocalStorageItem('runs_page.page_size', 0, false, 250);
+    jest.mocked(searchRunsApi).mockReturnValue({
+      type: 'SEARCH_RUNS_API',
+      payload: Promise.resolve({ runs: [], next_page_token: 'next-page' }),
+      meta: { id: 0 },
+    });
+
+    const { result } = await renderTestHook();
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250, pageToken: undefined }));
+
+    await act(async () => {
+      await result.current.loadMoreRuns();
+    });
+    expect(loadMoreRunsApi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ maxResults: 250, pageToken: 'next-page' }),
+    );
+
+    await act(async () => {
+      result.current.refreshRuns();
+    });
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250, pageToken: undefined }));
+  });
+
+  test('restarts pagination when the selection changes and remembers it after remount', async () => {
+    jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => ({
+      type: 'SEARCH_RUNS_API',
+      payload: Promise.resolve({ runs: [], next_page_token: `next-${maxResults}` }),
+      meta: { id: 0 },
+    }));
+    const { result, unmount } = await renderTestHook();
+    expect(result.current.pageSizeSelect.options).toEqual([100, 250, 500]);
+    expect(result.current.pageSizeSelect.default).toBe(100);
+    await act(async () => {
+      await result.current.loadMoreRuns();
+    });
+    expect(loadMoreRunsApi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageToken: 'next-100', maxResults: 100 }),
+    );
+
+    await act(async () => {
+      result.current.pageSizeSelect.onChange(500);
+    });
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: undefined, maxResults: 500 }));
+    await act(async () => {
+      await result.current.loadMoreRuns();
+    });
+    expect(loadMoreRunsApi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ pageToken: 'next-500', maxResults: 500 }),
+    );
+    unmount();
+
+    const remounted = await renderTestHook();
+    expect(remounted.result.current.pageSizeSelect.default).toBe(500);
+    expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: undefined, maxResults: 500 }));
+  });
+
+  test.each([
+    [100, 500],
+    [500, 100],
+  ])('retries a failed page-size change from %i to %i with the selected size', async (initialSize, selectedSize) => {
+    setLocalStorageItem('runs_page.page_size', 0, false, initialSize);
+    const runs = createRuns(1000);
+    const error = new BadRequestError({});
+    const response = (maxResults: number) => ({
+      runs: runs.slice(0, maxResults),
+      next_page_token: String(maxResults),
+    });
+    jest
+      .mocked(searchRunsApi)
+      .mockImplementationOnce(({ maxResults }) => ({
+        type: 'SEARCH_RUNS_API',
+        payload: Promise.resolve(response(maxResults)),
+        meta: { id: 0 },
+      }))
+      .mockImplementationOnce(() => ({
+        type: 'SEARCH_RUNS_API',
+        payload: Promise.reject(error),
+        meta: { id: 0 },
+      }))
+      .mockImplementation(({ maxResults }) => ({
+        type: 'SEARCH_RUNS_API',
+        payload: Promise.resolve(response(maxResults)),
+        meta: { id: 0 },
+      }));
+    jest.mocked(loadMoreRunsApi).mockImplementation(({ pageToken, maxResults }) => ({
+      type: 'LOAD_MORE_RUNS_API',
+      payload: Promise.resolve({ runs: runs.slice(Number(pageToken), Number(pageToken) + maxResults) }),
+      meta: { id: 0 },
+    }));
+    const { result } = await renderTestHook();
+
+    await act(async () => {
+      result.current.pageSizeSelect.onChange(selectedSize);
+    });
+    expect(result.current.requestError).toBe(error);
+    expect(result.current.pageSizeSelect.default).toBe(selectedSize);
+
+    await act(async () => {
+      result.current.refreshRuns();
+    });
+    expect(searchRunsApi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ maxResults: selectedSize, pageToken: undefined }),
+    );
+    expect(result.current.runsData.runInfos).toHaveLength(selectedSize);
+    expect(result.current.requestError).toBeNull();
+
+    await act(async () => {
+      await result.current.loadMoreRuns();
+    });
+    expect(loadMoreRunsApi).toHaveBeenLastCalledWith(
+      expect.objectContaining({ maxResults: selectedSize, pageToken: String(selectedSize) }),
+    );
+    expect(result.current.runsData.runInfos).toHaveLength(selectedSize * 2);
+  });
+
+  test.each([0, -1, 25, 501, 50_000, '500', null, {}])(
+    'falls back to 100 for an invalid saved page size: %p',
+    async (value) => {
+      setLocalStorageItem('runs_page.page_size', 0, false, value);
+      const { result } = await renderTestHook();
+      expect(result.current.pageSizeSelect.default).toBe(100);
+      expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 100 }));
+    },
+  );
+
   test('should call for new runs and return processed runs data', async () => {
     // Mock two responses - one for initial runs, one for load more runs
     jest.mocked(searchRunsApi).mockReturnValue({
@@ -258,6 +395,7 @@ describe('useExperimentRuns - integration test', () => {
         runViewType: 'ACTIVE_ONLY',
         runsPinned: [],
         shouldFetchParents: true,
+        maxResults: 100,
       }),
     );
 
@@ -584,6 +722,300 @@ describe('useExperimentRuns - integration test', () => {
         payload: createNRunsResponse(100),
         meta: { id: 0 },
       }));
+    });
+
+    test('caps each auto-refresh request while retaining the target number of runs', async () => {
+      const fetchRuns = jest
+        .fn<FetchRunsHookFunction>()
+        .mockResolvedValueOnce({ runs: new Array(500), next_page_token: 'next-page' })
+        .mockResolvedValue({ runs: [] });
+      const { unmount } = renderHook(() =>
+        useExperimentRunsAutoRefresh({
+          pageSize: 500,
+          experimentIds: testExperimentIds,
+          lastFetchedTime: { current: Date.now() - RUNS_AUTO_REFRESH_INTERVAL },
+          fetchRuns,
+          searchFacets: testSearchFacets,
+          enabled: true,
+          cachedPinnedRuns: { current: [] },
+          runsData: { runInfos: new Array(501) } as ExperimentRunsSelectorResult,
+          isLoadingRuns: false,
+        }),
+      );
+      expect(fetchRuns).toHaveBeenCalledWith(expect.objectContaining({ maxResults: 500 }), expect.anything());
+      await waitFor(() => expect(fetchRuns).toHaveBeenCalledTimes(2));
+      expect(fetchRuns).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ maxResults: 500, pageToken: 'next-page' }),
+        expect.anything(),
+      );
+      unmount();
+    });
+
+    test('uses the configured page size when automatically refreshing', async () => {
+      setLocalStorageItem('runs_page.page_size', 0, false, 250);
+      const { unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+      await act(async () => {
+        jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+      expect(searchRunsApi).toHaveBeenCalledTimes(2);
+      expect(searchRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 250 }));
+      unmount();
+    });
+
+    test('discards an in-flight auto-refresh when the page size changes', async () => {
+      let resolvePrevious: (value: Awaited<ReturnType<FetchRunsHookFunction>>) => void = () => {};
+      const fetchRuns = jest
+        .fn<FetchRunsHookFunction>()
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolvePrevious = resolve;
+            }),
+        )
+        .mockResolvedValue({ runs: [] });
+      const lastFetchedTime = { current: Date.now() - RUNS_AUTO_REFRESH_INTERVAL };
+      const cachedPinnedRuns = { current: [] };
+      const { rerender, unmount } = renderHook(
+        ({ pageSize }) =>
+          useExperimentRunsAutoRefresh({
+            pageSize,
+            experimentIds: testExperimentIds,
+            lastFetchedTime,
+            fetchRuns,
+            searchFacets: testSearchFacets,
+            enabled: true,
+            cachedPinnedRuns,
+            runsData: { runInfos: new Array(501) } as ExperimentRunsSelectorResult,
+            isLoadingRuns: false,
+          }),
+        { initialProps: { pageSize: 100 } },
+      );
+      const [previousParams, previousOptions] = fetchRuns.mock.calls[0];
+      rerender({ pageSize: 500 });
+      expect(previousOptions?.prepareResults?.(previousParams, { runs: [] })).toBeNull();
+      await act(async () => {
+        resolvePrevious({ runs: new Array(100), next_page_token: 'stale-page' });
+      });
+      expect(fetchRuns).toHaveBeenCalledTimes(2);
+      expect(fetchRuns).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 500 }), expect.anything());
+      unmount();
+    });
+
+    test.each(['success', 'failure'])(
+      'ignores stale auto-refresh %s while a new page size is loading',
+      async (outcome) => {
+        const runs = createRuns(500);
+        let settlePrevious = () => {};
+        const previousResponse = new Promise((resolve, reject) => {
+          settlePrevious =
+            outcome === 'success'
+              ? () => resolve({ runs: runs.slice(0, 100), next_page_token: '100' })
+              : () => reject(new BadRequestError({}));
+        });
+        let resolveCurrent: (value: Awaited<ReturnType<FetchRunsHookFunction>>) => void = () => {};
+        const currentResponse = new Promise((resolve) => {
+          resolveCurrent = resolve;
+        });
+        let initialRequest = true;
+        jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => {
+          const payload =
+            maxResults === 500
+              ? currentResponse
+              : initialRequest
+                ? Promise.resolve({ runs: runs.slice(0, 100), next_page_token: '100' })
+                : previousResponse;
+          initialRequest = false;
+          return { type: 'SEARCH_RUNS_API', payload, meta: { id: 0 } };
+        });
+        const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+        await act(async () => {
+          jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+        });
+        await act(async () => {
+          result.current.pageSizeSelect.onChange(500);
+        });
+        expect(result.current.isLoadingRuns).toBe(true);
+        await act(async () => {
+          settlePrevious();
+        });
+        expect(result.current.isLoadingRuns).toBe(true);
+        expect(result.current.requestError).toBeNull();
+        await act(async () => {
+          resolveCurrent({ runs, next_page_token: '500' });
+        });
+        expect(result.current.runsData.runInfos).toHaveLength(500);
+        unmount();
+      },
+    );
+
+    test.each(['success', 'failure'])('ignores stale auto-refresh %s before loading the next page', async (outcome) => {
+      const runs = createRuns(1000);
+      let settlePrevious = () => {};
+      const previousResponse = new Promise((resolve, reject) => {
+        settlePrevious =
+          outcome === 'success'
+            ? () => resolve({ runs: runs.slice(0, 100), next_page_token: '100' })
+            : () => reject(new BadRequestError({}));
+      });
+      let initialRequest = true;
+      jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => {
+        const payload =
+          maxResults === 500
+            ? Promise.resolve({ runs: runs.slice(0, 500), next_page_token: '500' })
+            : initialRequest
+              ? Promise.resolve({ runs: runs.slice(0, 100), next_page_token: '100' })
+              : previousResponse;
+        initialRequest = false;
+        return { type: 'SEARCH_RUNS_API', payload, meta: { id: 0 } };
+      });
+      jest.mocked(loadMoreRunsApi).mockReturnValue({
+        type: 'LOAD_MORE_RUNS_API',
+        payload: Promise.resolve({ runs: runs.slice(500) }),
+        meta: { id: 0 },
+      });
+      const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+      await act(async () => {
+        result.current.pageSizeSelect.onChange(500);
+      });
+      expect(result.current.runsData.runInfos).toHaveLength(500);
+      await act(async () => {
+        settlePrevious();
+      });
+      expect(store.getState().entities.runInfoOrderByUuid).toHaveLength(500);
+      expect(result.current.requestError).toBeNull();
+      await act(async () => {
+        await result.current.loadMoreRuns();
+      });
+      expect(loadMoreRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: '500', maxResults: 500 }));
+      expect(result.current.runsData.runInfos).toHaveLength(1000);
+      unmount();
+    });
+
+    test('retains unique runs when auto-refresh pages repeat missing parents', async () => {
+      setLocalStorageItem('runs_page.page_size', 0, false, 500);
+      const parents = createRuns(500, 'parent');
+      const children = createRuns(2000, 'child').map((run, index) => ({
+        ...run,
+        data: { ...run.data, tags: [{ key: 'mlflow.parentRunId', value: `parent_${index % 500}` }] },
+      }));
+      const page = (start: number, size: number) =>
+        Promise.resolve({
+          runs: [...children.slice(start, start + size), ...parents],
+          runsMatchingFilter: children.slice(start, start + size),
+          next_page_token: start + size < children.length ? String(start + size) : undefined,
+        });
+      jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => ({
+        type: 'SEARCH_RUNS_API',
+        payload: page(0, maxResults),
+        meta: { id: 0 },
+      }));
+      jest.mocked(loadMoreRunsApi).mockImplementation(({ pageToken, maxResults }) => ({
+        type: 'LOAD_MORE_RUNS_API',
+        payload: page(Number(pageToken), maxResults),
+        meta: { id: 0 },
+      }));
+      const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+      await act(async () => {
+        await result.current.loadMoreRuns();
+      });
+      await act(async () => {
+        await result.current.loadMoreRuns();
+      });
+      expect(result.current.runsData.runInfos).toHaveLength(2000);
+      const matchingRunIds = children.slice(0, 1500).map(({ info }) => info.runUuid);
+      expect(result.current.runsData.runUuidsMatchingFilter).toEqual(matchingRunIds);
+      jest.mocked(searchRunsApi).mockClear();
+      jest.mocked(loadMoreRunsApi).mockClear();
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+      expect(result.current.runsData.runInfos).toHaveLength(2000);
+      expect(result.current.runsData.runUuidsMatchingFilter).toEqual(matchingRunIds);
+      expect(searchRunsApi).toHaveBeenCalledTimes(1);
+      expect(loadMoreRunsApi).toHaveBeenCalledTimes(2);
+      expect(loadMoreRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ maxResults: 500 }));
+      unmount();
+    });
+
+    test.each(['success', 'failure'])(
+      'preserves loaded runs when Load more interrupts a partial auto-refresh with a stale %s',
+      async (outcome) => {
+        const runs = createRuns(300);
+        let initialLoadMore = true;
+        let settleBackground = () => {};
+        const backgroundResponse = new Promise<SearchRunsApiResponse>((resolve, reject) => {
+          settleBackground =
+            outcome === 'success'
+              ? () => resolve({ runs: runs.slice(100, 200), next_page_token: '200' })
+              : () => reject(new BadRequestError({}));
+        });
+        jest.mocked(searchRunsApi).mockImplementation(({ maxResults }) => ({
+          type: 'SEARCH_RUNS_API',
+          payload: Promise.resolve({ runs: runs.slice(0, maxResults), next_page_token: String(maxResults) }),
+          meta: { id: 0 },
+        }));
+        jest.mocked(loadMoreRunsApi).mockImplementation(({ pageToken }) => {
+          const payload =
+            pageToken === '200'
+              ? Promise.resolve({ runs: runs.slice(200) })
+              : initialLoadMore
+                ? Promise.resolve({ runs: runs.slice(100, 200), next_page_token: '200' })
+                : backgroundResponse;
+          initialLoadMore = false;
+          return { type: 'LOAD_MORE_RUNS_API', payload, meta: { id: 0 } };
+        });
+        const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+        await act(async () => {
+          await result.current.loadMoreRuns();
+        });
+        expect(result.current.runsData.runInfos).toHaveLength(200);
+
+        await act(async () => {
+          jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+        });
+        expect(result.current.runsData.runInfos).toHaveLength(200);
+        expect(loadMoreRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: '100' }));
+
+        await act(async () => {
+          await result.current.loadMoreRuns();
+        });
+        expect(loadMoreRunsApi).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: '200' }));
+        await act(async () => {
+          settleBackground();
+        });
+        expect(result.current.runsData.runInfos.map(({ runUuid }) => runUuid)).toEqual(
+          runs.map(({ info }) => info.runUuid),
+        );
+        expect(result.current.requestError).toBeNull();
+        expect(result.current.moreRunsAvailable).toBe(false);
+        unmount();
+      },
+    );
+
+    test('reports a current auto-refresh failure', async () => {
+      const error = new BadRequestError({});
+      jest
+        .mocked(searchRunsApi)
+        .mockReturnValueOnce({
+          type: 'SEARCH_RUNS_API',
+          payload: Promise.resolve({ runs: createRuns(100) }),
+          meta: { id: 0 },
+        })
+        .mockImplementation(() => ({ type: 'SEARCH_RUNS_API', payload: Promise.reject(error), meta: { id: 0 } }));
+      const { result, unmount } = await renderTestHook({ ...testUiState, autoRefreshEnabled: true });
+      await act(async () => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+      expect(result.current.requestError).toBe(error);
+      expect(result.current.isLoadingRuns).toBe(false);
+      unmount();
     });
 
     test('should query for the new runs', async () => {

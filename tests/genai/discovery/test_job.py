@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 import pytest
@@ -147,6 +148,7 @@ def test_invoke_issue_detection_job_success():
     mock_result.issues = [mock.MagicMock(), mock.MagicMock(), mock.MagicMock()]
     mock_result.total_traces_analyzed = 2
     mock_result.total_cost_usd = 0.15
+    mock_result.new_issue_count = 1
 
     with (
         mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
@@ -167,10 +169,14 @@ def test_invoke_issue_detection_job_success():
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FINISHED)
         )
-        mock_client.set_tag.assert_called_once_with("run-123", "total_cost_usd", 0.15)
+        mock_client.set_tag.assert_any_call("run-123", "total_cost_usd", 0.15)
+        # The count the sampler actually analyzed, which the run's own `total_traces` tag -- set
+        # from the submitted trace ids when the run was created -- can be larger than.
+        mock_client.set_tag.assert_any_call("run-123", "total_traces_analyzed", 2)
 
         assert result["summary"] == "Found 3 issues"
         assert result["issues"] == 3
+        assert result["new_issue_count"] == 1
         assert result["total_traces_analyzed"] == 2
         assert result["total_cost_usd"] == 0.15
 
@@ -205,6 +211,62 @@ def test_invoke_issue_detection_job_with_endpoint():
         mock_discover_issues.assert_called_once()
         call_args = mock_discover_issues.call_args
         assert call_args.kwargs["model"] == "gateway:/my-endpoint"
+
+
+def test_invoke_issue_detection_job_propagates_username_for_gateway_auth(monkeypatch):
+    # setenv (not delenv) so monkeypatch restores both after the job overwrites os.environ
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "")
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
+    captured_env = {}
+
+    def _capture_env(*args, **kwargs):
+        captured_env["username"] = os.environ.get("MLFLOW_TRACKING_USERNAME")
+        captured_env["password"] = os.environ.get("MLFLOW_TRACKING_PASSWORD")
+        return mock.MagicMock(issues=[], total_traces_analyzed=1, total_cost_usd=0.0)
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.genai.discovery.job.discover_issues", side_effect=_capture_env
+        ) as mock_discover_issues,
+    ):
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="gateway:/my-endpoint",
+            username="alice",
+        )
+
+    mock_client_cls.assert_called_once()
+    mock_discover_issues.assert_called_once()
+    assert captured_env == {"username": "alice", "password": "internal-token"}
+
+
+def test_invoke_issue_detection_job_skips_username_propagation_when_none(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "unchanged")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "unchanged")
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient"),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as mock_discover_issues,
+    ):
+        mock_discover_issues.return_value = mock.MagicMock(
+            issues=[], total_traces_analyzed=1, total_cost_usd=0.0
+        )
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="gateway:/my-endpoint",
+        )
+
+    assert os.environ["MLFLOW_TRACKING_USERNAME"] == "unchanged"
+    assert os.environ["MLFLOW_TRACKING_PASSWORD"] == "unchanged"
 
 
 def test_invoke_issue_detection_job_batches_large_trace_list():
@@ -257,3 +319,41 @@ def test_invoke_issue_detection_job_failure_marks_run_failed():
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FAILED)
         )
+
+
+def test_invoke_issue_detection_job_forwards_the_saved_priorities():
+    # The settings the experiment carries only mean something if they reach the pipeline, and
+    # the job is the one hop between the handler and `discover_issues` that can drop them.
+    mock_client = mock.MagicMock()
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
+    ):
+        mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="openai:/gpt-4o",
+            instructions="Only report high severity issues.",
+        )
+
+    assert discover.call_args.kwargs["instructions"] == "Only report high severity issues."
+
+
+def test_invoke_issue_detection_job_without_priorities_passes_none():
+    mock_client = mock.MagicMock()
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
+    ):
+        mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+        )
+
+    assert discover.call_args.kwargs["instructions"] is None

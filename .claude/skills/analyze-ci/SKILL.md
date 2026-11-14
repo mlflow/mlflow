@@ -25,25 +25,40 @@ If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs
    uv run --package skills skills fetch-logs '<url>' ['<url>' ...]
    ```
 
-   The command prints one block per failed job containing the workflow/job name, URL, failed step, and paths to the cached raw log, failed-step log, and (optional) package versions file.
+   The command saves one raw log per job, preserving timestamps and removing ANSI colors. It prints all failed steps and inclusive, 1-based line ranges in that file, with multiple ranges separated by commas. Absent sections are omitted; no separate section files are created. For example (URL and ranges are illustrative):
 
-2. **Read each failed-step log and summarize it.** For every block, Read the file at its `Failed step log:` path, then identify:
+   ```text
+   ## Cross-version tests / Python 3.11
+   URL: https://github.com/mlflow/mlflow/actions/runs/123/job/456
+   Raw log: /tmp/fetch-logs/123/456.log
+   Failed step lines: 850-1620, 1800-2100
+   Pytest summary lines: 1580-1618, 2060-2098
+   Package versions lines: 120-340
+   Snapshot changes lines: 350-375
+   ```
+
+   Snapshot changes are located in the existing raw log, not fetched or compared separately.
+
+2. **Read the reported ranges and summarize each failure.** For every block, read all `Failed step lines:` and `Pytest summary lines:` ranges from the `Raw log:` file (for example, `sed -n '850,1620p' /tmp/fetch-logs/123/456.log`), then identify:
 
    - The root cause.
    - Specific error messages (assertion errors, exceptions, stack traces).
    - Full pytest test names where applicable (e.g. `tests/test_foo.py::test_bar`).
    - A short log snippet showing the error context.
 
+   If `Package versions lines:` or `Snapshot changes lines:` is present, read those ranges in the same raw log too and summarize relevant package changes alongside the failure, including the baseline run link when available. Changes use uv's `Updated name vold -> vnew`, `Added name vversion`, and `Removed name vversion` format. Treat changes as diagnostic evidence, not proof of the root cause. Report unavailable baselines or comparison errors as such, not as package removals. Do not fetch artifacts or perform another comparison. Older or non-cross-version logs may have no snapshot changes block; analyze them normally. If no failed-step range is available (for example, step timestamps are missing), inspect the raw log directly.
+
 3. **Format each summary** with these fields, then a blank line, then the 1-2 paragraph summary.
 
-   - `Failed job: <workflow name> / <job name>`
-   - `Failed step: <step name>`
+   - `## <workflow name> / <job name>`
    - `URL: <job_url>`
    - `Raw log: <raw_log_path>`
-   - `Failed step log: <failed_step_log_path>`
-   - `Package versions: <package_versions_path>` (if present)
+   - `Failed step lines: <ranges>` (if present)
+   - `Pytest summary lines: <ranges>` (if present)
+   - `Package versions lines: <ranges>` (if present)
+   - `Snapshot changes lines: <ranges>` (if present)
 
-   Preserve the `Raw log:`, `Failed step log:`, and `Package versions:` paths verbatim from step 1 so downstream agents can grep deeper.
+   Preserve the `Raw log:` path and all reported ranges verbatim from step 1 so downstream agents can inspect the same evidence. If no failed step is recorded, preserve the `Conclusion:` field too.
 
 ## Invocation examples
 

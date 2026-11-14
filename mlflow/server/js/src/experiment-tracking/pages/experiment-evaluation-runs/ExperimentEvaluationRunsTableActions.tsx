@@ -1,32 +1,48 @@
-import { Button, ChevronDownIcon, DropdownMenu, Modal } from '@databricks/design-system';
+import { Button, ChevronDownIcon, DropdownMenu, Modal, OverflowIcon } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useDeleteRuns } from '../../components/experiment-page/hooks/useDeleteRuns';
+import { RenameRunModal } from '../../components/modals/RenameRunModal';
+import type { RunEntity } from '../../types';
 import { ErrorWrapper } from '@mlflow/mlflow/src/common/utils/ErrorWrapper';
 
 export const ExperimentEvaluationRunsTableActions = ({
   rowSelection,
   setRowSelection,
   refetchRuns,
+  runs = [],
   onCompare,
   selectedRunUuid,
   compareToRunUuid,
   enableImprovedComparison,
+  enableNewCompare = false,
+  foldCompareIntoMenu = false,
   setIsComparisonMode,
+  onFilterChartToSelectedRuns,
+  isChartFilteredToSelection = false,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
   refetchRuns: () => void;
+  /** Table rows; needed to prefill the rename modal with the selected run's current name. */
+  runs?: RunEntity[];
   onCompare?: (runUuid1: string, runUuid2: string) => void;
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
+  /** New-compare flag: the standalone Compare button owns navigation, so this menu hides Compare. */
+  enableNewCompare?: boolean;
+  /** V2 folds Compare into this menu and includes the selected-run count in the trigger label. */
+  foldCompareIntoMenu?: boolean;
   setIsComparisonMode?: (isComparisonMode: boolean) => void;
+  onFilterChartToSelectedRuns?: () => void;
+  isChartFilteredToSelection?: boolean;
 }) => {
   const intl = useIntl();
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
 
   const selectedRunUuids = useMemo(
     () =>
@@ -34,6 +50,11 @@ export const ExperimentEvaluationRunsTableActions = ({
         .filter(([_, value]) => value)
         .map(([key]) => key),
     [rowSelection],
+  );
+
+  const runToRename = useMemo(
+    () => (selectedRunUuids.length === 1 ? runs.find((run) => run.info.runUuid === selectedRunUuids[0]) : undefined),
+    [runs, selectedRunUuids],
   );
 
   const { mutate, isLoading } = useDeleteRuns({
@@ -69,24 +90,63 @@ export const ExperimentEvaluationRunsTableActions = ({
 
   const isCompareDisabled = !isCompareEnabled || isAlreadyComparingSelectedRuns;
 
+  // The legacy toolbar with improved comparison renders its own Compare button; V2 always folds it in here.
+  const showCompareItem = !enableNewCompare && (foldCompareIntoMenu || !enableImprovedComparison);
+
   const noRunsSelected = selectedRunUuids.length === 0;
 
   return (
     <>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild disabled={noRunsSelected}>
-          <Button
-            type="primary"
-            componentId="mlflow.eval-runs.actions-button"
-            disabled={noRunsSelected}
-            endIcon={<ChevronDownIcon />}
-          >
-            <FormattedMessage defaultMessage="Actions" description="Experiment evaluation runs table actions button" />
-          </Button>
+          {enableNewCompare ? (
+            <Button
+              componentId="mlflow.eval-runs.actions-button"
+              disabled={noRunsSelected}
+              icon={<OverflowIcon />}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Actions',
+                description: 'Accessible label for the experiment evaluation runs actions menu button',
+              })}
+            />
+          ) : (
+            <Button
+              type="primary"
+              componentId="mlflow.eval-runs.actions-button"
+              disabled={noRunsSelected}
+              endIcon={<ChevronDownIcon />}
+            >
+              {foldCompareIntoMenu ? (
+                <FormattedMessage
+                  defaultMessage="Actions ({numRuns})"
+                  description="Experiment evaluation runs table actions button, with the number of selected runs"
+                  values={{ numRuns: selectedRunUuids.length }}
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Actions"
+                  description="Experiment evaluation runs table actions button"
+                />
+              )}
+            </Button>
+          )}
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          {/* Original Compare option in dropdown (when flag is OFF) */}
-          {!enableImprovedComparison && (
+        <DropdownMenu.Content {...(enableNewCompare ? { align: 'end' as const } : {})}>
+          {onFilterChartToSelectedRuns && (
+            <DropdownMenu.CheckboxItem
+              componentId="mlflow.eval-runs.actions.filter-chart-to-selected"
+              checked={isChartFilteredToSelection}
+              onSelect={onFilterChartToSelectedRuns}
+              css={(theme) => ({ paddingLeft: theme.spacing.sm + theme.spacing.xs })}
+            >
+              <FormattedMessage
+                defaultMessage="Filter chart to selected runs"
+                description="Evaluation runs action to show only selected runs in the chart"
+              />
+              <DropdownMenu.ItemIndicator css={{ position: 'static', marginLeft: 'auto' }} />
+            </DropdownMenu.CheckboxItem>
+          )}
+          {showCompareItem && (
             <DropdownMenu.Item
               componentId="mlflow.eval-runs.actions.compare"
               onClick={handleCompare}
@@ -101,6 +161,19 @@ export const ExperimentEvaluationRunsTableActions = ({
               <FormattedMessage defaultMessage="Compare" description="Compare evaluation runs action" />
             </DropdownMenu.Item>
           )}
+          <DropdownMenu.Item
+            componentId="mlflow.eval-runs.actions.rename"
+            onClick={() => setRenameModalVisible(true)}
+            disabled={!runToRename}
+            disabledReason={
+              <FormattedMessage
+                defaultMessage="Please select 1 run to rename"
+                description="Tooltip for disabled rename action in evaluation runs table actions"
+              />
+            }
+          >
+            <FormattedMessage defaultMessage="Rename" description="Rename evaluation runs action" />
+          </DropdownMenu.Item>
           {/*
             The Trigger above is disabled when no runs are selected, so this item is normally
             unreachable in that state. We keep the item-level disabled guard (and tooltip, matching
@@ -148,6 +221,18 @@ export const ExperimentEvaluationRunsTableActions = ({
           description="Delete evaluation runs modal confirmation text"
         />
       </Modal>
+      {runToRename && (
+        <RenameRunModal
+          isOpen={renameModalVisible}
+          runUuid={runToRename.info.runUuid}
+          runName={runToRename.info.runName}
+          onClose={() => setRenameModalVisible(false)}
+          onSuccess={() => {
+            refetchRuns();
+            setRenameModalVisible(false);
+          }}
+        />
+      )}
     </>
   );
 };

@@ -4,7 +4,7 @@ from abc import ABCMeta
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.plugins import get_entry_points
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.utils.uri import get_uri_scheme, redact_uri_credentials
 
 
 class UnsupportedModelRegistryStoreURIException(MlflowException):
@@ -13,7 +13,8 @@ class UnsupportedModelRegistryStoreURIException(MlflowException):
     def __init__(self, unsupported_uri, supported_uri_schemes):
         message = (
             " Model registry functionality is unavailable; got unsupported URI"
-            f" '{unsupported_uri}' for model registry data storage. Supported URI schemes are:"
+            f" '{redact_uri_credentials(unsupported_uri)}' for model registry data storage. "
+            "Supported URI schemes are:"
             f" {supported_uri_schemes}."
             " See https://www.mlflow.org/docs/latest/tracking.html#storage for how to run"
             " an MLflow server against one of the supported backend storage locations."

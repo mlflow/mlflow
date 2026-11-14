@@ -17,10 +17,10 @@ This directory contains files to test MLflow tracking operations using the follo
 ```bash
 # Build a service
 service=mlflow-sqlite
-./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)" $service
+./tests/db/compose.sh build $service
 
 # Build all services
-./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
+./tests/db/compose.sh build
 ```
 
 ## Run Services

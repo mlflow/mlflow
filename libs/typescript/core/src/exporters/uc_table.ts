@@ -22,7 +22,12 @@ import { Trace } from '../core/entities/trace';
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
 import { InMemoryTraceManager } from '../core/trace_manager';
 import { constructTraceIdV4, parseTraceIdV4 } from '../core/utils/trace_id';
-import { aggregateUsageFromSpans, convertHrTimeToMs } from '../core/utils';
+import {
+  aggregateUsageFromSpans,
+  convertHrTimeToMs,
+  isRootSpan,
+  withoutRemoteParent,
+} from '../core/utils';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
 import { resolveEnvironmentMetadata } from '../core/utils/environment';
 
@@ -52,7 +57,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
   onStart(span: OTelSpan, _parentContext: Context): void {
     const otelTraceId = span.spanContext().traceId;
 
-    if (!span.parentSpanContext?.spanId) {
+    if (isRootSpan(span)) {
       // Root span: build the V4 trace ID and TraceInfo for this trace.
       const traceLocation: TraceLocation = {
         type: TraceLocationType.UC_TABLE_PREFIX,
@@ -113,7 +118,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
     const traceManager = InMemoryTraceManager.getInstance();
     executeOnSpanEndHooks(span);
 
-    if (span.parentSpanContext?.spanId) {
+    if (!isRootSpan(span)) {
       return;
     }
 
@@ -129,6 +134,7 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
       return;
     }
 
+    this.setUserSessionSpanAttributes(trace.info, span);
     this.updateTraceInfo(trace.info, span);
 
     const allSpans = Array.from(trace.spanDict.values());
@@ -138,6 +144,33 @@ export class DatabricksUCTableSpanProcessor implements SpanProcessor {
     }
 
     this._exporter.export([span], (_) => {});
+  }
+
+  private setUserSessionSpanAttributes(traceInfo: TraceInfo, span: OTelReadableSpan): void {
+    const mlflowSpan = InMemoryTraceManager.getInstance().getSpan(
+      traceInfo.traceId,
+      span.spanContext().spanId,
+    );
+    if (!mlflowSpan) {
+      console.warn(`No MLflow span found for span ${span.name}. Skipping user/session attributes.`);
+      return;
+    }
+
+    const wasAllowingMutations = mlflowSpan.allowMutatingEndedSpan;
+    mlflowSpan.allowMutatingEndedSpan = true;
+    try {
+      for (const [metadataKey, attributeKey] of [
+        [TraceMetadataKey.TRACE_USER, SpanAttributeKey.USER_ID],
+        [TraceMetadataKey.TRACE_SESSION, SpanAttributeKey.SESSION_ID],
+      ]) {
+        const value = traceInfo.traceMetadata[metadataKey];
+        if (value != null) {
+          mlflowSpan.setAttribute(attributeKey, value);
+        }
+      }
+    } finally {
+      mlflowSpan.allowMutatingEndedSpan = wasAllowingMutations;
+    }
   }
 
   private updateTraceInfo(traceInfo: TraceInfo, span: OTelReadableSpan): void {
@@ -187,7 +220,7 @@ export class DatabricksUCTableSpanExporter implements SpanExporter {
 
   export(spans: OTelReadableSpan[], resultCallback: (result: ExportResult) => void): void {
     for (const span of spans) {
-      if (span.parentSpanContext?.spanId) {
+      if (!isRootSpan(span)) {
         continue;
       }
       const traceManager = InMemoryTraceManager.getInstance();
@@ -248,7 +281,7 @@ export class DatabricksUCTableSpanExporter implements SpanExporter {
       // Step 2: upload spans via OTLP.
       try {
         await this._client.exportOtlpSpansToUc(
-          trace.data.spans.map((s) => s._span),
+          trace.data.spans.map((s) => withoutRemoteParent(s._span)),
           spansTable,
         );
       } catch (error) {

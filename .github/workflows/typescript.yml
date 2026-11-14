@@ -9,6 +9,11 @@ on:
       - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
+      - ".github/workflows/verify.yml"
+      - ".github/workflows/resolve.yml"
+      - ".github/workflows/repair.yml"
+      - ".github/workflows/nightly.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
@@ -37,7 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         node-version: [22, 24]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -54,7 +59,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
 
       - name: Check package-lock.json is up-to-date
         run: |
@@ -65,19 +71,24 @@ jobs:
           }
 
       - name: Run format check
-        run: npm run format:check
+        run: |
+          npm run format:check
 
       - name: Run linting
-        run: npm run lint
+        run: |
+          npm run lint
 
       - name: Run build
-        run: npm run build
+        run: |
+          npm run build
 
       - name: Run core tests
-        run: npm run test:core
+        run: |
+          npm run test:core
 
       - name: Run tests for integrations
-        run: npm run test:integrations
+        run: |
+          npm run test:integrations
 
   # Guards against the mlflow#24167 class of bug: an integration importing an
   # @mlflow/* symbol that exists in the workspace source but not in the published
@@ -89,7 +100,7 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
@@ -103,6 +114,8 @@ jobs:
         with:
           node-version: 24
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
       - name: Check integrations against published @mlflow/* floors
-        run: bash scripts/check-min-mlflow-deps.sh
+        run: |
+          bash scripts/check-min-mlflow-deps.sh

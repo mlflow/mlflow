@@ -25,8 +25,8 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointType
-from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.gateway.config import EndpointType, Provider
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -48,6 +48,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_caller_headers
 from mlflow.genai.utils.llm_utils import _lookup_model_cost
 from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.metrics.genai.model_utils import (
@@ -59,6 +60,7 @@ from mlflow.metrics.genai.model_utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.utils.provider_filter import normalize_provider_name
 from mlflow.utils.workspace_context import get_request_workspace
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
@@ -296,7 +298,11 @@ def _invoke_via_gateway(
         workspace_headers: dict[str, str] = {}
         if ws := get_request_workspace():
             workspace_headers[WORKSPACE_HEADER_NAME] = ws
-        extra_headers = {**workspace_headers, **(extra_headers or {})}
+        extra_headers = {
+            **workspace_headers,
+            **get_gateway_caller_headers(default=GatewayCaller.JUDGE),
+            **(extra_headers or {}),
+        }
 
     if isinstance(prompt, str):
         return score_model_on_payload(
@@ -364,7 +370,12 @@ class GatewayAdapter(BaseJudgeAdapter):
         # from the API response which enables JUDGE_COST tracking.
         # "endpoints" (Databricks model serving) uses score_model_on_payload and
         # does not support the provider-based request/response transformation.
-        if input_params.model_provider != "endpoints":
+        # Bedrock calls go through boto3 and have no endpoint URL for the loop, so
+        # judges without a trace use score_model_on_payload as well.
+        if input_params.model_provider != "endpoints" and not (
+            input_params.trace is None
+            and normalize_provider_name(input_params.model_provider) == Provider.BEDROCK
+        ):
             return self._invoke_with_tools(input_params)
 
         # "endpoints" provider: trace-based tool calling is not supported.
@@ -537,9 +548,10 @@ class GatewayAdapter(BaseJudgeAdapter):
         provider_instance = _get_provider_instance(provider, model_name, base_url=base_url)
         endpoint = base_url or provider_instance.get_endpoint_url("llm/v1/chat")
         headers = dict(provider_instance.headers or {})
-        # Tag gateway requests so the server can attribute traffic to the judge
+        # Tag gateway requests so the server can attribute traffic to the judge, or to the
+        # built-in feature that runs it
         if provider == "gateway":
-            headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
+            headers.update(get_gateway_caller_headers(default=GatewayCaller.JUDGE))
             if ws := get_request_workspace():
                 headers[WORKSPACE_HEADER_NAME] = ws
         if extra_headers:

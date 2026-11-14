@@ -25,10 +25,11 @@ MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com
 
 ## Packages
 
-| Package                                 | NPM                                                                                                                               | Description                                                |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [@mlflow/core](./core)                  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)     | The core tracing functionality and manual instrumentation. |
-| [@mlflow/openai](./integrations/openai) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai) | Auto-instrumentation integration for OpenAI.               |
+| Package                                     | NPM                                                                                                                                   | Description                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [@mlflow/core](./core)                      | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)         | The core tracing functionality and manual instrumentation.   |
+| [@mlflow/openai](./integrations/openai)     | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai)     | Auto-instrumentation integration for OpenAI.                 |
+| [@mlflow/typesafe](./integrations/typesafe) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Ftypesafe?style=flat-square)](https://www.npmjs.com/package/@mlflow/typesafe) | Auto-instrumentation integration for TypeSafe AI System One. |
 
 ## Installation
 
@@ -48,7 +49,7 @@ pip install mlflow
 mlflow server --backend-store-uri sqlite:///mlruns.db --port 5000
 ```
 
-Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
+Self-hosting MLflow server requires Python 3.11 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
 
 Instantiate MLflow SDK in your application:
 
@@ -185,11 +186,6 @@ When you use one of the autolog integrations (`@mlflow/openai`, `@mlflow/anthrop
 View traces in MLflow UI:
 
 ![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/891fed9a746477f808dd2b82d3abb2382293c564/docs/static/images/llms/tracing/quickstart/openai-tool-calling-trace-detail.png?raw=true)
-
-## Publishing
-
-1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately
-2. `cd` into `core` and run `npm publish`, and repeat for `integrations/openai`
 
 ## Adding New Integrations
 

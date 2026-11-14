@@ -42,6 +42,8 @@ export interface ModelTraceExplorerDrawerProps {
   isLoading?: boolean;
   experimentId?: string;
   traceInfo?: ModelTraceInfoV3;
+  /** Replaces the redesigned drawer's "Trace" title and id, e.g. for a session. Unused by this drawer. */
+  headerTitle?: React.ReactNode;
 }
 
 export const ModelTraceExplorerDrawer = ({

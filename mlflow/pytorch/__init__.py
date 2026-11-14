@@ -30,7 +30,6 @@ from packaging.version import Version
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import (
-    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_DEFAULT_PREDICTION_DEVICE,
 )
 from mlflow.exceptions import MlflowException
@@ -46,7 +45,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.checkpoint_utils import download_checkpoint_artifact
 from mlflow.utils.databricks_utils import (
-    is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
@@ -69,11 +67,14 @@ from mlflow.utils.file_utils import (
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.utils.uri import is_databricks_uri
 
 FLAVOR_NAME = "pytorch"
 
@@ -93,6 +94,14 @@ MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging
 
 
 _MODEL_DATA_SUBPATH = "data"
+
+
+def _get_default_serialization_format(export_model):
+    if export_model:
+        return SERIALIZATION_FORMAT_PT2
+    if is_in_databricks_runtime() or is_databricks_uri(mlflow.get_tracking_uri()):
+        return SERIALIZATION_FORMAT_PICKLE
+    return SERIALIZATION_FORMAT_PT2
 
 
 def get_default_pip_requirements():
@@ -170,7 +179,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
+    serialization_format: Literal["pickle", "pt2"] | None = None,
     **kwargs,
 ):
     """
@@ -226,6 +235,8 @@ def log_model(
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
             Accepted values are "pickle" and "pt2".
+            If not specified, the model is serialized as "pickle" in Databricks Runtime or when
+            using a Databricks tracking URI, and as "pt2" otherwise.
             When set to "pickle", the model is serialized using either pickle or cloudpickle,
             depending on the `pickle_module` parameter.
             When set to "pt2", the model is saved using torch.export.save, which exports the model
@@ -278,7 +289,9 @@ def log_model(
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, name="model", input_example=X)
+            mlflow.pytorch.log_model(
+                model, name="model", input_example=X, serialization_format="pt2"
+            )
 
             # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
@@ -298,8 +311,7 @@ def log_model(
         :caption: Output
 
         run_id: 1a1ec9e413ce48e9abf9aec20efd6f71
-        artifacts: ['model/data/model.pth',
-                    'model/data/pickle_module_info.txt']
+        artifacts: ['model/data/model.pt2']
         artifacts: ['scripted_model/data/model.pth',
                     'scripted_model/data/pickle_module_info.txt']
 
@@ -307,6 +319,9 @@ def log_model(
 
         PyTorch logged models
     """
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format(export_model)
+
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     return Model.log(
         artifact_path=artifact_path,
@@ -350,7 +365,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
+    serialization_format: Literal["pickle", "pt2"] | None = None,
     **kwargs,
 ):
     """
@@ -387,6 +402,8 @@ def save_model(
             For details, see documentation of `serialization_format` argument.
         serialization_format: The serialization format used to save the PyTorch model.
             Accepted values are "pickle" and "pt2".
+            If not specified, the model is serialized as "pickle" in Databricks Runtime or when
+            using a Databricks tracking URI, and as "pt2" otherwise.
             When set to "pickle", the model is serialized using either pickle or cloudpickle,
             depending on the `pickle_module` parameter.
             When set to "pt2", the model is saved using torch.export.save, which exports the model
@@ -410,7 +427,12 @@ def save_model(
 
         # Save PyTorch models to current working directory
         with mlflow.start_run() as run:
-            mlflow.pytorch.save_model(model, "model", input_example=torch.ones(1, 1))
+            mlflow.pytorch.save_model(
+                model,
+                "model",
+                input_example=torch.ones(1, 1),
+                serialization_format="pt2",
+            )
 
             # Convert to a scripted model and save it
             scripted_pytorch_model = torch.jit.script(model)
@@ -449,6 +471,9 @@ def save_model(
     from torch.export import Dim as ExportDim
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+    if serialization_format is None:
+        serialization_format = _get_default_serialization_format(export_model)
 
     if export_model:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
@@ -676,22 +701,14 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _is_pickle_deserialization_allowed() -> bool:
-    return (
-        MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
-        or is_in_databricks_runtime()
-        or is_in_databricks_model_serving_environment()
-    )
-
-
 def _load_by_pickle_check(is_loading_state_dict: bool):
-    if not _is_pickle_deserialization_allowed():
+    if not _is_pickle_loading_allowed():
         if is_loading_state_dict:
             raise MlflowException(
                 "Deserializing model using pickle is disallowed, but this state dict is saved "
                 "in pickle format. You can set environment variable "
-                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing state "
-                "dict using pickle."
+                "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow deserializing state "
+                "dict using pickle." + _deprecated_pickle_variable_hint()
             )
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
@@ -699,8 +716,8 @@ def _load_by_pickle_check(is_loading_state_dict: bool):
             "serialization_format='pt2' like "
             "`mlflow.pytorch.save_model(model, path, serialization_format='pt2')`, "
             "or you can set environment variable "
-            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing model "
-            "using pickle."
+            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow deserializing model "
+            "using pickle." + _deprecated_pickle_variable_hint()
         )
 
 
@@ -827,8 +844,8 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
             "Deserializing model using pickle is disallowed, and the installed `torch` "
             f"version ({torch.__version__}) cannot safely verify that a model saved with "
             "serialization_format='pt2' is free of pickle payloads. Upgrade to `torch` >= 2.10, "
-            "or set environment variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to "
-            "allow deserializing the model using pickle."
+            "or set environment variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to "
+            "allow deserializing the model using pickle." + _deprecated_pickle_variable_hint()
         )
 
     def _violation(record: str) -> MlflowException:
@@ -838,8 +855,8 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
             "models saved by `mlflow.pytorch.save_model(..., serialization_format='pt2')` "
             "whose weights, constants and example inputs are tensors or primitive containers "
             "can be loaded. You can set environment variable "
-            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing the model "
-            "using pickle."
+            "'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true' to allow deserializing the model "
+            "using pickle." + _deprecated_pickle_variable_hint()
         )
 
     user_safe_globals = _user_registered_safe_globals(torch)
@@ -914,6 +931,10 @@ def _load_model(path, device=None, **kwargs):
         model_path = os.path.join(path, "model.pth")
         if os.path.exists(model_path):
             is_exported_model = False
+            # The pickle module name below is read from the model artifact and imported, so it
+            # must stay behind the pickle-deserialization guard: a crafted artifact could otherwise
+            # name a module shipped in its own `code` directory and run it before `torch.load`.
+            _load_by_pickle_check(False)
             pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
             with open(pickle_module_path) as f:
                 pickle_module_name = f.read()
@@ -950,7 +971,7 @@ def _load_model(path, device=None, **kwargs):
                     "The model is exported by `torch.export` API. To load the model, "
                     "`torch` package version must be >= 2.4"
                 )
-            if not _is_pickle_deserialization_allowed():
+            if not _is_pickle_loading_allowed():
                 _validate_pt2_archive_is_pickle_free(model_path)
             pytorch_model = torch.export.load(model_path, **kwargs).module()
         else:
@@ -1048,6 +1069,11 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     pytorch_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
+    # Refuse a pickle-format model before its `code` directory is prepended to `sys.path`, so a
+    # rejected load leaves nothing from the artifact importable for the rest of the process.
+    if os.path.exists(os.path.join(torch_model_artifacts_path, "model.pth")):
+        _load_by_pickle_check(False)
     _add_code_from_conf_to_system_path(local_model_path, pytorch_conf)
 
     if torch.__version__ != pytorch_conf["pytorch_version"]:
@@ -1056,7 +1082,6 @@ def load_model(model_uri, dst_path=None, **kwargs):
             pytorch_conf["pytorch_version"],
             torch.__version__,
         )
-    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 

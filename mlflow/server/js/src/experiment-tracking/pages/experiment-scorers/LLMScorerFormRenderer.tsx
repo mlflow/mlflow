@@ -183,9 +183,10 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
 interface NameSectionProps {
   mode: ScorerFormMode;
   control: Control<LLMScorerFormData>;
+  onUserSelect?: (fieldName: keyof LLMScorerFormData, value: string) => void;
 }
 
-const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
+const NameSection: React.FC<NameSectionProps> = ({ mode, control, onUserSelect }) => {
   const stopPropagationClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -215,6 +216,10 @@ const NameSection: React.FC<NameSectionProps> = ({ mode, control }) => {
             placeholder="Custom"
             css={{ cursor: mode === SCORER_FORM_MODE.CREATE ? 'text' : 'auto' }}
             onClick={stopPropagationClick}
+            onBlur={(event) => {
+              field.onBlur();
+              onUserSelect?.('name', event.target.value);
+            }}
           />
         )}
       />
@@ -557,7 +562,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
 
       const values = getValues();
       const updated = { ...values, [fieldName]: newValue };
-      const isComplete = Boolean(updated.name) && Boolean(updated.model) && Boolean(updated.evaluationScope);
+      const isComplete = Boolean(updated.name) && Boolean(updated.evaluationScope);
 
       if (isComplete) {
         accordionRef.current?.progressToSection(AccordionSection.SCORING_CRITERIA);
@@ -569,15 +574,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
   const generalSection = (
     <>
       <ScorerFormEvaluationScopeSelect mode={mode} onUserSelect={checkAndProgressGeneral} />
-      <NameSection mode={mode} control={control} />
-      {isScorerModelSelectionEnabled() && (
-        <ModelSectionRenderer
-          mode={mode}
-          control={control}
-          setValue={setValue}
-          onUserSelect={checkAndProgressGeneral}
-        />
-      )}
+      <NameSection mode={mode} control={control} onUserSelect={checkAndProgressGeneral} />
     </>
   );
 
@@ -591,6 +588,7 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
       {isScorerOutputTypeSelectorEnabled() && EDITABLE_TEMPLATES.has(selectedTemplate) && (
         <OutputTypeSection mode={mode} control={control} />
       )}
+      {isScorerModelSelectionEnabled() && <ModelSectionRenderer mode={mode} control={control} setValue={setValue} />}
     </>
   );
 

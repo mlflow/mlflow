@@ -64,7 +64,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
-from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -642,6 +642,68 @@ def test_create_gateway_endpoint_nonexistent_model_raises(store: SqlAlchemyStore
             ],
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def _create_gateway_test_model_definition(store: SqlAlchemyStore, prefix: str):
+    secret = store.create_gateway_secret(
+        secret_name=f"{prefix}-key-{uuid.uuid4().hex}", secret_value={"api_key": "value"}
+    )
+    return store.create_gateway_model_definition(
+        name=f"{prefix}-model-{uuid.uuid4().hex}",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+
+
+def _primary_gateway_model_config(model_definition_id: str) -> GatewayEndpointModelConfig:
+    return GatewayEndpointModelConfig(
+        model_definition_id=model_definition_id,
+        linkage_type=GatewayModelLinkageType.PRIMARY,
+        weight=1.0,
+    )
+
+
+@pytest.mark.parametrize("bad_experiment_id", ["not-a-number", ""])
+def test_gateway_endpoint_rejects_non_numeric_experiment_id(
+    store: SqlAlchemyStore, bad_experiment_id
+):
+    model_def = _create_gateway_test_model_definition(store, "bad-exp")
+
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer") as exc:
+        store.create_gateway_endpoint(
+            name=f"bad-create-exp-endpoint-{uuid.uuid4().hex}",
+            model_configs=[_primary_gateway_model_config(model_def.model_definition_id)],
+            experiment_id=bad_experiment_id,
+            usage_tracking=False,
+        )
+
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    endpoint = store.create_gateway_endpoint(
+        name=f"bad-update-exp-endpoint-{uuid.uuid4().hex}",
+        model_configs=[_primary_gateway_model_config(model_def.model_definition_id)],
+        usage_tracking=False,
+    )
+
+    with pytest.raises(MlflowException, match="Experiment ID must be a valid integer") as exc:
+        store.update_gateway_endpoint(endpoint.endpoint_id, experiment_id=bad_experiment_id)
+
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("experiment_id", ["0", 0])
+def test_create_gateway_endpoint_accepts_zero_experiment_id(store: SqlAlchemyStore, experiment_id):
+    model_def = _create_gateway_test_model_definition(store, "zero-exp")
+
+    endpoint = store.create_gateway_endpoint(
+        name=f"zero-exp-endpoint-{uuid.uuid4().hex}",
+        model_configs=[_primary_gateway_model_config(model_def.model_definition_id)],
+        experiment_id=experiment_id,
+        usage_tracking=True,
+    )
+
+    assert endpoint.experiment_id == "0"
 
 
 def test_get_gateway_endpoint_by_id(store: SqlAlchemyStore):
@@ -1528,6 +1590,114 @@ def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlche
             store=store,
         )
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+@pytest.mark.parametrize(
+    ("keyless_primary_count", "keyed_fallback"),
+    [(1, False), (1, True), (2, False)],
+    ids=["one-keyless-primary", "keyed-fallback-left", "two-keyless-primaries"],
+)
+def test_get_gateway_endpoint_config_raises_when_no_primary_model_has_api_key(
+    store: SqlAlchemyStore, keyless_primary_count, keyed_fallback
+):
+    deleted_secret = store.create_gateway_secret(
+        secret_name="deleted-key", secret_value={"api_key": "deleted"}
+    )
+    model_configs = []
+    for i in range(keyless_primary_count):
+        keyless_model = store.create_gateway_model_definition(
+            name=f"keyless-model-{i}",
+            secret_id=deleted_secret.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        model_configs.append(
+            GatewayEndpointModelConfig(
+                model_definition_id=keyless_model.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        )
+    if keyed_fallback:
+        kept_secret = store.create_gateway_secret(
+            secret_name="kept-key", secret_value={"api_key": "kept"}
+        )
+        fallback_model = store.create_gateway_model_definition(
+            name="fallback-model",
+            secret_id=kept_secret.secret_id,
+            provider="openai",
+            model_name="gpt-4o",
+        )
+        model_configs.append(
+            GatewayEndpointModelConfig(
+                model_definition_id=fallback_model.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            )
+        )
+    endpoint = store.create_gateway_endpoint(name="keyless-endpoint", model_configs=model_configs)
+    store.delete_gateway_secret(deleted_secret.secret_id)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"none of its PRIMARY model definitions has an API key \(secret\) attached",
+    ) as exc:
+        get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    assert "keyless-model" not in exc.value.message
+
+
+@pytest.mark.parametrize(
+    ("linkage_type", "fallback_order"),
+    [(GatewayModelLinkageType.PRIMARY, None), (GatewayModelLinkageType.FALLBACK, 0)],
+)
+def test_get_gateway_endpoint_config_skips_keyless_model_when_a_primary_has_a_key(
+    store: SqlAlchemyStore, linkage_type, fallback_order
+):
+    kept_secret = store.create_gateway_secret(
+        secret_name="kept-key", secret_value={"api_key": "kept"}
+    )
+    deleted_secret = store.create_gateway_secret(
+        secret_name="deleted-key", secret_value={"api_key": "deleted"}
+    )
+    kept_model = store.create_gateway_model_definition(
+        name="kept-model", secret_id=kept_secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    keyless_model = store.create_gateway_model_definition(
+        name="keyless-model",
+        secret_id=deleted_secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="partly-keyless-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=kept_model.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=keyless_model.model_definition_id,
+                linkage_type=linkage_type,
+                weight=1.0,
+                fallback_order=fallback_order,
+            ),
+        ],
+    )
+    store.delete_gateway_secret(deleted_secret.secret_id)
+
+    with mock.patch("mlflow.store.tracking.gateway.config_resolver._logger.warning") as warning:
+        config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+
+    assert [m.model_definition_id for m in config.models] == [kept_model.model_definition_id]
+    warning.assert_called_once()
+    assert warning.call_args.args[1:] == (
+        linkage_type.value,
+        keyless_model.model_definition_id,
+        endpoint.name,
+    )
 
 
 def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemyStore):
@@ -2978,6 +3148,27 @@ def test_create_gateway_guardrail_rejects_unknown_scorer_version(store: SqlAlche
         )
 
 
+def test_create_gateway_guardrail_rejects_custom_code_scorer(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment(f"guardrail-custom-{uuid.uuid4().hex[:8]}")
+    serialized_scorer = json.dumps({
+        "name": "custom",
+        "call_source": "return len(outputs) > 0",
+        "call_signature": "(outputs)",
+        "original_func_name": "custom",
+    })
+    scorer = store.register_scorer(experiment_id, "custom-code-scorer", serialized_scorer)
+
+    with pytest.raises(MlflowException, match="do not support custom scorers"):
+        store.create_gateway_guardrail(
+            name="custom-guardrail",
+            scorer_id=scorer.scorer_id,
+            scorer_version=scorer.scorer_version,
+            stage=GuardrailStage.BEFORE,
+            action=GuardrailAction.VALIDATION,
+            created_by="test-user",
+        )
+
+
 def test_get_gateway_guardrail(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
@@ -3396,6 +3587,7 @@ def _insert_trace_with_cost(
         timestamp_ms=timestamp_ms,
         execution_time_ms=100,
         status="OK",
+        total_cost=sum(cost for _, cost in span_costs),
     )
     session.add(trace)
     session.flush()
@@ -3417,7 +3609,7 @@ def _insert_trace_with_cost(
             )
         )
 
-    for span_id, cost in span_costs:
+    for span_id, _ in span_costs:
         span = SqlSpan(
             trace_id=trace_id,
             experiment_id=experiment_id,
@@ -3429,16 +3621,6 @@ def _insert_trace_with_cost(
         )
         session.add(span)
         session.flush()
-
-        metric = SqlSpanMetrics(
-            trace_id=trace_id,
-            span_id=span_id,
-            key=SpanMetricKey.TOTAL_COST,
-            value=cost,
-        )
-        session.add(metric)
-
-    session.flush()
 
 
 def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useEditKeyValueTagsModal } from '../../common/hooks/useEditKeyValueTagsModal';
+import { ignoreNotFound, settleAll } from '../../common/utils/registryWrites';
 import { diffCurrentAndNewTags } from '../../common/utils/TagUtils';
 import { MCPRegistryApi } from '../api';
 import { MCP_QUERY_KEYS, tagsRecordToArray } from '../utils';
@@ -19,11 +20,12 @@ export const useUpdateMCPServerTags = () => {
 
   const updateMutation = useMutation<unknown, Error, UpdateTagsPayload>({
     mutationFn: async ({ serverName, toAdd, toDelete }) =>
-      Promise.all([
+      settleAll([
         ...toAdd.map(({ key, value }) => MCPRegistryApi.setMCPServerTag(serverName, { key, value })),
-        ...toDelete.map(({ key }) => MCPRegistryApi.deleteMCPServerTag(serverName, key)),
+        ...toDelete.map(({ key }) => ignoreNotFound(MCPRegistryApi.deleteMCPServerTag(serverName, key))),
       ]),
-    onSuccess: (_data, { serverName }) => {
+    // Even a partly failed save changed the server, so the page refreshes either way.
+    onSettled: (_data, _error, { serverName }) => {
       queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVERS_LIST]);
       queryClient.invalidateQueries([MCP_QUERY_KEYS.SERVER, serverName]);
     },

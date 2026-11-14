@@ -46,7 +46,7 @@ if ! gh release view "$TAG" --repo "$REPO" >/dev/null; then
   gh release create "$TAG" \
     --repo "$REPO" \
     --title "Model Catalog" \
-    --notes "Per-provider model catalog files. Updated weekly by CI." \
+    --notes "Per-provider model catalog files. Updated by CI." \
     --latest=false
 fi
 

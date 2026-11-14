@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Generator
 
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.utils import serialize_session_id
 
 
 @dataclass(frozen=True)
@@ -40,7 +41,7 @@ def context(
     metadata: dict[str, str] | None = None,
     tags: dict[str, str] | None = None,
     enabled: bool | None = None,
-    session_id: str | None = None,
+    session_id: str | list[str] | None = None,
     user: str | None = None,
 ) -> Generator[None, None, None]:
     """
@@ -96,14 +97,17 @@ def context(
             scope. This does not affect the global tracing state set by
             :py:func:`mlflow.tracing.disable`.
         session_id: Session ID to associate with traces created in this scope.
-            Internally stored as metadata under the ``mlflow.trace.session`` key.
+            Internally stored as metadata under the ``mlflow.trace.session`` key. Pass a list
+            of strings to identify the session at multiple hierarchy levels, outermost first,
+            e.g. ``session_id=["trip-2", "ep-2"]``; it is stored as a JSON array string,
+            which counts toward the 250-character session ID limit.
         user: User identifier to associate with traces created in this scope.
             Internally stored as metadata under the ``mlflow.trace.user`` key.
     """
     # Inject session_id and user into metadata
     metadata = dict(metadata) if metadata else {}
     if session_id is not None:
-        metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+        metadata[TraceMetadataKey.TRACE_SESSION] = serialize_session_id(session_id)
     if user is not None:
         metadata[TraceMetadataKey.TRACE_USER] = user
 

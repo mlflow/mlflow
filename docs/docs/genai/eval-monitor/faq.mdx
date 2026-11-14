@@ -96,6 +96,12 @@ with mlflow.start_run(run_name="My Evaluation Run") as run:
     mlflow.genai.evaluate(...)
 ```
 
+## Can I evaluate a remotely hosted agent?
+
+Yes. Use a traced HTTP `predict_fn` to call your endpoint and [distributed tracing](/genai/tracing/app-instrumentation/distributed-tracing) to connect the remote agent's spans to each evaluation task. The service must restore the incoming trace context before invoking the instrumented agent, and both processes must use the same tracking server and experiment. See the example in [Evaluating Agents](/genai/eval-monitor/running-evaluation/agents).
+
+Response-quality scorers can evaluate the returned answer without remote spans. Scorers that inspect tool calls need those spans in the evaluation trace. The client and service export spans independently, so an HTTP response does not guarantee that every span is available when scoring begins. If spans arrive after scoring, [evaluate the collected trace](/genai/eval-monitor/running-evaluation/traces) again after its remote spans have arrived.
+
 ## How do I use Databricks Model Serving endpoints as the predict function?
 
 MLflow provides <APILink fn="mlflow.genai.to_predict_fn" />, which wraps a Databricks Model Serving endpoint so it behaves like a predict function compatible with the evaluation framework.
@@ -206,6 +212,8 @@ print(result.metrics)
 # Access a specific metric
 correctness_score = result.metrics.get("correctness/mean")
 ```
+
+If a scorer fails, for example because the judge call timed out, MLflow also logs `<scorer>/error_count`: the number of rows where the scorer failed, or sessions for session-level scorers. It is not logged when the scorer never fails. The mean is computed over the scored rows only, so check for an error count before comparing means across runs.
 
 To get metrics for an existing evaluation run, you can use <APILink fn="mlflow.get_run" /> API:
 

@@ -29,6 +29,8 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.telemetry.events import LogModelEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
@@ -1002,7 +1004,7 @@ class Model:
                     try:
                         file_extension = os.path.splitext(model_config)[1].lower()
                         if file_extension == ".json":
-                            with open(model_config) as f:
+                            with open(model_config, encoding="utf-8") as f:
                                 model_config = json.load(f)
                         elif file_extension in [".yaml", ".yml"]:
                             model_config = _validate_and_get_model_config_from_file(model_config)
@@ -1059,6 +1061,7 @@ class Model:
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
+    @record_usage_event(LogModelEvent)
     def log(
         cls,
         artifact_path,
@@ -1331,7 +1334,7 @@ class Model:
                         try:
                             file_extension = os.path.splitext(model_config)[1].lower()
                             if file_extension == ".json":
-                                with open(model_config) as f:
+                                with open(model_config, encoding="utf-8") as f:
                                     model_config = json.load(f)
                             elif file_extension in [".yaml", ".yml"]:
                                 from mlflow.utils.model_utils import (

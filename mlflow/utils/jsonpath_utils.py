@@ -22,6 +22,8 @@ tailored specifically for MLflow trace data structures.
 
 from typing import Any
 
+_MISSING = object()
+
 
 def split_path_respecting_backticks(path: str) -> list[str]:
     """
@@ -147,7 +149,9 @@ def filter_json_by_fields(data: dict[str, Any], field_paths: list[str]) -> dict[
     # Build the result by including only the specified paths
     for path in expanded_paths:
         parts = split_path_respecting_backticks(path)
-        set_nested_value(result, parts, get_nested_value_safe(data, parts))
+        value = get_nested_value_safe(data, parts, default=_MISSING)
+        if value is not _MISSING:
+            set_nested_value(result, parts, value)
 
     return result
 
@@ -183,8 +187,8 @@ def find_matching_paths(data: dict[str, Any], wildcard_path: str) -> list[str]:
     return find_paths(data, parts)
 
 
-def get_nested_value_safe(data: dict[str, Any], parts: list[str]) -> Any | None:
-    """Safely get nested value, returning None if path doesn't exist."""
+def get_nested_value_safe(data: dict[str, Any], parts: list[str], default: Any = None) -> Any:
+    """Safely get nested value, returning `default` if path doesn't exist."""
     current = data
     for part in parts:
         if isinstance(current, dict) and part in current:
@@ -192,15 +196,12 @@ def get_nested_value_safe(data: dict[str, Any], parts: list[str]) -> Any | None:
         elif isinstance(current, list) and part.isdigit() and int(part) < len(current):
             current = current[int(part)]
         else:
-            return None
+            return default
     return current
 
 
 def set_nested_value(data: dict[str, Any], parts: list[str], value: Any) -> None:
     """Set a nested value in a dictionary, creating intermediate dicts/lists as needed."""
-    if value is None:
-        return
-
     current = data
     for i, part in enumerate(parts[:-1]):
         if part.isdigit() and isinstance(current, list):

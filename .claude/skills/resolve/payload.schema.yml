@@ -1,0 +1,36 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Review resolution payload
+type: object
+additionalProperties: false
+required: [responses]
+properties:
+  responses:
+    type: object
+    minProperties: 1
+    propertyNames:
+      pattern: "^(review|PRRT_[A-Za-z0-9_-]+)$"
+    additionalProperties:
+      type: object
+      additionalProperties: false
+      required: [status, body]
+      properties:
+        status:
+          description: >
+            Use resolved when the patch addresses the feedback, answered when a substantive
+            reply suffices, or blocked when the item needs human input.
+          enum: [resolved, answered, blocked]
+        body:
+          description: >
+            Use one or two sentences in Markdown. For resolved feedback, summarize the fix
+            and any relevant verification. For answered feedback, cite the supporting code
+            or behavior. For blocked feedback, explain what human input is needed. Cite
+            each screenshot or recording as a Markdown image whose path is the file's
+            absolute path in `$out_dir/media`, such as
+            `![Run list after the fix](/abs/path/to/out_dir/media/runs.png)`. Put a
+            recording's citation, such as `![Repro](/abs/path/to/out_dir/media/repro.mp4)`,
+            on a line by itself so GitHub shows a video player; a recording cited
+            mid-sentence shows as a plain link.
+          type: string
+          minLength: 1
+          maxLength: 500
+          pattern: '\S'

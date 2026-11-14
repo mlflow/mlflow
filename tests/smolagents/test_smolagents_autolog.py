@@ -254,3 +254,64 @@ def test_tool_autolog():
         }
 
     clear_autolog_state()
+
+
+def test_model_credentials_not_logged():
+    from smolagents import ChatMessage, InferenceClientModel
+
+    _DUMMY_OUTPUT = ChatMessage(
+        role="assistant",
+        content="This is a test response.",
+    )
+    _DUMMY_OUTPUT.raw = SimpleNamespace(
+        usage=SimpleNamespace(
+            prompt_tokens=5,
+            completion_tokens=8,
+            total_tokens=13,
+        )
+    )
+
+    clear_autolog_state()
+    # Create a model with credentials
+    model = InferenceClientModel(
+        model_id="gpt-3.5-turbo",
+        token="hf_test_secret_token_12345",
+    )
+    # Simulate client_kwargs containing secrets (as smolagents models may have)
+    model.client_kwargs = {"api_key": "sk-test-secret-in-kwargs"}
+
+    with patch(
+        f"smolagents.InferenceClientModel.{MOCK_INFERENCE_CLIENT_MODEL_METHOD}",
+        return_value=_DUMMY_OUTPUT,
+    ):
+        mlflow.smolagents.autolog()
+        model()
+
+    traces = get_traces()
+    assert len(traces) >= 1
+
+    # Find the model call span
+    model_span = None
+    for trace in traces:
+        for span in trace.data.spans:
+            if span.span_type == SpanType.CHAT_MODEL:
+                model_span = span
+                break
+
+    assert model_span is not None, "Model span not found"
+
+    # Get all span attributes as a single string for easier searching
+    attributes_str = str(model_span.attributes)
+
+    # Verify secrets don't appear in span attributes
+    assert "hf_test_secret_token_12345" not in attributes_str, (
+        "Token credential leaked into span attributes"
+    )
+    assert "sk-test-secret-in-kwargs" not in attributes_str, (
+        "API key from client_kwargs leaked into span attributes"
+    )
+
+    # Verify non-secret attributes are still logged
+    assert "gpt-3.5-turbo" in attributes_str, "Model ID should be logged"
+
+    clear_autolog_state()

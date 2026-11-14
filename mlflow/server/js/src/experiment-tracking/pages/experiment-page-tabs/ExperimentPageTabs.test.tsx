@@ -1,5 +1,6 @@
 /* eslint-disable jest/no-standalone-expect */
-import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
+import { jest, describe, afterEach, beforeAll, beforeEach, test, expect } from '@jest/globals';
+import React from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
 
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -16,6 +17,11 @@ import { ExperimentKind } from '../../constants';
 import { createLazyRouteElement, createRouteElement, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { PageId, RoutePaths } from '../../routes';
 import ExperimentPageTabs from './ExperimentPageTabs';
+import { shouldEnableNewEvalRunsUi, shouldEnableWorkflowBasedNavigation } from '../../../common/utils/FeatureUtils';
+import { WorkflowTypeProvider } from '../../../common/contexts/WorkflowTypeContext';
+import ExperimentTracesPage from '../experiment-traces/ExperimentTracesPage';
+import { useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
+import { useExperimentPageLayoutContainer } from './ExperimentPageLayout';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
@@ -23,6 +29,13 @@ jest.setTimeout(60000); // Larger timeout for integration testing
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
+  shouldEnableNewEvalRunsUi: jest.fn().mockReturnValue(false),
+}));
+
+jest.mock('../experiment-evaluation-runs/ExperimentEvaluationRunsPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment evaluation runs page</div>,
 }));
 
 jest.mock('../experiment-logged-models/ExperimentLoggedModelListPage', () => ({
@@ -34,10 +47,42 @@ jest.mock('../experiment-logged-models/ExperimentLoggedModelListPage', () => ({
 jest.mock('../experiment-traces/ExperimentTracesPage', () => ({
   // mock default export
   __esModule: true,
-  default: () => <div>Experiment traces page</div>,
+  default: jest.fn(() => <div>Experiment traces page</div>),
 }));
 
+const ExperimentPageTabsWithWorkflowType = () => (
+  <WorkflowTypeProvider>
+    <ExperimentPageTabs />
+  </WorkflowTypeProvider>
+);
+
+const LayoutContainerReportingTracesPage = () => {
+  const layoutContainer = useExperimentPageLayoutContainer();
+  return (
+    <div>
+      {layoutContainer?.getAttribute('data-experiment-page-layout') === 'true'
+        ? 'Has experiment page layout container'
+        : 'No experiment page layout container'}
+    </div>
+  );
+};
+
+const FocusModeTracesPage = () => {
+  const { setHeaderHidden } = useHeaderVisibility();
+  React.useEffect(() => {
+    setHeaderHidden(true);
+    return () => setHeaderHidden(false);
+  }, [setHeaderHidden]);
+  return <div>Focused page</div>;
+};
+
 jest.mock('../experiment-overview/ExperimentGenAIOverviewPage', () => ({
+  // mock default export
+  __esModule: true,
+  default: () => <div>Experiment overview page</div>,
+}));
+
+jest.mock('../experiment-overview/ExperimentGenAIJourneyOverviewPage', () => ({
   // mock default export
   __esModule: true,
   default: () => <div>Experiment overview page</div>,
@@ -84,7 +129,7 @@ describe('ExperimentLoggedModelListPage', () => {
     rest.post('/ajax-api/2.0/mlflow/runs/search', (req, res, ctx) => res(ctx.json({ runs: [] }))),
   );
 
-  const renderTestComponent = (initialPath = '/experiments/12345678/models') => {
+  const renderTestComponent = (initialPath = '/experiments/12345678/models', { withWorkflowType = false } = {}) => {
     const queryClient = new QueryClient();
     return render(
       <TestApolloProvider disableCache>
@@ -97,8 +142,17 @@ describe('ExperimentLoggedModelListPage', () => {
                     {
                       path: RoutePaths.experimentPage,
                       pageId: PageId.experimentPage,
-                      element: createRouteElement(ExperimentPageTabs),
+                      element: createRouteElement(
+                        withWorkflowType ? ExperimentPageTabsWithWorkflowType : ExperimentPageTabs,
+                      ),
                       children: [
+                        {
+                          path: RoutePaths.experimentPageTabJourneyOverview,
+                          pageId: PageId.experimentPageTabJourneyOverview,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-overview/ExperimentGenAIJourneyOverviewPage'),
+                          ),
+                        },
                         {
                           path: RoutePaths.experimentPageTabOverview,
                           pageId: PageId.experimentPageTabOverview,
@@ -116,6 +170,13 @@ describe('ExperimentLoggedModelListPage', () => {
                           pageId: PageId.experimentPageTabModels,
                           element: createLazyRouteElement(
                             () => import('../experiment-logged-models/ExperimentLoggedModelListPage'),
+                          ),
+                        },
+                        {
+                          path: RoutePaths.experimentPageTabEvaluationRuns,
+                          pageId: PageId.experimentPageTabEvaluationRuns,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-evaluation-runs/ExperimentEvaluationRunsPage'),
                           ),
                         },
                         {
@@ -322,5 +383,203 @@ describe('ExperimentLoggedModelListPage', () => {
 
     // Should redirect to overview tab based on existing tag
     expect(await screen.findByText('Experiment overview page')).toBeInTheDocument();
+  });
+
+  describe('GenAI experiment page shell', () => {
+    const genAIExperiment = createTestExperiment('12345678', 'Test experiment name', [
+      { key: 'mlflow.experimentKind', value: ExperimentKind.GENAI_DEVELOPMENT },
+    ]);
+
+    beforeEach(() => {
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(ctx.data(createTestExperimentResponse(genAIExperiment))),
+        ),
+      );
+    });
+
+    test('flag off: keeps the experiment title header', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      renderTestComponent('/experiments/12345678/evaluation-runs');
+
+      expect(await screen.findByText('Experiment evaluation runs page')).toBeInTheDocument();
+      expect(await screen.findByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Copy link to this experiment' })).not.toBeInTheDocument();
+    });
+
+    test('flag on: shows the breadcrumb header with the run evaluation action on the evaluation runs tab', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/evaluation-runs');
+
+      const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+      expect(within(breadcrumb).getByRole('link', { name: 'Test experiment name' })).toBeInTheDocument();
+      expect(within(breadcrumb).getByText('Evaluation runs')).toHaveAttribute('aria-current', 'page');
+      expect(screen.getByRole('button', { name: 'Copy link to this experiment' })).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: 'Run evaluation' })).toBeInTheDocument();
+      expect(screen.getByRole('main')).toContainElement(screen.getByText('Experiment evaluation runs page'));
+      expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();
+    });
+
+    test('flag on: shows no page action outside the evaluation runs tab', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/traces');
+
+      const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+      expect(within(breadcrumb).getByText('Traces')).toHaveAttribute('aria-current', 'page');
+      expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
+    });
+
+    test('flag on: keeps the experiment info, Edit / Delete menu and archival badge in the breadcrumb header', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(ctx.data(createTestExperimentResponse({ ...genAIExperiment, effectiveTraceArchivalRetention: '30d' }))),
+        ),
+      );
+      renderTestComponent('/experiments/12345678/traces');
+
+      const main = within(await screen.findByRole('main'));
+      expect(await main.findByText('Archive after: 30 days')).toBeInTheDocument();
+      await userEvent.click(main.getByRole('button', { name: 'Info' }));
+      expect(await screen.findByTestId('experiment-view-header-info-tooltip-content')).toHaveTextContent(
+        'Experiment ID: 12345678',
+      );
+
+      await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
+      expect(await screen.findByRole('menuitem', { name: 'Edit experiment' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+      expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();
+    });
+
+    test('flag on: Edit experiment from the evaluation runs breadcrumb header opens the experiment editor', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/evaluation-runs');
+
+      const main = within(await screen.findByRole('main'));
+      expect(await main.findByRole('button', { name: 'Run evaluation' })).toBeInTheDocument();
+      expect(main.getByRole('button', { name: 'Info' })).toBeInTheDocument();
+      await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit experiment' }));
+      expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
+    });
+
+    test('flag on: shows the experiment description under the breadcrumb row, not in it', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(
+            ctx.data(
+              createTestExperimentResponse({
+                ...genAIExperiment,
+                tags: [...genAIExperiment.tags, { key: NOTE_CONTENT_TAG, value: 'Nightly support agent evals' }],
+              }),
+            ),
+          ),
+        ),
+      );
+      renderTestComponent('/experiments/12345678/traces');
+
+      const description = await screen.findByText('Nightly support agent evals');
+      const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+      const breadcrumbRow = screen.getByRole('main').firstElementChild;
+      expect(breadcrumbRow).toContainElement(breadcrumb);
+      expect(breadcrumbRow).not.toContainElement(description);
+      expect(screen.getByRole('main')).toContainElement(description);
+
+      await userEvent.click(screen.getByTestId('experiment-metadata-editor-edit-button'));
+      expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
+    });
+
+    test('flag on: shows no description area when the experiment has no description', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      renderTestComponent('/experiments/12345678/traces');
+
+      expect(await screen.findByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument();
+      expect(screen.queryByTestId('experiment-metadata-editor-edit-button')).not.toBeInTheDocument();
+    });
+
+    test('flag on: keeps the experiment title header for non-GenAI experiments', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+          res(ctx.data(createTestExperimentResponse(createTestExperiment()))),
+        ),
+      );
+      renderTestComponent('/experiments/12345678/runs');
+
+      expect(await screen.findByTestId('experiment-view-header-back-button')).toBeInTheDocument();
+      expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+    });
+
+    test('flag on: provides the experiment page layout container to page content', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      jest.mocked(ExperimentTracesPage).mockImplementation(LayoutContainerReportingTracesPage);
+      try {
+        renderTestComponent('/experiments/12345678/traces');
+
+        const pageContent = await screen.findByText('Has experiment page layout container');
+        expect(screen.getByTestId('experiment-page-layout')).toContainElement(pageContent);
+      } finally {
+        jest.mocked(ExperimentTracesPage).mockImplementation(() => <div>Experiment traces page</div>);
+      }
+    });
+
+    test('flag off: provides no experiment page layout container', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      jest.mocked(ExperimentTracesPage).mockImplementation(LayoutContainerReportingTracesPage);
+      try {
+        renderTestComponent('/experiments/12345678/traces');
+
+        expect(await screen.findByText('No experiment page layout container')).toBeInTheDocument();
+        expect(screen.queryByTestId('experiment-page-layout')).not.toBeInTheDocument();
+      } finally {
+        jest.mocked(ExperimentTracesPage).mockImplementation(() => <div>Experiment traces page</div>);
+      }
+    });
+
+    test('flag on: hides the breadcrumb row while a page hides the header', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      jest.mocked(ExperimentTracesPage).mockImplementation(FocusModeTracesPage);
+      try {
+        renderTestComponent('/experiments/12345678/traces');
+
+        expect(await screen.findByRole('main')).toContainElement(await screen.findByText('Focused page'));
+        expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Copy link to this experiment' })).not.toBeInTheDocument();
+      } finally {
+        jest.mocked(ExperimentTracesPage).mockImplementation(() => <div>Experiment traces page</div>);
+      }
+    });
+
+    describe('with workflow-based navigation (the OSS default)', () => {
+      beforeEach(() => {
+        jest.mocked(shouldEnableWorkflowBasedNavigation).mockReturnValue(true);
+        jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+        localStorage.clear();
+      });
+
+      afterEach(() => {
+        jest.mocked(shouldEnableWorkflowBasedNavigation).mockReturnValue(false);
+      });
+
+      test('shows the shell in GenAI mode', async () => {
+        renderTestComponent('/experiments/12345678/traces', { withWorkflowType: true });
+
+        const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+        expect(within(breadcrumb).getByText('Traces')).toHaveAttribute('aria-current', 'page');
+        expect(screen.getByRole('main')).toContainElement(screen.getByText('Experiment traces page'));
+        expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();
+      });
+
+      test('keeps the experiment title header in Model training mode', async () => {
+        renderTestComponent('/experiments/12345678/runs?workflowType=machine_learning', { withWorkflowType: true });
+
+        expect(await screen.findByText('Experiment runs page')).toBeInTheDocument();
+        expect(await screen.findByTestId('experiment-observatory-link')).toBeInTheDocument();
+        expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('main')).not.toBeInTheDocument();
+      });
+    });
   });
 });

@@ -2,6 +2,7 @@ import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { EvaluationDataset } from '../types';
 import { SEARCH_EVALUATION_DATASETS_QUERY_KEY } from '../constants';
+import { V2_DATASETS_PAGE_QUERY_KEY } from '../../experiment-evaluation-datasets-v2/hooks/useDatasetsPageQuery';
 
 type CreateDatasetResponse = {
   dataset: EvaluationDataset;
@@ -37,6 +38,7 @@ export const useCreateEvaluationDatasetMutation = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [SEARCH_EVALUATION_DATASETS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [V2_DATASETS_PAGE_QUERY_KEY] });
       onSuccess?.();
     },
     onError: (error) => {

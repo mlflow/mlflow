@@ -59,7 +59,7 @@ def set_registry_uri(uri: str) -> None:
     .. code-block:: python
         :caption: Example
 
-        import mflow
+        import mlflow
 
         # Set model registry uri, fetch the set uri, and compare
         # it with the tracking uri. They should be different

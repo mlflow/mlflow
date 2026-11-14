@@ -113,7 +113,7 @@ export const TracesV4DateSelector = React.memo(function TracesV4DateSelector({
             <DialogComboboxCustomButtonTriggerWrapper>
               <Button
                 componentId="mlflow.traces-v4.date-selector.custom-presets.trigger"
-                icon={<CalendarIcon />}
+                icon={<CalendarIcon css={{ color: theme.colors.textSecondary }} />}
                 aria-label={timeRangeFilterLabel}
               />
             </DialogComboboxCustomButtonTriggerWrapper>
@@ -121,7 +121,7 @@ export const TracesV4DateSelector = React.memo(function TracesV4DateSelector({
             <DialogComboboxCustomButtonTriggerWrapper>
               <Button
                 componentId="mlflow.traces-v4.date-selector.trigger"
-                icon={<CalendarIcon />}
+                icon={<CalendarIcon css={{ color: theme.colors.textSecondary }} />}
                 endIcon={<ChevronDownIcon />}
                 aria-label={timeRangeButtonLabel}
                 data-testid="time-range-select-dropdown"

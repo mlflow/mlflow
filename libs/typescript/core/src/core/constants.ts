@@ -84,6 +84,8 @@ export const SpanAttributeKey = {
   // This attribute indicates which flavor/format generated the LLM span. This is
   // used by downstream (e.g., UI) to determine the message format for parsing.
   MESSAGE_FORMAT: 'mlflow.message.format',
+  SESSION_ID: 'session.id',
+  USER_ID: 'user.id',
 };
 
 /**
@@ -139,6 +141,12 @@ export const DATABRICKS_UC_TABLE_HEADER = 'X-Databricks-UC-Table-Name';
  * when sending to the OSS tracking server's /v1/traces endpoint.
  */
 export const MLFLOW_EXPERIMENT_ID_HEADER = 'x-mlflow-experiment-id';
+
+/**
+ * Maximum byte size of a single OTLP span-ingestion request. The WAL IPC
+ * submit envelope uses the same budget (see `exporters/wal/ipc.ts`).
+ */
+export const MAX_OTLP_REQUEST_BYTES = 32 * 1024 * 1024;
 
 /**
  * The default name for spans if the name is not provided when starting a span

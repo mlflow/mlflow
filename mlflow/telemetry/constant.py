@@ -89,6 +89,37 @@ NON_GENAI_MODULES = {
 
 MODULES_TO_CHECK_IMPORT = GENAI_MODULES | NON_GENAI_MODULES
 
+# Built-in MLflow flavors, used to bound the telemetry `flavor` value to a known set.
+# Anything else (a custom or third-party flavor) is reported as "other". Update this
+# when a built-in flavor is added or removed.
+KNOWN_FLAVORS = {
+    "catboost",
+    "diffusers",
+    "dspy",
+    "h2o",
+    "johnsnowlabs",
+    "keras",
+    "langchain",
+    "lightgbm",
+    "llama_index",
+    "onnx",
+    "openai",
+    "paddle",
+    "pmdarima",
+    "prophet",
+    "pyfunc",
+    "pytorch",
+    "sentence_transformers",
+    "shap",
+    "sklearn",
+    "spacy",
+    "spark",
+    "statsmodels",
+    "tensorflow",
+    "transformers",
+    "xgboost",
+}
+
 # fallback config to use for UI telemetry in case fetch fails
 FALLBACK_UI_CONFIG = {
     "disable_ui_telemetry": True,

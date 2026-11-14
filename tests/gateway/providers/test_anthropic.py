@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -228,7 +229,7 @@ async def test_completions_throws_with_unsupported_n():
     }
     with pytest.raises(AIGatewayException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
-    assert "'n' must be '1' for the Anthropic provider" in e.value.detail
+    assert e.value.detail == "'n' must be '1' for the Anthropic provider. Received value: '5'."
     assert e.value.status_code == 422
 
 
@@ -408,6 +409,16 @@ async def test_chat_with_max_completion_tokens():
         assert "max_completion_tokens" not in call_kwargs["json"]
 
 
+@pytest.mark.asyncio
+async def test_chat_throws_with_unsupported_n():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    payload = {"messages": [{"role": "user", "content": "Hello"}], "n": 3}
+    with pytest.raises(AIGatewayException, match=r".*") as e:
+        await provider.chat(chat.RequestPayload(**payload))
+    assert e.value.detail == "'n' must be '1' for the Anthropic provider. Received value: '3'."
+    assert e.value.status_code == 422
+
+
 def chat_function_calling_payload(stream: bool = False):
     payload = {
         "messages": [
@@ -492,7 +503,7 @@ async def test_chat_function_calling():
                         ],
                         "refusal": None,
                     },
-                    "finish_reason": "stop",
+                    "finish_reason": "tool_calls",
                 }
             ],
             "usage": {"prompt_tokens": 10, "completion_tokens": 25, "total_tokens": 35},
@@ -866,7 +877,7 @@ async def test_chat_function_calling_stream():
                 "choices": [
                     {
                         "index": 0,
-                        "finish_reason": "stop",
+                        "finish_reason": "tool_calls",
                         "delta": {"role": None, "content": None, "tool_calls": None},
                     }
                 ],
@@ -904,6 +915,138 @@ async def test_chat_function_calling_stream():
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
             allow_redirects=False,
         )
+
+
+def _sse(event):
+    return [b"data: " + json.dumps(event).encode() + b"\n", b"\n"]
+
+
+def _tool_use_stream(blocks):
+    """blocks: list of ("text", str) or ("tool", id, name, partial_json)."""
+    events = [
+        {
+            "type": "message_start",
+            "message": {
+                "id": "test-id",
+                "model": "claude-2.1",
+                "usage": {"input_tokens": 25, "output_tokens": 1},
+            },
+        }
+    ]
+    for i, block in enumerate(blocks):
+        if block[0] == "text":
+            start = {"type": "text", "text": ""}
+            delta = {"type": "text_delta", "text": block[1]}
+        else:
+            start = {"type": "tool_use", "id": block[1], "name": block[2], "input": {}}
+            delta = {"type": "input_json_delta", "partial_json": block[3]}
+        events += [
+            {"type": "content_block_start", "index": i, "content_block": start},
+            {"type": "content_block_delta", "index": i, "delta": delta},
+            {"type": "content_block_stop", "index": i},
+        ]
+    events.append({
+        "type": "message_delta",
+        "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+        "usage": {"output_tokens": 15},
+    })
+    return [line for e in events for line in _sse(e)]
+
+
+async def _stream_tool_calls(blocks):
+    config = chat_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post",
+        return_value=MockAsyncStreamingResponse(_tool_use_stream(blocks)),
+    ):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = chat_function_calling_payload(stream=True)
+        return [c async for c in provider.chat_stream(chat.RequestPayload(**payload))]
+
+
+def _merge_tool_calls(chunks):
+    calls = {}
+    for chunk in chunks:
+        assert [c.index for c in chunk.choices] == [0]
+        for tc in chunk.choices[0].delta.tool_calls or []:
+            call = calls.setdefault(tc.index, {"name": None, "arguments": ""})
+            call["name"] = call["name"] or tc.function.name
+            call["arguments"] += tc.function.arguments or ""
+    return calls
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_raises_on_in_band_error():
+    resp = [
+        *chat_stream_response()[:3],
+        b"event: error\n",
+        b'data: {"type": "error", "error": {"type": "overloaded_error", '
+        b'"message": "Overloaded"}}\n',
+        b"\n",
+    ]
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)):
+        provider = AnthropicProvider(EndpointConfig(**chat_config()))
+        response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
+        with pytest.raises(
+            AIGatewayException,
+            match="Anthropic returned overloaded_error while streaming: Overloaded",
+        ) as exc_info:
+            [chunk async for chunk in response]
+    assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_parallel_tool_calls():
+    chunks = await _stream_tool_calls([
+        ("tool", "toolu_1", "get_weather", '{"city": "Paris"}'),
+        ("tool", "toolu_2", "get_time", '{"tz": "UTC"}'),
+    ])
+    assert _merge_tool_calls(chunks) == {
+        0: {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        1: {"name": "get_time", "arguments": '{"tz": "UTC"}'},
+    }
+    assert len([c for c in chunks if c.choices[0].finish_reason]) == 1
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_three_parallel_tool_calls():
+    chunks = await _stream_tool_calls([
+        ("tool", "toolu_1", "get_weather", '{"city": "Paris"}'),
+        ("tool", "toolu_2", "get_time", '{"tz": "UTC"}'),
+        ("tool", "toolu_3", "get_weather", '{"city": "Tokyo"}'),
+    ])
+    assert _merge_tool_calls(chunks) == {
+        0: {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        1: {"name": "get_time", "arguments": '{"tz": "UTC"}'},
+        2: {"name": "get_weather", "arguments": '{"city": "Tokyo"}'},
+    }
+    assert len([c for c in chunks if c.choices[0].finish_reason]) == 1
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_text_then_tool_call():
+    chunks = await _stream_tool_calls([
+        ("text", "Let me check."),
+        ("tool", "toolu_1", "get_weather", '{"city": "Paris"}'),
+    ])
+    assert _merge_tool_calls(chunks) == {
+        0: {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+    assert len([c for c in chunks if c.choices[0].finish_reason]) == 1
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_text_between_tool_calls():
+    chunks = await _stream_tool_calls([
+        ("tool", "toolu_1", "get_weather", '{"city": "Paris"}'),
+        ("text", "Also checking the time."),
+        ("tool", "toolu_2", "get_time", '{"tz": "UTC"}'),
+    ])
+    assert _merge_tool_calls(chunks) == {
+        0: {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+        1: {"name": "get_time", "arguments": '{"tz": "UTC"}'},
+    }
+    assert len([c for c in chunks if c.choices[0].finish_reason]) == 1
 
 
 def embedding_config():
@@ -1595,10 +1738,9 @@ def test_anthropic_extract_streaming_token_usage_message_start_with_cached_token
         b'"cache_creation_input_tokens":15}}}\n'
     )
     result = provider._extract_streaming_token_usage(chunk)
-    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
-    # input_tokens = 100 + 25 + 15 = 140
+    # Cache tokens are added to input_tokens after the full stream is accumulated.
     assert result == {
-        "input_tokens": 140,
+        "input_tokens": 100,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1609,14 +1751,14 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     accumulated_usage = {}
 
     # message_start with input_tokens and cached tokens
-    # Anthropic's input_tokens (100) excludes cache, normalized to 100 + 25 = 125
+    # Keep input_tokens separate from cache counts until the full stream is accumulated.
     chunk1 = (
         b"event: message_start\n"
         b'data: {"type":"message_start","message":{"id":"msg_123",'
         b'"usage":{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
-    assert accumulated_usage == {"input_tokens": 125, "cache_read_input_tokens": 25}
+    assert accumulated_usage == {"input_tokens": 100, "cache_read_input_tokens": 25}
 
     # message_delta with output_tokens
     chunk2 = (
@@ -1626,10 +1768,67 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
     assert accumulated_usage == {
-        "input_tokens": 125,
+        "input_tokens": 100,
         "output_tokens": 50,
         "cache_read_input_tokens": 25,
     }
+
+
+def test_anthropic_extract_streaming_token_usage_message_delta_final_counts():
+    # With server tools, message_delta carries the final cumulative input and cache counts
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    accumulated_usage = {}
+    chunk1 = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":10,"cache_read_input_tokens":0,'
+        b'"cache_creation_input_tokens":0,"output_tokens":1}}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
+
+    chunk2 = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"input_tokens":120,"cache_read_input_tokens":100,'
+        b'"cache_creation_input_tokens":20,"output_tokens":50}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
+
+    # Raw counts are merged before normalization adds the cache tokens.
+    assert accumulated_usage == {
+        "input_tokens": 120,
+        "output_tokens": 50,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 20,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_usage_takes_final_counts_from_message_delta():
+    resp = chat_stream_response()
+    delta_index = next(
+        i for i, line in enumerate(resp) if line.startswith(b'data: {"type": "message_delta"')
+    )
+    resp[delta_index] = (
+        b'data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", '
+        b'"stop_sequence":null}, "usage":{"input_tokens": 120, "cache_read_input_tokens": 100, '
+        b'"cache_creation_input_tokens": 20, "output_tokens": 15}}\n'
+    )
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+    ) as mock_post:
+        provider = AnthropicProvider(EndpointConfig(**chat_config()))
+        response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+
+    mock_post.assert_called_once()
+    usage = chunks[-1]["usage"]
+    # input_tokens (120) excludes the cache tokens: 120 + 100 + 20
+    assert usage["prompt_tokens"] == 240
+    assert usage["completion_tokens"] == 15
+    assert usage["total_tokens"] == 255
+    assert usage["prompt_tokens_details"]["cached_tokens"] == 100
 
 
 def test_anthropic_adapter_build_chat_usage_with_cached_tokens():
@@ -1718,3 +1917,138 @@ def test_chat_to_model_string_content_unchanged():
     result = AnthropicAdapter.chat_to_model(payload, EndpointConfig(**chat_config()))
 
     assert result["messages"] == [{"role": "user", "content": "just text"}]
+
+
+_TOOL_PARAMS = {"type": "object", "properties": {"city": {"type": "string"}}}
+
+
+@pytest.mark.parametrize(
+    ("function", "expected_tool"),
+    [
+        (
+            {"name": "get_weather", "parameters": _TOOL_PARAMS},
+            {"name": "get_weather", "input_schema": _TOOL_PARAMS},
+        ),
+        (
+            {"name": "get_time", "description": "Get the time"},
+            {
+                "name": "get_time",
+                "description": "Get the time",
+                "input_schema": {"type": "object", "properties": {}},
+            },
+        ),
+        (
+            {"name": "get_time"},
+            {"name": "get_time", "input_schema": {"type": "object", "properties": {}}},
+        ),
+        (
+            {"name": "get_weather", "description": "Get weather", "parameters": _TOOL_PARAMS},
+            {"name": "get_weather", "description": "Get weather", "input_schema": _TOOL_PARAMS},
+        ),
+    ],
+    ids=["no-description", "no-parameters", "name-only", "all-fields"],
+)
+def test_chat_to_model_tool_optional_fields(function, expected_tool):
+    payload = chat.RequestPayload(
+        messages=[{"role": "user", "content": "hi"}],
+        tools=[{"type": "function", "function": function}],
+    )
+
+    result = AnthropicAdapter.chat_to_model(
+        jsonable_encoder(payload, exclude_none=True), EndpointConfig(**chat_config())
+    )
+
+    assert result["tools"] == [expected_tool]
+
+
+def test_chat_finish_reason_tool_use_is_tool_calls():
+    resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5",
+        "content": [
+            {"type": "tool_use", "id": "toolu_A", "name": "get_weather", "input": {"city": "Paris"}}
+        ],
+        "stop_reason": "tool_use",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 30, "output_tokens": 40},
+    }
+
+    result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == "tool_calls"
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "expected"),
+    [
+        ("end_turn", "stop"),
+        ("max_tokens", "length"),
+        ("model_context_window_exceeded", "length"),
+        ("refusal", "content_filter"),
+    ],
+)
+def test_chat_finish_reason(stop_reason, expected):
+    resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5",
+        "content": [{"type": "text", "text": "hi"}],
+        "stop_reason": stop_reason,
+        "stop_sequence": None,
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+
+    result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == expected
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ([{"type": "redacted_thinking", "data": "opaque"}, {"type": "text", "text": "hi"}], "hi"),
+        ([{"type": "redacted_thinking", "data": "opaque"}], None),
+    ],
+)
+def test_model_to_chat_skips_redacted_thinking(content, expected):
+    resp = {
+        "id": "msg_1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-sonnet-5",
+        "content": content,
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "usage": {"input_tokens": 1, "output_tokens": 1},
+    }
+
+    result = AnthropicAdapter.model_to_chat(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].message.content == expected
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "expected"),
+    [
+        ("tool_use", "tool_calls"),
+        ("max_tokens", "length"),
+        ("model_context_window_exceeded", "length"),
+        ("refusal", "content_filter"),
+        ("end_turn", "stop"),
+    ],
+)
+def test_chat_stream_finish_reason(stop_reason, expected):
+    resp = {
+        "type": "message_delta",
+        "id": "msg_1",
+        "model": "claude-sonnet-5",
+        "index": 0,
+        "delta": {"stop_reason": stop_reason, "stop_sequence": None},
+    }
+
+    result = AnthropicAdapter.model_to_chat_streaming(resp, EndpointConfig(**chat_config()))
+
+    assert result.choices[0].finish_reason == expected

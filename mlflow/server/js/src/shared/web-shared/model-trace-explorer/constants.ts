@@ -27,6 +27,8 @@ export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
 
 // Query parameter for selected trace ID in session pages
 export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
+// One-shot intent consumed by the trace drawer after entering custom-view authoring.
+export const CREATE_CUSTOM_VIEW_QUERY_PARAM = 'createCustomView';
 export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';
 
 // Span attribute key for linked gateway trace
