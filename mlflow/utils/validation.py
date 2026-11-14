@@ -1184,8 +1184,10 @@ def _validate_gateway_api_base(url: str) -> None:
 # ``api_base``: ``base_url`` is litellm's alias for ``api_base``, ``model_list`` and
 # ``fallbacks`` carry per-deployment ``api_base`` values, ``custom_llm_provider`` swaps
 # the provider and with it the default endpoint, and the ``aws_*_endpoint`` options override
-# the AWS endpoints litellm would otherwise derive from the region. OAuth destinations such as
-# ``gigachat_auth_url`` receive provider credentials and must follow the same policy.
+# the AWS endpoints litellm would otherwise derive from the region. ``sagemaker_base_url``
+# replaces the whole SageMaker runtime URL, which litellm then SigV4-signs with the stored AWS
+# credentials. OAuth destinations such as ``gigachat_auth_url`` receive provider credentials and
+# must follow the same policy.
 GATEWAY_DESTINATION_KEYS = frozenset({
     "api_base",
     "base_url",
@@ -1194,6 +1196,7 @@ GATEWAY_DESTINATION_KEYS = frozenset({
     "custom_llm_provider",
     "aws_bedrock_runtime_endpoint",
     "aws_sts_endpoint",
+    "sagemaker_base_url",
     "gigachat_auth_url",
 })
 # ``api_base`` is the one validated way to choose the upstream, so the aliases are rejected in

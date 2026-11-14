@@ -702,14 +702,23 @@ def test_upstream_ssrf_protection_enabled_for_stored_base_url_alias(store: SqlAl
 
 
 @pytest.mark.parametrize("config_field", ["auth_config", "secret_value"])
-def test_upstream_ssrf_protection_enabled_for_stored_oauth_destination(config_field):
+@pytest.mark.parametrize(
+    ("provider", "destination"),
+    [
+        ("gigachat", {"gigachat_auth_url": "https://oauth.example.com/token"}),
+        ("sagemaker", {"sagemaker_base_url": "http://10.0.0.1/invocations"}),
+    ],
+)
+def test_upstream_ssrf_protection_enabled_for_stored_provider_destination(
+    config_field, provider, destination
+):
     model = GatewayModelConfig(
         model_definition_id="legacy-model",
-        provider="gigachat",
+        provider=provider,
         model_name="m",
         secret_value={"api_key": "configured-key"},
     )
-    setattr(model, config_field, {"gigachat_auth_url": "https://oauth.example.com/token"})
+    setattr(model, config_field, destination)
     endpoint_config = GatewayEndpointConfig(
         endpoint_id="legacy-endpoint", endpoint_name="legacy-endpoint", models=[model]
     )
