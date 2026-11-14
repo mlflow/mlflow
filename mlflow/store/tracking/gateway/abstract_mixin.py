@@ -101,6 +101,10 @@ class GatewayStoreMixin:
                          auth_config is unchanged.
             updated_by: Username of the updater.
 
+        When auth_config sets api_base to a different hostname, supply secret_value
+        in the same request. Clearing api_base and changes to the path, scheme,
+        or port do not require it.
+
         Returns:
             Updated Secret entity.
         """
