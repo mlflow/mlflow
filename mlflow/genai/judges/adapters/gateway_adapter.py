@@ -19,7 +19,7 @@ from mlflow.utils.providers import _lookup_model_info
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.gateway.providers.base import BaseProvider
-    from mlflow.types.llm import ChatMessage
+    from mlflow.types.llm import ChatMessage, ToolCall
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -94,19 +94,35 @@ class InvokeOutput:
 # ---------------------------------------------------------------------------
 
 
+_THOUGHT_SIGNATURES_ATTR = "_mlflow_gateway_thought_signatures"
+
+
+def _tool_call_to_dict(tool_call: "ToolCall", thought_signature: str | None) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "id": tool_call.id,
+        "type": tool_call.type,
+        "function": {"name": tool_call.function.name, "arguments": tool_call.function.arguments},
+    }
+    if thought_signature:
+        d["thought_signature"] = thought_signature
+    return d
+
+
 def _message_to_dict(msg: "ChatMessage") -> dict[str, Any]:
-    """Serialize a ChatMessage to OpenAI message format, omitting None fields."""
+    """Serialize a ChatMessage to OpenAI message format, omitting None fields.
+
+    Gemini thought signatures live in private message metadata, aligned by position with
+    ``msg.tool_calls``. Call IDs cannot be used as keys because Gemini derives missing IDs
+    from the function name and arguments, so repeated identical calls share an ID.
+    """
     d: dict[str, Any] = {"role": msg.role}
     if msg.content is not None:
         d["content"] = msg.content
     if msg.tool_calls is not None:
+        sigs = getattr(msg, _THOUGHT_SIGNATURES_ATTR, [])
         d["tool_calls"] = [
-            {
-                "id": tc.id,
-                "type": tc.type,
-                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-            }
-            for tc in msg.tool_calls
+            _tool_call_to_dict(tc, sigs[i] if i < len(sigs) else None)
+            for i, tc in enumerate(msg.tool_calls)
         ]
     if msg.tool_call_id is not None:
         d["tool_call_id"] = msg.tool_call_id
@@ -222,6 +238,7 @@ def _parse_response_message(
         content = content or None
 
     tool_calls_raw = None
+    thought_signatures = []
     if resp_msg.tool_calls:
         # Convert gateway ToolCall objects back to dicts for ChatMessage auto-conversion
         tool_calls_raw = [
@@ -235,6 +252,7 @@ def _parse_response_message(
             }
             for tc in resp_msg.tool_calls
         ]
+        thought_signatures = [getattr(tc, "thought_signature", None) for tc in resp_msg.tool_calls]
 
     # ChatMessage requires content when tool_calls is absent
     if content is None and not tool_calls_raw:
@@ -247,14 +265,13 @@ def _parse_response_message(
             "completion_tokens": getattr(chat_response.usage, "completion_tokens", None),
         }
 
-    return (
-        ChatMessage(
-            role=resp_msg.role,
-            content=content,
-            tool_calls=tool_calls_raw,
-        ),
-        usage,
+    message = ChatMessage(
+        role=resp_msg.role,
+        content=content,
+        tool_calls=tool_calls_raw,
     )
+    setattr(message, _THOUGHT_SIGNATURES_ATTR, thought_signatures)
+    return message, usage
 
 
 # ---------------------------------------------------------------------------

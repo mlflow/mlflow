@@ -790,6 +790,111 @@ def test_tool_calling_loop(mock_trace):
     assert json.loads(output.response) == {"result": "yes", "rationale": "Trace looks good"}
 
 
+@pytest.mark.parametrize(
+    ("call_ids", "signatures", "prune", "parallel"),
+    [
+        (["call_1"], ["sig_1"], False, False),
+        ([None, None], ["sig_1", "sig_2"], False, False),
+        ([None, None], ["sig_1", None], False, False),
+        (["call_1", "call_2"], ["sig_1", "sig_2"], True, False),
+        (["call_1", "call_2"], ["sig_1", None], False, True),
+        (["call_1", "call_2"], [None, "sig_2"], False, True),
+    ],
+)
+def test_tool_calling_loop_preserves_gemini_thought_signatures(
+    mock_trace, monkeypatch, call_ids, signatures, prune, parallel
+):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+    def response(parts):
+        return {
+            "candidates": [
+                {
+                    "content": {"role": "model", "parts": parts},
+                    "finishReason": "STOP",
+                }
+            ],
+            "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5},
+        }
+
+    parts = []
+    for call_id, sig in zip(call_ids, signatures, strict=True):
+        function_call = {"name": "get_trace_info", "args": {}}
+        if call_id is not None:
+            function_call["id"] = call_id
+        part = {"functionCall": function_call}
+        if sig is not None:
+            part["thoughtSignature"] = sig
+        parts.append(part)
+    responses = [response(parts)] if parallel else [response([part]) for part in parts]
+    if prune:
+        responses.append(
+            ChatCompletionError(
+                400, "maximum context length exceeded", is_context_window_error=True
+            )
+        )
+    responses.append(response([{"text": json.dumps({"result": "yes", "rationale": "ok"})}]))
+
+    def process_tool_calls(tool_calls, trace):
+        return [
+            ChatMessage(
+                role="tool",
+                content='{"trace_id": "test-trace"}',
+                tool_call_id=tc.id,
+                name=tc.function.name,
+            )
+            for tc in tool_calls
+        ]
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=responses,
+        ) as mock_send,
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
+            side_effect=process_tool_calls,
+        ) as mock_process,
+    ):
+        output = GatewayAdapter()._invoke_and_handle_tools(
+            provider="gemini",
+            model_name="gemini-3-flash",
+            messages=[ChatMessage(role="user", content="evaluate this")],
+            trace=mock_trace,
+            num_retries=0,
+        )
+
+    tool_rounds = 1 if parallel else len(signatures)
+    assert mock_send.call_count == tool_rounds + 1 + int(prune)
+    assert mock_process.call_args_list == [
+        mock.call(tool_calls=mock.ANY, trace=mock_trace) for _ in range(tool_rounds)
+    ]
+    assert json.loads(output.response) == {"result": "yes", "rationale": "ok"}
+    final_payload = mock_send.call_args_list[-1].kwargs["payload"]
+    model_turns = [c for c in final_payload["contents"] if c["role"] == "model"]
+    expected_signatures = signatures[1:] if prune else signatures
+    assert len(model_turns) == (1 if parallel else len(expected_signatures))
+    assert [
+        part.get("thoughtSignature") for turn in model_turns for part in turn["parts"]
+    ] == expected_signatures
+    if parallel:
+        assert sum("thoughtSignature" in part for part in model_turns[0]["parts"]) == 1
+    if prune or parallel:
+        assert [
+            part["functionResponse"]["id"]
+            for turn in final_payload["contents"]
+            for part in turn["parts"]
+            if "functionResponse" in part
+        ] == (["call_2"] if prune else call_ids)
+    if len(call_ids) == 1:
+        assert model_turns[0]["parts"] == [
+            {
+                "functionCall": {"id": "call_1", "name": "get_trace_info", "args": {}},
+                "thoughtSignature": "sig_1",
+            }
+        ]
+
+
 def test_token_counts_accumulated_across_iterations(mock_trace):
     # Tokens from all iterations (including tool-call rounds) should be summed,
     # matching LiteLLM adapter behavior which accumulates cost across iterations.
