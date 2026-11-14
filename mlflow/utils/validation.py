@@ -1296,6 +1296,28 @@ def _find_destination_keys(value: Any) -> set[str]:
     return set()
 
 
+def _iter_region_key_values(value: Any) -> Iterator[tuple[str, Any]]:
+    """Yield ``(key, value)`` for every region key nested anywhere in ``value``.
+
+    Like ``_find_destination_keys``, this also reads the two-item pairs ``dict()`` accepts.
+    """
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in GATEWAY_REGION_KEYS:
+                yield key, nested
+            yield from _iter_region_key_values(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            if (
+                isinstance(nested, list)
+                and len(nested) == 2
+                and isinstance(nested[0], str)
+                and nested[0] in GATEWAY_REGION_KEYS
+            ):
+                yield nested[0], nested[1]
+            yield from _iter_region_key_values(nested)
+
+
 def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
     """Yield every ``third_party_scorer_data`` mapping nested anywhere in a serialized scorer.
 
@@ -1322,7 +1344,8 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
     every ``litellm.completion()`` call, so ``api_base`` and its aliases let a caller pick the
     host the server connects to. The server is the trust boundary for these payloads, so the
     gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
-    ``model_kwargs``, ...) and inside any wrapping scorer.
+    ``model_kwargs``, ...) and inside any wrapping scorer. Providers build request hosts from
+    the region keys, so those must be bare region names at any nesting depth too.
     """
     for data in _iter_third_party_scorer_data(serialized_scorer):
         kwargs = data.get("kwargs")
@@ -1339,6 +1362,11 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
                 "the judge endpoint on the server instead, for example through a gateway "
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
+        for key, value in _iter_region_key_values(kwargs):
+            try:
+                _validate_region_name(value, f"third_party_scorer_data.kwargs {key!r}")
+            except ValueError as e:
+                raise MlflowException.invalid_parameter_value(str(e)) from None
 
 
 # Serialized judges whose data carries ``inference_params``: ``InstructionsJudge`` (``make_judge``)
