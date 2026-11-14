@@ -3,7 +3,8 @@ name: Update Model Catalog
 on:
   schedule:
     # Every 30 minutes, off the top of the hour when GitHub delays scheduled runs most.
-    # `create-pr` leaves an in-flight catalog PR alone, so frequent runs don't restart its CI.
+    # Each run publishes the live catalog; `create-pr` files at most one PR a day to refresh
+    # the bundled copy.
     - cron: "17,47 * * * *"
   workflow_dispatch:
   push:
@@ -19,9 +20,10 @@ on:
       - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  # Non-PR runs share one group so an older sync can't publish over a newer one.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || 'catalog-update' }}
   # Only PR runs are safe to cancel. The `create-pr` and `publish` jobs push
-  # changes and tags, and are skipped on `pull_request`.
+  # changes and release assets, and are skipped on `pull_request`.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 defaults:
@@ -36,7 +38,7 @@ env:
 
 jobs:
   sync:
-    if: github.repository == 'mlflow/mlflow' && github.event_name != 'push'
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -134,6 +136,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           # Log API requests to diagnose labels occasionally being applied twice
           GH_DEBUG: api
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           branch="update-model-catalog"
           existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
@@ -146,6 +149,14 @@ jobs:
             pushed_at=$(gh pr view "$existing_pr" --json commits --jq '.commits[-1].committedDate | fromdate')
             if [ "$checks_rc" -ne 1 ] && [ $(( $(date +%s) - pushed_at )) -lt 10800 ]; then
               echo "PR #$existing_pr is still in CI or the merge queue — skipping update."
+              exit 0
+            fi
+          elif [ "$EVENT_NAME" = schedule ]; then
+            # File at most one PR per UTC day. `publish` keeps the live catalog fresh in between,
+            # so the PR only refreshes the bundled copy. A manual dispatch bypasses the limit.
+            last_created=$(gh pr list --head "$branch" --state all --limit 10 --json createdAt --jq '[.[].createdAt] | max // empty')
+            if [ "${last_created%%T*}" = "$(date -u +%F)" ]; then
+              echo "A catalog PR was already filed today ($last_created). Skipping."
               exit 0
             fi
           fi
@@ -185,7 +196,8 @@ jobs:
           exit 1
 
   publish:
-    if: github.repository == 'mlflow/mlflow' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: sync
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
@@ -194,14 +206,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-          persist-credentials: true
+          persist-credentials: false
+          sparse-checkout: |
+            dev
+            mlflow/utils/model_catalog
 
-      - name: Update model-catalog/latest tag
-        env:
-          GITHUB_SHA: ${{ github.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.sync.outputs.changed == 'true'
+        with:
+          name: model-catalog-patch
+
+      - name: Apply patch
+        if: needs.sync.outputs.changed == 'true'
         run: |
-          git tag -f model-catalog/latest "$GITHUB_SHA"
-          git push -f origin refs/tags/model-catalog/latest
+          # Publish the freshly synced catalog instead of waiting for the daily PR to merge.
+          # Apply catalog files only, so the patch can't touch the publish script.
+          git apply --include='mlflow/utils/model_catalog/*' model-catalog.patch
+          rm model-catalog.patch
 
       - name: Publish to GitHub Releases
         env:
