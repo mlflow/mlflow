@@ -28,9 +28,9 @@ version = mlflow.genai.register_mcp_server(
         "packages": [
             {
                 "registryType": "npm",
-                "identifier": "@anthropic/brave-search-mcp",
+                "identifier": "@brave/brave-search-mcp-server",
                 "transport": {"type": "stdio"},
-                "version": "1.0.0",
+                "version": "2.1.4",
             }
         ],
         "remotes": [
@@ -42,7 +42,7 @@ version = mlflow.genai.register_mcp_server(
     },
     status="active",
     # Optional: record the source of this server definition
-    source="https://github.com/anthropic/brave-search-mcp",
+    source="https://github.com/brave/brave-search-mcp-server",
 )
 
 print(f"Registered '{version.name}' version {version.version}")
