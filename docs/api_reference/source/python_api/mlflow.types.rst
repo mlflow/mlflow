@@ -14,6 +14,9 @@ mlflow.types
 .. automodule:: mlflow.types.agent
     :members:
 
+.. automodule:: mlflow.types.agent_info
+    :members:
+
 .. automodule:: mlflow.types.llm
     :members:
 
