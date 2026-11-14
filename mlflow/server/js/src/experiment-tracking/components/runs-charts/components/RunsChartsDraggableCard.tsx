@@ -1,4 +1,4 @@
-import { forwardRef, memo, useCallback, useRef, useState } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useRef, useState } from 'react';
 import { RunsChartsCard, type RunsChartsCardProps } from './cards/RunsChartsCard';
 import { DraggableCore, type DraggableEventHandler } from 'react-draggable';
 import { Resizable } from 'react-resizable';
@@ -14,6 +14,8 @@ import { useRunsChartsDraggableGridActionsContext } from './RunsChartsDraggableC
 import { RUNS_CHARTS_UI_Z_INDEX } from '../utils/runsCharts.const';
 
 const VIEWPORT_DEBOUNCE_MS = 150;
+const SCROLL_EDGE_THRESHOLD = 60;
+const SCROLL_SPEED = 15;
 
 interface RunsChartsDraggableCardProps extends RunsChartsCardProps {
   uuid?: string;
@@ -40,9 +42,11 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
   const { setDraggedCardUuid, onDropChartCard } = useRunsChartsDraggableGridActionsContext();
 
   const draggedCardElementRef = useRef<HTMLDivElement | null>(null);
+  const dragActiveRef = useRef(false);
 
   const onStartDrag = useCallback<DraggableEventHandler>(
     (_, { x, y }) => {
+      dragActiveRef.current = true;
       setIsDragging(true);
       setDraggedCardUuid(uuid ?? null);
       setOrigin({ x, y });
@@ -51,15 +55,32 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
   );
 
   const onDrag = useCallback(
-    (_, { x, y }) => {
+    (e, { x, y }) => {
       if (draggedCardElementRef.current) {
         draggedCardElementRef.current.style.transform = `translate3d(${x - origin.x}px, ${y - origin.y}px, 0)`;
+      }
+
+      // Auto-scroll the chart area when dragging near its top/bottom edges
+      const scrollContainer = draggedCardElementRef.current?.closest<HTMLElement>(
+        '[data-testid="experiment-view-compare-runs-chart-area"]',
+      );
+
+      if (scrollContainer) {
+        const rect = scrollContainer.getBoundingClientRect();
+        const clientY = (e as MouseEvent).clientY;
+
+        if (clientY < rect.top + SCROLL_EDGE_THRESHOLD) {
+          scrollContainer.scrollBy(0, -SCROLL_SPEED);
+        } else if (clientY > rect.bottom - SCROLL_EDGE_THRESHOLD) {
+          scrollContainer.scrollBy(0, SCROLL_SPEED);
+        }
       }
     },
     [origin],
   );
 
   const onStopDrag = useCallback(() => {
+    dragActiveRef.current = false;
     onDropChartCard();
     setDraggedCardUuid(null);
     if (draggedCardElementRef.current) {
@@ -67,6 +88,31 @@ export const RunsChartsDraggableCard = memo((props: RunsChartsDraggableCardProps
     }
     setIsDragging(false);
   }, [onDropChartCard, setDraggedCardUuid, draggedCardElementRef]);
+
+  // Force-end the drag if a real mouseup was swallowed before reaching
+  // DraggableCore's own document-level listener (e.g. an ancestor element
+  // like the sidebar calling stopPropagation). We intentionally do NOT key
+  // off `mouseleave`: the browser keeps delivering real mousemove/mouseup
+  // events to the document even when the cursor is outside the window, as
+  // long as the window still has focus, so DraggableCore's own drag state
+  // stays valid there and forcing a stop on mouseleave just desyncs us
+  // from it instead of fixing anything.
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const forceStopDrag = () => {
+      requestAnimationFrame(() => {
+        if (dragActiveRef.current) {
+          onStopDrag();
+        }
+      });
+    };
+
+    document.addEventListener('mouseup', forceStopDrag, true);
+    return () => {
+      document.removeEventListener('mouseup', forceStopDrag, true);
+    };
+  }, [isDragging, onStopDrag]);
 
   const onResizeStartInternal = useCallback(() => {
     const rect = draggedCardElementRef.current?.getBoundingClientRect();
