@@ -2102,6 +2102,17 @@ def test_span_record_exception_with_exception():
     assert "Custom error message" in event_attrs
 
 
+@pytest.mark.parametrize("exception", [asyncio.CancelledError(), KeyboardInterrupt()])
+def test_span_record_exception_with_base_exception(exception):
+    span = mlflow.start_span_no_context("test_span")
+    span.record_exception(exception)
+    span.end()
+
+    test_span = get_traces()[0].data.spans[0]
+    assert test_span.status.status_code == SpanStatusCode.ERROR
+    assert [e.attributes["exception.type"] for e in test_span.events] == [type(exception).__name__]
+
+
 def test_span_record_exception_invalid_type():
     with mlflow.start_span("test_span") as span:
         with pytest.raises(

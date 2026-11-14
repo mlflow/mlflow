@@ -1172,18 +1172,19 @@ class LiveSpan(Span):
         if hasattr(self._span, "add_link"):
             self._span.add_link(otel_context, link.attributes)
 
-    def record_exception(self, exception: str | Exception):
+    def record_exception(self, exception: str | BaseException):
         """
         Record an exception on the span, adding an exception event and setting span status to ERROR.
 
         Args:
-            exception: The exception to record. Can be an Exception instance or a string
+            exception: The exception to record. Can be an exception instance (including
+                ``asyncio.CancelledError`` and other ``BaseException`` subclasses) or a string
                 describing the exception.
         """
         if isinstance(exception, str):
             exception = Exception(exception)
 
-        if isinstance(exception, Exception):
+        if isinstance(exception, BaseException):
             self.add_event(SpanEvent.from_exception(exception))
         else:
             raise MlflowException(
@@ -1611,7 +1612,7 @@ class NoOpSpan(Span):
     def add_link(self, link: Link) -> None:
         pass
 
-    def record_exception(self, exception: str | Exception):
+    def record_exception(self, exception: str | BaseException):
         pass
 
     def end(
