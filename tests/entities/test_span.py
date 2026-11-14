@@ -437,6 +437,17 @@ def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
     assert otel_proto.events[0].time_unix_nano == 1500000000
 
 
+@pytest.mark.parametrize("output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]"])
+def test_span_otel_proto_roundtrip_keeps_string_outputs_and_span_type(output):
+    with mlflow.start_span("span", span_type=SpanType.CHAIN) as span:
+        span.set_outputs(output)
+
+    restored = Span.from_otel_proto(span.to_otel_proto())
+
+    assert restored.outputs == output
+    assert restored.span_type == SpanType.CHAIN
+
+
 def test_span_from_otel_proto_conversion():
     # Create OTel proto span
     otel_proto = OTelProtoSpan()
