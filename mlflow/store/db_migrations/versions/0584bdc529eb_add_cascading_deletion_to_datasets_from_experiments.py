@@ -60,7 +60,7 @@ def upgrade():
             },
         ) as batch_op:
             # in SQLite, constraint.name is None, so we have to hardcode it
-            batch_op.drop_constraint(new_fk_constraint_name, type_="foreignkey")
+            batch_op.drop_constraint(new_fk_constraint_name, type_="foreignkey", if_exists=True)
             # Need to explicitly name the fk constraint with batch alter table
             batch_op.create_foreign_key(
                 new_fk_constraint_name,
