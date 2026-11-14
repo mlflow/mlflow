@@ -61,6 +61,7 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
+    MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT,
     MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES,
     MLFLOW_ENABLE_WORKSPACES,
 )
@@ -3181,6 +3182,60 @@ def test_create_experiment_rejects_artifact_location_near_default_artifact_root_
     )
     assert _create_experiment().status_code == 400
     mock_tracking_store.create_experiment.assert_not_called()
+
+
+def test_create_experiment_rejects_local_artifact_location_outside_root(
+    mock_get_request_message, mock_tracking_store, monkeypatch, tmp_path
+):
+    root = tmp_path / "mlartifacts"
+    root.mkdir()
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "mlflow-artifacts:/")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(root))
+
+    for artifact_location in ("file:///srv/shared", "/srv/shared", f"file://{tmp_path}/elsewhere"):
+        mock_get_request_message.return_value = CreateExperiment(
+            name="exp", artifact_location=artifact_location
+        )
+        response = _create_experiment()
+        assert response.status_code == 400
+        message = json.loads(response.get_data())["message"]
+        assert "'artifact_location' cannot use a local path outside the artifact root" in message
+        assert MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT.name in message
+    mock_tracking_store.create_experiment.assert_not_called()
+
+
+def test_create_experiment_accepts_local_artifact_location_inside_root(
+    mock_get_request_message, mock_tracking_store, monkeypatch, tmp_path
+):
+    root = tmp_path / "mlartifacts"
+    root.mkdir()
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "mlflow-artifacts:/")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(root))
+    mock_tracking_store.create_experiment.return_value = "1"
+
+    artifact_location = f"file://{root}/team-a"
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location=artifact_location
+    )
+    assert _create_experiment().status_code == 200
+    mock_tracking_store.create_experiment.assert_called_once_with("exp", artifact_location, [])
+
+
+def test_create_experiment_allows_local_artifact_location_when_opted_in(
+    mock_get_request_message, mock_tracking_store, monkeypatch, tmp_path
+):
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "mlflow-artifacts:/")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(tmp_path / "mlartifacts"))
+    monkeypatch.setenv(MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT.name, "true")
+    mock_tracking_store.create_experiment.return_value = "1"
+
+    mock_get_request_message.return_value = CreateExperiment(
+        name="exp", artifact_location="file:///mnt/shared/team-a"
+    )
+    assert _create_experiment().status_code == 200
+    mock_tracking_store.create_experiment.assert_called_once_with(
+        "exp", "file:///mnt/shared/team-a", []
+    )
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,6 @@
 """
-Policy for artifact URIs whose scheme makes MLflow connect to the host named in the URI.
+Policy for artifact URIs that make MLflow connect to the host named in the URI, or read and write
+files under a local directory the client chose rather than the server's own storage.
 
 The artifact repositories for ``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``r2``, ``b2`` and
 ``abfss`` connect to the host and port in the URI, and so do ``http``, ``https`` and
@@ -10,18 +11,35 @@ job subprocesses that inherit its environment, only the hosts of the server's ow
 ``--default-artifact-root`` and ``--artifacts-destination`` are connected to, unless the operator
 allows a scheme via ``MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES``.
 
-Both trusted hosts and the server-process marker come from the environment variables that
+A ``file:`` or scheme-less location names a directory on the server's own filesystem. An
+experiment ``artifact_location`` set to an arbitrary local directory would otherwise make the
+server create run directories and write uploaded artifacts there, and serve files back from there,
+outside the storage it was configured with. Inside a server process such local locations are
+confined to the server's own ``--default-artifact-root`` and ``--artifacts-destination``
+directories, unless the operator opts out via ``MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT``.
+
+Both trusted roots and the server-process marker come from the environment variables that
 ``mlflow server`` exports to its workers. A deployment that runs the WSGI app directly must export
-the same variables to get the same trusted hosts and registry-level enforcement.
+the same variables to get the same trusted roots and registry-level enforcement.
 """
 
 import os
+import pathlib
 import urllib.parse
 
-from mlflow.environment_variables import MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT,
+    MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.os import is_windows
 from mlflow.utils.uri import get_uri_scheme
+
+# Schemes that name a directory on the server's own filesystem. ``get_uri_scheme`` reports a
+# scheme-less path (``/data`` or ``data``) and a Windows drive path (``C:\\data``) as ``""``.
+_LOCAL_ARTIFACT_SCHEMES = frozenset({"", "file"})
 
 # Mirrors `mlflow.server.constants`, which the store layer cannot import because the `mlflow.server`
 # package pulls in Flask. `tests/store/artifact/test_host_policy.py` pins the two to stay equal.
@@ -153,6 +171,88 @@ def validate_artifact_uri_host(artifact_uri: str) -> None:
     )
 
 
+def _local_path_of(uri: str) -> str | None:
+    """
+    Return the local filesystem path that ``uri`` resolves to for ``LocalArtifactRepository``, or
+    None when ``uri`` is not a local location. The conversion mirrors the repository's own
+    ``local_file_uri_to_path`` so the path checked here is the path later written to, including a
+    ``file://host/path`` form whose authority the repository drops on POSIX.
+    """
+    scheme = get_uri_scheme(uri)
+    if scheme not in _LOCAL_ARTIFACT_SCHEMES:
+        return None
+    if is_windows() and scheme == "file" and urllib.parse.urlparse(uri).netloc:
+        # ``file://server/share`` is a UNC network location on Windows, not a server-local path.
+        return None
+    return local_file_uri_to_path(uri)
+
+
+def _trusted_local_roots() -> set[pathlib.Path]:
+    roots = set()
+    for env_var in (_SERVER_ARTIFACT_ROOT_ENV_VAR, _SERVER_ARTIFACTS_DESTINATION_ENV_VAR):
+        if uri := os.environ.get(env_var):
+            if (path := _local_path_of(uri)) is not None:
+                roots.add(pathlib.Path(path).resolve())
+    return roots
+
+
+def rejected_local_artifact_path(uri: str) -> str | None:
+    """
+    Return the local filesystem path of ``uri`` when a tracking server must not store artifacts
+    there, or None when the URI is acceptable: it is not a local location, the server is not the
+    one that configured the storage, the operator opted out via
+    ``MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT``, or it resolves inside one of the
+    server's own local artifact roots.
+
+    A server that stores only on remote backends has no trusted local root, so every local
+    location is rejected (fail closed). A process that is not acting for a configured server
+    cannot know the roots and so enforces nothing, matching the host-addressed policy.
+    """
+    if not is_tracking_server_process():
+        return None
+    if MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT.get():
+        return None
+    path = _local_path_of(uri)
+    if path is None:
+        return None
+    resolved = pathlib.Path(path).resolve()
+    for root in _trusted_local_roots():
+        if resolved == root or resolved.is_relative_to(root):
+            return None
+    return path
+
+
+def local_artifact_rejection_message(
+    path: str, *, uri: str | None = None, field_name: str | None = None
+) -> str:
+    """
+    Build the error for a rejected local location, phrased for a request field when ``field_name``
+    is given and for a stored location otherwise.
+    """
+    reason = (
+        f"the local path '{path}' is outside the tracking server's configured artifact storage, "
+        "so the server would read and write files under a directory chosen by the client"
+    )
+    hint = (
+        f"Set the {MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT.name} environment variable on "
+        "the server to allow it."
+    )
+    if field_name is not None:
+        return f"'{field_name}' cannot use a local path outside the artifact root: {reason}. {hint}"
+    return f"The tracking server does not serve artifact location '{uri}': {reason}. {hint}"
+
+
+def validate_artifact_uri_local_path(artifact_uri: str) -> None:
+    """Raise when a server must not store artifacts at the local path in ``artifact_uri``."""
+    path = rejected_local_artifact_path(artifact_uri)
+    if path is None:
+        return
+    raise MlflowException(
+        local_artifact_rejection_message(path, uri=artifact_uri),
+        error_code=INVALID_PARAMETER_VALUE,
+    )
+
+
 def is_tracking_server_process() -> bool:
     """
     The tracking server exports its default artifact root to its workers and to the job
@@ -164,7 +264,9 @@ def is_tracking_server_process() -> bool:
 def enforce_server_artifact_uri_host_policy(artifact_uri: str) -> None:
     """
     Raise when called on behalf of a tracking server for a URI whose host the server must not
-    connect to. Client processes are unaffected.
+    connect to, or whose local path is outside the server's configured artifact storage. Client
+    processes are unaffected.
     """
     if is_tracking_server_process():
         validate_artifact_uri_host(artifact_uri)
+        validate_artifact_uri_local_path(artifact_uri)

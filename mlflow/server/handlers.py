@@ -375,8 +375,11 @@ from mlflow.store.artifact.artifact_repo import (
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.host_policy import (
     host_addressed_rejection_message,
+    local_artifact_rejection_message,
     rejected_host_addressed_scheme,
+    rejected_local_artifact_path,
     validate_artifact_uri_host,
+    validate_artifact_uri_local_path,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -1552,16 +1555,23 @@ def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
         raise MlflowException.invalid_parameter_value(
             host_addressed_rejection_message(scheme, field_name=field_name)
         )
+    path = rejected_local_artifact_path(uri)
+    if path is not None:
+        raise MlflowException.invalid_parameter_value(
+            local_artifact_rejection_message(path, field_name=field_name)
+        )
 
 
 def _get_artifact_repository_for_uri(artifact_uri: str) -> ArtifactRepository:
     """
     Build the artifact repository for a stored location the server did not configure itself,
-    refusing to connect to hosts outside its configured artifact storage. The registry applies the
-    same policy to every repository built in a server process; this explicit check keeps the
-    handlers covered when the server is run without the `mlflow server` CLI environment.
+    refusing to connect to hosts outside its configured artifact storage or to read and write
+    local directories outside it. The registry applies the same policy to every repository built
+    in a server process; this explicit check keeps the handlers covered when the server is run
+    without the `mlflow server` CLI environment.
     """
     validate_artifact_uri_host(artifact_uri)
+    validate_artifact_uri_local_path(artifact_uri)
     return get_artifact_repository(artifact_uri)
 
 
@@ -3583,6 +3593,7 @@ def get_model_version_artifact_handler():
         run_root = _get_tracking_store().get_run(run_id).info.artifact_uri
         artifact_uri = append_to_uri_path(run_root, source_path)
         validate_artifact_uri_host(artifact_uri)
+        validate_artifact_uri_local_path(artifact_uri)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
