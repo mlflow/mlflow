@@ -79,6 +79,13 @@ def _get_root_uri_and_artifact_path(artifact_uri):
         else:  # if we're dealing with nt-based systems, we need to utilize pathname2url to encode.
             artifact_uri = path_to_local_file_uri(artifact_uri)
 
+    # On Windows, absolute paths (e.g. "C:\path\to\artifact") that don't yet
+    # exist on disk bypass the os.path.exists() branch above and reach urlparse
+    # directly. urlparse incorrectly interprets the drive letter as a URL scheme
+    # (e.g. scheme='c'), causing a "Could not find a registered artifact
+    # repository" error. Convert to a file:// URI before parsing.
+    if is_windows() and pathlib.PureWindowsPath(str(artifact_uri)).drive:
+        artifact_uri = path_to_local_file_uri(str(artifact_uri))
     parsed_uri = urllib.parse.urlparse(str(artifact_uri))
     prefix = ""
     if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
