@@ -13,23 +13,23 @@ If no URLs are passed as arguments, use the relevant job, run, or PR URLs alread
 
 ## Steps
 
-- 1. Fetch logs with the following command. Single-quote each URL to protect shell special characters like `?`.
+1. Fetch logs with the following command. Single-quote each URL to protect shell special characters like `?`.
 
-  ```bash
-  uv run --package skills skills fetch-logs '<url1>' ['<url2>' ...]
-  ```
+   ```bash
+   uv run --package skills skills fetch-logs '<url1>' ['<url2>' ...]
+   ```
 
-- 2. Read all reported ranges. If no failed-step range is available, inspect the raw log directly. State the root cause and its impact, with a short log excerpt. Group pytest failures that share a cause and give their count. Include a full pytest node ID (e.g. `tests/test_foo.py::test_bar[case1]`) when a specific case helps explain the failure. Mention package versions or snapshot changes only if they help explain the failure.
+2. Read all reported ranges. If no failed-step range is available, inspect the raw log directly. State the root cause and its impact, with a short log excerpt. Group pytest failures that share a cause and give their count. Include a full pytest node ID (e.g. `tests/test_foo.py::test_bar[case1]`) when a specific case helps explain the failure. Mention package versions or snapshot changes only if they help explain the failure.
 
-- 3. Format each job with a heading, an evidence list, and a summary of 1–2 sentences plus the log excerpt.
+3. Format each job with a heading, an evidence list, and a summary of 1–2 sentences plus the log excerpt.
 
-  ```markdown
-  ## <workflow name> / <job name>
+   ```markdown
+   ## <workflow name> / <job name>
 
-  - URL: <job_url>
-  - Raw log: <raw_log_path>
+   - URL: <job_url>
+   - Raw log: <raw_log_path>
 
-  <summary>
-  ```
+   <summary>
+   ```
 
-  Copy the raw log path verbatim from step 1. If no failed step is recorded, include the reported `Conclusion:` field too.
+   Copy the raw log path verbatim from step 1. If no failed step is recorded, include the reported `Conclusion:` field too. When another skill calls `analyze-ci`, also copy each reported line-range field verbatim so the caller can locate the same evidence in the cached log.
