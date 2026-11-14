@@ -64,16 +64,9 @@ jq '.[] | .[] | select(has("pull_request") | not) | {number, title, body, html_u
   "$out_dir/inputs/open-nightly-issues.json"
 ```
 
-If there are failed jobs, pass their `html_url` values from the saved job lists to
-`fetch-logs` in one call:
-
-```bash
-uv run --package skills skills fetch-logs '<job_url1>' ['<job_url2>' ...]
-```
-
-Read the reported ranges from the cached raw logs. If no failed-step range is
-reported, inspect the raw log directly. Reuse these logs and the saved nightly
-inputs throughout the investigation.
+Use [analyze-ci](../analyze-ci/SKILL.md) once for all failed-job URLs. Read the
+failed-step logs and relevant code, configuration, or dependency changes, and reuse
+these cached paths and the saved nightly inputs instead of fetching them again.
 
 ## Investigate
 
