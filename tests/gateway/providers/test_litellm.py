@@ -1195,6 +1195,7 @@ def chat_config_with_base_url_alias():
         ("custom_llm_provider", "ollama"),
         ("aws_bedrock_runtime_endpoint", "http://127.0.0.1:11434"),
         ("aws_sts_endpoint", "http://127.0.0.1:11434"),
+        ("sagemaker_base_url", "http://127.0.0.1:11434/invocations"),
         ("gigachat_auth_url", "https://oauth.example.com/token"),
         ("aws_region_name", "evil.example/invocations?x="),
         ("vertex_location", "evil.example/#"),
@@ -1335,6 +1336,7 @@ async def test_chat_folds_public_base_url_alias_into_api_base_when_upstream_prot
         ),
         ("aws_bedrock_runtime_endpoint", "http://10.0.0.1/"),
         ("aws_sts_endpoint", "http://10.0.0.1/"),
+        ("sagemaker_base_url", "http://10.0.0.1/invocations"),
         ("gigachat_auth_url", "https://oauth.example.com/token"),
     ],
 )
