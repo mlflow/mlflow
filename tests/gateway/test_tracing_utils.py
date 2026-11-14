@@ -355,15 +355,15 @@ async def test_maybe_traced_gateway_call_ignores_stream_status_resolver_errors(e
     async def mock_async_stream(payload):
         yield "Hello"
 
+    resolver = mock.Mock(side_effect=ValueError("boom"))
     traced_func = maybe_traced_gateway_call(
-        mock_async_stream,
-        endpoint_config,
-        stream_status_resolver=mock.Mock(side_effect=ValueError("boom")),
+        mock_async_stream, endpoint_config, stream_status_resolver=resolver
     )
 
     chunks = [chunk async for chunk in traced_func({"input": "test"})]
 
     assert chunks == ["Hello"]
+    resolver.assert_called_once_with(["Hello"])
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.state == TraceState.OK
