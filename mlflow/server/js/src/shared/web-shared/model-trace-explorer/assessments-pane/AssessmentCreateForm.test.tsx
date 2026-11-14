@@ -5,8 +5,10 @@ import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
+import { useUserIdentity } from '../../global-settings/getUser';
 
 import { AssessmentCreateForm } from './AssessmentCreateForm';
+import { useCreateAssessment } from '../hooks/useCreateAssessment';
 import type { Assessment } from '../ModelTrace.types';
 import { MOCK_ASSESSMENT, MOCK_EXPECTATION } from '../ModelTraceExplorer.test-utils';
 import { AssessmentSchemaContextProvider } from '../contexts/AssessmentSchemaContext';
@@ -20,6 +22,11 @@ jest.mock('../hooks/useCreateAssessment', () => ({
     createAssessmentMutation: jest.fn(),
     isLoading: false,
   })),
+}));
+
+jest.mock('../../global-settings/getUser', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
+  useUserIdentity: jest.fn(() => ({ user: 'User', isResolved: true })),
 }));
 
 const TestWrapper = ({ children, assessments = [] }: { children: React.ReactNode; assessments?: Assessment[] }) => {
@@ -293,6 +300,71 @@ describe('AssessmentCreateForm', () => {
         expect(nameInput).toHaveValue('Relevance');
         expect(dataTypeSelect).toHaveTextContent('String');
       });
+    });
+
+    it('closes the form when the signed-in user changes', async () => {
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'alice', isResolved: true });
+      const { rerender } = render(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+      await userEvent.type(screen.getByPlaceholderText('Enter a feedback name'), 'typed by alice');
+      expect(mockSetExpanded).not.toHaveBeenCalled();
+
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'bob', isResolved: true });
+      rerender(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+
+      expect(mockSetExpanded).toHaveBeenCalledWith(false);
+    });
+
+    it('keeps the form open when the current user is first resolved', () => {
+      jest.mocked(useUserIdentity).mockReturnValue({ user: '', isResolved: false });
+      const { rerender } = render(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'alice', isResolved: true });
+      rerender(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+
+      expect(mockSetExpanded).not.toHaveBeenCalled();
+    });
+
+    it('uses the authenticated username as the HUMAN source id', async () => {
+      const user = userEvent.setup();
+      const createAssessmentMutation = jest.fn();
+      jest.mocked(useUserIdentity).mockReturnValue({ user: 'alice', isResolved: true });
+      jest.mocked(useCreateAssessment).mockReturnValue({
+        createAssessmentMutation,
+        isLoading: false,
+      } as any);
+
+      render(
+        <TestWrapper>
+          <AssessmentCreateForm {...defaultProps} />
+        </TestWrapper>,
+      );
+
+      await user.type(screen.getByPlaceholderText('Enter a feedback name'), 'correctness');
+      await user.click(screen.getByRole('button', { name: 'Create' }));
+
+      expect(createAssessmentMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          assessment: expect.objectContaining({
+            source: { source_type: 'HUMAN', source_id: 'alice' },
+          }),
+        }),
+      );
     });
   });
 });

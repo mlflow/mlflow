@@ -23,6 +23,11 @@ jest.mock('../../hooks/useCreateAssessment', () => ({
   })),
 }));
 
+jest.mock('../../../global-settings/getUser', () => ({
+  ...jest.requireActual<typeof import('../../../global-settings/getUser')>('../../../global-settings/getUser'),
+  useUserIdentity: jest.fn(() => ({ user: 'User', isResolved: true })),
+}));
+
 const TestWrapper = ({ children, assessments = [] }: { children: React.ReactNode; assessments?: Assessment[] }) => {
   const queryClient = new QueryClient({
     defaultOptions: {

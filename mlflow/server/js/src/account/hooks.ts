@@ -4,12 +4,12 @@ import { AccountApi } from './api';
 import { isWorkspaceAdminRole } from './types';
 import type { UpdatePasswordRequest } from './types';
 
-export const useCurrentUserQuery = () => {
+export const useCurrentUserQuery = ({ refetchOnWindowFocus = false }: { refetchOnWindowFocus?: boolean } = {}) => {
   return useQuery({
     queryKey: ['account_current_user'],
     queryFn: AccountApi.getCurrentUser,
     retry: false,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus,
   });
 };
 

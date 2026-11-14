@@ -27,6 +27,7 @@ import {
   KnownEvaluationResultAssessmentValueLabel,
 } from './GenAiEvaluationTracesReview.utils';
 import { useEditAssessmentFormState } from '../hooks/useEditAssessmentFormState';
+import { useUserIdentity } from '../../global-settings/getUser';
 import type { AssessmentInfo, RunEvaluationResultAssessmentDraft, RunEvaluationResultAssessment } from '../types';
 import { useMarkdownConverter } from '../utils/MarkdownUtils';
 
@@ -45,6 +46,7 @@ const ExpandedAssessment = ({
   inputs, // Dependency array to control the refresh of the states.
   assessmentInfo,
   assessmentInfos,
+  sourceId,
 }: {
   assessmentsType: 'overall' | 'response' | 'retrieval';
   assessmentName: string;
@@ -56,6 +58,7 @@ const ExpandedAssessment = ({
   inputs?: any;
   assessmentInfo: AssessmentInfo;
   assessmentInfos: AssessmentInfo[];
+  sourceId: string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -210,6 +213,7 @@ const ExpandedAssessment = ({
                 isOverallAssessment: isOverallAssessment,
                 value,
                 rationale,
+                sourceId,
               });
               onUpsertAssessment(assessment);
               closeForm();
@@ -234,6 +238,7 @@ const ExpandedAssessments = ({
   options, // A list of known assessment names as options for the dropdown.
   inputs, // Dependency array to control the refresh of the states.
   assessmentInfos,
+  sourceId,
 }: {
   assessmentsType: 'overall' | 'response' | 'retrieval';
   assessmentsByName: [string, RunEvaluationResultAssessment[]][];
@@ -244,6 +249,7 @@ const ExpandedAssessments = ({
   options?: KnownEvaluationResultAssessmentName[];
   inputs?: any;
   assessmentInfos: AssessmentInfo[];
+  sourceId: string;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -289,6 +295,7 @@ const ExpandedAssessments = ({
               inputs={inputs}
               assessmentInfo={assessmentInfo}
               assessmentInfos={assessmentInfos}
+              sourceId={sourceId}
             />
           );
         })}
@@ -327,6 +334,7 @@ const ExpandedAssessments = ({
                 isOverallAssessment: isOverallAssessment,
                 value,
                 rationale,
+                sourceId,
               });
               onUpsertAssessment(assessment);
               closeForm();
@@ -351,6 +359,7 @@ const CompactAssessments = ({
   options, // A list of known assessment names as options for the dropdown.
   inputs, // Dependency array to control the refresh of the states.
   assessmentInfos,
+  sourceId,
 }: {
   assessmentsType: 'overall' | 'response' | 'retrieval';
   assessmentsByName: [string, RunEvaluationResultAssessment[]][];
@@ -360,6 +369,7 @@ const CompactAssessments = ({
   options?: KnownEvaluationResultAssessmentName[];
   inputs?: any;
   assessmentInfos: AssessmentInfo[];
+  sourceId: string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -468,6 +478,7 @@ const CompactAssessments = ({
                 isOverallAssessment: isOverallAssessment,
                 value,
                 rationale,
+                sourceId,
               });
               onUpsertAssessment(assessment);
               closeForm();
@@ -505,6 +516,9 @@ export const EvaluationsReviewAssessments = ({
   inputs?: any;
   assessmentInfos: AssessmentInfo[];
 }) => {
+  const { user: sourceId, isResolved: isUserResolved } = useUserIdentity();
+  const canEdit = allowEditing && isUserResolved;
+
   // True if in expanded view, false otherwise.
   const [isExpandedView, setIsExpandedView] = useState(false);
   const showExpandedView = alwaysExpanded || isExpandedView;
@@ -529,11 +543,12 @@ export const EvaluationsReviewAssessments = ({
           assessmentsByName={filteredAssessmentsByName}
           rootCauseAssessment={rootCauseAssessment}
           onUpsertAssessment={onUpsertAssessment}
-          allowEditing={allowEditing}
+          allowEditing={canEdit}
           allowMoreThanOne={allowMoreThanOne}
           options={options}
           inputs={inputs}
           assessmentInfos={assessmentInfos}
+          sourceId={sourceId}
         />
       )}
       {!showExpandedView && (
@@ -541,11 +556,12 @@ export const EvaluationsReviewAssessments = ({
           assessmentsType={assessmentsType}
           assessmentsByName={filteredAssessmentsByName}
           onUpsertAssessment={onUpsertAssessment}
-          allowEditing={allowEditing}
+          allowEditing={canEdit}
           allowMoreThanOne={allowMoreThanOne}
           options={options}
           inputs={inputs}
           assessmentInfos={assessmentInfos}
+          sourceId={sourceId}
         />
       )}
       {containsAssessments && !alwaysExpanded && (
