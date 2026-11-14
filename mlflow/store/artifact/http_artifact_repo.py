@@ -1,3 +1,4 @@
+import contextvars
 import logging
 import os
 import posixpath
@@ -505,7 +506,10 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         try:
             futures = {}
             for i, credential in enumerate(create.credentials):
+                # Run each part in a copy of the caller's context so trace export's
+                # instrumentation suppression reaches the worker thread.
                 future = self.thread_pool.submit(
+                    contextvars.copy_context().run,
                     self._upload_part,
                     credential=credential,
                     local_file=local_file,

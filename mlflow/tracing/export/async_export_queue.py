@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS,
 )
+from mlflow.tracing.utils.suppression import suppress_export_tracing
 
 _logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class Task:
     args: Sequence[Any]
     error_msg: str = ""
 
+    @suppress_export_tracing()
     def handle(self) -> None:
         """Handle the task execution. This method must not raise any exception."""
         try:

@@ -14,6 +14,7 @@ from queue import Empty, Full, Queue
 from typing import Any, Callable, Literal
 
 import requests
+from opentelemetry import context as otel_context
 
 from mlflow.environment_variables import (
     _MLFLOW_TELEMETRY_PRE_WARM_DATABRICKS_SDK,
@@ -126,6 +127,14 @@ def _get_tracking_uri_info() -> tuple[str | None, bool | None]:
         return None, None
 
 
+def _suppress_instrumentation_in_thread() -> None:
+    # Keep other OpenTelemetry instrumentation (e.g. of `requests`) from tracing telemetry's own
+    # requests: with a shared tracer provider, each would become an MLflow trace whose export
+    # records more telemetry. Only called on MLflow's own threads, so it is never detached. See
+    # `suppress_export_tracing` in mlflow/tracing/utils/suppression.py for why the key is private.
+    otel_context.attach(otel_context.set_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY, True))
+
+
 class TelemetryClient:
     def __init__(self):
         self.info = asdict(
@@ -163,6 +172,7 @@ class TelemetryClient:
 
     def _fetch_config(self):
         def _fetch():
+            _suppress_instrumentation_in_thread()
             try:
                 self._get_config()
                 if self.config is None:
@@ -372,6 +382,7 @@ class TelemetryClient:
         # suppress logs in the consumer thread to avoid emitting any irrelevant
         # logs during telemetry collection.
         should_suppress_logs_in_thread.set(True)
+        _suppress_instrumentation_in_thread()
 
         while not self._is_config_fetched:
             time.sleep(0.1)
