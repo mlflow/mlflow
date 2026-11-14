@@ -886,7 +886,7 @@ def test_get_multiclass_classifier_metrics_suppresses_roc_auc_error(monkeypatch)
     with mock.patch(
         "mlflow.models.evaluation.evaluators.classifier.sk_metrics.roc_auc_score",
         side_effect=ValueError("boom"),
-    ):
+    ) as mock_roc_auc_score:
         metrics = _get_multiclass_classifier_metrics(
             y_true=[0, 0, 2, 2],
             y_pred=[0, 1, 2, 2],
@@ -899,6 +899,8 @@ def test_get_multiclass_classifier_metrics_suppresses_roc_auc_error(monkeypatch)
             labels=[0, 1, 2],
         )
 
+    mock_roc_auc_score.assert_called_once()
+    assert mock_roc_auc_score.call_args.kwargs["labels"] == [0, 1, 2]
     assert "roc_auc" not in metrics
     assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
 
