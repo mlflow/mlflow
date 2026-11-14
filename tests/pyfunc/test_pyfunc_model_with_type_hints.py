@@ -6,6 +6,7 @@ import sys
 from typing import Any, Dict, List, NamedTuple, Optional, Union
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pydantic
 import pytest
@@ -711,6 +712,20 @@ def test_python_model_local_testing_data_validation():
         {"role": "user", "content": "hello"},
     ]) == {"admin": "hello", "user": "hello"}
     assert pyfunc_model.predict(pdf) == {"admin": "hello"}
+
+
+def test_python_model_local_testing_numpy_scalars():
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[dict[str, int]], params=None) -> list[int]:
+            return [m["x"] * 2 for m in model_input]
+
+    model = Model()
+    # list(np.array(...)) and pandas scalar access yield NumPy scalars such as np.int64
+    result = model.predict([{"x": v} for v in np.array([1, 2])])
+    assert result == [2, 4]
+    assert [type(v) for v in result] == [int, int]
+    with pytest.raises(MlflowException, match=r"Expected type int, but got float64"):
+        model.predict([{"x": v} for v in np.array([1.5])])
 
 
 def test_python_model_local_testing_same_as_pyfunc_predict():
