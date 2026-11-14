@@ -11,6 +11,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
 import { HashRouter } from '../../genai-traces-table/utils/RoutingUtils';
 import { COST_METADATA_KEY, CREATE_CUSTOM_VIEW_QUERY_PARAM, TOKEN_USAGE_METADATA_KEY } from '../constants';
+import { PLAYGROUND_TRACE_ID_QUERY_PARAM } from '../routes';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { type DrawerComponentType, ModelTraceExplorerContextProvider } from './ModelTraceExplorerContext';
 import { ModelTraceExplorerDrawer } from './ModelTraceExplorerDrawer';
@@ -87,6 +88,49 @@ describe('ModelTraceExplorerDrawer', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Share' }));
 
     expect(mockClipboardCopy).toHaveBeenCalledWith(traceUrl);
+  });
+
+  test('opens the playground pre-filled from the trace', async () => {
+    const traceInfo = {
+      trace_id: 'tr-abc123',
+      request_time: '2025-01-01T00:00:00Z',
+      state: 'OK',
+      trace_metadata: {},
+      tags: {},
+    } as unknown as ModelTraceInfoV3;
+    const router = createMemoryRouter(
+      [
+        {
+          path: '*',
+          element: (
+            <ModelTraceExplorerDrawer
+              selectPreviousEval={jest.fn()}
+              selectNextEval={jest.fn()}
+              isPreviousAvailable={false}
+              isNextAvailable={false}
+              handleClose={jest.fn()}
+              experimentId="1"
+              traceInfo={traceInfo}
+            >
+              <div />
+            </ModelTraceExplorerDrawer>
+          ),
+        },
+      ],
+      { initialEntries: ['/experiments/1/traces'] },
+    );
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <RouterProvider router={router} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open in Playground' }));
+
+    expect(router.state.location.pathname).toBe('/experiments/1/playground');
+    expect(new URLSearchParams(router.state.location.search).get(PLAYGROUND_TRACE_ID_QUERY_PARAM)).toBe('tr-abc123');
   });
 
   describe('header metadata', () => {

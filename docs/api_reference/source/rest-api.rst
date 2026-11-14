@@ -5654,6 +5654,40 @@ Example::
 
 
 
+.. _fastapiPOSTgatewaymlflowv1playgroundlogtrace:
+
+Playground Log Trace
+--------------------
+
++---------------------------------------------+-------------+
+|                  Endpoint                   | HTTP Method |
++=============================================+=============+
+| ``/gateway/mlflow/v1/playground/log-trace`` | ``POST``    |
++---------------------------------------------+-------------+
+
+Log a playground chat completion as a new MLflow trace ("save back as a new trace").
+
+After iterating on a prompt in the playground, the user can persist the run so it lands in the
+same experiment's traces table for side-by-side comparison with the original trace.
+
+Example::
+
+    POST /gateway/mlflow/v1/playground/log-trace
+    {
+        "experiment_id": "123",
+        "messages": [{"role": "user", "content": "Hello"}],
+        "response": {"role": "assistant", "content": "Hi!"},
+        "usage": {"prompt_tokens": 3, "completion_tokens": 5, "total_tokens": 8},
+        "model": "my-endpoint",
+        "params": {"temperature": 0.7},
+        "tools": [{"type": "function", "function": {"name": "get_weather"}}],
+        "tool_choice": "auto",
+        "response_format": {"type": "json_object"},
+        "source_trace_id": "tr-abc"
+    }
+
+
+
 .. _fastapiGETgatewaymlflowv1models:
 
 List Models

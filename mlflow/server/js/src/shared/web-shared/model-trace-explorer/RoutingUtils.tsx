@@ -20,7 +20,9 @@ import {
   Link as LinkDirect,
   useLocation as useLocationDirect,
   useNavigate as useNavigateDirect,
+  useInRouterContext,
   BrowserRouter,
+  type NavigateOptions,
   type To,
 } from 'react-router-dom';
 import { Typography } from '@databricks/design-system';
@@ -233,6 +235,18 @@ const useLocation = useLocationDirect;
 // Not workspace-prefixed: callers navigate to a path read from the current location, which already carries it.
 const useNavigate = useNavigateDirect;
 
+/**
+ * Like `useNavigate`, but applies the same workspace prefixing as `Link`, for callers that
+ * navigate to a new route rather than to a path read from the current location.
+ */
+const useWorkspaceNavigate = () => {
+  const navigate = useNavigateDirect();
+  return useCallback(
+    (to: To, options?: NavigateOptions) => navigate(prefixRouteWithWorkspaceForTo(to), options),
+    [navigate],
+  );
+};
+
 const useHref = (to: To) => useHrefDirect(prefixRouteWithWorkspaceForTo(to));
 
 const Link = React.forwardRef<
@@ -263,4 +277,14 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, Link, useLocation, useNavigate, useHref, BrowserRouter };
+export {
+  generatePath,
+  useParams,
+  Link,
+  useLocation,
+  useNavigate,
+  useWorkspaceNavigate,
+  useHref,
+  useInRouterContext,
+  BrowserRouter,
+};

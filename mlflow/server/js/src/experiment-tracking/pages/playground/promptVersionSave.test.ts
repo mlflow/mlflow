@@ -64,6 +64,24 @@ describe('getSaveableMessages', () => {
     ]);
   });
 
+  it('drops tool-result turns from tool-loop runs so they do not corrupt the template', () => {
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'Be concise.' },
+      { role: 'user', content: 'Weather?' },
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [{ id: 'c1', type: 'function', function: { name: 'get_weather', arguments: '{}' } }],
+      },
+      { role: 'tool', content: '{"temp":"20C"}', tool_call_id: 'c1' },
+      { role: 'assistant', content: 'It is 20C.' },
+    ];
+    expect(getSaveableMessages(messages)).toEqual([
+      { role: 'system', content: 'Be concise.' },
+      { role: 'user', content: 'Weather?' },
+    ]);
+  });
+
   it('returns an empty list when every message is blank', () => {
     expect(getSaveableMessages([{ role: 'user', content: '   ' }])).toEqual([]);
   });

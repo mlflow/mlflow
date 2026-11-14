@@ -28,6 +28,7 @@ export {
   parseV4TraceId,
   isV4TraceId,
   normalizeConversation,
+  parseModelTraceToTreeWithMultipleRoots,
 } from './ModelTraceExplorer.utils';
 export {
   SESSION_ID_METADATA_KEY,
@@ -98,6 +99,11 @@ export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './
 export { formatCostUSD, formatEstimatedCostUSD, ESTIMATED_COST_PREFIX } from './CostUtils';
 export { EstimatedCostValue, estimatedCostMessages, type EstimatedCostValueProps } from './EstimatedCostValue';
 export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';
+export {
+  getExperimentPagePlaygroundRoute,
+  PLAYGROUND_TRACE_ID_QUERY_PARAM,
+  PLAYGROUND_SPAN_ID_QUERY_PARAM,
+} from './routes';
 export {
   getIssueReferenceFromAssessment,
   getUniqueIssueReferenceAssessments,
