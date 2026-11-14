@@ -16,6 +16,7 @@ try:
         ChatCompletionChoice,
         ChatCompletionResponse,
         FunctionCall,
+        Tool,
         ToolCall,
         UsageInfo,
     )
@@ -29,6 +30,7 @@ except ImportError:
         ChatCompletionChoice,
         ChatCompletionResponse,
         FunctionCall,
+        Tool,
         ToolCall,
         UsageInfo,
     )
@@ -236,14 +238,18 @@ def test_chat_complete_autolog(mock_litellm_cost):
     assert len(traces) == 1
 
 
-def test_chat_complete_autolog_tool_calling():
+@pytest.mark.parametrize("sdk_tool_models", [False, True])
+def test_chat_complete_autolog_tool_calling(sdk_tool_models):
+    request = DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
+    if sdk_tool_models:
+        request = {**request, "tools": [Tool.model_validate(t) for t in request["tools"]]}
     with patch(
         CHAT_DO_REQUEST_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE),
     ):
         mlflow.mistral.autolog()
         client = Mistral(api_key="test_key")
-        client.chat.complete(**DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST)
+        client.chat.complete(**request)
 
     traces = get_traces()
     assert len(traces) == 1
