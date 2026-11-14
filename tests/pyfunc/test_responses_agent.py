@@ -1495,3 +1495,69 @@ def test_cc_stream_to_responses_stream_handles_multiple_invalid_chunks():
     assert events[1].type == "response.output_text.delta"
     assert events[1].delta == " content"
     assert events[2].type == "response.output_item.done"
+
+
+@pytest.mark.parametrize(
+    ("next_chunks", "expected_item_types"),
+    [
+        (
+            [
+                {
+                    "id": "msg-1",
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "call_1",
+                                        "function": {"name": "get_weather", "arguments": "{}"},
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                },
+                {"id": "msg-1", "choices": [{"delta": {}, "finish_reason": "tool_calls"}]},
+            ],
+            ["reasoning", "function_call"],
+        ),
+        (
+            [
+                {
+                    "id": "msg-1",
+                    "choices": [{"delta": {"content": [{"type": "text", "text": "It is sunny."}]}}],
+                }
+            ],
+            ["reasoning", "message"],
+        ),
+    ],
+)
+def test_cc_stream_to_responses_stream_emits_reasoning_not_followed_by_string_content(
+    next_chunks, expected_item_types
+):
+    reasoning_chunk = {
+        "id": "msg-1",
+        "choices": [
+            {
+                "delta": {
+                    "content": [
+                        {
+                            "type": "reasoning",
+                            "summary": [{"type": "summary_text", "text": "Check the weather."}],
+                        }
+                    ]
+                }
+            }
+        ],
+    }
+    aggregator = []
+
+    events = list(
+        output_to_responses_items_stream(iter([reasoning_chunk, *next_chunks]), aggregator)
+    )
+
+    done_items = [event.item for event in events if event.type == "response.output_item.done"]
+    assert [item["type"] for item in done_items] == expected_item_types
+    assert done_items[0]["summary"] == [{"type": "summary_text", "text": "Check the weather."}]
+    assert aggregator == done_items
