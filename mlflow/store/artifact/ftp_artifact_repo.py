@@ -2,7 +2,7 @@ import ftplib
 import os
 import posixpath
 import urllib.parse
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from ftplib import FTP
 from urllib.parse import unquote
 
@@ -37,11 +37,10 @@ class FTPArtifactRepository(ArtifactRepository):
 
     @contextmanager
     def get_ftp_client(self):
-        ftp = FTP()
-        ftp.connect(self.config["host"], self.config["port"])
-        ftp.login(self.config["username"], self.config["password"])
-        yield ftp
-        ftp.close()
+        with closing(FTP()) as ftp:
+            ftp.connect(self.config["host"], self.config["port"])
+            ftp.login(self.config["username"], self.config["password"])
+            yield ftp
 
     @staticmethod
     def _is_dir(ftp, full_file_path):
