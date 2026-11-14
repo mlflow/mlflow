@@ -1059,6 +1059,49 @@ def test_aggregate_openai_responses_stream_chunks_returns_completed_response():
     assert result["usage"]["total_tokens"] == 48
 
 
+@pytest.mark.parametrize(
+    ("event_type", "status", "details"),
+    [
+        (
+            "response.incomplete",
+            "incomplete",
+            {"incomplete_details": {"reason": "max_output_tokens"}},
+        ),
+        (
+            "response.failed",
+            "failed",
+            {"error": {"code": "server_error", "message": "Upstream failure"}},
+        ),
+    ],
+)
+# An empty terminator exercises the trailing-bytes flush path.
+@pytest.mark.parametrize("terminator", ["\n", ""])
+def test_aggregate_openai_responses_stream_chunks_non_completed_terminal_events(
+    event_type: str, status: str, details: dict[str, Any], terminator: str
+):
+    response = {
+        "id": "resp_1",
+        "object": "response",
+        "status": status,
+        "output": [
+            {
+                "id": "msg_1",
+                "type": "message",
+                "status": "incomplete",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Hi", "annotations": []}],
+            }
+        ],
+        "usage": {"input_tokens": 37, "output_tokens": 1, "total_tokens": 38},
+        **details,
+    }
+    event = {"type": event_type, "response": response}
+    terminal = f"data: {json.dumps(event)}{terminator}".encode()
+    chunks = [_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA, terminal]
+
+    assert aggregate_openai_responses_stream_chunks(chunks) == response
+
+
 # ---------------------------------------------------------------------------
 # Tests for aggregate_gemini_stream_generate_content_chunks
 # ---------------------------------------------------------------------------

@@ -610,14 +610,22 @@ def aggregate_gemini_stream_generate_content_chunks(
     return result
 
 
+_OPENAI_RESPONSES_TERMINAL_EVENT_TYPES = frozenset({
+    "response.completed",
+    "response.incomplete",
+    "response.failed",
+})
+
+
 def aggregate_openai_responses_stream_chunks(
     chunks: list[bytes],
 ) -> dict[str, Any] | None:
     """
     Aggregate raw OpenAI Responses API SSE streaming chunks into a single response object.
 
-    The OpenAI Responses streaming API emits a ``response.completed`` event that contains
-    the fully-assembled response object — including all output items, content parts, and
+    The OpenAI Responses streaming API ends with a terminal event (``response.completed``,
+    ``response.incomplete``, or ``response.failed``) that contains the fully-assembled
+    response object — including all output items, content parts, status details, and
     token usage. This function locates that event and returns its ``response`` field,
     giving the same shape as a non-streaming Responses API call::
 
@@ -636,7 +644,7 @@ def aggregate_openai_responses_stream_chunks(
             ...
         }
 
-    Returns ``None`` if *chunks* is empty or contains no ``response.completed`` event.
+    Returns ``None`` if *chunks* is empty or contains no terminal event.
     """
     if not chunks:
         return None
@@ -653,13 +661,13 @@ def aggregate_openai_responses_stream_chunks(
         leftover = lines[-1]
         complete = b"\n".join(lines[:-1]) + b"\n"
         for event in parse_sse_lines(complete):
-            if event.get("type") == "response.completed":
+            if event.get("type") in _OPENAI_RESPONSES_TERMINAL_EVENT_TYPES:
                 return event.get("response")
 
     # Flush any remaining bytes that were not followed by a newline.
     if leftover:
         for event in parse_sse_lines(leftover):
-            if event.get("type") == "response.completed":
+            if event.get("type") in _OPENAI_RESPONSES_TERMINAL_EVENT_TYPES:
                 return event.get("response")
 
     return None
