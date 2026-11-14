@@ -720,6 +720,8 @@ def parse_outputs_to_str(value: Any) -> str:
         return parse_outputs_to_str(value[0])
 
     value = _to_dict(value)
+    if not isinstance(value, dict):
+        return json.dumps(value, cls=TraceJSONEncoder)
     if _is_chat_choices(value.get(_CHOICES_KEY)):
         content = value[_CHOICES_KEY][0][_MESSAGE_KEY][_CONTENT_KEY]
     elif _is_chat_messages(value.get(_MESSAGES_KEY)):
