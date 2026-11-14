@@ -1,6 +1,10 @@
-import { test, expect, jest } from '@jest/globals';
-import LocalStorageUtils from './LocalStorageUtils';
+import { afterEach, test, expect, jest } from '@jest/globals';
+import LocalStorageUtils, { setStorageItem } from './LocalStorageUtils';
 import { ExperimentPagePersistedState } from '../../experiment-tracking/sdk/MlflowLocalStorageMessages';
+
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
 test('Setting key-value pairs in one scope does not affect the other', () => {
   const store0 = LocalStorageUtils.getStoreForComponent('SomeTestComponent', 1);
@@ -59,4 +63,65 @@ test('Session scoped storage works', () => {
     expect(store.loadComponentState().searchInput).toEqual('params.ollKorrect');
     expect(otherStore.loadComponentState().searchInput).toEqual('metrics.ok');
   });
+});
+
+test('Oversized cached state is discarded before loading', () => {
+  const store = LocalStorageUtils.getStoreForComponent('OversizedStateTest', 1);
+  const storageKey = store.withScopePrefix('chartUIState');
+  window.localStorage.setItem(storageKey, 'x'.repeat(1_000_001));
+
+  expect(store.getItem('chartUIState')).toBeNull();
+  expect(window.localStorage.getItem(storageKey)).toBeNull();
+});
+
+test('Oversized writes preserve the last cached state', () => {
+  const store = LocalStorageUtils.getStoreForComponent('OversizedWriteTest', 1);
+  store.setItem('chartUIState', 'stale state');
+
+  store.setItem('chartUIState', 'x'.repeat(1_000_001));
+
+  expect(store.getItem('chartUIState')).toBe('stale state');
+});
+
+test('Non-quota storage errors are re-thrown', () => {
+  const storage = {
+    setItem: () => {
+      throw new DOMException('Access denied.', 'SecurityError');
+    },
+  } as unknown as Storage;
+
+  expect(() => setStorageItem(storage, 'chartUIState', 'new state')).toThrow('Access denied.');
+});
+
+test('Firefox quota errors are ignored', () => {
+  const storage = {
+    setItem: () => {
+      throw new DOMException('The quota has been exceeded.', 'NS_ERROR_DOM_QUOTA_REACHED');
+    },
+  } as unknown as Storage;
+
+  expect(() => setStorageItem(storage, 'chartUIState', 'new state')).not.toThrow();
+});
+
+test('Legacy Firefox quota error codes are ignored', () => {
+  const quotaError = new DOMException('The quota has been exceeded.', 'UnknownError');
+  Object.defineProperty(quotaError, 'code', { value: 1014 });
+  const storage = {
+    setItem: () => {
+      throw quotaError;
+    },
+  } as unknown as Storage;
+
+  expect(() => setStorageItem(storage, 'chartUIState', 'new state')).not.toThrow();
+});
+
+test('Quota exhaustion preserves the last cached state without crashing', () => {
+  const store = LocalStorageUtils.getStoreForComponent('QuotaTest', 1);
+  store.setItem('chartUIState', 'stale state');
+  jest.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+    throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+  });
+
+  expect(() => store.setItem('chartUIState', 'new state')).not.toThrow();
+  expect(store.getItem('chartUIState')).toBe('stale state');
 });
