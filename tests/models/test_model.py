@@ -293,6 +293,19 @@ def test_load_model_without_mlflow_version():
         assert loaded_model.mlflow_version is None
 
 
+def test_load_model_with_forward_slash_path(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "model_dir").mkdir()
+    model = Model(artifact_path="model", run_id="1234")
+    with open(tmp_path / "model_dir" / "MLmodel", "w") as out:
+        model.to_yaml(out)
+
+    # `/` is a valid separator on every platform, including Windows
+    assert Model.load("model_dir/MLmodel").run_id == "1234"
+    assert Model.load("./model_dir/MLmodel").run_id == "1234"
+    assert Model.load("model_dir/").run_id == "1234"
+
+
 def test_model_log_with_databricks_runtime():
     dbr_version = "8.3.x"
     with mlflow.start_run():
