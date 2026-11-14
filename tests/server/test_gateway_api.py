@@ -2278,6 +2278,100 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
         assert b"response.completed" in chunks[7]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("terminal_event", "expected_state", "expected_description"),
+    [
+        (
+            {
+                "type": "response.failed",
+                "response": {
+                    "id": "resp_1",
+                    "status": "failed",
+                    "output": [],
+                    "error": {"code": "server_error", "message": "Upstream failure"},
+                },
+            },
+            TraceState.ERROR,
+            "server_error: Upstream failure",
+        ),
+        (
+            {
+                "type": "response.incomplete",
+                "response": {
+                    "id": "resp_1",
+                    "status": "incomplete",
+                    "output": [],
+                    "incomplete_details": {"reason": "max_output_tokens"},
+                },
+            },
+            TraceState.OK,
+            "",
+        ),
+    ],
+    ids=["failed", "incomplete"],
+)
+async def test_openai_passthrough_responses_streaming_trace_status(
+    store: SqlAlchemyStore,
+    terminal_event: dict[str, Any],
+    expected_state: TraceState,
+    expected_description: str,
+):
+    endpoint_name = "openai-responses-status-endpoint"
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+    secret = store.create_gateway_secret(
+        secret_name="openai-responses-status-key",
+        secret_value={"api_key": "sk-test-responses-status"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-responses-status-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={"model": endpoint_name, "input": "Hello", "stream": True}
+    )
+
+    async def mock_stream_generator():
+        yield (
+            b'data: {"type":"response.created","response":{"id":"resp_1",'
+            b'"status":"in_progress","output":[]}}\n\n'
+        )
+        yield f"data: {json.dumps(terminal_event)}\n\n".encode()
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_stream_request",
+        return_value=mock_stream_generator(),
+    ):
+        response = await openai_passthrough_responses(mock_request)
+        chunks = [chunk async for chunk in response.body_iterator]
+
+    assert len(chunks) == 2
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == expected_state
+    root_span = next(span for span in trace.data.spans if span.parent_id is None)
+    assert root_span.status.description == expected_description
+    assert root_span.outputs == terminal_event["response"]
+
+
 # =============================================================================
 # Anthropic Messages API passthrough endpoint tests
 # =============================================================================

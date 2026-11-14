@@ -79,6 +79,7 @@ from mlflow.gateway.tracing_utils import (
     aggregate_gemini_stream_generate_content_chunks,
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
+    openai_responses_stream_status,
 )
 from mlflow.gateway.utils import safe_stream, to_sse_stream, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -1462,6 +1463,7 @@ async def openai_passthrough_responses(request: Request):
             endpoint_config,
             user_metadata,
             output_reducer=aggregate_openai_responses_stream_chunks,
+            stream_status_resolver=openai_responses_stream_status,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
             on_complete=make_budget_on_complete(
