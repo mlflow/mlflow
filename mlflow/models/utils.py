@@ -1372,6 +1372,15 @@ def _enforce_datatype(data: Any, dtype: DataType, required=True):
     return pd_series[0]
 
 
+def _enforce_array_of_datatype(data, dtype: DataType) -> np.ndarray:
+    enforced = _enforce_mlflow_datatype("", pd.Series(data), dtype)
+    # NumPy string and bool dtypes cannot hold missing values, so casting to them would turn None
+    # into "None" or False (and truncate every string to one character on pandas 3).
+    if dtype in (DataType.string, DataType.boolean) and enforced.isna().any():
+        return enforced.to_numpy(dtype=object, na_value=None)
+    return enforced.to_numpy(dtype=dtype.to_numpy())
+
+
 def _enforce_array(data: Any, arr: Array, required: bool = True):
     """
     Enforce data against an Array type.
@@ -1388,13 +1397,7 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
     if isinstance(arr.dtype, DataType):
         # TODO: this is still significantly slower than direct np.asarray dtype conversion
         # pd.Series conversion can be removed once we support direct validation on the numpy array
-        data_enforced = (
-            _enforce_mlflow_datatype("", pd.Series(data), arr.dtype).to_numpy(
-                dtype=arr.dtype.to_numpy()
-            )
-            if len(data) > 0
-            else data
-        )
+        data_enforced = _enforce_array_of_datatype(data, arr.dtype) if len(data) > 0 else data
     else:
         data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
