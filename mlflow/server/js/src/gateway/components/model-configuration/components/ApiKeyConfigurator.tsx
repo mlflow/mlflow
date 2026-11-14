@@ -5,6 +5,7 @@ import { GatewayInput } from '../../common';
 import { SecretInput } from '../../secrets/SecretInput';
 import { SecretSelector } from '../../secrets/SecretSelector';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../../utils/providerUtils';
+import { isApiKeySecretField } from '../../../utils/secretUtils';
 import type { ApiKeyConfiguration, NewSecretData } from '../types';
 import type { SecretInfo, AuthMode, SecretField, ConfigField } from '../../../types';
 
@@ -335,6 +336,7 @@ function NewSecretForm({
               placeholder={field.description}
               validationState={errors?.secretFields?.[field.name] ? 'error' : undefined}
               disabled={disabled}
+              asciiOnly={isApiKeySecretField(field.name)}
             />
           ) : (
             <GatewayInput

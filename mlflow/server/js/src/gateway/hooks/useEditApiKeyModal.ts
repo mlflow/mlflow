@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { useUpdateSecret } from './useUpdateSecret';
 import { useProviderConfigQuery } from './useProviderConfigQuery';
+import { hasNonAsciiApiKey } from '../utils/secretUtils';
 import type { SecretFormData } from '../components/secrets/types';
 import type { SecretInfo } from '../types';
 
@@ -172,6 +173,8 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       );
       if (!allRequiredSecretsProvided) return false;
     }
+
+    if (hasNonAsciiApiKey(formData.secretFields)) return false;
 
     const requiredConfigFields = selectedAuthMode?.config_fields?.filter((f) => f.required) ?? [];
     const allRequiredConfigsProvided = requiredConfigFields.every((field) =>

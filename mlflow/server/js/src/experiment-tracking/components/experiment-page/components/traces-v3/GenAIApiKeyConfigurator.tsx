@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
-  FormUI,
   Radio,
   Spinner,
   Typography,
@@ -15,9 +14,10 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { SecretSelector } from '../../../../../gateway/components/secrets/SecretSelector';
-import { SecretInput } from '../../../../../gateway/components/secrets/SecretInput';
+import { NonAsciiApiKeyMessage, SecretInput } from '../../../../../gateway/components/secrets/SecretInput';
 import { GatewayInput } from '../../../../../gateway/components/common';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../../../../gateway/utils/providerUtils';
+import { hasNonAsciiApiKey, isApiKeySecretField } from '../../../../../gateway/utils/secretUtils';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import type { AuthMode, SecretInfo } from '../../../../../gateway/types';
 import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
@@ -467,6 +467,12 @@ function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }
   });
 
   const isUsingExistingKey = value.mode === 'existing' && value.existingSecretId;
+  // The input doubles as a search over saved key names, so don't flag text that still matches one.
+  const newApiKeyText = value.mode === 'new' ? (value.newSecret.secretFields[fieldName] ?? '') : '';
+  const isSearchingSavedKeys =
+    newApiKeyText !== '' && secrets.some((s) => s.secret_name.toLowerCase().includes(newApiKeyText.toLowerCase()));
+  const hasNonAsciiError =
+    value.mode === 'new' && !isSearchingSavedKeys && hasNonAsciiApiKey(value.newSecret.secretFields);
 
   return (
     <div>
@@ -506,6 +512,7 @@ function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }
           </TypeaheadComboboxMenu>
         )}
       </TypeaheadComboboxRoot>
+      {hasNonAsciiError && <NonAsciiApiKeyMessage />}
     </div>
   );
 }
@@ -543,6 +550,7 @@ function FieldInput({ field, value, onChange, disabled }: FieldInputProps) {
           onChange={(e) => onChange(field.name, e.target.value)}
           placeholder={field.description}
           disabled={disabled}
+          asciiOnly={isApiKeySecretField(field.name)}
         />
       ) : (
         <GatewayInput

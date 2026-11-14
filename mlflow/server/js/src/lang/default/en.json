@@ -18627,6 +18627,10 @@
     "defaultMessage": "Comparing",
     "description": "Comparing"
   },
+  "v0gpEC": {
+    "defaultMessage": "API key contains non-ASCII characters. Check that your keyboard is not in a non-Latin input mode.",
+    "description": "Error shown when a masked API key input contains non-ASCII characters, e.g. from an IME"
+  },
   "v43Dpk": {
     "defaultMessage": "Deleted {count, plural, one {# record} other {# records}}",
     "description": "Success toast after bulk-deleting V2 dataset records"

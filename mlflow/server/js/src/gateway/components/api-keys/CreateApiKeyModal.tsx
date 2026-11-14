@@ -5,6 +5,7 @@ import { ProviderSelect } from '../create-endpoint';
 import { SecretFormFields, type SecretFormData } from '../secrets';
 import { useCreateSecret } from '../../hooks/useCreateSecret';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
+import { hasNonAsciiApiKey } from '../../utils/secretUtils';
 
 interface CreateApiKeyModalProps {
   open: boolean;
@@ -150,6 +151,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
       Boolean(formData.secretFields[field.name]?.trim()),
     );
     if (!allRequiredSecretsProvided) return false;
+    if (hasNonAsciiApiKey(formData.secretFields)) return false;
 
     const requiredConfigFields = selectedAuthMode?.config_fields?.filter((f) => f.required) ?? [];
     const allRequiredConfigsProvided = requiredConfigFields.every((field) =>

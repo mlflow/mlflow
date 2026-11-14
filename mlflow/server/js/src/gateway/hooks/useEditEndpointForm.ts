@@ -12,6 +12,7 @@ import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
 import type { Endpoint } from '../types';
 import { hasMixedTypeSafeProviders } from '../utils/gatewayUtils';
+import { hasNonAsciiApiKey } from '../utils/secretUtils';
 
 export { getReadableErrorMessage };
 
@@ -342,7 +343,9 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           ? Object.values(m.newSecret.secretFields).some((value) => value)
           : false;
 
-        return hasRequiredNewSecretFields && hasAtLeastOneSecretFieldValue;
+        return (
+          hasRequiredNewSecretFields && hasAtLeastOneSecretFieldValue && !hasNonAsciiApiKey(m.newSecret.secretFields)
+        );
       }
     };
 

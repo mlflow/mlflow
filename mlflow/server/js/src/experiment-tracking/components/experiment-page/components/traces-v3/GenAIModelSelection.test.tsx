@@ -241,6 +241,37 @@ describe('GenAIModelSelection', () => {
     });
   });
 
+  test('is invalid when a new API key contains non-ASCII characters', async () => {
+    mockEndpointQueryResult([]);
+    const buildInitialValues = (apiKey: string) => ({
+      mode: 'direct' as const,
+      provider: 'openai',
+      model: 'gpt-4o',
+      saveKey: false,
+      apiKeyConfig: {
+        mode: 'new' as const,
+        existingSecretId: '',
+        newSecret: { name: '', authMode: 'api_key', secretFields: { api_key: apiKey }, configFields: {} },
+      },
+    });
+
+    const nonAsciiRef = React.createRef<any>();
+    renderWithDesignSystem(
+      <GenAIModelSelection {...defaultProps} ref={nonAsciiRef} initialValues={buildInitialValues('가나다')} />,
+    );
+    await waitFor(() => {
+      expect(nonAsciiRef.current?.isValid).toBe(false);
+    });
+
+    const asciiRef = React.createRef<any>();
+    renderWithDesignSystem(
+      <GenAIModelSelection {...defaultProps} ref={asciiRef} initialValues={buildInitialValues('rkskek')} />,
+    );
+    await waitFor(() => {
+      expect(asciiRef.current?.isValid).toBe(true);
+    });
+  });
+
   test('shows "Configure model directly" option when showConfigureDirectly is true', () => {
     mockEndpointQueryResult([
       {

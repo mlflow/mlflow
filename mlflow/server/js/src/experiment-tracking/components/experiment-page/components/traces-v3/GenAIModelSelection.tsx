@@ -26,6 +26,7 @@ import type { ApiKeyConfiguration } from '../../../../../gateway/components/mode
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtils';
+import { hasNonAsciiApiKey } from '../../../../../gateway/utils/secretUtils';
 import type { Endpoint } from '../../../../../gateway/types';
 
 type ModelConfigMode = 'endpoint' | 'direct';
@@ -264,6 +265,7 @@ export const GenAIModelSelection = forwardRef<GenAIModelSelectionRef, GenAIModel
       apiKeyConfig.mode === 'existing'
         ? Boolean(apiKeyConfig.existingSecretId)
         : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
+          !hasNonAsciiApiKey(apiKeyConfig.newSecret.secretFields) &&
           (!saveKey || Boolean(apiKeyConfig.newSecret.name));
 
     const isEndpointModeValid = mode === 'endpoint' && Boolean(selectedEndpointName);
