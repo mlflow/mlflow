@@ -447,7 +447,7 @@ def _wrap_generator(
         inputs: dict[str, Any] | None = None,
         outputs: list[Any] | None = None,
         output_reducer: Callable[[list[Any]], Any] | None = None,
-        error: Exception | None = None,
+        error: BaseException | None = None,
     ):
         if error:
             span.add_event(SpanEvent.from_exception(error))
@@ -490,7 +490,7 @@ def _wrap_generator(
                         value = next(generator)
                 except StopIteration:
                     break
-                except Exception as e:
+                except BaseException as e:
                     _end_stream_span(span, error=e)
                     raise e
                 else:
@@ -516,7 +516,7 @@ def _wrap_generator(
                         value = await generator.__anext__()
                 except StopAsyncIteration:
                     break
-                except Exception as e:
+                except BaseException as e:
                     _end_stream_span(span, error=e)
                     raise e
                 else:
