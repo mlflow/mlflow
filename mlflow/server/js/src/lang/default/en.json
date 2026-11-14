@@ -9247,6 +9247,10 @@
     "defaultMessage": "Columns",
     "description": "Columns label for the chat sessions table column selector"
   },
+  "RWWC5y": {
+    "defaultMessage": "All features",
+    "description": "Gateway usage > requests by feature chart > selector label when all features are shown"
+  },
   "RX6+zY": {
     "defaultMessage": "Additional trace filters (optional)",
     "description": "Experiment issues tab > Schedule modal label for the optional trace filters"
@@ -16235,6 +16239,10 @@
     "defaultMessage": "Created by",
     "description": "Column selector label for the created-by column"
   },
+  "n17qyS": {
+    "defaultMessage": "Requests by Feature",
+    "description": "Title for the gateway chart of requests over time by built-in MLflow feature"
+  },
   "n24ICT": {
     "defaultMessage": "Close",
     "description": "Button for closing modal with the logged models quickstart example code"
@@ -17338,6 +17346,10 @@
   "qan3yq": {
     "defaultMessage": "Add tag",
     "description": "Aria label for the add-tag button in the V2 dataset records table"
+  },
+  "qbAJdA": {
+    "defaultMessage": "No features selected",
+    "description": "Gateway usage > requests by feature chart > selector label when no features are shown"
   },
   "qbtNJS": {
     "defaultMessage": "Block",

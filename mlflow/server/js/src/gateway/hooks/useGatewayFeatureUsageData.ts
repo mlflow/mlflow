@@ -10,15 +10,13 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from '../../experiment-tracking/pages/experiment-overview/hooks/useTraceMetricsQuery';
 import { useOverviewChartContext } from '../../experiment-tracking/pages/experiment-overview/OverviewChartContext';
-import { GATEWAY_FEATURES, isGatewayFeature, type GatewayFeature } from '../utils/gatewayFeatures';
-
-/**
- * Requests no built-in MLflow feature made, such as calls from applications or the playground, and
- * requests recorded without a caller.
- */
-export const OTHER_CALLERS = 'other';
-
-export type GatewayFeatureUsageKey = GatewayFeature | typeof OTHER_CALLERS;
+import {
+  GATEWAY_FEATURES,
+  OTHER_CALLERS,
+  isGatewayFeature,
+  type GatewayFeature,
+  type GatewayFeatureUsageKey,
+} from '../utils/gatewayFeatures';
 
 export interface GatewayFeatureUsage {
   feature: GatewayFeatureUsageKey;

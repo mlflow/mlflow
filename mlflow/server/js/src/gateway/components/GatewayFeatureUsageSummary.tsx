@@ -19,9 +19,9 @@ import {
   useSortState,
   useSummaryTableStyles,
 } from '../../experiment-tracking/pages/experiment-overview/components/SummaryTableComponents';
-import { formatCount, useChartColors } from '../../experiment-tracking/pages/experiment-overview/utils/chartUtils';
-import { OTHER_CALLERS, useGatewayFeatureUsageData } from '../hooks/useGatewayFeatureUsageData';
-import { GATEWAY_FEATURES, GatewayFeatureLabels } from '../utils/gatewayFeatures';
+import { formatCount } from '../../experiment-tracking/pages/experiment-overview/utils/chartUtils';
+import { useGatewayFeatureUsageData } from '../hooks/useGatewayFeatureUsageData';
+import { GatewayFeatureUsageLabels, OTHER_CALLERS, useGatewayFeatureUsageColor } from '../utils/gatewayFeatures';
 
 type SortColumn = 'feature' | 'requests' | 'tokens' | 'cost';
 
@@ -57,21 +57,13 @@ const RouteFeaturesHint = () => (
 export const GatewayFeatureUsageSummary = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { getChartColor } = useChartColors();
+  const getFeatureColor = useGatewayFeatureUsageColor();
   const { sortColumn, sortDirection, handleSort } = useSortState<SortColumn>('requests');
   const { headerRowStyle, bodyRowStyle, cellStyle } = useSummaryTableStyles('minmax(120px, 2fr) 1fr 1fr 1fr');
   const { usage, hasFeatureUsage, isLoading, error } = useGatewayFeatureUsageData();
 
   const rows = useMemo(() => {
-    const labelOf = (feature: string) =>
-      feature === OTHER_CALLERS
-        ? intl.formatMessage({
-            defaultMessage: 'Other',
-            description: 'Gateway usage > usage by feature > row for requests not made by an MLflow feature',
-          })
-        : intl.formatMessage(GatewayFeatureLabels[feature as keyof typeof GatewayFeatureLabels]);
-
-    const labeled = usage.map((row) => ({ ...row, label: labelOf(row.feature) }));
+    const labeled = usage.map((row) => ({ ...row, label: intl.formatMessage(GatewayFeatureUsageLabels[row.feature]) }));
     const features = labeled.filter(({ feature }) => feature !== OTHER_CALLERS);
     features.sort((a, b) => {
       const comparison = sortColumn === 'feature' ? a.label.localeCompare(b.label) : a[sortColumn] - b[sortColumn];
@@ -136,14 +128,7 @@ export const GatewayFeatureUsageSummary = () => {
           </div>
           {rows.map((row) => (
             <div key={row.feature} css={bodyRowStyle}>
-              <FeatureNameCell
-                name={row.label}
-                color={
-                  row.feature === OTHER_CALLERS
-                    ? theme.colors.grey400
-                    : getChartColor(GATEWAY_FEATURES.indexOf(row.feature))
-                }
-              />
+              <FeatureNameCell name={row.label} color={getFeatureColor(row.feature)} />
               <Typography.Text css={cellStyle}>{formatCount(row.requests)}</Typography.Text>
               <Typography.Text css={cellStyle}>{formatCount(row.tokens)}</Typography.Text>
               <Typography.Text css={cellStyle}>{formatCost(row.cost)}</Typography.Text>

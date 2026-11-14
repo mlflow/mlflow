@@ -6,7 +6,8 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import { OverviewChartProvider } from '../../experiment-tracking/pages/experiment-overview/OverviewChartContext';
-import { OTHER_CALLERS, useGatewayFeatureUsageData } from './useGatewayFeatureUsageData';
+import { OTHER_CALLERS } from '../utils/gatewayFeatures';
+import { useGatewayFeatureUsageData } from './useGatewayFeatureUsageData';
 
 type ValuesByCaller = Record<string, number>;
 

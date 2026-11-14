@@ -1602,6 +1602,8 @@ module.exports = {
   "mlflow.gateway.usage-modal.unified-view-mode": "",
   "mlflow.gateway.usage.breadcrumb_gateway_link": "",
   "mlflow.gateway.usage.endpoint-selector": "",
+  "mlflow.gateway.usage.feature_requests": "",
+  "mlflow.gateway.usage.feature_requests.feature_selector": "",
   "mlflow.gateway.usage.feature_usage": "",
   "mlflow.gateway.usage.go_to_endpoints_link": "",
   "mlflow.gateway.usage.go_to_endpoints_link_logs": "",

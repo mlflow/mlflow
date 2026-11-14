@@ -76,7 +76,7 @@ optimizer = GepaPromptOptimizer(reflection_model=model)
 
 For issue detection, select the endpoint as the model when you run or schedule detection.
 
-Each request is attributed to the feature that made it, and the **Usage by Feature** chart breaks the endpoint's requests, tokens, and cost down accordingly. Use **Filters > Feature** to scope every chart to one feature. The attribution follows these rules:
+Each request is attributed to the feature that made it. The **Requests by Feature** chart stacks each feature's requests over time, and its selector hides the features you don't want to compare. The **Usage by Feature** table totals each feature's requests, tokens, and cost. Use **Filters > Feature** to scope every chart to one feature. The attribution follows these rules:
 
 - **Judges** covers the judges and scorers you configure, wherever they run, including when prompt optimization uses them to score candidate prompts.
 - **Issue detection** covers all of its analysis, including the judge it runs internally to triage traces.

@@ -1,5 +1,8 @@
+import { useCallback } from 'react';
+import { useDesignSystemTheme } from '@databricks/design-system';
 import { defineMessage, type IntlShape, type MessageDescriptor } from 'react-intl';
 import type { MetricFilterColumnOption } from '../../common/components/MetricsFilter.utils';
+import { useChartColors } from '../../experiment-tracking/pages/experiment-overview/utils/chartUtils';
 
 /**
  * Built-in MLflow features that call the AI Gateway, identified by the caller they record on
@@ -34,6 +37,33 @@ export const GatewayFeatureLabels: Record<GatewayFeature, MessageDescriptor> = {
     defaultMessage: 'Prompt optimization',
     description: 'Gateway usage > MLflow feature name for prompt optimization',
   }),
+};
+
+/**
+ * Requests no built-in MLflow feature made, such as calls from applications or the playground, and
+ * requests recorded without a caller.
+ */
+export const OTHER_CALLERS = 'other';
+
+export type GatewayFeatureUsageKey = GatewayFeature | typeof OTHER_CALLERS;
+
+export const GatewayFeatureUsageLabels: Record<GatewayFeatureUsageKey, MessageDescriptor> = {
+  ...GatewayFeatureLabels,
+  [OTHER_CALLERS]: defineMessage({
+    defaultMessage: 'Other',
+    description: 'Gateway usage > usage by feature > row for requests not made by an MLflow feature',
+  }),
+};
+
+/** Color of each feature, and grey for "Other", shared by the usage chart and table. */
+export const useGatewayFeatureUsageColor = () => {
+  const { theme } = useDesignSystemTheme();
+  const { getChartColor } = useChartColors();
+  return useCallback(
+    (key: GatewayFeatureUsageKey) =>
+      key === OTHER_CALLERS ? theme.colors.grey400 : getChartColor(GATEWAY_FEATURES.indexOf(key)),
+    [theme, getChartColor],
+  );
 };
 
 /** "Feature" option for the gateway usage metrics filter, narrowing charts to one MLflow feature. */
