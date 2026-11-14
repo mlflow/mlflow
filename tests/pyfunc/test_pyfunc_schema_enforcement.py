@@ -2760,6 +2760,19 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
     pd.testing.assert_frame_equal(prediction, df)
 
 
+def test_enforce_array_of_strings_and_booleans_keeps_missing_values():
+    df = pd.DataFrame({"tags": [["hello", "world"], ["mlflow", None]], "flags": [[True], [None]]})
+    schema = Schema([
+        ColSpec(Array(DataType.string), name="tags"),
+        ColSpec(Array(DataType.boolean), name="flags"),
+    ])
+
+    enforced = _enforce_schema(df, schema)
+
+    assert enforced["tags"].tolist() == [["hello", "world"], ["mlflow", None]]
+    assert enforced["flags"].tolist() == [[True], [None]]
+
+
 @pytest.mark.parametrize(
     ("complex_type", "values"),
     [
