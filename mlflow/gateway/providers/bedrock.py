@@ -397,6 +397,7 @@ class AmazonBedrockProvider(BaseProvider):
         self, messages: list[dict[str, Any]], payload: dict[str, Any]
     ) -> dict[str, Any]:
         """Build kwargs for the Converse API call."""
+        guardrail_config = self._build_guardrail_config()
         system_prompts = []
         converse_messages = []
 
@@ -407,7 +408,14 @@ class AmazonBedrockProvider(BaseProvider):
             content = self._normalize_content_text(msg.get("content"))
 
             if role == "system":
-                system_prompts.append({"text": content})
+                # Bedrock assesses a system prompt against the guardrail only when it is wrapped
+                # in ``guardContent``; a plain ``text`` block would let a caller smuggle input
+                # past the guardrail's checks by sending it with the system role.
+                system_prompts.append(
+                    {"guardContent": {"text": {"text": content}}}
+                    if guardrail_config
+                    else {"text": content}
+                )
             elif role == "assistant":
                 assistant_content = []
                 if tool_calls := msg.get("tool_calls"):
@@ -520,7 +528,24 @@ class AmazonBedrockProvider(BaseProvider):
             if bedrock_tools:
                 kwargs["toolConfig"] = {"tools": bedrock_tools}
 
+        if guardrail_config:
+            kwargs["guardrailConfig"] = guardrail_config
+
         return kwargs
+
+    def _build_guardrail_config(self) -> dict[str, str] | None:
+        """Build the Converse API ``guardrailConfig`` from the endpoint's guardrail settings."""
+        guardrail = self.bedrock_config.guardrail_config
+        if not guardrail:
+            return None
+
+        guardrail_config = {
+            "guardrailIdentifier": guardrail.guardrail_identifier,
+            "guardrailVersion": guardrail.guardrail_version,
+        }
+        if guardrail.trace:
+            guardrail_config["trace"] = guardrail.trace
+        return guardrail_config
 
     @staticmethod
     def _normalize_content_text(content: Any) -> str:

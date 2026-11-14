@@ -287,9 +287,18 @@ class AWSBearerToken(AWSBaseConfig):
     aws_bearer_token: str
 
 
+class AmazonBedrockGuardrailConfig(pydantic.BaseModel):
+    guardrail_identifier: str
+    guardrail_version: str
+    trace: Literal["enabled", "disabled", "enabled_full"] | None = None
+
+
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
     aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
+    # Optional Amazon Bedrock guardrail applied to Converse (chat) requests. When set,
+    # it is forwarded as the Converse API's ``guardrailConfig``.
+    guardrail_config: AmazonBedrockGuardrailConfig | None = None
 
 
 class MistralConfig(ConfigModel):
@@ -565,6 +574,19 @@ class EndpointConfig(AliasedConfigModel):
             raise MlflowException.invalid_parameter_value(
                 f"An Unsupported AI21Labs model has been specified: '{self.model.name}'. "
                 f"Please see documentation for supported models."
+            )
+        # Guardrails are forwarded only on the Converse (chat) path, so accepting the config on
+        # a non-chat endpoint would leave it silently unguarded.
+        if (
+            isinstance(self.model.config, AmazonBedrockConfig)
+            and self.model.config.guardrail_config
+            and self.endpoint_type != EndpointType.LLM_V1_CHAT
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "'guardrail_config' is only supported for Amazon Bedrock endpoints with "
+                f"endpoint_type '{EndpointType.LLM_V1_CHAT.value}', but endpoint "
+                f"'{self.name}' has endpoint_type '{self.endpoint_type.value}'. Remove "
+                "'guardrail_config' or change the endpoint_type."
             )
         return self
 
