@@ -15,8 +15,10 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import type { MutableRefObject } from 'react';
+import { useRef } from 'react';
 import { ExperimentSingleChatIcon } from './ExperimentSingleChatIcon';
 import { noop } from 'lodash';
+import { useInfiniteScrollFetch } from './useInfiniteScrollFetch';
 
 export const ExperimentSingleChatConversation = ({
   traces,
@@ -25,6 +27,9 @@ export const ExperimentSingleChatConversation = ({
   setSelectedTrace,
   chatRefs,
   getAssessmentTitle,
+  fetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
 }: {
   traces: ModelTrace[];
   selectedTurnIndex: number | null;
@@ -32,8 +37,13 @@ export const ExperimentSingleChatConversation = ({
   setSelectedTrace?: (trace: ModelTrace) => void;
   chatRefs?: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
   getAssessmentTitle: (assessmentName: string) => string;
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const onScroll = useInfiniteScrollFetch({ containerRef, fetchNextPage, hasNextPage, isFetchingNextPage });
 
   if (!traces) {
     return null;
@@ -41,6 +51,8 @@ export const ExperimentSingleChatConversation = ({
 
   return (
     <div
+      ref={containerRef}
+      onScroll={onScroll}
       css={{
         display: 'flex',
         flexDirection: 'column',
