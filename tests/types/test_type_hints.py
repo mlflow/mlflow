@@ -422,6 +422,9 @@ def test_type_hints_validation_errors():
     with pytest.raises(MlflowException, match=r"Expected type float, but got bool"):
         _validate_data_against_type_hint(True, float)
 
+    with pytest.raises(MlflowException, match=r"int too large to convert to float"):
+        _validate_data_against_type_hint(10**400, float)
+
     with pytest.raises(MlflowException, match=r"Expected list, but got str"):
         _validate_data_against_type_hint("a", list[str])
 

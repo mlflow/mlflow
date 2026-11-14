@@ -431,7 +431,12 @@ def _validate_data_against_type_hint(data: Any, type_hint: type[Any]) -> Any:
         # An int is valid where a float is expected (PEP 484), and JSON payloads encode
         # whole-number floats such as 1.0 as 1.
         if type_hint is float and isinstance(data, int) and not isinstance(data, bool):
-            return float(data)
+            try:
+                return float(data)
+            except OverflowError as e:
+                raise MlflowException.invalid_parameter_value(
+                    "Expected type float, but got an int too large to convert to float"
+                ) from e
         raise MlflowException.invalid_parameter_value(
             f"Expected type {_type_hint_repr(type_hint)}, but got {type(data).__name__}"
         )
