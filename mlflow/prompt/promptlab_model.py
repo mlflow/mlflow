@@ -84,7 +84,7 @@ def _load_pyfunc(path):
 
     pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
     parameters_path = os.path.join(path, pyfunc_flavor_conf["parameters_path"])
-    with open(parameters_path) as f:
+    with open(parameters_path, encoding="utf-8") as f:
         parameters = yaml.safe_load(f)
 
         prompt_parameters_as_params = [
@@ -158,8 +158,8 @@ def save_model(
         "model_parameters": {param.key: param.value for param in model_parameters},
         "model_route": model_route,
     }
-    with open(parameters_path, "w") as f:
-        yaml.safe_dump(parameters, stream=f, default_flow_style=False)
+    with open(parameters_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(parameters, stream=f, default_flow_style=False, allow_unicode=True)
 
     pyfunc.add_to_model(
         mlflow_model,
