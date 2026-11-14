@@ -4232,6 +4232,16 @@ def test_search_logged_models_invalid_status_filter(store: SqlAlchemyStore, filt
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize("max_results", [-1, -2])
+def test_search_logged_models_rejects_negative_max_results(store: SqlAlchemyStore, max_results):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    for _ in range(3):
+        store.create_logged_model(experiment_id=exp_id)
+    with pytest.raises(MlflowException, match="It must be a positive integer") as exc_info:
+        store.search_logged_models(experiment_ids=[exp_id], max_results=max_results)
+    assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_search_logged_models_invalid_operator_lists_applicable_operators(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     with pytest.raises(MlflowException, match=re.escape("Expected one of ('<', '<=', '>', '>=',")):
