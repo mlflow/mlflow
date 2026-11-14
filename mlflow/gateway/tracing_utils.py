@@ -9,7 +9,7 @@ from typing import Any
 import pydantic
 
 import mlflow
-from mlflow.entities import SpanStatus, SpanType
+from mlflow.entities import SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.config import GatewayRequestType
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
@@ -189,6 +189,19 @@ def _maybe_create_distributed_span(
         _logger.debug("Failed to create distributed trace span for gateway call", exc_info=True)
 
 
+def _maybe_set_stream_status(
+    stream_status_resolver: Callable[[list[Any]], SpanStatus | None],
+    chunks: list[Any],
+) -> None:
+    try:
+        if (status := stream_status_resolver(chunks)) and (
+            span := mlflow.get_current_active_span()
+        ):
+            span.set_status(status)
+    except Exception:
+        _logger.debug("Failed to resolve gateway stream status", exc_info=True)
+
+
 def maybe_traced_gateway_call(
     func: Callable[..., Any],
     endpoint_config: GatewayEndpointConfig,
@@ -198,6 +211,7 @@ def maybe_traced_gateway_call(
     request_type: GatewayRequestType | None = None,
     on_complete: Callable[[], None] | None = None,
     message_format: str | None = None,
+    stream_status_resolver: Callable[[list[Any]], SpanStatus | None] | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a gateway function with tracing.
@@ -215,6 +229,10 @@ def maybe_traced_gateway_call(
         message_format: Optional message format string (e.g. ``"anthropic"``,
             ``"gemini"``) stored as ``mlflow.message.format`` on the span so the
             UI can render the Chat tab for provider-native response shapes.
+        stream_status_resolver: For streaming calls, a function that receives all chunks
+            once the stream completes and returns a status to set on the gateway span, or
+            ``None`` to keep the default. Use it when a provider reports a failure inside
+            the stream rather than through an HTTP error, so nothing raises.
 
     Returns:
         A traced version of the function.
@@ -251,9 +269,14 @@ def maybe_traced_gateway_call(
         async def wrapper(*args, **kwargs):
             mlflow.update_current_trace(metadata=combined_metadata)
             _maybe_unwrap_single_arg_input(args, kwargs)
+            chunks = []
             try:
                 async for item in func(*args, **kwargs):
+                    if stream_status_resolver:
+                        chunks.append(item)
                     yield item
+                if stream_status_resolver:
+                    _maybe_set_stream_status(stream_status_resolver, chunks)
             finally:
                 if on_complete:
                     try:
@@ -671,3 +694,19 @@ def aggregate_openai_responses_stream_chunks(
                 return event.get("response")
 
     return None
+
+
+def openai_responses_stream_status(chunks: list[bytes]) -> SpanStatus | None:
+    """
+    Return an ERROR status if an OpenAI Responses API stream ended with ``response.failed``.
+
+    The upstream request still succeeds with HTTP 200 in that case, so the span would
+    otherwise be marked OK. ``response.incomplete`` (e.g. ``max_output_tokens``) is a normal
+    outcome, like ``finish_reason="length"`` in Chat Completions, and keeps the default status.
+    """
+    response = aggregate_openai_responses_stream_chunks(chunks)
+    if not response or response.get("status") != "failed":
+        return None
+    error = response.get("error") or {}
+    description = ": ".join(filter(None, (error.get("code"), error.get("message"))))
+    return SpanStatus(SpanStatusCode.ERROR, description=description)

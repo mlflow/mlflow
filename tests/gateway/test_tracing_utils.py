@@ -1,11 +1,13 @@
 import asyncio
 import json
 from typing import Any
+from unittest import mock
 
 import pytest
 
 import mlflow
-from mlflow.entities import SpanType
+from mlflow.entities import SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities.trace_state import TraceState
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas.chat import StreamResponsePayload
 from mlflow.gateway.tracing_utils import (
@@ -16,6 +18,7 @@ from mlflow.gateway.tracing_utils import (
     aggregate_gemini_stream_generate_content_chunks,
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
+    openai_responses_stream_status,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.client import TracingClient
@@ -312,6 +315,58 @@ async def test_maybe_traced_gateway_call_with_output_reducer(endpoint_config):
     assert output["choices"][0]["message"]["content"] == "Hello world"
     assert output["choices"][0]["finish_reason"] == "stop"
     assert output["usage"]["total_tokens"] == 7
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("resolved_status", "expected_state"),
+    [
+        (SpanStatus(SpanStatusCode.ERROR, description="server_error: boom"), TraceState.ERROR),
+        (None, TraceState.OK),
+    ],
+)
+async def test_maybe_traced_gateway_call_with_stream_status_resolver(
+    endpoint_config, resolved_status, expected_state
+):
+    async def mock_async_stream(payload):
+        yield "Hello"
+        yield " world"
+
+    resolver = mock.Mock(return_value=resolved_status)
+    traced_func = maybe_traced_gateway_call(
+        mock_async_stream, endpoint_config, stream_status_resolver=resolver
+    )
+
+    chunks = [chunk async for chunk in traced_func({"input": "test"})]
+
+    assert chunks == ["Hello", " world"]
+    resolver.assert_called_once_with(["Hello", " world"])
+    traces = get_traces()
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == expected_state
+    span_name_to_span = {span.name: span for span in trace.data.spans}
+    gateway_span = span_name_to_span[f"gateway/{endpoint_config.endpoint_name}"]
+    assert gateway_span.status == (resolved_status or SpanStatus(SpanStatusCode.OK))
+
+
+@pytest.mark.asyncio
+async def test_maybe_traced_gateway_call_ignores_stream_status_resolver_errors(endpoint_config):
+    async def mock_async_stream(payload):
+        yield "Hello"
+
+    resolver = mock.Mock(side_effect=ValueError("boom"))
+    traced_func = maybe_traced_gateway_call(
+        mock_async_stream, endpoint_config, stream_status_resolver=resolver
+    )
+
+    chunks = [chunk async for chunk in traced_func({"input": "test"})]
+
+    assert chunks == ["Hello"]
+    resolver.assert_called_once_with(["Hello"])
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.state == TraceState.OK
 
 
 @pytest.mark.asyncio
@@ -1100,6 +1155,42 @@ def test_aggregate_openai_responses_stream_chunks_non_completed_terminal_events(
     chunks = [_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA, terminal]
 
     assert aggregate_openai_responses_stream_chunks(chunks) == response
+
+
+@pytest.mark.parametrize(
+    ("event_type", "status", "details", "expected"),
+    [
+        ("response.completed", "completed", {}, None),
+        (
+            "response.incomplete",
+            "incomplete",
+            {"incomplete_details": {"reason": "max_output_tokens"}},
+            None,
+        ),
+        (
+            "response.failed",
+            "failed",
+            {"error": {"code": "server_error", "message": "Upstream failure"}},
+            SpanStatus(SpanStatusCode.ERROR, description="server_error: Upstream failure"),
+        ),
+        ("response.failed", "failed", {"error": None}, SpanStatus(SpanStatusCode.ERROR)),
+    ],
+    ids=["completed", "incomplete", "failed", "failed-without-error-details"],
+)
+def test_openai_responses_stream_status(
+    event_type: str, status: str, details: dict[str, Any], expected: SpanStatus | None
+):
+    event = {
+        "type": event_type,
+        "response": {"id": "resp_1", "status": status, "output": [], **details},
+    }
+    chunks = [_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA, f"data: {json.dumps(event)}\n".encode()]
+
+    assert openai_responses_stream_status(chunks) == expected
+
+
+def test_openai_responses_stream_status_without_terminal_event():
+    assert openai_responses_stream_status([_RESPONSES_CREATED, _RESPONSES_TEXT_DELTA]) is None
 
 
 # ---------------------------------------------------------------------------
