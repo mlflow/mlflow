@@ -29,6 +29,7 @@ import { CODING_AGENT_TAG_KEY, VALID_CODING_AGENTS } from '../../hooks/useCreate
 import type { CodingAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
+import { TryInPlaygroundButton } from './TryInPlaygroundButton';
 import type { Endpoint, EndpointModelMapping } from '../../types';
 import { hasMixedTypeSafeProviders } from '../../utils/gatewayUtils';
 import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
@@ -249,7 +250,13 @@ export const EditEndpointFormRenderer = ({
           </Breadcrumb.Item>
         </Breadcrumb>
         <div
-          css={{ marginTop: theme.spacing.sm, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          css={{
+            marginTop: theme.spacing.sm,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: theme.spacing.md,
+          }}
         >
           <EditableEndpointName
             endpoint={endpoint}
@@ -257,6 +264,13 @@ export const EditEndpointFormRenderer = ({
             onNameUpdate={onNameUpdate}
             isSubmitting={isSubmitting}
           />
+          {endpoint &&
+            !endpoint.model_mappings.some(
+              ({ model_definition }) =>
+                model_definition?.provider === 'typesafe' ||
+                (model_definition?.provider === 'openrouter' &&
+                  /^~?typesafe\/jev-(?:latest|\d+(?:\.\d+)*)$/.test(model_definition.model_name)),
+            ) && <TryInPlaygroundButton endpointName={endpoint.name} experimentId={experimentId} />}
         </div>
       </div>
 
