@@ -851,6 +851,30 @@ def test_get_multiclass_classifier_metrics(use_sample_weights):
     assert_dict_equal(metrics, expected_metrics, 1e-3)
 
 
+@pytest.mark.parametrize(
+    ("average", "expected_roc_auc"),
+    [("weighted", 1.0), ("macro", np.nan)],
+)
+def test_get_multiclass_classifier_metrics_with_class_absent_from_y_true(average, expected_roc_auc):
+    # Class 1 is predicted but absent from y_true, so y_proba has more columns than
+    # y_true has classes.
+    y = [0, 0, 2, 2]
+    y_pred = [0, 1, 2, 2]
+    y_probs = [
+        [0.8, 0.1, 0.1],
+        [0.4, 0.5, 0.1],
+        [0.1, 0.2, 0.7],
+        [0.2, 0.1, 0.7],
+    ]
+
+    metrics = _get_multiclass_classifier_metrics(
+        y_true=y, y_pred=y_pred, y_proba=y_probs, labels=[0, 1, 2], average=average
+    )
+
+    np.testing.assert_allclose(metrics["roc_auc"], expected_roc_auc)
+    assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
+
+
 def test_gen_binary_precision_recall_curve_no_sample_weights():
     y = [0, 1, 0, 1, 0, 1, 0, 1, 1, 0]
     y_prob = [0.1, 0.9, 0.8, 0.2, 0.7, 0.8, 0.3, 0.6, 0.65, 0.4]

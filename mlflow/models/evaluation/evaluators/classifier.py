@@ -540,15 +540,15 @@ def _get_multiclass_classifier_metrics(
         sample_weights=sample_weights,
     )
     if average in ("macro", "weighted") and y_proba is not None:
-        metrics.update(
-            roc_auc=sk_metrics.roc_auc_score(
+        with _suppress_class_imbalance_errors(ValueError):
+            metrics["roc_auc"] = sk_metrics.roc_auc_score(
                 y_true=y_true,
                 y_score=y_proba,
+                labels=labels,
                 sample_weight=sample_weights,
                 average=average,
                 multi_class="ovr",
             )
-        )
     return metrics
 
 
