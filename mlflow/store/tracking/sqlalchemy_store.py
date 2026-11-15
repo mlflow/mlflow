@@ -2519,8 +2519,8 @@ class SqlAlchemyStore(
 
         try:
             self._log_inputs_impl(experiment_id, run_id, datasets, models)
-        except MlflowException as e:
-            raise e
+        except MlflowException:
+            raise
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
