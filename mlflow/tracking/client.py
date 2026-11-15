@@ -4197,7 +4197,7 @@ class MlflowClient:
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
         self._raise_if_prompt(name)
-        self._get_registry_client().rename_registered_model(name, new_name)
+        return self._get_registry_client().rename_registered_model(name, new_name)
 
     def update_registered_model(
         self, name: str, description: str | None = None, deployment_job_id: str | None = None
