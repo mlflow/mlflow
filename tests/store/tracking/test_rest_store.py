@@ -3266,8 +3266,6 @@ def _create_test_spans() -> list[LiveSpan]:
     return [LiveSpan(otel_span, trace_id="tr-123")]
 
 
-# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
-@pytest.mark.flaky(attempts=2)
 @pytest.mark.parametrize(
     ("server_version", "serialize_strings"),
     [("3.6.0", False), ("3.7.0", True)],
@@ -3294,6 +3292,8 @@ def test_log_spans_serializes_strings_only_for_servers_that_strip(
     ]
 
 
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_log_spans_with_version_check():
     spans = _create_test_spans()
     experiment_id = "exp-123"

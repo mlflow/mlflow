@@ -12,10 +12,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+from opentelemetry.sdk.trace import TracerProvider
 from prometheus_client import REGISTRY
 
-import mlflow
 from mlflow.entities import Workspace
+from mlflow.entities.span import create_mlflow_span
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -603,18 +604,25 @@ def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_va
     assert stored_span.get_attribute(key) == expected
 
 
-@pytest.mark.parametrize("output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]"])
+@pytest.mark.parametrize(
+    "output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]", 2, True, None, {"a": 1}]
+)
 def test_otlp_roundtrip_of_client_span_string_outputs(monkeypatch, db_uri, tmp_path, output):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     store = SqlAlchemyStore(db_uri, tmp_path.as_uri())
     experiment_id = store.create_experiment("otlp-client-string-outputs")
     monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
 
-    with mlflow.start_span("span") as span:
-        span.set_outputs(output)
+    otel_span = TracerProvider().get_tracer("test").start_span("span")
+    trace_id = "tr-" + format(otel_span.context.trace_id, "032x")
+    span = create_mlflow_span(otel_span, trace_id=trace_id)
+    span.set_outputs(output)
+    span.end()
 
     request = ExportTraceServiceRequest()
-    request.resource_spans.add().scope_spans.add().spans.append(span.to_otel_proto(serialize_strings=True))
+    request.resource_spans.add().scope_spans.add().spans.append(
+        span.to_otel_proto(serialize_strings=True)
+    )
     response = _make_test_client().post(
         OTLP_TRACES_PATH,
         content=request.SerializeToString(),
