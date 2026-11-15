@@ -1,4 +1,5 @@
 import {
+  CUSTOM_METADATA_COLUMN_ID,
   FilterOperator,
   GIT_BRANCH_COLUMN_ID,
   GIT_COMMIT_COLUMN_ID,
@@ -7,6 +8,7 @@ import {
   USER_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 import {
+  GATEWAY_CALLER_METADATA_KEY,
   MLFLOW_GIT_BRANCH_KEY,
   MLFLOW_GIT_COMMIT_KEY,
   MLFLOW_TRACE_USER_KEY,
@@ -22,7 +24,7 @@ import {
  * Add a new entry here AND in `COLUMN_TO_METRICS_FILTER_BUILDER` and
  * `COLUMN_TO_TRACES_COLUMN_ID` to expose more dimensions.
  */
-export type MetricFilterColumn = 'user' | 'session' | 'state' | 'git_branch' | 'git_commit';
+export type MetricFilterColumn = 'user' | 'session' | 'state' | 'git_branch' | 'git_commit' | 'gateway_caller';
 
 export interface MetricFilter {
   column: MetricFilterColumn;
@@ -55,6 +57,7 @@ const COLUMN_TO_METRICS_FILTER_BUILDER: Record<MetricFilterColumn, (value: strin
   state: (v) => createTraceFilter(TraceFilterKey.STATUS, v),
   git_branch: (v) => createTraceMetadataFilter(MLFLOW_GIT_BRANCH_KEY, v),
   git_commit: (v) => createTraceMetadataFilter(MLFLOW_GIT_COMMIT_KEY, v),
+  gateway_caller: (v) => createTraceMetadataFilter(GATEWAY_CALLER_METADATA_KEY, v),
 };
 
 /**
@@ -79,6 +82,7 @@ const COLUMN_TO_TRACES_COLUMN_ID: Record<MetricFilterColumn, string> = {
   state: STATE_COLUMN_ID,
   git_branch: GIT_BRANCH_COLUMN_ID,
   git_commit: GIT_COMMIT_COLUMN_ID,
+  gateway_caller: `${CUSTOM_METADATA_COLUMN_ID}:${GATEWAY_CALLER_METADATA_KEY}`,
 };
 
 /**
