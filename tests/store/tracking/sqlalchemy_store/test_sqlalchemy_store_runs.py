@@ -3666,6 +3666,48 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         )
 
 
+@pytest.mark.parametrize("fail_write", [False, True])
+def test_log_inputs_releases_validation_connection(store: SqlAlchemyStore, fail_write):
+    run_id = _run_factory(store).info.run_id
+    active_connections = set()
+    observed = []
+
+    def checkout(_connection, record, _proxy):
+        active_connections.add(record)
+        observed.append(len(active_connections))
+
+    def checkin(_connection, record):
+        active_connections.remove(record)
+
+    def fail(*_args):
+        assert not active_connections
+        raise ValueError("write failed")
+
+    sqlalchemy.event.listen(store.engine, "checkout", checkout)
+    sqlalchemy.event.listen(store.engine, "checkin", checkin)
+    try:
+        if fail_write:
+            with (
+                mock.patch.object(
+                    store, "_log_inputs_impl", side_effect=fail
+                ) as mock_log_inputs_impl,
+                pytest.raises(MlflowException, match="write failed"),
+            ):
+                store.log_inputs(run_id)
+            mock_log_inputs_impl.assert_called_once()
+        else:
+            store.log_inputs(
+                run_id,
+                [entities.DatasetInput(entities.Dataset("dataset", "digest", "synthetic", "{}"))],
+            )
+        assert observed
+        assert max(observed) == 1
+        assert not active_connections
+    finally:
+        sqlalchemy.event.remove(store.engine, "checkout", checkout)
+        sqlalchemy.event.remove(store.engine, "checkin", checkin)
+
+
 def test_log_inputs_handles_case_when_no_datasets_are_specified(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test exp")
     run = _run_factory(store, config=_get_run_configs(experiment_id))
