@@ -1376,7 +1376,7 @@ def _enforce_array_of_datatype(data, dtype: DataType) -> np.ndarray:
     enforced = _enforce_mlflow_datatype("", pd.Series(data), dtype)
     # NumPy string and bool dtypes cannot hold missing values, so casting to them would turn None
     # into "None" or False (and truncate every string to one character on pandas 3).
-    if dtype in (DataType.string, DataType.boolean) and enforced.isna().any():
+    if dtype in (DataType.string, DataType.boolean, DataType.binary) and enforced.isna().any():
         return enforced.to_numpy(dtype=object, na_value=None)
     return enforced.to_numpy(dtype=dtype.to_numpy())
 

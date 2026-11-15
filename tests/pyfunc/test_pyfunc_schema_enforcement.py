@@ -2773,6 +2773,15 @@ def test_enforce_array_of_strings_and_booleans_keeps_missing_values():
     assert enforced["flags"].tolist() == [[True], [None]]
 
 
+def test_enforce_array_of_binary_keeps_missing_values():
+    df = pd.DataFrame({"blobs": [[b"hello", b"world"], [b"mlflow", None]]})
+    schema = Schema([ColSpec(Array(DataType.binary), name="blobs")])
+
+    enforced = _enforce_schema(df, schema)
+
+    assert enforced["blobs"].tolist() == [[b"hello", b"world"], [b"mlflow", None]]
+
+
 @pytest.mark.parametrize(
     ("complex_type", "values"),
     [
