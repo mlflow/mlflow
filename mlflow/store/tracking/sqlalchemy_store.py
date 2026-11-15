@@ -22,6 +22,7 @@ import sqlalchemy.orm
 from sqlalchemy import and_, case, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Query, Session, aliased, defer, joinedload, selectinload
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
@@ -1761,6 +1762,11 @@ class SqlAlchemyStore(
         # create a new SqlLatestMetric instance and put it in
         # new_latest_metric_dict so that they can be saved later.
         new_latest_metric_dict = {}
+        batch_updates = (
+            len(logged_metrics) > 1
+            and self.db_type == POSTGRES
+            and self.engine.dialect.driver == "psycopg"
+        )
         for logged_metric in logged_metrics:
             latest_metric = latest_metrics.get(logged_metric.key)
             # a metric key can be passed more then once within logged metrics
@@ -1796,9 +1802,17 @@ class SqlAlchemyStore(
                 # editing the attributes of latest_metric, which is a
                 # SqlLatestMetric instance will result in UPDATE in DB side.
                 latest_metric = _overwrite_metric(logged_metric, latest_metric)
+                if batch_updates:
+                    # A consistent SET clause keeps mixed-value updates in one executemany batch.
+                    for field in ("value", "step", "timestamp", "is_nan"):
+                        flag_modified(latest_metric, field)
 
-        if new_latest_metric_dict:
-            session.add_all(new_latest_metric_dict.values())
+        self._insert_many(
+            session,
+            SqlLatestMetric,
+            new_latest_metric_dict.values(),
+            ("key", "value", "timestamp", "step", "is_nan", "run_uuid"),
+        )
 
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
