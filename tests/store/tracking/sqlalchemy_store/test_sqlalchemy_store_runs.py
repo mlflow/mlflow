@@ -2608,6 +2608,39 @@ def test_log_batch_nonexistent_run(store: SqlAlchemyStore):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+@pytest.mark.parametrize("kind", ["params", "tags", "model_params"])
+def test_tracking_metadata_uses_multirow_inserts(store: SqlAlchemyStore, kind):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL metadata batching with psycopg 3")
+
+    run = _run_factory(store)
+    run_id = run.info.run_id
+    model_id = store.create_logged_model(experiment_id=run.info.experiment_id).model_id
+    expected = {f"key-{i}": str(i) for i in range(100)}
+    dialect = store.engine.dialect
+    with (
+        mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute,
+        mock.patch.object(dialect, "do_executemany", wraps=dialect.do_executemany) as executemany,
+    ):
+        if kind == "params":
+            store._log_params(run_id, [Param(k, v) for k, v in expected.items()])
+        elif kind == "tags":
+            store._set_tags(run_id, [RunTag(k, v) for k, v in expected.items()])
+        else:
+            store.log_logged_model_params(
+                model_id, [LoggedModelParameter(k, v) for k, v in expected.items()]
+            )
+    table = "logged_model_params" if kind == "model_params" else kind
+    prefix = f"INSERT INTO {table} "
+    assert not [call for call in executemany.call_args_list if call.args[1].startswith(prefix)]
+    assert len([call for call in execute.call_args_list if call.args[1].startswith(prefix)]) == 1
+    if kind == "model_params":
+        actual = store.get_logged_model(model_id).params
+    else:
+        actual = getattr(store.get_run(run_id).data, kind)
+    assert {k: v for k, v in actual.items() if k in expected} == expected
+
+
 def test_log_batch_params_idempotency(store: SqlAlchemyStore):
     run = _run_factory(store)
     params = [Param("p-key", "p-val")]
