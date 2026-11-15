@@ -121,6 +121,43 @@ def _get_docker_image_uri(repository_uri, work_dir):
     return repository_uri + version_string
 
 
+def _read_dockerignore_patterns(work_dir):
+    """Reads the .dockerignore patterns from the project directory, if the file exists."""
+    dockerignore_path = os.path.join(work_dir, ".dockerignore")
+    if not os.path.exists(dockerignore_path):
+        return []
+    with open(dockerignore_path) as f:
+        return [line.strip() for line in f if line.strip()]
+
+
+def _dockerignore_filter(work_dir):
+    """
+    Returns a `shutil.copytree` ignore callable that excludes files matching the
+    .dockerignore file in `work_dir`, or None if there is no .dockerignore file.
+
+    Uses docker-py's own `exclude_paths` matcher — the same one `docker build` uses —
+    so the build context MLflow assembles matches the context `docker build` would send.
+    """
+    patterns = _read_dockerignore_patterns(work_dir)
+    if not patterns:
+        return None
+    # `exclude_paths` returns the paths (relative to `work_dir`) that should be kept.
+    # It also ensures the generated Dockerfile and the .dockerignore file itself are kept.
+    # Note: it mutates the patterns list, so pass the freshly read list.
+    paths_to_keep = set(
+        docker.utils.exclude_paths(work_dir, patterns, dockerfile=_GENERATED_DOCKERFILE_NAME)
+    )
+
+    def ignore(dirpath, names):
+        return [
+            name
+            for name in names
+            if os.path.relpath(os.path.join(dirpath, name), work_dir) not in paths_to_keep
+        ]
+
+    return ignore
+
+
 def _create_docker_build_ctx(work_dir, dockerfile_contents):
     """
     Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
@@ -128,7 +165,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     directory = tempfile.mkdtemp()
     try:
         dst_path = os.path.join(directory, "mlflow-project-contents")
-        shutil.copytree(src=work_dir, dst=dst_path)
+        shutil.copytree(src=work_dir, dst=dst_path, ignore=_dockerignore_filter(work_dir))
         with open(os.path.join(dst_path, _GENERATED_DOCKERFILE_NAME), "w") as handle:
             handle.write(dockerfile_contents)
         _, result_path = tempfile.mkstemp()

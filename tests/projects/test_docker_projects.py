@@ -1,4 +1,5 @@
 import os
+import tarfile
 from unittest import mock
 
 import docker
@@ -12,7 +13,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.legacy_databricks_cli.configure.provider import DatabricksConfig
 from mlflow.projects import ExecutionException, _project_spec
 from mlflow.projects.backend.local import _get_docker_command
-from mlflow.projects.docker import _get_docker_image_uri
+from mlflow.projects.docker import (
+    _GENERATED_DOCKERFILE_NAME,
+    _PROJECT_TAR_ARCHIVE_NAME,
+    _create_docker_build_ctx,
+    _get_docker_image_uri,
+)
 from mlflow.store.tracking import file_store
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.mlflow_tags import (
@@ -298,6 +304,63 @@ def test_docker_run_args(docker_args):
 
     for flag, value in docker_args.items():
         assert docker_command[docker_command.index(value) - 1] == f"--{flag}"
+
+
+def _list_docker_build_ctx_members(ctx_path):
+    with tarfile.open(ctx_path, "r") as tar:
+        return set(tar.getnames())
+
+
+def test_create_docker_build_ctx_respects_dockerignore(tmp_path):
+    for rel_path in [
+        "train.py",
+        "secrets.env",
+        "data/dataset.csv",
+        "build/output.bin",
+        "model.pkl",
+        "keep.pkl",
+        "cache/a.txt",
+        "sub/cache/b.txt",
+        ".git/config",
+    ]:
+        file_path = tmp_path / rel_path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text("x")
+    (tmp_path / ".dockerignore").write_text(
+        "secrets.env\ndata\nbuild/\n*.pkl\n!keep.pkl\n**/cache\n.git\n"
+    )
+
+    ctx_path = _create_docker_build_ctx(str(tmp_path), "FROM python:3.10\n")
+    members = _list_docker_build_ctx_members(ctx_path)
+    ctx = _PROJECT_TAR_ARCHIVE_NAME
+
+    # Files matched by .dockerignore patterns must not be in the build context
+    for ignored in [
+        "secrets.env",
+        "data/dataset.csv",
+        "build/output.bin",
+        "model.pkl",
+        "cache/a.txt",
+        "sub/cache/b.txt",
+        ".git/config",
+    ]:
+        assert f"{ctx}/{ignored}" not in members
+    # Files not matched (including the negated keep.pkl) must still be there
+    for kept in ["train.py", "keep.pkl", ".dockerignore", _GENERATED_DOCKERFILE_NAME]:
+        assert f"{ctx}/{kept}" in members
+
+
+def test_create_docker_build_ctx_without_dockerignore(tmp_path):
+    for rel_path in ["train.py", "secrets.env", "model.pkl"]:
+        file_path = tmp_path / rel_path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text("x")
+
+    ctx_path = _create_docker_build_ctx(str(tmp_path), "FROM python:3.10\n")
+    members = _list_docker_build_ctx_members(ctx_path)
+    ctx = _PROJECT_TAR_ARCHIVE_NAME
+    for kept in ["train.py", "secrets.env", "model.pkl", _GENERATED_DOCKERFILE_NAME]:
+        assert f"{ctx}/{kept}" in members
 
 
 def test_docker_build_image_local(tmp_path):
