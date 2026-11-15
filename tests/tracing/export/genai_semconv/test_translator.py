@@ -421,3 +421,58 @@ def test_tool_call_response_part_uses_semconv_response_field(message_format, inp
     assert len(tool_parts) == 1
     assert "response" in tool_parts[0]
     assert "result" not in tool_parts[0]
+
+
+# --- inputs and outputs are converted independently ---
+
+
+@pytest.mark.parametrize("outputs", ["Hello!", ["Hello!"]], ids=["str", "list"])
+def test_inputs_kept_when_outputs_are_not_a_dict(outputs):
+    inputs = {
+        "messages": [{"role": "system", "content": "Be brief."}, {"role": "user", "content": "hi"}],
+        "max_tokens": 64,
+    }
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+            SpanAttributeKey.INPUTS: json.dumps(inputs),
+            SpanAttributeKey.OUTPUTS: json.dumps(outputs),
+        }
+    )
+    attrs = translate_span_to_genai(span).attributes
+
+    assert json.loads(attrs[GenAiSemconvKey.INPUT_MESSAGES]) == [
+        {"role": "user", "parts": [{"type": "text", "content": "hi"}]}
+    ]
+    assert json.loads(attrs[GenAiSemconvKey.SYSTEM_INSTRUCTIONS]) == [
+        {"type": "text", "content": "Be brief."}
+    ]
+    assert attrs[GenAiSemconvKey.REQUEST_MAX_TOKENS] == 64
+    assert GenAiSemconvKey.OUTPUT_MESSAGES not in attrs
+
+
+def test_outputs_kept_when_inputs_are_not_a_dict():
+    outputs = {
+        "id": "chatcmpl-1",
+        "choices": [
+            {"message": {"role": "assistant", "content": "Hello!"}, "finish_reason": "stop"}
+        ],
+    }
+    span = _make_span(
+        attributes={
+            SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
+            SpanAttributeKey.INPUTS: json.dumps("hi"),
+            SpanAttributeKey.OUTPUTS: json.dumps(outputs),
+        }
+    )
+    attrs = translate_span_to_genai(span).attributes
+
+    assert json.loads(attrs[GenAiSemconvKey.OUTPUT_MESSAGES]) == [
+        {
+            "role": "assistant",
+            "parts": [{"type": "text", "content": "Hello!"}],
+            "finish_reason": "stop",
+        }
+    ]
+    assert attrs[GenAiSemconvKey.RESPONSE_ID] == "chatcmpl-1"
+    assert GenAiSemconvKey.INPUT_MESSAGES not in attrs
