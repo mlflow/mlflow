@@ -6,6 +6,7 @@ import time
 from unittest import mock
 
 import pytest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 import mlflow
 from mlflow.entities import (
@@ -3267,6 +3268,32 @@ def _create_test_spans() -> list[LiveSpan]:
 
 # flaky: auto-detected from CI re-runs; see the weekly flaky-test report
 @pytest.mark.flaky(attempts=2)
+@pytest.mark.parametrize(
+    ("server_version", "serialize_strings"),
+    [("3.6.0", False), ("3.7.0", True)],
+)
+def test_log_spans_serializes_strings_only_for_servers_that_strip(
+    server_version, serialize_strings
+):
+    spans = _create_test_spans()
+    creds = MlflowHostCreds(f"https://host-wire-{server_version}")
+    store = RestStore(lambda: creds)
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request",
+        side_effect=[_create_mock_response(text=server_version), _create_mock_response()],
+    ) as mock_http:
+        store.log_spans("exp-123", spans)
+
+    sent = ExportTraceServiceRequest()
+    sent.ParseFromString(mock_http.call_args.kwargs["data"])
+    sent_spans = sent.resource_spans[0].scope_spans[0].spans
+    assert list(sent_spans) == [s.to_otel_proto(serialize_strings=serialize_strings) for s in spans]
+    # The two encodings must differ for these spans, or the test proves nothing.
+    assert [s.to_otel_proto(serialize_strings=True) for s in spans] != [
+        s.to_otel_proto(serialize_strings=False) for s in spans
+    ]
+
+
 def test_log_spans_with_version_check():
     spans = _create_test_spans()
     experiment_id = "exp-123"

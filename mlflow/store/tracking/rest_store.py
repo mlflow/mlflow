@@ -2584,7 +2584,12 @@ class RestStore(
         resource = getattr(spans[0]._span, "resource", None)
         resource_spans.resource.CopyFrom(resource_to_otel_proto(resource))
         scope_spans = resource_spans.scope_spans.add()
-        scope_spans.spans.extend(span.to_otel_proto(serialize_strings=True) for span in spans)
+        # Servers before 3.7 JSON-encode every wire attribute again and have no strip, so they
+        # need the plain typed encoding.
+        serialize_strings = server_version >= Version("3.7")
+        scope_spans.spans.extend(
+            span.to_otel_proto(serialize_strings=serialize_strings) for span in spans
+        )
 
         response = http_request(
             host_creds=self.get_host_creds(),
