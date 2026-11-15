@@ -6303,9 +6303,9 @@ class SqlAlchemyStore(
                             )
                         )
 
-            # --- Phase 5: Per-trace updates (UPDATE + merges) ---
+            # --- Phase 5: Per-trace updates ---
             # Iterate trace_ids in sorted order, and within each trace emit
-            # trace_request_metadata merges in sorted key order, so concurrent
+            # trace_request_metadata writes in sorted key order, so concurrent
             # start_trace()/log_spans() transactions acquire PK-index locks consistently and
             # cannot deadlock.
             for trace_id in sorted(all_trace_ids):
@@ -6411,10 +6411,16 @@ class SqlAlchemyStore(
                     if not existing_user_id:
                         metadata_writes[TraceMetadataKey.TRACE_USER] = agg.user_id
 
-                # Emit custom metadata merges in sorted key order so PK-index lock
+                # Emit custom metadata writes in sorted key order so PK-index lock
                 # acquisition is deterministic across transactions (#24332).
-                for key, value in sorted(metadata_writes.items()):
-                    session.merge(SqlTraceMetadata(request_id=trace_id, key=key, value=value))
+                _bulk_upsert(
+                    session,
+                    SqlTraceMetadata,
+                    [
+                        {"request_id": trace_id, "key": key, "value": value}
+                        for key, value in sorted(metadata_writes.items())
+                    ],
+                )
 
                 if update_dict:
                     # `trace_id` was selected through workspace-scoped reads earlier in this
@@ -6452,19 +6458,13 @@ class SqlAlchemyStore(
             # atomically with the new DB-backed payload generation.
             for trace_id in all_trace_ids:
                 agg = trace_aggregates[trace_id]
-                session.merge(
-                    SqlTraceTag(
-                        request_id=trace_id,
-                        key=TraceTagKey.SPANS_LOCATION,
-                        value=SpansLocation.TRACKING_STORE.value,
-                    )
-                )
+                trace_tags = {TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE.value}
 
                 # Persist OTel resource attributes (e.g., service.name) as trace tags so
                 # they are visible in the UI and available for filtering. Resource is attached
                 # to every span produced from the same OTLP ResourceSpans block; use any span
                 # in this trace so multi-trace batches are handled correctly.
-                # These are written first so that user-defined trace tags (below) take
+                # These are collected first so that user-defined trace tags (below) take
                 # precedence over resource attributes on key collision.
                 resource = next(
                     (
@@ -6487,22 +6487,22 @@ class SqlAlchemyStore(
                         except Exception:
                             _logger.debug("Skipping invalid resource attribute %r", key)
                             continue
-                        session.merge(
-                            SqlTraceTag(
-                                request_id=trace_id,
-                                key=key,
-                                value=str_value,
-                            )
-                        )
+                        trace_tags[key] = str_value
 
                 # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
                 # span (set by OtelSpanProcessor when the trace was exported over OTLP).
-                # Written after resource attributes so user tags take precedence on collision.
+                # Applied after resource attributes so user tags take precedence on collision.
                 for tag_key, tag_value in agg.trace_tags.items():
                     if tag_key != TraceTagKey.TRACE_NAME:
-                        session.merge(
-                            SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value)
-                        )
+                        trace_tags[tag_key] = tag_value
+                _bulk_upsert(
+                    session,
+                    SqlTraceTag,
+                    [
+                        {"request_id": trace_id, "key": key, "value": value}
+                        for key, value in sorted(trace_tags.items())
+                    ],
+                )
 
         return spans
 

@@ -4264,6 +4264,55 @@ def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
     assert "mlflow.evil" not in tags
 
 
+def test_log_spans_batches_trace_tags_and_metadata(store: SqlAlchemyStore):
+    if store.db_type == MSSQL:
+        pytest.skip("MSSQL uses per-row merge for trace upserts")
+
+    experiment_id = store.create_experiment("batched-trace-metadata")
+    trace_id = "tr-batched-metadata"
+    resource_tags = {f"attribute-{i}": str(i) for i in range(101)}
+    otel_span = create_test_otel_span(trace_id=trace_id)
+    otel_span._resource = _OTelResource(resource_tags)
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id),
+        "user.id": json.dumps("synthetic-user"),
+        f"{SpanAttributeKey.TRACE_TAG_PREFIX}attribute-0": json.dumps("from-user"),
+    }
+    span = create_mlflow_span(otel_span, trace_id)
+    store.log_spans(experiment_id, [span])
+    otel_span._resource = _OTelResource({**resource_tags, "attribute-100": "updated"})
+    dialect = store.engine.dialect
+    with mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute:
+        store.log_spans(experiment_id, [span])
+    tag_writes = [
+        call
+        for call in execute.call_args_list
+        if call.args[1].startswith("INSERT INTO trace_tags ")
+    ]
+    assert len(tag_writes) == 2
+    assert not [
+        call for call in execute.call_args_list if call.args[1].startswith("SELECT trace_tags.")
+    ]
+    with store.ManagedSessionMaker() as session:
+        tags = {
+            row.key: row.value for row in session.query(SqlTraceTag).filter_by(request_id=trace_id)
+        }
+        assert {key: tags[key] for key in resource_tags} == {
+            **resource_tags,
+            "attribute-0": "from-user",
+            "attribute-100": "updated",
+        }
+        assert tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+        assert (
+            session
+            .query(SqlTraceMetadata)
+            .filter_by(request_id=trace_id, key=TraceMetadataKey.TRACE_USER)
+            .one()
+            .value
+            == "synthetic-user"
+        )
+
+
 def test_log_spans_resource_tags_do_not_overwrite_user_tags(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_resource_tag_priority")
 
@@ -5764,8 +5813,8 @@ def test_stored_span_rows_query_locking_read_only_on_mysql(
 
 
 def test_log_spans_concurrent_calls_do_not_lose_token_usage(store: SqlAlchemyStore) -> None:
-    # Two log_spans() calls for the same pre-existing trace, held at a barrier inside the lock
-    # helper so both take their transaction snapshot before either acquires the trace row lock.
+    # Two log_spans() calls for the same pre-existing trace, held at a barrier before the first
+    # locking trace query so both take their snapshot before either acquires the trace row lock.
     # The call that loses the lock race must still see the winner's committed span in its
     # recompute, otherwise the last write drops the other batch's usage.
     experiment_id = store.create_experiment("test_log_spans_concurrent_token_usage")
@@ -5789,13 +5838,15 @@ def test_log_spans_concurrent_calls_do_not_lose_token_usage(store: SqlAlchemySto
     store.log_spans(experiment_id, [_span(1, 100)])
 
     barrier = threading.Barrier(2, timeout=30)
-    original = SqlAlchemyStore._trace_row_lock_query
+    original = store._trace_query
 
-    def synchronized(self, session, trace_ids):
-        barrier.wait()
-        return original(self, session, trace_ids)
+    def synchronized(session, for_update_or_delete=False, workspace=None):
+        if for_update_or_delete:
+            session.query(SqlTraceInfo.request_id).filter_by(request_id=trace_id).all()
+            barrier.wait()
+        return original(session, for_update_or_delete=for_update_or_delete, workspace=workspace)
 
-    with mock.patch.object(SqlAlchemyStore, "_trace_row_lock_query", synchronized):
+    with mock.patch.object(store, "_trace_query", synchronized):
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="log_spans_race") as executor:
             futures = [
                 executor.submit(store.log_spans, experiment_id, [_span(2, 200)]),
@@ -11927,25 +11978,30 @@ def _extract_metadata_write_pairs(statement, parameters):
             if "key" in row and "request_id" in row:
                 # Single-row named params: {"key": ..., "value": ..., "request_id": ...}
                 pairs.append((row["request_id"], row["key"]))
-            elif any(k.startswith("key__") for k in row):
-                # Multi-row cascade INSERT flattened into one dict with suffixed keys:
-                # {"key__0": ..., "request_id__0": ..., "key__1": ..., ...}. Preserve N order.
-                indices = sorted(
-                    int(k.split("__", 1)[1]) for k in row if re.fullmatch(r"key__\d+", k)
-                )
-                pairs.extend(
-                    (row[f"request_id__{i}"], row[f"key__{i}"])
-                    for i in indices
-                    if f"request_id__{i}" in row
-                )
+            else:
+                # Multi-row inserts and upserts use different suffixes for flattened parameters.
+                for suffix in ("__", "_m"):
+                    indices = sorted(
+                        int(k.removeprefix(f"key{suffix}"))
+                        for k in row
+                        if re.fullmatch(rf"key{suffix}\d+", k)
+                    )
+                    pairs.extend(
+                        (row[f"request_id{suffix}{i}"], row[f"key{suffix}{i}"])
+                        for i in indices
+                        if f"request_id{suffix}{i}" in row
+                    )
         elif isinstance(row, (list, tuple)) and col_order:
             try:
                 key_idx = col_order.index("key")
                 rid_idx = col_order.index("request_id")
             except ValueError:
                 continue
-            if len(row) > max(key_idx, rid_idx):
-                pairs.append((row[rid_idx], row[key_idx]))
+            pairs.extend(
+                (row[offset + rid_idx], row[offset + key_idx])
+                for offset in range(0, len(row), len(col_order))
+                if len(row) > offset + max(key_idx, rid_idx)
+            )
     return pairs
 
 
