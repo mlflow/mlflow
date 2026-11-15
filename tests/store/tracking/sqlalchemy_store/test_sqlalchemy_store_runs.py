@@ -3727,6 +3727,46 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(
         )
 
 
+def test_log_inputs_uses_multirow_inserts(store: SqlAlchemyStore):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL dataset and input tag batching with psycopg 3")
+
+    run_id = _run_factory(store).info.run_id
+    datasets = [
+        entities.DatasetInput(
+            entities.Dataset(
+                f"dataset-{i}",
+                f"digest-{i}",
+                "synthetic",
+                "{}",
+                schema="{}" if i % 2 else None,
+                profile="{}" if i % 2 else None,
+            ),
+            [entities.InputTag(f"tag-{j}", str(j)) for j in range(5)],
+        )
+        for i in range(10)
+    ]
+    dialect = store.engine.dialect
+    with (
+        mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute,
+        mock.patch.object(dialect, "do_executemany", wraps=dialect.do_executemany) as executemany,
+    ):
+        store.log_inputs(run_id, datasets)
+    for table in ("datasets", "input_tags"):
+        prefix = f"INSERT INTO {table} "
+        assert not [call for call in executemany.call_args_list if call.args[1].startswith(prefix)]
+        assert (
+            len([call for call in execute.call_args_list if call.args[1].startswith(prefix)]) == 1
+        )
+    store.log_inputs(run_id, datasets)
+    actual = store.get_run(run_id).inputs.dataset_inputs
+    assert_dataset_inputs_equal(actual, datasets)
+    with store.ManagedSessionMaker() as session:
+        inputs = session.query(models.SqlInput).filter_by(destination_id=run_id).all()
+        assert len(inputs) == len(datasets)
+        assert all(record.step == 0 for record in inputs)
+
+
 def test_log_inputs_handles_case_when_no_datasets_are_specified(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test exp")
     run = _run_factory(store, config=_get_run_configs(experiment_id))
