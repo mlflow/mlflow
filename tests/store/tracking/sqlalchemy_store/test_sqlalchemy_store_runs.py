@@ -2720,6 +2720,48 @@ def test_log_batch_metric_history_uses_multirow_inserts(store: SqlAlchemyStore, 
     assert set(history) == {(f"metric-{i}", float(i), i, i, False) for i in range(count)}
 
 
+def test_log_batch_latest_metrics_use_batched_writes(store: SqlAlchemyStore):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL latest metric batching with psycopg 3")
+
+    run_id = _run_factory(store).info.run_id
+    dialect = store.engine.dialect
+    with (
+        mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute,
+        mock.patch.object(dialect, "do_executemany", wraps=dialect.do_executemany) as executemany,
+    ):
+        store._log_metrics(run_id, [Metric(f"metric-{i}", 0.0, 0, 0) for i in range(8)])
+    prefix = "INSERT INTO latest_metrics "
+    assert not [call for call in executemany.call_args_list if call.args[1].startswith(prefix)]
+    assert len([call for call in execute.call_args_list if call.args[1].startswith(prefix)]) == 1
+
+    metrics = [Metric(f"metric-{i}", float(i % 2), i % 3, 1) for i in range(7)]
+    metrics.append(Metric("metric-7", float("nan"), 1, 1))
+    with (
+        mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute,
+        mock.patch.object(dialect, "do_executemany", wraps=dialect.do_executemany) as executemany,
+    ):
+        store._log_metrics(run_id, metrics)
+    prefix = "UPDATE latest_metrics SET "
+    assert not [call for call in execute.call_args_list if call.args[1].startswith(prefix)]
+    batches = [call for call in executemany.call_args_list if call.args[1].startswith(prefix)]
+    assert len(batches) == 1
+    assert len(batches[0].args[2]) == len(metrics)
+
+    store._log_metrics(run_id, [Metric(f"metric-{i}", 9.0, 99, 0) for i in range(8)])
+    with mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute:
+        store._log_metrics(run_id, [Metric("metric-0", 0.0, 0, 2)])
+    updates = [call.args[1] for call in execute.call_args_list if call.args[1].startswith(prefix)]
+    assert len(updates) == 1
+    assert "value=" not in updates[0]
+    assert "is_nan=" not in updates[0]
+    with store.ManagedSessionMaker() as session:
+        rows = session.query(SqlLatestMetric).filter_by(run_uuid=run_id).all()
+        assert {(r.key, r.value, r.timestamp, r.step, r.is_nan) for r in rows} == {
+            (f"metric-{i}", float(i % 2), i % 3, 1, False) for i in range(1, 7)
+        } | {("metric-0", 0.0, 0, 2, False), ("metric-7", 0.0, 1, 1, True)}
+
+
 def test_log_batch_metric_history_without_bulk_returning(store: SqlAlchemyStore):
     if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
         pytest.skip("PostgreSQL bulk RETURNING fallback with psycopg 3")
