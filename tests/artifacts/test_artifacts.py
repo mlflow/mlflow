@@ -370,6 +370,24 @@ def test_list_artifacts_with_run_id(run_with_artifacts):
     assert artifacts[0].path == f"{artifact_path}/dir"
 
 
+@pytest.mark.parametrize("suffix", ["", "/"])
+def test_list_artifacts_with_run_root_uri(run_with_artifacts, suffix):
+    run, artifact_path = run_with_artifacts
+    artifacts = mlflow.artifacts.list_artifacts(artifact_uri=f"runs:/{run.info.run_id}{suffix}")
+    assert [a.path for a in artifacts] == [artifact_path]
+
+
+@pytest.mark.parametrize("suffix", ["", "/"])
+def test_download_artifacts_with_run_root_uri(run_with_artifacts, tmp_path, suffix):
+    run, artifact_path = run_with_artifacts
+    download_output_path = mlflow.artifacts.download_artifacts(
+        artifact_uri=f"runs:/{run.info.run_id}{suffix}", dst_path=tmp_path
+    )
+    downloaded = pathlib.Path(download_output_path)
+    assert (downloaded / artifact_path / "dir" / "file.txt").read_text() == "content"
+    assert (downloaded / artifact_path / "dir" / "subdir" / "text.txt").read_text() == "content"
+
+
 def test_list_artifacts_throws_for_invalid_arguments():
     with pytest.raises(MlflowException, match="Exactly one of"):
         mlflow.artifacts.list_artifacts(
