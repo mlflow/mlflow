@@ -128,7 +128,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.db.db_types import MSSQL, MYSQL, SQLITE
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -1462,7 +1462,29 @@ class SqlAlchemyStore(
             self._check_run_is_active(run)
 
             def _insert_metrics(metric_instances):
-                session.add_all(metric_instances)
+                if (
+                    self.db_type == POSTGRES
+                    and self.engine.dialect.driver == "psycopg"
+                    and self.engine.dialect.insert_executemany_returning
+                    and metric_instances
+                ):
+                    # RETURNING enables SQLAlchemy's multi-row insert path with psycopg.
+                    session.execute(
+                        sqlalchemy.insert(SqlMetric).returning(SqlMetric.key),
+                        [
+                            {
+                                "key": metric.key,
+                                "value": metric.value,
+                                "timestamp": metric.timestamp,
+                                "step": metric.step,
+                                "is_nan": metric.is_nan,
+                                "run_uuid": metric.run_uuid,
+                            }
+                            for metric in metric_instances
+                        ],
+                    ).close()
+                else:
+                    session.add_all(metric_instances)
                 self._update_latest_metrics_if_necessary(metric_instances, session)
                 session.commit()
 
