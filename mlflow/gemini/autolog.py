@@ -10,6 +10,11 @@ from mlflow.entities.span import LiveSpan
 from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
 )
+from mlflow.gemini.stream import (
+    AsyncStreamWrapper,
+    SyncStreamWrapper,
+    construct_streaming_response,
+)
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
@@ -57,6 +62,8 @@ def patched_class_call(original, self, *args, **kwargs):
         if manager.span and _is_genai_model_or_chat(self) and _should_inject_headers(original):
             _inject_tracing_headers_genai(kwargs, manager.span)
         output = original(self, *args, **kwargs)
+        if manager.span and hasattr(output, "__next__"):
+            return manager.wrap_stream(output, is_async=False)
         manager.output = output
         return output
 
@@ -70,6 +77,8 @@ async def async_patched_class_call(original, self, *args, **kwargs):
         if manager.span and _is_genai_model_or_chat(self) and _should_inject_headers(original):
             _inject_tracing_headers_genai(kwargs, manager.span)
         output = await original(self, *args, **kwargs)
+        if manager.span and hasattr(output, "__aiter__"):
+            return manager.wrap_stream(output, is_async=True)
         manager.output = output
         return output
 
@@ -86,6 +95,7 @@ class TracingSession:
         self.span = None
         self.token = None
         self.output = None
+        self.defer_end = False
 
     def __enter__(self):
         return self._enter_impl()
@@ -130,8 +140,28 @@ class TracingSession:
         # otherwise the span context will leak and pollute other traces created next.
         detach_span_from_context(self.token)
 
-        if exc_val:
-            self.span.record_exception(exc_val)
+        if not self.defer_end:
+            self._end_span(exc_val)
+
+    def wrap_stream(self, stream, is_async: bool):
+        self.defer_end = True
+        wrapper_cls = AsyncStreamWrapper if is_async else SyncStreamWrapper
+        return wrapper_cls(stream, self.span, self._on_stream_end)
+
+    def _on_stream_end(self, chunks, error):
+        try:
+            self.output = construct_streaming_response(chunks)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to reconstruct Gemini streaming response for span {self.span.name}: {e}",
+                exc_info=True,
+            )
+            self.output = chunks
+        self._end_span(error)
+
+    def _end_span(self, exc):
+        if exc:
+            self.span.record_exception(exc)
 
         try:
             # Chat instances store model in _model attribute
@@ -300,7 +330,10 @@ def _get_span_type(task_name: str) -> str:
     span_type_mapping = {
         "generate_content": SpanType.LLM,
         "_generate_content": SpanType.LLM,
+        "generate_content_stream": SpanType.LLM,
+        "_generate_content_stream": SpanType.LLM,
         "send_message": SpanType.CHAT_MODEL,
+        "send_message_stream": SpanType.CHAT_MODEL,
         "count_tokens": SpanType.LLM,
         "embed_content": SpanType.EMBEDDING,
     }

@@ -4,6 +4,7 @@
 import asyncio
 import base64
 import importlib.metadata
+import json
 import re
 from unittest.mock import patch
 
@@ -63,6 +64,18 @@ def _generate_content_response(content, usage_metadata=None):
 
 _DUMMY_GENERATE_CONTENT_RESPONSE = _generate_content_response(_CONTENT)
 
+_STREAM_CHUNKS = [
+    _generate_content_response({"parts": [{"text": "test "}], "role": "model"}),
+    _generate_content_response({"parts": [{"text": "answer"}], "role": "model"}),
+]
+
+
+def _expected_streaming_output():
+    response = _STREAM_CHUNKS[-1].model_copy(deep=True)
+    response.candidates[0].content.parts = [genai.types.Part(text="test answer")]
+    return response.model_dump()
+
+
 _DUMMY_COUNT_TOKENS_RESPONSE = {"total_count": 10}
 
 _DUMMY_EMBEDDING_RESPONSE = {"embedding": [1, 2, 3]}
@@ -80,6 +93,29 @@ def _dummy_generate_content(is_async: bool):
             return _DUMMY_GENERATE_CONTENT_RESPONSE
 
     return _generate_content
+
+
+def _dummy_generate_content_stream(is_async: bool, error: Exception | None = None):
+    if is_async:
+
+        async def _generate_content_stream(self, model, contents, config):
+            async def _stream():
+                yield _STREAM_CHUNKS[0]
+                yield _STREAM_CHUNKS[1]
+                if error:
+                    raise error
+
+            return _stream()
+
+    else:
+
+        def _generate_content_stream(self, model, contents, config):
+            yield _STREAM_CHUNKS[0]
+            yield _STREAM_CHUNKS[1]
+            if error:
+                raise error
+
+    return _generate_content_stream
 
 
 def send_message(self, content):
@@ -148,6 +184,36 @@ def _create_chat_and_send_message(is_async: bool, message: str):
     else:
         chat = client.chats.create(model="gemini-1.5-flash")
         return chat.send_message(message)
+
+
+def _call_generate_content_stream(is_async: bool):
+    client = genai.Client(api_key="dummy")
+    if is_async:
+
+        async def _consume():
+            stream = await client.aio.models.generate_content_stream(
+                model="gemini-1.5-flash", contents="test content"
+            )
+            return [chunk async for chunk in stream]
+
+        return asyncio.run(_consume())
+    return list(
+        client.models.generate_content_stream(model="gemini-1.5-flash", contents="test content")
+    )
+
+
+def _create_chat_and_send_message_stream(is_async: bool):
+    client = genai.Client(api_key="dummy")
+    if is_async:
+
+        async def _consume():
+            chat = client.aio.chats.create(model="gemini-1.5-flash")
+            stream = await chat.send_message_stream("test content")
+            return [chunk async for chunk in stream]
+
+        return asyncio.run(_consume())
+    chat = client.chats.create(model="gemini-1.5-flash")
+    return list(chat.send_message_stream("test content"))
 
 
 def test_generate_content_enable_disable_autolog(is_async, mock_litellm_cost):
@@ -546,6 +612,311 @@ def test_chat_session_autolog(is_async):
         # No new trace should be created
         traces = get_traces()
         assert len(traces) == 1
+
+
+def test_generate_content_stream_autolog(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(
+        f"google.genai.models.{cls}._generate_content_stream",
+        new=_dummy_generate_content_stream(is_async),
+    ):
+        mlflow.gemini.autolog()
+        chunks = _call_generate_content_stream(is_async)
+
+        traces = get_traces()
+        assert len(traces) == 1
+        assert traces[0].info.status == "OK"
+        assert len(traces[0].data.spans) == 2
+
+        span = traces[0].data.spans[0]
+        assert span.name == f"{cls}.generate_content_stream"
+        assert span.span_type == SpanType.LLM
+        assert span.inputs == {
+            "contents": "test content",
+            "model": "gemini-1.5-flash",
+        }
+        assert span.outputs == _expected_streaming_output()
+        assert span.model_name == "gemini-1.5-flash"
+        assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            TokenUsageKey.INPUT_TOKENS: 6,
+            TokenUsageKey.OUTPUT_TOKENS: 6,
+            TokenUsageKey.TOTAL_TOKENS: 12,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
+        }
+        assert [event.name for event in span.events] == [
+            "mlflow.chunk.item.0",
+            "mlflow.chunk.item.1",
+        ]
+        for event, chunk in zip(span.events, chunks):
+            assert json.loads(event.attributes["mlflow.chunk.value"]) == chunk.model_dump()
+
+        child = traces[0].data.spans[1]
+        assert child.name == f"{cls}._generate_content_stream"
+        assert child.parent_id == span.span_id
+        assert child.outputs == _expected_streaming_output()
+
+        mlflow.gemini.autolog(disable=True)
+        _call_generate_content_stream(is_async)
+
+        traces = get_traces()
+        assert len(traces) == 1
+
+
+def test_chat_send_message_stream_autolog(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    chat_cls = "AsyncChat" if is_async else "Chat"
+    with patch(
+        f"google.genai.models.{cls}._generate_content_stream",
+        new=_dummy_generate_content_stream(is_async),
+    ):
+        mlflow.gemini.autolog()
+        chunks = _create_chat_and_send_message_stream(is_async)
+
+    assert [chunk.text for chunk in chunks] == ["test ", "answer"]
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 3
+
+    chat_span, model_span, request_span = traces[0].data.spans
+    assert chat_span.name == f"{chat_cls}.send_message_stream"
+    assert chat_span.span_type == SpanType.CHAT_MODEL
+    assert chat_span.inputs == {"message": "test content"}
+    assert chat_span.outputs == _expected_streaming_output()
+    assert chat_span.model_name == "gemini-1.5-flash"
+
+    assert model_span.name == f"{cls}.generate_content_stream"
+    assert model_span.parent_id == chat_span.span_id
+    assert request_span.name == f"{cls}._generate_content_stream"
+    assert request_span.parent_id == model_span.span_id
+
+
+def test_generate_content_stream_with_error(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(
+        f"google.genai.models.{cls}._generate_content_stream",
+        new=_dummy_generate_content_stream(is_async, error=Exception("stream error")),
+    ):
+        mlflow.gemini.autolog()
+        with pytest.raises(Exception, match="stream error"):
+            _call_generate_content_stream(is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    assert len(traces[0].data.spans) == 2
+    for span in traces[0].data.spans:
+        assert span.status.status_code == "ERROR"
+        assert span.status.description == "Exception: stream error"
+        assert span.outputs == _expected_streaming_output()
+
+
+def test_generate_content_stream_automatic_function_calling(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    function_call_chunk = _generate_content_response({
+        "parts": [{"function_call": {"name": "multiply", "args": {"a": 57.0, "b": 44.0}}}],
+        "role": "model",
+    })
+    answer_chunk = _generate_content_response({
+        "parts": [{"text": "57 * 44 = 2508"}],
+        "role": "model",
+    })
+    requests = []
+
+    def _next_response(contents):
+        requests.append(contents)
+        return function_call_chunk if len(requests) == 1 else answer_chunk
+
+    if is_async:
+
+        async def _generate_content_stream(self, model, contents, config):
+            chunk = _next_response(contents)
+
+            async def _stream():
+                yield chunk
+
+            return _stream()
+
+    else:
+
+        def _generate_content_stream(self, model, contents, config):
+            yield _next_response(contents)
+
+    config = genai.types.GenerateContentConfig(tools=[multiply])
+    client = genai.Client(api_key="dummy")
+    with patch(f"google.genai.models.{cls}._generate_content_stream", new=_generate_content_stream):
+        mlflow.gemini.autolog()
+        if is_async:
+
+            async def _consume():
+                stream = await client.aio.models.generate_content_stream(
+                    model="gemini-1.5-flash", contents="What is 57 * 44?", config=config
+                )
+                return [chunk async for chunk in stream]
+
+            chunks = asyncio.run(_consume())
+        else:
+            chunks = list(
+                client.models.generate_content_stream(
+                    model="gemini-1.5-flash", contents="What is 57 * 44?", config=config
+                )
+            )
+
+    assert len(requests) == 2
+    # Newer SDK versions also yield the function call chunk to the caller, older ones don't.
+    assert chunks[-1].text == "57 * 44 = 2508"
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    stream_span, function_call_span, answer_span = traces[0].data.spans
+    assert stream_span.name == f"{cls}.generate_content_stream"
+    assert [event.name for event in stream_span.events] == [
+        f"mlflow.chunk.item.{i}" for i in range(len(chunks))
+    ]
+    assert (
+        stream_span.outputs["candidates"][0]["content"]["parts"][-1]
+        == answer_chunk.candidates[0].content.parts[0].model_dump()
+    )
+    assert stream_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == TOOL_ATTRIBUTE
+
+    assert function_call_span.name == f"{cls}._generate_content_stream"
+    assert function_call_span.parent_id == stream_span.span_id
+    assert function_call_span.outputs == function_call_chunk.model_dump()
+
+    assert answer_span.name == f"{cls}._generate_content_stream"
+    assert answer_span.parent_id == stream_span.span_id
+    assert answer_span.outputs == answer_chunk.model_dump()
+
+
+def test_generate_content_stream_chunk_recording_failure(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    with (
+        patch(
+            f"google.genai.models.{cls}._generate_content_stream",
+            new=_dummy_generate_content_stream(is_async),
+        ),
+        patch("mlflow.gemini.stream.SpanEvent", side_effect=ValueError("bad chunk")) as mock_event,
+    ):
+        mlflow.gemini.autolog()
+        chunks = _call_generate_content_stream(is_async)
+
+    assert mock_event.call_count == 4
+    assert [chunk.text for chunk in chunks] == ["test ", "answer"]
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    for span in traces[0].data.spans:
+        assert span.events == []
+        assert span.outputs == _expected_streaming_output()
+
+
+def test_generate_content_stream_close(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(
+        f"google.genai.models.{cls}._generate_content_stream",
+        new=_dummy_generate_content_stream(is_async),
+    ):
+        mlflow.gemini.autolog()
+        client = genai.Client(api_key="dummy")
+        if is_async:
+
+            async def _close_stream():
+                stream = await client.aio.models.generate_content_stream(
+                    model="gemini-1.5-flash", contents="test content"
+                )
+                assert (await stream.__anext__()).text == "test "
+                await stream.aclose()
+
+            asyncio.run(_close_stream())
+        else:
+            stream = client.models.generate_content_stream(
+                model="gemini-1.5-flash", contents="test content"
+            )
+            assert next(stream).text == "test "
+            stream.close()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 2
+    for span in traces[0].data.spans:
+        assert span.outputs["candidates"][0]["content"]["parts"] == [
+            _STREAM_CHUNKS[0].candidates[0].content.parts[0].model_dump()
+        ]
+
+
+def test_generate_content_stream_abandoned(is_async):
+    # Stopping early without close() is common (e.g. a user cancels a chat response). The span
+    # must still end once the stream is released, otherwise the trace is never exported.
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(
+        f"google.genai.models.{cls}._generate_content_stream",
+        new=_dummy_generate_content_stream(is_async),
+    ):
+        mlflow.gemini.autolog()
+        client = genai.Client(api_key="dummy")
+        if is_async:
+
+            async def _abandon_stream():
+                stream = await client.aio.models.generate_content_stream(
+                    model="gemini-1.5-flash", contents="test content"
+                )
+                async for _ in stream:
+                    break
+                assert get_traces() == []
+                del stream
+
+            asyncio.run(_abandon_stream())
+        else:
+            stream = client.models.generate_content_stream(
+                model="gemini-1.5-flash", contents="test content"
+            )
+            for _ in stream:
+                break
+            assert get_traces() == []
+            del stream
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 2
+    for span in traces[0].data.spans:
+        assert span.end_time_ns is not None
+        assert span.outputs["candidates"][0]["content"]["parts"] == [
+            _STREAM_CHUNKS[0].candidates[0].content.parts[0].model_dump()
+        ]
+
+
+def test_generate_content_stream_never_consumed(is_async):
+    cls = "AsyncModels" if is_async else "Models"
+    with patch(
+        f"google.genai.models.{cls}._generate_content_stream",
+        new=_dummy_generate_content_stream(is_async),
+    ):
+        mlflow.gemini.autolog()
+        client = genai.Client(api_key="dummy")
+        if is_async:
+
+            async def _drop_stream():
+                stream = await client.aio.models.generate_content_stream(
+                    model="gemini-1.5-flash", contents="test content"
+                )
+                del stream
+
+            asyncio.run(_drop_stream())
+        else:
+            stream = client.models.generate_content_stream(
+                model="gemini-1.5-flash", contents="test content"
+            )
+            del stream
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    (span,) = traces[0].data.spans
+    assert span.name == f"{cls}.generate_content_stream"
+    assert span.outputs is None
 
 
 def test_count_tokens_autolog():
