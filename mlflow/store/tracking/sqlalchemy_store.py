@@ -2220,7 +2220,7 @@ class SqlAlchemyStore(
             if not new_params:
                 return
 
-            session.add_all(new_params)
+            self._insert_many(session, SqlParam, new_params, ("run_uuid", "key", "value"))
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -2351,8 +2351,10 @@ class SqlAlchemyStore(
 
                             new_tag_dict[tag.key] = new_tag
 
-                    # finally, save new entries to DB.
-                    session.add_all(new_tag_dict.values())
+                    session.flush()
+                    self._insert_many(
+                        session, SqlTag, new_tag_dict.values(), ("run_uuid", "key", "value")
+                    )
                     session.commit()
                 except sqlalchemy.exc.IntegrityError:
                     session.rollback()
@@ -2845,14 +2847,19 @@ class SqlAlchemyStore(
     def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
         with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
-            session.add_all(
-                SqlLoggedModelParam(
-                    model_id=model_id,
-                    experiment_id=logged_model.experiment_id,
-                    param_key=param.key,
-                    param_value=param.value,
-                )
-                for param in params
+            self._insert_many(
+                session,
+                SqlLoggedModelParam,
+                [
+                    SqlLoggedModelParam(
+                        model_id=model_id,
+                        experiment_id=logged_model.experiment_id,
+                        param_key=param.key,
+                        param_value=param.value,
+                    )
+                    for param in params
+                ],
+                ("model_id", "experiment_id", "param_key", "param_value"),
             )
 
     def _get_logged_model_record(self, session, model_id: str) -> SqlLoggedModel:
