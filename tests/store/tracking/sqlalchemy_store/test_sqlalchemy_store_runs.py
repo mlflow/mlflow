@@ -4509,6 +4509,65 @@ def test_search_logged_models_nan_latest_metric(store: SqlAlchemyStore):
     assert search("metrics.loss != 0.05") == ["nan_last", "tie"]
 
 
+@pytest.mark.parametrize("count", [1000, 1001])
+def test_logged_model_metrics_use_multirow_inserts(store: SqlAlchemyStore, count):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL model metric batching with psycopg 3")
+
+    run = _run_factory(store)
+    model_id = store.create_logged_model(experiment_id=run.info.experiment_id).model_id
+    metrics = [
+        Metric(
+            f"metric-{i}",
+            float("nan") if i % 2 else float(i),
+            i,
+            i,
+            model_id=model_id,
+            dataset_name="dataset" if i % 3 else None,
+            dataset_digest="digest" if i % 3 else None,
+        )
+        for i in range(count)
+    ]
+    dialect = store.engine.dialect
+    with (
+        mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute,
+        mock.patch.object(dialect, "do_executemany", wraps=dialect.do_executemany) as executemany,
+    ):
+        store._log_model_metrics(run.info.run_id, metrics, run.info.experiment_id)
+    prefix = "INSERT INTO logged_model_metrics "
+    assert not [call for call in executemany.call_args_list if call.args[1].startswith(prefix)]
+    assert len([
+        call for call in execute.call_args_list if call.args[1].startswith(prefix)
+    ]) == math.ceil(count / dialect.insertmanyvalues_page_size)
+    with store.ManagedSessionMaker() as session:
+        rows = session.query(models.SqlLoggedModelMetric).filter_by(model_id=model_id).all()
+        assert {
+            (
+                r.metric_name,
+                r.metric_value,
+                r.metric_timestamp_ms,
+                r.metric_step,
+                r.run_id,
+                r.dataset_name,
+                r.dataset_digest,
+                r.dataset_uuid,
+            )
+            for r in rows
+        } == {
+            (
+                f"metric-{i}",
+                None if i % 2 else float(i),
+                i,
+                i,
+                run.info.run_id,
+                "dataset" if i % 3 else None,
+                "digest" if i % 3 else None,
+                None,
+            )
+            for i in range(count)
+        }
+
+
 def test_log_batch_nan_logged_model_metric_duplicates(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run_id = store.create_run(
