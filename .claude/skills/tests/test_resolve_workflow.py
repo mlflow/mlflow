@@ -9,18 +9,30 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
+RESOLVE_CLI = ROOT / ".claude/skills/resolve/scripts/cli.py"
 
 
 @pytest.fixture
 def workflow() -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        "resolve_workflow", ROOT / ".claude/skills/resolve/scripts/workflow.py"
-    )
+    spec = importlib.util.spec_from_file_location("resolve_workflow", RESOLVE_CLI)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.parametrize("operation", ["collect", "validate", "embed", "publish"])
+def test_operation_help(operation: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CONTEXT_PATH", raising=False)
+    monkeypatch.delenv("OUT_DIR", raising=False)
+    result = subprocess.run(
+        [sys.executable, RESOLVE_CLI, operation, "--help"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert f"usage: cli.py {operation}" in result.stdout
 
 
 @pytest.fixture

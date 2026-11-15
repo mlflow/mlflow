@@ -57,7 +57,7 @@ env:
   DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
   CONTEXT_PATH: /tmp/resolve-context/context.json
   OUT_DIR: /tmp/resolve-out
-  SCRIPT: .claude/skills/resolve/scripts/workflow.py
+  SCRIPT: .claude/skills/resolve/scripts/cli.py
 
 jobs:
   gate:

@@ -1,3 +1,4 @@
+import argparse
 import html
 import json
 import os
@@ -391,19 +392,43 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Run a Resolve workflow operation.")
+    operations = parser.add_subparsers(dest="operation", required=True)
+    operations.add_parser(
+        "collect",
+        help="Collect pull request review context",
+        description="Collect review context for the configured pull request and review.",
+    )
+    operations.add_parser(
+        "validate",
+        help="Validate the resolution output",
+        description="Validate the resolution payload, media, and any accompanying patch.",
+    )
+    operations.add_parser(
+        "embed",
+        help="Upload and embed reply media",
+        description="Upload reply media and replace local media paths in the publication payload.",
+    )
+    operations.add_parser(
+        "publish",
+        help="Publish or preview the resolution",
+        description="Publish replies and any patch, or write a preview in dry-run mode.",
+    )
+    args = parser.parse_args()
+
     context_path = Path(os.environ["CONTEXT_PATH"])
     out_dir = Path(os.environ["OUT_DIR"])
-    match sys.argv[1:]:
-        case ["validate"]:
+    match args.operation:
+        case "validate":
             validate(context_path, out_dir)
             if "PR_CHECKOUT" in os.environ:
                 if git("rev-parse", "HEAD") != json.loads(context_path.read_text())["head_sha"]:
                     raise ValueError("Publisher checkout does not match the collected head")
                 if (patch := out_dir / "fix.patch").is_file():
                     apply_patch(patch)
-        case ["embed"]:
+        case "embed":
             embed(out_dir)
-        case [operation] if operation in {"collect", "publish"}:
+        case "collect" | "publish" as operation:
             repo = os.environ["GH_REPO"]
             number = os.environ["PR_NUMBER"]
             review_id = os.environ["REVIEW_ID"]
@@ -413,8 +438,6 @@ def main() -> None:
                 collect(repo, number, review_id, context_path)
             else:
                 publish(repo, number, review_id, context_path, out_dir)
-        case _:
-            raise ValueError("Expected collect, validate, embed, or publish")
 
 
 if __name__ == "__main__":
