@@ -6,7 +6,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 APP = "mlflow-app[bot]"
 APP_ID = 191841109
@@ -391,53 +391,69 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     summary(f"Re-requested review from {reviewer}.")
 
 
+class ReviewTarget(TypedDict):
+    repo: str
+    number: str
+    review_id: str
+
+
+def read_review_target() -> ReviewTarget:
+    repo = os.environ["GH_REPO"]
+    number = os.environ["PR_NUMBER"]
+    review_id = os.environ["REVIEW_ID"]
+    if repo != "mlflow/mlflow" or not number.isdecimal() or not review_id.isdecimal():
+        raise ValueError("Expected an MLflow PR and numeric review ID")
+    return {"repo": repo, "number": number, "review_id": review_id}
+
+
+def run_collect(args: argparse.Namespace) -> None:
+    collect(**read_review_target(), context_path=args.context_path)
+
+
+def run_validate(args: argparse.Namespace) -> None:
+    validate(args.context_path, args.out_dir)
+    if "PR_CHECKOUT" in os.environ:
+        if git("rev-parse", "HEAD") != json.loads(args.context_path.read_text())["head_sha"]:
+            raise ValueError("Publisher checkout does not match the collected head")
+        if (patch := args.out_dir / "fix.patch").is_file():
+            apply_patch(patch)
+
+
+def run_embed(args: argparse.Namespace) -> None:
+    embed(args.out_dir)
+
+
+def run_publish(args: argparse.Namespace) -> None:
+    publish(**read_review_target(), context_path=args.context_path, out_dir=args.out_dir)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a Resolve workflow operation.")
-    operations = parser.add_subparsers(dest="operation", required=True)
+    operations = parser.add_subparsers(required=True)
     operations.add_parser(
         "collect",
         help="Collect pull request review context",
         description="Collect review context for the configured pull request and review.",
-    )
+    ).set_defaults(func=run_collect)
     operations.add_parser(
         "validate",
         help="Validate the resolution output",
         description="Validate the resolution payload, media, and any accompanying patch.",
-    )
+    ).set_defaults(func=run_validate)
     operations.add_parser(
         "embed",
         help="Upload and embed reply media",
         description="Upload reply media and replace local media paths in the publication payload.",
-    )
+    ).set_defaults(func=run_embed)
     operations.add_parser(
         "publish",
         help="Publish or preview the resolution",
         description="Publish replies and any patch, or write a preview in dry-run mode.",
-    )
+    ).set_defaults(func=run_publish)
     args = parser.parse_args()
-
-    context_path = Path(os.environ["CONTEXT_PATH"])
-    out_dir = Path(os.environ["OUT_DIR"])
-    match args.operation:
-        case "validate":
-            validate(context_path, out_dir)
-            if "PR_CHECKOUT" in os.environ:
-                if git("rev-parse", "HEAD") != json.loads(context_path.read_text())["head_sha"]:
-                    raise ValueError("Publisher checkout does not match the collected head")
-                if (patch := out_dir / "fix.patch").is_file():
-                    apply_patch(patch)
-        case "embed":
-            embed(out_dir)
-        case "collect" | "publish" as operation:
-            repo = os.environ["GH_REPO"]
-            number = os.environ["PR_NUMBER"]
-            review_id = os.environ["REVIEW_ID"]
-            if repo != "mlflow/mlflow" or not number.isdecimal() or not review_id.isdecimal():
-                raise ValueError("Expected an MLflow PR and numeric review ID")
-            if operation == "collect":
-                collect(repo, number, review_id, context_path)
-            else:
-                publish(repo, number, review_id, context_path, out_dir)
+    args.context_path = Path(os.environ["CONTEXT_PATH"])
+    args.out_dir = Path(os.environ["OUT_DIR"])
+    args.func(args)
 
 
 if __name__ == "__main__":
