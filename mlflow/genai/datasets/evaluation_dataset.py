@@ -267,6 +267,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
         with _databricks_profile_env():
             dataset = self._databricks_dataset.merge_records(records)
+        self._clear_cached_records()
         return EvaluationDataset(dataset)
 
     def delete_records(self, record_ids: list[str]) -> int:
@@ -278,6 +279,13 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
         with _databricks_profile_env():
             self._databricks_dataset.delete_records(record_ids)
+        self._clear_cached_records()
+
+    def _clear_cached_records(self) -> None:
+        # A write changes the records and the latest version, so the next `to_df()` must reload.
+        self._df = None
+        self._latest_version = None
+        self._latest_version_resolved = False
 
     def list_versions(self) -> list[EvaluationDatasetVersion]:
         """List immutable versions for this dataset."""
