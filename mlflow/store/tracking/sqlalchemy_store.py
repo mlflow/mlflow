@@ -2850,7 +2850,7 @@ class SqlAlchemyStore(
             self._insert_many(
                 session,
                 SqlLoggedModelParam,
-                [
+                (
                     SqlLoggedModelParam(
                         model_id=model_id,
                         experiment_id=logged_model.experiment_id,
@@ -2858,7 +2858,7 @@ class SqlAlchemyStore(
                         param_value=param.value,
                     )
                     for param in params
-                ],
+                ),
                 ("model_id", "experiment_id", "param_key", "param_value"),
             )
 
