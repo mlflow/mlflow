@@ -230,20 +230,16 @@ def _parse_databricks_judge_response(
         response_data = json.loads(llm_output)
     except json.JSONDecodeError as e:
         _logger.debug(f"Invalid JSON response from Databricks judge: {e}", exc_info=True)
-        if response_data := _lenient_parse_judge_output(llm_output):
+        response_data = _lenient_parse_judge_output(llm_output)
+        if response_data is None:
             return Feedback(
                 name=assessment_name,
-                value=response_data["result"],
-                rationale=response_data["rationale"],
+                error=(
+                    f"Invalid JSON response from Databricks judge: {e}\n\nLLM output: {llm_output}"
+                ),
                 source=source,
                 trace_id=trace_id,
             )
-        return Feedback(
-            name=assessment_name,
-            error=f"Invalid JSON response from Databricks judge: {e}\n\nLLM output: {llm_output}",
-            source=source,
-            trace_id=trace_id,
-        )
 
     if "result" not in response_data:
         return Feedback(
