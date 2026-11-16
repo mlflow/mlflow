@@ -3961,13 +3961,18 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         max_last_trace_timestamp_ms: int,
         max_results: int | None = None,
         filter_string: str | None = None,
+        after_session_id: str | None = None,
     ) -> list[CompletedSession]:
         """
         Find completed sessions based on their last trace timestamp.
 
-        A completed session is one whose last trace timestamp falls within the specified
-        time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has
-        no traces after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
+        A session's "last trace timestamp" is the latest *end* time (start + duration) among
+        its traces; traces are written to the store when they finish, so this is when the
+        session last produced data. A completed session is one whose last trace timestamp falls
+        within the specified time window [min_last_trace_timestamp_ms,
+        max_last_trace_timestamp_ms] and has no traces ending after max_last_trace_timestamp_ms
+        (i.e., the session is not ongoing). ``first_trace_timestamp_ms`` remains the earliest
+        trace start time.
 
         Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
         deterministic and stable ordering, especially when timestamp ties occur. This is
@@ -3975,15 +3980,19 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
 
         Args:
             experiment_id: The experiment to search.
-            min_last_trace_timestamp_ms: Lower bound for session's last trace timestamp (inclusive).
-                Sessions with last trace before this time are excluded.
-            max_last_trace_timestamp_ms: Upper bound for session's last trace timestamp (inclusive).
-                Sessions with any traces after this time are excluded.
+            min_last_trace_timestamp_ms: Lower bound for session's last trace end time
+                (inclusive). Sessions whose last trace ended before this time are excluded.
+            max_last_trace_timestamp_ms: Upper bound for session's last trace end time
+                (inclusive). Sessions with any traces ending after this time are excluded.
             max_results: Maximum number of sessions to return. If None, returns all
                 matching sessions.
             filter_string: Optional search filter string to apply to the first trace
                 in each session. Only sessions whose first trace matches this filter
                 will be returned.
+            after_session_id: If provided, sessions whose last trace timestamp equals
+                ``min_last_trace_timestamp_ms`` and whose session ID sorts at or before this
+                value (per the database's collation, matching the result ordering) are
+                excluded. Used to resume from a ``(timestamp, session_id)`` checkpoint.
 
         Returns:
             List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,
@@ -4004,12 +4013,12 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 return []
             experiment_id_int = experiment_ids[0]
 
-            # Example: Given min=200, max=400
-            #   Session A (traces at [100, 200, 300]): last=300, no traces >400 → INCLUDED
-            #   Session B (traces at [100, 200, 500]): has trace >400 → EXCLUDED (ongoing)
-            #   Session C (traces at [50, 100]): no traces >=200 → EXCLUDED (too old)
+            # Example: Given min=200, max=400 (times are trace end times)
+            #   Session A (traces ending at [100, 200, 300]): last=300, none >400 → INCLUDED
+            #   Session B (traces ending at [100, 200, 500]): has trace >400 → EXCLUDED (ongoing)
+            #   Session C (traces ending at [50, 100]): none >=200 → EXCLUDED (too old)
 
-            # Step 1: Find sessions with at least one trace >= min timestamp (optimization)
+            # Step 1: Find sessions with at least one trace ending >= min timestamp (optimization)
             # Example: Sessions A, B pass (have traces >=200); Session C excluded
             candidate_sessions = self._build_candidate_sessions_subquery(
                 session=session,
@@ -4041,6 +4050,8 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 sessions_with_stats=sessions_with_stats,
                 max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
                 max_results=max_results,
+                min_last_trace_timestamp_ms=min_last_trace_timestamp_ms,
+                after_session_id=after_session_id,
             )
 
             results = query.all()
@@ -4061,7 +4072,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         min_last_trace_timestamp_ms: int,
     ) -> Subquery:
         """
-        Build subquery for sessions with at least one trace after the minimum timestamp.
+        Build subquery for sessions with at least one trace ending after the minimum timestamp.
 
         This optimization avoids aggregating stats for sessions with no recent traces.
         """
@@ -4076,7 +4087,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             )
             .filter(
                 SqlTraceInfo.experiment_id == experiment_id,
-                SqlTraceInfo.timestamp_ms >= min_last_trace_timestamp_ms,
+                _trace_end_time_expr() >= min_last_trace_timestamp_ms,
             )
             .distinct()
             .subquery()
@@ -4174,7 +4185,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         sessions: Subquery,
     ) -> Subquery:
         """
-        Build subquery aggregating first/last trace timestamps for sessions.
+        Build subquery aggregating first trace start / last trace end timestamps for sessions.
         """
         session_metadata = aliased(SqlTraceMetadata)
         stats_query = (
@@ -4183,7 +4194,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             .with_entities(
                 session_metadata.value.label("session_id"),
                 func.min(SqlTraceInfo.timestamp_ms).label("first_trace_timestamp_ms"),
-                func.max(SqlTraceInfo.timestamp_ms).label("last_trace_timestamp_ms"),
+                func.max(_trace_end_time_expr()).label("last_trace_timestamp_ms"),
             )
             .join(
                 session_metadata,
@@ -4209,30 +4220,39 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         sessions_with_stats: Subquery,
         max_last_trace_timestamp_ms: int,
         max_results: int | None,
+        min_last_trace_timestamp_ms: int | None = None,
+        after_session_id: str | None = None,
     ) -> Query:
         """
         Build main query for completed sessions.
 
         Returns sessions where last trace <= max timestamp, ordered by
         (last_trace_timestamp_ms ASC, session_id ASC) for deterministic pagination.
+        If ``after_session_id`` is given, sessions at ``min_last_trace_timestamp_ms`` whose
+        session_id sorts at or before it are excluded (checkpoint resume tie-break).
         """
-        query = (
-            session
-            .query(
-                sessions_with_stats.c.session_id,
-                sessions_with_stats.c.first_trace_timestamp_ms,
-                sessions_with_stats.c.last_trace_timestamp_ms,
+        query = session.query(
+            sessions_with_stats.c.session_id,
+            sessions_with_stats.c.first_trace_timestamp_ms,
+            sessions_with_stats.c.last_trace_timestamp_ms,
+        ).filter(
+            sessions_with_stats.c.last_trace_timestamp_ms <= max_last_trace_timestamp_ms,
+        )
+
+        if after_session_id is not None and min_last_trace_timestamp_ms is not None:
+            query = query.filter(
+                ~(
+                    (sessions_with_stats.c.last_trace_timestamp_ms == min_last_trace_timestamp_ms)
+                    & (sessions_with_stats.c.session_id <= after_session_id)
+                )
             )
-            .filter(
-                sessions_with_stats.c.last_trace_timestamp_ms <= max_last_trace_timestamp_ms,
-            )
-            .order_by(
-                sessions_with_stats.c.last_trace_timestamp_ms.asc(),
-                # Use session_id as tiebreaker for deterministic ordering when multiple
-                # sessions have the same timestamp. This ensures checkpoint resume works
-                # correctly when max_results is hit in the middle of a timestamp group.
-                sessions_with_stats.c.session_id.asc(),
-            )
+
+        query = query.order_by(
+            sessions_with_stats.c.last_trace_timestamp_ms.asc(),
+            # Use session_id as tiebreaker for deterministic ordering when multiple
+            # sessions have the same timestamp. This ensures checkpoint resume works
+            # correctly when max_results is hit in the middle of a timestamp group.
+            sessions_with_stats.c.session_id.asc(),
         )
 
         if max_results is not None:
@@ -9523,6 +9543,11 @@ def _get_search_experiments_order_by_clauses(order_by):
     return [col.asc() if ascending else col.desc() for col, ascending in order_by_clauses]
 
 
+def _trace_end_time_expr():
+    """SQL expression for a trace's end time (``trace.end_time_ms``): start plus duration."""
+    return SqlTraceInfo.timestamp_ms + func.coalesce(SqlTraceInfo.execution_time_ms, 0)
+
+
 def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     """Sorts a set of traces based on their natural ordering and an overriding set of order_bys.
     Traces are ordered first by timestamp_ms descending, then by trace_id for tie-breaking.
@@ -9538,7 +9563,10 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
         )
 
         if SearchTraceUtils.is_attribute(key_type, key, "="):
-            order_value = getattr(SqlTraceInfo, key)
+            if key in ("end_time_ms", "end_time"):
+                order_value = _trace_end_time_expr()
+            else:
+                order_value = getattr(SqlTraceInfo, key)
         else:
             if SearchTraceUtils.is_tag(key_type, "="):
                 entity = SqlTraceTag

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS
 from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
 from mlflow.genai.scorers.online.trace_checkpointer import (
     OnlineTraceCheckpointManager,
@@ -85,7 +86,7 @@ def test_calculate_time_window_no_checkpoint(checkpoint_manager, mock_store, mon
 
     expected_min = (fixed_time * 1000) - MAX_LOOKBACK_MS
     assert result.min_trace_timestamp_ms == expected_min
-    assert result.max_trace_timestamp_ms == fixed_time * 1000
+    assert result.max_trace_timestamp_ms == fixed_time * 1000 - DEFAULT_BUFFER_MS
 
 
 def test_calculate_time_window_recent_checkpoint(checkpoint_manager, mock_store, monkeypatch):
@@ -100,7 +101,7 @@ def test_calculate_time_window_recent_checkpoint(checkpoint_manager, mock_store,
     result = checkpoint_manager.calculate_time_window()
 
     assert result.min_trace_timestamp_ms == recent_checkpoint_time
-    assert result.max_trace_timestamp_ms == fixed_time * 1000
+    assert result.max_trace_timestamp_ms == fixed_time * 1000 - DEFAULT_BUFFER_MS
 
 
 def test_calculate_time_window_old_checkpoint(checkpoint_manager, mock_store, monkeypatch):
@@ -119,4 +120,43 @@ def test_calculate_time_window_old_checkpoint(checkpoint_manager, mock_store, mo
 
     expected_min = (fixed_time * 1000) - MAX_LOOKBACK_MS
     assert result.min_trace_timestamp_ms == expected_min
+    assert result.max_trace_timestamp_ms == fixed_time * 1000 - DEFAULT_BUFFER_MS
+
+
+DEFAULT_BUFFER_MS = MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS.default * 1000
+
+
+def test_default_completion_buffer_is_positive():
+    # Traces are written when they finish but the checkpoint is keyed on their start time; a
+    # zero buffer would permanently skip any trace still running when the checkpoint passes it.
+    assert DEFAULT_BUFFER_MS > 0
+
+
+def test_calculate_time_window_with_custom_completion_buffer(
+    checkpoint_manager, mock_store, monkeypatch
+):
+    experiment = MagicMock()
+    experiment.tags = {}
+    mock_store.get_experiment.return_value = experiment
+    fixed_time = 1000000
+    monkeypatch.setattr(time, "time", lambda: fixed_time)
+    monkeypatch.setenv(MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS.name, "120")
+
+    result = checkpoint_manager.calculate_time_window()
+
+    assert result.max_trace_timestamp_ms == fixed_time * 1000 - 120 * 1000
+
+
+def test_calculate_time_window_with_negative_buffer_defaults_to_zero(
+    checkpoint_manager, mock_store, monkeypatch
+):
+    experiment = MagicMock()
+    experiment.tags = {}
+    mock_store.get_experiment.return_value = experiment
+    fixed_time = 1000000
+    monkeypatch.setattr(time, "time", lambda: fixed_time)
+    monkeypatch.setenv(MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS.name, "-5")
+
+    result = checkpoint_manager.calculate_time_window()
+
     assert result.max_trace_timestamp_ms == fixed_time * 1000

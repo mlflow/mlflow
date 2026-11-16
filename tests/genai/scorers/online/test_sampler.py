@@ -145,3 +145,27 @@ def test_sample_dense_waterfall_behavior(entity_id):
         assert "low" not in result_names
     if "medium" not in result_names and "high" in result_names:
         assert "low" not in result_names
+
+
+@pytest.mark.parametrize("entity_id", ["trace-1", "trace-2", "trace-3", "trace-4", "trace-5"])
+def test_sample_is_independent_of_scorer_load_order_for_equal_rates(entity_id):
+    """
+    Scorers with the same sample rate are tie-broken by name. Otherwise the dense-sampling
+    waterfall would depend on the order the store returned the configs, and the same
+    entity + configuration could be sampled differently across runs or after a restart.
+    """
+    scorer_a, scorer_b, scorer_c = Completeness(), Completeness(), Completeness()
+    scorer_a.name, scorer_b.name, scorer_c.name = "a", "b", "c"
+    configs = [
+        make_online_scorer(scorer_a, sample_rate=0.5),
+        make_online_scorer(scorer_b, sample_rate=0.5),
+        make_online_scorer(scorer_c, sample_rate=0.5),
+    ]
+    forward = OnlineScorerSampler(configs)
+    reverse = OnlineScorerSampler(list(reversed(configs)))
+
+    scorers = [forward._scorers[n] for n in ("a", "b", "c")]
+    selected_forward = {s.name for s in forward.sample(entity_id, scorers)}
+    selected_reverse = {s.name for s in reverse.sample(entity_id, list(reversed(scorers)))}
+
+    assert selected_forward == selected_reverse
