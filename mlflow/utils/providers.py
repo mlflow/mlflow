@@ -469,7 +469,10 @@ def _cost_from_model_info(
 # Each mode defines:
 #   - display_name: Human-readable name for UI
 #   - description: Help text explaining this auth method
-#   - fields: List of fields with secret flag indicating if encrypted
+#   - fields: List of fields with secret flag indicating if encrypted. The UI rejects
+#     non-ASCII characters in secret fields, to catch API keys typed with a CJK input
+#     method on. If a new secret field can hold JSON or free-form text, add it to
+#     `JSON_CREDENTIAL_SECRET_FIELDS` in mlflow/server/js/src/gateway/utils/secretUtils.ts.
 #   - default: True if this is the default auth mode for the provider
 #   - runtime_auth: Optional runtime auth handler name
 #
