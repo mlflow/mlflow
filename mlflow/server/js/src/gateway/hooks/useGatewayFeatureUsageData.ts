@@ -51,7 +51,7 @@ const sumValues = (dataPoints: MetricDataPoint[] | undefined, aggregation: Aggre
  * totals shown by the other charts.
  */
 export function useGatewayFeatureUsageData() {
-  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, filters } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, filters } = useOverviewChartContext();
   const queryScope = { experimentIds, startTimeMs, endTimeMs, filters };
 
   const requestsQuery = useTraceMetricsQuery({
@@ -76,15 +76,14 @@ export function useGatewayFeatureUsageData() {
     dimensions: [SpanDimensionKey.GATEWAY_CALLER],
   });
 
-  // The request and token totals use the same queries as the Requests and Token Usage charts, so
-  // React Query shares their results.
+  // The totals are not time-bucketed: a bucketed query can be cut off by the metrics API's result
+  // limit while the feature counts cover the whole range. The token total shares the Token Usage
+  // chart's query.
   const totalRequestsQuery = useTraceMetricsQuery({
     ...queryScope,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
-    timeIntervalSeconds,
-    dimensions: [TraceDimensionKey.TRACE_STATUS],
   });
   const totalTokensQuery = useTraceMetricsQuery({
     ...queryScope,

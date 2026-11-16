@@ -118,11 +118,14 @@ describe('useGatewayFeatureUsageData', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(
-      capturedRequests.map(({ view_type, metric_name, dimensions, filters }) => ({
+      // None of these queries are time-bucketed: a bucketed total can be cut off by the metrics API's
+      // result limit while the feature counts cover the whole range.
+      capturedRequests.map(({ view_type, metric_name, dimensions, filters, time_interval_seconds }) => ({
         view_type,
         metric_name,
         dimensions,
         filters,
+        time_interval_seconds,
       })),
     ).toEqual(
       expect.arrayContaining([
@@ -144,12 +147,7 @@ describe('useGatewayFeatureUsageData', () => {
           dimensions: ['gateway_caller'],
           filters: ['trace.status = "OK"'],
         },
-        {
-          view_type: 'TRACES',
-          metric_name: 'trace_count',
-          dimensions: ['trace_status'],
-          filters: ['trace.status = "OK"'],
-        },
+        { view_type: 'TRACES', metric_name: 'trace_count', dimensions: undefined, filters: ['trace.status = "OK"'] },
         { view_type: 'TRACES', metric_name: 'total_tokens', dimensions: undefined, filters: ['trace.status = "OK"'] },
         { view_type: 'SPANS', metric_name: 'total_cost', dimensions: undefined, filters: ['trace.status = "OK"'] },
       ]),
