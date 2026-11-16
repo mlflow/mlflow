@@ -912,6 +912,67 @@ def test_builtin_cost_fallback_with_cache_tokens():
     assert result["input_cost"] == pytest.approx(0.00225)
 
 
+def test_builtin_cost_normalizes_disjoint_cache_token_counts():
+    # Anthropic-style disjoint counts: input_tokens excludes the cache tokens.
+    disjoint = {
+        "input_tokens": 229,
+        "output_tokens": 118001,
+        "cache_read_input_tokens": 4899982,
+        "cache_creation_input_tokens": 909507,
+    }
+    inclusive = {**disjoint, "input_tokens": 229 + 4899982 + 909507}
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        disjoint_result = calculate_cost_by_model_and_token_usage(
+            "claude-opus-4-6", disjoint, model_provider="anthropic"
+        )
+        inclusive_result = calculate_cost_by_model_and_token_usage(
+            "claude-opus-4-6", inclusive, model_provider="anthropic"
+        )
+    assert inclusive_result is not None
+    assert disjoint_result == inclusive_result
+
+
+def test_disjoint_cache_token_counts_passed_to_litellm_as_inclusive(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "cache_read_input_tokens": 200,
+        "cache_creation_input_tokens": 50,
+    }
+    calculate_cost_by_model_and_token_usage("claude-opus-4-6", usage)
+    mock_litellm_cost.assert_called()
+    assert all(call.kwargs["prompt_tokens"] == 260 for call in mock_litellm_cost.call_args_list)
+
+
+def test_inclusive_cache_token_counts_passed_to_litellm_unchanged(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {
+        "input_tokens": 1000,
+        "output_tokens": 5,
+        "cache_read_input_tokens": 200,
+        "cache_creation_input_tokens": 50,
+    }
+    calculate_cost_by_model_and_token_usage("claude-opus-4-6", usage)
+    mock_litellm_cost.assert_called()
+    assert all(call.kwargs["prompt_tokens"] == 1000 for call in mock_litellm_cost.call_args_list)
+
+
+@pytest.mark.parametrize("cost", [(-1.0, 2.0), (1.0, -2.0)])
+def test_negative_cost_returns_none(cost):
+    with (
+        mock.patch.dict("sys.modules", {"litellm": None}),
+        mock.patch("mlflow.utils.providers.cost_per_token", return_value=cost) as cost_per_token,
+    ):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o", {"input_tokens": 100, "output_tokens": 50}, model_provider="openai"
+        )
+    cost_per_token.assert_called_once()
+    assert result is None
+
+
 def test_builtin_cost_prices_1hr_cache_creation_higher():
     # claude-haiku-4-5 publishes a 1-hour cache-creation rate higher than the 5-minute rate,
     # so pricing part of the cache-creation tokens at the 1-hour rate raises the input cost.
