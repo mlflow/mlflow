@@ -1,5 +1,6 @@
 """Huey job functions for async scorer invocation."""
 
+import json
 import logging
 import os
 import random
@@ -10,6 +11,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from mlflow.entities import Trace
+from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_ENABLE_WORKSPACES,
@@ -33,7 +35,7 @@ from mlflow.genai.scorers.online import (
     OnlineTraceScoringProcessor,
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
-from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.handlers import _get_job_store, _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
@@ -436,6 +438,12 @@ def run_online_scoring_scheduler() -> None:
     2. Session-level scoring job for session scorers
 
     Groups are shuffled to prevent starvation when there are limited job runners available.
+
+    An experiment that already has a pending or running job of a given type is skipped for
+    that type. Without this, a backlog of job runners would let queued jobs accumulate without
+    bound, and each queued job would eventually run with the (stale) scorer configuration it was
+    submitted with. The job's per-experiment exclusive lock remains the last line of defense
+    against two jobs for the same experiment running at once.
     """
     tracking_store = _get_tracking_store()
     # Iterate on each workspaces in the tracking store to run all registered scorers
@@ -460,6 +468,11 @@ def run_online_scoring_scheduler() -> None:
                 f"Grouped into {len(experiment_groups)} experiments, submitting jobs per experiment"
             )
 
+            busy_trace_experiments = _experiment_ids_with_active_job(ONLINE_TRACE_SCORER_JOB_NAME)
+            busy_session_experiments = _experiment_ids_with_active_job(
+                ONLINE_SESSION_SCORER_JOB_NAME
+            )
+
             for experiment_id, scorers in experiment_groups:
                 # Separate scorers by type
                 session_level_scorers = []
@@ -478,7 +491,12 @@ def run_online_scoring_scheduler() -> None:
                         )
 
                 # Only submit jobs for scorer types that exist
-                if trace_level_scorers:
+                if trace_level_scorers and experiment_id in busy_trace_experiments:
+                    _logger.debug(
+                        f"Skipping trace scoring job for experiment {experiment_id}: a job is "
+                        "already pending or running"
+                    )
+                elif trace_level_scorers:
                     _logger.debug(
                         f"Submitting trace scoring job for experiment {experiment_id} "
                         f"with {len(trace_level_scorers)} scorers"
@@ -489,7 +507,12 @@ def run_online_scoring_scheduler() -> None:
                         {"experiment_id": experiment_id, "online_scorers": trace_scorer_dicts},
                     )
 
-                if session_level_scorers:
+                if session_level_scorers and experiment_id in busy_session_experiments:
+                    _logger.debug(
+                        f"Skipping session scoring job for experiment {experiment_id}: a job is "
+                        "already pending or running"
+                    )
+                elif session_level_scorers:
                     _logger.debug(
                         f"Submitting session scoring job for experiment {experiment_id} "
                         f"with {len(session_level_scorers)} scorers"
@@ -499,6 +522,23 @@ def run_online_scoring_scheduler() -> None:
                         run_online_session_scorer_job,
                         {"experiment_id": experiment_id, "online_scorers": session_scorer_dicts},
                     )
+
+
+def _experiment_ids_with_active_job(job_name: str) -> set[str]:
+    """Return the experiment IDs that already have a pending or running job of this type."""
+    try:
+        jobs = _get_job_store().list_jobs(
+            job_name=job_name, statuses=[JobStatus.PENDING, JobStatus.RUNNING]
+        )
+        return {
+            experiment_id
+            for job_entity in jobs
+            if (experiment_id := json.loads(job_entity.params).get("experiment_id")) is not None
+        }
+    except Exception as e:
+        # Fail open: the exclusive lock still prevents concurrent runs per experiment.
+        _logger.warning(f"Failed to list active {job_name} jobs; submitting anyway: {e}")
+        return set()
 
 
 def _get_online_scoring_workspace_contexts():

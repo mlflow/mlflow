@@ -10,6 +10,23 @@ from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
 _logger = logging.getLogger(__name__)
 
+# Trace IDs per batch_get_traces call.
+_FETCH_CHUNK_SIZE = 200
+
+
+def trace_end_time_ms(trace_info: TraceInfo) -> int:
+    """
+    The trace's end time as the store computes it for ``trace.end_time_ms``: start plus duration.
+
+    For an in-progress trace this is the end of its latest exported span, so it moves forward as
+    spans arrive and reflects when the trace last made progress.
+    """
+    return trace_info.timestamp_ms + (trace_info.execution_time_ms or 0)
+
+
+def trace_time_ms(trace_info: TraceInfo, time_key: str) -> int:
+    return trace_end_time_ms(trace_info) if time_key == "end_time_ms" else trace_info.timestamp_ms
+
 
 class OnlineTraceLoader:
     def __init__(self, tracking_store: AbstractStore):
@@ -33,8 +50,11 @@ class OnlineTraceLoader:
         if not trace_ids:
             return []
 
-        traces = self._tracking_store.batch_get_traces(trace_ids)
-        trace_map = {t.info.trace_id: t for t in traces}
+        # Chunk the lookups so a very long session does not produce an oversized IN clause.
+        trace_map = {}
+        for i in range(0, len(trace_ids), _FETCH_CHUNK_SIZE):
+            for t in self._tracking_store.batch_get_traces(trace_ids[i : i + _FETCH_CHUNK_SIZE]):
+                trace_map[t.info.trace_id] = t
 
         # Identify traces that were not returned by batch_get_traces. This
         # happens when span data lives in the artifact repo (e.g. S3) instead
@@ -59,7 +79,11 @@ class OnlineTraceLoader:
         Returns:
             List of Trace objects with span data loaded from the artifact repo.
         """
-        trace_infos = self._tracking_store.batch_get_trace_infos(trace_ids)
+        trace_infos = []
+        for i in range(0, len(trace_ids), _FETCH_CHUNK_SIZE):
+            trace_infos.extend(
+                self._tracking_store.batch_get_trace_infos(trace_ids[i : i + _FETCH_CHUNK_SIZE])
+            )
 
         traces = []
         for trace_info in trace_infos:
@@ -94,8 +118,10 @@ class OnlineTraceLoader:
         start_time_ms: int,
         end_time_ms: int,
         filter_string: str | None = None,
-        max_traces: int = 500,
+        max_traces: int | None = 500,
         page_size: int = 100,
+        after_trace_id: str | None = None,
+        time_key: str = "timestamp_ms",
     ) -> list[TraceInfo]:
         """
         Fetch trace infos within a time window, optionally filtered.
@@ -105,30 +131,44 @@ class OnlineTraceLoader:
             start_time_ms: Start of time window (inclusive).
             end_time_ms: End of time window (inclusive).
             filter_string: Optional additional filter criteria.
-            max_traces: Maximum number of traces to return.
+            max_traces: Maximum number of traces to return, or None to page through every
+                matching trace.
             page_size: Number of traces to fetch per API call.
+            after_trace_id: If set, traces at ``start_time_ms`` whose trace ID sorts at or
+                before this value are skipped. This is the checkpoint tie-breaker: it lets a
+                caller resume in the middle of a group of traces sharing the checkpoint
+                timestamp. The exclusion is applied while paging, so ``max_traces`` counts
+                only traces that are actually returned.
+            time_key: Which trace time the window, ordering and tie-breaker apply to:
+                ``"timestamp_ms"`` (trace start, the default) or ``"end_time_ms"`` (trace
+                end, i.e. start plus duration).
 
         Returns:
-            List of TraceInfo objects matching the criteria.
+            List of TraceInfo objects matching the criteria, ordered by
+            ``(<time_key> ASC, trace_id ASC)``.
         """
-        time_filter = (
-            f"trace.timestamp_ms >= {start_time_ms} AND trace.timestamp_ms <= {end_time_ms}"
-        )
+        if time_key not in ("timestamp_ms", "end_time_ms"):
+            raise ValueError(f"Unsupported time_key: {time_key!r}")
+        time_filter = f"trace.{time_key} >= {start_time_ms} AND trace.{time_key} <= {end_time_ms}"
         combined_filter = f"{time_filter} AND {filter_string}" if filter_string else time_filter
         _logger.debug(f"Fetching traces with filter: {combined_filter}")
 
         all_trace_infos = []
         page_token = None
 
-        while len(all_trace_infos) < max_traces:
-            batch_size = min(page_size, max_traces - len(all_trace_infos))
+        while max_traces is None or len(all_trace_infos) < max_traces:
+            batch_size = (
+                page_size
+                if max_traces is None
+                else min(page_size, max_traces - len(all_trace_infos))
+            )
 
             trace_batch, token = self._tracking_store.search_traces(
                 experiment_ids=[experiment_id],
                 filter_string=combined_filter,
                 max_results=batch_size,
                 order_by=[
-                    "timestamp_ms ASC",
+                    f"{time_key} ASC",
                     # Order by trace ID to ensure that we have a consistent tie-breaker when
                     # multiple traces have the same timestamp and max_traces is reached in
                     # the middle of such a group
@@ -140,8 +180,19 @@ class OnlineTraceLoader:
             if not trace_batch:
                 break
 
-            remaining = max_traces - len(all_trace_infos)
-            all_trace_infos.extend(trace_batch[:remaining])
+            trace_batch = [t.info if isinstance(t, Trace) else t for t in trace_batch]
+            if after_trace_id is not None:
+                trace_batch = [
+                    t
+                    for t in trace_batch
+                    if not (
+                        trace_time_ms(t, time_key) == start_time_ms and t.trace_id <= after_trace_id
+                    )
+                ]
+
+            if max_traces is not None:
+                trace_batch = trace_batch[: max_traces - len(all_trace_infos)]
+            all_trace_infos.extend(trace_batch)
             _logger.debug(
                 f"Fetched batch of {len(trace_batch)} traces, total: {len(all_trace_infos)}"
             )
@@ -155,4 +206,4 @@ class OnlineTraceLoader:
             f"Fetched {len(all_trace_infos)} trace infos in range [{start_time_ms}, {end_time_ms}]"
         )
 
-        return [t.info if isinstance(t, Trace) else t for t in all_trace_infos]
+        return all_trace_infos

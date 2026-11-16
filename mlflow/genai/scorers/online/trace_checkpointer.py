@@ -6,6 +6,7 @@ import time
 from dataclasses import asdict, dataclass
 
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.environment_variables import MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS
 from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT
@@ -15,7 +16,10 @@ _logger = logging.getLogger(__name__)
 
 @dataclass
 class OnlineTraceScoringCheckpoint:
-    timestamp_ms: int  # Timestamp of the last processed trace in milliseconds
+    # End time (start + duration) of the last processed trace in milliseconds. Traces are
+    # discovered by end time because that is when they are written to the store; a trace that
+    # runs for a long time is therefore never behind the checkpoint when it lands.
+    timestamp_ms: int
     trace_id: str | None = None  # Trace ID used as tie breaker when traces have same timestamp
 
     def to_json(self) -> str:
@@ -75,11 +79,16 @@ class OnlineTraceCheckpointManager:
         failing traces. If the checkpoint is older than MAX_LOOKBACK_MS, uses
         current_time - MAX_LOOKBACK_MS instead to skip over old problematic traces.
 
+        The window applies to trace *end* times. The upper bound lags the current time by
+        ``MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS`` to cover the delay between a
+        trace ending and its export reaching the store; without it a trace exported slightly
+        late would land behind the checkpoint and never be scored.
+
         Returns:
-            OnlineTraceScoringTimeWindow with min and max trace timestamps.
+            OnlineTraceScoringTimeWindow with min and max trace end timestamps.
             min_trace_timestamp_ms is the checkpoint if it exists and is within the
             lookback period, otherwise now - MAX_LOOKBACK_MS.
-            max_trace_timestamp_ms is the current time.
+            max_trace_timestamp_ms is the current time minus the completion buffer.
         """
         current_time_ms = int(time.time() * 1000)
         checkpoint = self.get_checkpoint()
@@ -92,7 +101,10 @@ class OnlineTraceCheckpointManager:
         else:
             min_trace_timestamp_ms = min_lookback_time_ms
 
+        buffer_seconds = max(0, MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS.get())
+        max_trace_timestamp_ms = current_time_ms - buffer_seconds * 1000
+
         return OnlineTraceScoringTimeWindow(
             min_trace_timestamp_ms=min_trace_timestamp_ms,
-            max_trace_timestamp_ms=current_time_ms,
+            max_trace_timestamp_ms=max_trace_timestamp_ms,
         )
