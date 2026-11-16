@@ -37,9 +37,10 @@ _logger = logging.getLogger(__name__)
 
 # The judge's rationale is free text that may contain unescaped double quotes (e.g. when it
 # quotes JSON from the trace), while the result is a fixed enum, number, or boolean. These
-# patterns recover both fields from such malformed output, in either key order. Because the
-# rationale can contain arbitrary text, an unknown key between "rationale" and a trailing
-# "result" can't be told apart from quoted text and is folded into the rationale.
+# patterns recover both fields from such malformed output, in either key order. The greedy
+# rationale capture can swallow field or object boundaries, so recovery is skipped when the
+# captured rationale looks like it spans more than the rationale value (see
+# `_is_unambiguous_rationale`).
 _RESULT_VALUE_PATTERN = r'"[^"\\]*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null'
 _RATIONALE_THEN_RESULT_PATTERN = re.compile(
     r'^\s*\{\s*"rationale"\s*:\s*"(?P<rationale>.*)"\s*,'
@@ -53,6 +54,9 @@ _RESULT_THEN_RATIONALE_PATTERN = re.compile(
 )
 # Matches a double quote that is not escaped (preceded by an even number of backslashes).
 _UNESCAPED_QUOTE_PATTERN = re.compile(r'(?<!\\)((?:\\\\)*)"')
+# Matches a `", "key":` field boundary, which signals that the greedy rationale capture spans
+# extra fields of the outer object.
+_FIELD_BOUNDARY_PATTERN = re.compile(r'"\s*,\s*"[^"]*"\s*:')
 
 
 def _check_databricks_agents_installed() -> None:
@@ -147,6 +151,26 @@ def call_chat_completions(
     return _call_chat_completions(user_prompt, system_prompt, tools, model, use_case)
 
 
+def _is_unambiguous_rationale(raw_rationale: str) -> bool:
+    """
+    Return False if the captured rationale may span outer object boundaries, i.e. its braces or
+    brackets are unbalanced (truncated output or concatenated objects) or it contains a field
+    boundary outside any nested braces or brackets (extra fields).
+    """
+    depth = 0
+    top_level_chars = []
+    for char in raw_rationale:
+        if char in "{[":
+            depth += 1
+        elif char in "}]":
+            depth -= 1
+            if depth < 0:
+                return False
+        elif depth == 0:
+            top_level_chars.append(char)
+    return depth == 0 and not _FIELD_BOUNDARY_PATTERN.search("".join(top_level_chars))
+
+
 def _lenient_parse_judge_output(llm_output: str) -> dict[str, Any] | None:
     """
     Recover ``result`` and ``rationale`` from judge output that is not valid JSON because the
@@ -163,6 +187,8 @@ def _lenient_parse_judge_output(llm_output: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     raw_rationale = match.group("rationale")
+    if not _is_unambiguous_rationale(raw_rationale):
+        return None
     escaped_rationale = _UNESCAPED_QUOTE_PATTERN.sub(r'\1\\"', raw_rationale)
     try:
         rationale = json.loads(f'"{escaped_rationale}"', strict=False)
