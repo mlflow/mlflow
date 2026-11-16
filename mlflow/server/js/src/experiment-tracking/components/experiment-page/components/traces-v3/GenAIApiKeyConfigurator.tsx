@@ -17,7 +17,7 @@ import { SecretSelector } from '../../../../../gateway/components/secrets/Secret
 import { NonAsciiApiKeyMessage, SecretInput } from '../../../../../gateway/components/secrets/SecretInput';
 import { GatewayInput } from '../../../../../gateway/components/common';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../../../../gateway/utils/providerUtils';
-import { hasNonAsciiApiKey, isApiKeySecretField } from '../../../../../gateway/utils/secretUtils';
+import { containsNonAsciiCharacters, isApiKeySecretField } from '../../../../../gateway/utils/secretUtils';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import type { AuthMode, SecretInfo } from '../../../../../gateway/types';
 import { useSecretsQuery } from '../../../../../gateway/hooks/useSecretsQuery';
@@ -471,8 +471,9 @@ function SimplifiedApiKeyInput({ value, onChange, fieldName, secrets, disabled }
   const newApiKeyText = value.mode === 'new' ? (value.newSecret.secretFields[fieldName] ?? '') : '';
   const isSearchingSavedKeys =
     newApiKeyText !== '' && secrets.some((s) => s.secret_name.toLowerCase().includes(newApiKeyText.toLowerCase()));
+  // Check only this input's own field; optional secret fields render their own error via FieldInput.
   const hasNonAsciiError =
-    value.mode === 'new' && !isSearchingSavedKeys && hasNonAsciiApiKey(value.newSecret.secretFields);
+    !isSearchingSavedKeys && isApiKeySecretField(fieldName) && containsNonAsciiCharacters(newApiKeyText);
 
   return (
     <div>

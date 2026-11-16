@@ -51,4 +51,38 @@ describe('GenAIApiKeyConfigurator', () => {
     renderConfigurator(buildValue('프로덕'));
     expect(screen.queryByText(NON_ASCII_ERROR)).not.toBeInTheDocument();
   });
+
+  test('does not flag the single API key input for non-ASCII text in another secret field', () => {
+    // Portkey's optional `provider_api_key` is rendered (and validated) separately in advanced settings.
+    renderWithDesignSystem(
+      <GenAIApiKeyConfigurator
+        value={{
+          mode: 'new',
+          existingSecretId: '',
+          newSecret: {
+            name: 'my-key',
+            authMode: 'api_key',
+            secretFields: { api_key: 'pk-abc123', provider_api_key: '가나다' },
+            configFields: {},
+          },
+        }}
+        onChange={jest.fn()}
+        provider="portkey"
+        authModes={[
+          {
+            mode: 'api_key',
+            secret_fields: [
+              { name: 'api_key', required: true },
+              { name: 'provider_api_key', required: false },
+            ],
+            config_fields: [],
+          } as any,
+        ]}
+        defaultAuthMode="api_key"
+        isLoadingProviderConfig={false}
+        hasExistingSecrets={false}
+      />,
+    );
+    expect(screen.queryByText(NON_ASCII_ERROR)).not.toBeInTheDocument();
+  });
 });
