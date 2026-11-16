@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
@@ -33,6 +34,23 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
+
+# The judge's rationale is free text that may contain unescaped double quotes (e.g. when it
+# quotes JSON from the trace), while the result is a fixed enum, number, or boolean. These
+# patterns recover both fields from such malformed output, in either key order.
+_RESULT_VALUE_PATTERN = r'"[^"\\]*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null'
+_RATIONALE_THEN_RESULT_PATTERN = re.compile(
+    r'^\s*\{\s*"rationale"\s*:\s*"(?P<rationale>.*)"\s*,'
+    rf'\s*"result"\s*:\s*(?P<result>{_RESULT_VALUE_PATTERN})\s*\}}\s*$',
+    re.DOTALL,
+)
+_RESULT_THEN_RATIONALE_PATTERN = re.compile(
+    rf'^\s*\{{\s*"result"\s*:\s*(?P<result>{_RESULT_VALUE_PATTERN})\s*,'
+    r'\s*"rationale"\s*:\s*"(?P<rationale>.*)"\s*\}\s*$',
+    re.DOTALL,
+)
+# Matches a double quote that is not escaped (preceded by an even number of backslashes).
+_UNESCAPED_QUOTE_PATTERN = re.compile(r'(?<!\\)((?:\\\\)*)"')
 
 
 def _check_databricks_agents_installed() -> None:
@@ -127,6 +145,27 @@ def call_chat_completions(
     return _call_chat_completions(user_prompt, system_prompt, tools, model, use_case)
 
 
+def _lenient_parse_judge_output(llm_output: str) -> dict[str, Any] | None:
+    """
+    Recover ``result`` and ``rationale`` from judge output that is not valid JSON because the
+    rationale contains unescaped double quotes. Returns None if the output doesn't match the
+    expected two-field shape.
+    """
+    patterns = (_RATIONALE_THEN_RESULT_PATTERN, _RESULT_THEN_RATIONALE_PATTERN)
+    match = next((m for p in patterns if (m := p.match(llm_output))), None)
+    if match is None:
+        return None
+
+    result = json.loads(match.group("result"))
+    raw_rationale = match.group("rationale")
+    escaped_rationale = _UNESCAPED_QUOTE_PATTERN.sub(r'\1\\"', raw_rationale)
+    try:
+        rationale = json.loads(f'"{escaped_rationale}"', strict=False)
+    except json.JSONDecodeError:
+        rationale = raw_rationale
+    return {"result": result, "rationale": rationale}
+
+
 def _parse_databricks_judge_response(
     llm_output: str | None,
     assessment_name: str,
@@ -160,6 +199,14 @@ def _parse_databricks_judge_response(
         response_data = json.loads(llm_output)
     except json.JSONDecodeError as e:
         _logger.debug(f"Invalid JSON response from Databricks judge: {e}", exc_info=True)
+        if response_data := _lenient_parse_judge_output(llm_output):
+            return Feedback(
+                name=assessment_name,
+                value=response_data["result"],
+                rationale=response_data["rationale"],
+                source=source,
+                trace_id=trace_id,
+            )
         return Feedback(
             name=assessment_name,
             error=f"Invalid JSON response from Databricks judge: {e}\n\nLLM output: {llm_output}",

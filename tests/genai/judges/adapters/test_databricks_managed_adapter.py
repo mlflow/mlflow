@@ -11,6 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
     _create_message_from_databricks_response,
+    _parse_databricks_judge_response,
     _run_databricks_agentic_loop,
     call_chat_completions,
     serialize_messages_to_databricks_prompts,
@@ -676,3 +677,59 @@ def test_databricks_managed_adapter_rejects_base_url_and_extra_headers(base_url,
 
     with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
         adapter.invoke(input_params)
+
+
+@pytest.mark.parametrize(
+    ("llm_output", "expected_value", "expected_rationale"),
+    [
+        (
+            '{"rationale": "Looks correct.", "result": "yes"}',
+            "yes",
+            "Looks correct.",
+        ),
+        (
+            '{\n  "rationale": "The argument `{"skill_id":"lakebase:smoke-probe"}` matches.",\n'
+            '  "result": "yes"\n}',
+            "yes",
+            'The argument `{"skill_id":"lakebase:smoke-probe"}` matches.',
+        ),
+        (
+            '{"result": "no", "rationale": "Called with {"a": 1}\\nand \\"b\\""}',
+            "no",
+            'Called with {"a": 1}\nand "b"',
+        ),
+        (
+            '{"rationale": "Ends with "result": "no"", "result": "yes"}',
+            "yes",
+            'Ends with "result": "no"',
+        ),
+        ('{"rationale": "Says "hi"", "result": 4}', 4, 'Says "hi"'),
+        ('{"rationale": "Says "hi"", "result": 0.5}', 0.5, 'Says "hi"'),
+        ('{"rationale": "Says "hi"", "result": true}', True, 'Says "hi"'),
+        ('{"rationale": "Path C:\\\\ is "ok"", "result": false}', False, 'Path C:\\ is "ok"'),
+    ],
+)
+def test_parse_databricks_judge_response_recovers_verdict(
+    llm_output, expected_value, expected_rationale
+):
+    feedback = _parse_databricks_judge_response(llm_output, "tool_call_correctness")
+
+    assert feedback.error is None
+    assert feedback.value == expected_value
+    assert feedback.rationale == expected_rationale
+
+
+@pytest.mark.parametrize(
+    "llm_output",
+    [
+        "not json at all",
+        '{"rationale": "Says "hi"", "result": "yes", "extra": "x"}',
+        '{"rationale": "Says "hi"", "verdict": "yes"}',
+        '{"rationale": "Says "hi"", "result": "yes"',
+    ],
+)
+def test_parse_databricks_judge_response_invalid_json_error(llm_output):
+    feedback = _parse_databricks_judge_response(llm_output, "tool_call_correctness")
+
+    assert feedback.value is None
+    assert "Invalid JSON response from Databricks judge" in feedback.error.error_message
