@@ -607,10 +607,10 @@ def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_va
 @pytest.mark.parametrize(
     "output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]", 2, True, None, {"a": 1}]
 )
-def test_otlp_roundtrip_of_client_span_string_outputs(monkeypatch, db_uri, tmp_path, output):
+def test_otlp_roundtrip_of_client_span_outputs(monkeypatch, db_uri, tmp_path, output):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     store = SqlAlchemyStore(db_uri, tmp_path.as_uri())
-    experiment_id = store.create_experiment("otlp-client-string-outputs")
+    experiment_id = store.create_experiment("otlp-client-outputs")
     monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
 
     otel_span = TracerProvider().get_tracer("test").start_span("span")
