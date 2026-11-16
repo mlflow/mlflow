@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794821153146,
+  "lastUpdate": 1794821297168,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "luopeng.he@gmail.com",
-            "name": "Luo Peng",
-            "username": "RussellLuo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1d34d997fc4876886128c113c9bfd61f172cf042",
-          "message": "Add OpenAI-compatible model discovery to the MLflow Gateway (#25940)\n\nSigned-off-by: Luo Peng <luopeng.he@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>",
-          "timestamp": "2026-09-19T23:18:15+08:00",
-          "tree_id": "dd83d990d55a05a0d715e013fdbacf7278ae6a07",
-          "url": "https://github.com/mlflow/mlflow/commit/1d34d997fc4876886128c113c9bfd61f172cf042"
-        },
-        "date": 1789831167022,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 41.1632149500015,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 5.17944378378574,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 4.54233031073603,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 5.208883781021888,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.336255934639146,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 24.153976499993252,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.8984528571405526,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "erarpitagarwal@gmail.com",
+            "name": "erarpitagarwal",
+            "username": "erarpitagarwal"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1303a62f8efa9fbd1a48725febe4ef401a68dee9",
+          "message": "Register Unity Catalog models whose weights are in a volume (#27625)\n\nSigned-off-by: Arpit Agarwal <arpit.agarwal@databricks.com>\nCo-authored-by: Arpit Agarwal <arpit.agarwal@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-11-16T09:24:42Z",
+          "tree_id": "707fcef0bb91fe797c3186c04788cff6652f08ae",
+          "url": "https://github.com/mlflow/mlflow/commit/1303a62f8efa9fbd1a48725febe4ef401a68dee9"
+        },
+        "date": 1794821292964,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 42.71806115000061,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.198152949999761,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.309478703703921,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.324289889654896,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.881230022901349,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.56993340000065,
             "unit": "ms"
           }
         ]
