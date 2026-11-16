@@ -57,6 +57,16 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
     [resetMutation],
   );
 
+  const selectedAuthMode = useMemo(() => {
+    if (!providerConfig?.auth_modes?.length) return undefined;
+    if (formData.authMode) {
+      return providerConfig.auth_modes.find((m) => m.mode === formData.authMode);
+    }
+    return (
+      providerConfig.auth_modes.find((m) => m.mode === providerConfig.default_mode) ?? providerConfig.auth_modes[0]
+    );
+  }, [providerConfig, formData.authMode]);
+
   const validateForm = useCallback((): boolean => {
     const newErrors: typeof errors = {};
 
@@ -74,14 +84,16 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
       });
     }
 
+    // Auth modes such as Application Default Credentials have no secret fields
+    const requiresSecretValues = selectedAuthMode?.secret_fields?.length !== 0;
     const hasSecretValues = Object.values(formData.secretFields).some((v) => Boolean(v));
-    if (!hasSecretValues) {
+    if (requiresSecretValues && !hasSecretValues) {
       newErrors.secretFields = {};
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [provider, formData.name, formData.secretFields, intl]);
+  }, [provider, formData.name, formData.secretFields, selectedAuthMode, intl]);
 
   const handleClose = useCallback(() => {
     setProvider('');
@@ -130,16 +142,6 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
 
     return message;
   }, [mutationError, intl]);
-
-  const selectedAuthMode = useMemo(() => {
-    if (!providerConfig?.auth_modes?.length) return undefined;
-    if (formData.authMode) {
-      return providerConfig.auth_modes.find((m) => m.mode === formData.authMode);
-    }
-    return (
-      providerConfig.auth_modes.find((m) => m.mode === providerConfig.default_mode) ?? providerConfig.auth_modes[0]
-    );
-  }, [providerConfig, formData.authMode]);
 
   const isFormValid = useMemo(() => {
     if (!provider) return false;

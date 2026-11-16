@@ -523,10 +523,17 @@ def _build_endpoint_config(
         model_config.provider = Provider.BEDROCK
     elif model_config.provider == Provider.VERTEX_AI:
         auth_config = model_config.auth_config or {}
+        # default_chain uses the server's Application Default Credentials, so ignore any
+        # service account JSON left over from a previous auth mode
+        vertex_credentials = (
+            None
+            if auth_config.get(_AuthConfigKey.AUTH_MODE) == "default_chain"
+            else model_config.secret_value.get("vertex_credentials")
+        )
         provider_config = VertexAIConfig(
             vertex_project=auth_config.get("vertex_project"),
             vertex_location=auth_config.get("vertex_location"),
-            vertex_credentials=model_config.secret_value.get("vertex_credentials"),
+            vertex_credentials=vertex_credentials,
             vertex_anthropic_betas=auth_config.get("vertex_anthropic_betas"),
         )
     else:
