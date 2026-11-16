@@ -26,9 +26,9 @@ def command(*args: str | Path, input: str | None = None) -> str:
     return subprocess.check_output(args, input=input, text=True)
 
 
-def api(*args: str, data: dict[str, Any] | None = None) -> Any:
+def api(*args: str, data: dict[str, Any] | None = None, method: str = "POST") -> Any:
     if data is not None:
-        args += ("--method", "POST", "--input", "-")
+        args += ("--method", method, "--input", "-")
     result = command("gh", "api", *args, input=json.dumps(data) if data is not None else None)
     return json.loads(result) if result.strip() else None
 
@@ -121,6 +121,7 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         "head_sha": pr["head"]["sha"],
         "head_ref": pr["head"]["ref"],
         "review_id": int(review_id),
+        "pr": {"title": pr["title"], "body": pr["body"] or ""},
         "timeline": timeline,
     }
     if not any(item.get("id") == context["review_id"] for item in timeline):
@@ -179,14 +180,19 @@ def validate(context_path: Path, out_dir: Path) -> None:
         ".claude/skills/resolve/payload.schema.yml",
         payload,
     )
-    responses = json.loads(payload.read_text(), object_pairs_hook=unique_keys)["responses"]
+    result = json.loads(payload.read_text(), object_pairs_hook=unique_keys)
+    responses = result["responses"]
     context = json.loads(context_path.read_text())
     thread_ids = review_thread_ids(context)
     optional = {"review"} if current_review(context)["body"].strip() else set()
     if not thread_ids <= responses.keys() <= thread_ids | optional:
         raise ValueError("Responses must cover every thread and only a nonempty review body")
-    if patch.exists() != any(item["status"] == "resolved" for item in responses.values()):
-        raise ValueError("A patch must accompany resolved feedback")
+    has_resolved = any(item["status"] == "resolved" for item in responses.values())
+    pr_update = result.get("pr_update")
+    if has_resolved != (patch.exists() or pr_update is not None):
+        raise ValueError("Resolved feedback must accompany a patch or a PR update")
+    if pr_update and any(value == context["pr"][field] for field, value in pr_update.items()):
+        raise ValueError("A PR update must change each proposed field")
     command(
         *media_command(media), "--check", input="\n\n".join(r["body"] for r in responses.values())
     )
@@ -279,15 +285,40 @@ def update_branch(repo: str, review_id: str, context: dict[str, Any], head: str,
     return git("rev-parse", "HEAD")
 
 
+def pending_pr_update(
+    pr: dict[str, Any], original: dict[str, str], proposed: dict[str, str]
+) -> dict[str, str]:
+    pending = {}
+    for field, value in proposed.items():
+        current = pr[field] or ""
+        if current == value:
+            continue
+        if current != original[field]:
+            summary(f"Skipped the PR update because its {field} changed after collection.")
+            raise ValueError(f"PR {field} changed before publication")
+        pending[field] = value
+    return pending
+
+
 def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir: Path) -> None:
     context = json.loads(context_path.read_text())
     dry_run = os.environ["DRY_RUN"] == "true"
     file = "payload.json" if dry_run else "publish.json"
-    responses = json.loads((out_dir / file).read_text())["responses"]
+    result = json.loads((out_dir / file).read_text())
+    responses = result["responses"]
+    pr_update = result.get("pr_update", {})
     patch = out_dir / "fix.patch"
     tree = git("write-tree") if patch.is_file() else None
     if dry_run:
         details = json.dumps(responses, indent=2)
+        metadata_diff = ""
+        if pr_update:
+            changes = {
+                field: {"before": context["pr"][field], "after": value}
+                for field, value in pr_update.items()
+            }
+            rendered = html.escape(json.dumps(changes, indent=2, ensure_ascii=False)[:30_000])
+            metadata_diff = f"**PR title and description changes**\n\n<pre>{rendered}</pre>\n\n"
         diff = html.escape(patch.read_text(errors="replace")[:60_000]) if tree else ""
         details = html.escape(details[:60_000])
         closures = ", ".join(
@@ -297,7 +328,7 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
         )
         summary(
             f"### Resolution preview for {current_review(context)['author']}\n\n"
-            f"<pre>{details}</pre>\n\n<pre>{diff}</pre>\n\n"
+            f"{metadata_diff}<pre>{details}</pre>\n\n<pre>{diff}</pre>\n\n"
             f"**Threads to close**\n\n{html.escape(closures) or 'None'}"
         )
         return
@@ -313,10 +344,24 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     ):
         raise ValueError("PR or review changed before publication")
     head = pr["head"]["sha"]
+    pending = pending_pr_update(pr, context["pr"], pr_update) if pr_update else {}
     if tree:
         head = update_branch(repo, review_id, context, head, tree)
     elif head != context["head_sha"]:
         raise ValueError("PR head changed before publication")
+
+    if pr_update and tree:
+        pr = api(endpoint)
+        if not eligible(pr, repo) or pr["head"]["sha"] != head:
+            raise ValueError("PR changed before publishing its title or description")
+        pending = pending_pr_update(pr, context["pr"], pr_update)
+    if pending:
+        updated = api(endpoint, data=pending, method="PATCH")
+        if not isinstance(updated, dict) or any(
+            (updated[field] or "") != value for field, value in pending.items()
+        ):
+            raise ValueError("GitHub did not apply the PR update")
+        summary(f"Updated PR fields: {', '.join(pending)}.")
 
     issue_comments = f"repos/{repo}/issues/{number}/comments"
     previous = list_items(f"{endpoint}/comments")
@@ -338,7 +383,7 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
         resolved = response["status"] == "resolved"
         if note not in posted:
             body = response["body"]
-            if resolved:
+            if resolved and tree and not pr_update:
                 body += f"\n\n[Fix commit]({os.environ['GITHUB_SERVER_URL']}/{repo}/commit/{head})."
             if key == "review":
                 url = current["url"]
@@ -448,7 +493,7 @@ def main() -> None:
     operations.add_parser(
         "publish",
         help="Publish or preview the resolution",
-        description="Publish replies and any patch, or write a preview in dry-run mode.",
+        description="Publish replies, any patch, and PR edits, or write a dry-run preview.",
     ).set_defaults(func=run_publish)
     args = parser.parse_args()
     args.context_path = Path(os.environ["CONTEXT_PATH"])

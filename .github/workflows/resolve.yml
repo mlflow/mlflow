@@ -17,7 +17,7 @@ on:
         type: number
         required: true
       dry_run:
-        description: Preview the patch, replies, and thread closures
+        description: Preview the patch, PR title and description edits, replies, and thread closures
         type: boolean
         default: true
       # Supported models: https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/supported-models
