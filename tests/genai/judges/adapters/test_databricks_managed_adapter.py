@@ -709,6 +709,17 @@ def test_databricks_managed_adapter_rejects_base_url_and_extra_headers(base_url,
         ('{"rationale": "Path C:\\\\ is "ok"", "result": false}', False, 'Path C:\\ is "ok"'),
         # An invalid escape makes the rationale undecodable, so the raw text is kept.
         ('{"rationale": "Path \\d is "ok"", "result": "yes"}', "yes", 'Path \\d is "ok"'),
+        # Braces inside strings of embedded JSON are not structural.
+        (
+            '{"rationale": "Got {"message": "unexpected }"}", "result": "no"}',
+            "no",
+            'Got {"message": "unexpected }"}',
+        ),
+        (
+            '{"rationale": "Args {"old_string": "}", "new_string": "{"}", "result": "yes"}',
+            "yes",
+            'Args {"old_string": "}", "new_string": "{"}',
+        ),
     ],
 )
 def test_parse_databricks_judge_response_recovers_verdict(
@@ -732,6 +743,7 @@ def test_parse_databricks_judge_response_recovers_verdict(
         '{"rationale": "Says "hi"", "result": "y\nes"}',
         # Truncated output whose rationale embeds a "result" field.
         '{"rationale": "The tool returned {"status": "ok", "result": "yes"}',
+        '{"rationale": "Tool output: {"message": "unexpected }", "result": "yes"}',
         '{"rationale": "a", "result": "no"}{"rationale": "b", "result": "yes"}',
         '{"result": "no", "rationale": "a"}{"result": "yes", "rationale": "b"}',
         '{"rationale": "Says "hi"", "extra": "x", "result": "yes"}',

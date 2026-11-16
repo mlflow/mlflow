@@ -155,12 +155,25 @@ def _is_unambiguous_rationale(raw_rationale: str) -> bool:
     """
     Return False if the captured rationale may span outer object boundaries, i.e. its braces or
     brackets are unbalanced (truncated output or concatenated objects) or it contains a field
-    boundary outside any nested braces or brackets (extra fields).
+    boundary outside any nested braces or brackets (extra fields). Inside nested braces or
+    brackets, string literals are skipped so braces within embedded JSON strings are not
+    counted. Top-level quotes are free rationale text, so they are not treated as strings.
     """
     depth = 0
+    in_string = False
+    escaped = False
     top_level_chars = []
     for char in raw_rationale:
-        if char in "{[":
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif depth > 0 and char == '"':
+            in_string = True
+        elif char in "{[":
             depth += 1
         elif char in "}]":
             depth -= 1
@@ -168,7 +181,11 @@ def _is_unambiguous_rationale(raw_rationale: str) -> bool:
                 return False
         elif depth == 0:
             top_level_chars.append(char)
-    return depth == 0 and not _FIELD_BOUNDARY_PATTERN.search("".join(top_level_chars))
+    return (
+        depth == 0
+        and not in_string
+        and not _FIELD_BOUNDARY_PATTERN.search("".join(top_level_chars))
+    )
 
 
 def _lenient_parse_judge_output(llm_output: str) -> dict[str, Any] | None:
