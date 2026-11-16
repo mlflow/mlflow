@@ -711,7 +711,7 @@ class SearchUtils:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}",
+                    f"'{cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -723,7 +723,7 @@ class SearchUtils:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_DATASET_COMPARATORS}",
+                    f"not one of '{cls.VALID_DATASET_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True

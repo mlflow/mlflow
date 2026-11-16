@@ -474,6 +474,21 @@ def test_in_comparator_rejected_for_unsupported_entity_types(search_utils, filte
         search_utils.parse_search_filter(filter_string)
 
 
+def test_invalid_comparator_message_lists_allowed_comparators():
+    with pytest.raises(
+        MlflowException,
+        match=r"^Invalid comparator 'IN' not one of '\{.*\}'$",
+    ) as exc:
+        SearchUtils.is_numeric_attribute("attribute", "start_time", "IN")
+    assert "LIKE" not in str(exc.value)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"^Invalid comparator '>' not one of '\{.*\}'$",
+    ):
+        SearchUtils.is_dataset("dataset", ">")
+
+
 @pytest.mark.parametrize(
     ("filter_string", "matching_runs"),
     [
