@@ -258,7 +258,11 @@ def test_chat_complete_autolog_tool_calling(sdk_tool_models):
     span = traces[0].data.spans[0]
     assert span.name == "Chat.complete"
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.inputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
+    expected_inputs = DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
+    if sdk_tool_models:
+        # mistralai < 2.0 serializes unset optional fields (e.g. `strict`) as None
+        expected_inputs = {**request, "tools": [t.model_dump() for t in request["tools"]]}
+    assert span.inputs == expected_inputs
     assert span.outputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE.model_dump()
     assert span.model_name == "test_model"
 
