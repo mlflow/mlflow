@@ -118,6 +118,11 @@ def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]
         usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
     if isinstance(created := source.get("cache_creation_input_tokens"), int):
         usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+
+
+def _collect_anthropic_1h_cache_creation(source: dict[str, Any], usage: dict[str, int]) -> None:
+    # Kept out of `_collect_anthropic_input_usage`, which the chat stream also uses, so the chat
+    # usage does not gain a key that its non-streaming counterpart lacks.
     if (above_1hr := _get_anthropic_1h_cache_creation(source)) is not None:
         usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
 
@@ -143,10 +148,12 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
                 "message": {"usage": dict(msg_usage)},
             }:
                 _collect_anthropic_input_usage(msg_usage, usage)
+                _collect_anthropic_1h_cache_creation(msg_usage, usage)
             case {"type": "message_delta", "usage": dict(delta_usage)}:
                 # The usage of message_delta is cumulative and replaces the one from
                 # message_start: with server tools it holds the final input and cache counts.
                 _collect_anthropic_input_usage(delta_usage, usage)
+                _collect_anthropic_1h_cache_creation(delta_usage, usage)
                 if isinstance(output_tokens := delta_usage.get("output_tokens"), int):
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
     return usage
