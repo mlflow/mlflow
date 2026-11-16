@@ -905,6 +905,42 @@ def test_get_multiclass_classifier_metrics_suppresses_roc_auc_error(monkeypatch)
     assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
 
 
+@pytest.mark.skipif(
+    Version(sklearn.__version__) < Version("1.6"),
+    reason="Older scikit-learn reports NaN ROC AUC whenever a class is absent from y_true",
+)
+@pytest.mark.parametrize(
+    ("average", "expected_roc_auc"),
+    [("weighted", 1.0), ("macro", np.nan)],
+)
+def test_multi_classifier_evaluation_with_class_absent_from_targets(average, expected_roc_auc):
+    X, y = load_iris(return_X_y=True)
+    model = LogisticRegression(max_iter=300).fit(X, y)
+    # Class 1 is absent from the targets, but the model still predicts it for some rows
+    mask = y != 1
+    assert 1 in model.predict(X[mask])
+    with mlflow.start_run() as run:
+        model_info = mlflow.sklearn.log_model(model, name="model")
+        result = evaluate(
+            model_info.model_uri,
+            X[mask],
+            model_type="classifier",
+            targets=y[mask],
+            evaluators="default",
+            evaluator_config={"average": average},
+        )
+
+    np.testing.assert_allclose(result.metrics["roc_auc"], expected_roc_auc)
+    assert result.metrics["log_loss"] == pytest.approx(0.0889, rel=1e-3)
+    per_class_metrics = pd.read_csv(
+        mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id, artifact_path="per_class_metrics.csv"
+        )
+    ).set_index("positive_class")
+    assert np.isnan(per_class_metrics.loc[1, "roc_auc"])
+    assert per_class_metrics.loc[[0, 2], "roc_auc"].notna().all()
+
+
 def test_multi_classifier_evaluation_when_roc_auc_raises_for_absent_class(
     multiclass_logistic_regressor_model_uri,
 ):
