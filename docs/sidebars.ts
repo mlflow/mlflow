@@ -533,10 +533,6 @@ const sidebars: SidebarsConfig = {
           label: 'MLflow Blogs',
           href: 'https://mlflow.org/blog/index.html',
         },
-        {
-          type: 'doc',
-          id: 'plugins/index',
-        },
       ],
     },
   ],

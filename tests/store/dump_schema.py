@@ -8,6 +8,7 @@ import sqlalchemy
 from sqlalchemy.schema import CreateTable, MetaData
 
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 
 def dump_db_schema(db_url, dst_file):
@@ -29,7 +30,7 @@ def dump_sqlalchemy_store_schema(dst_file):
     with tempfile.TemporaryDirectory() as db_tmpdir:
         path = os.path.join(db_tmpdir, "db_file")
         db_url = f"sqlite:///{path}"
-        SqlAlchemyStore(db_url, db_tmpdir)
+        _build_tracking_store(SqlAlchemyStore, db_url, db_tmpdir)
         dump_db_schema(db_url, dst_file)
 
 

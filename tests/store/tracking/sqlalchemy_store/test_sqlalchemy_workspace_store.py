@@ -54,6 +54,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer as scorer_decorator
 from mlflow.store.db.trace_rollups import run_sql_trace_rollups
+from mlflow.store.tracing.sqlalchemy_store import SqlAlchemyTraceStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
     SqlEntityAssociation,
@@ -85,6 +86,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -128,7 +130,9 @@ def workspace_tracking_store(tmp_path, db_uri, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri()
+    )
     store.tracking_uri = db_uri
     store.artifact_root_uri = artifact_dir.as_uri()
     try:
@@ -141,7 +145,9 @@ def test_sqlalchemy_store_returns_workspace_aware_when_enabled(tmp_path, db_uri,
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri()
+    )
     try:
         assert isinstance(store, WorkspaceAwareSqlAlchemyStore)
         assert store.supports_workspaces is True
@@ -154,7 +160,9 @@ def test_sqlalchemy_store_is_single_tenant_when_disabled(tmp_path, db_uri, monke
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri()
+    )
     try:
         assert not isinstance(store, WorkspaceAwareSqlAlchemyStore)
         assert store.supports_workspaces is False
@@ -814,7 +822,7 @@ def test_default_workspace_experiment_allows_single_tenant_fallback(tmp_path, db
     artifact_dir.mkdir()
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    workspace_store = SqlAlchemyStore(db_uri, artifact_dir.as_uri())
+    workspace_store = _build_tracking_store(SqlAlchemyStore, db_uri, artifact_dir.as_uri())
     try:
         with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
             default_ws_experiment = workspace_store.get_experiment_by_name(
@@ -826,7 +834,7 @@ def test_default_workspace_experiment_allows_single_tenant_fallback(tmp_path, db
         workspace_store._dispose_engine()
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
-    single_tenant_store = SqlAlchemyStore(db_uri, artifact_dir.as_uri())
+    single_tenant_store = _build_tracking_store(SqlAlchemyStore, db_uri, artifact_dir.as_uri())
     try:
         fallback_experiment = single_tenant_store.get_experiment(
             SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
@@ -1206,7 +1214,7 @@ def test_batch_get_traces_is_workspace_scoped_with_chunking(workspace_tracking_s
             exp_b, [create_test_span(trace_id=trace_id_b, span_id=206, trace_num=920006)]
         )
 
-        monkeypatch.setattr(SqlAlchemyStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
+        monkeypatch.setattr(SqlAlchemyTraceStore, "_TRACE_BATCH_QUERY_ID_CHUNK_SIZE", 1)
         traces = workspace_tracking_store.batch_get_traces(
             [trace_id_a, trace_id_b], experiment_ids=[exp_a, exp_b]
         )
@@ -1253,9 +1261,9 @@ def test_log_spans_locks_and_recomputes_token_usage_in_workspace(workspace_track
         # The second batch hits the pre-existing trace path: it must lock the trace row and
         # recompute the trace-level usage from stored plus batch spans under the workspace store.
         with mock.patch.object(
-            workspace_tracking_store,
+            workspace_tracking_store.trace_store,
             "_trace_row_lock_query",
-            wraps=workspace_tracking_store._trace_row_lock_query,
+            wraps=workspace_tracking_store.trace_store._trace_row_lock_query,
         ) as mock_lock:
             workspace_tracking_store.log_spans(exp_id, [_span(2, 200)])
             mock_lock.assert_called_once()
@@ -1305,7 +1313,7 @@ def test_start_trace_conflict_update_is_workspace_scoped(
             trace_metadata={"source": "test"},
         )
 
-        original_trace_query = workspace_tracking_store._trace_query
+        original_trace_query = workspace_tracking_store.trace_store._trace_query
         conflict_workspace = None
 
         def trace_query_side_effect(session, for_update_or_delete=False, workspace=None):
@@ -1327,7 +1335,7 @@ def test_start_trace_conflict_update_is_workspace_scoped(
             )
 
         with mock.patch.object(
-            workspace_tracking_store,
+            workspace_tracking_store.trace_store,
             "_trace_query",
             side_effect=trace_query_side_effect,
         ):
@@ -1355,7 +1363,7 @@ def test_workspace_startup_rejects_root_ending_with_workspaces(tmp_path, db_uri,
         MlflowException,
         match="ends with the reserved 'workspaces' segment",
     ) as excinfo:
-        tracking_utils._get_sqlalchemy_store(db_uri, bad_root.as_uri())
+        _build_tracking_store(tracking_utils._get_sqlalchemy_store, db_uri, bad_root.as_uri())
     assert excinfo.value.error_code == "INVALID_STATE"
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
@@ -1369,7 +1377,7 @@ def test_workspace_startup_rejects_root_already_scoped(tmp_path, db_uri, monkeyp
         MlflowException,
         match="is already scoped under the reserved 'workspaces/<name>' prefix",
     ) as excinfo:
-        tracking_utils._get_sqlalchemy_store(db_uri, bad_root.as_uri())
+        _build_tracking_store(tracking_utils._get_sqlalchemy_store, db_uri, bad_root.as_uri())
     assert excinfo.value.error_code == "INVALID_STATE"
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
@@ -1381,7 +1389,9 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
     base_root.mkdir()
 
     monkeypatch.delenv(MLFLOW_ENABLE_WORKSPACES.name, raising=False)
-    legacy_store = tracking_utils._get_sqlalchemy_store(db_uri, base_root.as_uri())
+    legacy_store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, base_root.as_uri()
+    )
     legacy_store.tracking_uri = db_uri
     legacy_store.artifact_root_uri = base_root.as_uri()
 
@@ -1399,7 +1409,9 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
     legacy_store._dispose_engine()
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    workspace_store = tracking_utils._get_sqlalchemy_store(db_uri, base_root.as_uri())
+    workspace_store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, base_root.as_uri()
+    )
     workspace_store._dispose_engine()
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
@@ -1409,7 +1421,9 @@ def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db
     artifact_dir.mkdir()
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri()
+    )
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
         store.rename_experiment(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID, "renamed-default")
     store._dispose_engine()
@@ -1418,7 +1432,9 @@ def test_workspace_startup_succeeds_when_default_experiment_renamed(tmp_path, db
     # Re-initializing the store (simulating a server restart) must not crash on the renamed
     # default experiment. The by-ID bootstrap guard should find experiment 0 and skip re-creating
     # it, rather than colliding on the primary key.
-    restarted_store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    restarted_store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri()
+    )
     try:
         with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
             default_experiment = restarted_store.get_experiment(
@@ -1438,7 +1454,9 @@ def test_workspace_startup_reraises_when_default_slot_taken_and_id_zero_missing(
     artifact_dir.mkdir()
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri()
+    )
 
     # Put the DB into a corrupt state: experiment 0 is gone, but a different experiment already
     # occupies the (default workspace, "Default") slot. Re-creating experiment 0 will then trip
@@ -1470,7 +1488,7 @@ def test_workspace_startup_reraises_when_default_slot_taken_and_id_zero_missing(
     # The wrapped message is the driver's error string, whose class name is dialect-specific:
     # "IntegrityError" on sqlite/pymysql/pyodbc but "UniqueViolation" on psycopg2 (Postgres).
     with pytest.raises(MlflowException, match="IntegrityError|UniqueViolation"):
-        tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+        _build_tracking_store(tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri())
     SqlAlchemyStore._engine_map.pop(db_uri, None)
 
 
@@ -1481,7 +1499,9 @@ def test_single_tenant_startup_rejects_non_default_workspace_experiments(
     artifact_root.mkdir()
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
-    workspace_store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_root.as_uri())
+    workspace_store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_root.as_uri()
+    )
 
     with WorkspaceContext("team-startup"):
         workspace_store.create_experiment("team-exp")
@@ -1494,7 +1514,7 @@ def test_single_tenant_startup_rejects_non_default_workspace_experiments(
         MlflowException,
         match="Cannot disable workspaces because experiments exist outside the default workspace",
     ) as excinfo:
-        SqlAlchemyStore(db_uri, artifact_root.as_uri())
+        _build_tracking_store(SqlAlchemyStore, db_uri, artifact_root.as_uri())
 
     assert excinfo.value.error_code == "INVALID_STATE"
     SqlAlchemyStore._engine_map.pop(db_uri, None)

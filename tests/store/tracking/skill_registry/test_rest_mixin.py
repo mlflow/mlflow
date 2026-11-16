@@ -42,6 +42,7 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.skill_registry.abstract_mixin import SkillRegistryMixin
 from mlflow.store.tracking.skill_registry.rest_mixin import RestSkillRegistryMixin, _skill_path
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.rest_utils import _UNPROCESSED_REQUEST_RESPONSE_CODES, MlflowHostCreds
 from mlflow.utils.validation import (
@@ -510,7 +511,7 @@ def _without_retry_options(kwargs):
 
 @pytest.fixture
 def registry_client(store, tmp_path, db_uri):
-    db_store = SqlAlchemyStore(db_uri, (tmp_path / "artifacts").as_uri())
+    db_store = _build_tracking_store(SqlAlchemyStore, db_uri, (tmp_path / "artifacts").as_uri())
     app = FastAPI()
     add_registry_exception_handlers(app)
     app.include_router(skill_registry_router, prefix="/api/3.0/mlflow/skills")

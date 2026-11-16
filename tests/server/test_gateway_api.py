@@ -83,6 +83,7 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
     TraceMetadataKey,
 )
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -99,7 +100,7 @@ def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     mlflow.set_tracking_uri(db_uri)
-    yield SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    yield _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri.as_uri())
     mlflow.set_tracking_uri(None)
 
 

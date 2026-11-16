@@ -30,6 +30,7 @@ from mlflow.store.tracking.skill_registry_pagination import (
     SkillRegistryPaginationToken,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.search_utils import (
     SearchSkillUtils,
     SearchSkillVersionUtils,
@@ -40,7 +41,7 @@ from mlflow.utils.search_utils import (
 def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    return _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri.as_uri())
 
 
 @contextmanager

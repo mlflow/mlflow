@@ -1,5 +1,5 @@
 ---
-title: ML Plugins
+title: MLflow Plugins
 description: Extend MLflow with custom plugins for tracking backends, artifact storage, model deployment, and more.
 ---
 
@@ -45,12 +45,13 @@ MLflow supports several types of plugins, each addressing different integration 
 
 ### **Storage & Persistence**
 
-| Plugin Type              | Purpose                           | Example Use Cases                                  |
-| ------------------------ | --------------------------------- | -------------------------------------------------- |
-| **Tracking Store**       | Custom experiment data storage    | Enterprise databases, cloud data warehouses        |
-| **Artifact Repository**  | Custom artifact storage           | In-house blob storage, specialized file systems    |
-| **Model Registry Store** | Custom model registry backend     | Enterprise model catalogs, version control systems |
-| **Workspace Provider**   | Custom workspace metadata backend | Kubernetes namespaces                              |
+| Plugin Type              | Purpose                                 | Example Use Cases                                   |
+| ------------------------ | --------------------------------------- | --------------------------------------------------- |
+| **Tracking Store**       | Custom experiment data storage          | Enterprise databases, cloud data warehouses         |
+| **Trace Store**          | Independent trace storage and analytics | Dedicated trace databases, custom analytics engines |
+| **Artifact Repository**  | Custom artifact storage                 | In-house blob storage, specialized file systems     |
+| **Model Registry Store** | Custom model registry backend           | Enterprise model catalogs, version control systems  |
+| **Workspace Provider**   | Custom workspace metadata backend       | Kubernetes namespaces                               |
 
 ### **Authentication & Headers**
 
@@ -85,6 +86,7 @@ setup(
     entry_points={
         # Define plugin entry points
         "mlflow.tracking_store": "my-scheme=my_plugin.store:MyTrackingStore",
+        "mlflow.trace_stores": "my-traces=my_plugin.traces:build_store",
         "mlflow.artifact_repository": "my-scheme=my_plugin.artifacts:MyArtifactRepo",
         "mlflow.run_context_provider": "unused=my_plugin.context:MyContextProvider",
         "mlflow.request_auth_provider": "unused=my_plugin.auth:MyAuthProvider",
@@ -259,6 +261,11 @@ For full details on workspace provider architecture, discovery, and configuratio
 
   </TabItem>
 </Tabs>
+
+### Trace Store Plugins
+
+For independent trace storage and analytics, see the
+[trace store plugin guide](/self-hosting/architecture/trace-store) in the self-hosting documentation.
 
 ### Authentication Plugins
 

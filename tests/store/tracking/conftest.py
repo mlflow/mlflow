@@ -30,6 +30,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 
 def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):
@@ -84,12 +85,12 @@ def store(tmp_path: Path, cached_db: Path) -> SqlAlchemyStore:
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env, artifact_uri.as_uri())
+        s = _build_tracking_store(SqlAlchemyStore, db_uri_env, artifact_uri.as_uri())
         yield s
         _cleanup_database(s)
     else:
         db_path = tmp_path / "mlflow.db"
         shutil.copy(cached_db, db_path)
         db_uri = f"sqlite:///{db_path}"
-        s = SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+        s = _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri.as_uri())
         yield s

@@ -35,6 +35,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkillVersionTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -43,7 +44,7 @@ pytestmark = pytest.mark.notrackingurimock
 def store(tmp_path: Path):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    store = SqlAlchemyStore(MLFLOW_TRACKING_URI.get(), artifact_uri.as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, MLFLOW_TRACKING_URI.get(), artifact_uri.as_uri())
     try:
         yield store
     finally:

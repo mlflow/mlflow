@@ -2,9 +2,11 @@ import io
 import itertools
 import os
 import pickle
+import sys
 import uuid
 from importlib import reload
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -33,6 +35,7 @@ from mlflow.tracking._tracking_service.utils import (
     _has_existing_mlruns_data,
     _resolve_custom_scheme,
     _resolve_tracking_uri,
+    _should_configure_trace_store,
     _use_tracking_uri,
     get_tracking_uri,
     set_tracking_uri,
@@ -50,6 +53,85 @@ from tests.tracing.helper import get_tracer_tracking_uri
 # and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#writing-python-tests
 # for more information.
 pytestmark = pytest.mark.notrackingurimock
+
+
+@pytest.mark.parametrize(
+    ("job_id", "boot_id", "is_running_as_server"),
+    list(itertools.product([None, "job"], [None, "boot"], [False, True])),
+)
+def test_should_configure_trace_store_server_detection(
+    monkeypatch, job_id, boot_id, is_running_as_server
+):
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
+    monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
+    for name, value in (
+        ("_MLFLOW_SERVER_JOB_ID", job_id),
+        ("_MLFLOW_SERVER_BOOT_ID", boot_id),
+    ):
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    monkeypatch.setitem(
+        sys.modules, "mlflow.server", SimpleNamespace(is_running_as_server=is_running_as_server)
+    )
+
+    result = _should_configure_trace_store("sqlite:///server.db")
+
+    assert result is bool(job_id or boot_id or is_running_as_server)
+
+
+@pytest.mark.parametrize(
+    ("trace_store", "backend_uri", "store_uri"),
+    [
+        (None, "sqlite:///server.db", "sqlite:///server.db"),
+        ("", "sqlite:///server.db", "sqlite:///server.db"),
+        ("test://host/traces", None, "sqlite:///server.db"),
+        ("test://host/traces", "", "sqlite:///server.db"),
+        ("test://host/traces", "sqlite:///server.db", "sqlite:///other.db"),
+        ("test://host/traces", "sqlite:///server.db", "https://remote"),
+    ],
+)
+def test_should_configure_trace_store_requires_selection_and_matching_uri(
+    monkeypatch, trace_store, backend_uri, store_uri
+):
+    monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", "job")
+    for name, value in (
+        ("MLFLOW_TRACE_STORE_URI", trace_store),
+        ("MLFLOW_BACKEND_STORE_URI", backend_uri),
+    ):
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+
+    assert _should_configure_trace_store(store_uri) is False
+
+
+@pytest.mark.parametrize("tracking_uri", ["sqlite:///server.db", "sqlite:///other.db"])
+def test_should_configure_trace_store_resolves_default_tracking_uri(monkeypatch, tracking_uri):
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
+    monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
+    monkeypatch.setenv("_MLFLOW_SERVER_JOB_ID", "job")
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", tracking_uri)
+    monkeypatch.setattr("mlflow.tracking._tracking_service.utils._tracking_uri", None)
+
+    assert _should_configure_trace_store() is (tracking_uri == "sqlite:///server.db")
+
+
+@pytest.mark.parametrize("server_module", [None, SimpleNamespace()])
+def test_should_configure_trace_store_does_not_import_server(monkeypatch, server_module):
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
+    monkeypatch.setenv("MLFLOW_BACKEND_STORE_URI", "sqlite:///server.db")
+    monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    if server_module is None:
+        monkeypatch.delitem(sys.modules, "mlflow.server", raising=False)
+    else:
+        monkeypatch.setitem(sys.modules, "mlflow.server", server_module)
+
+    assert _should_configure_trace_store("sqlite:///server.db") is False
+    assert sys.modules.get("mlflow.server") is server_module
 
 
 @pytest.mark.skip(reason="FileStore is no longer supported")

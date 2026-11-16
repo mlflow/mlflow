@@ -27,6 +27,7 @@ from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
+    MLFLOW_TRACE_STORE_URI,
     MLFLOW_WORKSPACE,
     MLFLOW_WORKSPACE_STORE_URI,
 )
@@ -509,6 +510,14 @@ def _validate_static_prefix(ctx, param, value):
     help=("Path to the YAML config file for server-owned trace archival."),
 )
 @click.option(
+    "--trace-store-uri",
+    envvar=MLFLOW_TRACE_STORE_URI.name,
+    default=None,
+    metavar="URI",
+    help="URI to which to persist trace data. If not specified, `backend-store-uri` is used. "
+    "Set this to a trace store plugin URI to store traces separately from experiments and runs.",
+)
+@click.option(
     "--secrets-cache-ttl",
     type=click.IntRange(10, 300),
     default=60,
@@ -574,6 +583,7 @@ def server(
     expose_prometheus,
     app_name,
     trace_archival_config,
+    trace_store_uri,
     dev,
     uvicorn_opts,
     secrets_cache_ttl,
@@ -699,6 +709,10 @@ def server(
         serve_artifacts=serve_artifacts,
         artifacts_destination=artifacts_destination,
     )
+    if artifacts_only and trace_store_uri is not None:
+        raise click.UsageError("--trace-store-uri cannot be used with --artifacts-only.")
+    if trace_store_uri is not None:
+        os.environ[MLFLOW_TRACE_STORE_URI.name] = trace_store_uri
     if trace_archival_config is not None:
         try:
             load_trace_archival_server_config(trace_archival_config)
@@ -1236,7 +1250,9 @@ def gc(
     """
     if (workspace or all_workspaces) and not MLFLOW_ENABLE_WORKSPACES.get():
         os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true"
-    backend_store = _get_store(backend_store_uri, artifacts_destination)
+    backend_store = _get_store(
+        backend_store_uri, artifacts_destination, trace_store_uri=MLFLOW_TRACE_STORE_URI.get()
+    )
     # Only error if --workspace was explicitly provided on CLI (not from env var)
     workspace_from_cli = ctx.get_parameter_source("workspace") == ParameterSource.COMMANDLINE
     if workspace_from_cli and all_workspaces:

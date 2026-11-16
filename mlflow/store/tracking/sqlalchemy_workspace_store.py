@@ -20,7 +20,6 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessmentDailyRollup,
-    SqlAssessments,
     SqlEvaluationDataset,
     SqlExperiment,
     SqlGatewayBudgetPolicy,
@@ -79,10 +78,12 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     Workspace-aware variant of the SQLAlchemy tracking store.
     """
 
-    def __init__(self, db_uri, default_artifact_root, read_db_uri=None):
+    def __init__(self, db_uri, default_artifact_root, read_db_uri=None, trace_store=None):
         self._workspace_provider = None
         self._workspace_store_uri = workspace_utils.resolve_workspace_store_uri(tracking_uri=db_uri)
-        super().__init__(db_uri, default_artifact_root, read_db_uri=read_db_uri)
+        super().__init__(
+            db_uri, default_artifact_root, read_db_uri=read_db_uri, trace_store=trace_store
+        )
 
     def _get_query(self, session, model):
         query = super()._get_query(session, model)
@@ -230,7 +231,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 error_code=INVALID_STATE,
             )
 
-
     def _experiment_where_clauses(self):
         return [SqlExperiment.workspace == self._get_active_workspace()]
 
@@ -279,17 +279,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             return _rows_to_strings(rows)
 
         if entity_type == EntityAssociationType.TRACE:
-            rows = (
-                session
-                .query(SqlTraceInfo.request_id)
-                .join(SqlExperiment, SqlTraceInfo.experiment_id == SqlExperiment.experiment_id)
-                .filter(
-                    SqlTraceInfo.request_id.in_(entity_ids),
-                    SqlExperiment.workspace == workspace,
-                )
-                .all()
-            )
-            return _rows_to_strings(rows)
+            return super()._filter_entity_ids(session, entity_type, entity_ids)
 
         if entity_type == EntityAssociationType.EVALUATION_DATASET:
             rows = (
@@ -385,7 +375,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-
     def _validate_dataset_accessible(self, session, dataset_id: str) -> None:
         workspace = self._get_active_workspace()
         exists_row = (
@@ -400,7 +389,6 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
                 f"Dataset '{dataset_id}' not found.",
                 RESOURCE_DOES_NOT_EXIST,
             )
-
 
     def _get_workspace_provider_instance(self):
         if self._workspace_provider is None:

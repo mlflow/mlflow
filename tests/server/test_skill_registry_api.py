@@ -35,6 +35,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import NOT_SET
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.validation import _MAX_REGISTRY_ICONS_PER_LIST
 
@@ -112,7 +113,7 @@ def _create_registry_fastapi_app() -> FastAPI:
 def _create_client(tmp_path: Path, db_uri: str) -> tuple[TestClient, SqlAlchemyStore]:
     artifact_path = tmp_path / "artifacts"
     artifact_path.mkdir()
-    store = SqlAlchemyStore(db_uri, artifact_path.as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, artifact_path.as_uri())
     return TestClient(_create_registry_fastapi_app()), store
 
 

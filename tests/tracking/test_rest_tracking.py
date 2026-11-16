@@ -87,6 +87,7 @@ from mlflow.tracing.constant import (
     TraceMetricKey,
 )
 from mlflow.tracing.utils import build_otel_context
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
@@ -168,7 +169,7 @@ def mlflow_client_with_secrets(tmp_path: Path, monkeypatch):
     artifact_uri = (tmp_path / "artifacts").as_uri()
 
     # Initialize the store (which creates tables)
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store = _build_tracking_store(SqlAlchemyStore, backend_uri, artifact_uri)
     store.engine.dispose()
 
     # Force-reset backend stores before each test
@@ -1173,7 +1174,7 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
 
     path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
     uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
-    mock_store = mock.Mock(wraps=SqlAlchemyStore(uri, str(tmp_path)))
+    mock_store = mock.Mock(wraps=_build_tracking_store(SqlAlchemyStore, uri, str(tmp_path)))
 
     flask_app = flask.Flask("test_flask_app")
 
@@ -5191,7 +5192,7 @@ def test_get_secrets_config_with_default_passphrase(tmp_path: Path, monkeypatch)
     backend_uri = f"sqlite:///{tmp_path}/mlflow.db"
     artifact_uri = (tmp_path / "artifacts").as_uri()
 
-    store = SqlAlchemyStore(backend_uri, artifact_uri)
+    store = _build_tracking_store(SqlAlchemyStore, backend_uri, artifact_uri)
     store.engine.dispose()
 
     handlers._tracking_store = None

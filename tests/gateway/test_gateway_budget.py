@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import fastapi
@@ -15,6 +18,7 @@ from mlflow.entities.gateway_budget_policy import (
     GatewayBudgetPolicy,
 )
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.exceptions import MlflowNotImplementedException
 from mlflow.gateway.budget import (
     calculate_existing_cost_for_windows,
     check_budget_limit,
@@ -24,14 +28,175 @@ from mlflow.gateway.budget import (
 )
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
+from mlflow.store.tracing.abstract_store import AbstractTraceStore
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
 from mlflow.tracking._tracking_service import utils as tracking_utils
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.workspace_context import WorkspaceContext
 
 _DELIVER_FUNC = "mlflow.gateway.budget.deliver_webhook"
 _REGISTRY_STORE_FUNC = "mlflow.server.handlers._get_model_registry_store"
+
+
+def _with_trace_store(store, backend):
+    return _build_tracking_store(
+        SqlAlchemyStore, store.db_uri, store.artifact_root_uri, trace_store=backend
+    )
+
+
+@dataclass
+class _GatewayCost:
+    timestamp_ms: int
+    workspace: str
+    endpoint_id: str
+    username: str
+    cost: float
+
+
+class _CostTraceStore(AbstractTraceStore):
+    def __init__(self, history):
+        self.history = history
+
+    def sum_gateway_trace_cost(
+        self, start_time_ms, end_time_ms, workspace=None, endpoint_id=None, username=None
+    ):
+        return sum(
+            trace.cost
+            for trace in self.history
+            if start_time_ms <= trace.timestamp_ms < end_time_ms
+            and (workspace is None or trace.workspace == workspace)
+            and (endpoint_id is None or trace.endpoint_id == endpoint_id)
+            and (username is None or trace.username == username)
+        )
+
+
+@pytest.fixture
+def backend_tracking_store(db_uri, tmp_path):
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, tmp_path.as_uri())
+    try:
+        yield store
+    finally:
+        store._dispose_engine()
+
+
+@pytest.mark.parametrize(
+    ("scope", "target_value", "expected_spend"),
+    [
+        (BudgetTargetScope.GLOBAL, None, 100.0),
+        (BudgetTargetScope.WORKSPACE, None, 60.0),
+        (BudgetTargetScope.ENDPOINT, "ep-test", 70.0),
+        (BudgetTargetScope.USER, "alice", 40.0),
+    ],
+)
+def test_backend_only_cost_history_backfills_budget_after_restart(
+    backend_tracking_store, scope, target_value, expected_spend
+):
+    timestamp = int(datetime.now(timezone.utc).timestamp() * 1000)
+    history = [
+        _GatewayCost(timestamp, "default", "ep-test", "alice", 10.0),
+        _GatewayCost(timestamp, "default", "other-endpoint", "alice", 30.0),
+        _GatewayCost(timestamp, "default", "ep-test", "bob", 20.0),
+        _GatewayCost(timestamp, "other-team", "ep-test", "bob", 40.0),
+        _GatewayCost(0, "default", "ep-test", "alice", 1000.0),
+    ]
+    backend = _CostTraceStore(history)
+    backend_tracking_store = _with_trace_store(backend_tracking_store, backend)
+    policy = _make_policy(
+        budget_amount=5.0,
+        budget_action=BudgetAction.REJECT,
+        target_scope=scope,
+        target_value=target_value,
+    )
+    with patch.object(
+        backend_tracking_store, "list_budget_policies_across_workspaces", return_value=[policy]
+    ) as policies:
+        for _ in range(2):
+            _bt_module._budget_tracker = None
+            maybe_refresh_budget_policies(backend_tracking_store)
+            tracker = get_budget_tracker()
+            assert tracker._get_window_info(policy.budget_policy_id).cumulative_spend == (
+                expected_spend
+            )
+            exceeded, _ = tracker.should_reject_request(
+                workspace="default", endpoint_id="ep-test", username="alice"
+            )
+            assert exceeded is True
+            with pytest.raises(fastapi.HTTPException, match="Budget limit exceeded") as exc:
+                check_budget_limit(
+                    backend_tracking_store, _NO_TRACE_CONFIG, workspace="default", username="alice"
+                )
+            assert exc.value.status_code == 429
+        assert policies.call_count == 2
+    with backend_tracking_store.ManagedSessionMaker() as session:
+        assert session.query(SqlTraceInfo).count() == 0
+
+
+@pytest.mark.parametrize("unsupported", [False, True])
+def test_backend_history_errors_preserve_best_effort_budget_behavior(
+    backend_tracking_store, unsupported, caplog
+):
+    caplog.set_level("DEBUG", logger="mlflow.gateway.budget")
+    policy = _make_policy(budget_action=BudgetAction.REJECT)
+    backend = mock.create_autospec(AbstractTraceStore, instance=True)
+    backend_tracking_store = _with_trace_store(backend_tracking_store, backend)
+    error = MlflowNotImplementedException() if unsupported else RuntimeError("Backend unavailable")
+    endpoint = _make_endpoint_config()
+    with (
+        patch.object(
+            backend_tracking_store, "list_budget_policies_across_workspaces", return_value=[policy]
+        ) as policies,
+        patch.object(backend, "sum_gateway_trace_cost", side_effect=error) as cost,
+    ):
+        for _ in range(2):
+            check_budget_limit(backend_tracking_store, endpoint)
+        policies.assert_called_once()
+        cost.assert_called_once()
+    assert get_budget_tracker()._get_window_info("bp-test").cumulative_spend == 0.0
+    assert not get_budget_tracker().needs_refresh()
+    assert "Failed to calculate existing cost for policy bp-test" in caplog.text
+    get_budget_tracker().invalidate()
+    with (
+        patch.object(
+            backend_tracking_store, "list_budget_policies_across_workspaces", return_value=[policy]
+        ) as policies,
+        patch.object(backend, "sum_gateway_trace_cost", return_value=25.0) as cost,
+    ):
+        check_budget_limit(backend_tracking_store, endpoint)
+        policies.assert_called_once()
+        cost.assert_called_once()
+    assert get_budget_tracker()._get_window_info("bp-test").cumulative_spend == 25.0
+    assert not get_budget_tracker().needs_refresh()
+
+
+def test_backend_without_cost_aggregation_can_serve_without_budget_policies(backend_tracking_store):
+    backend_tracking_store = _with_trace_store(backend_tracking_store, AbstractTraceStore())
+    with patch.object(
+        backend_tracking_store, "list_budget_policies_across_workspaces", return_value=[]
+    ) as policies:
+        check_budget_limit(backend_tracking_store, _make_endpoint_config())
+    policies.assert_called_once()
+
+
+def test_backend_policy_refresh_failure_preserves_best_effort_behavior(
+    backend_tracking_store, caplog
+):
+    caplog.set_level("DEBUG", logger="mlflow.gateway.budget")
+    backend = mock.create_autospec(AbstractTraceStore, instance=True)
+    backend_tracking_store = _with_trace_store(backend_tracking_store, backend)
+    with patch.object(
+        backend_tracking_store,
+        "list_budget_policies_across_workspaces",
+        side_effect=RuntimeError("Store unavailable"),
+    ) as policies:
+        check_budget_limit(backend_tracking_store, _make_endpoint_config())
+    policies.assert_called_once()
+    backend.sum_gateway_trace_cost.assert_not_called()
+    assert get_budget_tracker().needs_refresh()
+    assert "Failed to refresh budget policies" in caplog.text
 
 
 @pytest.fixture(autouse=True)
@@ -289,7 +454,9 @@ def test_maybe_refresh_keeps_other_workspaces_windows(tmp_path, db_uri, monkeypa
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri()
+    )
 
     policy_ids = {}
     for workspace in ("budget-refresh-a", "budget-refresh-b"):

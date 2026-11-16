@@ -42,6 +42,7 @@ from mlflow.store.tracking.dbmodels.models import (
     TraceState,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.os import is_windows
 from mlflow.utils.time import get_current_time_millis
@@ -88,7 +89,7 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     db_uri = store.db_uri
     artifact_uri = store.artifact_root_uri
     del store
-    store = SqlAlchemyStore(db_uri, artifact_uri)
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri)
 
     # test that default experiment is not reactivated
     default_experiment = store.get_experiment(experiment_id=0)
@@ -175,7 +176,7 @@ def test_single_tenant_store_detects_workspace_scoped_experiments(
         pytest.skip("Single-tenant startup guard only applies when workspaces are disabled.")
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = SqlAlchemyStore(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, artifact_dir.as_uri())
     exp_id = store.create_experiment("tenant-exp")
     with store.ManagedSessionMaker() as session:
         session.query(SqlExperiment).filter(SqlExperiment.experiment_id == exp_id).update({
@@ -184,7 +185,7 @@ def test_single_tenant_store_detects_workspace_scoped_experiments(
         session.commit()
     store._dispose_engine()
     with pytest.raises(MlflowException, match="non-default workspaces"):
-        SqlAlchemyStore(db_uri, artifact_dir.as_uri())
+        _build_tracking_store(SqlAlchemyStore, db_uri, artifact_dir.as_uri())
 
 
 def test_artifact_path_segments_for_local():
@@ -1098,7 +1099,8 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
 ):
     with TempDir() as tmp:
         dbfile_path = tmp.path("db")
-        store = SqlAlchemyStore(
+        store = _build_tracking_store(
+            SqlAlchemyStore,
             db_uri="sqlite:///" + dbfile_path,
             default_artifact_root=artifact_root_uri,
         )

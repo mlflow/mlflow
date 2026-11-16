@@ -1,71 +1,134 @@
 import asyncio
-import bisect
-import json
-from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Any, Literal
+import logging
+from abc import ABC
+from typing import TYPE_CHECKING, Literal
 
-from mlflow.entities import (
-    Assessment,
-    DatasetInput,
-    DatasetRecord,
-    Issue,
-    IssueSeverity,
-    IssueStatus,
-    LifecycleStage,
-    LoggedModel,
-    LoggedModelInput,
-    LoggedModelOutput,
-    LoggedModelParameter,
-    LoggedModelStatus,
-    LoggedModelTag,
-    ScorerVersion,
-    ViewType,
-)
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.trace_metrics import (
-    MetricAggregation,
-    MetricDataPoint,
-    MetricViewType,
-)
-
-if TYPE_CHECKING:
-    from mlflow.entities import EvaluationDataset
-    from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
-    from mlflow.genai.review_queues import ReviewQueue, ReviewQueueItem
-    from mlflow.genai.scorers.online.entities import (
-        CompletedSession,
-        OnlineScorer,
-        OnlineScoringConfig,
-    )
-from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities import Assessment, Issue, IssueSeverity, IssueStatus
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.workspace import TraceArchivalConfig
+from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_metrics import MetricAggregation, MetricDataPoint, MetricViewType
+from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.workspace import WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.tracking import (
-    MAX_RESULTS_QUERY_TRACE_METRICS,
-    SEARCH_MAX_RESULTS_DEFAULT,
-    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-)
-from mlflow.store.tracking.gateway import GatewayStoreMixin
-from mlflow.store.tracking.mcp_server_registry import MCPServerRegistryMixin
-from mlflow.store.tracking.skill_registry import SkillRegistryMixin
-from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.utils import mlflow_tags
-from mlflow.utils.annotations import developer_stable, requires_sql_backend
-from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
-from mlflow.utils.async_logging.run_operations import RunOperations
+
+if TYPE_CHECKING:
+    from mlflow.genai.scorers.online.entities import CompletedSession
+    from mlflow.store.tracking.abstract_store import AbstractStore
+
+_logger = logging.getLogger(__name__)
 
 
-class AbstractTraceStore:
+class AbstractTraceStore(ABC):
+    """Trace persistence, retrieval, and analytics independently of the tracking metadata store.
+
+    Backends own traces, assessments, issues, and their search and analytics. The hosting
+    tracking store owns other metadata, associations, and cross-store lifecycle coordination.
+    """
+
+    def set_tracking_store(self, tracking_store: "AbstractStore") -> None:
+        """Bind optional host context from the factory after the tracking constructor finishes.
+
+        Overrides should call ``super().set_tracking_store(tracking_store)``. Hybrid backends can
+        use ``with tracking_store.use_default_trace_store():`` for native host trace operations.
+        A backend instance must not be shared between tracking store instances.
+        """
+        if hasattr(self, "_tracking_store") and self._tracking_store is not tracking_store:
+            raise MlflowException.invalid_parameter_value(
+                "A trace store instance cannot be shared between tracking stores."
+            )
+        self._tracking_store = tracking_store
+
+    def deprecated_start_trace_v2(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        raise MlflowNotImplementedException(
+            "Legacy V2 trace creation is not supported with a separate trace store. "
+            "Use the V3 tracing API instead."
+        )
+
+    def deprecated_end_trace_v2(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        raise MlflowNotImplementedException(
+            "Legacy V2 trace updates are not supported with a separate trace store. "
+            "Use the V3 tracing API instead."
+        )
+
+    def on_traces_deleted(self, trace_ids: list[str]) -> None:
+        """Best-effort cleanup of host references after successful backend trace deletion.
+
+        Call this with actual deleted IDs, not request IDs that may not have existed. Overrides
+        can call ``super().on_traces_deleted(trace_ids)`` for host association/queue cleanup.
+        The backend must remove its own spans, assessments, indexes, and aggregates.
+        """
+        if not trace_ids:
+            return
+        try:
+            self._tracking_store.on_traces_deleted(trace_ids)
+        except Exception:
+            _logger.exception("Failed to clean up tracking-store references for deleted traces.")
+
+    def on_run_deleted(self, run_id: str, *, permanent: bool = False) -> None:
+        """Remove run-produced assessments after successful deletion; retain traces.
+
+        If permanent, also detach issue source-run references while preserving the issues,
+        matching SQL's ON DELETE SET NULL. The run no longer exists in that case, so cleanup
+        must not require it.
+        """
+        raise MlflowNotImplementedException()
+
+    def on_experiment_deleted(self, experiment_id: str, *, permanent: bool = False) -> None:
+        """Clean up after successful experiment deletion.
+
+        For soft deletion, remove assessments produced by experiment runs and preserve
+        restorable trace data. If permanent, remove all experiment data, including issues
+        without traces and aggregates. The experiment and its runs may already be gone.
+        """
+        raise MlflowNotImplementedException()
+
+    def before_workspace_deleted(self, workspace_name: str, mode: WorkspaceDeletionMode) -> None:
+        """For RESTRICT reject any backend data in the named workspace before mutation."""
+        raise MlflowNotImplementedException()
+
+    def on_workspace_deleted(self, workspace_name: str) -> None:
+        """Remove all backend data after cascading workspace deletion; parent rows are gone."""
+        raise MlflowNotImplementedException()
+
     @property
     def supports_trace_archival(self) -> bool:
         """Return whether server-owned trace archival is supported by this tracking store."""
         return False
 
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+        endpoint_id: str | None = None,
+        username: str | None = None,
+    ) -> float:
+        """Sum gateway trace costs for budget reconstruction over ``[start_time_ms, end_time_ms)``.
+
+        Include all backend-owned trace storage tiers. Optional workspace, endpoint, and
+        authenticated username filters are combined with AND; ``None`` leaves that dimension
+        unfiltered. A workspace of ``None`` includes all workspaces for global policies.
+        Implement this operation to support historical gateway budget reconstruction.
+        """
+        raise MlflowNotImplementedException()
 
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
@@ -77,8 +140,7 @@ class AbstractTraceStore:
         Returns:
             The returned TraceInfo object from the backend.
         """
-        raise NotImplementedError
-
+        raise MlflowNotImplementedException()
 
     def delete_traces(
         self,
@@ -93,6 +155,12 @@ class AbstractTraceStore:
         - Either `max_timestamp_millis` or `trace_ids` must be specified, but not both.
         - `max_traces` can't be specified if `trace_ids` is specified.
 
+        Implementations should call
+        :func:`mlflow.utils.validation.validate_delete_traces_parameters` before deleting traces
+        to validate these constraints.
+        After deleting related backend-owned data, call ``on_traces_deleted`` with the actual
+        deleted IDs to clean host references. The public return value remains a count.
+
         Args:
             experiment_id: ID of the associated experiment.
             max_timestamp_millis: The maximum timestamp in milliseconds since the UNIX epoch for
@@ -105,35 +173,7 @@ class AbstractTraceStore:
         Returns:
             The number of traces deleted.
         """
-        # trace_ids can't be an empty list of string
-        if max_timestamp_millis is None and not trace_ids:
-            raise MlflowException.invalid_parameter_value(
-                "Either `max_timestamp_millis` or `trace_ids` must be specified.",
-            )
-        if max_timestamp_millis is not None and trace_ids:
-            raise MlflowException.invalid_parameter_value(
-                "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
-            )
-        if trace_ids and max_traces is not None:
-            raise MlflowException.invalid_parameter_value(
-                "`max_traces` can't be specified if `trace_ids` is specified.",
-            )
-        if max_traces is not None and max_traces <= 0:
-            raise MlflowException.invalid_parameter_value(
-                f"`max_traces` must be a positive integer, received {max_traces}.",
-            )
-        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, trace_ids)
-
-
-    def _delete_traces(
-        self,
-        experiment_id: str,
-        max_timestamp_millis: int | None = None,
-        max_traces: int | None = None,
-        trace_ids: list[str] | None = None,
-    ) -> int:
-        raise NotImplementedError
-
+        raise MlflowNotImplementedException()
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
@@ -145,8 +185,7 @@ class AbstractTraceStore:
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
-        raise NotImplementedError
-
+        raise MlflowNotImplementedException()
 
     def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
         """
@@ -163,7 +202,6 @@ class AbstractTraceStore:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
         raise MlflowNotImplementedException()
-
 
     def batch_get_traces(
         self,
@@ -188,11 +226,7 @@ class AbstractTraceStore:
         Returns:
             List of Trace objects.
         """
-        # raise MlflowException so this can be captured by the handlers
-        # instead of default internal server error and retry
-        # TODO: ensure NotImplementedError can be translated to 501 error code in mlflow server
         raise MlflowNotImplementedException()
-
 
     def batch_get_trace_infos(
         self,
@@ -205,6 +239,8 @@ class AbstractTraceStore:
 
         This is more efficient than batch_get_traces when only metadata is needed,
         as it avoids loading potentially large span data.
+        The default implementation calls ``get_trace_info`` for each unique ID and omits
+        missing traces. Backends can override it with an optimized batch query or location support.
 
         Args:
             trace_ids: List of trace IDs to fetch.
@@ -220,8 +256,25 @@ class AbstractTraceStore:
         Returns:
             List of TraceInfo objects containing only metadata (no spans).
         """
-        raise MlflowNotImplementedException()
-
+        if location is not None:
+            raise MlflowNotImplementedException(
+                f"{self.__class__.__name__}'s default batch_get_trace_infos does not support "
+                "location-scoped retrieval. Override the method to support locations."
+            )
+        allowed_experiments = set(experiment_ids) if experiment_ids is not None else None
+        if allowed_experiments is not None and not allowed_experiments:
+            return []
+        infos = []
+        for trace_id in dict.fromkeys(trace_ids):
+            try:
+                info = self.get_trace_info(trace_id)
+            except MlflowException as e:
+                if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                    raise
+            else:
+                if allowed_experiments is None or info.experiment_id in allowed_experiments:
+                    infos.append(info)
+        return infos
 
     def archive_traces(
         self,
@@ -255,17 +308,15 @@ class AbstractTraceStore:
         """
         raise MlflowNotImplementedException()
 
-
     def get_online_trace_details(
         self,
         trace_id: str,
         source_inference_table: str,
         source_databricks_request_id: str,
     ) -> str:
-        raise NotImplementedError(
+        raise MlflowNotImplementedException(
             f"{self.__class__.__name__} does not support `get_online_trace_details`."
         )
-
 
     def search_traces(
         self,
@@ -298,8 +349,7 @@ class AbstractTraceStore:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
-        raise NotImplementedError
-
+        raise MlflowNotImplementedException()
 
     def find_completed_sessions(
         self,
@@ -336,8 +386,7 @@ class AbstractTraceStore:
             List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,
             session_id ASC).
         """
-        raise NotImplementedError(self.__class__.__name__)
-
+        raise MlflowNotImplementedException(self.__class__.__name__)
 
     def query_trace_metrics(
         self,
@@ -371,7 +420,6 @@ class AbstractTraceStore:
         """
         raise MlflowNotImplementedException()
 
-
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace_id.
@@ -381,8 +429,7 @@ class AbstractTraceStore:
             key: The string key of the tag.
             value: The string value of the tag.
         """
-        raise NotImplementedError
-
+        raise MlflowNotImplementedException()
 
     def delete_trace_tag(self, trace_id: str, key: str):
         """
@@ -392,8 +439,7 @@ class AbstractTraceStore:
             trace_id: The ID of the trace.
             key: The string key of the tag.
         """
-        raise NotImplementedError
-
+        raise MlflowNotImplementedException()
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
@@ -407,8 +453,7 @@ class AbstractTraceStore:
         Returns:
             The Assessment object for the given trace and assessment ids.
         """
-        raise NotImplementedError
-
+        raise MlflowNotImplementedException()
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
@@ -423,8 +468,7 @@ class AbstractTraceStore:
         Returns:
             The Assessment object for the logging operation.
         """
-        raise NotImplementedError
-
+        raise MlflowNotImplementedException()
 
     def update_assessment(
         self,
@@ -454,10 +498,9 @@ class AbstractTraceStore:
         Returns:
             The Assessment object representing the updated state of an assessment for a given trace.
         """
-        raise NotImplementedError
+        raise MlflowNotImplementedException()
 
-
-    def delete_assessment(self, trace_id: str, assessment_id):
+    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
         """
         Delete an assessment for a given trace.
 
@@ -465,8 +508,77 @@ class AbstractTraceStore:
             trace_id: The ID of the trace.
             assessment_id: The ID of the assessment to be deleted.
         """
-        raise NotImplementedError
+        raise MlflowNotImplementedException()
 
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
+        """
+        Log multiple span entities to the tracking store.
+
+        Args:
+            location: The location to log spans to. Can be either experiment ID or the
+                full UC table name.
+            spans: List of Span entities to log. Spans may belong to different traces;
+                the store will group them by trace_id internally.
+            tracking_uri: The tracking URI to use. Default to None.
+
+        Returns:
+            List of logged Span entities.
+        """
+        raise MlflowNotImplementedException()
+
+    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
+        """
+        Asynchronously log multiple span entities to the tracking store.
+
+        The default implementation offloads ``log_spans()`` to a worker thread so
+        async callers do not stall the event loop. Stores that implement
+        ``log_spans()`` inherit this behavior.
+
+        Args:
+            location: The location to log spans to.
+            spans: List of Span entities to log. Spans may belong to different traces.
+
+        Returns:
+            List of logged Span entities.
+        """
+        return await asyncio.to_thread(self.log_spans, location, spans)
+
+    def calculate_trace_filter_correlation(
+        self,
+        experiment_ids: list[str],
+        filter_string1: str,
+        filter_string2: str,
+        base_filter: str | None = None,
+    ) -> TraceFilterCorrelationResult:
+        """
+        Calculate correlation between two trace filter conditions using NPMI.
+
+        This method analyzes the correlation between traces matching two different
+        filter conditions using Normalized Pointwise Mutual Information (NPMI).
+
+        Args:
+            experiment_ids: List of experiment IDs to analyze traces from.
+            filter_string1: First filter condition (MLflow search filter syntax).
+            filter_string2: Second filter condition (MLflow search filter syntax).
+            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
+                        (e.g. 'request_time > ... and request_time < ...' for time windows).
+
+        Returns:
+            TraceFilterCorrelationResult containing:
+            - npmi: Correlation score from -1 (never co-occur) to 1 (always co-occur),
+                   or NaN if undefined (when a filter has zero matches)
+            - filter1_count: Number of traces matching filter1
+            - filter2_count: Number of traces matching filter2
+            - joint_count: Number of traces matching both filters
+            - total_count: Total number of traces in the experiments
+
+        Raises:
+            MlflowException: If filters are invalid or experiments don't exist.
+        """
+        raise MlflowNotImplementedException(
+            f"The Correlations API is not implemented for {self.__class__.__name__}. "
+            "A SQL backend is required to use this feature."
+        )
 
     def create_issue(
         self,
@@ -487,6 +599,10 @@ class AbstractTraceStore:
         """
         Create a new issue.
 
+        Issue metadata and assessments are backend-owned so counted search can filter, order,
+        and paginate within the backend. Use tracking-store context to validate the experiment
+        and optional source run as needed.
+
         Args:
             experiment_id: The experiment ID.
             name: Short descriptive name for the issue.
@@ -506,7 +622,6 @@ class AbstractTraceStore:
         """
         raise MlflowNotImplementedException()
 
-
     def get_issue(self, issue_id: str) -> Issue:
         """
         Get an issue by ID.
@@ -518,7 +633,6 @@ class AbstractTraceStore:
             The Issue entity.
         """
         raise MlflowNotImplementedException()
-
 
     def update_issue(
         self,
@@ -553,7 +667,6 @@ class AbstractTraceStore:
             The updated Issue entity.
         """
         raise MlflowNotImplementedException()
-
 
     def search_issues(
         self,
@@ -595,76 +708,3 @@ class AbstractTraceStore:
             A PagedList of Issue entities.
         """
         raise MlflowNotImplementedException()
-
-
-    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
-        """
-        Log multiple span entities to the tracking store.
-
-        Args:
-            location: The location to log spans to. Can be either experiment ID or the
-                full UC table name.
-            spans: List of Span entities to log. Spans may belong to different traces;
-                the store will group them by trace_id internally.
-            tracking_uri: The tracking URI to use. Default to None.
-
-        Returns:
-            List of logged Span entities.
-        """
-        raise NotImplementedError
-
-
-    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """
-        Asynchronously log multiple span entities to the tracking store.
-
-        The default implementation offloads ``log_spans()`` to a worker thread so
-        async callers do not stall the event loop. Stores that implement
-        ``log_spans()`` inherit this behavior.
-
-        Args:
-            location: The location to log spans to.
-            spans: List of Span entities to log. Spans may belong to different traces.
-
-        Returns:
-            List of logged Span entities.
-        """
-        return await asyncio.to_thread(self.log_spans, location, spans)
-
-
-    def calculate_trace_filter_correlation(
-        self,
-        experiment_ids: list[str],
-        filter_string1: str,
-        filter_string2: str,
-        base_filter: str | None = None,
-    ) -> TraceFilterCorrelationResult:
-        """
-        Calculate correlation between two trace filter conditions using NPMI.
-
-        This method analyzes the correlation between traces matching two different
-        filter conditions using Normalized Pointwise Mutual Information (NPMI).
-
-        Args:
-            experiment_ids: List of experiment IDs to analyze traces from.
-            filter_string1: First filter condition (MLflow search filter syntax).
-            filter_string2: Second filter condition (MLflow search filter syntax).
-            base_filter: Optional base filter that both filter1 and filter2 are tested on top of
-                        (e.g. 'request_time > ... and request_time < ...' for time windows).
-
-        Returns:
-            TraceFilterCorrelationResult containing:
-            - npmi: Correlation score from -1 (never co-occur) to 1 (always co-occur),
-                   or NaN if undefined (when a filter has zero matches)
-            - filter1_count: Number of traces matching filter1
-            - filter2_count: Number of traces matching filter2
-            - joint_count: Number of traces matching both filters
-            - total_count: Total number of traces in the experiments
-
-        Raises:
-            MlflowException: If filters are invalid or experiments don't exist.
-        """
-        raise NotImplementedError(
-            f"The Correlations API is not implemented for {self.__class__.__name__}. "
-            "A SQL backend is required to use this feature."
-        )

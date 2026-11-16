@@ -19,7 +19,7 @@ from click.testing import CliRunner
 import mlflow
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
-from mlflow.entities import Metric, ViewType, Workspace
+from mlflow.entities import Metric, TraceInfo, TraceLocation, TraceState, ViewType, Workspace
 from mlflow.entities.logged_model import LoggedModelParameter, LoggedModelTag
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACTS_PRESIGNED_ONLY,
@@ -31,6 +31,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
+from mlflow.store.tracing.registry import TraceStoreRegistry
 from mlflow.store.tracking.dbmodels.models import (
     SqlLoggedModelMetric,
     SqlLoggedModelParam,
@@ -38,16 +39,20 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceSqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.workspace_context import WorkspaceContext
 
 from tests.helper_functions import (
     get_safe_port,
     kill_process_tree,
 )
+from tests.store.tracking.sqlalchemy_store.test_trace_store_associations import MemoryTraceStore
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
 
@@ -255,6 +260,46 @@ def test_server_initializes_backend_store_when_tracking_enabled(monkeypatch, tmp
         mock.ANY, mock.ANY, mock.ANY, workspace_store_uri=None, read_replica_backend_store_uri=None
     )
     run_server_mock.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("args", "environment", "expected"),
+    [
+        (["--trace-store-uri", "test://cli/traces"], None, "test://cli/traces"),
+        ([], "test://env/traces", "test://env/traces"),
+        (
+            ["--trace-store-uri", "test://cli/traces"],
+            "test://env/traces",
+            "test://cli/traces",
+        ),
+    ],
+)
+def test_server_trace_store_selection(monkeypatch, tmp_path, args, environment, expected):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("MLFLOW_TRACE_STORE_URI", raising=False)
+    if environment:
+        monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", environment)
+    with (
+        monkeypatch.context() as cli_env,
+        mock.patch("mlflow.server.handlers.initialize_backend_stores") as initialize,
+        mock.patch("mlflow.server._run_server") as run_server,
+    ):
+        cli_env.setenv("MLFLOW_TRACE_STORE_URI", environment or "")
+        result = CliRunner().invoke(server, args)
+        assert os.environ["MLFLOW_TRACE_STORE_URI"] == expected
+    assert result.exit_code == 0
+    assert os.environ.get("MLFLOW_TRACE_STORE_URI") == environment
+    initialize.assert_called_once()
+    run_server.assert_called_once()
+
+
+def test_server_trace_store_rejects_artifacts_only(monkeypatch):
+    monkeypatch.delenv("MLFLOW_TRACE_STORE_URI", raising=False)
+    result = CliRunner().invoke(
+        server, ["--artifacts-only", "--trace-store-uri", "test://host/traces"]
+    )
+    assert result.exit_code != 0
+    assert "--trace-store-uri cannot be used with --artifacts-only" in result.output
 
 
 def test_server_skips_backend_store_init_in_artifacts_only_mode(monkeypatch, tmp_path):
@@ -904,7 +949,7 @@ def test_registry_store_uri_different_from_tracking_store(command):
 @pytest.fixture
 def sqlite_store(db_uri: str, tmp_path: Path) -> tuple[SqlAlchemyStore, str]:
     artifact_uri = (tmp_path / "artifacts").as_uri()
-    store = SqlAlchemyStore(db_uri, artifact_uri)
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri)
     return (store, db_uri)
 
 
@@ -1175,6 +1220,50 @@ def test_mlflow_gc_experiments(get_store_details, request):
     ])
 
 
+@pytest.mark.parametrize("workspace_mode", [False, True])
+def test_gc_constructs_host_with_backend_without_server_markers(
+    monkeypatch, db_uri, tmp_path, workspace_mode
+):
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_SERVER_JOB_ID", raising=False)
+    monkeypatch.setenv("MLFLOW_TRACE_STORE_URI", "test://host/traces")
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, str(workspace_mode).lower())
+    cls = WorkspaceAwareSqlAlchemyStore if workspace_mode else SqlAlchemyStore
+    store = _build_tracking_store(cls, db_uri, tmp_path.as_uri())
+    backend = MemoryTraceStore()
+    registry = TraceStoreRegistry()
+    builder = mock.Mock(return_value=backend)
+    registry.register("test", builder)
+    monkeypatch.setattr("mlflow.store.tracing.registry._trace_store_registry", registry)
+    try:
+        with WorkspaceContext("default" if workspace_mode else None):
+            exp_id = store.create_experiment("gc-backend")
+            run = store.create_run(exp_id, "user", 1, [], "run")
+            backend.start_trace(
+                TraceInfo(
+                    trace_id="tr-gc",
+                    trace_location=TraceLocation.from_experiment_id(exp_id),
+                    request_time=1,
+                    state=TraceState.OK,
+                )
+            )
+            store.create_issue(exp_id, "Issue", "")
+            store.delete_experiment(exp_id)
+            result = CliRunner().invoke(
+                gc,
+                ["--backend-store-uri", db_uri, "--experiment-ids", exp_id],
+                catch_exceptions=False,
+            )
+        assert result.exit_code == 0
+        builder.assert_called_once_with("test://host/traces")
+        assert backend.traces == {}
+        with WorkspaceContext("default" if workspace_mode else None):
+            with pytest.raises(MlflowException, match="not found"):
+                store.get_run(run.info.run_id)
+    finally:
+        store._dispose_engine()
+
+
 def test_mlflow_gc_experiment_with_logged_model_params_tags_and_metrics(sqlite_store):
     store, uri = sqlite_store
     exp_id = store.create_experiment("exp_with_logged_model")
@@ -1225,7 +1314,7 @@ def sqlite_store_with_s3_artifact_repository(
     db_path = tmp_path / "mlflow.db"
     db_uri = f"sqlite:///{db_path}"
     s3_uri = "s3://mlflow"
-    store = SqlAlchemyStore(db_uri, s3_uri)
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, s3_uri)
     return (store, db_uri, s3_uri)
 
 
@@ -1734,7 +1823,7 @@ def sqlite_store_with_jobs(
     db_uri: str, tmp_path: Path
 ) -> tuple[SqlAlchemyStore, SqlAlchemyJobStore, str]:
     artifact_uri = (tmp_path / "artifacts").as_uri()
-    tracking_store = SqlAlchemyStore(db_uri, artifact_uri)
+    tracking_store = _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri)
     job_store = SqlAlchemyJobStore(db_uri)
     return (tracking_store, job_store, db_uri)
 

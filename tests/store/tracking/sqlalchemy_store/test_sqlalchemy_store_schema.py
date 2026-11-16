@@ -23,6 +23,7 @@ from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.workspace_migration import migrate_to_default_workspace
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -85,7 +86,7 @@ def test_sqlalchemystore_idempotently_generates_up_to_date_schema(
     # Repeatedly initialize a SQLAlchemyStore against the same DB URL. Initialization should
     # succeed and the schema should be the same.
     for _ in range(3):
-        SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+        _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
         dump_db_schema(db_url, dst_file=generated_schema_file)
         _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
@@ -147,7 +148,7 @@ def test_sqlalchemy_store_detects_schema_mismatch(db_url):
 def test_store_generated_schema_matches_base(tmp_path, db_url):
     # Create a SQLAlchemyStore against tmpfile, directly verify that tmpfile contains a
     # database with a valid schema
-    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     engine = sqlalchemy.create_engine(db_url)
     mc = MigrationContext.configure(engine.connect(), opts={"compare_type": False})
     diff = compare_metadata(mc, Base.metadata)
@@ -163,7 +164,7 @@ def test_store_generated_schema_matches_base(tmp_path, db_url):
 
 def test_create_index_on_run_uuid(tmp_path, db_url):
     # Test for mlflow/store/db_migrations/versions/bd07f7e963c5_create_index_on_run_uuid.py
-    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
@@ -196,7 +197,7 @@ def test_create_index_on_metrics_run_uuid_key_step_via_migration(tmp_path, db_ur
 def test_create_index_on_metrics_run_uuid_key_step(tmp_path, db_url):
     # Test for
     # mlflow/store/db_migrations/versions/a5b4c3d2e1f0_add_metrics_run_key_step_index.py
-    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
@@ -216,7 +217,7 @@ def test_trace_archival_candidate_index(tmp_path, db_url, upgrade_from_initial_s
         InitialBase.metadata.create_all(engine)
         invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
     else:
-        SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+        _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
 
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
@@ -228,7 +229,7 @@ def test_trace_archival_candidate_index(tmp_path, db_url, upgrade_from_initial_s
 def test_index_for_dataset_tables(tmp_path, db_url):
     # Test for
     # mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
-    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
@@ -247,7 +248,7 @@ def test_skill_registry_indexes(tmp_path, db_url):
     # column order -- column order is what makes an index useful). `expected` is
     # hardcoded on purpose: it's an independent statement catch a bad change. The
     # golden schema dumps carry no index DDL, so nothing else guards these.
-    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     expected = {
         "ix_skill_versions_latest_lookup": [
             "workspace",
@@ -269,7 +270,7 @@ def test_skill_registry_indexes(tmp_path, db_url):
 
 
 def test_secrets_and_endpoints_tables(tmp_path, db_url):
-    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -329,7 +330,7 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
 
 
 def test_workspace_migration_tables_include_all_workspace_tables(tmp_path, db_url):
-    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -629,7 +630,7 @@ def test_migrate_to_default_workspace_conflict(tmp_path, table_name, conflict_co
     db_url = f"sqlite:///{db_path}"
     artifacts = tmp_path / f"artifacts-{table_name}"
     artifacts.mkdir()
-    SqlAlchemyStore(db_url, artifacts.as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, artifacts.as_uri())
     engine = sqlalchemy.create_engine(db_url)
     conflict_values = {}
     for column in conflict_columns:
@@ -663,7 +664,7 @@ def test_migrate_to_default_workspace_moves_rows(tmp_path):
     db_url = f"sqlite:///{db_path}"
     artifacts = tmp_path / "artifacts-all"
     artifacts.mkdir()
-    SqlAlchemyStore(db_url, artifacts.as_uri())
+    _build_tracking_store(SqlAlchemyStore, db_url, artifacts.as_uri())
     engine = sqlalchemy.create_engine(db_url)
     with engine.begin() as conn:
         conn.execute(sqlalchemy.text("PRAGMA foreign_keys = OFF"))

@@ -1,0 +1,110 @@
+# Flexible Trace Storage
+
+MLflow Tracing supports pluggable trace stores so you can choose where trace data lives without
+replacing experiment and run storage or changing your application's instrumentation.
+
+Trace stores own traces, assessments, issues, and their search and analytics. The tracking store
+owns experiments, runs, associations, and cross-store lifecycle coordination.
+
+## Configure a Trace Store
+
+The trace store URI defaults to the tracking URI. For SQL-backed servers, this uses the same
+database, workspace mode, and sessions as tracking, including read-replica routing. The built-in
+SQL trace store requires this shared database; use a plugin for independent storage.
+
+To select a plugin, install it in the server and worker environments and configure its URI:
+
+```bash
+mlflow server --backend-store-uri postgresql://... --trace-store-uri my-traces://host/namespace
+
+# Alternatively:
+export MLFLOW_TRACE_STORE_URI=my-traces://host/namespace
+mlflow server --backend-store-uri postgresql://...
+```
+
+The CLI option takes precedence over `MLFLOW_TRACE_STORE_URI`. Remote clients keep their existing
+tracking URI and V3 tracing code. The URI scheme (`my-traces` above) selects the implementation.
+Plugins define the meaning of the host, path, and query parameters, and can also read their own
+environment variables or configuration files. Prefer those mechanisms for credentials rather
+than embedding secrets in the URI.
+
+Invalid configuration fails startup. Unsupported trace operations return HTTP 501 rather than
+silently falling back to SQL.
+
+## Develop a Trace Store Plugin
+
+SQL-backed servers support trace plugins; custom tracking stores must explicitly opt in.
+File and REST tracking stores retain their native handling but cannot host an independent plugin.
+
+Implement `AbstractTraceStore` and register a builder under its URI scheme in your package:
+
+```toml
+# pyproject.toml
+[project.entry-points."mlflow.trace_stores"]
+my-traces = "my_plugin.traces:build_store"
+```
+
+```python
+# my_plugin/traces.py
+from mlflow.exceptions import MlflowNotImplementedException
+from mlflow.store.tracing.abstract_store import AbstractTraceStore
+
+
+class MyTraceStore(AbstractTraceStore):
+    def __init__(self, store_uri):
+        # Initialize trace storage from the URI and provider-owned configuration.
+        ...
+
+    def start_trace(self, trace_info):
+        raise MlflowNotImplementedException()
+
+    def log_spans(self, location, spans, tracking_uri=None):
+        raise MlflowNotImplementedException()
+
+    # Implement other supported AbstractTraceStore operations.
+
+
+def build_store(store_uri):
+    return MyTraceStore(store_uri)
+```
+
+The builder receives the full URI unchanged. Plugins can register new schemes or override built-in
+registrations. The tracking-store factory calls `set_tracking_store` after the tracking-store
+constructor finishes, providing access for metadata queries or hybrid storage. Tracking-store
+plugins should pass their `trace_store` argument to `AbstractStore.__init__`; they do not need to
+bind it themselves. Each trace store instance belongs to one tracking store instance.
+
+Direct SQL tracking-store construction does not bind trace stores. Internal callers that need a
+fully initialized store should use the tracking-store registry or `_build_tracking_store`.
+
+Implement the lifecycle hooks to clean up plugin-owned data when runs, experiments, or workspaces
+are deleted. `on_run_deleted` and `on_experiment_deleted` receive `permanent=True` for permanent
+deletion; otherwise, preserve restorable trace data. Permanent cleanup must work after the parent
+records are gone. After deleting
+traces, call `on_traces_deleted` with the IDs actually deleted to clean up tracking-store references.
+
+### Reuse Native SQL Storage
+
+Hybrid plugins can explicitly select the default SQL trace store for an operation:
+
+```python
+class HybridTraceStore(AbstractTraceStore):
+    def get_trace_info(self, trace_id):
+        with self._tracking_store.use_default_trace_store():
+            return self._tracking_store.get_trace_info(trace_id)
+```
+
+Routing is restored when the block exits, including on exceptions. Workspace access checks remain
+in effect. Ordinary experiment and run metadata queries do not need this context.
+
+See the [AbstractTraceStore interface](https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracing/abstract_store.py)
+for operation and lifecycle contracts.
+
+## Limitations
+
+- Legacy V2 writes and workspace reassignment are not supported with a separate trace store.
+- Historical gateway budget reconstruction is best-effort. Implement `sum_gateway_trace_cost`
+  to supply plugin-owned history; unavailable history can cause budgets to undercount.
+
+See [Backend Stores](/self-hosting/architecture/backend-store) for tracking storage configuration
+and [MLflow Plugins](/self-hosting/plugins) for other plugin types.

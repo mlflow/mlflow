@@ -39,6 +39,7 @@ from mlflow.server import (
     HUEY_STORAGE_PATH_ENV_VAR,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_CHECKPOINT,
     MLFLOW_ISSUE_DETECTION_PRIORITIES,
@@ -63,7 +64,7 @@ def _ms(zone: str, *args: int) -> int:
 def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    return _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri.as_uri())
 
 
 @pytest.fixture

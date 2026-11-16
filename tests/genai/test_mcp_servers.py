@@ -17,6 +17,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.tracking.client import MlflowClient
 
 # ---------------------------------------------------------------------------
@@ -28,7 +29,9 @@ from mlflow.tracking.client import MlflowClient
 def store(tmp_path: Path):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    return SqlAlchemyStore(f"sqlite:///{tmp_path / 'test.db'}", artifact_uri.as_uri())
+    return _build_tracking_store(
+        SqlAlchemyStore, f"sqlite:///{tmp_path / 'test.db'}", artifact_uri.as_uri()
+    )
 
 
 @pytest.fixture(autouse=True)

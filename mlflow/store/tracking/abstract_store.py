@@ -1,16 +1,12 @@
-import asyncio
 import bisect
 import json
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
+from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
-    Assessment,
     DatasetInput,
     DatasetRecord,
-    Issue,
-    IssueSeverity,
-    IssueStatus,
     LifecycleStage,
     LoggedModel,
     LoggedModelInput,
@@ -21,39 +17,29 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.entities.trace_metrics import (
-    MetricAggregation,
-    MetricDataPoint,
-    MetricViewType,
-)
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
     from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
     from mlflow.genai.review_queues import ReviewQueue, ReviewQueueItem
     from mlflow.genai.scorers.online.entities import (
-        CompletedSession,
         OnlineScorer,
         OnlineScoringConfig,
     )
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace import Span, Trace
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracing.abstract_store import AbstractTraceStore
 from mlflow.store.tracking import (
-    MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
-    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.gateway import GatewayStoreMixin
 from mlflow.store.tracking.mcp_server_registry import MCPServerRegistryMixin
 from mlflow.store.tracking.skill_registry import SkillRegistryMixin
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
-from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
 from mlflow.utils.async_logging.async_logging_queue import AsyncLoggingQueue
@@ -61,26 +47,41 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixin):
+class AbstractStore(
+    SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixin, AbstractTraceStore
+):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
     """
 
-    __metaclass__ = ABCMeta
+    def __init__(self, trace_store: AbstractTraceStore | None = None):
+        """
+        Initialize shared tracking-store state.
 
-    def __init__(self):
+        Args:
+            trace_store: Optional backend requiring explicit host support. The tracking-store
+                factory binds its context after the constructor finishes.
         """
-        Empty constructor for now. This is deliberately not marked as abstract, else every
-        derived class would be forced to create one.
-        """
+        if trace_store is not None and not self.supports_trace_stores():
+            raise MlflowException.invalid_parameter_value(
+                "This tracking store does not support trace stores."
+            )
+        self._trace_stores = [trace_store] if trace_store is not None else []
         self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
+
+    @staticmethod
+    def supports_trace_stores() -> bool:
+        return False
+
+    def use_default_trace_store(self) -> AbstractContextManager[None]:
+        """Temporarily use native operations; supporting hosts must preserve context isolation."""
+        raise MlflowNotImplementedException()
 
     @property
     def supports_workspaces(self) -> bool:
         """Return whether workspaces are supported by this tracking store."""
         return False
-
 
     @abstractmethod
     def search_experiments(
@@ -282,14 +283,6 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
 
         """
 
-
-
-
-
-
-
-
-
     def resolve_trace_archival_config(
         self,
         *,
@@ -316,22 +309,6 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
             ),
             append_workspace_prefix=False,
         )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     def log_metric(self, run_id, metric):
         """
@@ -1141,7 +1118,6 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
         raise NotImplementedError(
             f"Linking prompts to traces is not implemented for {self.__class__.__name__}."
         )
-
 
     def register_scorer(
         self, experiment_id: str, name: str, serialized_scorer: str

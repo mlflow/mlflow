@@ -15,6 +15,7 @@ import mlflow
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.os import is_windows
 from mlflow.utils.server_info import ServerInfoRequestError, fetch_server_info
@@ -87,7 +88,7 @@ def artifacts_server():
         url = f"http://{LOCALHOST}:{port}"
         default_artifact_root = f"{url}/api/2.0/mlflow-artifacts/artifacts"
         # Initialize the database before launching the server process
-        s = SqlAlchemyStore(backend_store_uri, default_artifact_root)
+        s = _build_tracking_store(SqlAlchemyStore, backend_store_uri, default_artifact_root)
         s.engine.dispose()
         with _launch_server(
             LOCALHOST,

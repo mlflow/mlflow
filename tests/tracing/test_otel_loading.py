@@ -163,16 +163,17 @@ def test_rest_client_reads_archived_trace_via_server(mlflow_server: str, tmp_pat
     archive_root = tmp_path.joinpath("archive")
     archive_root.mkdir()
     with mock.patch.object(
-        store,
+        store.trace_store,
         "_get_archive_traces_now_millis",
         return_value=trace_info.request_time + 2 * 60 * 1000,
-    ):
+    ) as now:
         archived = store.archive_traces(
             resolved_trace_archival_location=archive_root.as_uri(),
             broader_retention="1m",
             long_retention_allowlist=None,
             max_traces_per_pass=100,
         )
+    now.assert_called()
 
     assert archived == 1
     archived_trace_info = store.get_trace_info(trace_id)
