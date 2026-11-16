@@ -544,9 +544,14 @@ def _build_endpoint_config(
         # Merge auth_config with secret_value (secret_value contains api_key and other secrets).
         # api_base is validated on auth_config at write time, so the encrypted, unvalidated
         # secret map must never be allowed to override it.
-        secret_value = {
-            k: v for k, v in model_config.secret_value.items() if k != _AuthConfigKey.API_BASE
-        }
+        # default_chain modes (e.g. SageMaker) resolve credentials from the server environment,
+        # so ignore any secrets left over from a previous auth mode.
+        if auth_config.get(_AuthConfigKey.AUTH_MODE) == "default_chain":
+            secret_value = {}
+        else:
+            secret_value = {
+                k: v for k, v in model_config.secret_value.items() if k != _AuthConfigKey.API_BASE
+            }
         litellm_config = {
             "litellm_provider": original_provider,
             "litellm_auth_config": auth_config | secret_value,

@@ -13,6 +13,7 @@ jest.mock('../create-endpoint', () => ({
     <button onClick={() => onChange('vertex_ai')}>Select Vertex AI</button>
   ),
 }));
+let mockAuthMode = 'default_chain';
 jest.mock('../secrets', () => ({
   SecretFormFields: ({ value, onChange }: { value: SecretFormData; onChange: (data: SecretFormData) => void }) => (
     <button
@@ -20,12 +21,12 @@ jest.mock('../secrets', () => ({
         onChange({
           ...value,
           name: 'vertex-adc',
-          authMode: 'default_chain',
+          authMode: mockAuthMode,
           configFields: { vertex_project: 'my-project', vertex_location: 'us-central1' },
         })
       }
     >
-      Fill ADC form
+      Fill form
     </button>
   ),
 }));
@@ -36,7 +37,8 @@ const vertexProviderConfig = {
     {
       mode: 'service_account_json',
       display_name: 'Service Account JSON',
-      secret_fields: [{ name: 'vertex_credentials', type: 'string', required: true }],
+      // Optional so the submit button stays enabled and validateForm decides
+      secret_fields: [{ name: 'vertex_credentials', type: 'string', required: false }],
       config_fields: [{ name: 'vertex_project', type: 'string', required: true }],
     },
     {
@@ -53,6 +55,7 @@ describe('CreateApiKeyModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAuthMode = 'default_chain';
     mockCreateSecret.mockResolvedValue(undefined);
     jest.mocked(useCreateSecret).mockReturnValue({
       mutateAsync: mockCreateSecret,
@@ -68,7 +71,7 @@ describe('CreateApiKeyModal', () => {
     renderWithDesignSystem(<CreateApiKeyModal open onClose={jest.fn()} onSuccess={onSuccess} />);
 
     await userEvent.click(screen.getByText('Select Vertex AI'));
-    await userEvent.click(screen.getByText('Fill ADC form'));
+    await userEvent.click(screen.getByText('Fill form'));
     await userEvent.click(screen.getByRole('button', { name: 'Create API Key' }));
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
@@ -78,5 +81,18 @@ describe('CreateApiKeyModal', () => {
       provider: 'vertex_ai',
       auth_config: { auth_mode: 'default_chain', vertex_project: 'my-project', vertex_location: 'us-central1' },
     });
+  });
+
+  test('does not create a key without secret values for an auth mode with secret fields', async () => {
+    mockAuthMode = 'service_account_json';
+    const onSuccess = jest.fn();
+    renderWithDesignSystem(<CreateApiKeyModal open onClose={jest.fn()} onSuccess={onSuccess} />);
+
+    await userEvent.click(screen.getByText('Select Vertex AI'));
+    await userEvent.click(screen.getByText('Fill form'));
+    await userEvent.click(screen.getByRole('button', { name: 'Create API Key' }));
+
+    expect(mockCreateSecret).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
   });
 });
