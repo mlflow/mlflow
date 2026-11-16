@@ -235,8 +235,8 @@ def test_non_local_locations_are_not_subject_to_local_policy(monkeypatch, tmp_pa
         assert rejected_local_artifact_path(uri) is None
 
 
-def test_enforce_rejects_local_path_outside_root(monkeypatch, tmp_path):
+def test_enforce_does_not_check_stored_local_locations(monkeypatch, tmp_path):
     _setup_local_root(monkeypatch, tmp_path)
-    with pytest.raises(MlflowException, match="does not serve artifact location"):
-        enforce_server_artifact_uri_host_policy("file:///srv/shared")
-    enforce_server_artifact_uri_host_policy(f"file://{tmp_path}/mlartifacts/1/run")
+    # Only client-submitted locations are confined; a stored local location stays servable.
+    enforce_server_artifact_uri_host_policy(f"file://{tmp_path}/mlruns/0/run/artifacts")
+    enforce_server_artifact_uri_host_policy("/srv/shared/1/run/artifacts")

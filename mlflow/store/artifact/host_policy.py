@@ -1,6 +1,6 @@
 """
-Policy for artifact URIs that make MLflow connect to the host named in the URI, or read and write
-files under a local directory the client chose rather than the server's own storage.
+Policy for artifact URIs that make MLflow connect to the host named in the URI, or store files
+under a local directory the client chose rather than the server's own storage.
 
 The artifact repositories for ``ftp``, ``sftp``, ``hdfs``, ``viewfs``, ``r2``, ``b2`` and
 ``abfss`` connect to the host and port in the URI, and so do ``http``, ``https`` and
@@ -13,14 +13,17 @@ allows a scheme via ``MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES``.
 
 A ``file:`` or scheme-less location names a directory on the server's own filesystem. An
 experiment ``artifact_location`` set to an arbitrary local directory would otherwise make the
-server create run directories and write uploaded artifacts there, and serve files back from there,
-outside the storage it was configured with. Inside a server process such local locations are
-confined to the server's own ``--default-artifact-root`` and ``--artifacts-destination``
-directories, unless the operator opts out via ``MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT``.
+server create run directories and write uploaded artifacts there, outside the storage it was
+configured with. Inside a server process, a local location that a client submits for a new
+experiment must resolve inside the server's own ``--default-artifact-root`` or
+``--artifacts-destination`` directory, unless the operator opts out via
+``MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT``. Stored local locations are not re-checked
+when used: experiments created directly against the backend store, such as runs logged to a local
+database before a server is started on it, legitimately keep local locations of their own.
 
-Both trusted roots and the server-process marker come from the environment variables that
-``mlflow server`` exports to its workers. A deployment that runs the WSGI app directly must export
-the same variables to get the same trusted roots and registry-level enforcement.
+Trusted hosts and local roots, and the server-process marker, come from the environment variables
+that ``mlflow server`` exports to its workers. A deployment that runs the WSGI app directly must
+export the same variables to get the same trusted hosts and roots and registry-level enforcement.
 """
 
 import os
@@ -198,15 +201,15 @@ def _trusted_local_roots() -> set[pathlib.Path]:
 
 def rejected_local_artifact_path(uri: str) -> str | None:
     """
-    Return the local filesystem path of ``uri`` when a tracking server must not store artifacts
-    there, or None when the URI is acceptable: it is not a local location, the server is not the
-    one that configured the storage, the operator opted out via
+    Return the local filesystem path of ``uri`` when a tracking server must not accept it as a
+    client-submitted artifact location, or None when the URI is acceptable: it is not a local
+    location, the server is not the one that configured the storage, the operator opted out via
     ``MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT``, or it resolves inside one of the
     server's own local artifact roots.
 
-    A server that stores only on remote backends has no trusted local root, so every local
-    location is rejected (fail closed). A process that is not acting for a configured server
-    cannot know the roots and so enforces nothing, matching the host-addressed policy.
+    A server that stores only on remote backends has no local root, so every local location is
+    rejected. A process that is not acting for a configured server cannot know the roots and so
+    enforces nothing, matching the host-addressed policy.
     """
     if not is_tracking_server_process():
         return None
@@ -222,34 +225,13 @@ def rejected_local_artifact_path(uri: str) -> str | None:
     return path
 
 
-def local_artifact_rejection_message(
-    path: str, *, uri: str | None = None, field_name: str | None = None
-) -> str:
-    """
-    Build the error for a rejected local location, phrased for a request field when ``field_name``
-    is given and for a stored location otherwise.
-    """
-    reason = (
-        f"the local path '{path}' is outside the tracking server's configured artifact storage, "
-        "so the server would read and write files under a directory chosen by the client"
-    )
-    hint = (
-        f"Set the {MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT.name} environment variable on "
-        "the server to allow it."
-    )
-    if field_name is not None:
-        return f"'{field_name}' cannot use a local path outside the artifact root: {reason}. {hint}"
-    return f"The tracking server does not serve artifact location '{uri}': {reason}. {hint}"
-
-
-def validate_artifact_uri_local_path(artifact_uri: str) -> None:
-    """Raise when a server must not store artifacts at the local path in ``artifact_uri``."""
-    path = rejected_local_artifact_path(artifact_uri)
-    if path is None:
-        return
-    raise MlflowException(
-        local_artifact_rejection_message(path, uri=artifact_uri),
-        error_code=INVALID_PARAMETER_VALUE,
+def local_artifact_rejection_message(path: str, *, field_name: str) -> str:
+    """Build the error for a rejected local location submitted in the request field."""
+    return (
+        f"'{field_name}' cannot use a local path outside the artifact root: the local path "
+        f"'{path}' is outside the tracking server's configured artifact storage. Set the "
+        f"{MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT.name} environment variable on the "
+        "server to allow it."
     )
 
 
@@ -264,9 +246,7 @@ def is_tracking_server_process() -> bool:
 def enforce_server_artifact_uri_host_policy(artifact_uri: str) -> None:
     """
     Raise when called on behalf of a tracking server for a URI whose host the server must not
-    connect to, or whose local path is outside the server's configured artifact storage. Client
-    processes are unaffected.
+    connect to. Client processes are unaffected.
     """
     if is_tracking_server_process():
         validate_artifact_uri_host(artifact_uri)
-        validate_artifact_uri_local_path(artifact_uri)

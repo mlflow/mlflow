@@ -1601,14 +1601,15 @@ MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES = _EnvironmentVariable(
     "MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES", _split_strip, []
 )
 
-#: Whether the tracking server accepts a local (``file:`` or scheme-less) artifact location that
-#: resolves outside its configured local artifact storage. A client-supplied ``artifact_location``
-#: pointing at an arbitrary local directory would otherwise make the server read and write files
-#: there rather than under ``--default-artifact-root`` or ``--artifacts-destination``. Inside a
-#: server process such locations are rejected, both when a client submits them and when a stored
-#: location is used. Locations inside the server's own local storage roots are always
-#: accepted. Set to ``true`` only when the server is deliberately configured to store artifacts in
-#: local directories outside those roots (e.g. a per-experiment mounted share). (default: false)
+#: Whether the tracking server accepts a local (``file:`` or scheme-less) ``artifact_location``
+#: for a new experiment that resolves outside its configured local artifact storage. Such a
+#: location would otherwise make the server store the experiment's artifacts in an arbitrary local
+#: directory rather than under ``--default-artifact-root`` or ``--artifacts-destination``. Inside a
+#: server process such locations are rejected when a client creates an experiment. Locations
+#: inside the server's own local storage roots are always accepted, and locations already stored
+#: (e.g. those of experiments created directly against the backend store) are not re-checked. Set
+#: to ``true`` only when clients deliberately create experiments in local directories outside
+#: those roots (e.g. a per-experiment mounted share). (default: false)
 MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT", False
 )

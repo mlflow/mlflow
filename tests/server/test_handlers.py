@@ -146,6 +146,7 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTrace,
     LinkPromptsToTrace,
+    ListArtifacts,
     ListScorers,
     ListScorerVersions,
     QueryTraceMetrics,
@@ -293,6 +294,7 @@ from mlflow.server.handlers import (
     get_trace_artifact_handler,
     get_ui_telemetry_handler,
     initialize_workspace_store,
+    list_artifacts_impl,
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
@@ -3219,6 +3221,31 @@ def test_create_experiment_accepts_local_artifact_location_inside_root(
     )
     assert _create_experiment().status_code == 200
     mock_tracking_store.create_experiment.assert_called_once_with("exp", artifact_location, [])
+
+
+def test_artifact_handlers_serve_stored_local_location_outside_server_roots(monkeypatch, tmp_path):
+    # Runs logged straight to a local backend store before `mlflow server` is started on it keep
+    # their artifacts under `./mlruns`, outside the server's `./mlartifacts` destination.
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "mlflow-artifacts:/")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(tmp_path / "mlartifacts"))
+    artifact_dir = tmp_path / "mlruns" / "0" / "run1" / "artifacts"
+    artifact_dir.mkdir(parents=True)
+    artifact_dir.joinpath("note.txt").write_text("hello")
+    mock_run = mock.MagicMock()
+    mock_run.info.artifact_uri = str(artifact_dir)
+
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store:
+        mock_store.return_value.get_run.return_value = mock_run
+        listed = list_artifacts_impl(ListArtifacts(run_id="run1"))
+        with app.test_request_context(
+            method="GET", query_string={"run_id": "run1", "path": "note.txt"}
+        ):
+            response = get_artifact_handler()
+
+    assert [f.path for f in listed.files] == ["note.txt"]
+    assert response.status_code == 200
+    response.direct_passthrough = False
+    assert response.get_data() == b"hello"
 
 
 def test_create_experiment_allows_local_artifact_location_when_opted_in(

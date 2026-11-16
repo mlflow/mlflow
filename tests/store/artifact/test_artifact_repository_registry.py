@@ -161,20 +161,12 @@ def test_client_process_builds_repositories_for_any_host(monkeypatch):
     assert isinstance(repo, FTPArtifactRepository)
 
 
-def test_server_process_refuses_local_path_outside_artifact_root(monkeypatch, tmp_path):
+def test_server_process_builds_local_repositories_for_stored_locations(monkeypatch, tmp_path):
     root = tmp_path / "mlartifacts"
     root.mkdir()
     monkeypatch.setenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, "mlflow-artifacts:/")
     monkeypatch.setenv(_SERVER_ARTIFACTS_DESTINATION_ENV_VAR, str(root))
 
-    with pytest.raises(MlflowException, match="does not serve artifact location"):
-        get_artifact_repository("file:///srv/shared/run/artifacts")
-
-    repo = get_artifact_repository(f"file://{root}/1/run/artifacts")
-    assert isinstance(repo, LocalArtifactRepository)
-
-
-def test_client_process_builds_local_repositories_for_any_path(monkeypatch):
-    monkeypatch.delenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, raising=False)
-    repo = get_artifact_repository("file:///srv/shared/run/artifacts")
+    # Runs logged straight to a local backend store keep artifacts outside the server's roots.
+    repo = get_artifact_repository(f"file://{tmp_path}/mlruns/0/run/artifacts")
     assert isinstance(repo, LocalArtifactRepository)

@@ -7,6 +7,7 @@ import pytest
 from flask import Flask
 
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
+from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, ARTIFACTS_DESTINATION_ENV_VAR
 from mlflow.server.handlers import get_endpoints
 
 
@@ -604,6 +605,27 @@ def test_create_workspace_accepts_uri_or_absolute_default_artifact_root(
         response = client.post(
             "/api/3.0/mlflow/workspaces",
             json={"name": "team-uri", "default_artifact_root": default_artifact_root},
+        )
+
+    assert response.status_code == 201
+    args, _ = mock_workspace_store.create_workspace.call_args
+    assert args[0].default_artifact_root == default_artifact_root
+
+
+@pytest.mark.parametrize("default_artifact_root", ["file:///mnt/artifacts", "/mnt/artifacts"])
+def test_create_workspace_accepts_local_default_artifact_root_outside_server_roots(
+    app, mock_workspace_store, mock_tracking_store, monkeypatch, tmp_path, default_artifact_root
+):
+    # Only an experiment's client-submitted artifact_location is confined to the server's roots;
+    # an admin-configured workspace root may be any absolute local path.
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "mlflow-artifacts:/")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(tmp_path / "mlartifacts"))
+    created = Workspace(name="team-local", default_artifact_root=default_artifact_root)
+    mock_workspace_store.create_workspace.return_value = created
+    with app.test_client() as client:
+        response = client.post(
+            "/api/3.0/mlflow/workspaces",
+            json={"name": "team-local", "default_artifact_root": default_artifact_root},
         )
 
     assert response.status_code == 201
