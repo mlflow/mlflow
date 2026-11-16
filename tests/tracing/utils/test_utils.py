@@ -958,18 +958,22 @@ def test_builtin_cost_with_none_input_tokens_returns_none(cache_read_input_token
     assert result is None
 
 
-def test_inclusive_cache_token_counts_passed_to_litellm_unchanged(mock_litellm_cost):
+# 250 == cache_read + cache_creation: the boundary where counts are already inclusive.
+@pytest.mark.parametrize("input_tokens", [250, 1000])
+def test_inclusive_cache_token_counts_passed_to_litellm_unchanged(mock_litellm_cost, input_tokens):
     if mock_litellm_cost is None:
         pytest.skip("litellm is not installed")
     usage = {
-        "input_tokens": 1000,
+        "input_tokens": input_tokens,
         "output_tokens": 5,
         "cache_read_input_tokens": 200,
         "cache_creation_input_tokens": 50,
     }
     calculate_cost_by_model_and_token_usage("claude-opus-4-6", usage)
     mock_litellm_cost.assert_called()
-    assert all(call.kwargs["prompt_tokens"] == 1000 for call in mock_litellm_cost.call_args_list)
+    assert all(
+        call.kwargs["prompt_tokens"] == input_tokens for call in mock_litellm_cost.call_args_list
+    )
 
 
 @pytest.mark.parametrize("cost", [(-1.0, 2.0), (1.0, -2.0)])
