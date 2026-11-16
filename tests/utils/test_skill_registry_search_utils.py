@@ -247,7 +247,7 @@ def test_filter_rejects_scalar_value_for_list_comparators(utils, filter_string):
         # Field-specific rules still report their own message rather than the
         # generic value-shape one.
         ("name IN ('a', 'b')", r"Only 'status' supports IN and NOT IN"),
-        ("tags.team IN ('a')", r"(?i)quoted string value for tag"),
+        ("tags.team IN ('a')", r"Invalid comparator 'IN' not one of"),
     ],
 )
 def test_filter_keeps_field_specific_list_errors(filter_string, match):

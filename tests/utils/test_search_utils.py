@@ -468,7 +468,9 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
     ],
 )
 def test_in_comparator_rejected_for_unsupported_entity_types(search_utils, filter_string):
-    with pytest.raises(MlflowException, match="Invalid comparator '(NOT )?IN'"):
+    with pytest.raises(
+        MlflowException, match=r"^Invalid comparator '(NOT )?IN' not one of '\{.*\}'$"
+    ):
         search_utils.parse_search_filter(filter_string)
 
 

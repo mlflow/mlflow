@@ -574,6 +574,8 @@ class SearchUtils:
         # value, so users get an "Invalid comparator" error instead of a value-type error.
         comparator = comparator.upper()
         if comparator in ("IN", "NOT IN"):
+            # The `is_*` helpers raise on an unsupported comparator; their return values
+            # are intentionally ignored.
             cls.is_metric(identifier_type, comparator)
             cls.is_param(identifier_type, comparator)
             cls.is_tag(identifier_type, comparator)
