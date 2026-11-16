@@ -1564,6 +1564,15 @@ MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS = _EnvironmentVa
     "MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS", int, 5 * 60
 )
 
+#: Buffer time in seconds between a trace's end timestamp and the moment trace-level online
+#: scoring considers it. Traces are discovered by end time, so this only needs to cover the
+#: delay between a trace finishing and its export reaching the tracking store; a trace exported
+#: later than this after it ended lands behind the scoring checkpoint and is skipped.
+#: (default: ``60`` (1 minute))
+MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS = _EnvironmentVariable(
+    "MLFLOW_ONLINE_SCORING_TRACE_COMPLETION_BUFFER_SECONDS", int, 60
+)
+
 
 #: Specifies the maximum number of completion iterations allowed when invoking
 #: judge models. This prevents infinite loops in case of complex traces or

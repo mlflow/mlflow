@@ -76,11 +76,13 @@ class OnlineScorerSampler:
         if not scorers:
             return []
 
-        # Sort by sample rate descending
+        # Sort by sample rate descending. Scorers with equal rates are ordered by name so the
+        # waterfall (and therefore the decision for a given entity) does not depend on the
+        # order in which scorer configs were loaded from the store, which is not guaranteed
+        # to be stable across runs.
         sorted_scorers = sorted(
             scorers,
-            key=lambda s: self._sample_rates.get(s.name, 0.0),
-            reverse=True,
+            key=lambda s: (-self._sample_rates.get(s.name, 0.0), s.name),
         )
 
         selected = []
