@@ -126,7 +126,8 @@ Write `$out_dir/fix.patch` when a resolution changes code. Keep the patch limite
 resolved items and their tests. Use `git add -N` for new files before generating the patch
 against `head_sha` with `git diff HEAD`.
 
-Save supporting screenshots and recordings in `$out_dir/media`.
+Save supporting screenshots and recordings in `$out_dir/media`. Cite them in a reply
+or proposed PR description using their absolute paths in Markdown image links.
 
 Validate the payload from the trusted checkout before finishing.
 
@@ -137,7 +138,7 @@ jq -e --slurpfile context "$review_context" \
   '(.responses | keys - ["review"]) == ([$context[0] | .review_id as $id
     | .timeline[].threads[]? | select(any(.comments[]; .review_id == $id)) | .id] | sort)' \
   "$out_dir/payload.json"
-jq -r '.responses[].body' "$out_dir/payload.json" |
+jq -r '.responses[].body, (.pr_update.body // empty)' "$out_dir/payload.json" |
   uv run --directory .claude/skills --package skills skills embed-media \
     --check --dir "$out_dir/media"
 ```

@@ -430,38 +430,50 @@ def test_preview_pr_update(
     assert "Threads to close**\n\nPRRT_1" in result
 
 
-def test_embed_preserves_pr_update(
-    cli: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("media_in_description", [False, True], ids=["reply", "description"])
+def test_validate_and_embed_media(
+    cli: ModuleType,
+    metadata_context: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    media_in_description: bool,
 ) -> None:
-    out_dir = tmp_path
-    (out_dir / "media").mkdir()
-    payload: dict[str, Any] = {
-        "responses": {
-            "PRRT_1": {"status": "answered", "body": f"See {out_dir / 'media/screenshot.png'}"}
-        },
-        "pr_update": {"body": "Description"},
-    }
-    (out_dir / "payload.json").write_text(json.dumps(payload))
-    command = Mock(return_value="See ![Screenshot](https://github.com/user-attachments/id)")
+    out_dir = metadata_context.parent
+    media = out_dir / "media"
+    media.mkdir()
+    local_reference = f"![Screenshot]({media / 'screenshot.png'})"
+    attachment = "![Screenshot](https://github.com/user-attachments/id)"
+    reply = "Updated the description." if media_in_description else local_reference
+    description = local_reference if media_in_description else "Description"
+    payload = out_dir / "payload.json"
+    payload.write_text(
+        json.dumps({
+            "responses": {"PRRT_1": {"status": "resolved", "body": reply}},
+            "pr_update": {"title": "After", "body": description},
+        })
+    )
+    command = Mock(side_effect=["", "", attachment])
     monkeypatch.setattr(cli, "command", command)
     monkeypatch.setenv("REPOSITORY_ID", "123")
 
+    cli.validate(metadata_context, out_dir)
     cli.embed(out_dir)
 
-    command.assert_called_once_with(
-        *cli.media_command(out_dir / "media"),
-        "--repository-id",
-        "123",
-        input=payload["responses"]["PRRT_1"]["body"],
-    )
+    assert command.call_args_list == [
+        call(
+            "uvx",
+            "check-jsonschema@0.37.4",
+            "--schemafile",
+            ".claude/skills/resolve/payload.schema.yml",
+            payload,
+        ),
+        call(*cli.media_command(media), "--check", input=f"{reply}\n\n{description}"),
+        call(*cli.media_command(media), "--repository-id", "123", input=local_reference),
+    ]
     assert json.loads((out_dir / "publish.json").read_text()) == {
         "responses": {
-            "PRRT_1": {
-                "status": "answered",
-                "body": "See ![Screenshot](https://github.com/user-attachments/id)",
-            }
+            "PRRT_1": {"status": "resolved", "body": reply.replace(local_reference, attachment)}
         },
-        "pr_update": {"body": "Description"},
+        "pr_update": {"title": "After", "body": description.replace(local_reference, attachment)},
     }
 
 

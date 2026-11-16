@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -160,6 +161,13 @@ def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def markdown_sections(result: dict[str, Any]) -> Iterator[dict[str, str]]:
+    yield from result["responses"].values()
+    pr_update = result.get("pr_update", {})
+    if "body" in pr_update:
+        yield pr_update
+
+
 def validate(context_path: Path, out_dir: Path) -> None:
     payload = out_dir / "payload.json"
     patch = out_dir / "fix.patch"
@@ -194,7 +202,9 @@ def validate(context_path: Path, out_dir: Path) -> None:
     if pr_update and any(value == context["pr"][field] for field, value in pr_update.items()):
         raise ValueError("A PR update must change each proposed field")
     command(
-        *media_command(media), "--check", input="\n\n".join(r["body"] for r in responses.values())
+        *media_command(media),
+        "--check",
+        input="\n\n".join(section["body"] for section in markdown_sections(result)),
     )
 
 
@@ -216,13 +226,13 @@ def media_command(media: Path) -> tuple[str | Path, ...]:
 def embed(out_dir: Path) -> None:
     payload = out_dir / "payload.json"
     result = json.loads(payload.read_text())
-    for response in result["responses"].values():
-        if str(out_dir / "media") in response["body"]:
-            response["body"] = command(
+    for section in markdown_sections(result):
+        if str(out_dir / "media") in section["body"]:
+            section["body"] = command(
                 *media_command(out_dir / "media"),
                 "--repository-id",
                 os.environ["REPOSITORY_ID"],
-                input=response["body"],
+                input=section["body"],
             )
     (out_dir / "publish.json").write_text(json.dumps(result))
 
@@ -487,8 +497,8 @@ def main() -> None:
     ).set_defaults(func=run_validate)
     operations.add_parser(
         "embed",
-        help="Upload and embed reply media",
-        description="Upload reply media and replace local media paths in the publication payload.",
+        help="Upload and embed resolution media",
+        description="Upload media and replace local links in replies and PR descriptions.",
     ).set_defaults(func=run_embed)
     operations.add_parser(
         "publish",
