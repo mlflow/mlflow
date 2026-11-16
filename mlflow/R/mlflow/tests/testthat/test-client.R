@@ -1,5 +1,24 @@
 context("client")
 
+test_that("relative client URIs are preserved for Python CLI calls", {
+  client <- new_mlflow_client_impl(get_host_creds = function() {
+    new_mlflow_host_creds(host = "localhost")
+  })
+  client$tracking_uri <- new_mlflow_uri("mlruns")
+  client$registry_uri <- new_mlflow_uri("./registry")
+
+  with_mocked_bindings(.package = "mlflow",
+    python_bin = function() "/usr/bin/python",
+    python_mlflow_bin = function() "/usr/bin/mlflow",
+    run = function(...) {
+      expect_equal(Sys.getenv("MLFLOW_TRACKING_URI"), "mlruns")
+      expect_equal(Sys.getenv("MLFLOW_REGISTRY_URI"), "./registry")
+      list(stdout = "")
+    }, {
+      mlflow_cli("experiments", "search", client = client)
+    })
+})
+
 teardown({
   mlflow_clear_test_dir("mlruns")
 })
@@ -115,6 +134,14 @@ test_that("rest call handles errors correctly", {
       mlflow:::mlflow_rest( "runs", "create", client = mock_client, verb = "POST"),
       error_msg_regexp
     )
+    err <- tryCatch(
+      mlflow:::mlflow_rest("runs", "create", client = mock_client, verb = "POST"),
+      simpleError = identity
+    )
+    expect_s3_class(err, "mlflow_rest_error")
+    expect_equal(err$error_code, "INVALID_PARAMETER_VALUE")
+    expect_match(conditionMessage(err), error_msg_regexp)
+    expect_null(conditionCall(err))
   })
 
   with_mocked_bindings(.package  = "httr", GET = function(...) {

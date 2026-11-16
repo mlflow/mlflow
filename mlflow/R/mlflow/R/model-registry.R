@@ -130,14 +130,15 @@ mlflow_get_registered_model <- function(name, client = NULL) {
 #' @export
 mlflow_rename_registered_model <- function(name, new_name, client = NULL) {
   client <- resolve_client(client)
+  uc_registry <- is_uc_registry_uri(client)
   path_prefix <- mlflow_registry_path_prefix(client)
   client <- client$registry_client %||% client
 
   response <- mlflow_rest(
     "registered-models",
-    "rename",
+    if (uc_registry) "update" else "rename",
     client = client,
-    verb = "POST",
+    verb = if (uc_registry) "PATCH" else "POST",
     version = "2.0",
     path_prefix = path_prefix,
     data = list(
@@ -420,6 +421,15 @@ mlflow_get_model_version <- function(name, version, client = NULL) {
 #' @export
 mlflow_register_model <- function(model_uri, name, run_id = NULL, tags = NULL,
                                   description = NULL, client = NULL, ...) {
+  client <- resolve_client(client)
+  tryCatch(
+    mlflow_create_registered_model(name, client = client),
+    mlflow_rest_error = function(e) {
+      if (is.null(e$error_code) || !e$error_code %in% c("RESOURCE_ALREADY_EXISTS", "ALREADY_EXISTS")) {
+        stop(e)
+      }
+    }
+  )
   mlflow_create_model_version(
     name = name,
     source = model_uri,

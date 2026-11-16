@@ -13,7 +13,9 @@ mlflow_log_model(model, artifact_path, signature = NULL, ...)
 will be saved.}
 
 \item{signature}{Optional model signature with `inputs` and/or `outputs`.
-Each schema can be a list or a named character vector.}
+Each schema can be a named list or named character vector for named columns,
+a single type string such as `"double"` for one unnamed field, or an unnamed
+list of MLflow field specifications.}
 
 \item{...}{Optional additional arguments passed to `mlflow_save_model()` when persisting the
 model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda

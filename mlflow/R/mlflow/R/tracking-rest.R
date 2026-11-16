@@ -105,8 +105,13 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
   }
 
   if (response$status_code != 200) {
+    error_code <- NULL
     message_body <- tryCatch(
-      paste(httr::content(response, "parsed", type = "application/json"), collapse = "; "),
+      {
+        body <- httr::content(response, "parsed", type = "application/json")
+        if (is.list(body)) error_code <- body$error_code
+        paste(body, collapse = "; ")
+      },
       error = function(e) {
         try_parse_response_as_text(response)
       }
@@ -119,7 +124,10 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
                  message_body,
                  "'",
                  sep = "")
-    stop(msg, call. = FALSE)
+    stop(structure(
+      list(message = msg, call = NULL, error_code = error_code),
+      class = c("mlflow_rest_error", "simpleError", "error", "condition")
+    ))
   }
   text <- httr::content(response, "text", encoding = "UTF-8")
   jsonlite::fromJSON(text, simplifyVector = FALSE)

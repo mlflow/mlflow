@@ -12,6 +12,29 @@ get_mock_client <- function() {
   return(client)
 }
 
+test_that("Unity Catalog rename uses the update endpoint", {
+  client <- get_mock_client()
+  client$registry_uri <- list(scheme = "databricks-uc")
+  client$registry_client <- get_mock_client()
+
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_rest = function(...) {
+      args <- list(...)
+      expect_equal(paste(args[1:2], collapse = "/"), "registered-models/update")
+      expect_equal(args$verb, "PATCH")
+      expect_equal(args$path_prefix, "api/2.0/mlflow/unity-catalog")
+      expect_identical(args$client, client$registry_client)
+      expect_equal(args$data$name, testthat_uc_model_name)
+      expect_equal(args$data$new_name, "renamed_model")
+      list(registered_model = list(name = "test_catalog.test_schema.renamed_model"))
+    }, {
+      result <- mlflow_rename_registered_model(
+        testthat_uc_model_name, "renamed_model", client = client
+      )
+      expect_equal(result$name, "test_catalog.test_schema.renamed_model")
+    })
+})
+
 test_that("mlflow can register a model", {
   with_mocked_bindings(.package = "mlflow",
             mlflow_rest = function(...) {
@@ -480,9 +503,17 @@ test_that("registry calls use Unity Catalog path prefix and registry client", {
 
 test_that("mlflow_register_model delegates to mlflow_create_model_version", {
   calls <- list()
+  created_names <- character()
+  mock_client <- get_mock_client()
   with_mocked_bindings(.package = "mlflow",
+    mlflow_create_registered_model = function(name, client) {
+      expect_identical(client, mock_client)
+      created_names <<- c(created_names, name)
+      list(name = name)
+    },
     mlflow_create_model_version = function(name, source, run_id = NULL, tags = NULL, run_link = NULL,
                                            description = NULL, client = NULL) {
+      expect_equal(created_names, name)
       calls[[1]] <<- list(
         name = name,
         source = source,
@@ -493,7 +524,6 @@ test_that("mlflow_register_model delegates to mlflow_create_model_version", {
       )
       list(model_version = list(version = "2"))
     }, {
-      mock_client <- get_mock_client()
       mlflow_register_model(
         model_uri = "runs:/abc/model",
         name = testthat_uc_model_name,
@@ -509,6 +539,43 @@ test_that("mlflow_register_model delegates to mlflow_create_model_version", {
   expect_equal(calls[[1]]$run_id, "abc")
   expect_equal(calls[[1]]$tags$owner, "r")
   expect_equal(calls[[1]]$description, "desc")
+  expect_equal(created_names, testthat_uc_model_name)
+})
+
+test_that("model registration only tolerates already-existing model errors", {
+  for (error_code in c("RESOURCE_ALREADY_EXISTS", "ALREADY_EXISTS", "PERMISSION_DENIED")) {
+    calls <- character()
+    with_mocked_bindings(.package = "httr",
+      POST = function(url, ...) {
+        calls <<- c(calls, basename(url))
+        if (grepl("registered-models/create$", url)) {
+          return(httr:::response(
+            status_code = 400,
+            content = charToRaw(jsonlite::toJSON(list(
+              error_code = error_code,
+              message = "Model named RESOURCE_ALREADY_EXISTS"
+            ), auto_unbox = TRUE))
+          ))
+        }
+        httr:::response(
+          status_code = 200,
+          headers = list(`Content-Type` = "application/json"),
+          content = charToRaw('{"model_version":{"version":"2"}}')
+        )
+      }, {
+        if (identical(error_code, "PERMISSION_DENIED")) {
+          expect_error(
+            mlflow_register_model("s3://bucket/model", "model", client = get_mock_client()),
+            "PERMISSION_DENIED"
+          )
+          expect_length(calls, 1)
+        } else {
+          result <- mlflow_register_model("s3://bucket/model", "model", client = get_mock_client())
+          expect_equal(result$version, "2")
+          expect_length(calls, 2)
+        }
+      })
+  }
 })
 
 test_that("model alias APIs call registered-models alias endpoint", {

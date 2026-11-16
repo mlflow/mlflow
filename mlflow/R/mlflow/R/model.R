@@ -26,6 +26,12 @@ mlflow_signature_format_type_spec <- function(type_spec) {
     return(type_spec)
   }
 
+  if (identical(type_spec[["type"]], "tensor") &&
+      is.list(type_spec[["tensor-spec"]]) &&
+      !is.null(type_spec[["tensor-spec"]][["shape"]])) {
+    type_spec[["tensor-spec"]][["shape"]] <- I(unname(type_spec[["tensor-spec"]][["shape"]]))
+  }
+
   if (!is.null(type_spec$items)) {
     type_spec$items <- mlflow_signature_format_type_spec(type_spec$items)
   }
@@ -51,6 +57,10 @@ mlflow_signature_format_named_field <- function(type_spec, name) {
 mlflow_signature_schema_as_json <- function(schema, schema_name) {
   if (is.null(schema)) return(NULL)
   schema_names <- names(schema)
+  if (is.character(schema) && length(schema) == 1L && is.null(schema_names) &&
+      !is.na(schema) && nzchar(schema)) {
+    schema <- list(mlflow_signature_format_type_spec(schema))
+  }
   # Allow compact R shorthand: c(feature = "double").
   if (
     is.character(schema) && length(schema) > 0 &&
@@ -60,13 +70,13 @@ mlflow_signature_schema_as_json <- function(schema, schema_name) {
     return(jsonlite::toJSON(schema, auto_unbox = TRUE))
   }
   if (!is.list(schema) || length(schema) == 0) {
-    stop(sprintf("`signature$%s` must be a non-empty list.", schema_name), call. = FALSE)
+    stop(sprintf(
+      "`signature$%s` must be a non-empty list, a named character vector, or a single type string.",
+      schema_name
+    ), call. = FALSE)
   }
 
-  # A single anonymous type spec is one schema field.
-  if (!is.null(schema$type)) {
-    schema <- list(mlflow_signature_format_type_spec(schema))
-  } else if (is.null(schema_names) || anyNA(schema_names) || any(!nzchar(schema_names))) {
+  if (is.null(schema_names) || anyNA(schema_names) || any(!nzchar(schema_names))) {
     # Unnamed lists are treated as already being a list of MLflow field specs.
     schema <- lapply(schema, mlflow_signature_format_type_spec)
   } else {
@@ -103,7 +113,9 @@ mlflow_signature_for_model_spec <- function(signature) {
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
 #' @param signature Optional model signature with `inputs` and/or `outputs`.
-#'   Each schema can be a list or a named character vector.
+#'   Each schema can be a named list or named character vector for named columns,
+#'   a single type string such as `"double"` for one unnamed field, or an unnamed
+#'   list of MLflow field specifications.
 #' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
 #'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
 #'   dependencies file for flavors (e.g. keras) that support conda environments.

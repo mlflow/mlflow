@@ -1176,8 +1176,12 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``signature``                 | Optional model signature with        |
 |                               | ``inputs`` and/or ``outputs``. Each  |
-|                               | schema can be a list or a named      |
-|                               | character vector.                    |
+|                               | schema can be a named list or named  |
+|                               | character vector for named columns,  |
+|                               | a single type string such as         |
+|                               | ``"double"`` for one unnamed field,  |
+|                               | or an unnamed list of MLflow field   |
+|                               | specifications.                      |
 +-------------------------------+--------------------------------------+
 | ``...``                       | Optional additional arguments passed |
 |                               | to ``mlflow_save_model()`` when      |

@@ -1,5 +1,30 @@
 context("Model")
 
+test_that("signature formatting preserves columns named type and type_id", {
+  for (name in c("type", "type_id")) {
+    schema <- setNames(list("string", "double"), c(name, "value"))
+    formatted <- mlflow_signature_for_model_spec(list(inputs = schema))
+    inputs <- jsonlite::fromJSON(formatted$inputs, simplifyVector = FALSE)
+    expect_equal(vapply(inputs, `[[`, "", "name"), c(name, "value"))
+    expect_equal(vapply(inputs, `[[`, "", "type"), c("string", "double"))
+  }
+
+  formatted <- mlflow_signature_for_model_spec(list(inputs = list(list(type = "double"))))
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyVector = FALSE)
+  expect_equal(inputs[[1]]$type, "double")
+  expect_null(inputs[[1]]$name)
+})
+
+test_that("signature formatting preserves tensor shapes as arrays", {
+  for (shape in list(c(-1L), c(-1L, 3L), list(-1L))) {
+    formatted <- mlflow_signature_for_model_spec(list(inputs = list(list(
+      type = "tensor", `tensor-spec` = list(dtype = "float64", shape = shape)
+    ))))
+    inputs <- jsonlite::fromJSON(formatted$inputs, simplifyVector = FALSE)
+    expect_equal(inputs[[1]][["tensor-spec"]][["shape"]], as.list(shape))
+  }
+})
+
 library("carrier")
 
 testthat_model_name <- basename(tempfile("model_"))
@@ -238,6 +263,30 @@ test_that("signature formatting accepts named type vectors", {
   expect_equal(inputs[[1]]$type, "double")
 })
 
+test_that("signature formatting accepts one unnamed type string", {
+  formatted <- mlflow_signature_for_model_spec(list(inputs = "double", outputs = "double"))
+  expect_equal(as.character(formatted$inputs), '[{"type":"double"}]')
+  expect_equal(as.character(formatted$outputs), '[{"type":"double"}]')
+
+  named <- mlflow_signature_for_model_spec(list(inputs = c(type = "double")))
+  inputs <- jsonlite::fromJSON(named$inputs, simplifyVector = FALSE)
+  expect_equal(inputs[[1]]$name, "type")
+  expect_equal(inputs[[1]]$type, "double")
+})
+
+test_that("signature formatting rejects invalid unnamed type strings", {
+  for (schema in list(NA_character_, "", character(), c("double", "string"))) {
+    expect_error(
+      mlflow_signature_for_model_spec(list(inputs = schema)),
+      "`signature$inputs` must be", fixed = TRUE
+    )
+    expect_error(
+      mlflow_signature_for_model_spec(list(outputs = schema)),
+      "`signature$outputs` must be", fixed = TRUE
+    )
+  }
+})
+
 test_that("signature formatting requires top-level list", {
   expect_error(
     mlflow_signature_for_model_spec("double"),
@@ -260,16 +309,6 @@ test_that("signature formatting requires inputs or outputs", {
   expect_equal(
     names(mlflow_signature_for_model_spec(list(outputs = list(y = "double")))),
     "outputs"
-  )
-  expect_error(
-    mlflow_signature_for_model_spec(list(inputs = "double")),
-    "`signature$inputs` must be a non-empty list",
-    fixed = TRUE
-  )
-  expect_error(
-    mlflow_signature_for_model_spec(list(outputs = "double")),
-    "`signature$outputs` must be a non-empty list",
-    fixed = TRUE
   )
 })
 

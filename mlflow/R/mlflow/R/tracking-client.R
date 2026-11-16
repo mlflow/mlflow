@@ -14,7 +14,6 @@ new_mlflow_uri <- function(raw_uri) {
     parse_uri <- paste0(parse_uri, "://")
   } else if (!grepl("://", parse_uri)) {
     parse_uri <- paste0("file://", parse_uri)
-    raw_uri_value <- parse_uri
   }
 
   parts <- strsplit(parse_uri, "://")[[1]]
