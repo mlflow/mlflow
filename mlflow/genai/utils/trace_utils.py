@@ -1072,7 +1072,13 @@ def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> di
             if (error := feedback.get("error")) and (msg := error.get("error_message")):
                 result[f"{name}/error_message"] = msg
         elif expectation := a.get("expectation"):
-            result[f"{name}/value"] = expectation.get("value")
+            # Int, list, and dict expectation values are carried in serialized_value as a JSON
+            # string rather than the proto Value double, mirroring how
+            # ExpectationValue.from_dictionary unpacks them.
+            if "serialized_value" in expectation:
+                result[f"{name}/value"] = json.loads(expectation["serialized_value"]["value"])
+            else:
+                result[f"{name}/value"] = expectation.get("value")
 
     return result
 

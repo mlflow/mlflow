@@ -24,6 +24,7 @@ from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     _extract_tool_name_from_span,
+    _get_assessment_values,
     _parse_chunk,
     _should_keep_trace,
     _try_extract_available_tools_with_llm,
@@ -1960,3 +1961,33 @@ def test_evaluate_with_trace_column_preserves_traces():
     remaining_traces = get_traces()
     remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
     assert original_trace_id in remaining_trace_ids
+
+
+def test_get_assessment_values_unpacks_serialized_expectation_values():
+    def expectation_dict(name, value):
+        return Expectation(
+            name=name,
+            value=value,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+        ).to_dictionary()
+
+    assessments = [
+        expectation_dict("max_length", 100),
+        expectation_dict("allowed_tools", ["search", "code"]),
+        expectation_dict("answer_spec", {"key": "value"}),
+        expectation_dict("expected_name", "length"),
+        expectation_dict("ratio", 0.5),
+    ]
+
+    values = _get_assessment_values(assessments, run_id="run-id")
+
+    # Ints are carried in serialized_value (the proto Value double is lossy for ints),
+    # so they must come back as ints, not None and not floats.
+    assert values["max_length/value"] == 100
+    assert isinstance(values["max_length/value"], int)
+    # List and dict expectations have always used serialized_value
+    assert values["allowed_tools/value"] == ["search", "code"]
+    assert values["answer_spec/value"] == {"key": "value"}
+    # Str and float stay on the plain value path
+    assert values["expected_name/value"] == "length"
+    assert values["ratio/value"] == 0.5
