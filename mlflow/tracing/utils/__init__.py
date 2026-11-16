@@ -413,14 +413,28 @@ def calculate_cost_by_model_and_token_usage(
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
     completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
 
-    if prompt_tokens == 0 and completion_tokens == 0:
-        return None
-
     cache_kwargs = {}
     if (cached := usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_read_input_tokens"] = cached
     if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
+
+    # Pricing below assumes prompt_tokens includes cached tokens (OpenAI convention)
+    # and subtracts the cached portion. Some producers report Anthropic-style disjoint
+    # counts where input_tokens excludes cached tokens instead. The two conventions
+    # cannot be told apart in general — except when input_tokens is smaller than the
+    # cached portion, which is impossible for inclusive counts. In that case the
+    # counts must be disjoint, so reconstruct the inclusive prompt-token count;
+    # otherwise the uncached text tokens are dropped (or priced negative on older
+    # litellm versions). See https://github.com/mlflow/mlflow/issues/27808
+    cache_total = cache_kwargs.get("cache_read_input_tokens", 0) + cache_kwargs.get(
+        "cache_creation_input_tokens", 0
+    )
+    if prompt_tokens < cache_total:
+        prompt_tokens += cache_total
+
+    if prompt_tokens == 0 and completion_tokens == 0:
+        return None
 
     # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
     # litellm's signature does not accept it, so only pass it to the builtin.
