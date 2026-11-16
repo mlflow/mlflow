@@ -95,7 +95,19 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
         cache_read_key="cache_read_input_tokens",
         cache_creation_key="cache_creation_input_tokens",
     )
+    if token_usage and (above_1hr := _get_anthropic_1h_cache_creation(result["usage"])) is not None:
+        token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
     return _normalize_anthropic_input_tokens(token_usage)
+
+
+def _get_anthropic_1h_cache_creation(usage: dict[str, Any]) -> int | None:
+    """Return the 1-hour TTL part of the cache-write tokens, a subset of
+    ``cache_creation_input_tokens`` that is priced higher than 5-minute writes.
+    """
+    match usage.get("cache_creation"):
+        case {"ephemeral_1h_input_tokens": int(above_1hr)}:
+            return above_1hr
+    return None
 
 
 def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]) -> None:
@@ -106,6 +118,8 @@ def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]
         usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
     if isinstance(created := source.get("cache_creation_input_tokens"), int):
         usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+    if (above_1hr := _get_anthropic_1h_cache_creation(source)) is not None:
+        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
 
 
 def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:

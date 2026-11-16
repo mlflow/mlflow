@@ -1729,6 +1729,48 @@ def test_anthropic_extract_passthrough_token_usage_with_cached_tokens():
     }
 
 
+def test_anthropic_extract_passthrough_token_usage_with_1h_cache_creation():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 11,
+            "output_tokens": 4,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 5411,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 5411},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 5422,
+        "output_tokens": 4,
+        "total_tokens": 5426,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
+def test_anthropic_extract_streaming_token_usage_with_1h_cache_creation():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":11,"cache_read_input_tokens":0,'
+        b'"cache_creation_input_tokens":5411,"cache_creation":'
+        b'{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":5411}}}}\n'
+    )
+    assert provider._extract_streaming_token_usage(chunk) == {
+        "input_tokens": 11,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
 def test_anthropic_extract_streaming_token_usage_message_start_with_cached_tokens():
     provider = AnthropicProvider(EndpointConfig(**chat_config()))
     chunk = (
