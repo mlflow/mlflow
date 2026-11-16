@@ -946,6 +946,18 @@ def test_disjoint_cache_token_counts_passed_to_litellm_as_inclusive(mock_litellm
     assert all(call.kwargs["prompt_tokens"] == 260 for call in mock_litellm_cost.call_args_list)
 
 
+@pytest.mark.parametrize("cache_read_input_tokens", [None, 200])
+def test_builtin_cost_with_none_input_tokens_returns_none(cache_read_input_tokens):
+    usage = {
+        "input_tokens": None,
+        "output_tokens": 5,
+        "cache_read_input_tokens": cache_read_input_tokens,
+    }
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage("gpt-4o", usage)
+    assert result is None
+
+
 def test_inclusive_cache_token_counts_passed_to_litellm_unchanged(mock_litellm_cost):
     if mock_litellm_cost is None:
         pytest.skip("litellm is not installed")

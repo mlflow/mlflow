@@ -426,8 +426,10 @@ def calculate_cost_by_model_and_token_usage(
     # subtracts them to get the uncached portion. Some producers report Anthropic-style disjoint
     # counts, where input tokens exclude cache tokens. Fewer input tokens than cache tokens can
     # only be disjoint counts, so add the cache tokens back to avoid pricing a negative count.
+    # Disjoint counts where the uncached input is at least the cache tokens are indistinguishable
+    # from inclusive counts, so they are still priced as inclusive.
     cache_tokens = (cached or 0) + (created or 0)
-    if prompt_tokens < cache_tokens:
+    if prompt_tokens is not None and prompt_tokens < cache_tokens:
         prompt_tokens += cache_tokens
 
     # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
