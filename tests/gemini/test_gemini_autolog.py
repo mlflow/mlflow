@@ -3,6 +3,7 @@
 
 import asyncio
 import base64
+import copy
 import importlib.metadata
 import json
 import re
@@ -68,6 +69,17 @@ _STREAM_CHUNKS = [
     _generate_content_response({"parts": [{"text": "test "}], "role": "model"}),
     _generate_content_response({"parts": [{"text": "answer"}], "role": "model"}),
 ]
+
+
+_FUNCTION_CALL_CHUNK = _generate_content_response({
+    "parts": [{"function_call": {"name": "multiply", "args": {"a": 57.0, "b": 44.0}}}],
+    "role": "model",
+})
+
+_FUNCTION_ANSWER_CHUNK = _generate_content_response({
+    "parts": [{"text": "57 * 44 = 2508"}],
+    "role": "model",
+})
 
 
 def _expected_streaming_output():
@@ -186,20 +198,19 @@ def _create_chat_and_send_message(is_async: bool, message: str):
         return chat.send_message(message)
 
 
-def _call_generate_content_stream(is_async: bool):
+def _call_generate_content_stream(is_async: bool, contents: str = "test content", config=None):
     client = genai.Client(api_key="dummy")
+    kwargs = {"model": "gemini-1.5-flash", "contents": contents}
+    if config is not None:
+        kwargs["config"] = config
     if is_async:
 
         async def _consume():
-            stream = await client.aio.models.generate_content_stream(
-                model="gemini-1.5-flash", contents="test content"
-            )
+            stream = await client.aio.models.generate_content_stream(**kwargs)
             return [chunk async for chunk in stream]
 
         return asyncio.run(_consume())
-    return list(
-        client.models.generate_content_stream(model="gemini-1.5-flash", contents="test content")
-    )
+    return list(client.models.generate_content_stream(**kwargs))
 
 
 def _create_chat_and_send_message_stream(is_async: bool):
@@ -713,19 +724,11 @@ def test_generate_content_stream_with_error(is_async):
 
 def test_generate_content_stream_automatic_function_calling(is_async):
     cls = "AsyncModels" if is_async else "Models"
-    function_call_chunk = _generate_content_response({
-        "parts": [{"function_call": {"name": "multiply", "args": {"a": 57.0, "b": 44.0}}}],
-        "role": "model",
-    })
-    answer_chunk = _generate_content_response({
-        "parts": [{"text": "57 * 44 = 2508"}],
-        "role": "model",
-    })
     requests = []
 
     def _next_response(contents):
         requests.append(contents)
-        return function_call_chunk if len(requests) == 1 else answer_chunk
+        return _FUNCTION_CALL_CHUNK if len(requests) == 1 else _FUNCTION_ANSWER_CHUNK
 
     if is_async:
 
@@ -776,17 +779,17 @@ def test_generate_content_stream_automatic_function_calling(is_async):
     ]
     assert (
         stream_span.outputs["candidates"][0]["content"]["parts"][-1]
-        == answer_chunk.candidates[0].content.parts[0].model_dump()
+        == _FUNCTION_ANSWER_CHUNK.candidates[0].content.parts[0].model_dump()
     )
     assert stream_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == TOOL_ATTRIBUTE
 
     assert function_call_span.name == f"{cls}._generate_content_stream"
     assert function_call_span.parent_id == stream_span.span_id
-    assert function_call_span.outputs == function_call_chunk.model_dump()
+    assert function_call_span.outputs == _FUNCTION_CALL_CHUNK.model_dump()
 
     assert answer_span.name == f"{cls}._generate_content_stream"
     assert answer_span.parent_id == stream_span.span_id
-    assert answer_span.outputs == answer_chunk.model_dump()
+    assert answer_span.outputs == _FUNCTION_ANSWER_CHUNK.model_dump()
 
 
 def test_generate_content_stream_chunk_recording_failure(is_async):
@@ -1089,119 +1092,209 @@ def test_generate_content_tool_use_prompt_tokens(
         }
 
 
-def test_tracing_headers_injected_in_config(is_async):
-    captured_config = {}
+@pytest.fixture(params=[False, True], ids=["non_stream", "stream"])
+def is_stream(request):
+    return request.param
 
-    if is_async:
 
-        async def _generate_content(self, model, contents, config):
-            captured_config["config"] = config
-            return _DUMMY_GENERATE_CONTENT_RESPONSE
+def _request_method(is_stream: bool) -> str:
+    return "_generate_content_stream" if is_stream else "_generate_content"
+
+
+def _patch_model_request(is_async: bool, is_stream: bool, next_response):
+    # `next_response(config)` returns the response for one model request. A streaming request
+    # yields it as a single chunk.
+    if is_stream and is_async:
+
+        async def request(self, model, contents, config):
+            response = next_response(config)
+
+            async def _stream():
+                yield response
+
+            return _stream()
+
+    elif is_stream:
+
+        def request(self, model, contents, config):
+            yield next_response(config)
+
+    elif is_async:
+
+        async def request(self, model, contents, config):
+            return next_response(config)
 
     else:
 
-        def _generate_content(self, model, contents, config):
-            captured_config["config"] = config
-            return _DUMMY_GENERATE_CONTENT_RESPONSE
+        def request(self, model, contents, config):
+            return next_response(config)
 
+    method = _request_method(is_stream)
+    # autolog decides whether to inject headers from the patched method's name
+    request.__name__ = method
     cls = "AsyncModels" if is_async else "Models"
-    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
-        mlflow.gemini.autolog()
-        _call_generate_content(is_async, "test content", config={"temperature": 0.5})
+    return patch(f"google.genai.models.{cls}.{method}", new=request)
 
-    traces = get_traces()
-    assert len(traces) == 1
 
-    # Verify traceparent was injected into config.http_options.headers
-    config = captured_config["config"]
-    # config passed to _generate_content may be a dict or object
+def _capture_configs(captured_configs: list[object]):
+    def next_response(config):
+        captured_configs.append(config)
+        return _DUMMY_GENERATE_CONTENT_RESPONSE
+
+    return next_response
+
+
+def _call_model(is_async: bool, is_stream: bool, contents: str = "test content", config=None):
+    if is_stream:
+        return _call_generate_content_stream(is_async, contents, config=config)
+    return _call_generate_content(is_async, contents, config=config)
+
+
+def _call_chat(is_async: bool, is_stream: bool, contents: str, config):
+    client = genai.Client(api_key="dummy")
+    if is_async:
+
+        async def _call():
+            chat = client.aio.chats.create(model="gemini-1.5-flash", config=config)
+            if is_stream:
+                return [chunk async for chunk in await chat.send_message_stream(contents)]
+            return await chat.send_message(contents)
+
+        return asyncio.run(_call())
+    chat = client.chats.create(model="gemini-1.5-flash", config=config)
+    if is_stream:
+        return list(chat.send_message_stream(contents))
+    return chat.send_message(contents)
+
+
+def _request_headers(config) -> dict[str, str]:
     if isinstance(config, dict):
-        headers = config.get("http_options", {}).get("headers", {})
+        http_options = config.get("http_options")
     else:
-        headers = getattr(getattr(config, "http_options", None), "headers", {}) or {}
-    assert "traceparent" in headers
-    assert re.fullmatch(r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}", headers["traceparent"])
+        http_options = getattr(config, "http_options", None)
+    if isinstance(http_options, dict):
+        return http_options.get("headers") or {}
+    return getattr(http_options, "headers", None) or {}
 
 
-def test_tracing_headers_preserve_existing_config_headers(is_async):
-    captured_config = {}
+def _assert_traceparent_identifies(traceparent: str, span):
+    match = re.fullmatch(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}", traceparent)
+    assert match
+    assert match.groups() == (span.trace_id.removeprefix("tr-"), span.span_id)
 
-    if is_async:
 
-        async def _generate_content(self, model, contents, config):
-            captured_config["config"] = config
-            return _DUMMY_GENERATE_CONTENT_RESPONSE
-
-    else:
-
-        def _generate_content(self, model, contents, config):
-            captured_config["config"] = config
-            return _DUMMY_GENERATE_CONTENT_RESPONSE
-
+def _request_spans(trace, is_async: bool, is_stream: bool):
     cls = "AsyncModels" if is_async else "Models"
-    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
+    name = f"{cls}.{_request_method(is_stream)}"
+    return [span for span in trace.data.spans if span.name == name]
+
+
+def test_tracing_headers_injected_in_config(is_async, is_stream):
+    captured_configs = []
+    with _patch_model_request(is_async, is_stream, _capture_configs(captured_configs)):
         mlflow.gemini.autolog()
-        _call_generate_content(
+        _call_model(is_async, is_stream, config={"temperature": 0.5})
+
+    [trace] = get_traces()
+    [config] = captured_configs
+    [request_span] = _request_spans(trace, is_async, is_stream)
+    _assert_traceparent_identifies(_request_headers(config)["traceparent"], request_span)
+
+
+def test_tracing_headers_preserve_existing_config_headers(is_async, is_stream):
+    captured_configs = []
+    with _patch_model_request(is_async, is_stream, _capture_configs(captured_configs)):
+        mlflow.gemini.autolog()
+        _call_model(
             is_async,
-            "test content",
+            is_stream,
             config={
                 "temperature": 0.5,
                 "http_options": {"headers": {"X-Custom": "my-value"}},
             },
         )
 
-    config = captured_config["config"]
-    if isinstance(config, dict):
-        headers = config.get("http_options", {}).get("headers", {})
-    else:
-        headers = getattr(getattr(config, "http_options", None), "headers", {}) or {}
-
-    # Both traceparent and user headers should be present
+    [config] = captured_configs
+    headers = _request_headers(config)
     assert "traceparent" in headers
-    # User-provided headers take precedence
     assert headers["X-Custom"] == "my-value"
 
 
-def test_tracing_headers_injected_when_config_is_none(is_async):
-    captured_config = {}
-
-    if is_async:
-
-        async def _generate_content(self, model, contents, config):
-            captured_config["config"] = config
-            return _DUMMY_GENERATE_CONTENT_RESPONSE
-
-    else:
-
-        def _generate_content(self, model, contents, config):
-            captured_config["config"] = config
-            return _DUMMY_GENERATE_CONTENT_RESPONSE
-
-    cls = "AsyncModels" if is_async else "Models"
-    with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
+def test_tracing_headers_injected_when_config_is_none(is_async, is_stream):
+    captured_configs = []
+    with _patch_model_request(is_async, is_stream, _capture_configs(captured_configs)):
         mlflow.gemini.autolog()
-        # Call without config — headers should still be injected
-        _call_generate_content(is_async, "test content")
+        _call_model(is_async, is_stream)
 
-    traces = get_traces()
-    assert len(traces) == 1
+    [trace] = get_traces()
+    [config] = captured_configs
+    [request_span] = _request_spans(trace, is_async, is_stream)
+    _assert_traceparent_identifies(_request_headers(config)["traceparent"], request_span)
 
-    # Verify traceparent was injected via config even though original config was None
-    config = captured_config["config"]
-    if isinstance(config, dict):
-        headers = config.get("http_options", {}).get("headers", {})
-    else:
-        headers = getattr(getattr(config, "http_options", None), "headers", {}) or {}
-    assert "traceparent" in headers
-    assert re.fullmatch(r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}", headers["traceparent"])
+    # The injected header is an implementation detail and must not leak into span inputs
+    for span in trace.data.spans:
+        if (config_input := span.inputs.get("config")) is not None:
+            assert "traceparent" not in _request_headers(config_input)
 
-    # Verify the traceparent is stripped from span inputs
-    for span in traces[0].data.spans:
-        config_input = span.inputs.get("config")
-        if config_input is None:
-            continue
-        if isinstance(config_input, dict):
-            http_headers = config_input.get("http_options", {}).get("headers", {})
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"temperature": 0.5, "http_options": {"headers": {"X-Custom": "my-value"}}},
+        {"temperature": 0.5, "http_options": genai.types.HttpOptions(headers={"X-Custom": "a"})},
+        genai.types.GenerateContentConfig(temperature=0.5),
+        genai.types.GenerateContentConfig(
+            temperature=0.5, http_options=genai.types.HttpOptions(headers={"X-Custom": "a"})
+        ),
+    ],
+    ids=["dict", "dict_with_http_options", "object", "object_with_http_options"],
+)
+def test_tracing_headers_with_reused_config(is_async, is_stream, config):
+    # A traceparent written into the caller's config would be sent again by the next call that
+    # reuses the config, pointing at the previous trace.
+    config = copy.deepcopy(config)
+    captured_configs = []
+    with _patch_model_request(is_async, is_stream, _capture_configs(captured_configs)):
+        mlflow.gemini.autolog()
+        _call_model(is_async, is_stream, config=config)
+        _call_model(is_async, is_stream, config=config)
+
+    traces = {trace.info.trace_id.removeprefix("tr-"): trace for trace in get_traces()}
+    traceparents = [_request_headers(c)["traceparent"] for c in captured_configs]
+    assert len(traces) == len(traceparents) == 2
+    # Each call must point at its own trace
+    assert {traceparent.split("-")[1] for traceparent in traceparents} == traces.keys()
+    for traceparent in traceparents:
+        trace = traces[traceparent.split("-")[1]]
+        [request_span] = _request_spans(trace, is_async, is_stream)
+        _assert_traceparent_identifies(traceparent, request_span)
+    assert "traceparent" not in _request_headers(config)
+
+
+@pytest.mark.parametrize("api", ["models", "chat"])
+def test_tracing_headers_identify_each_request(is_async, is_stream, api):
+    # Automatic function calling sends one model request per round and reuses one config across
+    # rounds, so each request must carry its own span rather than an earlier round's.
+    traceparents = []
+
+    def _next_response(config):
+        traceparents.append(_request_headers(config)["traceparent"])
+        return _FUNCTION_CALL_CHUNK if len(traceparents) == 1 else _FUNCTION_ANSWER_CHUNK
+
+    config = genai.types.GenerateContentConfig(tools=[multiply])
+    with _patch_model_request(is_async, is_stream, _next_response):
+        mlflow.gemini.autolog()
+        if api == "models":
+            _call_model(is_async, is_stream, "What is 57 * 44?", config=config)
         else:
-            http_headers = getattr(getattr(config_input, "http_options", None), "headers", {}) or {}
-        assert "traceparent" not in http_headers
+            _call_chat(is_async, is_stream, "What is 57 * 44?", config)
+
+    [trace] = get_traces()
+    request_spans = {span.span_id: span for span in _request_spans(trace, is_async, is_stream)}
+    assert len(request_spans) == len(traceparents) == 2
+    # Each request must point at a different request span
+    assert {traceparent.split("-")[2] for traceparent in traceparents} == request_spans.keys()
+    for traceparent in traceparents:
+        _assert_traceparent_identifies(traceparent, request_spans[traceparent.split("-")[2]])
+    # A traceparent written into the caller's config would be resent on its next call
+    assert "traceparent" not in _request_headers(config)

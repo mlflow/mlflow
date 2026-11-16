@@ -1,3 +1,4 @@
+import copy
 import functools
 import inspect
 import logging
@@ -283,7 +284,13 @@ def _log_genai_tool_definition(model, inputs, span):
         _logger.warning(f"Failed to set tool definitions for {span}. Error: {e}")
 
 
-_HEADER_INJECTION_METHODS = {"_generate_content", "send_message", "count_tokens", "embed_content"}
+_HEADER_INJECTION_METHODS = {
+    "_generate_content",
+    "_generate_content_stream",
+    "send_message",
+    "count_tokens",
+    "embed_content",
+}
 
 
 def _should_inject_headers(original) -> bool:
@@ -296,34 +303,38 @@ def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
         return
     try:
         tracing_headers = _get_tracing_headers_from_span(span)
-        if not tracing_headers:
+        if not tracing_headers or "config" not in kwargs:
             return
 
-        if "config" not in kwargs:
-            return
-
+        # Inject into copies, never into the caller's config: users and the SDK reuse one config
+        # across requests (e.g. every automatic function calling round), and a traceparent left
+        # in a shared config would take precedence over the next request's own.
         config = kwargs["config"]
         if config is None:
             kwargs["config"] = {"http_options": {"headers": tracing_headers}}
-            return
         elif isinstance(config, dict):
             http_options = config.get("http_options") or {}
-            if isinstance(http_options, dict):
-                existing_headers = http_options.get("headers") or {}
-                http_options["headers"] = tracing_headers | existing_headers
-                config["http_options"] = http_options
-            else:
-                existing_headers = getattr(http_options, "headers", None) or {}
-                http_options.headers = tracing_headers | existing_headers
+            kwargs["config"] = config | {
+                "http_options": _with_tracing_headers(http_options, tracing_headers)
+            }
         else:
-            http_options = getattr(config, "http_options", None)
-            if http_options is None:
-                config.http_options = genai.types.HttpOptions(headers=tracing_headers)
-            else:
-                existing_headers = getattr(http_options, "headers", None) or {}
-                http_options.headers = tracing_headers | existing_headers
+            http_options = getattr(config, "http_options", None) or genai.types.HttpOptions()
+            config = copy.copy(config)
+            config.http_options = _with_tracing_headers(http_options, tracing_headers)
+            kwargs["config"] = config
     except Exception:
         _logger.debug("Failed to inject tracing headers for Gemini", exc_info=True)
+
+
+def _with_tracing_headers(http_options, tracing_headers: dict[str, str]):
+    # Headers the user set take precedence over the injected tracing headers
+    if isinstance(http_options, dict):
+        existing_headers = http_options.get("headers") or {}
+        return http_options | {"headers": tracing_headers | existing_headers}
+    existing_headers = getattr(http_options, "headers", None) or {}
+    http_options = copy.copy(http_options)
+    http_options.headers = tracing_headers | existing_headers
+    return http_options
 
 
 def _get_span_type(task_name: str) -> str:

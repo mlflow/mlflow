@@ -975,6 +975,13 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     ),
     ValidationExemptArgument(
         "gemini",
+        "_generate_content_stream",
+        lambda x: x is None or isinstance(x, dict) or hasattr(x, "http_options"),
+        None,
+        "config",
+    ),
+    ValidationExemptArgument(
+        "gemini",
         "send_message",
         lambda x: x is None or isinstance(x, dict) or hasattr(x, "http_options"),
         None,
