@@ -144,6 +144,21 @@ def test_run_online_session_scorer_job_calls_processor():
         mock_processor.process_sessions.assert_called_once()
 
 
+def _idle_job_store() -> MagicMock:
+    """A job store with no pending or running online scoring jobs."""
+    job_store = MagicMock()
+    job_store.list_jobs.return_value = iter([])
+    return job_store
+
+
+def _active_job(job_name: str, experiment_id: str, status: JobStatus) -> MagicMock:
+    job_entity = MagicMock()
+    job_entity.job_name = job_name
+    job_entity.status = status
+    job_entity.params = json.dumps({"experiment_id": experiment_id, "online_scorers": []})
+    return job_entity
+
+
 def test_scheduler_submits_jobs_via_submit_job():
     # Create trace-level scorers (2)
     trace_scorer_1 = Completeness()
@@ -204,6 +219,7 @@ def test_scheduler_submits_jobs_via_submit_job():
 
     with (
         patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job._get_job_store", return_value=_idle_job_store()),
         patch("mlflow.genai.scorers.job.submit_job") as mock_submit_job,
     ):
         run_online_scoring_scheduler()
@@ -267,6 +283,7 @@ def test_scheduler_skips_invalid_scorers():
 
     with (
         patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_store),
+        patch("mlflow.genai.scorers.job._get_job_store", return_value=_idle_job_store()),
         patch("mlflow.genai.scorers.job.submit_job") as mock_submit,
         patch("mlflow.genai.scorers.job._logger") as mock_logger,
     ):
@@ -275,3 +292,107 @@ def test_scheduler_skips_invalid_scorers():
         mock_logger.warning.assert_called_once()
         assert "invalid_scorer" in mock_logger.warning.call_args[0][0]
         assert mock_submit.call_count == 1  # Only valid scorer submitted
+
+
+def test_scheduler_skips_experiments_with_pending_or_running_job_of_same_type():
+    """
+    The scheduler runs every minute regardless of whether the previous job for an experiment
+    has finished. If job runners are behind, submitting anyway would grow the queue without
+    bound and each queued job would later run with the stale scorer configuration it was
+    submitted with. An experiment with a pending/running job of a type is skipped for that
+    type only; the other type (and other experiments) are unaffected.
+    """
+    trace_scorer = OnlineScorer(
+        name="completeness",
+        serialized_scorer=json.dumps(Completeness().model_dump()),
+        online_config=OnlineScoringConfig(
+            online_scoring_config_id=uuid.uuid4().hex,
+            scorer_id=uuid.uuid4().hex,
+            sample_rate=1.0,
+            experiment_id="exp1",
+        ),
+    )
+    session_scorer = OnlineScorer(
+        name="conversation_judge",
+        serialized_scorer=json.dumps(
+            make_judge(
+                name="conversation_judge",
+                instructions="Evaluate {{ conversation }} for quality",
+                feedback_value_type=str,
+                model="openai:/gpt-4",
+            ).model_dump()
+        ),
+        online_config=OnlineScoringConfig(
+            online_scoring_config_id=uuid.uuid4().hex,
+            scorer_id=uuid.uuid4().hex,
+            sample_rate=1.0,
+            experiment_id="exp1",
+        ),
+    )
+    other_experiment_scorer = OnlineScorer(
+        name="completeness",
+        serialized_scorer=trace_scorer.serialized_scorer,
+        online_config=OnlineScoringConfig(
+            online_scoring_config_id=uuid.uuid4().hex,
+            scorer_id=uuid.uuid4().hex,
+            sample_rate=1.0,
+            experiment_id="exp2",
+        ),
+    )
+    mock_tracking_store = MagicMock()
+    mock_tracking_store.get_active_online_scorers.return_value = [
+        trace_scorer,
+        session_scorer,
+        other_experiment_scorer,
+    ]
+
+    def list_jobs(job_name, statuses):
+        assert set(statuses) == {JobStatus.PENDING, JobStatus.RUNNING}
+        if job_name == "run_online_trace_scorer":
+            return iter([_active_job(job_name, "exp1", JobStatus.RUNNING)])
+        return iter([])
+
+    job_store = MagicMock()
+    job_store.list_jobs.side_effect = list_jobs
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job._get_job_store", return_value=job_store),
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit_job,
+    ):
+        run_online_scoring_scheduler()
+
+    submitted = {
+        (call.args[0], call.args[1]["experiment_id"]) for call in mock_submit_job.call_args_list
+    }
+    assert submitted == {
+        (run_online_session_scorer_job, "exp1"),  # session job for exp1 is not blocked
+        (run_online_trace_scorer_job, "exp2"),  # other experiments are not blocked
+    }
+
+
+def test_scheduler_submits_when_job_store_lookup_fails():
+    """Fail open: the per-experiment exclusive lock still prevents concurrent runs."""
+    trace_scorer = OnlineScorer(
+        name="completeness",
+        serialized_scorer=json.dumps(Completeness().model_dump()),
+        online_config=OnlineScoringConfig(
+            online_scoring_config_id=uuid.uuid4().hex,
+            scorer_id=uuid.uuid4().hex,
+            sample_rate=1.0,
+            experiment_id="exp1",
+        ),
+    )
+    mock_tracking_store = MagicMock()
+    mock_tracking_store.get_active_online_scorers.return_value = [trace_scorer]
+    job_store = MagicMock()
+    job_store.list_jobs.side_effect = RuntimeError("job store unavailable")
+
+    with (
+        patch("mlflow.genai.scorers.job._get_tracking_store", return_value=mock_tracking_store),
+        patch("mlflow.genai.scorers.job._get_job_store", return_value=job_store),
+        patch("mlflow.genai.scorers.job.submit_job") as mock_submit_job,
+    ):
+        run_online_scoring_scheduler()
+
+    assert mock_submit_job.call_count == 1

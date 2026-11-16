@@ -6023,6 +6023,142 @@ def test_find_completed_sessions(store: SqlAlchemyStore):
     assert completed[0].session_id == "session-a"
 
 
+def test_find_completed_sessions_after_session_id_resumes_within_timestamp_tie(
+    store: SqlAlchemyStore,
+):
+    """
+    ``after_session_id`` lets a caller resume from a (timestamp, session_id) checkpoint in the
+    middle of a group of sessions that share the same last-trace timestamp. The tie-break is
+    evaluated by the database so it agrees with the ORDER BY collation, and it is applied before
+    ``max_results`` so a page full of already-processed sessions cannot stall pagination.
+    """
+    exp_id = store.create_experiment("test_find_completed_sessions_after_session_id")
+
+    # Five sessions all ending at t=2000, plus one ending later.
+    for session_id in ["s-a", "s-b", "s-c", "s-d", "s-e"]:
+        _create_trace(
+            store,
+            f"{session_id}-trace",
+            exp_id,
+            request_time=2000,
+            trace_metadata={TraceMetadataKey.TRACE_SESSION: session_id},
+        )
+    _create_trace(
+        store,
+        "s-late-trace",
+        exp_id,
+        request_time=3000,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "s-late"},
+    )
+
+    # Resume after s-b at the boundary timestamp: s-a and s-b are excluded, and the page is
+    # filled with the *next* sessions rather than returning the excluded ones.
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=2000,
+        max_last_trace_timestamp_ms=5000,
+        max_results=3,
+        after_session_id="s-b",
+    )
+    assert [s.session_id for s in completed] == ["s-c", "s-d", "s-e"]
+
+    # The exclusion only applies at the boundary timestamp: later sessions are unaffected even
+    # if their id sorts before the checkpoint id.
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=2000,
+        max_last_trace_timestamp_ms=5000,
+        after_session_id="s-e",
+    )
+    assert [s.session_id for s in completed] == ["s-late"]
+
+    # Without after_session_id the boundary group is returned in full.
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id,
+        min_last_trace_timestamp_ms=2000,
+        max_last_trace_timestamp_ms=5000,
+    )
+    assert [s.session_id for s in completed] == ["s-a", "s-b", "s-c", "s-d", "s-e", "s-late"]
+
+
+def test_search_traces_order_by_end_time_ms(store: SqlAlchemyStore):
+    """end_time_ms (start + duration) is advertised as an order_by key; it must actually work."""
+    exp_id = store.create_experiment("test_order_by_end_time")
+    _create_trace(store, "long", exp_id, request_time=100, execution_duration=500)  # ends 600
+    _create_trace(store, "short", exp_id, request_time=200, execution_duration=10)  # ends 210
+    _create_trace(store, "no_duration", exp_id, request_time=300)  # ends 300
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string="trace.end_time_ms >= 210",
+        order_by=["end_time_ms ASC", "request_id ASC"],
+    )
+    assert [t.trace_id for t in traces] == ["short", "no_duration", "long"]
+
+    traces, _ = store.search_traces([exp_id], order_by=["end_time DESC"])
+    assert [t.trace_id for t in traces] == ["long", "no_duration", "short"]
+
+
+def test_find_completed_sessions_uses_trace_end_times(store: SqlAlchemyStore):
+    """
+    A session is complete when its traces have *finished*, not when the last one started. A
+    long final turn keeps the session open until its end time, so it cannot be scored without
+    that turn and is discovered by the time the turn actually lands in the store.
+    """
+    exp_id = store.create_experiment("test_find_completed_sessions_end_times")
+    # Session A: turns end at 1100 and 2050 (second turn starts at 1500, runs 550ms).
+    _create_trace(
+        store,
+        "a1",
+        exp_id,
+        request_time=1000,
+        execution_duration=100,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    _create_trace(
+        store,
+        "a2",
+        exp_id,
+        request_time=1500,
+        execution_duration=550,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    # Session B: single long turn that started early (1200) but ran until 4000.
+    _create_trace(
+        store,
+        "b1",
+        exp_id,
+        request_time=1200,
+        execution_duration=2800,
+        trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"},
+    )
+
+    # Window up to 2000: A's last turn ends at 2050 -> not complete yet; B ends at 4000 -> no.
+    assert (
+        store.find_completed_sessions(
+            experiment_id=exp_id, min_last_trace_timestamp_ms=0, max_last_trace_timestamp_ms=2000
+        )
+        == []
+    )
+
+    # Window up to 3000: A is complete with last=2050 (end time), first=1000 (start time).
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id, min_last_trace_timestamp_ms=0, max_last_trace_timestamp_ms=3000
+    )
+    assert [
+        (s.session_id, s.first_trace_timestamp_ms, s.last_trace_timestamp_ms) for s in completed
+    ] == [("session-a", 1000, 2050)]
+
+    # Resuming from A's end time finds B once it has ended, even though B *started* earlier.
+    completed = store.find_completed_sessions(
+        experiment_id=exp_id, min_last_trace_timestamp_ms=2050, max_last_trace_timestamp_ms=5000
+    )
+    assert [(s.session_id, s.last_trace_timestamp_ms) for s in completed] == [
+        ("session-a", 2050),
+        ("session-b", 4000),
+    ]
+
+
 def test_find_completed_sessions_aggregates_across_all_traces(store: SqlAlchemyStore):
     """
     Regression test: first/last timestamps should be computed across ALL session traces,

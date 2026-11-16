@@ -518,13 +518,16 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         max_last_trace_timestamp_ms: int,
         max_results: int | None = None,
         filter_string: str | None = None,
+        after_session_id: str | None = None,
     ) -> list["CompletedSession"]:
         """
         Find completed sessions based on their last trace timestamp.
 
-        A completed session is one whose last trace timestamp falls within the specified
-        time window [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has
-        no traces after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
+        A session's "last trace timestamp" is the latest *end* time (start + duration) among
+        its traces, i.e. when the session last produced data. A completed session is one whose
+        last trace timestamp falls within the specified time window
+        [min_last_trace_timestamp_ms, max_last_trace_timestamp_ms] and has no traces ending
+        after max_last_trace_timestamp_ms (i.e., the session is not ongoing).
 
         Sessions are ordered by (last_trace_timestamp_ms ASC, session_id ASC) to ensure
         deterministic and stable ordering, especially when timestamp ties occur. This is
@@ -541,6 +544,11 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             filter_string: Optional filter string to apply to the first trace in each session.
                 Uses the same syntax as search_traces. If provided, only sessions whose
                 first trace matches this filter will be included.
+            after_session_id: If provided, sessions whose last trace timestamp equals
+                ``min_last_trace_timestamp_ms`` and whose session ID sorts at or before this
+                value are excluded. This lets a caller resume from a ``(timestamp, session_id)``
+                checkpoint in the middle of a group of sessions sharing a timestamp, with the
+                tie-break evaluated by the store using the same ordering as the result set.
 
         Returns:
             List of CompletedSession objects sorted by (last_trace_timestamp_ms ASC,

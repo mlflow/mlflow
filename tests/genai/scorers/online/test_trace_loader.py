@@ -246,3 +246,98 @@ def test_fetch_trace_infos_in_range_empty_response(trace_loader, mock_store):
 
     assert result == []
     mock_store.search_traces.assert_called_once()
+
+
+def _info(trace_id: str, timestamp_ms: int) -> TraceInfo:
+    info = MagicMock(spec=TraceInfo)
+    info.trace_id = trace_id
+    info.timestamp_ms = timestamp_ms
+    return info
+
+
+def test_fetch_trace_infos_in_range_after_trace_id_keeps_paging_past_processed_boundary(
+    trace_loader, mock_store
+):
+    """
+    Resuming from checkpoint (1000, "tr-b"): traces at 1000 with id <= "tr-b" were already
+    processed. They are dropped while paging so ``max_traces`` counts only eligible traces,
+    and a page consisting entirely of already-processed traces does not end discovery.
+    """
+    mock_store.search_traces.side_effect = [
+        ([_info("tr-a", 1000), _info("tr-b", 1000)], "token1"),  # whole page already processed
+        ([_info("tr-c", 1000), _info("tr-d", 1500)], "token2"),
+        ([_info("tr-e", 1600)], None),
+    ]
+
+    result = trace_loader.fetch_trace_infos_in_range(
+        "exp1", 1000, 2000, max_traces=3, page_size=2, after_trace_id="tr-b"
+    )
+
+    assert [t.trace_id for t in result] == ["tr-c", "tr-d", "tr-e"]
+    assert mock_store.search_traces.call_count == 3
+
+
+def test_fetch_trace_infos_in_range_after_trace_id_only_applies_at_window_start(
+    trace_loader, mock_store
+):
+    # A later trace whose id sorts before the checkpoint id is still eligible.
+    mock_store.search_traces.return_value = ([_info("tr-a", 1500)], None)
+
+    result = trace_loader.fetch_trace_infos_in_range("exp1", 1000, 2000, after_trace_id="tr-z")
+
+    assert [t.trace_id for t in result] == ["tr-a"]
+
+
+def test_fetch_trace_infos_in_range_by_end_time(trace_loader, mock_store):
+    """With time_key="end_time_ms" the window, ordering and checkpoint tie-break all use the
+    trace end time (start + duration) so that long-running traces are found when they finish.
+    """
+    early_end = MagicMock(spec=TraceInfo)
+    early_end.trace_id, early_end.timestamp_ms, early_end.execution_time_ms = "tr-a", 900, 100
+    late_end = MagicMock(spec=TraceInfo)
+    late_end.trace_id, late_end.timestamp_ms, late_end.execution_time_ms = "tr-b", 100, 1400
+    mock_store.search_traces.return_value = ([early_end, late_end], None)
+
+    result = trace_loader.fetch_trace_infos_in_range(
+        "exp1", 1000, 2000, after_trace_id="tr-a", time_key="end_time_ms"
+    )
+
+    call = mock_store.search_traces.call_args[1]
+    assert call["filter_string"] == "trace.end_time_ms >= 1000 AND trace.end_time_ms <= 2000"
+    assert call["order_by"] == ["end_time_ms ASC", "request_id ASC"]
+    # tr-a ends exactly at the window start and sorts at/before the checkpoint id: excluded.
+    # tr-b started long before the window but ended inside it: included.
+    assert [t.trace_id for t in result] == ["tr-b"]
+
+
+def test_fetch_trace_infos_in_range_rejects_unknown_time_key(trace_loader):
+    with pytest.raises(ValueError, match="Unsupported time_key"):
+        trace_loader.fetch_trace_infos_in_range("exp1", 0, 1, time_key="created")
+
+
+def test_fetch_trace_infos_in_range_unbounded_pages_until_exhausted(trace_loader, mock_store):
+    pages = [[_info(f"tr-{i}", 1000) for i in range(100 * p, 100 * (p + 1))] for p in range(7)]
+    mock_store.search_traces.side_effect = [(pg, f"tok{i}") for i, pg in enumerate(pages[:-1])] + [
+        (pages[-1], None)
+    ]
+
+    result = trace_loader.fetch_trace_infos_in_range("exp1", 1000, 2000, max_traces=None)
+
+    assert len(result) == 700
+    assert mock_store.search_traces.call_count == 7
+    assert all(c[1]["max_results"] == 100 for c in mock_store.search_traces.call_args_list)
+
+
+def test_fetch_traces_chunks_large_id_lists(trace_loader, mock_store):
+    ids = [f"tr-{i}" for i in range(450)]
+
+    def batch_get(chunk):
+        assert len(chunk) <= 200
+        return [MagicMock(spec=Trace, info=MagicMock(spec=TraceInfo, trace_id=t)) for t in chunk]
+
+    mock_store.batch_get_traces.side_effect = batch_get
+
+    result = trace_loader.fetch_traces(ids)
+
+    assert [t.info.trace_id for t in result] == ids
+    assert mock_store.batch_get_traces.call_count == 3
