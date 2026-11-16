@@ -1432,6 +1432,28 @@ def test_bedrock_anthropic_passthrough_token_usage():
     assert usage == {"input_tokens": 10, "output_tokens": 20, "total_tokens": 30}
 
 
+def test_bedrock_anthropic_passthrough_token_usage_with_1h_cache_creation():
+    provider = _make_api_key_provider()
+    result = {
+        "usage": {
+            "input_tokens": 11,
+            "output_tokens": 4,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 5411,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 5411},
+        },
+    }
+    usage = provider._extract_passthrough_token_usage(PassthroughAction.ANTHROPIC_MESSAGES, result)
+    assert usage == {
+        "input_tokens": 5422,
+        "output_tokens": 4,
+        "total_tokens": 5426,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
 @pytest.mark.asyncio
 async def test_bedrock_anthropic_passthrough_rejects_non_anthropic_model():
     provider = _make_api_key_provider("amazon.nova-pro-v1:0")

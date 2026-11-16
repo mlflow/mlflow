@@ -84,7 +84,8 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
             "input_tokens": int,
             "output_tokens": int,
             "cache_read_input_tokens": int,
-            "cache_creation_input_tokens": int
+            "cache_creation_input_tokens": int,
+            "cache_creation": {"ephemeral_1h_input_tokens": int, ...}
         }
     }
     """
@@ -95,8 +96,8 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
         cache_read_key="cache_read_input_tokens",
         cache_creation_key="cache_creation_input_tokens",
     )
-    if token_usage and (above_1hr := _get_anthropic_1h_cache_creation(result["usage"])) is not None:
-        token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
+    if token_usage:
+        _collect_anthropic_1h_cache_creation(result["usage"], token_usage)
     return _normalize_anthropic_input_tokens(token_usage)
 
 
@@ -132,7 +133,8 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
     Extract token usage from an Anthropic Messages streaming chunk.
 
     Anthropic streaming format:
-    - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
+    - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}; the usage may
+      include {"cache_creation": {"ephemeral_1h_input_tokens": Z, ...}}
     - message_delta event: {"usage": {"output_tokens": Y}}; the usage is cumulative, and with
       server tools it also carries the final input and cache token counts
 
