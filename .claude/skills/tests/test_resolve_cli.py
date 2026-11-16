@@ -235,6 +235,7 @@ def test_collect_includes_current_pr_metadata(
         {"title": ""},
         {"title": " \n "},
         {"title": "Line one\nLine two"},
+        {"title": "a" * 257},
         {"unknown": "value"},
     ],
 )
