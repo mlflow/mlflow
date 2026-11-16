@@ -707,6 +707,14 @@ def test_databricks_managed_adapter_rejects_base_url_and_extra_headers(base_url,
         ('{"rationale": "Says "hi"", "result": 0.5}', 0.5, 'Says "hi"'),
         ('{"rationale": "Says "hi"", "result": true}', True, 'Says "hi"'),
         ('{"rationale": "Path C:\\\\ is "ok"", "result": false}', False, 'Path C:\\ is "ok"'),
+        # An invalid escape makes the rationale undecodable, so the raw text is kept.
+        ('{"rationale": "Path \\d is "ok"", "result": "yes"}', "yes", 'Path \\d is "ok"'),
+        # An unknown key before a trailing "result" is indistinguishable from rationale text.
+        (
+            '{"rationale": "Says "hi"", "extra": "x", "result": "yes"}',
+            "yes",
+            'Says "hi"", "extra": "x',
+        ),
     ],
 )
 def test_parse_databricks_judge_response_recovers_verdict(
@@ -726,6 +734,8 @@ def test_parse_databricks_judge_response_recovers_verdict(
         '{"rationale": "Says "hi"", "result": "yes", "extra": "x"}',
         '{"rationale": "Says "hi"", "verdict": "yes"}',
         '{"rationale": "Says "hi"", "result": "yes"',
+        '{"rationale": "Says "hi"", "result": 01}',
+        '{"rationale": "Says "hi"", "result": "y\nes"}',
     ],
 )
 def test_parse_databricks_judge_response_invalid_json_error(llm_output):

@@ -37,7 +37,9 @@ _logger = logging.getLogger(__name__)
 
 # The judge's rationale is free text that may contain unescaped double quotes (e.g. when it
 # quotes JSON from the trace), while the result is a fixed enum, number, or boolean. These
-# patterns recover both fields from such malformed output, in either key order.
+# patterns recover both fields from such malformed output, in either key order. Because the
+# rationale can contain arbitrary text, an unknown key between "rationale" and a trailing
+# "result" can't be told apart from quoted text and is folded into the rationale.
 _RESULT_VALUE_PATTERN = r'"[^"\\]*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null'
 _RATIONALE_THEN_RESULT_PATTERN = re.compile(
     r'^\s*\{\s*"rationale"\s*:\s*"(?P<rationale>.*)"\s*,'
@@ -156,7 +158,10 @@ def _lenient_parse_judge_output(llm_output: str) -> dict[str, Any] | None:
     if match is None:
         return None
 
-    result = json.loads(match.group("result"))
+    try:
+        result = json.loads(match.group("result"))
+    except json.JSONDecodeError:
+        return None
     raw_rationale = match.group("rationale")
     escaped_rationale = _UNESCAPED_QUOTE_PATTERN.sub(r'\1\\"', raw_rationale)
     try:
