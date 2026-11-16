@@ -1,4 +1,5 @@
 import gc
+import json
 import random
 import threading
 import time
@@ -9,7 +10,11 @@ from unittest.mock import MagicMock, call, patch
 
 import numpy as np
 import pytest
-from optuna.distributions import CategoricalDistribution, FloatDistribution
+from optuna.distributions import (
+    CategoricalDistribution,
+    FloatDistribution,
+    distribution_to_json,
+)
 from optuna.storages import BaseStorage
 from optuna.storages._base import DEFAULT_STUDY_NAME_PREFIX
 from optuna.study._frozen import FrozenStudy
@@ -747,11 +752,46 @@ def test_set_trial_param_flushes_value_and_distribution_together(setup_storage):
 
     log_batch.assert_called_once()
     tag_keys = {tag.key for tag in log_batch.call_args.kwargs["tags"]}
-    assert {"param_internal_val_x", "param_directions"} <= tag_keys
+    assert {"param_internal_val_x", "param_distribution_x"} <= tag_keys
 
     trial = reader.get_trial(trial_id)
     assert trial.params == {"x": "b"}
     assert trial.distributions == {"x": distribution}
+
+
+def test_set_trial_param_with_many_params(setup_storage):
+    # Enough distributions to exceed the 8000-character tag value limit if stored in one tag
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = storage.create_new_trial(study_id)
+    distribution = FloatDistribution(1e-5, 1e-1, log=True)
+    for i in range(100):
+        storage.set_trial_param(trial_id, f"lr_{i}", 1e-3, distribution)
+
+    trial = storage.get_trial(trial_id)
+    assert trial.params == {f"lr_{i}": 1e-3 for i in range(100)}
+    assert trial.distributions == {f"lr_{i}": distribution for i in range(100)}
+
+    copied = storage.get_trial(storage.create_new_trial(study_id, template_trial=trial))
+    assert copied.params == trial.params
+    assert copied.distributions == trial.distributions
+
+
+def test_get_trial_reads_distributions_from_param_directions_tag(setup_storage):
+    # Trials created by older versions store all distributions in "param_directions"
+    storage = setup_storage
+    study_id = storage.create_new_study(directions=[StudyDirection.MINIMIZE])
+    trial_id = storage.create_new_trial(study_id)
+    distribution = CategoricalDistribution(choices=("a", "b"))
+    client = storage._mlflow_client
+    client.set_tag(
+        trial_id, "param_directions", json.dumps({"x": distribution_to_json(distribution)})
+    )
+    client.set_tag(trial_id, "param_internal_val_x", "1")
+
+    assert storage.get_trial(trial_id).distributions == {"x": distribution}
+    storage.set_trial_param(trial_id, "y", 0, distribution)
+    assert storage.get_trial(trial_id).params == {"x": "b", "y": "a"}
 
 
 def test_get_trial_param_and_get_trial_params(setup_storage):

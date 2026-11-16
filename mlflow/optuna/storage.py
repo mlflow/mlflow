@@ -49,6 +49,24 @@ mlflow_optuna_status_map = {
     "SCHEDULED": TrialState.WAITING,
 }
 
+# Each distribution is stored in its own tag, since all of them together can exceed the tag
+# value length limit. Older trials keep their distributions in the "param_directions" tag.
+_PARAM_DISTRIBUTION_TAG_PREFIX = "param_distribution_"
+
+
+def _get_distribution_jsons(tags: dict[str, str]) -> dict[str, str]:
+    param_directions = tags["param_directions"]
+    try:
+        distributions = json.loads(param_directions)
+    except json.decoder.JSONDecodeError as e:
+        raise ValueError(f"error with param_directions = {param_directions!r}") from e
+    distributions.update({
+        key.removeprefix(_PARAM_DISTRIBUTION_TAG_PREFIX): value
+        for key, value in tags.items()
+        if key.startswith(_PARAM_DISTRIBUTION_TAG_PREFIX)
+    })
+    return distributions
+
 
 def _periodic_flush_worker(
     ref: "weakref.ref[MlflowStorage]",
@@ -419,11 +437,11 @@ class MlflowStorage(BaseStorage):
                 datetime_complete=None,
             )
 
-        distribution_json = {
-            k: distribution_to_json(dist) for k, dist in frozen.distributions.items()
-        }
-        distribution_str = json.dumps(distribution_json)
-        tags = {"param_directions": distribution_str}
+        tags = {"param_directions": "{}"}
+        tags.update({
+            f"{_PARAM_DISTRIBUTION_TAG_PREFIX}{k}": distribution_to_json(dist)
+            for k, dist in frozen.distributions.items()
+        })
 
         trial_run = self._mlflow_client.create_run(experiment_id=self._experiment_id, tags=tags)
         trial_id = trial_run.info.run_id
@@ -509,14 +527,13 @@ class MlflowStorage(BaseStorage):
         self._flush_batch(trial_id)
 
         trial_run = self._mlflow_client.get_run(trial_id)
-        distributions_dict = json.loads(trial_run.data.tags["param_directions"])
+        distributions_dict = _get_distribution_jsons(trial_run.data.tags)
         self.check_trial_is_updatable(trial_id, mlflow_optuna_status_map[trial_run.info.status])
 
         if param_name in trial_run.data.params:
             param_distribution = json_to_distribution(distributions_dict[param_name])
             check_distribution_compatibility(param_distribution, distribution)
 
-        distributions_dict[param_name] = distribution_to_json(distribution)
         # Queue the param value and its distribution together so they are flushed in the same
         # log_batch; otherwise other workers can read the value without its distribution.
         self._queue_batch_operation(
@@ -524,7 +541,10 @@ class MlflowStorage(BaseStorage):
             params=[Param(param_name, distribution.to_external_repr(param_value_internal))],
             tags=[
                 RunTag(f"param_internal_val_{param_name}", json.dumps(param_value_internal)),
-                RunTag("param_directions", json.dumps(distributions_dict)),
+                RunTag(
+                    f"{_PARAM_DISTRIBUTION_TAG_PREFIX}{param_name}",
+                    distribution_to_json(distribution),
+                ),
             ],
         )
 
@@ -604,14 +624,9 @@ class MlflowStorage(BaseStorage):
         self._flush_batch(trial_id)
 
         trial_run = self._mlflow_client.get_run(trial_id)
-        param_directions = trial_run.data.tags["param_directions"]
-        try:
-            distributions_dict = json.loads(param_directions)
-        except json.decoder.JSONDecodeError as e:
-            raise ValueError(f"error with param_directions = {param_directions!r}") from e
-
         distributions = {
-            k: json_to_distribution(distribution) for k, distribution in distributions_dict.items()
+            k: json_to_distribution(distribution)
+            for k, distribution in _get_distribution_jsons(trial_run.data.tags).items()
         }
         params = {}
         for key, value in trial_run.data.tags.items():
