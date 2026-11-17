@@ -70,12 +70,25 @@ export const IssueDetectionSettingsControl = ({ experimentId, buttonText }: Issu
       const scopeChanged =
         serializedScope !== serializeIssueDetectionTraceScope(scope.data ?? emptyIssueDetectionTraceScope());
       await saveMutation.mutateAsync(draft);
-      if (scopeChanged) await scope.save.mutateAsync(normalized);
+      if (scopeChanged) {
+        try {
+          await scope.save.mutateAsync(normalized);
+        } catch {
+          throw new Error(
+            intl.formatMessage({
+              defaultMessage:
+                'Priorities and focus areas were saved, but trace scope was not. Retry to finish saving, or cancel to keep the saved changes.',
+              description:
+                'Issue detection settings modal > Partial save error after priorities succeeded and scope failed',
+            }),
+          );
+        }
+      }
       setIsOpen(false);
     } catch (error) {
       setConfigurationError(error instanceof Error ? error : undefined);
     }
-  }, [canEdit, draft, saveMutation, normalizeScope, scope, scopeDraft]);
+  }, [canEdit, draft, saveMutation, normalizeScope, scope, scopeDraft, intl]);
 
   const settingsLabel = intl.formatMessage({
     defaultMessage: 'Issue detection settings',

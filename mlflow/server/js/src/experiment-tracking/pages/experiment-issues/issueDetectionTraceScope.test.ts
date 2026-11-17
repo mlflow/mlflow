@@ -22,7 +22,7 @@ describe('shared issue detection trace scope', () => {
         {
           key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
           value: JSON.stringify([
-            { key: ' env ', value: 'prod' },
+            { key: '\t env \n', value: 'prod' },
             { field: 'tag', operator: '=', key: 'team', value: 'support' },
           ]),
         },
@@ -124,3 +124,23 @@ test.each([
   await expect(saveIssueDetectionTraceScope('1', scope)).rejects.toThrow();
   expect(MlflowService.setExperimentTag).not.toHaveBeenCalled();
 });
+
+test.each(['"', '\\', '\n', '\t', '\r', '\u0000', '\u001f', '\u007f'])(
+  'legacy scope with unsupported character %j is recoverably invalid',
+  (character) => {
+    for (const operator of [undefined, FilterOp.EQUALS]) {
+      for (const part of ['key', 'value']) {
+        expect(() =>
+          readIssueDetectionTraceScope([
+            {
+              key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+              value: JSON.stringify([
+                { field: 'tag', operator, key: 'team', value: 'support', [part]: `bad${character}input` },
+              ]),
+            },
+          ]),
+        ).toThrow('Could not read the saved trace scope');
+      }
+    }
+  },
+);

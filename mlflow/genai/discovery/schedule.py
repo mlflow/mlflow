@@ -48,9 +48,8 @@ MAX_COMPILED_FILTER_LENGTH = 10000
 
 # A clause's key and value are spliced into a ``search_traces`` filter string, so a character that
 # would break the expression or change which traces it matches makes the clause unusable. Such a
-# clause is dropped rather than escaped or rewritten: the filter grammar has no escape (doubling a
-# quote yields both characters, not one), and a run that silently analyzed the wrong traces would
-# be worse than one that ignored a clause nobody can express.
+# clause rejects the complete scope: the filter grammar has no escape (doubling a quote yields
+# both characters, not one), and dropping it would silently analyze excluded traces.
 _FORBIDDEN_FILTER_CHARS = "`'\"\\"
 
 
@@ -490,7 +489,8 @@ def parse_trace_filters(
         ) from exc
     if not isinstance(parsed, list) or len(parsed) > MAX_TRACE_FILTERS:
         raise MlflowException.invalid_parameter_value(
-            "Invalid saved issue-detection trace scope: expected at most 20 clauses"
+            "Invalid saved issue-detection trace scope: "
+            f"expected at most {MAX_TRACE_FILTERS} clauses"
         )
     filters = []
     for entry in parsed:

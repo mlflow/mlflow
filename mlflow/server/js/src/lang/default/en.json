@@ -16239,6 +16239,10 @@
     "defaultMessage": "Columns ({visible}/{total})",
     "description": "Column-selector trigger label on the V2 dataset records page, showing the count of currently visible columns out of the total available"
   },
+  "n3y4m0": {
+    "defaultMessage": "Priorities and focus areas were saved, but trace scope was not. Retry to finish saving, or cancel to keep the saved changes.",
+    "description": "Issue detection settings modal > Partial save error after priorities succeeded and scope failed"
+  },
   "n4LXjk": {
     "defaultMessage": "Search by name to add a user's queue",
     "description": "Add to review queue: prompt to search users"

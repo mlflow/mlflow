@@ -37,6 +37,17 @@ export const readIssueDetectionTraceScope = (
       if (typeof entry.key === 'string' && entry.key.includes('`')) {
         throw new Error('Backticks are not supported in saved trace filter keys.');
       }
+      if (
+        entry.compiled === undefined &&
+        [typeof entry.key === 'string' ? entry.key.trim() : entry.key, entry.value].some(
+          (part) =>
+            typeof part === 'string' &&
+            (/[`'"\\]/.test(part) ||
+              [...part].some((char) => char.charCodeAt(0) < 0x20 || char.charCodeAt(0) === 0x7f)),
+        )
+      ) {
+        throw new Error('Invalid legacy trace filter.');
+      }
       if (entry.field === SEARCH_FIELD && typeof entry.value === 'string') {
         scope.searchQuery = entry.value;
       } else if (typeof entry.key === 'string' && entry.operator === undefined) {

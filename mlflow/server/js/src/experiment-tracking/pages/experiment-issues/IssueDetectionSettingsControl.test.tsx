@@ -300,6 +300,39 @@ describe('IssueDetectionSettingsControl', () => {
     expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Worth keeping.');
   });
 
+  test('a failed scope write discloses persisted priorities and permits retry or cancel', async () => {
+    let scopeFails = true;
+    server.use(
+      rest.post('*/ajax-api/2.0/mlflow/experiments/set-experiment-tag', async (req, res, ctx) => {
+        const body = (await req.json()) as SavedTag;
+        if (scopeFails && body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG) {
+          return res(ctx.status(500), ctx.json({ message: 'Scope unavailable' }));
+        }
+        written.push(body);
+        experimentTags = [...experimentTags.filter(({ key }) => key !== body.key), body];
+        return res(ctx.json({}));
+      }),
+    );
+    render();
+    await userEvent.type(await openSettings(), 'Persisted priorities');
+    await userEvent.type(screen.getByPlaceholderText('Add a filter'), 'synthetic');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText(
+      'Priorities and focus areas were saved, but trace scope was not. Retry to finish saving, or cancel to keep the saved changes.',
+    );
+    expect(written.map(({ key }) => key)).toEqual([MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG]);
+    expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Persisted priorities');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await openSettings();
+    expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Persisted priorities');
+    expect(screen.getByPlaceholderText('Add a filter')).toHaveValue('');
+    await userEvent.type(screen.getByPlaceholderText('Add a filter'), 'synthetic');
+    scopeFails = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument());
+    expect(written.at(-1)?.key).toBe(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG);
+  });
+
   test('a failed settings read offers a retry instead of a dead control', async () => {
     loadFails = true;
     render();
