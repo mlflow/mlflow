@@ -1,0 +1,98 @@
+import { parseTraceResponseBody, type TraceResponseMessage } from './traceResponseParsing';
+
+const WORKER_MIN_BYTES = 64 * 1024;
+const WORKER_TIMEOUT_MS = 10_000;
+const abortError = () => new DOMException('Aborted', 'AbortError');
+
+// The transferred body is lost on worker failure; GET callers can fetch it again.
+export class TraceResponseWorkerLostError extends Error {}
+
+export const createTraceResponseParser = () => {
+  let worker: Worker | undefined;
+  let ready = false;
+  let disposed = false;
+  let stopped = false;
+  let nextId = 0;
+  let startTimer: ReturnType<typeof setTimeout> | undefined;
+  const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
+
+  const stop = (error: Error) => {
+    stopped = true;
+    ready = false;
+    clearTimeout(startTimer);
+    worker?.terminate();
+    worker = undefined;
+    for (const request of pending.values()) request.reject(error);
+    pending.clear();
+  };
+
+  if (typeof Worker !== 'undefined') {
+    startTimer = setTimeout(() => stop(new TraceResponseWorkerLostError()), WORKER_TIMEOUT_MS);
+    void import('./createTraceResponseWorker')
+      .then(({ createTraceResponseWorker }) => {
+        if (stopped) return;
+        worker = createTraceResponseWorker();
+        if (!worker) {
+          stop(new TraceResponseWorkerLostError());
+          return;
+        }
+        worker.onerror = () => stop(new TraceResponseWorkerLostError());
+        worker.onmessageerror = () => stop(new TraceResponseWorkerLostError());
+        worker.onmessage = ({ data }: MessageEvent<TraceResponseMessage>) => {
+          if (!worker || disposed) return;
+          if (data.type === 'ready') {
+            ready = true;
+            clearTimeout(startTimer);
+          } else {
+            const request = pending.get(data.id);
+            pending.delete(data.id);
+            if (data.type === 'parsed') request?.resolve(data.value);
+            else request?.reject(new SyntaxError(data.message));
+          }
+        };
+      })
+      .catch(() => stop(new TraceResponseWorkerLostError()));
+  }
+
+  return {
+    async parse(response: Response, signal?: AbortSignal): Promise<unknown> {
+      if (disposed || signal?.aborted) throw abortError();
+      // Loading, unsupported or failed workers never delay a response.
+      if (!ready) {
+        const value = await response.json();
+        if (disposed || signal?.aborted) throw abortError();
+        return value;
+      }
+      const body = await response.arrayBuffer();
+      if (disposed || signal?.aborted) throw abortError();
+      if (!ready || body.byteLength < WORKER_MIN_BYTES) return parseTraceResponseBody(body);
+      return new Promise((resolve, reject) => {
+        const id = nextId++;
+        const onAbort = () => {
+          pending.delete(id);
+          finish(() => reject(abortError()));
+        };
+        const timer = setTimeout(() => stop(new TraceResponseWorkerLostError()), WORKER_TIMEOUT_MS);
+        const finish = (settle: () => void) => {
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', onAbort);
+          settle();
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+        pending.set(id, {
+          resolve: (value) => finish(() => resolve(value)),
+          reject: (error) => finish(() => reject(error)),
+        });
+        try {
+          worker?.postMessage({ id, body }, [body]);
+        } catch {
+          stop(new TraceResponseWorkerLostError());
+        }
+      });
+    },
+    dispose() {
+      disposed = true;
+      stop(abortError());
+    },
+  };
+};

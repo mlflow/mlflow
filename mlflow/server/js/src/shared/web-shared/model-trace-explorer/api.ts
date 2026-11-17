@@ -13,11 +13,34 @@ import type {
   ModelTraceSpanV3,
 } from './ModelTrace.types';
 import { fetchAPI, getAjaxUrl } from './ModelTraceExplorer.request.utils';
+import { createTraceResponseParser, TraceResponseWorkerLostError } from './traceResponseParser';
 import {
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
   parseV4TraceId,
 } from './ModelTraceExplorer.utils';
+
+let traceResponseParser: ReturnType<typeof createTraceResponseParser> | undefined;
+const fetchTraceJSON = (url: string, signal?: AbortSignal) => {
+  if (!traceResponseParser) {
+    traceResponseParser = createTraceResponseParser();
+    window.addEventListener(
+      'pagehide',
+      () => {
+        traceResponseParser?.dispose();
+        traceResponseParser = undefined;
+      },
+      { once: true },
+    );
+  }
+  const parser = traceResponseParser;
+  return fetchAPI(url, 'GET', undefined, signal, (response) => parser.parse(response, signal)).catch((error) => {
+    if (error instanceof TraceResponseWorkerLostError && !signal?.aborted) {
+      return fetchAPI(url, 'GET', undefined, signal);
+    }
+    throw error;
+  });
+};
 
 export const deleteAssessment = ({ traceId, assessmentId }: { traceId: string; assessmentId: string }) =>
   fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}/assessments/${assessmentId}`), 'DELETE');
@@ -255,7 +278,7 @@ export const getBatchTracesV4 = async ({
       trace_info: ModelTraceInfoV3;
       spans: ModelTraceSpanV3[];
     }[];
-  } = await fetchAPI(urlWithParams, 'GET');
+  } = await fetchTraceJSON(urlWithParams);
 
   return data;
 };
@@ -272,7 +295,7 @@ export const getExperimentTraceV3 = ({ traceId }: { traceId: string }) => {
   queryParams.append('allow_partial', 'true');
   const urlWithParams = `${endpointPath}?${queryParams.toString()}`;
 
-  return fetchAPI(urlWithParams, 'GET');
+  return fetchTraceJSON(urlWithParams);
 };
 
 /**
@@ -386,7 +409,7 @@ export const getTraceV3Data = (traceId: string) => {
   searchParams.append('request_id', traceId);
   const queryString = searchParams.toString();
   const uri = `${endpointPath}?${queryString}`;
-  return fetchAPI(uri, 'GET');
+  return fetchTraceJSON(uri);
 };
 
 export const getTraceV3Info = (traceId: string) => {
