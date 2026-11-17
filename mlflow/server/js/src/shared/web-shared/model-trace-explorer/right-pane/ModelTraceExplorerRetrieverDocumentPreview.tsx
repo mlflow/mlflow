@@ -7,6 +7,7 @@ import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateCo
 import { AssessmentDisplayValue } from '../assessments-pane/AssessmentDisplayValue';
 import { getAssessmentDisplayName } from '../assessments-pane/AssessmentsPane.utils';
 import { KeyValueTag } from '../key-value-tag/KeyValueTag';
+import { getRetrieverDocumentPreviewText } from '../getRetrieverDocumentPreviewText';
 
 export function ModelTraceExplorerRetrieverDocumentPreview({
   text,
@@ -92,7 +93,7 @@ export function ModelTraceExplorerRetrieverDocumentPreview({
       >
         <FileDocumentIcon />
         <Typography.Text ellipsis size="md">
-          {text}
+          {getRetrieverDocumentPreviewText(text)}
         </Typography.Text>
       </div>
       <div
