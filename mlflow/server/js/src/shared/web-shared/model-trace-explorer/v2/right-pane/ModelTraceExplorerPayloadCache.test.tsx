@@ -6,6 +6,22 @@ import { ModelTraceExplorerPayloadCacheProvider, useCachedPayloadResult } from '
 const wrapper = ModelTraceExplorerPayloadCacheProvider;
 
 describe('selected payload cache', () => {
+  it('supports consumers outside a pane provider and updates replacement payloads', () => {
+    const firstPayload = { text: 'session turn one' };
+    const nextPayload = { text: 'session turn two' };
+    const compute = jest.fn((payload: { text: string }) => payload.text);
+    const { result, rerender } = renderHook(
+      ({ payload }) => useCachedPayloadResult('fields', payload, () => compute(payload)),
+      { initialProps: { payload: firstPayload } },
+    );
+    expect(result.current).toBe('session turn one');
+    rerender({ payload: firstPayload });
+    expect(compute).toHaveBeenCalledTimes(1);
+    rerender({ payload: nextPayload });
+    expect(result.current).toBe('session turn two');
+    expect(compute).toHaveBeenCalledTimes(2);
+  });
+
   it('retains recently inspected payloads and evicts the least recently used after eight results', () => {
     const compute = jest.fn((value: number) => ({ value }));
     const { result, rerender } = renderHook(

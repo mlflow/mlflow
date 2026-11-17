@@ -4,6 +4,8 @@ type PayloadCacheKind = 'fields' | 'section-json';
 type PayloadCache = <T>(kind: PayloadCacheKind, payload: unknown, compute: () => T) => T;
 const PayloadCacheContext = createContext<PayloadCache | undefined>(undefined);
 
+const MAX_ENTRIES_PER_KIND = 8;
+
 const createPayloadCache = (): PayloadCache => {
   const kinds: Record<PayloadCacheKind, { payload: unknown; result: unknown }[]> = {
     fields: [],
@@ -19,8 +21,8 @@ const createPayloadCache = (): PayloadCache => {
     }
     const result = compute();
     entries.unshift({ payload, result });
-    // Each kind retains eight payloads, so section JSON cannot evict comparison field pairs.
-    if (entries.length > 8) entries.pop();
+    // Section JSON cannot evict comparison field pairs from their separate budget.
+    if (entries.length > MAX_ENTRIES_PER_KIND) entries.pop();
     return result;
   };
 };

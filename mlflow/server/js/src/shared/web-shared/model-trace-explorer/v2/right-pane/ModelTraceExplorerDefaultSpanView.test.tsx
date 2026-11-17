@@ -74,9 +74,11 @@ describe('selected payload reuse', () => {
         )}
       </ModelTraceExplorerPayloadCacheProvider>
     );
-    const { rerender } = render(pane(true), { wrapper: Providers });
-    rerender(pane(false));
     const stringify = jest.spyOn(JSON, 'stringify');
+    const { rerender } = render(pane(true), { wrapper: Providers });
+    expect(stringify.mock.calls.filter(([value]) => value === payload)).toHaveLength(1);
+    rerender(pane(false));
+    stringify.mockClear();
     rerender(pane(true));
     expect(stringify.mock.calls.filter(([value]) => value === payload)).toHaveLength(0);
     expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent(

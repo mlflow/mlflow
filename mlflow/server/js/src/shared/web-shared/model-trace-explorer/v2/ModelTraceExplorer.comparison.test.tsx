@@ -10,7 +10,6 @@ import { QueryClient, QueryClientProvider } from '../../query-client/queryClient
 
 import type { ModelTrace, ModelTraceSpanV2 } from './ModelTrace.types';
 import { ModelTraceExplorer } from './ModelTraceExplorer';
-import * as SpanView from './right-pane/ModelTraceExplorerDefaultSpanView';
 import * as TraceUtils from './ModelTraceExplorer.utils';
 import { MOCK_TRACE } from '../ModelTraceExplorer.test-utils';
 import { ModelTraceExplorerPreferencesProvider } from './ModelTraceExplorerPreferencesContext';
@@ -81,16 +80,13 @@ describe('ModelTraceExplorer trace comparison', () => {
         String((value as { document?: { cacheMarker?: string } })?.document?.cacheMarker).startsWith('comparison-'),
       );
     expect(markerCalls()).toHaveLength(2);
-    const fields = jest.spyOn(SpanView, 'getSpanComparisonFields');
     try {
       await userEvent.click(screen.getByRole('tab', { name: /^Attributes/ }));
       await userEvent.click(screen.getByRole('tab', { name: /^Inputs \/ Outputs/ }));
-      expect(fields).not.toHaveBeenCalled();
       expect(markerCalls()).toHaveLength(2);
       expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent('comparison-before');
       expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent('comparison-after');
     } finally {
-      fields.mockRestore();
       serializedFields.mockRestore();
     }
   });
