@@ -458,8 +458,8 @@ export const hoistLeadingSystemMessages = (
 
 const getChatMessagesFromSpan = (
   messagesAttributeValue: any,
-  inputs: any,
-  outputs: any,
+  getInputs: () => any,
+  getOutputs: () => any,
   messageFormat?: string,
   children?: ModelTraceSpanNode[],
 ): ModelTraceChatMessage[] | undefined => {
@@ -473,6 +473,8 @@ const getChatMessagesFromSpan = (
   // otherwise, attempt to parse messages from inputs and outputs
   // this is to support rich rendering for older versions of MLflow
   // before the `mlflow.chat.messages` attribute was introduced
+  const inputs = getInputs();
+  const outputs = getOutputs();
   const messagesFromInputs = normalizeConversation(inputs, messageFormat) ?? [];
   const messagesFromOutputs = normalizeConversation(outputs, messageFormat) ?? [];
 
@@ -528,7 +530,7 @@ const logDroppedChatTools = (total: number, valid: number, source: string): void
   }
 };
 
-const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTraceChatTool[] | undefined => {
+const getChatToolsFromSpan = (toolsAttributeValue: any, getInputs: () => any): ModelTraceChatTool[] | undefined => {
   // if the `mlflow.chat.tools` attribute is provided, return the tools that
   // are in the correct format. A single non-conforming tool shouldn't drop the
   // entire list from the UI.
@@ -542,6 +544,7 @@ const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTrace
 
   // otherwise, attempt to parse tools from inputs
   // TODO: support langchain format for tool inputs
+  const inputs = getInputs();
   if (Array.isArray(inputs?.tools)) {
     const validTools = inputs.tools.filter(isModelTraceChatTool);
     logDroppedChatTools(inputs.tools.length, validTools.length, 'inputs.tools');
@@ -594,15 +597,9 @@ export const normalizeNewSpanData = (
   const rawTools = getSpanAttribute(span.attributes, 'mlflow.chat.tools');
   const messageFormat = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.message.format') as string);
   const chatMessages = once(() =>
-    getChatMessagesFromSpan(
-      tryDeserializeAttribute(rawMessages as string),
-      inputs(),
-      outputs(),
-      messageFormat,
-      children,
-    ),
+    getChatMessagesFromSpan(tryDeserializeAttribute(rawMessages as string), inputs, outputs, messageFormat, children),
   );
-  const chatTools = once(() => getChatToolsFromSpan(tryDeserializeAttribute(rawTools as string), inputs()));
+  const chatTools = once(() => getChatToolsFromSpan(tryDeserializeAttribute(rawTools as string), inputs));
 
   // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);

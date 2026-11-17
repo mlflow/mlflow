@@ -3,6 +3,7 @@ import { act, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from '@databricks/web-shared/test-utils/render';
 
+import * as openAI from '../chat-utils/openai';
 import { useModelTraceSearch } from '../hooks/useModelTraceSearch';
 import { MOCK_V3_SPANS, MOCK_V3_TRACE } from '../ModelTraceExplorer.test-utils';
 import {
@@ -164,18 +165,19 @@ describe('lazy span payloads', () => {
   });
 
   it('keeps payloads unparsed until read and shares cached reads with chat normalization', () => {
+    const expectedInputs = JSON.parse(inputs);
     const { parse, calls } = watchPayloads();
     try {
       const node = makeNode();
       expect([calls(inputs), calls(outputs), calls(metadata)]).toEqual([0, 0, 0]);
-      expect(node.inputs).toEqual(JSON.parse(inputs));
+      expect(node.inputs).toEqual(expectedInputs);
       expect(node.inputs).toBe(node.inputs);
-      expect(calls(inputs)).toBe(2);
+      expect(calls(inputs)).toBe(1);
       expect(calls(outputs)).toBe(0);
       void node.chatMessages;
       void node.chatMessages;
       void node.chatTools;
-      expect(calls(inputs)).toBe(2);
+      expect(calls(inputs)).toBe(1);
       expect(calls(outputs)).toBe(1);
       expect(calls(metadata)).toBe(0);
       expect(node.attributes).toEqual({ custom: { custom: 'retained' } });
@@ -187,6 +189,7 @@ describe('lazy span payloads', () => {
   });
 
   it('keeps cached undefined values and independent same-id replacement data', () => {
+    const normalize = jest.spyOn(openAI, 'normalizeOpenAIChatInput');
     const { parse, calls } = watchPayloads();
     try {
       const node = makeNode();
@@ -194,14 +197,46 @@ describe('lazy span payloads', () => {
       expect(node.key).toBe(next.key);
       expect(node.outputs).toEqual({ response: 'tail' });
       expect(next.outputs).toBeNull();
+      expect(next.outputs).toBeNull();
+      expect(calls('null')).toBe(1);
       expect(next.chatMessages).toBeUndefined();
       expect(next.chatMessages).toBeUndefined();
+      expect(calls('null')).toBe(1);
+      expect(normalize).toHaveBeenCalledTimes(2);
       expect(calls(outputs)).toBe(1);
       expect(calls(metadata)).toBe(0);
     } finally {
       parse.mockRestore();
+      normalize.mockRestore();
     }
   });
+
+  it.each(['legacy', 'redesigned'])(
+    'does not read fallback payloads for explicit chat attributes in the %s normalizer',
+    (name) => {
+      const messages = JSON.stringify([{ role: 'user', content: 'explicit chat' }]);
+      const tools = JSON.stringify([{ type: 'function', function: { name: 'lookup' } }]);
+      const { parse, calls } = watchPayloads();
+      try {
+        const span = {
+          ...MOCK_V3_SPANS[0],
+          attributes: { ...attributes, 'mlflow.chat.messages': messages, 'mlflow.chat.tools': tools },
+        };
+        const node =
+          name === 'legacy'
+            ? normalizeLegacySpan(span, 0, 1000, [], {}, 'trace')
+            : normalizeNewSpanData(span, 0, 1000, [], {}, 'trace');
+        expect(node.chatMessages).toMatchObject([{ role: 'user' }]);
+        expect(node.chatMessages).toBe(node.chatMessages);
+        expect(node.chatTools).toMatchObject([{ function: { name: 'lookup' } }]);
+        expect(node.chatTools).toBe(node.chatTools);
+        expect([calls(inputs), calls(outputs), calls(metadata)]).toEqual([0, 0, 0]);
+        expect([calls(messages), calls(tools)]).toEqual([1, 1]);
+      } finally {
+        parse.mockRestore();
+      }
+    },
+  );
 
   it('does not materialize payloads when only span types are filtered', () => {
     const { parse, calls } = watchPayloads();
