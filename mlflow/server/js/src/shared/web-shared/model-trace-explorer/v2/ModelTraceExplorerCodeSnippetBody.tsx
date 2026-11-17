@@ -219,7 +219,7 @@ export function ModelTraceExplorerCodeSnippetBody({
           text={displayedData}
           copyText={isYamlRenderMode || renderMode === CodeSnippetRenderMode.MARKDOWN ? dataToTruncate : data}
         />
-      ) : renderMode === 'markdown' ? (
+      ) : renderMode === CodeSnippetRenderMode.MARKDOWN ? (
         <div
           css={{
             padding: theme.spacing.md,
