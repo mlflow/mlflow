@@ -19,12 +19,16 @@ _TRACE_FILTER_QUOTED_TOKENS = (
     r"""'(?:''|\\'|[^'])*'|"(?:""|\\"|[^"])*"|`(?:``|[^`])*`""",
     r"""'(?:''|\\\\|\\'|[^'])*'|"(?:""|\\\\|\\"|[^"])*"|`(?:``|[^`])*`""",
 )
+_TRACE_METADATA_FILTER_FIELDS = {
+    "request_metadata.`mlflow.modelId`",
+    "metadata.`mlflow.trace.session`",
+}
 
 
 def format_trace_metadata_filter(field: str, value: str) -> str:
     """Frame fixed metadata IDs as one exact literal under supported server tokenizers."""
     value = str(value)
-    if field not in {"request_metadata.`mlflow.modelId`", "metadata.`mlflow.trace.session`"} or any(
+    if field not in _TRACE_METADATA_FILTER_FIELDS or any(
         (literal := re.match(pattern, f"'{value}'")) is None or literal.end() != len(value) + 2
         for pattern in _TRACE_FILTER_QUOTED_TOKENS
     ):
