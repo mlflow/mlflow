@@ -9,4 +9,16 @@ if [ -L "$file" ]; then
   exit 1
 fi
 [ -f "$file" ] || exit 0
-perl -pi -e 'BEGIN { @s = grep { length } split /\n/, $ENV{SECRETS} // "" } for my $x (@s) { s/\Q$x\E/***/g }' "$file"
+
+text=$(<"$file")
+while IFS= read -r secret; do
+  # The quoted pattern matches literally, so regex/glob characters in a secret are safe.
+  if [ -n "$secret" ]; then
+    text=${text//"$secret"/***}
+  fi
+done <<<"${SECRETS:-}"
+
+tmp=$(mktemp "$file.XXXXXX")
+trap 'rm -f -- "$tmp"' EXIT
+printf '%s\n' "$text" >"$tmp"
+mv -f -- "$tmp" "$file"
