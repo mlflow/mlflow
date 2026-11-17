@@ -106,7 +106,7 @@ export const buildEvalRunTraceFilter = ({
   const runClause = `attributes.run_id = '${escapeFilterValue(runUuid)}'`;
   const userFilter = buildFilter({ searchQuery, extraClauses });
   const requiredFilter = `${runClause} AND ${EXCLUDE_SCORER_TRACES_CLAUSE}`;
-  return userFilter ? `${requiredFilter} AND ${userFilter}` : requiredFilter;
+  return buildFilter({ extraClauses: [requiredFilter, userFilter ?? ''] }) ?? requiredFilter;
 };
 
 /** Owns the eval-run-specific trace query policy while reusing the shared table mechanisms. */
