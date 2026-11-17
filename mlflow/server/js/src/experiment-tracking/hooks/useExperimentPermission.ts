@@ -9,13 +9,14 @@ import { useWorkspacesEnabled } from './useServerInfo';
 export const useExperimentPermission = (experimentId: string, levels: string[]): boolean => {
   const user = useCurrentUserQuery();
   const username = user.data?.user?.username;
+  const isAdmin = Boolean(!user.isError && user.data?.user?.is_admin);
   const workspace = useActiveWorkspace();
   const { workspacesEnabled, loading } = useWorkspacesEnabled();
   const workspaceResolved = (!workspacesEnabled && !loading) || Boolean(workspace);
   const permission = useQuery({
     queryKey: ['experiment-permission', username, workspace, experimentId],
     queryFn: () => AccountApi.getUserPermission(username ?? '', 'experiment', experimentId),
-    enabled: Boolean(username && experimentId && workspaceResolved),
+    enabled: Boolean(!isAdmin && username && experimentId && workspaceResolved),
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -23,6 +24,10 @@ export const useExperimentPermission = (experimentId: string, levels: string[]):
   // Only a missing auth endpoint identifies no-auth; lookup failures must never grant access.
   return (
     user.error instanceof NotFoundError ||
-    Boolean(!user.isError && workspaceResolved && permission.isSuccess && levels.includes(permission.data.permission))
+    Boolean(
+      !user.isError &&
+      workspaceResolved &&
+      (isAdmin || (permission.isSuccess && levels.includes(permission.data.permission))),
+    )
   );
 };

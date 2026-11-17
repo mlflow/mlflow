@@ -32,10 +32,17 @@ beforeEach(() => {
   jest.mocked(AccountApi.getUserPermission).mockReset().mockResolvedValue({ allowed: true, permission: 'MANAGE' });
 });
 
-it('uses the server effective permission, including role/default/admin resolution', async () => {
+it('uses server effective permission for non-admin users', async () => {
   const { result } = renderPermission();
   await waitFor(() => expect(result.current).toBe(true));
   expect(AccountApi.getUserPermission).toHaveBeenCalledWith('reviewer', 'experiment', 'exp-1');
+});
+
+it.each(['edit', 'manage'] as const)('platform admins can %s without an explicit effective grant', (levels) => {
+  mockUser = { data: { user: { username: 'admin', is_admin: true } }, isError: false };
+  jest.mocked(AccountApi.getUserPermission).mockResolvedValue({ allowed: true, permission: 'READ' });
+  expect(renderPermission(levels).result.current).toBe(true);
+  expect(AccountApi.getUserPermission).not.toHaveBeenCalled();
 });
 
 it('grants on a missing auth endpoint only', () => {
