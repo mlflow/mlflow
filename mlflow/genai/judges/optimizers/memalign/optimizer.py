@@ -1,6 +1,5 @@
 import copy
 import logging
-import threading
 from collections.abc import Iterable
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
@@ -255,8 +254,6 @@ class MemoryAugmentedJudge(Judge):
 
         # Always store trace IDs for serialization
         self._episodic_trace_ids: list[str] = []
-        # Serializes deferred init across concurrent first calls (e.g. evaluate's thread pool)
-        self._init_lock = threading.Lock()
 
         if _defer_init:
             # Defer creating heavyweight DSPy objects until first use (_embedder=None signals this)
@@ -514,23 +511,17 @@ class MemoryAugmentedJudge(Judge):
 
         No-op if already initialized (checked via _embedder not being None).
         """
-        with self._init_lock:
-            if self._embedder is not None:
-                return
+        if self._embedder is not None:
+            return
 
-            self._base_signature = create_dspy_signature(self._base_judge)
+        self._base_signature = create_dspy_signature(self._base_judge)
 
-            self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
+        self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
 
-            try:
-                self._episodic_memory = self._reconstruct_episodic_memory()
+        self._episodic_memory = self._reconstruct_episodic_memory()
 
-                if self._episodic_memory:
-                    self._build_episodic_memory()
-            except Exception:
-                # Leave the judge uninitialized so the next call retries.
-                self._embedder = None
-                raise
+        if self._episodic_memory:
+            self._build_episodic_memory()
 
     def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
         """
@@ -692,7 +683,8 @@ class MemoryAugmentedJudge(Judge):
             retrievers[field] = (retriever, positions)
             _logger.debug(f"Episodic memory corpus for {field!r} contains {len(corpus)} examples")
 
-        # Publish only once every index is built, so readers never see a partial index.
+        # Publish after all indexes are built. These are two separate assignments; that is safe
+        # because rebuilds only run on judges not yet shared, or during lazy init.
         self._episodic_memory = episodic_memory
         self._retrievers = retrievers
 

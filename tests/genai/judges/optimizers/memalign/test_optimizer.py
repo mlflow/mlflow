@@ -1,4 +1,6 @@
+import copy
 import json
+import pickle
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -1062,28 +1064,23 @@ def test_concurrent_calls_do_not_leak_retrieved_examples_across_rows(sample_judg
         assert other_example_text[row] not in system_message
 
 
-def test_concurrent_first_calls_on_deferred_multi_field_judge_use_every_index(sample_judge):
-    # A second call that lands while the first is still building the per-field indices
-    # must wait for them rather than iterate a half-built retriever dict.
-    second_call_querying = threading.Event()
-    queried_fields = []
+def test_concurrent_first_call_on_deferred_multi_field_judge_does_not_raise(sample_judge):
+    # A second call that lands while the first is still building the per-field indexes must
+    # not iterate a half-built retriever dict. As on master, it may retrieve nothing.
+    building = threading.Event()
+    release = threading.Event()
     errors = []
 
     class FakeEmbeddings:
         def __init__(self, embedder, corpus, k):
-            self.field = "outputs" if "answer" in corpus[0] else "inputs"
-            if self.field == "outputs":
-                # Hold the first call mid-build until the second call is querying (old code)
-                # or the second call is blocked on init (fixed code, so this times out).
-                second_call_querying.wait(timeout=1)
+            if "answer" in corpus[0]:  # the second field's index: hold the first call here
+                building.set()
+                assert release.wait(timeout=30)
 
         def __call__(self, query):
-            queried_fields.append(self.field)
-            second_call_querying.set()
-            threading.Event().wait(0.3)
             return MagicMock(indices=[0])
 
-    def call():
+    def first_call():
         try:
             judge(inputs="q", outputs="a")
         except Exception as e:
@@ -1100,42 +1097,25 @@ def test_concurrent_first_calls_on_deferred_multi_field_judge_use_every_index(sa
             sample_judge, retrieval_fields=["inputs", "outputs"], _defer_init=True
         )
         judge._episodic_trace_ids = ["t1"]
-        first = threading.Thread(target=call, name="memalign-first-call")
+        first = threading.Thread(target=first_call)
         first.start()
-        threading.Event().wait(0.2)
-        second = threading.Thread(target=call, name="memalign-second-call")
-        second.start()
-        first.join(timeout=10)
-        second.join(timeout=10)
+        assert building.wait(timeout=30)
+        try:
+            judge(inputs="q", outputs="a")  # the first call is mid-build: indexes unpublished
+        finally:
+            release.set()
+            first.join(timeout=30)
 
     assert errors == []
-    assert sorted(queried_fields) == ["inputs", "inputs", "outputs", "outputs"]
-
-
-def test_failed_lazy_init_is_retried_on_next_call(sample_judge):
-    examples = [dspy.Example(inputs="question", outputs="answer", result="yes", rationale="r")]
-    with (
-        patch("dspy.retrievers.Embeddings") as mock_embeddings_class,
-        patch("mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder"),
-        patch.object(
-            MemoryAugmentedJudge,
-            "_reconstruct_episodic_memory",
-            side_effect=[RuntimeError("store down"), examples],
-        ),
-        patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
-    ):
-        mock_embeddings_class.return_value.return_value = MagicMock(indices=[0])
-        judge = MemoryAugmentedJudge(
-            sample_judge, retrieval_fields=["inputs", "outputs"], _defer_init=True
-        )
-        judge._episodic_trace_ids = ["t1"]
-        with pytest.raises(RuntimeError, match="store down"):
-            judge(inputs="q", outputs="a")
-        assert judge._embedder is None
-
-        judge(inputs="q", outputs="a")
-
     assert list(judge._retrievers) == ["inputs", "outputs"]
+
+
+def test_deferred_judge_from_deserialization_supports_deepcopy_and_pickle(sample_judge):
+    deferred = MemoryAugmentedJudge(sample_judge, retrieval_fields=["inputs"], _defer_init=True)
+    restored = Scorer.model_validate(deferred.model_dump())
+
+    assert copy.deepcopy(restored)._retrieval_fields == ["inputs"]
+    assert pickle.loads(pickle.dumps(restored))._retrieval_fields == ["inputs"]
 
 
 @pytest.mark.parametrize(
