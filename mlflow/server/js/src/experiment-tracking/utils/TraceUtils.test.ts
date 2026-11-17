@@ -1131,7 +1131,7 @@ describe('getTrace', () => {
     await getTrace('tr-1', { trace_id: 'tr-1' } as any);
 
     expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1' });
-    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1');
+    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1', undefined);
   });
 
   it('falls back to getTraceV3 for a non-TRACKING_STORE v3 trace', async () => {
@@ -1141,6 +1141,18 @@ describe('getTrace', () => {
     await getTrace('tr-1', { trace_id: 'tr-1' } as any);
 
     expect(mockGetExperimentTraceV3).not.toHaveBeenCalled();
-    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1');
+    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1', undefined);
+  });
+
+  it('forwards cancellation through tracking-store and artifact routes', async () => {
+    const { signal } = new AbortController();
+    mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
+    mockGetExperimentTraceV3.mockResolvedValue({ trace: { spans: [] } } as any);
+    await getTrace('tr-1', undefined, undefined, signal);
+    expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1', signal });
+
+    mockGetSpansLocation.mockReturnValue(undefined);
+    await getTrace('tr-1', undefined, undefined, signal);
+    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1', signal);
   });
 });

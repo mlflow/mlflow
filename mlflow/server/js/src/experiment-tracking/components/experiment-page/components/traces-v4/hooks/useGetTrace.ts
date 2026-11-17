@@ -37,20 +37,23 @@ export function useGetTrace(traceId: string, selectedSqlWarehouseId?: string, ro
   // false), so this is only ever constructed, not called.
   const getTraceV4 = useFetchTraceV4LazyQuery(undefined as never);
 
-  const fetchTrace = useCallback(async (): Promise<ModelTrace | undefined> => {
-    if (!parsedTrace) return undefined;
+  const fetchTrace = useCallback(
+    async ({ signal }: { signal?: AbortSignal }): Promise<ModelTrace | undefined> => {
+      if (!parsedTrace) return undefined;
 
-    if (shouldUseTracesV4API() && parsedTrace.trace_location && selectedSqlWarehouseId) {
-      const location = createTraceLocationForDestinationPath(parsedTrace.trace_location);
-      // Spread `rowTraceInfo` first so the parsed id and recomputed location win; the row contributes
-      // only timing (`request_time`/`execution_duration`), which `getTraceV4` uses to derive time hints.
-      return getTraceV4({ ...rowTraceInfo, ...parsedTrace, trace_location: location } as ModelTraceInfoV3);
-    }
+      if (shouldUseTracesV4API() && parsedTrace.trace_location && selectedSqlWarehouseId) {
+        const location = createTraceLocationForDestinationPath(parsedTrace.trace_location);
+        // Spread `rowTraceInfo` first so the parsed id and recomputed location win; the row contributes
+        // only timing (`request_time`/`execution_duration`), which `getTraceV4` uses to derive time hints.
+        return getTraceV4({ ...rowTraceInfo, ...parsedTrace, trace_location: location } as ModelTraceInfoV3);
+      }
 
-    // Forward the row's trace info so OSS's `getTrace` can read its spans-location tag and take the
-    // tracking-store `get-trace` path (rather than falling through to the artifact route).
-    return getTraceV3(parsedTrace.trace_id, rowTraceInfo);
-  }, [parsedTrace, getTraceV4, selectedSqlWarehouseId, rowTraceInfo]);
+      // Forward the row's trace info so OSS's `getTrace` can read its spans-location tag and take the
+      // tracking-store `get-trace` path (rather than falling through to the artifact route).
+      return getTraceV3(parsedTrace.trace_id, rowTraceInfo, selectedSqlWarehouseId, signal);
+    },
+    [parsedTrace, getTraceV4, selectedSqlWarehouseId, rowTraceInfo],
+  );
 
   const enabled = Boolean(traceId);
   const result = useQuery({

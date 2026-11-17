@@ -165,7 +165,7 @@ describe('trace response parsing', () => {
     expect(worker.terminate).not.toHaveBeenCalled();
   });
 
-  it.each(['error', 'messageerror', 'timeout', 'post failure'])(
+  it.each(['error', 'messageerror', 'post failure'])(
     'rejects a lost body on %s and falls back for future responses',
     async (failure) => {
       worker.send({ type: 'ready' });
@@ -178,13 +178,34 @@ describe('trace response parsing', () => {
       await Promise.resolve();
       if (failure === 'error') worker.onerror?.();
       if (failure === 'messageerror') worker.onmessageerror?.();
-      if (failure === 'timeout') jest.advanceTimersByTime(10_000);
       await expect(result).rejects.toBeInstanceOf(TraceResponseWorkerLostError);
       expect(worker.terminate).toHaveBeenCalledTimes(1);
       await expect(parser.parse(body(large))).resolves.toEqual(large);
       expect(jest.getTimerCount()).toBe(0);
     },
   );
+
+  it('times out only the affected request and still accepts unrelated and later replies', async () => {
+    worker.send({ type: 'ready' });
+    const first = parser.parse(body(large));
+    await Promise.resolve();
+    jest.advanceTimersByTime(5_000);
+    const second = parser.parse(body(large));
+    await Promise.resolve();
+    const [a, b] = worker.postMessage.mock.calls.map(([request]) => request);
+    jest.advanceTimersByTime(5_000);
+    await expect(first).rejects.toBeInstanceOf(TraceResponseWorkerLostError);
+    expect(worker.terminate).not.toHaveBeenCalled();
+    worker.send({ type: 'parsed', id: b.id, value: large });
+    await expect(second).resolves.toEqual(large);
+    worker.send({ type: 'parsed', id: a.id, value: large });
+    const third = parser.parse(body(large));
+    await Promise.resolve();
+    const [{ id }] = worker.postMessage.mock.calls[2];
+    worker.send({ type: 'parsed', id, value: large });
+    await expect(third).resolves.toEqual(large);
+    expect(jest.getTimerCount()).toBe(0);
+  });
 
   it('gives up on a silent startup without delaying responses', async () => {
     jest.advanceTimersByTime(10_000);

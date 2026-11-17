@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import { getBatchTracesV4, getExperimentTraceV3, getTraceV3Data, getTraceV3Info } from './api';
+import { getBatchTracesV4, getExperimentTraceV3, getTraceV3, getTraceV3Data, getTraceV3Info } from './api';
 import { fetchAPI } from './ModelTraceExplorer.request.utils';
 import { createTraceResponseParser, TraceResponseWorkerLostError } from './traceResponseParser';
 
@@ -50,6 +50,29 @@ describe('trace body response parsing', () => {
     expect(fetchMock.mock.calls[0][0]).toBe(fetchMock.mock.calls[1][0]);
     expect(fetchMock.mock.calls[1].slice(1)).toEqual(['GET', undefined, undefined]);
     expect(parse).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards caller cancellation through each trace body transport and parser', async () => {
+    const { signal } = new AbortController();
+    await getExperimentTraceV3({ traceId: 'owned', signal });
+    await getTraceV3Data('owned', signal);
+    await getBatchTracesV4({ traceIds: ['owned'], traceLocation: 'synthetic', signal });
+    await getTraceV3('owned', signal);
+    expect(fetchMock.mock.calls).toHaveLength(5);
+    expect(fetchMock.mock.calls.every((call) => call[3] === signal)).toBe(true);
+    expect(parse).toHaveBeenCalledTimes(4);
+    expect(parse.mock.calls.every((call) => call[1] === signal)).toBe(true);
+  });
+
+  it('does not retry a lost body when its caller has canceled', async () => {
+    const controller = new AbortController();
+    const lost = new TraceResponseWorkerLostError();
+    parse.mockImplementation(async () => {
+      controller.abort();
+      throw lost;
+    });
+    await expect(getTraceV3Data('owned', controller.signal)).rejects.toBe(lost);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it.each([new SyntaxError('invalid JSON'), new DOMException('Aborted', 'AbortError'), new Error('network')])(

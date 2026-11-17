@@ -252,6 +252,7 @@ export const searchTracesV4 = async ({
 export const getBatchTracesV4 = async ({
   traceIds,
   traceLocation,
+  signal,
 }: {
   /**
    * List of trace IDs to fetch.
@@ -261,6 +262,7 @@ export const getBatchTracesV4 = async ({
    * Location descriptor of the traces. All provided trace ID must correspond to and share the same location.
    */
   traceLocation: ModelTraceLocation | string;
+  signal?: AbortSignal;
 }) => {
   const locationString = isString(traceLocation) ? traceLocation : createTraceV4SerializedLocation(traceLocation);
 
@@ -278,7 +280,7 @@ export const getBatchTracesV4 = async ({
       trace_info: ModelTraceInfoV3;
       spans: ModelTraceSpanV3[];
     }[];
-  } = await fetchTraceJSON(urlWithParams);
+  } = await fetchTraceJSON(urlWithParams, signal);
 
   return data;
 };
@@ -287,7 +289,7 @@ export const getBatchTracesV4 = async ({
  * Traces API: get a single trace (info + spans) with optional partial support. Only supported
  * by OSS SQLAlchemyStore now.
  */
-export const getExperimentTraceV3 = ({ traceId }: { traceId: string }) => {
+export const getExperimentTraceV3 = ({ traceId, signal }: { traceId: string; signal?: AbortSignal }) => {
   const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/traces/get`);
 
   const queryParams = new URLSearchParams();
@@ -295,7 +297,7 @@ export const getExperimentTraceV3 = ({ traceId }: { traceId: string }) => {
   queryParams.append('allow_partial', 'true');
   const urlWithParams = `${endpointPath}?${queryParams.toString()}`;
 
-  return fetchTraceJSON(urlWithParams);
+  return fetchTraceJSON(urlWithParams, signal);
 };
 
 /**
@@ -305,6 +307,7 @@ export const getExperimentTraceV3 = ({ traceId }: { traceId: string }) => {
 const getTraceV4 = async (
   traceInput: Partial<ModelTraceInfoV3> | string,
   sqlWarehouseId?: string,
+  signal?: AbortSignal,
 ): Promise<{
   info: ModelTraceInfoV3;
   data: {
@@ -331,6 +334,7 @@ const getTraceV4 = async (
   const traceResponse = await getBatchTracesV4({
     traceIds: [traceId],
     traceLocation: traceLocation,
+    signal,
   });
 
   const trace = first(
@@ -403,25 +407,28 @@ export const setTraceTagV3 = async ({ tag, traceId }: { tag: { key: string; valu
   return fetchAPI(endpointPath, 'PATCH', tag);
 };
 
-export const getTraceV3Data = (traceId: string) => {
+export const getTraceV3Data = (traceId: string, signal?: AbortSignal) => {
   const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/get-trace-artifact`);
   const searchParams = new URLSearchParams();
   searchParams.append('request_id', traceId);
   const queryString = searchParams.toString();
   const uri = `${endpointPath}?${queryString}`;
-  return fetchTraceJSON(uri);
+  return fetchTraceJSON(uri, signal);
 };
 
-export const getTraceV3Info = (traceId: string) => {
+export const getTraceV3Info = (traceId: string, signal?: AbortSignal) => {
   const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}`);
-  return fetchAPI(endpointPath, 'GET');
+  return fetchAPI(endpointPath, 'GET', undefined, signal);
 };
 
 /**
  * Combines two requests (info and data) into a single response to get the full trace.
  */
-export const getTraceV3 = async (traceId: string) => {
-  const [traceInfoResponse, traceDataResponse] = await Promise.all([getTraceV3Info(traceId), getTraceV3Data(traceId)]);
+export const getTraceV3 = async (traceId: string, signal?: AbortSignal) => {
+  const [traceInfoResponse, traceDataResponse] = await Promise.all([
+    getTraceV3Info(traceId, signal),
+    getTraceV3Data(traceId, signal),
+  ]);
   const traceInfo = traceInfoResponse?.trace?.trace_info;
   return {
     info: traceInfo,

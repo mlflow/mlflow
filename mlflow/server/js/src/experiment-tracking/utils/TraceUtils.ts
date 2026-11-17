@@ -21,6 +21,8 @@ import {
 export async function getTrace(
   traceId?: string,
   traceInfo?: ModelTrace['info'],
+  _sqlWarehouseId?: string,
+  signal?: AbortSignal,
   // prettier-ignore
 ): Promise<ModelTrace | undefined> {
   if (!traceId) {
@@ -32,7 +34,7 @@ export async function getTrace(
   // Otherwise, fall back to artifact route. Currently, tracking store tag is
   // only set when the backend is OSS SQLAlchemyStore.
   if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
-    const traceResp = await getExperimentTraceV3({ traceId });
+    const traceResp = await getExperimentTraceV3({ traceId, signal });
     // The get-trace response is { trace: { trace_info, spans } } (see GetTrace.Response),
     // so the spans live under trace.spans. Reshape into the { info, data: { spans } } shape
     // the UI expects, mirroring getTraceV4. Returning here avoids falling through to the
@@ -50,12 +52,14 @@ export async function getTrace(
     // prettier-ignore
     return TracesServiceV4.getTraceV4(
       traceId,
+      undefined,
+      signal,
     );
   }
 
   // v3 trace ID
   if (traceId.startsWith('tr-')) {
-    return TracesServiceV3.getTraceV3(traceId);
+    return TracesServiceV3.getTraceV3(traceId, signal);
   }
   return getTraceLegacy(traceId);
 }

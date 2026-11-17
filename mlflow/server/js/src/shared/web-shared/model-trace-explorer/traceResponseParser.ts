@@ -17,6 +17,7 @@ export const createTraceResponseParser = () => {
   const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 
   const stop = (error: Error) => {
+    // shortcut: disable a failed worker for this page; add bounded restart if transient failures warrant it.
     stopped = true;
     ready = false;
     clearTimeout(startTimer);
@@ -72,7 +73,10 @@ export const createTraceResponseParser = () => {
           pending.delete(id);
           finish(() => reject(abortError()));
         };
-        const timer = setTimeout(() => stop(new TraceResponseWorkerLostError()), WORKER_TIMEOUT_MS);
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          finish(() => reject(new TraceResponseWorkerLostError()));
+        }, WORKER_TIMEOUT_MS);
         const finish = (settle: () => void) => {
           clearTimeout(timer);
           signal?.removeEventListener('abort', onAbort);
