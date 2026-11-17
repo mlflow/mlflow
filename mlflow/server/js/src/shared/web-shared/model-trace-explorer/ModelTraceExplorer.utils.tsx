@@ -16,6 +16,7 @@ import {
   isEmpty,
 } from 'lodash';
 import { useMemo } from 'react';
+import { mayBeJsonText } from './attributeJson';
 
 import type {
   SearchMatch,
@@ -164,6 +165,9 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
 }
 
 export function tryDeserializeAttribute(value: string): any {
+  if (!mayBeJsonText(value)) {
+    return value;
+  }
   try {
     const parsed = JSON.parse(value);
     // Guard against precision loss for a top-level integer-literal value (e.g. an int64-range
