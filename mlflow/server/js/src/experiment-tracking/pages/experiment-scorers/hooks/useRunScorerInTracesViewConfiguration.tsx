@@ -27,7 +27,7 @@ import type { ScorerEvaluation, ScorerFinishedEvent } from '../useEvaluateTraces
 import { useTemplateOptions } from '../llmScorerUtils';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import {
-  GATEWAY_MODEL_PREFIX,
+  isGatewayModel,
   formatGatewayModelFromEndpoint,
   getEndpointNameFromGatewayModel,
 } from '../../../../gateway/utils/gatewayUtils';
@@ -229,8 +229,7 @@ const RunJudgeModalImpl = ({
   const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
   const hasSelectedTemplates = selectedTemplates.length > 0;
   const isGatewayBlocked =
-    !gatewayEnabled &&
-    (hasSelectedTemplates || selectedScorers.some((scorer) => scorer.model?.startsWith(GATEWAY_MODEL_PREFIX)));
+    !gatewayEnabled && (hasSelectedTemplates || selectedScorers.some((scorer) => isGatewayModel(scorer.model)));
 
   const toggleScorer = (scorer: LLMScorer) => {
     setSelectedScorers((prev) => {

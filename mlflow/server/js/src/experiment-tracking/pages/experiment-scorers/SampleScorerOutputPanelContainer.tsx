@@ -22,7 +22,7 @@ import {
   isScorerModelSelectionEnabled,
   shouldSupportRunningDatabricksProviderJudgesFromUI,
 } from '../../../common/utils/FeatureUtils';
-import { GATEWAY_MODEL_PREFIX, getModelProvider, ModelProvider } from '../../../gateway/utils/gatewayUtils';
+import { isGatewayModel, getModelProvider, ModelProvider } from '../../../gateway/utils/gatewayUtils';
 import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../hooks/useServerInfo';
 
 interface SampleScorerOutputPanelContainerProps {
@@ -241,7 +241,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       );
     }
 
-    if (!gatewayEnabled && modelValue?.startsWith(GATEWAY_MODEL_PREFIX)) {
+    if (!gatewayEnabled && isGatewayModel(modelValue)) {
       return intl.formatMessage({
         defaultMessage: 'AI Gateway is disabled on this server, so this judge model cannot be run.',
         description: 'Tooltip when the selected judge model requires the disabled AI Gateway',

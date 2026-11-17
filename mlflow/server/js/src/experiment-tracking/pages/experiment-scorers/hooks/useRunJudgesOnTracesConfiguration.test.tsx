@@ -102,6 +102,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
 
   it.each([
     { names: ['gateway_judge'], gateway: false, disabled: true },
+    { names: ['Safety'], gateway: false, disabled: true },
     { names: ['dotted_gateway_judge'], gateway: false, disabled: true },
     { names: ['direct_judge', 'gateway_judge'], gateway: false, disabled: true },
     { names: ['direct_judge'], gateway: false, disabled: false },
@@ -125,12 +126,15 @@ describe('useRunJudgesOnTracesConfiguration', () => {
     const user = userEvent.setup();
     render(<ModalTestComponent />, { wrapper });
     await user.click(screen.getByText('open'));
+    if (names.includes('Safety')) {
+      await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
+    }
     for (const name of names) await user.click(await screen.findByText(name));
 
     const run = screen.getByRole('button', { name: /^Run judges?$/ });
     if (disabled) {
       expect(run).toBeDisabled();
-      expect(screen.getByRole('alert')).toHaveTextContent('AI Gateway is disabled');
+      expect(screen.getByText(/AI Gateway is disabled/)).toBeInTheDocument();
       await user.click(run);
       expect(mockEvaluateTraces).not.toHaveBeenCalled();
     } else {

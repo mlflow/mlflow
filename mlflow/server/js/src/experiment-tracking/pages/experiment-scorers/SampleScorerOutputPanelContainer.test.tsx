@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { render, waitFor } from '@testing-library/react';
 import { IntlProvider } from '@databricks/i18n';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -9,11 +10,6 @@ import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { LLM_TEMPLATE, type EvaluateTracesParams } from './types';
-import { jest } from '@jest/globals';
-import { describe } from '@jest/globals';
-import { beforeEach } from '@jest/globals';
-import { it } from '@jest/globals';
-import { expect } from '@jest/globals';
 import { ScorerEvaluationScope } from './constants';
 import { useFeatureEnabled } from '../../hooks/useServerInfo';
 import {
@@ -36,7 +32,7 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldSupportRunningDatabricksProviderJudgesFromUI: () => true,
 }));
 jest.mock('../../../gateway/utils/gatewayUtils', () => ({
-  GATEWAY_MODEL_PREFIX: 'gateway:/',
+  ...jest.requireActual<typeof import('../../../gateway/utils/gatewayUtils')>('../../../gateway/utils/gatewayUtils'),
   ModelProvider: { GATEWAY: 'gateway', DATABRICKS: 'databricks', OTHER: 'other' },
   getModelProvider: (model: string | undefined) => {
     if (!model || model.startsWith('gateway:/')) return 'gateway';

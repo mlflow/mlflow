@@ -25,7 +25,7 @@ import { EndpointSelector } from '../../components/EndpointSelector';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
 import { useMonitoringFiltersTimeRange } from '../../hooks/useMonitoringFilters';
 import {
-  GATEWAY_MODEL_PREFIX,
+  isGatewayModel,
   formatGatewayModelFromEndpoint,
   getEndpointNameFromGatewayModel,
 } from '../../../gateway/utils/gatewayUtils';
@@ -65,8 +65,7 @@ export const RunEvaluationButton = ({
   const hasSelectedTemplates = selectedTemplates.length > 0;
   const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
   const isGatewayBlocked =
-    !gatewayEnabled &&
-    (hasSelectedTemplates || selectedScorers.some((scorer) => scorer.model?.startsWith(GATEWAY_MODEL_PREFIX)));
+    !gatewayEnabled && (hasSelectedTemplates || selectedScorers.some((scorer) => isGatewayModel(scorer.model)));
   const runJudgeDisabled =
     selectedTraceIds.length === 0 ||
     selectedJudgeCount === 0 ||

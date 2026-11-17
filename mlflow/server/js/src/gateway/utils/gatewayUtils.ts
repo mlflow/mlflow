@@ -1,6 +1,7 @@
 import type { Endpoint } from '../types';
 
 export const GATEWAY_MODEL_PREFIX = 'gateway:/';
+export const isGatewayModel = (model: string | undefined): boolean => Boolean(model?.startsWith(GATEWAY_MODEL_PREFIX));
 const DATABRICKS_MODEL_PREFIX = 'databricks:/';
 
 export const hasMixedTypeSafeProviders = (models: { provider: string }[]): boolean =>

@@ -1,7 +1,18 @@
 import { describe, it, expect } from '@jest/globals';
-import { generateCopyName, hasMixedTypeSafeProviders } from './gatewayUtils';
+import { generateCopyName, hasMixedTypeSafeProviders, isGatewayModel } from './gatewayUtils';
 
 describe('gatewayUtils', () => {
+  it.each<[string | undefined, boolean]>([
+    [undefined, false],
+    ['', false],
+    ['openai:/gpt-4.1-mini', false],
+    ['databricks:/model', false],
+    ['gateway:/model', true],
+    ['gateway:/catalog.schema.judge', true],
+  ])('identifies explicit Gateway models: %s', (model, expected) => {
+    expect(isGatewayModel(model)).toBe(expected);
+  });
+
   describe('hasMixedTypeSafeProviders', () => {
     it.each<[string[], boolean]>([
       [[], false],
