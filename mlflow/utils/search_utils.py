@@ -1967,7 +1967,9 @@ class SearchTraceUtils(SearchUtils):
             return [[]]
 
         def invalid():
-            raise MlflowException.invalid_parameter_value("Invalid clause(s) in filter string")
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid clause(s) in filter string: {filter_string}"
+            )
 
         def normalize_and_bound_groups(groups):
             if len(groups) > 1 and all(len(group) == 1 for group in groups):

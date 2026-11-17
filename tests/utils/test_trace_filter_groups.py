@@ -63,6 +63,22 @@ def test_trace_filter_groups_reject_invalid(expression):
         SearchTraceUtils.parse_search_filter_groups(expression)
 
 
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "()",
+        "status = 'OK' OR",
+        "status = 'OK' OR NOT (status = 'ERROR')",
+        "status = 'OK'; status = 'ERROR'",
+    ],
+)
+def test_trace_filter_groups_invalid_syntax_preserves_expression(expression):
+    with pytest.raises(MlflowException, match=r"Invalid clause\(s\) in filter string") as exc:
+        SearchTraceUtils.parse_search_filter_groups(expression)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert str(exc.value) == f"Invalid clause(s) in filter string: {expression}"
+
+
 def test_trace_filter_groups_bounds_expansion():
     def expression(count):
         return " AND ".join(f"(tags.a{i} = 'a' OR tags.b{i} = 'b')" for i in range(count))
