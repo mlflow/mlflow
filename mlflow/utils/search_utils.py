@@ -343,6 +343,7 @@ class SearchUtils:
         get_sql_comparison_func.
         """
         import sqlalchemy as sa
+        from sqlalchemy.dialects import mysql
 
         if dialect != MYSQL:
             return SearchUtils.get_sql_comparison_func(comparator, dialect)
@@ -356,6 +357,11 @@ class SearchUtils:
                     # depends on the expression's collation. ilike() lowers both
                     # sides, as the mapped-column path does.
                     return expression.ilike(value)
+                elif comparator == "RLIKE":
+                    # Match the mapped-column path: compare both sides as binary for a
+                    # case-sensitive match without mixing a binary pattern with a non-binary
+                    # collation.
+                    return sa.cast(expression, mysql.BINARY()).op("REGEXP")(sa.func.binary(value))
                 elif comparator == "IN":
                     return expression.in_([sa.func.binary(v) for v in value])
                 elif comparator == "NOT IN":
@@ -2050,6 +2056,39 @@ class SearchTraceUtils(SearchUtils):
         return False
 
     @staticmethod
+    def _decode_sql_json_string(column: "ColumnElement", dialect: str) -> "ColumnElement":
+        """
+        Returns an expression that decodes JSON-serialized string values back to the string
+        itself (no surrounding quotes, no escape sequences), so that pattern comparators match
+        what the user logged. Other JSON values (numbers, booleans, null, objects and arrays)
+        are returned as stored.
+        """
+        import sqlalchemy as sa
+
+        # Only decode values that are JSON strings: the JSON functions below raise on input
+        # that isn't valid JSON (e.g. `NaN` on older SQLite versions).
+        is_json_string = sa.func.substring(column, 1, 1) == '"'
+        if dialect == SQLITE:
+            decoded = sa.func.json_extract(column, "$", type_=sa.Text)
+        elif dialect == POSTGRES:
+            decoded = sa.cast(column, sa.JSON).op("#>>", return_type=sa.Text)(
+                sa.literal_column("'{}'")
+            )
+            # PostgreSQL text can't hold NUL characters, so decoding `\u0000` raises.
+            is_json_string = sa.and_(is_json_string, sa.func.strpos(column, "\\u0000") == 0)
+        elif dialect == MYSQL:
+            decoded = sa.func.json_unquote(column, type_=sa.Text)
+        else:
+            # Wrapping the value in an array keeps it a JSON document on every supported SQL
+            # Server version. JSON_VALUE returns NULL for values longer than 4000 characters,
+            # so those fall back to the stored text.
+            decoded = sa.func.coalesce(
+                sa.func.JSON_VALUE(sa.func.concat("[", column, "]"), "$[0]", type_=sa.Text),
+                column,
+            )
+        return sa.case((is_json_string, decoded), else_=column)
+
+    @staticmethod
     def _get_sql_json_comparison_func(
         comparator: str, dialect: str
     ) -> Callable[["ColumnElement", str], "ClauseElement"]:
@@ -2063,6 +2102,7 @@ class SearchTraceUtils(SearchUtils):
 
         For equality comparisons, we match either the raw JSON primitive value
         (for booleans and numeric values) or the JSON-serialized value (for strings).
+        Pattern comparisons (LIKE, ILIKE, RLIKE) match against the decoded string.
         """
         import sqlalchemy as sa
 
@@ -2120,10 +2160,16 @@ class SearchTraceUtils(SearchUtils):
             )
             return SearchUtils.get_comparison_func(comparator)(numeric_column, float(value))
 
+        def json_pattern_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
+            decoded = SearchTraceUtils._decode_sql_json_string(column, dialect)
+            return SearchTraceUtils.get_sql_expression_comparison_func(comparator, dialect)(
+                decoded, value
+            )
+
         if comparator in SearchTraceUtils.NUMERIC_ASSESSMENT_COMPARATORS:
             return json_numeric_comparison
         elif comparator not in ("=", "!="):
-            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
+            return json_pattern_comparison
         elif dialect == MYSQL:
             return mysql_json_equality_inequality_comparison
         else:

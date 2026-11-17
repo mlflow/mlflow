@@ -2232,6 +2232,61 @@ def test_search_traces_with_feedback_like_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace2_id
 
 
+_skip_rlike_on_mssql = pytest.mark.skipif(
+    IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect."
+)
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        # Anchored and exact patterns match the logged string, not its JSON-quoted form
+        ("feedback.rating LIKE 'go%'", {"good"}),
+        ("feedback.rating LIKE 'good'", {"good"}),
+        ("feedback.rating LIKE 'Good'", set()),
+        ("feedback.rating ILIKE 'GOOD'", {"good"}),
+        pytest.param("feedback.rating RLIKE '^good$'", {"good"}, marks=_skip_rlike_on_mssql),
+        # Characters that JSON escapes match as logged
+        ("feedback.rating LIKE '%café%'", {"non_ascii"}),
+        ("""feedback.rating LIKE 'say "hi"'""", {"quoted"}),
+        ("feedback.rating LIKE 'line1%line2'", {"newline"}),
+        # Non-string values keep matching their stored text
+        ("feedback.rating LIKE '4'", {"numeric"}),
+        ("feedback.rating LIKE 'true'", {"boolean"}),
+        ("feedback.rating LIKE '%\"k\"%'", {"object"}),
+        pytest.param("feedback.rating RLIKE '^4$'", {"numeric"}, marks=_skip_rlike_on_mssql),
+        ("expectation.label LIKE 'succ%'", {"good"}),
+        ("expectation.label ILIKE 'SUCCESS'", {"good"}),
+        pytest.param("expectation.label RLIKE '^success$'", {"good"}, marks=_skip_rlike_on_mssql),
+    ],
+)
+def test_search_traces_assessment_pattern_filters_match_logged_string(
+    store: SqlAlchemyStore, filter_string: str, expected: set[str]
+):
+    exp_id = store.create_experiment("test_assessment_pattern_filters")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    values = {
+        "good": "good",
+        "non_ascii": "café",
+        "quoted": 'say "hi"',
+        "newline": "line1\nline2",
+        "numeric": 4,
+        "boolean": True,
+        "object": {"k": "v"},
+    }
+    for trace_id, value in values.items():
+        _create_trace(store, trace_id, exp_id)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="rating", value=value, source=source)
+        )
+    store.create_assessment(
+        Expectation(trace_id="good", name="label", value="success", source=source)
+    )
+
+    traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+    assert {t.request_id for t in traces} == expected
+
+
 def test_search_traces_with_assessment_is_null_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_assessment_null_filters")
 
