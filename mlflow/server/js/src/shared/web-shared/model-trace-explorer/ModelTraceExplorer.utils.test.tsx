@@ -1690,6 +1690,18 @@ describe('parseTraceV4SerializedLocation', () => {
 });
 
 describe('tryDeserializeAttribute', () => {
+  it('preserves already decoded OTLP values without parsing or coercing them', () => {
+    const spy = jest.spyOn(JSON, 'parse');
+    try {
+      for (const value of [undefined, null, true, 42, 1.25, [], [5], [false], { key: 5 }]) {
+        expect(tryDeserializeAttribute(value)).toBe(value);
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('skips JSON.parse for plain attributes and missing values', () => {
     const spy = jest.spyOn(JSON, 'parse');
     try {

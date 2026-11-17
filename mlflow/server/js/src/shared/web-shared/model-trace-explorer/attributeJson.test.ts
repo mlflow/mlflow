@@ -13,10 +13,10 @@ describe('mayBeJsonText', () => {
     (text) => expect(mayBeJsonText(text)).toBe(true),
   );
 
-  it('leaves non-string coercion to the parser, except for missing values', () => {
+  it('rejects native values that are already decoded', () => {
     expect(mayBeJsonText(undefined)).toBe(false);
-    for (const value of [null, false, 42, [], {}, { toString: () => 'true' }]) {
-      expect(mayBeJsonText(value)).toBe(true);
+    for (const value of [null, false, 42, [], [5], [false], {}, { toString: () => 'true' }]) {
+      expect(mayBeJsonText(value)).toBe(false);
     }
   });
 

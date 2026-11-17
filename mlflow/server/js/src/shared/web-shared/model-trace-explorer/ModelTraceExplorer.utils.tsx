@@ -16,7 +16,6 @@ import {
   isEmpty,
 } from 'lodash';
 import { useMemo } from 'react';
-import { mayBeJsonText } from './attributeJson';
 
 import type {
   SearchMatch,
@@ -52,6 +51,7 @@ import {
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
+import { mayBeJsonText } from './attributeJson';
 import { normalizeAnthropicChatInput, normalizeAnthropicChatOutput } from './chat-utils/anthropic';
 import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
 import { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './chat-utils/bedrock';
@@ -164,7 +164,7 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
   }
 }
 
-export function tryDeserializeAttribute(value: string): any {
+export function tryDeserializeAttribute(value: unknown): any {
   if (!mayBeJsonText(value)) {
     return value;
   }
