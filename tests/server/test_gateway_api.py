@@ -1288,6 +1288,17 @@ async def test_get_request_body_accepts_json_content_type(content_type: str):
 
 
 @pytest.mark.asyncio
+async def test_get_request_body_rejects_non_json_content_type_with_cached_body():
+    mock_request = create_mock_request(cached_body={"model": "m"})
+    mock_request.headers = {"content-type": "text/plain"}
+
+    with pytest.raises(HTTPException, match="application/json") as exc_info:
+        await _get_request_body(mock_request)
+
+    assert exc_info.value.status_code == 415
+
+
+@pytest.mark.asyncio
 async def test_invocations_handler_missing_fields(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="test-key",
