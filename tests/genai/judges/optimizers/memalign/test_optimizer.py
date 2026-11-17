@@ -1725,6 +1725,27 @@ def test_retrieval_fields_serialization_round_trip(sample_judge, sample_traces):
     assert Scorer.model_validate(dumped)._retrieval_fields is None
 
 
+def test_deserialized_judge_builds_configured_index_on_first_call(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        aligned_judge = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
+            sample_judge, sample_traces[:2]
+        )
+    restored = Scorer.model_validate(aligned_judge.model_dump())
+    assert restored._retrievers is None
+
+    examples = [dspy.Example(inputs="question", outputs="answer", result="yes", rationale="r")]
+    with (
+        mock_apis(guidelines=[]) as mocks,
+        patch.object(MemoryAugmentedJudge, "_reconstruct_episodic_memory", return_value=examples),
+        patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
+    ):
+        mocks["search"].return_value = MagicMock(indices=[0])
+        restored(inputs="q", outputs="a")
+
+    assert list(restored._retrievers) == ["outputs"]
+    assert mocks["embeddings_class"].call_args.kwargs["corpus"] == ["answer"]
+
+
 def test_unalign_preserves_retrieval_fields(sample_judge, sample_traces):
     with mock_apis(guidelines=[]):
         optimizer = MemAlignOptimizer(retrieval_fields=["outputs"])
