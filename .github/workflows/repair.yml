@@ -276,16 +276,8 @@ jobs:
             --verbose \
             --output-format stream-json \
             "$prompt" | .claude/scripts/stream.sh "$RUNNER_TEMP/stream.jsonl"
-      - id: redact
-        name: Redact secrets from agent stream
-        if: always()
-        env:
-          SECRETS: |
-            ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-        run: |
-          trusted/.claude/scripts/redact.sh "$RUNNER_TEMP/stream.jsonl"
       - name: Upload agent stream
-        if: always() && steps.redact.outcome == 'success'
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repair-stream-${{ matrix.pr.number }}
