@@ -100,7 +100,7 @@ export const loadIssueDetectionTraceScope = async (experimentId: string) => {
   return readIssueDetectionTraceScope(experiment?.tags);
 };
 
-export const saveIssueDetectionTraceScope = async (experimentId: string, scope: IssueDetectionTraceScopeValue) => {
+export const serializeIssueDetectionTraceScope = (scope: IssueDetectionTraceScopeValue): string => {
   const normalized = { filters: scope.filters, searchQuery: scope.searchQuery.trim() };
   if (normalized.searchQuery.includes("'") || normalized.filters.some((clause) => clause.value.includes("'"))) {
     throw new Error('Single quotes are not supported in trace filter values or text search.');
@@ -128,12 +128,15 @@ export const saveIssueDetectionTraceScope = async (experimentId: string, scope: 
     throw new Error('Each compiled trace filter must be at most 10000 characters.');
   }
   if (saved.length > 20) throw new Error('Use at most 20 trace filters, including text search.');
+  return saved.length ? JSON.stringify(saved) : '';
+};
+
+export const saveIssueDetectionTraceScope = async (experimentId: string, scope: IssueDetectionTraceScopeValue) => {
+  const value = serializeIssueDetectionTraceScope(scope);
   await MlflowService.setExperimentTag({
     experiment_id: experimentId,
     key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-    value: saved.length ? JSON.stringify(saved) : '',
+    value,
   });
-  return readIssueDetectionTraceScope([
-    { key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: JSON.stringify(saved) },
-  ]);
+  return readIssueDetectionTraceScope([{ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value }]);
 };

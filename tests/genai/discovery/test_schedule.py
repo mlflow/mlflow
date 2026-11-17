@@ -8,6 +8,7 @@ import pytest
 
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import FIRST_RUN_LOOKBACK_MS, STALE_WATERMARK_CAP_MS
 from mlflow.genai.discovery.schedule import (
     DEFAULT_FIRE_TIME,
@@ -43,6 +44,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
 )
+from mlflow.utils.search_utils import SearchTraceUtils
 
 HOUR_MS = 60 * 60 * 1000
 UTC = ZoneInfo("UTC")
@@ -1093,7 +1095,6 @@ def test_saved_trace_scope_applies_rich_filters_and_text_search():
     "compiled", [None, 42, "", "x" * 10001, "trace.invalid = 'value'", "DROP TABLE traces"]
 )
 def test_invalid_saved_trace_scope_does_not_widen_a_scheduled_run(compiled):
-    from mlflow.exceptions import MlflowException
 
     with pytest.raises(MlflowException, match="Invalid"):
         parse_trace_filters(json.dumps([{"field": "duration", "compiled": compiled}]))
@@ -1108,15 +1109,12 @@ def test_invalid_saved_trace_scope_does_not_widen_a_scheduled_run(compiled):
     ],
 )
 def test_rich_scope_without_a_saved_expression_fails_closed(entry):
-    from mlflow.exceptions import MlflowException
 
     with pytest.raises(MlflowException, match="require compiled"):
         parse_trace_filters(json.dumps([entry]))
 
 
 def test_doubled_quotes_are_not_escapes_in_trace_search():
-    from mlflow.exceptions import MlflowException
-    from mlflow.utils.search_utils import SearchTraceUtils
 
     compiled = "tags.`team` = 'don''t'"
     assert SearchTraceUtils.parse_search_filter_for_search_traces(compiled)[0]["value"] == "don''t"
@@ -1125,7 +1123,6 @@ def test_doubled_quotes_are_not_escapes_in_trace_search():
 
 
 def test_backticks_in_compiled_scope_keys_are_rejected():
-    from mlflow.exceptions import MlflowException
 
     with pytest.raises(MlflowException, match="Backticks"):
         parse_trace_filters(json.dumps([{"compiled": "tags.`bad``key` = 'value'"}]))

@@ -42,6 +42,7 @@ import {
 } from '../../../../pages/experiment-issues/IssueDetectionTraceScope';
 import {
   compileIssueDetectionTraceScope,
+  serializeIssueDetectionTraceScope,
   InvalidIssueDetectionTraceScopeError,
   emptyIssueDetectionTraceScope,
   type IssueDetectionTraceScopeValue,
@@ -213,14 +214,26 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     setIsPreparing(true);
     setConfigurationError(undefined);
     try {
-      if (canEdit && configuredSettings && JSON.stringify(configuredSettings) !== JSON.stringify(detectionSettings)) {
-        await saveSettings.mutateAsync(configuredSettings);
+      const settings = configuredSettings && {
+        ...configuredSettings,
+        instructions: configuredSettings.instructions.trim(),
+      };
+      // Validate all scope input before either configuration tag can be written.
+      const serializedScope =
+        canEdit && configuredScope ? serializeIssueDetectionTraceScope(configuredScope) : undefined;
+      const storedScope = scope.data ?? emptyIssueDetectionTraceScope();
+      const scopeChanged =
+        serializedScope !== undefined && serializedScope !== serializeIssueDetectionTraceScope(storedScope);
+      if (canEdit && settings && JSON.stringify(settings) !== JSON.stringify(detectionSettings)) {
+        await saveSettings.mutateAsync(settings);
       }
-      if (canEdit && configuredScope && JSON.stringify(configuredScope) !== JSON.stringify(scope.data)) {
+      if (scopeChanged && configuredScope) {
         await scope.save.mutateAsync(configuredScope);
       }
       let traceIds = selectedTraceIds;
-      const savedFilter = compileIssueDetectionTraceScope(effectiveScope);
+      const savedFilter = compileIssueDetectionTraceScope(
+        serializedScope !== undefined && !scopeChanged ? storedScope : effectiveScope,
+      );
       if (savedFilter) {
         const selectionFilter = explicitSelection
           ? `attributes.request_id IN (${selectedTraceIds.map((id) => `'${escapeFilterValue(id)}'`).join(',')})`

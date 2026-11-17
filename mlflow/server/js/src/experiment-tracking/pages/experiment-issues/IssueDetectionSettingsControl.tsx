@@ -12,6 +12,7 @@ import { IssueDetectionSettingsForm } from './IssueDetectionSettingsForm';
 import { IssueDetectionTraceScope, useNormalizeIssueDetectionTraceScope } from './IssueDetectionTraceScope';
 import {
   emptyIssueDetectionTraceScope,
+  serializeIssueDetectionTraceScope,
   InvalidIssueDetectionTraceScopeError,
   type IssueDetectionTraceScopeValue,
 } from './issueDetectionTraceScope';
@@ -41,12 +42,14 @@ export const IssueDetectionSettingsControl = ({ experimentId, buttonText }: Issu
   const [scopeDraft, setScopeDraft] = useState<IssueDetectionTraceScopeValue>(emptyIssueDetectionTraceScope);
 
   const [isOpen, setIsOpen] = useState(false);
+  const [configurationError, setConfigurationError] = useState<Error>();
   const [openCount, setOpenCount] = useState(0);
   const [draft, setDraft] = useState<IssueDetectionSettings>(defaultIssueDetectionSettings);
   const open = useCallback(() => {
     setDraft(settings ?? defaultIssueDetectionSettings());
     setScopeDraft(scope.data ?? emptyIssueDetectionTraceScope());
     setOpenCount((count) => count + 1);
+    setConfigurationError(undefined);
     saveMutation.reset();
     scope.save.reset();
     setIsOpen(true);
@@ -60,13 +63,17 @@ export const IssueDetectionSettingsControl = ({ experimentId, buttonText }: Issu
 
   const save = useCallback(async () => {
     if (!canEdit) return;
+    setConfigurationError(undefined);
     try {
-      await saveMutation.mutateAsync(draft);
       const normalized = normalizeScope(scopeDraft);
-      if (JSON.stringify(normalized) !== JSON.stringify(scope.data)) await scope.save.mutateAsync(normalized);
+      const serializedScope = serializeIssueDetectionTraceScope(normalized);
+      const scopeChanged =
+        serializedScope !== serializeIssueDetectionTraceScope(scope.data ?? emptyIssueDetectionTraceScope());
+      await saveMutation.mutateAsync(draft);
+      if (scopeChanged) await scope.save.mutateAsync(normalized);
       setIsOpen(false);
-    } catch {
-      // The mutation error is rendered in the modal so the draft remains available for retry.
+    } catch (error) {
+      setConfigurationError(error instanceof Error ? error : undefined);
     }
   }, [canEdit, draft, saveMutation, normalizeScope, scope, scopeDraft]);
 
@@ -108,7 +115,7 @@ export const IssueDetectionSettingsControl = ({ experimentId, buttonText }: Issu
           <Button
             componentId={`${COMPONENT_ID}.open`}
             icon={<GearIcon />}
-            aria-label={settingsLabel}
+            aria-label={buttonText ? undefined : settingsLabel}
             disabled={!canEdit || isLoadingSettings || scope.isLoading}
             onClick={open}
           >
@@ -167,17 +174,19 @@ export const IssueDetectionSettingsControl = ({ experimentId, buttonText }: Issu
         onCancel={close}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-          {(loadError || saveMutation.error || scope.save.error) && (
+          {(configurationError || loadError || saveMutation.error || scope.save.error) && (
             <Alert
               componentId={`${COMPONENT_ID}.error`}
               type="error"
               message={
-                scope.save.error instanceof Error
-                  ? scope.save.error.message
-                  : intl.formatMessage({
-                      defaultMessage: 'Could not save issue detection settings. Try again.',
-                      description: 'Issue detection settings modal > Save error',
-                    })
+                configurationError
+                  ? configurationError.message
+                  : scope.save.error instanceof Error
+                    ? scope.save.error.message
+                    : intl.formatMessage({
+                        defaultMessage: 'Could not save issue detection settings. Try again.',
+                        description: 'Issue detection settings modal > Save error',
+                      })
               }
               closable={false}
             />

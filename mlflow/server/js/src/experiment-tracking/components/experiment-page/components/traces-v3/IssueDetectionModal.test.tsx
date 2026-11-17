@@ -487,6 +487,54 @@ describe('IssueDetectionModal', () => {
     },
   );
 
+  test('invalid customized scope never persists priorities before rejecting the run', async () => {
+    const save = jest.fn();
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({
+      data: defaultIssueDetectionSettings(),
+      isLoading: false,
+      error: null,
+      save: { mutateAsync: save },
+    } as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Detection priorities' }), 'New priorities');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Target traces' }), "can't");
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    await screen.findByText('Single quotes are not supported in trace filter values or text search.');
+    expect(save).not.toHaveBeenCalled();
+    expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
+  });
+
+  test('equivalent applied scope and trimmed priorities do not rewrite tags on retry', async () => {
+    const saveSettings = jest.fn();
+    const saveScope = jest.fn();
+    const data = { searchQuery: 'feedback', filters: [], filterString: "trace.text ILIKE '%feedback%'" };
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({
+      data: { ...defaultIssueDetectionSettings(), instructions: 'Same priorities' },
+      isLoading: false,
+      error: null,
+      save: { mutateAsync: saveSettings },
+    } as any);
+    jest
+      .mocked(useIssueDetectionTraceScope)
+      .mockReturnValue({ data, isLoading: false, error: null, save: { mutateAsync: saveScope } } as any);
+    jest
+      .mocked(useNormalizeIssueDetectionTraceScope)
+      .mockReturnValue(({ searchQuery, filters }) => ({ searchQuery, filters }));
+    jest.mocked(searchMlflowTracesQueryFn).mockResolvedValue([{ trace_id: 'trace-1' }] as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }));
+    const priorities = screen.getByRole('textbox', { name: 'Detection priorities' });
+    await userEvent.clear(priorities);
+    await userEvent.type(priorities, '  Same priorities  ');
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    await waitFor(() => expect(mockInvokeIssueDetection).toHaveBeenCalledTimes(1));
+    expect(saveSettings).not.toHaveBeenCalled();
+    expect(saveScope).not.toHaveBeenCalled();
+  });
+
   test('saved scope intersects an explicit selection before starting analysis', async () => {
     jest
       .mocked(useIssueDetectionTraceScope)

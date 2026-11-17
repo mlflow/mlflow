@@ -161,6 +161,17 @@ describe('IssueDetectionSettingsControl', () => {
     expect(savedSettings().categories.correctness).toBe(true);
   });
 
+  test('invalid scope leaves priorities and every saved tag unchanged', async () => {
+    render();
+    const priorities = await openSettings();
+    await userEvent.type(priorities, 'New priorities');
+    await userEvent.type(screen.getByPlaceholderText('Add a filter'), "can't");
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('Single quotes are not supported in trace filter values or text search.');
+    expect(written).toEqual([]);
+    expect(priorities).toHaveValue('New priorities');
+  });
+
   test('priorities are trimmed before being stored', async () => {
     render();
     const priorities = await openSettings();
