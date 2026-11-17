@@ -35,7 +35,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINAT
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
 
-def test_tracing_sdk_queries_without_sqlparse():
+def test_tracing_sdk_queries_without_sqlparse(monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, raising=False)
     code = r"""
 import importlib.abc
 import importlib.metadata
