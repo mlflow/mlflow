@@ -11055,6 +11055,7 @@ def _get_session_scoped_trace_ids(scoped_trace_query: Query, assessment_filters)
 
 
 def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scoped_trace_query):
+    """Return the conjunction's filter tuple, folding OR branches into one attribute predicate."""
     groups = _parse_trace_filter(filter_string)
     if len(groups) == 1:
         return _get_trace_conjunction_filter_clauses(

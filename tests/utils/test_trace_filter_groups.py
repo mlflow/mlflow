@@ -179,10 +179,16 @@ def test_trace_filter_groups_keep_custom_span_attributes_as_alternatives():
     assert [[clause["comparator"] for clause in group] for group in groups] == [["="], ["="]]
 
 
-@pytest.mark.parametrize("expression", ["status = 'OK' OR status = 'ERROR'", "(status = 'OK')"])
-def test_trace_filter_groups_support_legacy_sqlparse_whitespace(monkeypatch, expression):
+@pytest.mark.parametrize(
+    ("expression", "values"),
+    [("status = 'OK' OR status = 'ERROR'", ["OK", "ERROR"]), ("(status = 'OK')", ["OK"])],
+)
+def test_trace_filter_groups_support_legacy_sqlparse_whitespace(monkeypatch, expression, values):
     monkeypatch.setattr("mlflow.utils.search_utils.sqlparse.__version__", "0.4.3")
-    assert SearchTraceUtils.parse_search_filter_groups(expression)
+    assert SearchTraceUtils.parse_search_filter_groups(expression) == [
+        [{"type": "attribute", "key": "status", "comparator": "=", "value": value}]
+        for value in values
+    ]
 
 
 @pytest.mark.parametrize("key", ["my--tag", "a;tag", "x/*y", "x*/y", "x' OR 1=1 --"])
