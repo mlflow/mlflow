@@ -1092,10 +1092,7 @@ def test_concurrent_first_calls_on_deferred_multi_field_judge_use_every_index(sa
     examples = [dspy.Example(inputs="question", outputs="answer", result="yes", rationale="r")]
     with (
         patch("dspy.retrievers.Embeddings", FakeEmbeddings),
-        patch(
-            "mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder",
-            return_value=MagicMock(),
-        ),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder"),
         patch.object(MemoryAugmentedJudge, "_reconstruct_episodic_memory", return_value=examples),
         patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
     ):
@@ -1103,10 +1100,10 @@ def test_concurrent_first_calls_on_deferred_multi_field_judge_use_every_index(sa
             sample_judge, retrieval_fields=["inputs", "outputs"], _defer_init=True
         )
         judge._episodic_trace_ids = ["t1"]
-        first = threading.Thread(target=call)
+        first = threading.Thread(target=call, name="memalign-first-call")
         first.start()
         threading.Event().wait(0.2)
-        second = threading.Thread(target=call)
+        second = threading.Thread(target=call, name="memalign-second-call")
         second.start()
         first.join(timeout=10)
         second.join(timeout=10)
@@ -1119,10 +1116,7 @@ def test_failed_lazy_init_is_retried_on_next_call(sample_judge):
     examples = [dspy.Example(inputs="question", outputs="answer", result="yes", rationale="r")]
     with (
         patch("dspy.retrievers.Embeddings") as mock_embeddings_class,
-        patch(
-            "mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder",
-            return_value=MagicMock(),
-        ),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder"),
         patch.object(
             MemoryAugmentedJudge,
             "_reconstruct_episodic_memory",

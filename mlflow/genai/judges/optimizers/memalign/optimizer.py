@@ -692,8 +692,9 @@ class MemoryAugmentedJudge(Judge):
             retrievers[field] = (retriever, positions)
             _logger.debug(f"Episodic memory corpus for {field!r} contains {len(corpus)} examples")
 
-        # Publish together so readers never pair new positions with an old memory list.
-        self._episodic_memory, self._retrievers = episodic_memory, retrievers
+        # Publish only once every index is built, so readers never see a partial index.
+        self._episodic_memory = episodic_memory
+        self._retrievers = retrievers
 
     def _add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
         """Add examples by updating both episodic memory and semantic memory.

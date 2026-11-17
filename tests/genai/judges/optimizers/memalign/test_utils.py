@@ -473,7 +473,7 @@ def test_retrieve_relevant_examples_out_of_bounds_raises():
             retrievers={"inputs": (mock_retriever, [0, 1])},
             examples=examples,
             query_kwargs={"inputs": "test"},
-                retrieval_k=5,
+            retrieval_k=5,
         )
 
 
