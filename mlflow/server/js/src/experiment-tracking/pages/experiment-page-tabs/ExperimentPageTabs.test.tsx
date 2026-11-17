@@ -421,6 +421,44 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();
     });
 
+    test('keeps routed tab state when the experiment resolves to the revamped layout', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      let finishLoading!: () => void;
+      const experimentReady = new Promise<void>((resolve) => {
+        finishLoading = resolve;
+      });
+      server.use(
+        graphql.query('MlflowGetExperimentQuery', async (req, res, ctx) => {
+          await experimentReady;
+          return res(ctx.data(createTestExperimentResponse(genAIExperiment)));
+        }),
+      );
+      const onMount = jest.fn();
+      const StatefulTab = () => {
+        const [draft, setDraft] = React.useState('');
+        React.useEffect(() => {
+          onMount();
+        }, []);
+        return <textarea aria-label="Tab draft" value={draft} onChange={(event) => setDraft(event.target.value)} />;
+      };
+      jest.mocked(ExperimentTracesPage).mockImplementation(StatefulTab);
+      try {
+        renderTestComponent('/experiments/12345678/traces');
+        const draft = await screen.findByRole('textbox', { name: 'Tab draft' });
+        await userEvent.type(draft, 'Unsaved judge instructions');
+
+        finishLoading();
+        await screen.findByRole('navigation', { name: 'Breadcrumb' });
+
+        expect(screen.getByRole('textbox', { name: 'Tab draft' })).toBe(draft);
+        expect(draft).toHaveValue('Unsaved judge instructions');
+        expect(onMount).toHaveBeenCalledTimes(1);
+      } finally {
+        finishLoading();
+        jest.mocked(ExperimentTracesPage).mockImplementation(() => <div>Experiment traces page</div>);
+      }
+    });
+
     test('flag on: shows no page action outside the evaluation runs tab', async () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       renderTestComponent('/experiments/12345678/traces');
@@ -578,7 +616,7 @@ describe('ExperimentLoggedModelListPage', () => {
         expect(await screen.findByText('Experiment runs page')).toBeInTheDocument();
         expect(await screen.findByTestId('experiment-observatory-link')).toBeInTheDocument();
         expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
-        expect(screen.queryByRole('main')).not.toBeInTheDocument();
+        expect(screen.getByRole('main')).toContainElement(screen.getByText('Experiment runs page'));
       });
     });
   });

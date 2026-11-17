@@ -6,6 +6,7 @@ export interface ExperimentPageMainContentProps {
   pageActions?: ReactNode;
   // Rendered under the breadcrumb row, e.g. the experiment description.
   headerDescription?: ReactNode;
+  revamped?: boolean;
   children: ReactNode;
 }
 
@@ -18,6 +19,7 @@ export const ExperimentPageMainContent = ({
   breadcrumbs,
   pageActions,
   headerDescription,
+  revamped = true,
   children,
 }: ExperimentPageMainContentProps) => {
   const { theme } = useDesignSystemTheme();
@@ -26,30 +28,30 @@ export const ExperimentPageMainContent = ({
 
   return (
     <main
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minWidth: 0,
-        minHeight: 0,
-        overflow: 'hidden',
-        gap: alignedTopPaddingAndContentGap,
-        paddingTop: alignedTopPaddingAndContentGap,
-        paddingRight: theme.spacing.sm,
-        paddingBottom: alignedTopPaddingAndContentGap,
-        paddingLeft: theme.spacing.lg,
-        '& [data-testid="PageLoading"] > div': {
-          paddingInline: 0,
-        },
-      }}
+      css={[
+        { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 },
+        revamped
+          ? {
+              overflow: 'hidden',
+              gap: alignedTopPaddingAndContentGap,
+              paddingTop: alignedTopPaddingAndContentGap,
+              paddingRight: theme.spacing.sm,
+              paddingBottom: alignedTopPaddingAndContentGap,
+              paddingLeft: theme.spacing.lg,
+              '& [data-testid="PageLoading"] > div': {
+                paddingInline: 0,
+              },
+            }
+          : { padding: theme.spacing.sm },
+      ]}
     >
-      {(breadcrumbs || pageActions) && (
+      {revamped && (breadcrumbs || pageActions) && (
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, minWidth: 0 }}>
           <div css={{ flex: 1, minWidth: 0 }}>{breadcrumbs}</div>
           {pageActions}
         </div>
       )}
-      {headerDescription}
+      {revamped && headerDescription}
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>{children}</div>
     </main>
   );
