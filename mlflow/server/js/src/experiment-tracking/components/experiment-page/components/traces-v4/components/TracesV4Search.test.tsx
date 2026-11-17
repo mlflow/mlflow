@@ -456,6 +456,21 @@ describe('feedback and expectation search UI', () => {
 });
 
 describe('editable query keyboard and operator selection', () => {
+  test('selects the only text search suggestion with ArrowUp', async () => {
+    const onSubmit = jest.fn();
+    renderSearch({ onSubmit });
+    await slowlyTypeEachKey(searchBox(), 'porter-no-match');
+
+    fireEvent.keyDown(searchBox(), { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, which: 38 });
+
+    const [suggestion] = visibleOptions();
+    expect(visibleOptions()).toHaveLength(1);
+    expect(suggestion).toHaveAttribute('aria-label', 'Search text “porter-no-match”');
+    expect(suggestion).toHaveAttribute('class', expect.stringContaining('-select-item-option-active'));
+    pressKey('Enter');
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
   test('ArrowDown Enter applies a complete suggested value immediately once', async () => {
     const onApplyFilter = jest.fn();
     const onSubmit = jest.fn();
