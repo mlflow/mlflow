@@ -52,21 +52,17 @@ export const isExactTraceIdSearch = (searchQuery?: string): boolean =>
   normalizeTraceIdQuery(searchQuery?.trim() ?? '') !== undefined;
 
 const groupTopLevelOr = (clause: string): string => {
-  let quote = '';
-  let depth = 0;
-  for (let i = 0; i < clause.length; i++) {
-    const char = clause[i];
-    if (quote) {
-      if (char === '\\' && quote !== '`') i++;
-      else if (char === quote) {
-        if (clause[i + 1] === quote) i++;
-        else quote = '';
-      }
-    } else if (char === "'" || char === '"' || char === '`') quote = char;
-    else if (char === '(') depth++;
-    else if (char === ')') depth--;
-    else if (depth === 0 && /^OR(?![\w.$])/i.test(clause.slice(i)) && !/[\w.$]/.test(clause[i - 1] ?? '')) {
-      return `(${clause})`;
+  // Match both supported sqlparse tokenizers, as in Python's combine_trace_filters.
+  const tokenizers = [
+    /'(?:''|\\'|[^'])*'|"(?:""|\\"|[^"])*"|`(?:``|[^`])*`|[()]|(?<![\w.$#])OR(?![\w.$#])/gi,
+    /'(?:''|\\\\|\\'|[^'])*'|"(?:""|\\\\|\\"|[^"])*"|`(?:``|[^`])*`|[()]|(?<![\w.$#])OR(?![\w.$#])/gi,
+  ];
+  for (const tokenizer of tokenizers) {
+    let depth = 0;
+    for (const [token] of clause.matchAll(tokenizer)) {
+      if (token === '(') depth++;
+      else if (token === ')') depth--;
+      else if (depth === 0 && token.toUpperCase() === 'OR') return `(${clause})`;
     }
   }
   return clause;
