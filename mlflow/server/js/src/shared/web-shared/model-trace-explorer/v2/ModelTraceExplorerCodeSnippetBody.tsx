@@ -12,6 +12,8 @@ import { formatJsonStringAsYaml } from './ModelTraceExplorerYaml.utils';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import { CodeSnippet } from '../../snippet/CodeSnippet';
 import { SnippetCopyAction } from '../../snippet/actions/SnippetCopyAction';
+import { ModelTraceExplorerLargeText } from './ModelTraceExplorerLargeText';
+import { LARGE_TRACE_TEXT_LIMIT } from '../constants';
 
 const MAX_LINES_FOR_PREVIEW = 10;
 // the `isContentLong` check does not work for
@@ -212,7 +214,12 @@ export function ModelTraceExplorerCodeSnippetBody({
           : {}),
       }}
     >
-      {renderMode === 'markdown' ? (
+      {displayedData.length > LARGE_TRACE_TEXT_LIMIT ? (
+        <ModelTraceExplorerLargeText
+          text={displayedData}
+          copyText={isYamlRenderMode || renderMode === CodeSnippetRenderMode.MARKDOWN ? dataToTruncate : data}
+        />
+      ) : renderMode === 'markdown' ? (
         <div
           css={{
             padding: theme.spacing.md,

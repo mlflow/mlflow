@@ -8215,10 +8215,6 @@
     "defaultMessage": "Specific user",
     "description": "Budget scope option limiting the policy to one user"
   },
-  "OCKR3j": {
-    "defaultMessage": "Large content is displayed as plain text.",
-    "description": "Explains why large trace payloads are rendered without Markdown or syntax highlighting"
-  },
   "OCZ6Y6": {
     "defaultMessage": "Git branch",
     "description": "Column label for the git branch the trace was produced on"
@@ -9482,6 +9478,10 @@
   "SBRP1X": {
     "defaultMessage": "Review real traces to surface failure modes and quality issues worth fixing.",
     "description": "Analyze step description"
+  },
+  "SC0G7i": {
+    "defaultMessage": "Large content is displayed as plain text. Browser find and text selection cover only part of the value. Use Copy for the full text.",
+    "description": "Explains large trace text display and how to access the complete value for finding or selecting text"
   },
   "SCYMXw": {
     "defaultMessage": "Cancel",

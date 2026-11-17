@@ -24,8 +24,8 @@ export const ModelTraceExplorerLargeText = ({ text, copyText }: { text: string; 
       <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm }}>
         <Typography.Text color="secondary">
           <FormattedMessage
-            defaultMessage="Large content is displayed as plain text."
-            description="Explains why large trace payloads are rendered without Markdown or syntax highlighting"
+            defaultMessage="Large content is displayed as plain text. Browser find and text selection cover only part of the value. Use Copy for the full text."
+            description="Explains large trace text display and how to access the complete value for finding or selecting text"
           />
         </Typography.Text>
         {copyText !== undefined && (

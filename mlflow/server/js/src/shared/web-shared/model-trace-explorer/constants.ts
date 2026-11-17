@@ -43,5 +43,5 @@ export const CHUNK_INDEX_KEY = 'chunk_index';
 
 // Markdown safety cap in characters; v2 chat retains it for image-heavy messages.
 export const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;
-// V2 scalar/chat text above this character count uses a bounded plain-text window.
+// V2 text payloads above this character count use a bounded plain-text window.
 export const LARGE_TRACE_TEXT_LIMIT = 100_000;
