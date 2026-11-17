@@ -5666,6 +5666,29 @@ def test_prompt_optimization_job_create_permissions(client, monkeypatch):
     assert response.status_code != 403
 
 
+@pytest.mark.parametrize(
+    ("route", "body"),
+    [
+        ("/gateway/mlflow/v1/chat/completions", "{}"),
+        ("/gateway/mlflow/v1/chat/completions", '{"model": "missing-endpoint"}'),
+        ("/gateway/missing-endpoint/mlflow/invocations", "{}"),
+    ],
+)
+def test_gateway_rejects_non_json_content_type_before_authorization(
+    fastapi_client, monkeypatch, route, body
+):
+    username, password = create_user(fastapi_client.tracking_uri)
+    with User(username, password, monkeypatch):
+        response = requests.post(
+            url=fastapi_client.tracking_uri + route,
+            data=body,
+            headers={"Content-Type": "text/plain"},
+            auth=(username, password),
+        )
+    assert response.status_code == 415
+    assert "Content-Type must be 'application/json'" in response.text
+
+
 def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, monkeypatch):
     user1, password1 = create_user(fastapi_client.tracking_uri)
     user2, password2 = create_user(fastapi_client.tracking_uri)

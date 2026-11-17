@@ -2393,7 +2393,7 @@ async def test_gateway_invocation_telemetry(
 
     # Test invocations endpoint (chat)
     mock_request = MagicMock(spec=Request)
-    mock_request.headers = {}
+    mock_request.headers = {"content-type": "application/json"}
     mock_request.json = AsyncMock(
         return_value={
             "messages": [{"role": "user", "content": "Hi"}],
@@ -2438,7 +2438,7 @@ async def test_gateway_invocation_telemetry(
 
     # Test chat_completions endpoint
     mock_request = MagicMock(spec=Request)
-    mock_request.headers = {}
+    mock_request.headers = {"content-type": "application/json"}
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint.name,
@@ -2479,7 +2479,7 @@ async def test_gateway_invocation_telemetry(
 
     # Test streaming invocation — timing fields should be absent
     mock_request = MagicMock(spec=Request)
-    mock_request.headers = {}
+    mock_request.headers = {"content-type": "application/json"}
     mock_request.json = AsyncMock(
         return_value={
             "model": endpoint.name,
@@ -2542,7 +2542,11 @@ async def test_gateway_invocation_telemetry(
             "stream": False,
         }
     )
-    mock_request.headers = {MLFLOW_GATEWAY_CALLER_HEADER: "judge", "traceparent": "00-abc-def-01"}
+    mock_request.headers = {
+        "content-type": "application/json",
+        MLFLOW_GATEWAY_CALLER_HEADER: "judge",
+        "traceparent": "00-abc-def-01",
+    }
 
     mock_auth_module = MagicMock()
     mock_auth_module.is_auth_enabled = MagicMock(return_value=True)

@@ -432,6 +432,7 @@ from mlflow.server.auth.routes import (
 from mlflow.server.auth.sqlalchemy_store import NamedRoleGrant, SqlAlchemyStore
 from mlflow.server.auth.sqlalchemy_store import RoleGrantRow as RoleGrantRow
 from mlflow.server.fastapi_app import create_fastapi_app
+from mlflow.server.gateway_api import _require_json_content_type
 from mlflow.server.gateway_api import list_models as _list_gateway_models_endpoint
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
@@ -8944,6 +8945,10 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
         return _get_require_authentication_validator()
 
     async def validator(username: str, request: StarletteRequest) -> bool:
+        # Every gateway POST handler requires a JSON body; reject other media types with 415
+        # before parsing the body or looking up permissions.
+        if request.method == "POST":
+            _require_json_content_type(request)
         body = None
         if path in _ROUTES_NEEDING_BODY:
             try:
