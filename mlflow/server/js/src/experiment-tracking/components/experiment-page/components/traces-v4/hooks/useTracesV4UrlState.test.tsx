@@ -145,6 +145,14 @@ describe('useTracesV4UrlState', () => {
     expect(param('traceId')).toBeNull();
   });
 
+  test.each(['tr-next', undefined])('setTraceId(%s) clears the previous trace span selection', async (traceId) => {
+    const { result } = await mountHook('/p?page=3&traceId=tr-current&spanId=child');
+    act(() => result.current.setTraceId(traceId));
+    expect(param('spanId')).toBeNull();
+    expect(param('traceId')).toBe(traceId ?? null);
+    expect(param('page')).toBe('3');
+  });
+
   test('setTraceId(undefined) also clears a trace comparison with the new eval runs UI', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const { result } = await mountHook('/p?page=2&traceId=tr-b&baselineTraceId=tr-a&candidateTraceId=tr-b');
