@@ -373,7 +373,7 @@ export function CollapsibleJsonViewer({
     );
   }, [parseResult.data]);
 
-  const useJsonRows = useMemo(
+  const isLargeJson = useMemo(
     () =>
       data.length >= LARGE_JSON_MIN_CHARS ||
       getJsonRows(parseResult.data, () => true, LARGE_JSON_MIN_ROWS + 1).length > LARGE_JSON_MIN_ROWS,
@@ -412,7 +412,7 @@ export function CollapsibleJsonViewer({
     );
   }
 
-  if (useJsonRows) {
+  if (isLargeJson) {
     return (
       <ModelTraceExplorerJsonRowsViewer
         value={parseResult.data}

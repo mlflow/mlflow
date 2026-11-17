@@ -95,13 +95,20 @@ describe('large JSON row interaction', () => {
   });
 
   it('uses the large-payload expansion depth with either initialExpanded value', () => {
-    const data = JSON.stringify({ nested: { leaf: 'visible default' }, padding: 'z'.repeat(100_000) });
+    const data = JSON.stringify({
+      nested: { deeper: { deepest: { leaf: 'hidden default' } } },
+      padding: 'z'.repeat(100_000),
+    });
     const { rerender } = render(<CollapsibleJsonViewer data={data} rowLimit={JSON_PREVIEW_ROW_LIMIT} />, {
       wrapper: Providers,
     });
-    expect(screen.getByText('"visible default"')).toBeInTheDocument();
+    expect(screen.queryByText('"hidden default"')).not.toBeInTheDocument();
     rerender(<CollapsibleJsonViewer data={data} initialExpanded rowLimit={JSON_PREVIEW_ROW_LIMIT} />);
-    expect(screen.getByText('"visible default"')).toBeInTheDocument();
+    expect(screen.queryByText('"hidden default"')).not.toBeInTheDocument();
+    rerender(
+      <CollapsibleJsonViewer data={JSON.stringify({ nested: { deeper: { deepest: { leaf: 'hidden default' } } } })} />,
+    );
+    expect(screen.getByText('"hidden default"')).toBeInTheDocument();
   });
 
   it('virtualizes expanded rows and reaches the final value through the real scroll listener', async () => {
