@@ -48,12 +48,6 @@ const countJsonLines = (value: unknown, depth: number): number => {
   return lines;
 };
 
-export interface JsonRowsResult {
-  rows: JsonRow[];
-  /** True when `maxRows` cut the rows short. */
-  isTruncated: boolean;
-}
-
 /**
  * Flattens a JSON value into the lines CollapsibleJsonViewer would draw, walking only expanded containers.
  * Line numbers count collapsed content as if it were expanded, as that viewer does. With `maxRows`, the walk
@@ -63,7 +57,7 @@ export const getJsonRows = (
   root: unknown,
   isExpanded: (container: WeakKey, depth: number) => boolean,
   maxRows: number = Infinity,
-): JsonRowsResult => {
+): JsonRow[] => {
   const rows: JsonRow[] = [];
   let nextLine = 1;
   let isTruncated = false;
@@ -139,7 +133,7 @@ export const getJsonRows = (
   };
 
   visit(root, 0, undefined, true);
-  return { rows, isTruncated };
+  return rows;
 };
 
 /** Expand depth for a payload of the given JSON length; deep defaults on multi-MB payloads expand most of it. */

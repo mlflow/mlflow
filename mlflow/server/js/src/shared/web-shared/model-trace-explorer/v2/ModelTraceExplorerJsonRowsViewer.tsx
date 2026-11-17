@@ -4,7 +4,7 @@ import { css, type SerializedStyles } from '@emotion/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 
-import { getJsonColors, renderPrimitiveValue } from './ModelTraceExplorerJsonRendering.utils';
+import { getJsonColors, renderPrimitiveValue, type JsonColors } from './ModelTraceExplorerJsonRendering.utils';
 import { getJsonRows, type JsonRow } from './ModelTraceExplorerJsonRows.utils';
 
 const ESTIMATED_ROW_HEIGHT = 24;
@@ -12,8 +12,6 @@ const VIRTUAL_VIEWPORT_MAX_HEIGHT = '70vh';
 const EMPTY_TOGGLED: ReadonlySet<WeakKey> = new Set();
 
 type Theme = ReturnType<typeof useDesignSystemTheme>['theme'];
-type JsonColors = ReturnType<typeof getJsonColors>;
-
 interface JsonRowStyles {
   colors: JsonColors;
   indentSize: number;
@@ -226,7 +224,7 @@ export function ModelTraceExplorerJsonRowsViewer({
       }),
     [value],
   );
-  const { rows } = useMemo(
+  const rows = useMemo(
     () =>
       getJsonRows(
         value,

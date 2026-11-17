@@ -49,7 +49,7 @@ describe('large JSON row interaction', () => {
     mockCopy.mockClear();
   });
 
-  it('keeps the viewport and focused toggle mounted when collapsing below 200 rows', async () => {
+  it('keeps the viewport and focused toggle mounted on collapse', async () => {
     jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
       const height = this.hasAttribute('data-index') ? 24 : 480;
       return { x: 0, y: 0, top: 0, left: 0, right: 800, bottom: height, width: 800, height, toJSON: () => ({}) };

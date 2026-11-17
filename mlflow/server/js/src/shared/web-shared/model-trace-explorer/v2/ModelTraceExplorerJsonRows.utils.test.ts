@@ -8,7 +8,7 @@ import {
 
 const expandToDefaultDepth = (_container: WeakKey, depth: number) => depth <= DEFAULT_JSON_ROWS_EXPAND_DEPTH;
 
-const describeRows = (rows: ReturnType<typeof getJsonRows>['rows']) =>
+const describeRows = (rows: ReturnType<typeof getJsonRows>) =>
   rows.map((row) => {
     switch (row.kind) {
       case 'primitive':
@@ -26,7 +26,7 @@ describe('getJsonRows', () => {
   it('numbers lines as if every container were expanded', () => {
     const value = { a: 1, list: [true, null], empty: {}, nested: { b: 'x' } };
 
-    expect(describeRows(getJsonRows(value, expandToDefaultDepth).rows)).toEqual([
+    expect(describeRows(getJsonRows(value, expandToDefaultDepth))).toEqual([
       '1 -{',
       '2 a=1,',
       '3 list[',
@@ -46,7 +46,7 @@ describe('getJsonRows', () => {
     const value = { nested: { b: 1, c: 2 }, after: 3 };
     const collapseNested = (container: WeakKey, depth: number) => depth === 0 || container !== value.nested;
 
-    expect(describeRows(getJsonRows(value, collapseNested).rows)).toEqual(['1 -{', '5 nested{...', '6 after=3', '7 }']);
+    expect(describeRows(getJsonRows(value, collapseNested))).toEqual(['1 -{', '5 nested{...', '6 after=3', '7 }']);
   });
 
   it('collapses containers deeper than the expand depth', () => {
@@ -54,7 +54,7 @@ describe('getJsonRows', () => {
     for (let depth = 0; depth < 8; depth++) {
       value = [value];
     }
-    const rows = getJsonRows(value, expandToDefaultDepth).rows;
+    const rows = getJsonRows(value, expandToDefaultDepth);
 
     const openRows = rows.filter((row) => row.kind === 'open');
     expect(openRows.map((row) => row.kind === 'open' && row.collapsed)).toEqual([
@@ -73,19 +73,17 @@ describe('getJsonRows', () => {
     let deep: unknown = leaf;
     for (let depth = 0; depth < 100; depth++) deep = [deep];
     getJsonRows(deep, () => false);
-    const rows = getJsonRows({ leaf, after: true }, (_container, depth) => depth === 0).rows;
+    const rows = getJsonRows({ leaf, after: true }, (_container, depth) => depth === 0);
     expect(describeRows(rows)).toEqual(['1 -{', '6 leaf{...', '7 after=true', '8 }']);
   });
 
-  it('stops at the row limit and reports the cut', () => {
+  it('stops at the row limit', () => {
     const value = Object.fromEntries(Array.from({ length: 1000 }, (_, index) => [`key-${index}`, index]));
     const full = getJsonRows(value, expandToDefaultDepth);
     const preview = getJsonRows(value, expandToDefaultDepth, 8);
 
-    expect(full.rows).toHaveLength(1002);
-    expect(full.isTruncated).toBe(false);
-    expect(preview.rows).toEqual(full.rows.slice(0, 8));
-    expect(preview.isTruncated).toBe(true);
+    expect(full).toHaveLength(1002);
+    expect(preview).toEqual(full.slice(0, 8));
   });
 });
 
