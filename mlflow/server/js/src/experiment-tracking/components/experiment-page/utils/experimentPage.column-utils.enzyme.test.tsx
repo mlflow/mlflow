@@ -226,6 +226,20 @@ describe('ExperimentViewRuns column utils', () => {
     expect(columnDefinitions?.length).toBe(2);
   });
 
+  test('makes tag columns sortable', () => {
+    const columnDefinitions = getHookResult(MOCK_HOOK_PARAMS) as unknown as ColGroupDef[];
+    const tagsGroup = columnDefinitions.find((col) => (col as any).colId === COLUMN_TYPES.TAGS);
+
+    expect(tagsGroup?.children).toEqual(
+      MOCK_TAGS.map((key) =>
+        expect.objectContaining({
+          sortable: true,
+          headerComponentParams: { canonicalSortKey: makeCanonicalSortKey(COLUMN_TYPES.TAGS, key) },
+        }),
+      ),
+    );
+  });
+
   test('remembers metric/param/tag keys even if they are not in the newly fetched set', () => {
     // Let's start with initializing the component with only one known metric key: "metric_1"
     const hookParams: UseRunsColumnDefinitionsParams = {

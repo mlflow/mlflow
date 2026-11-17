@@ -172,6 +172,7 @@ export const ExperimentViewRunsSortSelectorV2 = React.memo(
   ({
     metricKeys,
     paramKeys,
+    tagKeys,
     orderByAsc,
     orderByKey,
   }: {
@@ -179,6 +180,7 @@ export const ExperimentViewRunsSortSelectorV2 = React.memo(
     orderByAsc: boolean;
     metricKeys: string[];
     paramKeys: string[];
+    tagKeys: string[];
   }) => {
     const intl = useIntl();
     const [open, setOpen] = useState(false);
@@ -221,9 +223,19 @@ export const ExperimentViewRunsSortSelectorV2 = React.memo(
       [paramKeys],
     );
 
+    // Get sort options for tags
+    const tagsSortOptions = useMemo(
+      () =>
+        tagKeys.map((sortLabelKey) => ({
+          label: sortLabelKey,
+          value: makeCanonicalSortKey(COLUMN_TYPES.TAGS, sortLabelKey),
+        })),
+      [tagKeys],
+    );
+
     const sortOptions = useMemo(
-      () => [...attributeSortOptions, ...metricsSortOptions, ...paramsSortOptions],
-      [attributeSortOptions, metricsSortOptions, paramsSortOptions],
+      () => [...attributeSortOptions, ...metricsSortOptions, ...paramsSortOptions, ...tagsSortOptions],
+      [attributeSortOptions, metricsSortOptions, paramsSortOptions, tagsSortOptions],
     );
 
     // Generate the label for the sort select dropdown

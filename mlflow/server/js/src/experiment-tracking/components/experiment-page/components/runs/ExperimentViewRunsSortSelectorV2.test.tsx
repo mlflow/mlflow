@@ -11,6 +11,7 @@ jest.setTimeout(30000);
 
 const metricKeys = ['metric_alpha', 'metric_beta'];
 const paramKeys = ['param_1', 'param_2', 'param_3'];
+const tagKeys = ['tag_1', 'tag_2'];
 
 jest.mock('../../../../../common/utils/RoutingUtils', () => {
   const params = new URLSearchParams();
@@ -39,6 +40,7 @@ describe('ExperimentViewRunsSortSelectorV2', () => {
         <ExperimentViewRunsSortSelectorV2
           metricKeys={metricKeys}
           paramKeys={paramKeys}
+          tagKeys={tagKeys}
           orderByKey=""
           orderByAsc={false}
         />
@@ -96,6 +98,15 @@ describe('ExperimentViewRunsSortSelectorV2', () => {
         orderByKey: 'params.`param_2`',
       }),
     );
+  });
+
+  test('should sort by tag', async () => {
+    renderComponent();
+
+    await userEvent.click(screen.getByRole('button', { name: /Sort/ }));
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'tag_2' }));
+
+    expect(getCurrentSearchParams()).toEqual(expect.objectContaining({ orderByKey: 'tags.`tag_2`' }));
   });
 
   test('should search for parameter', async () => {

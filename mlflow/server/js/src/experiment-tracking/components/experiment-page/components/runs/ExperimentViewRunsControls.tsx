@@ -75,7 +75,7 @@ export const ExperimentViewRunsControls = React.memo(
 
     const filteredParamKeys = paramKeyList;
     const filteredMetricKeys = metricKeyList;
-    const filteredTagKeys = Utils.getVisibleTagKeyList(tagsList);
+    const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
 
     const onDownloadCsv = useCallback(
       () => downloadRunsCsv(runsData, filteredTagKeys, filteredParamKeys, filteredMetricKeys),
@@ -144,6 +144,7 @@ export const ExperimentViewRunsControls = React.memo(
                   orderByKey={orderByKey}
                   metricKeys={filteredMetricKeys}
                   paramKeys={filteredParamKeys}
+                  tagKeys={filteredTagKeys}
                 />
 
                 {!isComparingRuns && (
