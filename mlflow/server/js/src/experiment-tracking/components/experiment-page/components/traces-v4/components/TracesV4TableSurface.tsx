@@ -36,6 +36,7 @@ export interface TracesV4TableSurfaceLayoutProps {
 export interface TracesV4TableSurfaceProps {
   providerProps: TracesV4TableSurfaceProviderProps;
   tableViewProps: TracesTableViewProps;
+  renderTableView?: (tableView: ReactNode) => ReactNode;
   drawerProps: TracesV4TraceDrawerProps;
   layoutProps: TracesV4TableSurfaceLayoutProps;
   overlaySlots?: TracesV4TableSurfaceOverlaySlots;
@@ -63,6 +64,7 @@ export const getTracesV4TableSurfaceStyles = (
 export const TracesV4TableSurface = ({
   providerProps,
   tableViewProps,
+  renderTableView,
   drawerProps,
   layoutProps,
   overlaySlots,
@@ -75,7 +77,11 @@ export const TracesV4TableSurface = ({
         {/* Vertical-fill column for the table surface. Horizontal scroll stays inside TracesTable's
             own `<Table scrollable>`, so the toolbar and pagination bar keep to the visible width. */}
         <div css={getTracesV4TableSurfaceStyles(theme, layoutProps)}>
-          <TracesTableView {...tableViewProps} />
+          {renderTableView ? (
+            renderTableView(<TracesTableView {...tableViewProps} />)
+          ) : (
+            <TracesTableView {...tableViewProps} />
+          )}
           {overlaySlots?.deleteModal}
           <TracesV4TraceDrawer {...drawerProps} />
           {overlaySlots?.actionModals}

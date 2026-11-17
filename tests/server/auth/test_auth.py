@@ -16,6 +16,7 @@ import pytest
 import requests
 from cachetools import TTLCache
 from cryptography.fernet import Fernet
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 import mlflow
 from mlflow import MlflowClient
@@ -5890,6 +5891,41 @@ def test_otel_trace_ingestion_carries_the_trace_veto(fastapi_client, monkeypatch
         auth=(user2, password2),
     )
     assert response.status_code == 403
+
+
+def test_otel_run_link_requires_update_on_run(fastapi_client, monkeypatch):
+    owner, owner_password = create_user(fastapi_client.tracking_uri)
+    writer, writer_password = create_user(fastapi_client.tracking_uri)
+    with User(owner, owner_password, monkeypatch):
+        run_experiment_id = fastapi_client.create_experiment("otel_run_link_target")
+        run_id = fastapi_client.create_run(run_experiment_id).info.run_id
+    with User(writer, writer_password, monkeypatch):
+        trace_experiment_id = fastapi_client.create_experiment("otel_run_link_source")
+
+    request = ExportTraceServiceRequest()
+    span = request.resource_spans.add().scope_spans.add().spans.add()
+    span.trace_id = b"\x01" * 16
+    span.span_id = b"\x02" * 8
+    span.name = "root"
+
+    def post_spans():
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": trace_experiment_id,
+                "X-Mlflow-Run-Id": run_id,
+            },
+            data=request.SerializeToString(),
+            auth=(writer, writer_password),
+        )
+
+    assert post_spans().status_code == 403
+
+    grant_role_permission(
+        fastapi_client.tracking_uri, writer, "experiment", run_experiment_id, EDIT.name
+    )
+    assert post_spans().status_code == 200
 
 
 def test_job_api_unauthenticated_access_denied(fastapi_client, monkeypatch):

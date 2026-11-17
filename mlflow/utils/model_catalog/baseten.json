@@ -317,7 +317,7 @@
     "moonshotai/Kimi-K3.1-Pro": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1000000,
+        "max_input": 1048576,
         "max_output": 1048576
       },
       "pricing": {
@@ -332,7 +332,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-09"
+      "last_updated_at": "2026-11-17"
     },
     "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B": {
       "mode": "chat",

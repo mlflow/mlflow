@@ -1,9 +1,11 @@
 import type { TokenUsage } from '../ModelTraceExplorerTokenUsageHoverCard';
+import { mayBeJsonText } from '../attributeJson';
 
 export type SpanTokenUsage = Partial<TokenUsage> & Pick<TokenUsage, 'total_tokens'>;
 
-export const formatCompactNumber = (value: number): string =>
-  new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+const compactNumberFormatter = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 });
+
+export const formatCompactNumber = (value: number): string => compactNumberFormatter.format(value);
 
 export interface SpanTokenUsageSource {
   attributes?: unknown;
@@ -61,6 +63,9 @@ const getNumberField = (value: Record<string, unknown>, field: string): number |
 const normalizeMlflowTokenUsage = (value: unknown): SpanTokenUsage | undefined => {
   let parsedValue = value;
   if (typeof parsedValue === 'string') {
+    if (!mayBeJsonText(parsedValue)) {
+      return undefined;
+    }
     try {
       parsedValue = JSON.parse(parsedValue);
     } catch {
