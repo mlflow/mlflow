@@ -182,9 +182,18 @@ async def _get_request_body(request: Request) -> dict[str, Any]:
         Parsed JSON body as a dictionary.
 
     Raises:
-        HTTPException: If the request body is not valid JSON, cannot be decompressed,
-            or exceeds the decompressed size limit.
+        HTTPException: If the Content-Type is not ``application/json``, the request body is
+            not valid JSON, cannot be decompressed, or exceeds the decompressed size limit.
     """
+    # Require a JSON Content-Type so browsers cannot send these requests cross-origin as CORS
+    # simple requests (text/plain, form types, or no Content-Type), which skip the preflight.
+    content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if content_type != "application/json":
+        raise HTTPException(
+            status_code=415,
+            detail="Unsupported Content-Type. Content-Type must be 'application/json'.",
+        )
+
     # Check if body was already parsed by auth middleware
     cached_body = getattr(request.state, "cached_body", None)
     if isinstance(cached_body, dict):

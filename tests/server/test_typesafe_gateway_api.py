@@ -144,7 +144,7 @@ async def test_system_one_guardrails_and_user_budget(endpoint):
     request.state.cached_body = _request()
     request.state.username = "alice"
     request.state.user_id = None
-    request.headers = {"authorization": "Basic mlflow-auth"}
+    request.headers = {"authorization": "Basic mlflow-auth", "content-type": "application/json"}
     pre_guardrail = MagicMock()
     post_guardrail = MagicMock()
     modified_body = {**_request(), "state": "Sanitized input"}
@@ -180,6 +180,7 @@ async def test_system_one_stops_before_upstream_on_policy_failure(endpoint, fail
     request.state.cached_body = _request()
     request.state.username = None
     request.state.user_id = None
+    request.headers = {"content-type": "application/json"}
     with patch("mlflow.gateway.providers.typesafe.send_request") as send:
         if failure == "budget":
             with patch(
@@ -227,6 +228,7 @@ async def test_system_one_rejects_mixed_model_providers(linkage):
     request.state.cached_body = _request()
     request.state.username = None
     request.state.user_id = None
+    request.headers = {"content-type": "application/json"}
     provider = MagicMock()
     provider.passthrough = AsyncMock()
     config = GatewayEndpointConfig(
