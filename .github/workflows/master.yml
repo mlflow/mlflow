@@ -116,7 +116,9 @@ jobs:
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
+      # Only the serial shards run the HF dataset tests this cache is keyed on.
       - uses: ./.github/actions/cache-hf
+        if: matrix.mode == 'serial'
       - name: Import check
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
@@ -297,9 +299,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3]
+        group: [1, 2]
         include:
-          - splits: 3
+          - splits: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -390,7 +392,7 @@ jobs:
           # which imports the published mlflow-skinny that databricks-agents pulls
           # into this overlay rather than the local checkout. That published build
           # lacks the new `mlflow.test` API, so the generated test fails to collect.
-          # It already runs against the local mlflow in the OSS step above.
+          # It already runs against the local mlflow in the `genai (oss)` job.
           uv run --no-sync --with databricks-agents \
             pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
             --ignore tests/genai/optimize --ignore tests/genai/prompts \
