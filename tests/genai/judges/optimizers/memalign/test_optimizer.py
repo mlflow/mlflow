@@ -1062,6 +1062,88 @@ def test_concurrent_calls_do_not_leak_retrieved_examples_across_rows(sample_judg
         assert other_example_text[row] not in system_message
 
 
+def test_concurrent_first_calls_on_deferred_multi_field_judge_use_every_index(sample_judge):
+    # A second call that lands while the first is still building the per-field indices
+    # must wait for them rather than iterate a half-built retriever dict.
+    second_call_querying = threading.Event()
+    queried_fields = []
+    errors = []
+
+    class FakeEmbeddings:
+        def __init__(self, embedder, corpus, k):
+            self.field = "outputs" if "answer" in corpus[0] else "inputs"
+            if self.field == "outputs":
+                # Hold the first call mid-build until the second call is querying (old code)
+                # or the second call is blocked on init (fixed code, so this times out).
+                second_call_querying.wait(timeout=1)
+
+        def __call__(self, query):
+            queried_fields.append(self.field)
+            second_call_querying.set()
+            threading.Event().wait(0.3)
+            return MagicMock(indices=[0])
+
+    def call():
+        try:
+            judge(inputs="q", outputs="a")
+        except Exception as e:
+            errors.append(e)
+
+    examples = [dspy.Example(inputs="question", outputs="answer", result="yes", rationale="r")]
+    with (
+        patch("dspy.retrievers.Embeddings", FakeEmbeddings),
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder",
+            return_value=MagicMock(),
+        ),
+        patch.object(MemoryAugmentedJudge, "_reconstruct_episodic_memory", return_value=examples),
+        patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
+    ):
+        judge = MemoryAugmentedJudge(
+            sample_judge, retrieval_fields=["inputs", "outputs"], _defer_init=True
+        )
+        judge._episodic_trace_ids = ["t1"]
+        first = threading.Thread(target=call)
+        first.start()
+        threading.Event().wait(0.2)
+        second = threading.Thread(target=call)
+        second.start()
+        first.join(timeout=10)
+        second.join(timeout=10)
+
+    assert errors == []
+    assert sorted(queried_fields) == ["inputs", "inputs", "outputs", "outputs"]
+
+
+def test_failed_lazy_init_is_retried_on_next_call(sample_judge):
+    examples = [dspy.Example(inputs="question", outputs="answer", result="yes", rationale="r")]
+    with (
+        patch("dspy.retrievers.Embeddings") as mock_embeddings_class,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder",
+            return_value=MagicMock(),
+        ),
+        patch.object(
+            MemoryAugmentedJudge,
+            "_reconstruct_episodic_memory",
+            side_effect=[RuntimeError("store down"), examples],
+        ),
+        patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
+    ):
+        mock_embeddings_class.return_value.return_value = MagicMock(indices=[0])
+        judge = MemoryAugmentedJudge(
+            sample_judge, retrieval_fields=["inputs", "outputs"], _defer_init=True
+        )
+        judge._episodic_trace_ids = ["t1"]
+        with pytest.raises(RuntimeError, match="store down"):
+            judge(inputs="q", outputs="a")
+        assert judge._embedder is None
+
+        judge(inputs="q", outputs="a")
+
+    assert list(judge._retrievers) == ["inputs", "outputs"]
+
+
 @pytest.mark.parametrize(
     ("embedding_model", "expected_batch_size"),
     [

@@ -1,5 +1,6 @@
 import copy
 import logging
+import threading
 from collections.abc import Iterable
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
@@ -239,6 +240,8 @@ class MemoryAugmentedJudge(Judge):
 
         # Always store trace IDs for serialization
         self._episodic_trace_ids: list[str] = []
+        # Serializes deferred init across concurrent first calls (e.g. evaluate's thread pool)
+        self._init_lock = threading.Lock()
 
         if _defer_init:
             # Defer creating heavyweight DSPy objects until first use (_embedder=None signals this)
@@ -497,17 +500,23 @@ class MemoryAugmentedJudge(Judge):
 
         No-op if already initialized (checked via _embedder not being None).
         """
-        if self._embedder is not None:
-            return
+        with self._init_lock:
+            if self._embedder is not None:
+                return
 
-        self._base_signature = create_dspy_signature(self._base_judge)
+            self._base_signature = create_dspy_signature(self._base_judge)
 
-        self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
+            self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
 
-        self._episodic_memory = self._reconstruct_episodic_memory()
+            try:
+                self._episodic_memory = self._reconstruct_episodic_memory()
 
-        if self._episodic_memory:
-            self._build_episodic_memory()
+                if self._episodic_memory:
+                    self._build_episodic_memory()
+            except Exception:
+                # Leave the judge uninitialized so the next call retries.
+                self._embedder = None
+                raise
 
     def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
         """
@@ -649,26 +658,29 @@ class MemoryAugmentedJudge(Judge):
 
         # Read fields with .get(): getattr(example, "inputs") is the bound Example.inputs method.
         # Drop examples with no value for any query field; they can never be retrieved.
-        self._episodic_memory = [
+        episodic_memory = [
             example
             for example in self._episodic_memory
             if any(example.get(field) for field in query_fields)
         ]
 
         # One index per field. positions maps each corpus entry back to its episodic index.
-        self._retrievers = {}
+        retrievers = {}
         for field in query_fields:
             corpus = []
             positions = []
-            for i, example in enumerate(self._episodic_memory):
+            for i, example in enumerate(episodic_memory):
                 if value := example.get(field):
                     corpus.append(value_to_truncated_embedding_text(value, self._embedding_model))
                     positions.append(i)
             retriever = dspy.retrievers.Embeddings(
                 embedder=self._embedder, corpus=corpus, k=self._retrieval_k
             )
-            self._retrievers[field] = (retriever, positions)
+            retrievers[field] = (retriever, positions)
             _logger.debug(f"Episodic memory corpus for {field!r} contains {len(corpus)} examples")
+
+        # Publish together so readers never pair new positions with an old memory list.
+        self._episodic_memory, self._retrievers = episodic_memory, retrievers
 
     def _add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
         """Add examples by updating both episodic memory and semantic memory.
