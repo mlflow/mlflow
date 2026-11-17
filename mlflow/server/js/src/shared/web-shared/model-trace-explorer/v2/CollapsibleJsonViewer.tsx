@@ -4,12 +4,17 @@ import type { CSSObject } from '@emotion/react';
 import { isObject, truncate } from 'lodash';
 import { Fragment, useMemo, useState } from 'react';
 
+import { ModelTraceExplorerJsonRowsViewer } from './ModelTraceExplorerJsonRowsViewer';
+import { getJsonRowsExpandDepth } from './ModelTraceExplorerJsonRows.utils';
+
+const LARGE_JSON_MIN_CHARS = 100_000;
 const MAX_DEPTH = 100;
 const INITIAL_EXPAND_DEPTH = 5;
 const MAX_STRING_LENGTH = 1000;
 interface CollapsibleJsonViewerProps {
   data: string;
   initialExpanded?: boolean;
+  rowLimit?: number;
 }
 
 type JsonColors = {
@@ -34,7 +39,7 @@ export function getJsonColors(isDarkMode: boolean, textPrimary: string, textSeco
   };
 }
 
-function renderPrimitiveValue(val: unknown, colors: JsonColors): React.ReactNode {
+export function renderPrimitiveValue(val: unknown, colors: JsonColors): React.ReactNode {
   if (val === null) {
     return <span css={{ color: colors.null }}>null</span>;
   }
@@ -378,7 +383,11 @@ function IdeJsonViewer({ parsedData, initialExpanded, colors, theme }: IdeJsonVi
   );
 }
 
-export function CollapsibleJsonViewer({ data, initialExpanded = false }: CollapsibleJsonViewerProps): JSX.Element {
+export function CollapsibleJsonViewer({
+  data,
+  initialExpanded = false,
+  rowLimit,
+}: CollapsibleJsonViewerProps): JSX.Element {
   const { theme } = useDesignSystemTheme();
 
   const parseResult = useMemo(() => {
@@ -434,6 +443,17 @@ export function CollapsibleJsonViewer({ data, initialExpanded = false }: Collaps
       >
         {renderPrimitiveValue(parseResult.data, colors)}
       </div>
+    );
+  }
+
+  if (data.length >= LARGE_JSON_MIN_CHARS && isObject(parseResult.data)) {
+    return (
+      <ModelTraceExplorerJsonRowsViewer
+        key={data}
+        value={parseResult.data}
+        expandDepth={initialExpanded ? getJsonRowsExpandDepth(data.length) : 0}
+        rowLimit={rowLimit}
+      />
     );
   }
 

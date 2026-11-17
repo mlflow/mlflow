@@ -132,7 +132,7 @@ export function ModelTraceExplorerCodeSnippetBody({
             position: 'relative',
           }}
         >
-          <CollapsibleJsonViewer data={data} initialExpanded />
+          <CollapsibleJsonViewer data={data} initialExpanded rowLimit={expanded ? undefined : 8} />
           {expandable && !expanded && (
             <div
               css={{
