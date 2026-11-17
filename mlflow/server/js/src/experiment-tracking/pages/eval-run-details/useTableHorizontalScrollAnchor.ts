@@ -34,22 +34,43 @@ const findHorizontalScrollAnchor = (scroller: HTMLElement): HorizontalScrollAnch
  */
 export const useTableHorizontalScrollAnchor = (containerRef: RefObject<HTMLElement>, columnsKey: string) => {
   const anchorRef = useRef<HorizontalScrollAnchor>();
+  const lastScrollLeftRef = useRef<number>();
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) {
       return undefined;
     }
+    const scroller = findTableScroller(container);
+    if (!scroller) {
+      return undefined;
+    }
+    const recordCurrentAnchor = () => {
+      lastScrollLeftRef.current = scroller.scrollLeft;
+      anchorRef.current = findHorizontalScrollAnchor(scroller);
+    };
     // Scroll events don't bubble, so listen in the capture phase for the table's own scroller.
-    const recordAnchor = (event: Event) => {
-      const scroller = findTableScroller(container);
-      if (scroller && event.target === scroller) {
-        anchorRef.current = findHorizontalScrollAnchor(scroller);
+    const recordAnchorAfterHorizontalScroll = (event: Event) => {
+      if (event.target === scroller && scroller.scrollLeft !== lastScrollLeftRef.current) {
+        recordCurrentAnchor();
       }
     };
-    container.addEventListener('scroll', recordAnchor, { capture: true, passive: true });
-    return () => container.removeEventListener('scroll', recordAnchor, { capture: true });
-  }, [containerRef]);
+    container.addEventListener('scroll', recordAnchorAfterHorizontalScroll, { capture: true, passive: true });
+
+    // A resized viewport or column can move the anchor without scrolling. Refresh the stored offset
+    // so the next column-set change compensates only for that change, not for an earlier resize.
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(() => recordCurrentAnchor());
+    resizeObserver?.observe(scroller);
+    for (const header of scroller.querySelectorAll('[role="columnheader"]')) {
+      resizeObserver?.observe(header);
+    }
+
+    return () => {
+      container.removeEventListener('scroll', recordAnchorAfterHorizontalScroll, { capture: true });
+      resizeObserver?.disconnect();
+    };
+  }, [containerRef, columnsKey]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -65,5 +86,6 @@ export const useTableHorizontalScrollAnchor = (containerRef: RefObject<HTMLEleme
       }
     }
     anchorRef.current = findHorizontalScrollAnchor(scroller);
+    lastScrollLeftRef.current = scroller.scrollLeft;
   }, [containerRef, columnsKey]);
 };
