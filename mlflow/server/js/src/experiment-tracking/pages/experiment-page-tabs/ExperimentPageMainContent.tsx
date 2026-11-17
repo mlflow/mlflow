@@ -1,3 +1,4 @@
+/** @jsxImportSource @emotion/react */
 import type { ReactNode } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 
