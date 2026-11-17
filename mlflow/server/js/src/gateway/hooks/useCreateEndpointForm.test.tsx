@@ -71,6 +71,18 @@ describe('useCreateEndpointForm', () => {
     act(() => result.current.form.setValue('newSecret.secretFields', { api_key: 'synthetic-key' }));
     expect(renderShell).not.toHaveBeenCalled();
   });
+  test('does not rerender completeness for name edits on ordinary endpoints', () => {
+    const renderCompleteness = jest.fn();
+    const { result } = renderHook(() => {
+      const state = useCreateEndpointForm({ defaultProvider: 'openai', defaultModel: 'model-1' });
+      renderCompleteness();
+      return { ...state, complete: useCreateEndpointFormComplete(state.form.control) };
+    });
+    renderCompleteness.mockClear();
+    act(() => result.current.form.setValue('name', 'my-endpoint'));
+    expect(renderCompleteness).not.toHaveBeenCalled();
+  });
+
   test('refreshes completeness when switching between new and existing credentials', () => {
     const { result } = renderHook(() => {
       const state = useCreateEndpointForm({ defaultProvider: 'openai', defaultModel: 'model-1' });

@@ -37,7 +37,7 @@ export interface EndpointFormRendererProps {
   resetErrors: () => void;
   /** Whether any fields have changed from their initial values (edit mode only) */
   hasChanges?: boolean;
-  /** When set, hides model/connections fields and shows a coding-agent banner */
+  /** Hides model/connections fields; must match the hook's codingAgent option. */
   codingAgent?: CodingAgentType;
   /** Form submission handler */
   onSubmit: (values: EndpointFormData) => Promise<void>;
@@ -56,8 +56,9 @@ export interface EndpointFormRendererProps {
 }
 
 /**
- * Unified presentational component for endpoint forms (create and edit).
- * All business logic is handled by the parent hook (useCreateEndpointForm or useEditEndpointForm).
+ * Endpoint creation form shared by the full page and modal.
+ * Completeness follows useCreateEndpointForm; existing endpoints use
+ * EditEndpointFormRenderer and its separate editing rules.
  *
  * This component expects to be wrapped in a FormProvider by the parent.
  * Page-level concerns (breadcrumbs, page wrapper, loading/error states) should be

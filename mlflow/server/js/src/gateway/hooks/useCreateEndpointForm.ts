@@ -292,12 +292,13 @@ export function useCreateEndpointForm({
 }
 
 // Subscribe below FormProvider so field edits do not rerender the page or modal shell.
+// Pass the same codingAgent used by useCreateEndpointForm.
 export function useCreateEndpointFormComplete(control: Control<CreateEndpointFormData>, codingAgent?: CodingAgentType) {
-  const [name, provider, modelName, secretMode, existingSecretId, newSecretName, newSecretAuthMode, newSecretFields] =
+  const name = useWatch({ control, name: 'name', disabled: !codingAgent });
+  const [provider, modelName, secretMode, existingSecretId, newSecretName, newSecretAuthMode, newSecretFields] =
     useWatch({
       control,
       name: [
-        'name',
         'provider',
         'modelName',
         'secretMode',
