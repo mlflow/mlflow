@@ -329,7 +329,11 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
 /**
  * Quote any tag key that is not a plain identifier, preserving punctuation as part of the key.
  */
-const tagFieldRef = (key: string): string => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? `tags.${key}` : `tags.\`${key}\``);
+export const tagFieldRef = (key: string): string =>
+  /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? `tags.${key}` : `tags.\`${key}\``;
+
+export const metadataFieldRef = (key: string): string =>
+  `request_metadata.${/^[A-Za-z_][A-Za-z0-9_.]*$/.test(key) ? key : `"${key}"`}`;
 
 const NO_NUMERIC_ASSESSMENT_KEYS: ReadonlySet<string> = new Set();
 
@@ -429,11 +433,7 @@ const compileClause = (
       return `${tagFieldRef(key ?? '')} ${operator} '${v}'`;
     case 'metadata':
       // Arbitrary trace-metadata key, matching v3's custom-metadata clause (CONTAINS → ILIKE).
-      return compileContainsAwareClause(
-        `request_metadata.${/^[A-Za-z_][A-Za-z0-9_.]*$/.test(key ?? '') ? key : `"${key}"`}`,
-        operator,
-        value,
-      );
+      return compileContainsAwareClause(metadataFieldRef(key ?? ''), operator, value);
     case 'assessment':
       // The key is the assessment name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to a `feedback.\`<name>\`` clause (matching the shared `createMlflowSearchFilter`);

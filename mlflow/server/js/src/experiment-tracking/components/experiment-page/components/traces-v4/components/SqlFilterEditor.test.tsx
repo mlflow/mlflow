@@ -6,7 +6,7 @@ import { IntlProvider } from 'react-intl';
 import { FilterOp } from '@databricks/web-shared/traces-table';
 import { SqlFilterEditor } from './SqlFilterEditor';
 import { parseBasicTraceFilter } from '../utils/traceSqlFilters';
-import { useMlflowTraceFilterFields } from '../utils/filterModel';
+import { compileFilterModel, useMlflowTraceFilterFields } from '../utils/filterModel';
 
 const mockDispose = jest.fn();
 const mockModel = { getValueInRange: () => 'tags.' };
@@ -92,6 +92,47 @@ test('session completion round trips to the Basic session field', () => {
   expect(parseBasicTraceFilter(`${column} = 'session-1'`, result.current)).toEqual([
     { field: 'session', key: undefined, operator: FilterOp.EQUALS, value: 'session-1' },
   ]);
+});
+
+test.each([
+  ['tag', 'env', 'tags.env'],
+  ['tag', 'owner_name', 'tags.owner_name'],
+  ['tag', 'release.name', 'tags.`release.name`'],
+  ['tag', 'release name', 'tags.`release name`'],
+  ['metadata', 'owner', 'request_metadata.owner'],
+  ['metadata', 'team.owner', 'request_metadata.team.owner'],
+  ['metadata', 'team owner', 'request_metadata."team owner"'],
+  ['assessment', 'score', 'feedback.`score`'],
+  ['expectation', 'expected result', 'expectation.`expected result`'],
+])('round trips the loaded %s key %s completion to Basic', (field, key, expectedColumn) => {
+  const { result } = renderHook(() => useMlflowTraceFilterFields(), {
+    wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
+  });
+  const fields = result.current.map((definition) =>
+    definition.id === field ? { ...definition, keyOptions: [{ value: key, label: key }] } : definition,
+  );
+  const original = mockModel.getValueInRange;
+  mockModel.getValueInRange = () => '';
+  try {
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <SqlFilterEditor value="" onChange={jest.fn()} fields={fields} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    const provider = mockRegister.mock.calls.at(-1)?.[1];
+    const completion = provider
+      .provideCompletionItems(mockModel, { lineNumber: 1, column: 1 })
+      .suggestions.find(({ label }: { label: string }) => label.includes(key));
+    expect(completion?.insertText).toBe(expectedColumn);
+    const sql = `${completion?.insertText} = 'qa'`;
+    const basic = parseBasicTraceFilter(sql, fields);
+    expect(basic).toEqual([{ field, key, operator: FilterOp.EQUALS, value: 'qa' }]);
+    expect(compileFilterModel(basic ?? []).join(' AND ')).toBe(sql);
+  } finally {
+    mockModel.getValueInRange = original;
+  }
 });
 
 test.each(['(', '((', "tags.env = 'qa' AND ("])('replaces the column prefix after %s', (group) => {

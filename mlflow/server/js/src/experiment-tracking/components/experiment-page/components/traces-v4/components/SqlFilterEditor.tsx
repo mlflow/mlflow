@@ -6,7 +6,7 @@ import * as monaco from 'monaco-editor';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import type { FilterFieldDef } from '@databricks/web-shared/traces-table';
-import { isSafeFilterKey } from '../utils/filterModel';
+import { isSafeFilterKey, metadataFieldRef, tagFieldRef } from '../utils/filterModel';
 
 loader.config({ monaco });
 
@@ -57,7 +57,13 @@ export const SqlFilterEditor = ({
           NAMESPACES.get(id)
             ? (keyOptions ?? [])
                 .filter(({ value: key }) => isSafeFilterKey(key))
-                .map(({ value: key }) => `${NAMESPACES.get(id)}.${id === 'metadata' ? `"${key}"` : `\`${key}\``}`)
+                .map(({ value: key }) =>
+                  id === 'tag'
+                    ? tagFieldRef(key)
+                    : id === 'metadata'
+                      ? metadataFieldRef(key)
+                      : `${NAMESPACES.get(id)}.\`${key}\``,
+                )
             : [],
         ),
       ]),
