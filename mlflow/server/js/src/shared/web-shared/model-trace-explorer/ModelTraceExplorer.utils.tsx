@@ -7,7 +7,6 @@ import {
   isNumber,
   isBoolean,
   escapeRegExp,
-  map,
   every,
   has,
   compact,
@@ -283,9 +282,6 @@ const getMatchesFromSections = (span: ModelTraceSpanNode, filter: string, sectio
   }
   return matches;
 };
-
-export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] =>
-  getMatchesFromSections(span, searchFilter, ['events']);
 
 /** Extracts payload matches with the metadata needed to jump to each occurrence. */
 export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] =>
