@@ -1,8 +1,9 @@
-import { Button, DatabaseIcon } from '@databricks/design-system';
+import { Button, DatabaseIcon, Tooltip } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useState } from 'react';
 import { CreateEvaluationDatasetModal } from '../../experiment-evaluation-datasets/components/CreateEvaluationDatasetModal';
 import type { Dataset } from '../hooks/useDatasetsQueries';
+import { useCanCreateDataset } from '../hooks/useCanCreateDataset';
 
 /**
  * Trigger + modal for "Create dataset" on the v2 datasets list page. Wraps OSS's existing
@@ -21,23 +22,42 @@ interface CreateDatasetButtonProps {
 
 export const CreateDatasetButton = ({ experimentId, buttonText, buttonProps = {} }: CreateDatasetButtonProps) => {
   const [open, setOpen] = useState(false);
+  const canCreate = useCanCreateDataset(experimentId);
+  const createButton = (
+    <Button
+      componentId="mlflow.eval-datasets-v2.create-dataset.button"
+      icon={<DatabaseIcon />}
+      type="primary"
+      {...buttonProps}
+      disabled={!canCreate || Boolean(buttonProps['disabled'])}
+      onClick={() => setOpen(true)}
+    >
+      {buttonText ?? (
+        <FormattedMessage
+          defaultMessage="Create dataset"
+          description="Button label that opens the create-dataset modal on the v2 datasets list"
+        />
+      )}
+    </Button>
+  );
   return (
     <>
-      <Button
-        componentId="mlflow.eval-datasets-v2.create-dataset.button"
-        icon={<DatabaseIcon />}
-        type="primary"
-        onClick={() => setOpen(true)}
-        {...buttonProps}
-      >
-        {buttonText ?? (
-          <FormattedMessage
-            defaultMessage="Create dataset"
-            description="Button label that opens the create-dataset modal on the v2 datasets list"
-          />
-        )}
-      </Button>
-      <CreateEvaluationDatasetModal visible={open} experimentId={experimentId} onCancel={() => setOpen(false)} />
+      {canCreate ? (
+        createButton
+      ) : (
+        <Tooltip
+          componentId="mlflow.eval-datasets-v2.create-dataset.permission-tooltip"
+          content={
+            <FormattedMessage
+              defaultMessage="You need Edit permission on this experiment to perform this action."
+              description="Tooltip explaining why dataset creation is disabled"
+            />
+          }
+        >
+          <span>{createButton}</span>
+        </Tooltip>
+      )}
+      {open && <CreateEvaluationDatasetModal visible experimentId={experimentId} onCancel={() => setOpen(false)} />}
     </>
   );
 };
