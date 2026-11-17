@@ -203,6 +203,49 @@ def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(
     assert config.model.config.vertex_anthropic_betas == expected
 
 
+@pytest.mark.parametrize(
+    ("auth_mode", "expected"),
+    [
+        ("service_account_json", '{"type": "service_account"}'),
+        ("default_chain", None),
+    ],
+)
+def test_build_endpoint_config_vertex_ai_credentials_follow_auth_mode(auth_mode, expected):
+    # A key switched to default_chain can still store the service account JSON
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="vertex_ai",
+        model_name="gemini-2.5-flash",
+        secret_value={"vertex_credentials": '{"type": "service_account"}'},
+        auth_config={"auth_mode": auth_mode, "vertex_project": "my-project"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, VertexAIConfig)
+    assert config.model.config.vertex_credentials == expected
+
+
+@pytest.mark.parametrize(
+    ("auth_mode", "expected_keys"),
+    [
+        ("access_keys", {"aws_access_key_id", "aws_secret_access_key"}),
+        ("default_chain", set()),
+    ],
+)
+def test_build_endpoint_config_sagemaker_secrets_follow_auth_mode(auth_mode, expected_keys):
+    # A key switched to default_chain can still store the access keys
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="sagemaker",
+        model_name="my-endpoint",
+        secret_value={"aws_access_key_id": "a", "aws_secret_access_key": "b"},
+        auth_config={"auth_mode": auth_mode, "aws_region_name": "us-east-1"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, LiteLLMConfig)
+    auth = config.model.config.litellm_auth_config
+    assert {"aws_access_key_id", "aws_secret_access_key"} & auth.keys() == expected_keys
+
+
 def test_build_endpoint_config_typesafe_reads_api_base_from_auth_config():
     model_config = GatewayModelConfig(
         model_definition_id="md-test",
