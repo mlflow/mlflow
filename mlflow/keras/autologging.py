@@ -218,7 +218,13 @@ def autolog(
                 _log_dataset(x, source, "train", targets=y, model_id=model_id)
 
                 if "validation_data" in kwargs:
-                    _log_dataset(kwargs["validation_data"], source, "eval", model_id=model_id)
+                    validation_data = kwargs["validation_data"]
+                elif len(args) >= 8:
+                    validation_data = args[7]
+                else:
+                    validation_data = None
+                if validation_data is not None:
+                    _log_dataset(validation_data, source, "eval", model_id=model_id)
 
             except Exception as e:
                 _logger.warning(f"Failed to log dataset information to MLflow. Reason: {e}")
