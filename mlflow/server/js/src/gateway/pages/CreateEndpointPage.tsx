@@ -18,17 +18,7 @@ const CreateEndpointPage = () => {
   const location = useLocation();
   const prefill = parsePrefillState(location.state);
 
-  const {
-    form,
-    isLoading,
-    error,
-    resetErrors,
-    selectedModel,
-    isFormComplete,
-    handleSubmit,
-    handleCancel,
-    handleNameBlur,
-  } = useCreateEndpointForm({
+  const { form, isLoading, error, resetErrors, handleSubmit, handleCancel, handleNameBlur } = useCreateEndpointForm({
     defaultProvider: prefill?.provider,
     defaultModel: prefill?.model,
     defaultName: prefill?.endpointName,
@@ -76,8 +66,6 @@ const CreateEndpointPage = () => {
           error={error}
           errorMessage={getReadableErrorMessage(error)}
           resetErrors={resetErrors}
-          selectedModel={selectedModel}
-          isFormComplete={isFormComplete}
           codingAgent={prefill?.codingAgent}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
