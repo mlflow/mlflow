@@ -22,6 +22,7 @@ from mlflow.store.tracking.sqlalchemy_store import (
     _get_orderby_clauses,
 )
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.uri import extract_db_type_from_uri
 
 from tests.integration.utils import invoke_cli_runner
@@ -166,7 +167,7 @@ def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_m
     invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    store = SqlAlchemyStore(db_url, artifact_uri.as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, db_url, artifact_uri.as_uri())
     with open(expected_metric_values_path) as f:
         expected_metric_values = json.load(f)
 
@@ -181,7 +182,7 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(
     monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "SingletonThreadPool")
     _clear_in_memory_engine()
     store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
-    store = store_cls("sqlite:///:memory:", ARTIFACT_URI)
+    store = _build_tracking_store(store_cls, "sqlite:///:memory:", ARTIFACT_URI)
     experiment_id = store.create_experiment(name="exp1")
     run = store.create_run(
         experiment_id=experiment_id,
@@ -206,10 +207,10 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(
 def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(
     tmp_sqlite_uri,
 ):
-    store = SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
+    store = _build_tracking_store(SqlAlchemyStore, tmp_sqlite_uri, ARTIFACT_URI)
     store.delete_experiment("0")
     assert store.get_experiment("0").lifecycle_stage == entities.LifecycleStage.DELETED
-    SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
+    _build_tracking_store(SqlAlchemyStore, tmp_sqlite_uri, ARTIFACT_URI)
 
 
 def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_path, db_uri):
@@ -224,7 +225,7 @@ def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_pa
     """
     artifact_root = tmp_path / "artifacts"
 
-    store = SqlAlchemyStore(db_uri, str(artifact_root))
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, str(artifact_root))
 
     assert not artifact_root.exists()
 
@@ -237,7 +238,9 @@ def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path, d
 
     artifact_root = tmp_path / "artifacts"
 
-    store = SqlAlchemyStore(db_uri, path_to_local_file_uri(str(artifact_root)))
+    store = _build_tracking_store(
+        SqlAlchemyStore, db_uri, path_to_local_file_uri(str(artifact_root))
+    )
     exp_id = store.create_experiment("test")
     run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
 
@@ -320,7 +323,7 @@ def test_get_attribute_name():
 
 
 def test_get_orderby_clauses(tmp_sqlite_uri):
-    store = SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
+    store = _build_tracking_store(SqlAlchemyStore, tmp_sqlite_uri, ARTIFACT_URI)
     with store.ManagedSessionMaker() as session:
         # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
         parsed = [str(x) for x in _get_orderby_clauses([], session)[1]]
@@ -364,7 +367,7 @@ def test_get_orderby_clauses(tmp_sqlite_uri):
         ("_search_datasets", lambda exp_id: ([exp_id],)),
         ("search_runs", lambda exp_id: ([exp_id], None, entities.ViewType.ALL, 10)),
         ("search_logged_models", lambda exp_id: ([exp_id],)),
-        ("_delete_traces", lambda exp_id: (exp_id, 1)),
+        ("delete_traces", lambda exp_id: (exp_id, 1)),
         ("calculate_trace_filter_correlation", lambda e: ([e], "name = 'a'", "name = 'b'")),
         ("search_issues", lambda exp_id: (exp_id,)),
         (
@@ -395,6 +398,6 @@ def test_store_methods_accept_valid_experiment_id(store):
     assert store.search_runs([exp_id], None, entities.ViewType.ALL, 10) == []
     assert store.search_runs([int(exp_id)], None, entities.ViewType.ALL, 10) == []
     assert store.search_logged_models([exp_id]) == []
-    assert store._delete_traces(exp_id, 1) == 0
+    assert store.delete_traces(exp_id, 1) == 0
     correlation = store.calculate_trace_filter_correlation([exp_id], "name = 'a'", "name = 'b'")
     assert correlation.total_count == 0

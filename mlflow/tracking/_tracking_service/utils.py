@@ -1,13 +1,19 @@
 import importlib
 import logging
 import os
+import sys
 from collections import OrderedDict
 from contextlib import contextmanager
 from functools import lru_cache, partial
 from pathlib import Path
 from typing import Generator
 
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
+from mlflow.environment_variables import (
+    _MLFLOW_SERVER_BOOT_ID,
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_TRACE_STORE_URI,
+    MLFLOW_TRACKING_URI,
+)
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_TRACKING_URI
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
@@ -180,7 +186,7 @@ def _get_file_store(store_uri, **_):
     return FileStore(store_uri, store_uri)
 
 
-def _get_sqlalchemy_store(store_uri, artifact_uri):
+def _get_sqlalchemy_store(store_uri, artifact_uri, trace_store=None):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 
@@ -194,6 +200,8 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
         )
 
     store_cls = WorkspaceAwareSqlAlchemyStore if MLFLOW_ENABLE_WORKSPACES.get() else SqlAlchemyStore
+    if trace_store is not None:
+        return store_cls(store_uri, artifact_uri, trace_store=trace_store)
     return store_cls(store_uri, artifact_uri)
 
 
@@ -262,8 +270,33 @@ def _register(scheme, builder):
 _register_tracking_stores()
 
 
-def _get_store(store_uri=None, artifact_uri=None):
+def _get_store(store_uri=None, artifact_uri=None, *, trace_store_uri=None):
+    if trace_store_uri is None and MLFLOW_TRACE_STORE_URI.get():
+        # A client's own URI takes precedence over server-only trace configuration.
+        trace_store_uri = (
+            MLFLOW_TRACE_STORE_URI.get()
+            if _should_configure_trace_store(store_uri)
+            else _resolve_tracking_uri(store_uri)
+        )
+    if trace_store_uri:
+        return _tracking_store_registry.get_store(
+            store_uri, artifact_uri, trace_store_uri=trace_store_uri
+        )
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
+
+
+def _should_configure_trace_store(store_uri: str | None = None) -> bool:
+    """Route server-owned clients to the trace store only for the server's own database URI."""
+    return bool(
+        MLFLOW_TRACE_STORE_URI.get()
+        and (
+            os.environ.get("_MLFLOW_SERVER_JOB_ID")
+            or _MLFLOW_SERVER_BOOT_ID.get() is not None
+            or getattr(sys.modules.get("mlflow.server"), "is_running_as_server", False)
+        )
+        and (backend_uri := os.environ.get("MLFLOW_BACKEND_STORE_URI"))
+        and _resolve_tracking_uri(store_uri) == backend_uri
+    )
 
 
 def _get_tracking_scheme(store_uri=None) -> str:

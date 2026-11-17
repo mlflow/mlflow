@@ -20,6 +20,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracking import MlflowClient
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.file_utils import local_file_uri_to_path
 
 Clients = tuple[MlflowClient, MlflowClient]
@@ -215,7 +216,7 @@ def test_migrate_traces_truncates_legacy_promoted_dimensions(tmp_path: Path) -> 
     target_uri = f"sqlite:///{tmp_path / 'target.db'}"
     artifact_root = tmp_path / "artifacts"
     artifact_root.mkdir()
-    store = SqlAlchemyStore(target_uri, artifact_root.as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, target_uri, artifact_root.as_uri())
     experiment_id = int(store.create_experiment("fs2db-long-dimensions"))
     with store.ManagedSessionMaker(read_only=False) as session:
         _migrate_traces_for_experiment(session, exp_dir, experiment_id, MigrationStats())

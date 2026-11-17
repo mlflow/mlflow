@@ -23,6 +23,7 @@ from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.rest_utils import _UNPROCESSED_REQUEST_RESPONSE_CODES, MlflowHostCreds
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -61,7 +62,7 @@ class _TestRestClient(WorkspaceRestStoreMixin, RestMCPServerRegistryMixin):
 def store(tmp_path: Path, db_uri: str):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    return _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri.as_uri())
 
 
 @pytest.fixture

@@ -19,6 +19,7 @@ from mlflow.telemetry.events import (
     SkillRegistryPullEvent,
     SkillRegistryRegisterSkillEvent,
 )
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.workspace_context import WorkspaceContext
 
@@ -116,7 +117,7 @@ def skill_store(request, monkeypatch, tmp_path, db_uri):
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", str(request.param).lower())
     store_cls = WorkspaceAwareSqlAlchemyStore if request.param else SqlAlchemyStore
     with WorkspaceContext("default"):
-        store = store_cls(db_uri, tmp_path.as_uri())
+        store = _build_tracking_store(store_cls, db_uri, tmp_path.as_uri())
         with mock.patch(
             "mlflow.genai.skills.MlflowClient", return_value=MlflowClient(tracking_uri=db_uri)
         ):

@@ -23,6 +23,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.executor import EXECUTOR_JOB_RUNNER_FATAL_EXIT_CODE
 from mlflow.store.tracking.dbmodels.models import SqlTraceMetricDailyRollup
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils import find_free_port
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import ShellCommandException
@@ -349,7 +350,7 @@ def test_run_server_rejects_disabled_rollups_when_materialized_rows_exist(
     database_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     artifact_root = tmp_path / "artifacts"
     artifact_root.mkdir()
-    store = SqlAlchemyStore(database_uri, artifact_root.as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, database_uri, artifact_root.as_uri())
     experiment_id = store.create_experiment("rollup-startup-check")
     with store.ManagedSessionMaker(read_only=False) as session:
         session.add(

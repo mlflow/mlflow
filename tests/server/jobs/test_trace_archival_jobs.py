@@ -37,6 +37,7 @@ from mlflow.tracing.trace_archival_service import (
     _run_trace_archival_scheduler as run_trace_archival_scheduler,
 )
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
@@ -84,7 +85,9 @@ def _create_tracking_store(tmp_path: Path, *, workspaces_enabled: bool):
     store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
     artifact_root = tmp_path / "artifacts"
     artifact_root.mkdir()
-    store = store_cls(f"sqlite:///{tmp_path / 'mlflow.db'}", artifact_root.as_uri())
+    store = _build_tracking_store(
+        store_cls, f"sqlite:///{tmp_path / 'mlflow.db'}", artifact_root.as_uri()
+    )
     try:
         yield store
     finally:
@@ -444,7 +447,9 @@ def test_trace_archival_scheduler_archives_real_store_traces(monkeypatch, tmp_pa
 
         with (
             patch("mlflow.server.handlers._get_tracking_store", return_value=store),
-            patch.object(store, "_get_archive_traces_now_millis", return_value=now_millis),
+            patch.object(
+                store.trace_store, "_get_archive_traces_now_millis", return_value=now_millis
+            ),
         ):
             archived = run_trace_archival_scheduler(store)
 
@@ -530,7 +535,9 @@ def test_trace_archival_scheduler_honors_workspace_archive_location(monkeypatch,
                 "mlflow.server.workspace_helpers._get_workspace_store",
                 return_value=workspace_store,
             ),
-            patch.object(store, "_get_archive_traces_now_millis", return_value=now_millis),
+            patch.object(
+                store.trace_store, "_get_archive_traces_now_millis", return_value=now_millis
+            ),
         ):
             archived = run_trace_archival_scheduler(store)
 
@@ -613,7 +620,9 @@ def test_trace_archival_scheduler_processes_archive_now_with_real_store(monkeypa
 
         with (
             patch("mlflow.server.handlers._get_tracking_store", return_value=store),
-            patch.object(store, "_get_archive_traces_now_millis", return_value=now_millis),
+            patch.object(
+                store.trace_store, "_get_archive_traces_now_millis", return_value=now_millis
+            ),
         ):
             archived = run_trace_archival_scheduler(store)
 

@@ -26,7 +26,7 @@ import mlflow
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app as mlflow_app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracing.sqlalchemy_store import SqlAlchemyTraceStore
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.tracing.utils import encode_trace_id
@@ -577,7 +577,7 @@ def test_error_logging_spans(mlflow_server: str):
 
     tracer = otel_trace.get_tracer(__name__)
 
-    original_log_spans = SqlAlchemyStore.log_spans
+    original_log_spans = SqlAlchemyTraceStore.log_spans
     call_count = {"count": 0}
 
     def mock_log_spans(self, *args, **kwargs):
@@ -588,7 +588,7 @@ def test_error_logging_spans(mlflow_server: str):
             return original_log_spans(self, *args, **kwargs)
 
     with (
-        mock.patch.object(SqlAlchemyStore, "log_spans", mock_log_spans),
+        mock.patch.object(SqlAlchemyTraceStore, "log_spans", mock_log_spans),
         mock.patch(
             "opentelemetry.exporter.otlp.proto.http.trace_exporter._logger.error"
         ) as mock_error,
@@ -599,6 +599,7 @@ def test_error_logging_spans(mlflow_server: str):
 
         span_processor.force_flush()
 
+        assert call_count["count"] == 1
         assert any("Failed to export" in error[0][0] for error in mock_error.call_args_list)
 
     traces = mlflow.search_traces(

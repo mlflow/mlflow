@@ -15,6 +15,7 @@ from mlflow.store.model_registry.sqlalchemy_workspace_store import (
     WorkspaceAwareSqlAlchemyStore as WorkspaceAwareRegistryStore,
 )
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -46,7 +47,9 @@ def psycopg3_store(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = WorkspaceAwareSqlAlchemyStore(_psycopg3_uri(), artifact_dir.as_uri())
+    store = _build_tracking_store(
+        WorkspaceAwareSqlAlchemyStore, _psycopg3_uri(), artifact_dir.as_uri()
+    )
     try:
         yield store
     finally:
@@ -235,7 +238,7 @@ def test_search_experiments_filter_respects_workspace_boundary(tmp_path, monkeyp
 
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = WorkspaceAwareSqlAlchemyStore(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(WorkspaceAwareSqlAlchemyStore, db_uri, artifact_dir.as_uri())
 
     with WorkspaceContext("team-a"):
         exp_a1 = store.create_experiment("exp-a1")

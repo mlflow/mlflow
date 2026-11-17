@@ -20,6 +20,7 @@ from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.tracking.dbmodels.models import SqlIssue
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.workspace_context import WorkspaceContext
 
 
@@ -91,7 +92,7 @@ def test_issue_contract_migration_preserves_existing_issues(tmp_path, previous_r
             )
         )
     command.upgrade(config, "head")
-    store = SqlAlchemyStore(db_url, str(tmp_path / "artifacts"))
+    store = _build_tracking_store(SqlAlchemyStore, db_url, str(tmp_path / "artifacts"))
     issue = store.get_issue("iss-old")
     assert issue.last_seen_timestamp == 100
     assert issue.last_updated_timestamp == 200
@@ -111,7 +112,9 @@ def test_issue_contract_migration_preserves_existing_issues(tmp_path, previous_r
 def test_issue_contract_migration_downgrade_and_reupgrade(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     db_uri = MLFLOW_TRACKING_URI.get()
-    store = WorkspaceAwareSqlAlchemyStore(db_uri, str(tmp_path / "artifacts"))
+    store = _build_tracking_store(
+        WorkspaceAwareSqlAlchemyStore, db_uri, str(tmp_path / "artifacts")
+    )
     config = _get_alembic_config(db_uri)
     issues = {}
     references = {}

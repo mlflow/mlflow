@@ -11,6 +11,7 @@ from mlflow.entities import Metric, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.utils import _get_routing_session_maker
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 ARTIFACT_URI = "artifact_folder"
 
@@ -30,17 +31,19 @@ def read_db_uri(tmp_path: Path) -> str:
 def store_with_replica(tmp_path: Path, write_db_uri, read_db_uri):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    write_store = SqlAlchemyStore(write_db_uri, str(artifact_uri))
+    write_store = _build_tracking_store(SqlAlchemyStore, write_db_uri, str(artifact_uri))
     write_store.engine.dispose()
     shutil.copy(tmp_path / "write.db", tmp_path / "read.db")
-    return SqlAlchemyStore(write_db_uri, str(artifact_uri), read_db_uri=read_db_uri)
+    return _build_tracking_store(
+        SqlAlchemyStore, write_db_uri, str(artifact_uri), read_db_uri=read_db_uri
+    )
 
 
 @pytest.fixture
 def store_no_replica(tmp_path: Path, write_db_uri):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    return SqlAlchemyStore(write_db_uri, str(artifact_uri))
+    return _build_tracking_store(SqlAlchemyStore, write_db_uri, str(artifact_uri))
 
 
 # --- TestManagedSessionMakerReadOnlyParam ---
@@ -76,7 +79,9 @@ def test_replica_creates_separate_engine(store_with_replica, write_db_uri, read_
 def test_same_uri_skips_replica(tmp_path: Path, write_db_uri):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    store = SqlAlchemyStore(write_db_uri, str(artifact_uri), read_db_uri=write_db_uri)
+    store = _build_tracking_store(
+        SqlAlchemyStore, write_db_uri, str(artifact_uri), read_db_uri=write_db_uri
+    )
     assert store.read_engine is None
 
 
@@ -120,7 +125,8 @@ def test_write_goes_to_primary(store_with_replica):
 
 
 def test_read_from_replica(store_with_replica, tmp_path):
-    read_store = SqlAlchemyStore(
+    read_store = _build_tracking_store(
+        SqlAlchemyStore,
         str(store_with_replica.read_engine.url),
         str(tmp_path / "artifacts"),
     )
@@ -132,7 +138,8 @@ def test_read_from_replica(store_with_replica, tmp_path):
 
 
 def test_search_experiments_uses_replica(store_with_replica, tmp_path):
-    read_store = SqlAlchemyStore(
+    read_store = _build_tracking_store(
+        SqlAlchemyStore,
         str(store_with_replica.read_engine.url),
         str(tmp_path / "artifacts"),
     )
@@ -144,7 +151,8 @@ def test_search_experiments_uses_replica(store_with_replica, tmp_path):
 
 
 def test_get_run_uses_replica(store_with_replica, tmp_path):
-    read_store = SqlAlchemyStore(
+    read_store = _build_tracking_store(
+        SqlAlchemyStore,
         str(store_with_replica.read_engine.url),
         str(tmp_path / "artifacts"),
     )

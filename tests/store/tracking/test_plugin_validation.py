@@ -2,6 +2,7 @@ import subprocess
 import sys
 
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 
 def test_sqlalchemy_store_import_does_not_cause_circular_import():
@@ -63,7 +64,7 @@ def test_plugin_can_create_dataset_without_name_error(tmp_path):
     artifact_path.mkdir()
 
     # Initialize database with SqlAlchemyStore (runs migrations)
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", str(artifact_path))
+    store = _build_tracking_store(SqlAlchemyStore, f"sqlite:///{db_path}", str(artifact_path))
     store.engine.dispose()  # Close connection to allow subprocess to use the database
 
     # Now run the test code in subprocess with the pre-initialized database

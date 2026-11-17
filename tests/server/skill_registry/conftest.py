@@ -7,6 +7,7 @@ import pytest
 from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR, handlers
 from mlflow.store.tracking.dbmodels.models import SqlSkillVersion
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 SKILL_FILES = {
     "SKILL.md": b"---\nname: reviewer\ndescription: Reviews code\n---\n# Reviewer\n",
@@ -31,7 +32,9 @@ def skill_archive(files=None, *, extra_members=()) -> io.BytesIO:
 
 @pytest.fixture
 def store(tmp_path: Path, db_uri: str, monkeypatch) -> SqlAlchemyStore:
-    sql_store = SqlAlchemyStore(db_uri, (tmp_path / "run-artifacts").as_uri())
+    sql_store = _build_tracking_store(
+        SqlAlchemyStore, db_uri, (tmp_path / "run-artifacts").as_uri()
+    )
     monkeypatch.setattr(handlers, "_get_tracking_store", lambda *args, **kwargs: sql_store)
     return sql_store
 

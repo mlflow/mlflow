@@ -38,14 +38,25 @@ File system backend is in maintenance mode and will not receive further updates.
 
 ## Configure Backend Store
 
+### Tracking Store
+
 You can configure a different backend store by passing the desired **tracking URI** to MLflow, via either of the following methods:
 
 - Set the `MLFLOW_TRACKING_URI` environment variable.
 - Call <APILink fn="mlflow.set_tracking_uri" /> in your code.
 - If you are running a [Tracking Server](/self-hosting/architecture/tracking-server), you can set the `--backend-store-uri` option when starting the server, like `mlflow server --backend-store-uri postgresql://...`
 
-Continue to the next section for the supported format of tracking URLs.
+See [Supported Store Types](#supported-store-types) for the supported format of tracking URLs.
 Also visit [this guidance](/self-hosting/architecture/tracking-server) for how to set up the backend store properly for your workflow.
+
+### Trace Store
+
+The trace store defaults to the tracking URI. To use a separate store, install its plugin and configure its URI on the server:
+
+- Set the `MLFLOW_TRACE_STORE_URI` environment variable.
+- Set the `--trace-store-uri` option when starting the server, like `mlflow server --trace-store-uri my-traces://host/namespace`. This takes precedence over the environment variable.
+
+See [Flexible Trace Storage](/self-hosting/architecture/trace-store) for configuration and plugin development.
 
 ## Supported Store Types
 

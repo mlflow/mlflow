@@ -13,7 +13,7 @@ from sqlalchemy.dialects import mssql, mysql
 from sqlalchemy.orm import Session
 
 import mlflow.db
-import mlflow.store.tracking.sqlalchemy_store as sqlalchemy_store_module
+import mlflow.store.tracing.sqlalchemy_store as sqlalchemy_store_module
 from mlflow.entities import AssessmentSource, AssessmentSourceType, Feedback, trace_location
 from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.trace_info import TraceInfo
@@ -60,6 +60,7 @@ from mlflow.tracing.constant import (
     TraceMetricKey,
     TraceTagKey,
 )
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
 
@@ -79,7 +80,7 @@ SOURCE = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="tes
 def store(tmp_path: Path, db_uri: str) -> SqlAlchemyStore:
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
-    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    return _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri.as_uri())
 
 
 @pytest.fixture(autouse=True)
@@ -94,7 +95,7 @@ def maintenance_store(request, tmp_path):
     uri = os.environ.get("MLFLOW_ROLLUP_TEST_POSTGRES_URI")
     if not uri:
         pytest.skip("Set MLFLOW_ROLLUP_TEST_POSTGRES_URI to a disposable PostgreSQL database")
-    return SqlAlchemyStore(uri, (tmp_path / "artifacts").as_uri())
+    return _build_tracking_store(SqlAlchemyStore, uri, (tmp_path / "artifacts").as_uri())
 
 
 def _day_of(timestamp_ms: int):
@@ -1579,7 +1580,7 @@ def test_assessment_bulk_invalidation_materializes_only_distinct_days(
 
     monkeypatch.setattr(sqlalchemy_store_module, "enqueue_rollup_rebuild_partitions", capture)
     with store.ManagedSessionMaker(read_only=False) as session:
-        store._enqueue_assessment_rebuilds_for_filter(
+        store.trace_store._enqueue_assessment_rebuilds_for_filter(
             session,
             SqlAssessments.experiment_id == int(exp_id),
         )
@@ -1596,12 +1597,12 @@ def test_trace_delete_uses_single_locking_select_when_rollups_are_disabled(
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     trace_id = _new_trace(store, exp_id, DAY_A_MS)
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "false")
-    select_ids = Mock(wraps=store._select_trace_ids_for_delete)
-    enqueue = Mock(wraps=store._enqueue_rollup_rebuilds_for_trace_delete)
-    relock = Mock(wraps=store._lock_trace_ids_for_delete)
-    monkeypatch.setattr(store, "_select_trace_ids_for_delete", select_ids)
-    monkeypatch.setattr(store, "_enqueue_rollup_rebuilds_for_trace_delete", enqueue)
-    monkeypatch.setattr(store, "_lock_trace_ids_for_delete", relock)
+    select_ids = Mock(wraps=store.trace_store._select_trace_ids_for_delete)
+    enqueue = Mock(wraps=store.trace_store._enqueue_rollup_rebuilds_for_trace_delete)
+    relock = Mock(wraps=store.trace_store._lock_trace_ids_for_delete)
+    monkeypatch.setattr(store.trace_store, "_select_trace_ids_for_delete", select_ids)
+    monkeypatch.setattr(store.trace_store, "_enqueue_rollup_rebuilds_for_trace_delete", enqueue)
+    monkeypatch.setattr(store.trace_store, "_lock_trace_ids_for_delete", relock)
 
     assert store.delete_traces(exp_id, trace_ids=[trace_id]) == 1
 

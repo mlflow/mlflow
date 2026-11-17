@@ -58,6 +58,7 @@ from mlflow.store.tracking.sqlalchemy_store import (
     SqlAlchemyStore,
 )
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -4038,7 +4039,8 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
     # The directory is now created lazily when the first artifact is logged.
     with TempDir() as tmp:
         dbfile_path = tmp.path("db")
-        store = SqlAlchemyStore(
+        store = _build_tracking_store(
+            SqlAlchemyStore,
             db_uri="sqlite:///" + dbfile_path,
             default_artifact_root=artifact_root_uri,
         )

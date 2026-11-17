@@ -62,6 +62,7 @@ from mlflow.server.handlers import _batch_get_trace_infos, _batch_get_traces
 from mlflow.store.tracking.dbmodels.models import SqlSkill
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingSqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils import workspace_context
 from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -778,7 +779,9 @@ def test_batch_trace_queries_filter_mixed_trace_ids(
     auth_store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
     _set_workspace_permission(auth_store, username, workspace_permission.name)
-    tracking_store = WorkspaceAwareSqlAlchemyStore(db_uri, (tmp_path / "artifacts").as_uri())
+    tracking_store = _build_tracking_store(
+        WorkspaceAwareSqlAlchemyStore, db_uri, (tmp_path / "artifacts").as_uri()
+    )
     request.addfinalizer(tracking_store._dispose_engine)
     readable_experiment = tracking_store.create_experiment("readable")
     unreadable_experiment = tracking_store.create_experiment("unreadable")
@@ -8022,7 +8025,8 @@ def test_skill_registry_creator_manage_survives_cached_missing_parent(
 
     auth_store = SqlAlchemyStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth-created-after-miss.db'}")
-    tracking_store = TrackingSqlAlchemyStore(
+    tracking_store = _build_tracking_store(
+        TrackingSqlAlchemyStore,
         db_uri,
         str(tmp_path / "artifacts"),
     )

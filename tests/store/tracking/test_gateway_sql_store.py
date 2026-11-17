@@ -65,6 +65,7 @@ from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, Gatewa
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -128,11 +129,11 @@ def store(tmp_path: Path, db_uri: str, workspaces_enabled):
     artifact_uri.mkdir(exist_ok=True)
     store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
     if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = store_cls(db_uri_env, artifact_uri.as_uri())
+        s = _build_tracking_store(store_cls, db_uri_env, artifact_uri.as_uri())
         yield s
         _cleanup_database(s)
     else:
-        s = store_cls(db_uri, artifact_uri.as_uri())
+        s = _build_tracking_store(store_cls, db_uri, artifact_uri.as_uri())
         yield s
         _cleanup_database(s)
 

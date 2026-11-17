@@ -1126,7 +1126,7 @@ const config: Config = {
             from: ['/model/signatures'],
           },
           {
-            to: '/ml/plugins',
+            to: '/self-hosting/plugins',
             from: ['/plugins'],
           },
           {

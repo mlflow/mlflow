@@ -25,6 +25,7 @@ from mlflow.server.skill_registry_api import skill_registry_router
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as TrackingStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore as WorkspaceStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.validation import _MAX_BULK_REGISTER_SKILLS
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
@@ -155,7 +156,9 @@ def workspace_registry(tmp_path, monkeypatch, db_uri):
     monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
     auth_store = AuthStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
-    tracking_store = WorkspaceAwareSqlAlchemyStore(db_uri, str(tmp_path / "artifacts"))
+    tracking_store = _build_tracking_store(
+        WorkspaceAwareSqlAlchemyStore, db_uri, str(tmp_path / "artifacts")
+    )
     creator = auth_store.create_user("creator", "strong-password", is_admin=False)
     auth_store.set_workspace_permission("default", creator.username, USE.name)
     monkeypatch.setattr(auth, "store", auth_store)
@@ -502,7 +505,7 @@ def test_skill_rest_enforces_grants_and_filters_before_pagination(
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "false")
     auth_store = AuthStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
-    tracking_store = TrackingStore(db_uri, str(tmp_path / "artifacts"))
+    tracking_store = _build_tracking_store(TrackingStore, db_uri, str(tmp_path / "artifacts"))
     owner = auth_store.create_user("owner", "strong-password", is_admin=False)
     reader = auth_store.create_user("reader", "strong-password", is_admin=False)
     admin = auth_store.create_user("admin2", "strong-password", is_admin=True)
@@ -820,7 +823,7 @@ def test_registration_creator_grants_with_workspaces(
     monkeypatch.setenv("MLFLOW_WORKSPACE", "default")
     auth_store = AuthStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
-    tracking_store = TrackingStore(db_uri, str(tmp_path / "artifacts"))
+    tracking_store = _build_tracking_store(TrackingStore, db_uri, str(tmp_path / "artifacts"))
     creator = auth_store.create_user("creator", "strong-password", is_admin=is_admin)
     if not is_admin:
         auth_store.set_workspace_permission("default", creator.username, MANAGE.name)

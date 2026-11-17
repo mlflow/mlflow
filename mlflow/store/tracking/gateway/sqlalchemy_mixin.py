@@ -5,9 +5,9 @@ import os
 import uuid
 from typing import Any
 
-from sqlalchemy import case, func
+from sqlalchemy import case
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import aliased, joinedload
+from sqlalchemy.orm import joinedload
 
 from mlflow.entities import (
     FallbackConfig,
@@ -53,7 +53,6 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
-    SqlExperiment,
     SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -63,8 +62,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
-    SqlTraceInfo,
-    SqlTraceMetadata,
 )
 from mlflow.telemetry.events import (
     GatewayCreateBudgetPolicyEvent,
@@ -86,7 +83,6 @@ from mlflow.telemetry.events import (
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -1423,53 +1419,6 @@ class SqlAlchemyGatewayStoreMixin:
                 .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
                 .all()
             ]
-
-    def sum_gateway_trace_cost(
-        self,
-        start_time_ms: int,
-        end_time_ms: int,
-        workspace: str | None = None,
-        endpoint_id: str | None = None,
-        username: str | None = None,
-    ) -> float:
-        with self.ManagedSessionMaker() as session:
-            query = (
-                session
-                .query(func.coalesce(func.sum(SqlTraceInfo.total_cost), 0.0))
-                .join(
-                    SqlTraceMetadata,
-                    SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
-                )
-                .filter(
-                    SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
-                    SqlTraceInfo.timestamp_ms >= start_time_ms,
-                    SqlTraceInfo.timestamp_ms < end_time_ms,
-                )
-            )
-
-            if endpoint_id is not None:
-                query = query.filter(SqlTraceMetadata.value == endpoint_id)
-
-            if workspace is not None:
-                query = query.join(
-                    SqlExperiment,
-                    SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
-                ).filter(SqlExperiment.workspace == workspace)
-
-            if username is not None:
-                # Filter to traces whose recorded auth username matches the username.
-                # Uses a separate aliased join because SqlTraceMetadata is already
-                # joined above for the gateway-endpoint marker.
-                user_metadata = aliased(SqlTraceMetadata)
-                query = query.join(
-                    user_metadata,
-                    user_metadata.request_id == SqlTraceInfo.request_id,
-                ).filter(
-                    user_metadata.key == TraceMetadataKey.AUTH_USERNAME,
-                    user_metadata.value == username,
-                )
-
-            return float(query.scalar())
 
     # Guardrail APIs
 

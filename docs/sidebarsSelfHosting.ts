@@ -29,10 +29,20 @@ const sidebarsSelfHosting: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'architecture/trace-store',
+          label: 'Trace Storage',
+        },
+        {
+          type: 'doc',
           id: 'architecture/artifact-store',
           label: 'Artifact Store',
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'plugins/index',
+      label: 'MLflow Plugins',
     },
     {
       type: 'category',

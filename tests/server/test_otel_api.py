@@ -26,10 +26,12 @@ from mlflow.server.fastapi_app import (
     create_fastapi_app,
 )
 from mlflow.server.otel_api import is_missing_experiment_id_header_error, otel_router
+from mlflow.store.tracing.abstract_store import AbstractTraceStore
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils import workspace_context
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
@@ -60,6 +62,25 @@ def _make_test_client():
     add_fastapi_workspace_middleware(app)
     app.include_router(otel_router)
     return TestClient(app)
+
+
+def test_otlp_ingestion_routes_to_trace_store(monkeypatch, db_uri, tmp_path):
+    backend = mock.create_autospec(AbstractTraceStore, instance=True)
+    backend.log_spans_async.return_value = []
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, tmp_path.as_uri(), trace_store=backend)
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=_build_otlp_payload(),
+        headers={"Content-Type": "application/x-protobuf", "X-MLflow-Experiment-Id": "42"},
+    )
+    assert response.status_code == 200
+    backend.log_spans_async.assert_awaited_once()
+    location, spans = backend.log_spans_async.call_args.args
+    assert location == "42"
+    assert len(spans) == 1
+    backend.set_tracking_store.assert_called_once_with(store)
+    store._dispose_engine()
 
 
 class _DummyTrackingStore:
@@ -580,7 +601,7 @@ def test_otlp_drops_system_managed_trace_tag_attributes(monkeypatch):
 )
 def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_value, expected):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, tmp_path.as_uri())
     experiment_id = store.create_experiment("otlp-json-string-attributes")
     monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
 
@@ -641,7 +662,7 @@ def test_otlp_roundtrip_of_client_span_outputs(monkeypatch, db_uri, tmp_path, ou
 @pytest.mark.parametrize("compressed", [False, True])
 def test_otlp_json_span_links_preserved(monkeypatch, db_uri, tmp_path, content_type, compressed):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
-    store = SqlAlchemyStore(db_uri, tmp_path.as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, tmp_path.as_uri())
     experiment_id = store.create_experiment("otlp-json-links")
     monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
     monkeypatch.setattr("mlflow.server.handlers._tracking_store", store)
@@ -1077,7 +1098,7 @@ def test_otlp_response_encoding_matches_request(
 
 def test_otlp_span_kind_preserved_in_batch_get(monkeypatch, tmp_path, db_uri):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
-    store = SqlAlchemyStore(db_uri, tmp_path.joinpath("artifacts").as_uri())
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, tmp_path.joinpath("artifacts").as_uri())
     monkeypatch.setattr("mlflow.server.handlers._tracking_store", store)
 
     trace_id = bytes.fromhex("0af7651916cd43dd8448eb211c80319c")

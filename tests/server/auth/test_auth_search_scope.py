@@ -44,6 +44,7 @@ from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestSto
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore as TrackingRestStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils import workspace_context
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.rest_utils import MlflowHostCreds, verify_rest_response
@@ -285,7 +286,9 @@ def large_scope_search_setup(tmp_path, db_uri, monkeypatch, request):
     auth_store = AuthStore()
     auth_store.init_db(f"sqlite:///{tmp_path / 'auth.db'}")
     request.addfinalizer(auth_store.engine.dispose)
-    tracking_store = WorkspaceAwareSqlAlchemyStore(db_uri, (tmp_path / "artifacts").as_uri())
+    tracking_store = _build_tracking_store(
+        WorkspaceAwareSqlAlchemyStore, db_uri, (tmp_path / "artifacts").as_uri()
+    )
     request.addfinalizer(tracking_store._dispose_engine)
     registry_store = RegistryStore(db_uri)
     monkeypatch.setattr(auth, "store", auth_store)

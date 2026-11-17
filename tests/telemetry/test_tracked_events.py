@@ -123,6 +123,7 @@ from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
 )
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.tracking.fluent import (
     _create_dataset_input,
     _create_logged_model,
@@ -2037,7 +2038,7 @@ def test_scorer_call_wrapped_builtin_scorer_from_genai_evaluate(
 
 def test_gateway_crud_telemetry(mock_requests, mock_telemetry_client: TelemetryClient, tmp_path):
     db_path = tmp_path / "mlflow.db"
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+    store = _build_tracking_store(SqlAlchemyStore, f"sqlite:///{db_path}", tmp_path.as_posix())
 
     secret = store.create_gateway_secret(
         secret_name="test-secret",
@@ -2133,7 +2134,7 @@ def test_gateway_secret_crud_telemetry(
     mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
 ):
     db_path = tmp_path / "mlflow.db"
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+    store = _build_tracking_store(SqlAlchemyStore, f"sqlite:///{db_path}", tmp_path.as_posix())
 
     secret = store.create_gateway_secret(
         secret_name="test-secret",
@@ -2201,7 +2202,7 @@ def test_gateway_budget_policy_crud_telemetry(
     mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
 ):
     db_path = tmp_path / "mlflow.db"
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+    store = _build_tracking_store(SqlAlchemyStore, f"sqlite:///{db_path}", tmp_path.as_posix())
 
     policy = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
@@ -2252,7 +2253,7 @@ def test_gateway_guardrail_crud_telemetry(
     mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
 ):
     db_path = tmp_path / "mlflow.db"
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+    store = _build_tracking_store(SqlAlchemyStore, f"sqlite:///{db_path}", tmp_path.as_posix())
 
     secret = store.create_gateway_secret(
         secret_name="test-secret",
@@ -2336,7 +2337,7 @@ async def test_gateway_invocation_telemetry(
     mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
 ):
     db_path = tmp_path / "mlflow.db"
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+    store = _build_tracking_store(SqlAlchemyStore, f"sqlite:///{db_path}", tmp_path.as_posix())
 
     secret = store.create_gateway_secret(
         secret_name="test-secret",
@@ -2609,7 +2610,7 @@ def test_tracing_context_propagation_get_and_set_success(
 
 
 def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryClient, db_uri):
-    store = SqlAlchemyStore(db_uri, "/tmp")
+    store = _build_tracking_store(SqlAlchemyStore, db_uri, "/tmp")
 
     exp_id = store.create_experiment("test-exp")
     issue = store.create_issue(
@@ -2649,7 +2650,7 @@ def test_mcp_registry_create_server_version_telemetry(
     from mlflow.entities.mcp_server import MCPStatus, MCPTool
 
     db_path = tmp_path / "mlflow.db"
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+    store = _build_tracking_store(SqlAlchemyStore, f"sqlite:///{db_path}", tmp_path.as_posix())
 
     store.create_mcp_server_version(
         server_json={
@@ -2695,7 +2696,7 @@ def test_mcp_registry_create_access_endpoint_telemetry(
     from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus
 
     db_path = tmp_path / "mlflow.db"
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+    store = _build_tracking_store(SqlAlchemyStore, f"sqlite:///{db_path}", tmp_path.as_posix())
 
     store.create_mcp_server_version(
         server_json={"name": "io.test/my-server", "version": "1.0.0"},

@@ -35,6 +35,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSkill,
     SqlSkillVersion,
 )
+from mlflow.store.tracking.utils.trace_cleanup import delete_experiment_trace_dependencies
 from mlflow.store.workspace.abstract_store import (
     AbstractStore,
     ResolvedTraceArchivalConfig,
@@ -231,6 +232,8 @@ class SqlAlchemyStore(AbstractStore):
                             session.query(model).filter(model.workspace == workspace_name).all()
                         )
                         for obj in instances:
+                            if model is SqlExperiment:
+                                delete_experiment_trace_dependencies(session, [obj.experiment_id])
                             session.delete(obj)
                 elif mode == WorkspaceDeletionMode.SET_DEFAULT:
                     has_mlflow_skill_content = (

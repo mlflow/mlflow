@@ -6,6 +6,7 @@ from _data import SEED_SPANS_PER_TRACE, SEED_TRACES, seed_traces
 
 import mlflow
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 
 
 @pytest.fixture(scope="session")
@@ -18,7 +19,7 @@ def store(bench_dir: Path) -> SqlAlchemyStore:
     db_uri = f"sqlite:///{bench_dir / 'mlflow.db'}"
     (bench_dir / "artifacts").mkdir()
     artifact_root = (bench_dir / "artifacts").as_uri()
-    return SqlAlchemyStore(db_uri, artifact_root)
+    return _build_tracking_store(SqlAlchemyStore, db_uri, artifact_root)
 
 
 @pytest.fixture(scope="session")

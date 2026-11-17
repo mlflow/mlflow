@@ -58,6 +58,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils import mlflow_tags
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -91,11 +92,11 @@ def store(tmp_path: Path, db_uri: str, workspaces_enabled: bool) -> SqlAlchemySt
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
     if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = store_cls(db_uri_env, artifact_uri.as_uri())
+        s = _build_tracking_store(store_cls, db_uri_env, artifact_uri.as_uri())
         yield s
         _cleanup_database(s)
     else:
-        s = store_cls(db_uri, artifact_uri.as_uri())
+        s = _build_tracking_store(store_cls, db_uri, artifact_uri.as_uri())
         yield s
 
 
@@ -123,7 +124,7 @@ def _get_store(tmp_path: Path):
     db_uri = MLFLOW_TRACKING_URI.get() or f"{DB_URI}{tmp_path / 'temp.db'}"
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir(exist_ok=True)
-    return SqlAlchemyStore(db_uri, artifact_uri.as_uri())
+    return _build_tracking_store(SqlAlchemyStore, db_uri, artifact_uri.as_uri())
 
 
 def _get_query_to_reset_experiment_id(store: SqlAlchemyStore):

@@ -27,6 +27,7 @@ from mlflow.store.workspace.sqlalchemy_store import (
     SqlAlchemyStore as WorkspaceStore,
 )
 from mlflow.tracking._tracking_service import utils as tracking_utils
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -42,7 +43,9 @@ def _enable_workspaces(monkeypatch):
 def tracking_store(tmp_path, db_uri, _enable_workspaces):
     artifact_dir = tmp_path / "artifacts"
     artifact_dir.mkdir()
-    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+    store = _build_tracking_store(
+        tracking_utils._get_sqlalchemy_store, db_uri, artifact_dir.as_uri()
+    )
     try:
         yield store
     finally:

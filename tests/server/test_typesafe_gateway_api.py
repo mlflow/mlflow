@@ -20,6 +20,7 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
+from mlflow.tracking._tracking_service.registry import _build_tracking_store
 from mlflow.utils.workspace_context import WorkspaceContext
 
 pytestmark = pytest.mark.notrackingurimock
@@ -30,7 +31,7 @@ def endpoint(request, tmp_path, db_uri, monkeypatch):
     monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "typesafe-gateway-test-passphrase")
     monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", str(request.param is not None).lower())
     store_class = WorkspaceAwareSqlAlchemyStore if request.param else SqlAlchemyStore
-    store = store_class(db_uri, tmp_path.as_uri())
+    store = _build_tracking_store(store_class, db_uri, tmp_path.as_uri())
     mlflow.set_tracking_uri(db_uri)
     with WorkspaceContext(request.param):
         experiment_id = store.create_experiment("gateway/jev-evaluator")
