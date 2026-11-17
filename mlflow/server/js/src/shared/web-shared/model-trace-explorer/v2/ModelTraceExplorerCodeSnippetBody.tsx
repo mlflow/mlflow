@@ -76,7 +76,7 @@ export function ModelTraceExplorerCodeSnippetBody({
   const expandable =
     isContentLong || dataToTruncate.length > maxCharsForPreview || hasMoreLinesThan(dataToTruncate, maxLinesForPreview);
 
-  // Truncate after first 3 lines if not expanded
+  // Truncate to the preview limits while collapsed.
   const displayedData = useMemo(() => {
     if (expandable && !expanded) {
       return getTextPreview(dataToTruncate, maxLinesForPreview, maxCharsForPreview);
