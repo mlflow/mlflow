@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { FileDocumentIcon, Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import type { FeedbackAssessment } from '../ModelTrace.types';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 import { AssessmentDisplayValue } from '../../assessments-pane/AssessmentDisplayValue';
 import { getAssessmentDisplayName } from '../../assessments-pane/AssessmentsPane.utils';
 import { KeyValueTag } from '../../key-value-tag/KeyValueTag';
@@ -22,7 +22,7 @@ export function ModelTraceExplorerRetrieverDocumentPreview({
   logDocumentClick?: (action: string) => void;
 }): JSX.Element {
   const { theme } = useDesignSystemTheme();
-  const { highlightAssessment, setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { highlightAssessment, setAssessmentsPaneExpanded } = useModelTraceExplorerViewControls();
 
   const handleAssessmentBadgeClick = useCallback(
     (e: React.MouseEvent) => {

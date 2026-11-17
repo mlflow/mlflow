@@ -7,7 +7,7 @@ import { CodeSnippetRenderMode, type ModelTraceSpanNode, type SearchMatch } from
 import { getEventAttributeKey } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 
 export function ModelTraceExplorerEventsTab({
   activeSpan,
@@ -19,7 +19,7 @@ export function ModelTraceExplorerEventsTab({
   activeMatch: SearchMatch | null;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
-  const { selectedComparisonNode } = useModelTraceExplorerViewState();
+  const { selectedComparisonNode } = useModelTraceExplorerViewControls();
   const displayedSpans = selectedComparisonNode ? [activeSpan, selectedComparisonNode] : [activeSpan];
   const events = displayedSpans.flatMap((span, spanIndex) =>
     (Array.isArray(span.events) ? span.events : []).map((event, index) => ({

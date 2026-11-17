@@ -35,7 +35,7 @@ import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { formatCompactNumber, getSpanTokenUsage, type SpanTokenUsage } from '../ModelTraceTokenUsage.utils';
 import { ModelTraceExplorerLinkedPromptsPopover } from '../../linked-prompts/ModelTraceExplorerLinkedPromptsPopover';
 import { MLFLOW_LINKED_PROMPTS_TAG, parseLinkedPrompts } from '../../linked-prompts/utils';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 export type HeaderTokenUsage = SpanTokenUsage;
@@ -436,7 +436,7 @@ export const ModelTraceExplorerRightPaneHeader = ({
 }): React.ReactElement | null => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewState();
+  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewControls();
   const { experimentId: experimentIdFromParams } = useParams();
   const { experimentId: experimentIdFromContext, rightPaneHeaderActions } = useModelTraceExplorerContext();
   const experimentId = experimentIdFromContext ?? experimentIdFromParams;

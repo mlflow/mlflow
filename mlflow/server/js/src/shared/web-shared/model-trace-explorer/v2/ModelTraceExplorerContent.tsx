@@ -3,7 +3,7 @@ import React from 'react';
 import type { ModelTrace } from './ModelTrace.types';
 import { GenericSkeleton } from '@databricks/design-system';
 import { ModelTraceExplorerDetailView } from './ModelTraceExplorerDetailView';
-import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerLinkedPromptsView } from '../linked-prompts/ModelTraceExplorerLinkedPromptsView';
 import { shouldEnableModelTraceExplorerCustomTraceView } from '../FeatureUtils';
 import { useCustomViewAssistantConnector } from '../custom-view/assistant/CustomViewAssistantConnector';
@@ -35,7 +35,7 @@ export const ModelTraceExplorerContent = ({
   showSpanTree?: boolean;
   onShowSpanTreeChange?: (showSpanTree: boolean) => void;
 }): JSX.Element => {
-  const { activeView } = useModelTraceExplorerViewState();
+  const { activeView } = useModelTraceExplorerViewControls();
   const { traceExplorerDisplayMode } = useModelTraceExplorerContext();
   // Gate custom views on a usable connector: without a host-provided openAssistant
   // e.g. multi-experiment views or consumers that don't mount the provider

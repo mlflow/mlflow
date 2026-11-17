@@ -19,7 +19,7 @@ import { type ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelTraceExplorerIssueIndicator } from '../../ModelTraceExplorerIssueBanner';
 import { getSpanExceptionCount } from '../ModelTraceExplorer.utils';
 import { getNonIssueAssessmentCount } from '../../IssueAssessmentUtils';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerSpanRowState } from '../ModelTraceExplorerViewStateContext';
 import { useGatewayTraceLink } from '../../hooks/useGatewayTraceLink';
 import { Link } from '../../RoutingUtils';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
@@ -102,7 +102,7 @@ export const TimelineTreeNode = ({
   const { timelineTreeMetrics } = useModelTraceExplorerPreferences();
   const hasChildren = (node.children ?? []).length > 0;
   const { setActiveTab, setAssessmentsPaneExpanded, comparisonNodeMap, comparisonNodeRoleMap } =
-    useModelTraceExplorerViewState();
+    useModelTraceExplorerSpanRowState();
   const comparisonSpan = comparisonNodeMap[String(node.key)];
   const nodeComparisonRole = comparisonNodeRoleMap[String(node.key)];
 

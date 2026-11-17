@@ -28,7 +28,7 @@ import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 import { DecisionAnswers, DecisionInputs } from './DecisionView';
 import { resolveDecision } from './decision-utils';
 import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
@@ -145,7 +145,7 @@ export function ModelTraceExplorerDefaultSpanView({
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
   const { experimentId } = useModelTraceExplorerContext();
-  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewState();
+  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewControls();
   const [sectionRenderModes, setSectionRenderModes] = useState<
     Record<'inputs' | 'outputs', ModelTraceExplorerSectionRenderMode>
   >({
