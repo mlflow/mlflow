@@ -429,7 +429,7 @@ export const EvalRunTracesV4Table = ({
   const tableContainerRef = useRef<HTMLDivElement>(null);
   useTableHorizontalScrollAnchor(
     tableContainerRef,
-    JSON.stringify([visibleColumns, extraColumns.map(({ id }) => id), tableColumnOrder]),
+    JSON.stringify([visibleColumns, extraColumns.map(({ id }) => id), tableColumnOrder, controller.isGroupedBySession]),
   );
 
   const tableViewProps: TracesTableViewProps = {

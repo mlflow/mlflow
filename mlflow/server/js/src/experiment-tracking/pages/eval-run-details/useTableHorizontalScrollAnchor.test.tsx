@@ -35,7 +35,6 @@ describe('useTableHorizontalScrollAnchor', () => {
     anchorHeader.setAttribute('role', 'columnheader');
     scroller.append(hiddenHeader, anchorHeader);
     container.append(scroller);
-    scroller.scrollLeft = 100;
     scroller.getBoundingClientRect = () => rect(0, 500);
     hiddenHeader.getBoundingClientRect = () => rect(-120, -20);
     let anchorLeft = -20;
@@ -45,6 +44,7 @@ describe('useTableHorizontalScrollAnchor', () => {
     const { rerender } = renderHook(({ columnsKey }) => useTableHorizontalScrollAnchor(containerRef, columnsKey), {
       initialProps: { columnsKey: 'before' },
     });
+    scroller.scrollLeft = 100;
     fireEvent.scroll(scroller);
 
     anchorLeft = 30;
@@ -69,6 +69,9 @@ describe('useTableHorizontalScrollAnchor', () => {
     const { rerender } = renderHook(({ columnsKey }) => useTableHorizontalScrollAnchor(containerRef, columnsKey), {
       initialProps: { columnsKey: 'before' },
     });
+    scroller.scrollLeft = 100;
+    fireEvent.scroll(scroller);
+    scroller.scrollLeft = 0;
     fireEvent.scroll(scroller);
 
     headerLeft = 50;
@@ -85,7 +88,6 @@ describe('useTableHorizontalScrollAnchor', () => {
     anchorHeader.setAttribute('role', 'columnheader');
     scroller.append(anchorHeader);
     container.append(scroller);
-    scroller.scrollLeft = 100;
     scroller.getBoundingClientRect = () => rect(0, 500);
     let anchorLeft = -20;
     anchorHeader.getBoundingClientRect = () => rect(anchorLeft, anchorLeft + 100);
@@ -94,6 +96,7 @@ describe('useTableHorizontalScrollAnchor', () => {
     const { rerender } = renderHook(({ columnsKey }) => useTableHorizontalScrollAnchor(containerRef, columnsKey), {
       initialProps: { columnsKey: 'before' },
     });
+    scroller.scrollLeft = 100;
     fireEvent.scroll(scroller);
 
     anchorLeft = 30;
