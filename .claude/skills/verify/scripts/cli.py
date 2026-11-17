@@ -12,7 +12,6 @@ from typing import Any
 SKILL_DIR = Path(__file__).resolve().parents[1]
 SKILLS_DIR = SKILL_DIR.parent
 SCHEMA = SKILL_DIR / "payload.schema.yml"
-TRUSTED_BOTS = {"Copilot", "mlflow-app[bot]"}
 PR_CONTEXT = SKILLS_DIR.parent / "scripts" / "pr_context.py"
 VALIDATE_REVIEW = SKILLS_DIR.parent / "scripts" / "validate_review.py"
 
@@ -52,18 +51,6 @@ def collect(args: argparse.Namespace) -> int:
     )
     if context["state"] != "open":
         raise ValueError("PR is not open")
-    author = context["author"]
-    match author["type"]:
-        case "User":
-            permission = api(f"repos/{args.repo}/collaborators/{author['login']}/permission")
-            if permission["permission"] not in {"admin", "write"}:
-                write_step_summary("The PR author does not have write access.")
-                return 0
-        case "Bot" if author["login"] in TRUSTED_BOTS:
-            pass
-        case _:
-            write_step_summary("The PR author is not trusted.")
-            return 0
     head = context["head"]["sha"]
     if not re.fullmatch(r"[0-9a-f]{40}", head):
         raise ValueError("Unexpected PR head SHA")
@@ -184,7 +171,7 @@ def publish(args: argparse.Namespace) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify workflow commands")
     commands = parser.add_subparsers(dest="command", required=True)
-    collection = commands.add_parser("collect", help="Authorize the request and snapshot the PR")
+    collection = commands.add_parser("collect", help="Snapshot the PR for verification")
     collection.add_argument("--repo", required=True)
     collection.add_argument("--pr-number", required=True)
     collection.add_argument("--comment", required=True)

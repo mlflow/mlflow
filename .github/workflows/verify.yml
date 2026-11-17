@@ -71,6 +71,41 @@ jobs:
       allowed: ${{ steps.pr.outputs.allowed }}
       head: ${{ steps.pr.outputs.head }}
     steps:
+      # Mirrors the `/review` gate in nailaopus.yml. The job-level author_association check
+      # is only a prefilter: it admits any collaborator or org member, and dispatch skips it.
+      - name: Check user permission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number || inputs.pr_number }}
+          REQUESTER: ${{ github.event.comment.user.login || github.triggering_actor }}
+        run: |
+          check_role() {
+            local role
+            role=$(gh api "repos/$REPO/collaborators/$1/permission" --jq .role_name) \
+              || { echo "::error::Failed to fetch permission for $1"; exit 1; }
+            case "$role" in
+              admin|maintain) echo "$1 is allowed ($role)" ;;
+              *) echo "::error::$1 needs the admin or maintain role (has $role)"; exit 1 ;;
+            esac
+          }
+          check_role "$REQUESTER"
+          IFS=$'\t' read -r author type head_repo head_ref < <(
+            gh api "repos/$REPO/pulls/$PR_NUMBER" \
+              --jq '[.user.login, .user.type, .head.repo.full_name // "", .head.ref] | @tsv'
+          )
+          case "$type:$author" in
+            Bot:Copilot) echo "Allowing Copilot PR" ;;
+            # Triage PRs only; triage.yml limits their patches to an allowlist.
+            "Bot:mlflow-app[bot]")
+              if [[ "$head_repo" != "$REPO" || "$head_ref" != triage/issue-* ]]; then
+                echo "::error::PR from $author is not a triage PR ($head_repo $head_ref)"
+                exit 1
+              fi
+              ;;
+            User:*) check_role "$author" ;;
+            *) echo "::error::PR author $author ($type) is not trusted"; exit 1 ;;
+          esac
       # The workflow ref is the default branch for /verify and the selected ref for dispatch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
