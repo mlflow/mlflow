@@ -36,6 +36,15 @@ describe('large structured JSON preview', () => {
     expect(screen.queryByText('"field-4999"')).not.toBeInTheDocument();
   });
 
+  it('keeps clipped JSON container toggles out of keyboard navigation', () => {
+    const value = { document: payload };
+    render(<ModelTraceExplorerCodeSnippetBody data={JSON.stringify(value)} />, { wrapper: Providers });
+    expect(screen.queryByRole('button', { name: 'document' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'JSON container' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'See more' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+  });
+
   it('mounts only the preview rows before See more is requested', () => {
     render(<ModelTraceExplorerCodeSnippetBody data={JSON.stringify(payload)} />, { wrapper: Providers });
     expect(screen.getByText('"field-0"')).toBeInTheDocument();
@@ -131,14 +140,15 @@ describe('large JSON row interaction', () => {
   });
 
   it('preserves keyboard container toggling, punctuation keys and replacement Unicode values', async () => {
+    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const height = this.hasAttribute('data-index') ? 24 : 480;
+      return { x: 0, y: 0, top: 0, left: 0, right: 800, bottom: height, width: 800, height, toJSON: () => ({}) };
+    });
     const user = userEvent.setup();
     const padded = { 'a.b': { 'quoted"key': 'café 日本語 🙂' }, padding: 'z'.repeat(100_000) };
-    const { rerender } = render(
-      <CollapsibleJsonViewer data={JSON.stringify(padded)} initialExpanded rowLimit={JSON_PREVIEW_ROW_LIMIT} />,
-      {
-        wrapper: Providers,
-      },
-    );
+    const { rerender } = render(<CollapsibleJsonViewer data={JSON.stringify(padded)} initialExpanded />, {
+      wrapper: Providers,
+    });
     const toggle = screen.getByRole('button', { name: 'a.b' });
     toggle.focus();
     await user.keyboard('{Enter}');
@@ -150,7 +160,6 @@ describe('large JSON row interaction', () => {
       <CollapsibleJsonViewer
         data={JSON.stringify({ ...padded, 'a.b': { 'quoted"key': 'updated Кириллица العربية' } })}
         initialExpanded
-        rowLimit={JSON_PREVIEW_ROW_LIMIT}
       />,
     );
     expect(screen.getByText('"updated Кириллица العربية"')).toBeInTheDocument();

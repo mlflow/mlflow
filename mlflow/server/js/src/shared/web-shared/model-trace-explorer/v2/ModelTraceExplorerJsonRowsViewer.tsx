@@ -4,7 +4,12 @@ import { css, type SerializedStyles } from '@emotion/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 
-import { getJsonColors, renderPrimitiveValue, type JsonColors } from './ModelTraceExplorerJsonRendering.utils';
+import {
+  getJsonColors,
+  getJsonContainerPreview,
+  renderPrimitiveValue,
+  type JsonColors,
+} from './ModelTraceExplorerJsonRendering.utils';
 import { getJsonRows, type JsonRow } from './ModelTraceExplorerJsonRows.utils';
 
 const ESTIMATED_ROW_HEIGHT = 24;
@@ -79,16 +84,6 @@ const getJsonRowStyles = (theme: Theme): JsonRowStyles => {
   };
 };
 
-const getCollapsedPreview = (isArray: boolean, entryCount: number): string => {
-  if (entryCount === 0) {
-    return '';
-  }
-  if (isArray) {
-    return ` // ${entryCount} ${entryCount === 1 ? 'item' : 'items'}`;
-  }
-  return ` // ${entryCount} ${entryCount === 1 ? 'property' : 'properties'}`;
-};
-
 const JsonRowKey = ({ nodeKey, styles }: { nodeKey?: string; styles: JsonRowStyles }) =>
   nodeKey === undefined ? null : (
     <>
@@ -101,10 +96,12 @@ const JsonRowView = React.memo(function JsonRowView({
   row,
   styles,
   onToggle,
+  interactive,
 }: {
   row: JsonRow;
   styles: JsonRowStyles;
   onToggle: (container: WeakKey) => void;
+  interactive: boolean;
 }) {
   const indent = { paddingLeft: row.depth * styles.indentSize };
   const lineNumber = <span css={styles.lineNumber}>{row.line}</span>;
@@ -148,12 +145,12 @@ const JsonRowView = React.memo(function JsonRowView({
           <div
             css={styles.header}
             style={indent}
-            role="button"
-            tabIndex={0}
-            aria-expanded={!row.collapsed}
-            aria-label={row.nodeKey ?? 'JSON container'}
+            role={interactive ? 'button' : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            aria-expanded={interactive ? !row.collapsed : undefined}
+            aria-label={interactive ? (row.nodeKey ?? 'JSON container') : undefined}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
+              if (interactive && (event.key === 'Enter' || event.key === ' ')) {
                 event.preventDefault();
                 onToggle(row.container);
               }
@@ -173,7 +170,7 @@ const JsonRowView = React.memo(function JsonRowView({
               <>
                 <span css={styles.ellipsis}>...</span>
                 <span css={styles.punctuation}>{close}</span>
-                <span css={styles.preview}>{getCollapsedPreview(row.isArray, row.entryCount)}</span>
+                <span css={styles.preview}>{getJsonContainerPreview(row.isArray, row.entryCount)}</span>
               </>
             ) : (
               row.entryCount === 0 && (
@@ -245,6 +242,10 @@ export function ModelTraceExplorerJsonRowsViewer({
     count: shouldVirtualize ? rows.length : 0,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ESTIMATED_ROW_HEIGHT,
+    getItemKey: (index) => {
+      const row = rows[index];
+      return `${row.kind}:${row.kind === 'open' ? row.startLine : row.line}`;
+    },
     overscan: 20,
   });
 
@@ -277,7 +278,7 @@ export function ModelTraceExplorerJsonRowsViewer({
                 css={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
                 style={{ transform: `translateY(${item.start}px)` }}
               >
-                <JsonRowView row={rows[item.index]} styles={styles} onToggle={onToggle} />
+                <JsonRowView row={rows[item.index]} styles={styles} onToggle={onToggle} interactive />
               </div>
             ))}
           </div>
@@ -285,7 +286,7 @@ export function ModelTraceExplorerJsonRowsViewer({
       ) : (
         <div css={{ paddingRight: theme.spacing.md * 2 }}>
           {rows.map((row, index) => (
-            <JsonRowView key={index} row={row} styles={styles} onToggle={onToggle} />
+            <JsonRowView key={index} row={row} styles={styles} onToggle={onToggle} interactive={false} />
           ))}
         </div>
       )}

@@ -25,6 +25,12 @@ export function getJsonColors(isDarkMode: boolean, textPrimary: string, textSeco
   };
 }
 
+export const getJsonContainerPreview = (isArray: boolean, count: number): string => {
+  if (count === 0) return '';
+  const noun = isArray ? (count === 1 ? 'item' : 'items') : count === 1 ? 'property' : 'properties';
+  return ` // ${count} ${noun}`;
+};
+
 export function renderPrimitiveValue(val: unknown, colors: JsonColors): React.ReactNode {
   if (val === null) {
     return <span css={{ color: colors.null }}>null</span>;

@@ -12,7 +12,12 @@ import {
   JSON_ROWS_MAX_DEPTH as MAX_DEPTH,
   LARGE_JSON_MIN_CHARS,
 } from './ModelTraceExplorerJsonRows.utils';
-import { getJsonColors, renderPrimitiveValue, type JsonColors } from './ModelTraceExplorerJsonRendering.utils';
+import {
+  getJsonColors,
+  getJsonContainerPreview,
+  renderPrimitiveValue,
+  type JsonColors,
+} from './ModelTraceExplorerJsonRendering.utils';
 
 export { getJsonColors } from './ModelTraceExplorerJsonRendering.utils';
 
@@ -149,15 +154,8 @@ function JsonNode({
   }
 
   const getPreview = () => {
-    if (isArrayValue) {
-      const length = value.length;
-      return length === 0 ? '' : ` // ${length} ${length === 1 ? 'item' : 'items'}`;
-    }
-    if (isObjectValue) {
-      const keys = Object.keys(value);
-      const count = keys.length;
-      return count === 0 ? '' : ` // ${count} ${count === 1 ? 'property' : 'properties'}`;
-    }
+    if (isArrayValue) return getJsonContainerPreview(true, value.length);
+    if (isObjectValue) return getJsonContainerPreview(false, Object.keys(value).length);
     return '';
   };
 

@@ -9,6 +9,7 @@ export type JsonRow =
   | { kind: 'primitive'; depth: number; nodeKey?: string; value: unknown; isLast: boolean; line: number }
   | {
       kind: 'open';
+      startLine: number;
       depth: number;
       nodeKey?: string;
       container: WeakKey;
@@ -84,6 +85,7 @@ export const getJsonRows = (
       // a collapsed container is labelled with its closing line, as in CollapsibleJsonViewer
       rows.push({
         kind: 'open',
+        startLine: nextLine,
         depth,
         nodeKey,
         container: value,
@@ -99,6 +101,7 @@ export const getJsonRows = (
 
     rows.push({
       kind: 'open',
+      startLine: nextLine,
       depth,
       nodeKey,
       container: value,

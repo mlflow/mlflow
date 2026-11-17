@@ -48,6 +48,12 @@ describe('getJsonRows', () => {
     const collapseNested = (container: WeakKey, depth: number) => depth === 0 || container !== value.nested;
 
     expect(describeRows(getJsonRows(value, collapseNested))).toEqual(['1 -{', '5 nested{...', '6 after=3', '7 }']);
+    const collapsed = getJsonRows(value, collapseNested).find((row) => row.kind === 'open' && row.nodeKey === 'nested');
+    const expanded = getJsonRows(value, expandToDefaultDepth).find(
+      (row) => row.kind === 'open' && row.nodeKey === 'nested',
+    );
+    expect(collapsed).toMatchObject({ kind: 'open', line: 5, startLine: 2 });
+    expect(expanded).toMatchObject({ kind: 'open', line: 2, startLine: 2 });
   });
 
   it('collapses containers deeper than the expand depth', () => {
