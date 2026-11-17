@@ -315,11 +315,10 @@ export const useModelTraceSearch = ({
     }
 
     // A new query or a removed active match starts at the first remaining match.
-    setActiveMatchIndex(0);
-    setSelectedNodeAndTab(matches[0].span, getTabForMatch(matches[0]));
+    selectMatch(0);
     // don't subscribe to selectedNode to prevent infinite loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTreeNodes, matches, setSelectedNodeAndTab]);
+  }, [filteredTreeNodes, matches, setSelectedNodeAndTab, selectMatch]);
 
   return {
     matchData: {

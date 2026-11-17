@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
+import { useState } from 'react';
 
 import { ModelSpanType, type ModelTrace, type ModelTraceSpanNode } from '../ModelTrace.types';
 import { useModelTraceSearch } from './useModelTraceSearch';
+import { useModelTraceExpansion } from './useModelTraceExpansion';
 
 const createNode = (value: string): ModelTraceSpanNode => ({
   key: 'root',
@@ -141,6 +143,49 @@ describe('useModelTraceSearch content updates', () => {
     expect(result.current.matchData.currentMatchIndex).toBe(0);
     expect(result.current.matchData.match?.key).toBe('first');
     expect(setSelectedNodeAndTab).toHaveBeenCalledWith(updated, 'attributes');
+  });
+
+  it('reveals the remaining match under a collapsed branch when the active match disappears', () => {
+    const leafA = { ...createNode('needle'), key: 'leaf-a', parentId: 'branch-a' };
+    const leafB = { ...createNode('needle'), key: 'leaf-b', parentId: 'branch-b' };
+    const branchA = { ...createNode('absent'), key: 'branch-a', parentId: 'root', children: [leafA] };
+    const branchB = { ...createNode('absent'), key: 'branch-b', parentId: 'root', children: [leafB] };
+    const root = { ...createNode('absent'), children: [branchA, branchB] };
+    const callbacks = { setSelectedNode: jest.fn(), setSelectedNodeAndTab: jest.fn() };
+    const { result, rerender } = renderHook(
+      ({ treeNodes }) => {
+        const [expanded, setExpandedKeys] = useState<Set<string | number>>(new Set());
+        const search = useModelTraceSearch({
+          ...callbacks,
+          treeNodes,
+          selectedNode: root,
+          modelTraceInfo: null,
+          setExpandedKeys,
+        });
+        useModelTraceExpansion(
+          search.filteredTreeNodes,
+          root.traceId,
+          search.searchFilter,
+          search.spanFilterState,
+          setExpandedKeys,
+        );
+        return { ...search, expanded, setExpandedKeys };
+      },
+      { initialProps: { treeNodes: [root] } },
+    );
+    act(() => result.current.setSearchFilter('needle'));
+    expect(result.current.matchData.match?.span.key).toBe('leaf-a');
+    act(() => result.current.setExpandedKeys(new Set(['root', 'branch-a'])));
+    expect(result.current.expanded.has('branch-b')).toBe(false);
+    const updated = {
+      ...root,
+      children: [{ ...branchA, children: [{ ...leafA, attributes: { value: 'gone' } }] }, branchB],
+    };
+    rerender({ treeNodes: [updated] });
+    expect(result.current.matchData.match?.span.key).toBe('leaf-b');
+    expect(callbacks.setSelectedNodeAndTab).toHaveBeenLastCalledWith(leafB, 'attributes');
+    expect(result.current.expanded.has('root')).toBe(true);
+    expect(result.current.expanded.has('branch-b')).toBe(true);
   });
 
   it('keeps displayed results and highlighting paired until the latest collection completes', () => {
