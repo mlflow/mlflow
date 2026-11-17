@@ -49,7 +49,7 @@ describe('large chat text', () => {
     const { container } = render(<ModelTraceExplorerChatMessage message={{ role: 'assistant', content }} />, {
       wrapper: Providers,
     });
-    expect(screen.getByText('Large content is displayed as plain text.')).toBeInTheDocument();
+    expect(screen.getByText(/Large content is displayed as plain text\./)).toBeInTheDocument();
     expect(container.querySelector('strong')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     expect(mockCopy).toHaveBeenCalledWith(content);

@@ -42,6 +42,6 @@ describe('large trace text rendering', () => {
     expect(screen.getByRole('region', { name: 'Trace text' })).toHaveTextContent('synthetic-0');
     expect(container.textContent).not.toContain('synthetic-2999');
     expect(expandedNodes).toBeLessThan(200);
-    expect(screen.getByText('Large content is displayed as plain text.')).toBeInTheDocument();
+    expect(screen.getByText(/Large content is displayed as plain text\./)).toBeInTheDocument();
   });
 });
