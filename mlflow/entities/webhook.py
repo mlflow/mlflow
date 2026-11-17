@@ -1,7 +1,5 @@
 from enum import Enum
-from typing import Literal, TypeAlias
-
-from typing_extensions import Self
+from typing import Literal, Self, TypeAlias
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.webhooks_pb2 import Webhook as ProtoWebhook

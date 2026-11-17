@@ -9,6 +9,7 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 - **External Secrets Operator integration** to create the backend store credential Secret from AWS Secrets Manager, GCP Secret Manager, Vault, or any other supported provider
 - **Persistent storage** with a PersistentVolumeClaim for SQLite or file-based artifact stores
 - **Ingress** for external access
+- **Horizontal Pod Autoscaling (HPA)** to automatically scale replicas based on CPU and memory utilization
 - **Prometheus metrics** and optional ServiceMonitor for the Prometheus Operator
 - **NetworkPolicy** restricting ingress and egress to required ports
 - **RBAC** with independent namespace-scoped (`namespace_rbac`) and cluster-scoped (`cluster_rbac`) rules
@@ -224,6 +225,32 @@ metrics:
 
 serviceMonitor:
   enabled: true
+```
+
+### Autoscaling
+
+Automatically scale MLflow replicas based on CPU and memory utilization. Requires external storage (not SQLite) and resource requests to be configured:
+
+```yaml
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+# Also required:
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+mlflow:
+  backendStoreUri: "postgresql://user:password@postgres:5432/mlflow"
+  defaultArtifactRoot: "s3://my-bucket/mlflow"
 ```
 
 ### Garbage collection

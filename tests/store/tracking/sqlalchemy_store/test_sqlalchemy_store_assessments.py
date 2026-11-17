@@ -20,6 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.db.db_types import MYSQL, SQLITE
 from mlflow.store.tracking.dbmodels.models import SqlAssessments, SqlSpan
+from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.time import get_current_time_millis
 
 from tests.store.tracking.sqlalchemy_store.conftest import _create_trace, create_test_span
@@ -96,6 +97,26 @@ def test_create_and_get_assessment(store_and_trace_info):
     assert retrieved_expectation.span_id == "span-456"
     assert retrieved_expectation.trace_id == trace_info.request_id
     assert retrieved_expectation.valid
+
+
+def test_start_trace_sent_again_with_the_same_assessment_ids_stores_them_once(store):
+    exp_id = store.create_experiment("test")
+    feedback = Feedback(name="quality", value=True)
+    feedback.assessment_id = generate_assessment_id()
+    trace_info = TraceInfo(
+        trace_id=f"tr-{uuid.uuid4().hex}",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=0,
+        state=TraceState.OK,
+        assessments=[feedback],
+    )
+
+    store.start_trace(trace_info)
+    store.start_trace(trace_info)
+
+    stored = store.get_trace_info(trace_info.trace_id).assessments
+    assert [a.assessment_id for a in stored] == [feedback.assessment_id]
 
 
 def test_log_spans_syncs_assessment_trace_timestamp(store):
@@ -536,6 +557,136 @@ def test_delete_assessment_override_behavior(store_and_trace_info):
     assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is True
 
 
+def _create_original_and_overrides(store, trace_id, reviewers):
+    original = store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="correctness",
+            value=False,
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
+    )
+    overrides = [_create_override(store, trace_id, original, user) for user in reviewers]
+    return original, overrides
+
+
+def _create_override(store, trace_id, original, user):
+    return store.create_assessment(
+        Feedback(
+            trace_id=trace_id,
+            name="correctness",
+            value=True,
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id=user),
+            overrides=original.assessment_id,
+        ),
+    )
+
+
+@pytest.mark.parametrize("delete_order", [(0, 1), (1, 0)])
+def test_delete_assessment_with_multiple_overrides(store_and_trace_info, delete_order):
+    store, trace_info = store_and_trace_info
+    trace_id = trace_info.request_id
+
+    original, overrides = _create_original_and_overrides(
+        store, trace_id, ["reviewer-a", "reviewer-b"]
+    )
+    first, second = (overrides[i] for i in delete_order)
+
+    store.delete_assessment(trace_id, first.assessment_id)
+    assert store.get_assessment(trace_id, original.assessment_id).valid is False
+    assert store.get_assessment(trace_id, second.assessment_id).valid is True
+
+    store.delete_assessment(trace_id, second.assessment_id)
+    assert store.get_assessment(trace_id, original.assessment_id).valid is True
+
+
+def _run_while_holding_trace_lock(store, monkeypatch, first_op, second_op):
+    """
+    Run ``first_op`` and pause it right after it takes the trace row lock, then run ``second_op``
+    and check that it blocks on the same lock until ``first_op`` commits.
+    """
+    first_has_lock = Event()
+    release_first = Event()
+    second_reached_lock = Event()
+    second_has_lock = Event()
+    original_get_sql_trace_info = store._get_sql_trace_info
+
+    def get_sql_trace_info_and_hold_lock(*args, **kwargs):
+        if not kwargs.get("for_update"):
+            return original_get_sql_trace_info(*args, **kwargs)
+        if not first_has_lock.is_set():
+            sql_trace_info = original_get_sql_trace_info(*args, **kwargs)
+            first_has_lock.set()
+            assert release_first.wait(timeout=10)
+            return sql_trace_info
+        second_reached_lock.set()
+        sql_trace_info = original_get_sql_trace_info(*args, **kwargs)
+        second_has_lock.set()
+        return sql_trace_info
+
+    monkeypatch.setattr(store, "_get_sql_trace_info", get_sql_trace_info_and_hold_lock)
+
+    with ThreadPoolExecutor(
+        max_workers=2, thread_name_prefix="test-override-trace-lock"
+    ) as executor:
+        first_future = executor.submit(first_op)
+        assert first_has_lock.wait(timeout=10)
+        second_future = executor.submit(second_op)
+        try:
+            assert second_reached_lock.wait(timeout=10)
+            assert not second_has_lock.wait(timeout=0.5)
+        finally:
+            release_first.set()
+        first_future.result(timeout=10)
+        return second_future.result(timeout=10)
+
+
+def test_concurrent_delete_of_overrides_restores_original(store_and_trace_info, monkeypatch):
+    store, trace_info = store_and_trace_info
+    if store.db_type == SQLITE:
+        pytest.skip("SQLite does not support this concurrent row-lock test")
+
+    trace_id = trace_info.request_id
+    original, (first, second) = _create_original_and_overrides(
+        store, trace_id, ["reviewer-a", "reviewer-b"]
+    )
+
+    _run_while_holding_trace_lock(
+        store,
+        monkeypatch,
+        lambda: store.delete_assessment(trace_id, first.assessment_id),
+        lambda: store.delete_assessment(trace_id, second.assessment_id),
+    )
+
+    # Without the lock, each deletion would see the other override and skip the restore
+    assert store.get_assessment(trace_id, original.assessment_id).valid is True
+
+
+@pytest.mark.parametrize("delete_first", [True, False])
+def test_concurrent_create_and_delete_of_overrides_keeps_original_invalid(
+    store_and_trace_info, monkeypatch, delete_first
+):
+    store, trace_info = store_and_trace_info
+    if store.db_type == SQLITE:
+        pytest.skip("SQLite does not support this concurrent row-lock test")
+
+    trace_id = trace_info.request_id
+    original, (existing,) = _create_original_and_overrides(store, trace_id, ["reviewer-a"])
+    created = []
+
+    def delete_existing():
+        store.delete_assessment(trace_id, existing.assessment_id)
+
+    def create_new():
+        created.append(_create_override(store, trace_id, original, "reviewer-b"))
+
+    ops = (delete_existing, create_new) if delete_first else (create_new, delete_existing)
+    _run_while_holding_trace_lock(store, monkeypatch, *ops)
+
+    assert store.get_assessment(trace_id, original.assessment_id).valid is False
+    assert store.get_assessment(trace_id, created[0].assessment_id).valid is True
+
+
 def test_assessment_with_run_id(store_and_trace_info):
     store, trace_info = store_and_trace_info
 
@@ -707,3 +858,39 @@ def test_create_assessment_constraint_violation_is_not_reported_as_missing_trace
     assert "not found" not in message
     assert "IntegrityError" not in message
     assert "INSERT INTO" not in message
+
+
+def test_start_trace_rejects_assessment_from_another_trace(store):
+    exp_id = store.create_experiment("assessment_owner")
+    _create_trace(store, "tr-victim", experiment_id=exp_id)
+    victim = store.create_assessment(
+        Feedback(
+            trace_id="tr-victim",
+            name="quality",
+            value="good",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        )
+    )
+    _create_trace(store, "tr-other", experiment_id=exp_id)
+
+    stolen = Feedback(
+        trace_id="tr-other",
+        name="quality",
+        value="bad",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user2"),
+    )
+    stolen.assessment_id = victim.assessment_id
+    with pytest.raises(MlflowException, match="belongs to another trace"):
+        store.start_trace(
+            TraceInfo(
+                trace_id="tr-other",
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=0,
+                state=TraceState.OK,
+                assessments=[stolen],
+            )
+        )
+
+    kept = store.get_assessment("tr-victim", victim.assessment_id)
+    assert kept.value == "good"

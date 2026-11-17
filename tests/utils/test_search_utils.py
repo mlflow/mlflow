@@ -3,6 +3,7 @@ import json
 import re
 
 import pytest
+import sqlalchemy as sa
 
 from mlflow.entities import (
     Dataset,
@@ -23,6 +24,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.models import SqlSpan
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
@@ -333,6 +335,48 @@ def test_float_numeric_attribute_is_not_truncated_for_logged_models(
 )
 def test_correct_quote_trimming(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
+
+
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize(
+    ("literal", "expected"),
+    [
+        ("'it''s'", "it's"),
+        ("'it''''s'", "it''s"),
+        (r"'100\%\\it''s'", r"100\%\\it's"),
+        ("\"it''s\"", "it''s"),
+        ('"path\\name"', "path\\name"),
+    ],
+)
+def test_span_filter_quote_escaping(field, comparator, literal, expected):
+    assert SearchTraceUtils.parse_search_filter(f"span.{field} {comparator} {literal}") == [
+        {"type": "span", "key": field, "comparator": comparator, "value": expected}
+    ]
+
+
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize("comparator", ["IN", "NOT IN"])
+@pytest.mark.parametrize(
+    ("literal", "expected"),
+    [
+        ("('it''s')", ("it's",)),
+        ("('it''''s', 'plain')", ("it''s", "plain")),
+        (r"('100%\it''s', 'a,b')", (r"100%\it's", "a,b")),
+        ("(\"it''s\", 'it''s')", ("it''s", "it's")),
+        (r"('path\name', 'trailing\')", (r"path\name", "trailing\\")),
+    ],
+)
+def test_span_filter_list_quote_escaping(field, comparator, literal, expected):
+    assert SearchTraceUtils.parse_search_filter(f"span.{field} {comparator} {literal}") == [
+        {"type": "span", "key": field, "comparator": comparator, "value": expected}
+    ]
+
+
+@pytest.mark.parametrize("literal", ["()", "(1)", "('valid', 1)", "(('nested',),)"])
+def test_span_filter_list_rejects_invalid_values(literal):
+    with pytest.raises(MlflowException, match="While parsing a list in the query"):
+        SearchTraceUtils.parse_search_filter(f"span.name IN {literal}")
 
 
 @pytest.mark.parametrize(
@@ -1073,3 +1117,59 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+@pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mysql", "mssql"])
+def test_sql_comparison_explicit_escape(dialect):
+    engine_dialect = sa.dialects.registry.load(dialect)()
+    regular = SearchUtils.get_sql_comparison_func("ILIKE", dialect)(SqlSpan.name, r"a\_%")
+    escaped = SearchUtils.get_sql_comparison_func("ILIKE", dialect, ilike_escape="\\")(
+        SqlSpan.name, r"a\_%"
+    )
+    assert "ESCAPE" not in str(regular.compile(dialect=engine_dialect))
+    assert "ESCAPE" in str(escaped.compile(dialect=engine_dialect))
+    if dialect == "mssql":
+        assert "COLLATE" in str(escaped.compile(dialect=engine_dialect))
+
+
+def _mysql_sql(comparator, expression, value):
+    from sqlalchemy.dialects import mysql
+
+    func = SearchUtils.get_sql_expression_comparison_func(comparator, "mysql")
+    return str(func(expression, value).compile(dialect=mysql.dialect()))
+
+
+def _collated_column():
+    from mlflow.store.tracking.dbmodels.models import SqlSkillVersion
+
+    # A collated column is an expression rather than a mapped column, so it has
+    # no .class_ for the raw BINARY SQL that get_sql_comparison_func builds.
+    return SqlSkillVersion.status.__clause_element__().collate("utf8mb4_bin")
+
+
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE"])
+def test_sql_expression_comparison_func_is_case_sensitive_on_mysql(comparator):
+    assert "binary(" in _mysql_sql(comparator, _collated_column(), "Act%")
+
+
+def test_sql_expression_comparison_func_keeps_ilike_case_insensitive_on_mysql():
+    from sqlalchemy.dialects import mysql
+
+    column = _collated_column()
+    expected = str(column.ilike("ACT%").compile(dialect=mysql.dialect()))
+    assert _mysql_sql("ILIKE", column, "ACT%") == expected
+    assert "lower(" in expected
+
+
+@pytest.mark.parametrize("comparator", ["IN", "NOT IN"])
+def test_sql_expression_comparison_func_binds_lists_on_mysql(comparator):
+    assert "binary(" in _mysql_sql(comparator, _collated_column(), ["active", "draft"])
+
+
+@pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mssql"])
+@pytest.mark.parametrize("comparator", ["=", "LIKE", "ILIKE"])
+def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, comparator):
+    column = _collated_column()
+    expression_func = SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
+    column_func = SearchUtils.get_sql_comparison_func(comparator, dialect)
+    assert expression_func(column, "act%").compare(column_func(column, "act%"))

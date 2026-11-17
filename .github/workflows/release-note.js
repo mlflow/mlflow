@@ -1,17 +1,9 @@
-async function fetchRepoLabels({ github, owner, repo }) {
-  const { data } = await github.rest.issues.listLabelsForRepo({
-    owner,
-    repo,
-    per_page: 100, // the default value is 30, which is too small to fetch all labels
-  });
-  return data.map(({ name }) => name);
-}
-
 async function fetchPrLabels({ github, owner, repo, issue_number }) {
   const { data } = await github.rest.issues.listLabelsOnIssue({
     owner,
     repo,
     issue_number,
+    per_page: 100,
   });
   return data.map(({ name }) => name);
 }
@@ -39,9 +31,6 @@ async function validateLabeled({ core, context, github }) {
     return;
   }
 
-  const repoLabels = await fetchRepoLabels({ github, owner, repo });
-  const releaseNoteLabels = repoLabels.filter(isReleaseNoteLabel);
-
   // Fetch the release-note category labels applied on this PR
   const fetchAppliedLabels = async () => {
     const backoffs = [0, 1, 2, 4, 8, 16];
@@ -54,7 +43,7 @@ async function validateLabeled({ core, context, github }) {
         repo,
         issue_number,
       });
-      const prReleaseNoteLabels = prLabels.filter((name) => releaseNoteLabels.includes(name));
+      const prReleaseNoteLabels = prLabels.filter(isReleaseNoteLabel);
 
       if (prReleaseNoteLabels.length > 0) {
         return prReleaseNoteLabels;
@@ -94,15 +83,13 @@ async function postMerge({ context, github }) {
     return;
   }
 
-  const repoLabels = await fetchRepoLabels({ github, owner, repo });
-  const releaseNoteLabels = repoLabels.filter(isReleaseNoteLabel);
   const prLabels = await fetchPrLabels({
     github,
     owner,
     repo,
     issue_number,
   });
-  const prReleaseNoteLabels = prLabels.filter((name) => releaseNoteLabels.includes(name));
+  const prReleaseNoteLabels = prLabels.filter(isReleaseNoteLabel);
 
   if (prReleaseNoteLabels.length === 0) {
     const pull = await github.rest.pulls.get({

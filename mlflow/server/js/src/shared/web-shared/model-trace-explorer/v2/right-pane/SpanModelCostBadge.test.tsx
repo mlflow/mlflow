@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { screen } from '@testing-library/react';
 import { render } from '@databricks/web-shared/test-utils/render';
 import userEvent from '@testing-library/user-event';
@@ -9,6 +9,14 @@ import { IntlProvider } from '@databricks/i18n';
 import { SpanModelCostBadge } from './SpanModelCostBadge';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
+
+jest.mock('../../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+    '../../../../../common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
@@ -122,5 +130,36 @@ describe('SpanModelCostBadge', () => {
     expect(screen.getByText('Total')).toBeInTheDocument();
     expect(screen.getByText('$0.001234')).toBeInTheDocument();
     expect(screen.getByText('$0.002345')).toBeInTheDocument();
+  });
+
+  describe('estimated cost', () => {
+    const costSpan = () =>
+      createMockSpanNode({
+        cost: { input_cost: 0.001234, output_cost: 0.002345, total_cost: 0.003579 },
+      });
+
+    it('flag on: marks the cost as estimated, with an accessible label and an explanation', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      render(<SpanModelCostBadge activeSpan={costSpan()} />, { wrapper: Wrapper });
+
+      expect(screen.getByLabelText('Estimated cost: $0.003579')).toBeInTheDocument();
+      await userEvent.hover(screen.getByText('≈$0.003579'));
+      expect(
+        await screen.findByText('Cost is estimated from token usage and public model pricing.'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('$0.001234')).toBeInTheDocument();
+    });
+
+    it('flag off: shows the plain cost', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+      render(<SpanModelCostBadge activeSpan={costSpan()} />, { wrapper: Wrapper });
+
+      expect(screen.queryByText('≈$0.003579')).not.toBeInTheDocument();
+      await userEvent.hover(screen.getByText('$0.003579'));
+      expect(await screen.findByText('$0.001234')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Cost is estimated from token usage and public model pricing.'),
+      ).not.toBeInTheDocument();
+    });
   });
 });

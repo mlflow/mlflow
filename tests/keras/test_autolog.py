@@ -225,3 +225,26 @@ def test_keras_autolog_log_datasets(log_datasets, log_models):
             assert mlflow.last_logged_model() is not None
     else:
         assert len(run_inputs.model_inputs) == 0
+
+
+def test_autolog_does_not_modify_user_callbacks_across_fit_calls():
+    mlflow.keras.autolog(log_models=False, log_datasets=False)
+
+    data = np.random.uniform(size=(8, 28, 28, 3))
+    label = np.random.randint(2, size=8)
+    history = keras.callbacks.History()
+    callbacks = [history]
+
+    run_ids = []
+    for _ in range(2):
+        _create_keras_model().fit(data, label, epochs=1, callbacks=callbacks)
+        run_ids.append(mlflow.last_active_run().info.run_id)
+        assert callbacks == [history]
+
+    flush_async_logging()
+    assert mlflow.active_run() is None
+    runs = mlflow.search_runs(output_format="list")
+    assert {r.info.run_id for r in runs} == set(run_ids)
+    for run in runs:
+        assert run.info.status == "FINISHED"
+        assert "loss" in run.data.metrics

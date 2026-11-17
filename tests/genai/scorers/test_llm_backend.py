@@ -4,7 +4,9 @@ import pydantic
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.genai.scorers.llm_backend import ScorerLLMClient
+from mlflow.genai.utils.gateway_utils import gateway_caller
 
 
 def test_databricks_route():
@@ -242,3 +244,20 @@ def test_complete_databricks_extracts_system_prompt():
     mock_call.assert_called_once_with(
         user_prompt="Hi", system_prompt="You are helpful", model="databricks"
     )
+
+
+def test_complete_gateway_attributes_calls_to_judges_by_default(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_URI", "http://localhost:5000")
+
+    with patch(
+        "mlflow.genai.scorers.llm_backend._call_llm_provider_api", return_value="gateway response"
+    ) as mock_call:
+        backend = ScorerLLMClient("gateway:/my-endpoint")
+        backend.complete([{"role": "user", "content": "Hi"}])
+        with gateway_caller(GatewayCaller.SIMULATOR):
+            backend.complete([{"role": "user", "content": "Hi"}])
+
+    assert [call.kwargs["extra_headers"] for call in mock_call.call_args_list] == [
+        {MLFLOW_GATEWAY_CALLER_HEADER: "judge"},
+        {MLFLOW_GATEWAY_CALLER_HEADER: "simulator"},
+    ]

@@ -2,20 +2,90 @@ import json
 import logging
 import math
 import os
+import urllib.parse
 from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.entities._job import Job as JobEntity
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
-from mlflow.server.handlers import _get_job_store
+from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
+from mlflow.server.handlers import (
+    _get_job_store,
+    _get_servable_proxied_artifact_repo,
+    _is_servable_proxied_run_artifact_root,
+)
+from mlflow.store.artifact.artifact_repository_registry import _artifact_repository_registry
+from mlflow.store.artifact.mlflow_artifacts_repo import MlflowArtifactsRepository
+from mlflow.telemetry.issue_detection import record_issue_detection_cancellation
+from mlflow.tracking._tracking_service.utils import get_tracking_uri, set_tracking_uri
 from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+# The server's HTTP URI, kept when tracking is redirected to the store: a proxied artifact
+# location this server does not serve is still fetched over HTTP.
+_http_tracking_uri: str | None = None
+
+
+def _is_http_uri(uri: str | None) -> bool:
+    return bool(uri) and urllib.parse.urlparse(uri).scheme in ("http", "https")
+
+
+def _http_uri_for_artifacts(tracking_uri: str | None) -> str | None:
+    # A client built after the redirect passes the store URI, which cannot serve here.
+    if _is_http_uri(tracking_uri):
+        return tracking_uri
+    return _http_tracking_uri or tracking_uri or get_tracking_uri()
+
+
+def _proxied_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
+    """Resolve an ``mlflow-artifacts:/`` URI the way the server's own artifact routes do.
+
+    A location this server serves is read from ``--artifacts-destination`` directly; any other
+    stays on HTTP, where an auth-enabled server still rejects the job's request.
+    """
+    if _is_servable_proxied_run_artifact_root(artifact_uri):
+        return _get_servable_proxied_artifact_repo(artifact_uri)
+    return MlflowArtifactsRepository(
+        artifact_uri,
+        tracking_uri=_http_uri_for_artifacts(tracking_uri),
+        registry_uri=registry_uri,
+    )
+
+
+def use_backend_store_for_tracking() -> None:
+    """Point this process's tracking APIs at the backend store instead of the server's HTTP API.
+
+    A job cannot authenticate to the server (its only credential is gateway-only), so the job
+    subprocess entry calls this before running any job function. Proxied artifact locations are
+    redirected with it, since their default handler needs the HTTP tracking URI this gives up.
+    """
+    global _http_tracking_uri
+
+    store_uri = os.environ.get(BACKEND_STORE_URI_ENV_VAR)
+    if not store_uri:
+        raise MlflowException(
+            "Cannot point tracking at the backend store: "
+            f"{BACKEND_STORE_URI_ENV_VAR} is unset in this job's environment."
+        )
+
+    # Under the executor engine tracking is already the store URI; the gateway URI is the
+    # server's HTTP URI there.
+    if _http_tracking_uri is None:
+        _http_tracking_uri = next(
+            (uri for uri in (get_tracking_uri(), MLFLOW_GATEWAY_URI.get()) if _is_http_uri(uri)),
+            None,
+        )
+
+    # Not left to `_get_tracking_store()`, whose redirect runs only on the first resolution.
+    set_tracking_uri(store_uri)
+    _artifact_repository_registry.register("mlflow-artifacts", _proxied_artifact_repository)
 
 
 _SUPPORTED_JOB_FUNCTION_LIST = [
@@ -25,6 +95,7 @@ _SUPPORTED_JOB_FUNCTION_LIST = [
     "mlflow.genai.scorers.job.run_online_session_scorer_job",
     "mlflow.genai.optimize.job.optimize_prompts_job",
     "mlflow.genai.discovery.job.invoke_issue_detection_job",
+    "mlflow.genai.discovery.job.run_scheduled_issue_detection_job",
     "mlflow.genai.evaluation.job.invoke_genai_evaluate_job",
 ]
 
@@ -39,6 +110,7 @@ _ALLOWED_JOB_NAME_LIST = [
     "run_online_session_scorer",
     "optimize_prompts",
     "invoke_issue_detection",
+    "scheduled_issue_detection",
     "invoke_genai_evaluate",
 ]
 
@@ -221,7 +293,6 @@ def submit_job(
         the updated job entity.
     """
     from mlflow.environment_variables import (
-        MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND,
         MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
         MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     )
@@ -308,28 +379,18 @@ def submit_job(
     # engine does not use a backend, so it is left unset there.
     executor_backend = None
     if engine == "executor":
-        executor_backend = select_executor_backend(is_custom_scorer=is_custom_scorer)
-        runner_backend = MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND.get()
-        if executor_backend != runner_backend:
-            # The runner does not dispatch per job yet: it runs every job on
-            # MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND and ignores the persisted per-job backend.
-            # Routing custom scorers to a different backend would therefore persist a backend that
-            # is silently never used, so reject the differing config until per-job dispatch lands.
-            raise MlflowException.invalid_parameter_value(
-                f"Routing custom scorers to a separate executor backend is not supported yet: "
-                f"MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND ({executor_backend!r}) must match "
-                f"MLFLOW_JOB_DEFAULT_EXECUTOR_BACKEND ({runner_backend!r}) until the runner "
-                f"dispatches per job."
-            )
+        # The runner runs each job on the backend recorded here, so custom scorer jobs can be
+        # routed to a separate backend (MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND).
+        executor_backend = select_executor_backend(
+            is_custom_scorer=is_custom_scorer, job_name=fn_meta.name, params=params
+        )
         # Remote executor backends are refused at startup today (see
         # JobExecutorRegistry.validate_backends), so this check does not fire yet. It is kept as
         # the model-resolution policy that becomes live once remote execution is supported: a
         # remote executor gets only a Gateway-scoped token and no provider API keys, so it cannot
         # resolve a direct-provider model URI unless it opts in via supports_direct_provider_models
         # (e.g. it provisions provider creds another way). Reject such a scorer before it is
-        # persisted. Resolve the backend the job will actually run on (executor_backend); it
-        # equals runner_backend today because a differing backend is rejected above, but this
-        # stays correct once per-job dispatch honors a separate custom-scorer backend.
+        # persisted, checking the backend the job will actually run on.
         executor = get_executor_registry().get(executor_backend)
         if (
             executor.remote_execution
@@ -419,4 +480,6 @@ def cancel_job(job_id: str) -> JobEntity:
         MlflowException: If job with the given ID is not found
     """
     job_store = _get_job_store()
-    return job_store.cancel_job(job_id)
+    job = job_store.cancel_job(job_id)
+    record_issue_detection_cancellation(job)
+    return job

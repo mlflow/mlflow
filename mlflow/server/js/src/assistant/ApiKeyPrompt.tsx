@@ -7,9 +7,11 @@ import { useCallback, useState } from 'react';
 import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { useAssistant } from './AssistantContext';
 import { updateConfig } from './AssistantService';
 import { GATEWAY_PROVIDER_ID } from './constants';
 import { SecretInput } from '../gateway/components/secrets/SecretInput';
+import { containsNonAsciiCharacters } from '../gateway/utils/secretUtils';
 
 const PROVIDER_KEY_PLACEHOLDERS = {
   openai: 'sk-...',
@@ -37,12 +39,20 @@ export const ApiKeyPrompt = ({
   onSaved,
 }: ApiKeyPromptProps) => {
   const { theme } = useDesignSystemTheme();
+  const { isLocalServer, canEditServerSettings } = useAssistant();
   const [apiKey, setApiKey] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const trimmedApiKey = apiKey.trim();
+  // Check the trimmed value since that is what gets saved; `trim()` also strips non-ASCII
+  // whitespace such as NBSP that often comes along when pasting a key. `SecretInput` checks the raw
+  // value, so only enable its inline error when the trimmed key is affected.
+  const trimmedKeyHasNonAscii = containsNonAsciiCharacters(trimmedApiKey);
+  const isApiKeyValid = Boolean(trimmedApiKey) && !trimmedKeyHasNonAscii;
+
   const handleSave = useCallback(async () => {
-    if (!apiKey.trim()) {
+    if (!isApiKeyValid) {
       return;
     }
     setIsSaving(true);
@@ -53,14 +63,14 @@ export const ApiKeyPrompt = ({
           providers: {
             [GATEWAY_PROVIDER_ID]: {
               gateway_vendor: gatewayVendor,
-              api_key: apiKey.trim(),
+              api_key: trimmedApiKey,
               model: providerModel ?? undefined,
               selected: true,
             },
           },
         });
       } else {
-        await updateConfig({ providers: { [providerId]: { api_key: apiKey.trim() } } });
+        await updateConfig({ providers: { [providerId]: { api_key: trimmedApiKey } } });
       }
       setIsSaving(false);
       onSaved();
@@ -68,21 +78,44 @@ export const ApiKeyPrompt = ({
       setError(err instanceof Error ? err.message : 'Failed to save the API key');
       setIsSaving(false);
     }
-  }, [apiKey, gatewayVendor, providerId, providerModel, onSaved]);
+  }, [trimmedApiKey, isApiKeyValid, gatewayVendor, providerId, providerModel, onSaved]);
+
+  const containerCss = {
+    border: `1px solid ${theme.colors.borderWarning}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    backgroundColor: theme.colors.backgroundValidationWarning,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: theme.spacing.sm,
+  };
+
+  // API keys are stored as server-wide LLM connections, which this caller cannot add.
+  if (!canEditServerSettings) {
+    return (
+      <div css={containerCss}>
+        <Typography.Text>
+          {isLocalServer ? (
+            <FormattedMessage
+              defaultMessage="Only an administrator can add the {provider} API key on this server. Ask an administrator, or pick another provider below."
+              description="Inline assistant API key prompt shown to a non-admin user, who cannot add API keys"
+              values={{ provider: providerName }}
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="The {provider} API key can only be added from the MLflow server host. Pick another provider below."
+              description="Inline assistant API key prompt shown to a remote user, who cannot add API keys"
+              values={{ provider: providerName }}
+            />
+          )}
+        </Typography.Text>
+      </div>
+    );
+  }
 
   return (
-    <div
-      css={{
-        border: `1px solid ${theme.colors.borderWarning}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        backgroundColor: theme.colors.backgroundValidationWarning,
-        padding: theme.spacing.md,
-        marginBottom: theme.spacing.sm,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.sm,
-      }}
-    >
+    <div css={containerCss}>
       <Typography.Text>
         <FormattedMessage
           defaultMessage="Add your {provider} API key to continue, or pick another provider below."
@@ -100,6 +133,7 @@ export const ApiKeyPrompt = ({
         }}
         placeholder={keyPlaceholderFor(gatewayVendor ?? providerId)}
         allowClear={false}
+        asciiOnly={trimmedKeyHasNonAscii}
       />
 
       <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm - 1 }}>
@@ -121,7 +155,7 @@ export const ApiKeyPrompt = ({
           type="primary"
           onClick={handleSave}
           loading={isSaving}
-          disabled={!apiKey.trim()}
+          disabled={!isApiKeyValid}
         >
           <FormattedMessage
             defaultMessage="Continue"

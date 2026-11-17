@@ -1,10 +1,11 @@
 import { jest, describe, beforeEach, beforeAll, afterAll, afterEach, it, expect } from '@jest/globals';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { ShowArtifactLoggedTableView } from './ShowArtifactLoggedTableView';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
+import { ArtifactPreviewTooLargeError, getArtifactBlob, getArtifactContent } from '../../../common/utils/ArtifactUtils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (table rendering)
@@ -22,16 +23,18 @@ const testArtifactData = {
 
 jest.mock('../../../common/utils/ArtifactUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/ArtifactUtils')>('../../../common/utils/ArtifactUtils'),
+  getArtifactBlob: jest.fn(),
   getArtifactContent: jest.fn(),
 }));
 
 describe('ShowArtifactLoggedTableView', () => {
+  const originalRevokeObjectURL = (URL as any).revokeObjectURL;
   const renderComponent = () => {
     render(
       <ShowArtifactLoggedTableView
         runUuid="test-run-uuid"
-        experimentId="test-experiment-id"
         path="/path/to/artifact"
+        artifactRootUri="mlflow-artifacts:/1/test-run-uuid/artifacts"
       />,
       {
         wrapper: ({ children }) => (
@@ -44,6 +47,7 @@ describe('ShowArtifactLoggedTableView', () => {
   };
 
   beforeEach(() => {
+    jest.clearAllMocks();
     // Mock getBoundingClientRect to satisfy the table row layout
     jest.spyOn(window.Element.prototype, 'getBoundingClientRect').mockImplementation(
       () =>
@@ -69,18 +73,41 @@ describe('ShowArtifactLoggedTableView', () => {
       },
       get() {},
     });
+    (URL as any).revokeObjectURL = jest.fn();
   });
 
   afterAll(() => {
     Object.defineProperty(window.Image.prototype, 'src', originalImageSrc);
+    (URL as any).revokeObjectURL = originalRevokeObjectURL;
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
+  it.each([
+    ['preview size', new ArtifactPreviewTooLargeError(), /Maximum file size for preview: 50 MiB/],
+    ['server mode', new ErrorWrapper({ artifacts_presigned_only: true }, 403), /Reload this page to continue/],
+    [
+      'artifact origin',
+      new ErrorWrapper({ external_artifact_service: true, message: 'Use a same-origin artifact service.' }, 403),
+      /Use a same-origin artifact service/,
+    ],
+    [
+      'artifact root',
+      new ErrorWrapper(
+        { invalid_artifact_root: true, message: 'The artifact root URI cannot be decoded safely.' },
+        400,
+      ),
+      /The artifact root URI cannot be decoded safely/,
+    ],
+  ])('shows actionable %s guidance', async (_name, error, guidance) => {
+    jest.mocked(getArtifactContent).mockRejectedValue(error);
+    renderComponent();
+    expect(await screen.findByText(guidance as RegExp)).toBeInTheDocument();
+  });
+
   it('renders the table and expected values in the cells', async () => {
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testArtifactData)));
 
     renderComponent();
@@ -104,7 +131,6 @@ describe('ShowArtifactLoggedTableView', () => {
   });
 
   it('renders the table with columns and allows showing/hiding them', async () => {
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testArtifactData)));
 
     renderComponent();
@@ -132,7 +158,6 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [[1], ['two'], [3.0], [null], [[1, null, 3]], [{ 1: null, 3: 5 }]],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testMixedTypes)));
 
     renderComponent();
@@ -162,7 +187,6 @@ describe('ShowArtifactLoggedTableView', () => {
       ],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testMixedColumnTypes)));
 
     renderComponent();
@@ -192,7 +216,6 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testEmptyData)));
     renderComponent();
 
@@ -214,7 +237,6 @@ describe('ShowArtifactLoggedTableView', () => {
       data: [],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testEmptyTable)));
     renderComponent();
 
@@ -243,8 +265,9 @@ describe('ShowArtifactLoggedTableView', () => {
       ],
     };
 
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(testImageTable)));
+    jest.mocked(getArtifactBlob).mockResolvedValue(new Blob(['image']));
+    jest.spyOn(URL, 'createObjectURL').mockReturnValue('blob:artifact-image');
     renderComponent();
 
     // Wait for the table headers to render
@@ -253,19 +276,25 @@ describe('ShowArtifactLoggedTableView', () => {
     });
 
     await waitFor(() => {
-      expect(document.body.innerHTML).toContain('get-artifact?path=');
+      expect(getArtifactBlob).toHaveBeenCalledWith(
+        'ajax-api/2.0/mlflow-artifacts/artifacts/1/test-run-uuid/artifacts/fakePath',
+      );
     });
 
     // Wait for the table cells to render
     await waitFor(() => {
       const images = screen.getAllByRole('img');
       expect(images.length).toBeGreaterThan(0);
-      expect(
-        images.some((image) =>
-          image.getAttribute('src')?.includes('get-artifact?path=fakePath&run_uuid=test-run-uuid'),
-        ),
-      ).toBe(true);
+      expect(images.some((image) => image.getAttribute('src') === 'blob:artifact-image')).toBe(true);
     });
+    expect(getArtifactBlob).not.toHaveBeenCalledWith(expect.stringContaining('/fakePathUncompressed'));
+    const thumbnail = screen.getAllByRole('img').find((image) => image.getAttribute('src') === 'blob:artifact-image');
+    await userEvent.click(thumbnail!);
+    await waitFor(() =>
+      expect(getArtifactBlob).toHaveBeenCalledWith(
+        'ajax-api/2.0/mlflow-artifacts/artifacts/1/test-run-uuid/artifacts/fakePathUncompressed',
+      ),
+    );
   });
 
   it.each([
@@ -273,7 +302,6 @@ describe('ShowArtifactLoggedTableView', () => {
     { artifactContent: { data: [] }, testName: 'object without columns' },
     { artifactContent: { columns: [] }, testName: 'object without data' },
   ])('renders error message when artifact contents is a $testName', async ({ artifactContent }) => {
-    // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
     jest.mocked(getArtifactContent).mockImplementation(() => Promise.resolve(JSON.stringify(artifactContent)));
 
     renderComponent();
@@ -290,7 +318,6 @@ describe('ShowArtifactLoggedTableView', () => {
 
   it('renders fallback column headers when column names are not provided', async () => {
     jest.mocked(getArtifactContent).mockImplementation(() =>
-      // @ts-expect-error Type 'Promise<string>' is not assignable to type 'Promise<R>'
       Promise.resolve(
         JSON.stringify({
           columns: ['guid', '', 'sentence', ''],

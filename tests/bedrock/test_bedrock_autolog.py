@@ -698,6 +698,32 @@ _CONVERSE_TOOL_CALLING_RESPONSE = {
     "metrics": {"latencyMs": 551},
 }
 
+_CONVERSE_PARALLEL_TOOL_CALLING_RESPONSE = {
+    **_CONVERSE_TOOL_CALLING_RESPONSE,
+    "output": {
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"text": "I'll check the weather in both cities."},
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_2",
+                        "name": "get_weather",
+                        "input": '{"location": "Paris, France"}',
+                    }
+                },
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_3",
+                        "name": "get_weather",
+                        "input": '{"location": "Tokyo, Japan"}',
+                    }
+                },
+            ],
+        },
+    },
+}
+
 _CONVERSE_TOOL_CALLING_EXPECTED_CHAT_ATTRIBUTE = [
     {
         "role": "user",
@@ -996,6 +1022,14 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
             _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
             {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
+        # 3. Parallel tool calls in a single turn
+        (
+            _CONVERSE_TOOL_CALLING_REQUEST,
+            _CONVERSE_PARALLEL_TOOL_CALLING_RESPONSE,
+            None,
+            _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
+        ),
     ],
 )
 def test_bedrock_autolog_converse_stream(
@@ -1116,7 +1150,9 @@ def _event_stream(raw_response, chunk_size=10):
 
 
 def _generate_tool_use_chunks_if_present(content, chunk_size=10):
-    if len(content) > 1 and (tool_content := content[1].get("toolUse")):
+    for block in content[1:]:
+        if not (tool_content := block.get("toolUse")):
+            continue
         yield {
             "contentBlockStart": {
                 "start": {

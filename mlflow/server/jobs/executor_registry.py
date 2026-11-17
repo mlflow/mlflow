@@ -5,6 +5,7 @@ import math
 import threading
 import warnings
 
+from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
 from mlflow.exceptions import MlflowException
 from mlflow.server.jobs.executor import (
     _MIN_JOB_LEASE_TTL,
@@ -17,6 +18,7 @@ _logger = logging.getLogger(__name__)
 
 ENTRY_POINT_GROUP = "mlflow.job_executors"
 DEFAULT_EXECUTOR_BACKEND = "local"
+DOCKER_EXECUTOR_BACKEND = "docker"
 
 _global_registry_lock = threading.Lock()
 
@@ -141,10 +143,16 @@ _global_registry: JobExecutorRegistry | None = None
 
 
 def _register_default_executors(registry: JobExecutorRegistry) -> None:
-    """Register built-in executor backends."""
+    """Register built-in executor backends.
+
+    Registering a backend does not touch its dependencies; only configured backends are validated
+    (see ``validate_backends``), so an unused ``docker`` backend never contacts a Docker daemon.
+    """
+    from mlflow.server.jobs.docker_executor import DockerJobExecutor
     from mlflow.server.jobs.local_executor import LocalJobExecutor
 
     registry.register(DEFAULT_EXECUTOR_BACKEND, LocalJobExecutor(registry.config))
+    registry.register(DOCKER_EXECUTOR_BACKEND, DockerJobExecutor(registry.config))
 
 
 def _get_configured_backend_names() -> list[str]:
@@ -191,6 +199,68 @@ def get_executor_registry() -> JobExecutorRegistry:
     return _global_registry
 
 
+def _executor_engine_in_use() -> bool:
+    """Whether jobs from this process run on the executor engine, so it has a registry to build."""
+    if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        return False
+    # Imported here: importing the job utils loads the job functions, and this module can be
+    # imported while one of their modules (for example mlflow.genai.scorers.job) is still loading.
+    from mlflow.server.jobs.utils import _check_requirements, get_job_execution_engine
+
+    try:
+        _check_requirements()
+        return get_job_execution_engine() == "executor"
+    except MlflowException:
+        # Job execution is unavailable in this process; submit_job reports why when it is used.
+        return False
+
+
+def _build_registry_or_log() -> None:
+    try:
+        get_executor_registry()
+    except Exception as e:
+        _logger.warning(
+            "Could not check the job executor backends when this process started; job "
+            "submissions from it will check them again: %s",
+            e,
+            exc_info=not isinstance(e, MlflowException),
+        )
+
+
+def warm_executor_registry_in_background() -> threading.Thread | None:
+    """Build and check this process's executor registry now, when jobs use the executor engine.
+
+    ``get_executor_registry`` builds the registry the first time a process needs it, and caches it
+    only when every configured backend passes its checks. If a backend is unavailable at that
+    moment (for example the Docker daemon), the process cannot submit any job until the backend
+    is back. These server processes, started by ``mlflow server``, build it when they start, just
+    after the server checked the same backends, so that a backend that becomes unavailable later
+    does not stop them from submitting jobs:
+
+    - the periodic task process, which runs the online scoring scheduler, when it starts;
+    - each uvicorn worker, at startup (the FastAPI lifespan);
+    - each gunicorn or waitress worker, on its first request (the Flask app has no startup hook).
+
+    The registry is built in a daemon thread, so a slow check (for example a Docker daemon that
+    does not answer) does not delay the caller. A job submitted meanwhile waits for it, because
+    ``get_executor_registry`` builds the registry under a lock. A failed check is logged, not
+    raised: the process then builds the registry on first use, as before. That is also what
+    happens in a process started while the backend is unavailable.
+
+    Whether the executor engine is used is checked first, on the calling thread, and no thread is
+    started otherwise. A thread that is importing modules when the process forks (as
+    ``multiprocessing`` does on Linux) can leave the child process deadlocked, so most processes
+    should not start one.
+    """
+    if not _executor_engine_in_use():
+        return None
+    thread = threading.Thread(
+        target=_build_registry_or_log, name="MLflow-warm-executor-registry", daemon=True
+    )
+    thread.start()
+    return thread
+
+
 def validate_executor_config() -> None:
     """Validate configured executor backends and their requirements.
 
@@ -200,6 +270,26 @@ def validate_executor_config() -> None:
     that configured backend names can be resolved and satisfy their runtime
     requirements.
     """
+    from mlflow.environment_variables import (
+        MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND,
+        MLFLOW_SERVER_JOB_EXECUTION_ENGINE,
+    )
+    from mlflow.server.jobs.utils import get_job_execution_engine
+
+    custom_scorer_backend = MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND.get()
+    if (
+        custom_scorer_backend
+        and custom_scorer_backend != DEFAULT_EXECUTOR_BACKEND
+        and get_job_execution_engine() != "executor"
+    ):
+        # Only the executor engine runs jobs on a backend. Without it, custom scorers would
+        # silently run in the server's local job runner instead of the configured backend (for
+        # example outside the docker sandbox), even when the default backend names the same one,
+        # so refuse to start.
+        raise MlflowException.invalid_parameter_value(
+            f"MLFLOW_JOB_CUSTOM_SCORER_EXECUTOR_BACKEND={custom_scorer_backend!r} requires "
+            f"{MLFLOW_SERVER_JOB_EXECUTION_ENGINE.name}=executor."
+        )
     _build_validated_registry()
 
 

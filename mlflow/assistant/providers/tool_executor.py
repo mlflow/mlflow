@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 
 from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.custom_view import RENDER_CUSTOM_VIEW_TOOL_NAME
+from mlflow.assistant.providers._subprocess_stream import assistant_subprocess_env
 from mlflow.assistant.providers.base import assistant_sandbox_enabled
 
 _logger = logging.getLogger(__name__)
@@ -324,15 +325,44 @@ async def _execute_bash(
     return await _execute_bash_on_host(command, cwd, tracking_uri, full_access)
 
 
+def _assistant_delegation_env() -> dict[str, str]:
+    """Env that makes a Bash subprocess's MLflow API calls authenticate as the session owner.
+
+    Mint a short-lived, user-scoped delegation credential for the current per-user identity and
+    point the MLflow client at the provider that forwards it, so a ``mlflow`` command the assistant
+    runs is attributed to the caller instead of hitting an auth-enabled server anonymously (401).
+    Empty on a server without auth (no identity to attribute to), leaving those calls anonymous.
+    """
+    from mlflow.assistant.config import get_config_user
+    from mlflow.environment_variables import _MLFLOW_ASSISTANT_DELEGATION_TOKEN
+    from mlflow.server.assistant.delegation import mint_delegation_credential
+    from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider import (
+        ASSISTANT_DELEGATION_AUTH_NAME,
+    )
+
+    credential = mint_delegation_credential(get_config_user() or "")
+    if not credential:
+        return {}
+    return {
+        "MLFLOW_TRACKING_AUTH": ASSISTANT_DELEGATION_AUTH_NAME,
+        _MLFLOW_ASSISTANT_DELEGATION_TOKEN.name: credential,
+    }
+
+
 async def _execute_bash_on_host(
     command: str,
     cwd: Path | None,
     tracking_uri: str | None,
     full_access: bool,
 ) -> tuple[str, bool]:
-    env = os.environ.copy()
+    # The tool subprocess does not inherit the server's internal secrets; it is handed only a
+    # pre-minted, user-scoped credential below. On the host this is not an isolation boundary: only
+    # the sandbox isolates the secrets.
+    env = assistant_subprocess_env()
     if tracking_uri:
         env["MLFLOW_TRACKING_URI"] = tracking_uri
+    # Attribute the tool's MLflow API calls to the session owner (no-op on a no-auth server).
+    env.update(_assistant_delegation_env())
 
     try:
         if full_access:
@@ -406,6 +436,9 @@ async def _execute_bash_in_sandbox(
     for var in ("MLFLOW_REGISTRY_URI",):
         if (value := os.environ.get(var)) and (safe := _uri_without_credentials(var, value)):
             env[var] = to_container_host_uri(safe)
+    # The delegation credential is user-scoped and short-lived, so unlike host secrets it is safe
+    # (and necessary) to forward into the sandbox so the tool's MLflow calls run as the caller.
+    env.update(_assistant_delegation_env())
 
     try:
         # run_in_sandbox uses the blocking docker-py client, so run it off the event loop.

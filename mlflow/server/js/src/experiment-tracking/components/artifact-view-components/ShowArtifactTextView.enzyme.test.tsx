@@ -100,7 +100,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('print("foo")');
     });
-    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -114,7 +114,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -128,7 +128,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -142,7 +142,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('{"key1": "val1"}\n{"key2": "val2"}');
     });
-    const props = { path: 'events.jsonl', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'events.jsonl', runUuid: 'fakeUuid', getArtifact };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -165,7 +165,7 @@ describe('ShowArtifactTextView', () => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('{"key1": "val1", "key2": "val2"}');
     });
-    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact };
     wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();

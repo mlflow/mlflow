@@ -328,10 +328,18 @@ def _parse_usage(output):
         return None
 
     usage_dict = {}
-    if (prompt_tokens := usage.prompt_token_count) is not None:
-        usage_dict[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
-    if (candidate_tokens := usage.candidates_token_count) is not None:
-        usage_dict[TokenUsageKey.OUTPUT_TOKENS] = candidate_tokens
+    prompt_tokens = usage.prompt_token_count
+    # Content fetched by built-in tools (Google Search, URL context) is part of the input but
+    # reported separately from the prompt tokens. The legacy google-generativeai SDK lacks
+    # the field.
+    tool_use_tokens = getattr(usage, "tool_use_prompt_token_count", None)
+    if prompt_tokens is not None or tool_use_tokens is not None:
+        usage_dict[TokenUsageKey.INPUT_TOKENS] = (prompt_tokens or 0) + (tool_use_tokens or 0)
+    candidate_tokens = usage.candidates_token_count
+    # Thinking tokens are billed as output but reported separately from candidate tokens
+    thoughts_tokens = getattr(usage, "thoughts_token_count", None)
+    if candidate_tokens is not None or thoughts_tokens is not None:
+        usage_dict[TokenUsageKey.OUTPUT_TOKENS] = (candidate_tokens or 0) + (thoughts_tokens or 0)
     if (total_tokens := usage.total_token_count) is not None:
         usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
     if (cached_tokens := getattr(usage, "cached_content_token_count", None)) is not None:

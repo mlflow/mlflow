@@ -25,7 +25,33 @@ jest.mock('./MlflowSidebarExperimentItems', () => ({
   ),
 }));
 
+const renderSidebarAt = (path: string) =>
+  renderWithDesignSystem(
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[path]}>
+        <MlflowSidebar showSidebar setShowSidebar={() => {}} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
 describe('MlflowSidebar', () => {
+  test('collapses the AI Registry section to a single link outside the registry pages', () => {
+    renderSidebarAt('/experiments');
+
+    expect(screen.getByRole('link', { name: 'AI Registry' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Prompts' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /MCP/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Skills/ })).not.toBeInTheDocument();
+  });
+
+  test.each(['/prompts', '/mcp-registry', '/skills'])('expands the AI Registry section on %s', (path) => {
+    renderSidebarAt(path);
+
+    expect(screen.getByRole('link', { name: 'Prompts' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /MCP/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Skills/ })).toBeInTheDocument();
+  });
+
   test('shows the top-level menu after navigating back to the experiments list', () => {
     let navigate: NavigateFunction | undefined;
     const NavigateCapture = () => {

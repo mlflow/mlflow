@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
 import { getLargeTraceDisplaySizeThreshold, shouldBlockLargeTraceDisplay } from '../FeatureUtils';
-import type { ModelTrace } from './ModelTrace.types';
+import type { ModelTrace, ModelTraceComparisonRole } from './ModelTrace.types';
 import { getModelTraceId, getModelTraceSize } from './ModelTraceExplorer.utils';
 import { ModelTraceExplorerContent } from './ModelTraceExplorerContent';
 import { ModelTraceExplorerErrorState } from '../ModelTraceExplorerErrorState';
@@ -27,6 +27,11 @@ export const ModelTraceExplorerImpl = ({
   // Seeds the initial tree-vs-timeline toggle; the AI Gateway opts into timeline (true).
   initialShowTimelineTreeGantt,
   enableGraphView = true,
+  comparisonModelTrace,
+  comparisonRole,
+  showSpanTree = true,
+  onShowSpanTreeChange,
+  hideAssessments = false,
 }: {
   modelTrace: ModelTrace;
   className?: string;
@@ -44,6 +49,11 @@ export const ModelTraceExplorerImpl = ({
    * Defaults to `true` to preserve existing behavior for all consumers.
    */
   enableGraphView?: boolean;
+  comparisonModelTrace?: ModelTrace;
+  comparisonRole?: ModelTraceComparisonRole;
+  showSpanTree?: boolean;
+  onShowSpanTreeChange?: (showSpanTree: boolean) => void;
+  hideAssessments?: boolean;
   // Accepted for prop-shape parity with the legacy explorer so the shared entrypoint can forward one
   // prop set to either implementation; the redesigned explorer replaces the summary view and ignores it.
   initialActiveView?: 'summary' | 'detail';
@@ -103,6 +113,9 @@ export const ModelTraceExplorerImpl = ({
         initialShowTimelineTreeGantt={initialShowTimelineTreeGantt}
         refreshTrace={refreshTrace}
         isRefreshingTrace={isRefreshingTrace}
+        comparisonModelTrace={comparisonModelTrace}
+        comparisonRole={comparisonRole}
+        hideAssessments={hideAssessments}
       >
         {showLoadingState ? (
           <ModelTraceExplorerSkeleton />
@@ -113,6 +126,8 @@ export const ModelTraceExplorerImpl = ({
             selectedSpanId={selectedSpanId}
             onSelectSpan={onSelectSpan}
             enableGraphView={enableGraphView}
+            showSpanTree={showSpanTree}
+            onShowSpanTreeChange={onShowSpanTreeChange}
           />
         )}
       </ModelTraceExplorerViewStateProvider>

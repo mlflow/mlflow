@@ -1,3 +1,4 @@
+import datetime
 import os
 import random
 from typing import Any, NamedTuple
@@ -400,6 +401,43 @@ def test_enforce_array_on_list(data, schema):
 )
 def test_enforce_array_on_numpy_array(data, schema):
     assert (_enforce_array(data, schema) == data).all()
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        [datetime.date(2025, 1, 2), datetime.date(2025, 1, 3)],
+        [datetime.datetime(2025, 1, 2), datetime.datetime(2025, 1, 3)],
+        [np.datetime64("2025-01-02", "s"), np.datetime64("2025-01-03", "s")],
+        [np.datetime64("2025-01-02T00:00:00.123456", "us")],
+        [np.datetime64("2025-01-02T00:00:00.123456789", "ns")],
+        [pd.Timestamp("2025-01-02T00:00:00.123456789")],
+        [datetime.datetime(2025, 1, 2), None],
+        [pd.Timestamp("2025-01-02"), pd.NaT],
+        [],
+    ],
+)
+@pytest.mark.parametrize("container", [list, np.array])
+def test_enforce_datetime_array(data, container):
+    result = _enforce_array(container(data), Array(DataType.datetime))
+
+    if container is list:
+        assert isinstance(result, list)
+        for value in result:
+            if pd.isna(value):
+                assert value is pd.NaT
+            else:
+                assert isinstance(value, pd.Timestamp)
+                assert value.year == 2025
+    else:
+        assert isinstance(result, np.ndarray)
+        if data:
+            assert result.dtype == np.dtype("datetime64[ns]")
+
+    np.testing.assert_array_equal(
+        pd.to_datetime(result).to_numpy(dtype="datetime64[ns]"),
+        pd.to_datetime(data).to_numpy(dtype="datetime64[ns]"),
+    )
 
 
 def test_enforce_array_with_errors():

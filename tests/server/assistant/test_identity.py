@@ -39,6 +39,9 @@ def _fake_auth_module(*, initialized: bool, auth_result=None):
     module = types.ModuleType("mlflow.server.auth")
     module.is_auth_enabled = lambda: initialized
     module.authenticate_fastapi_request_user = mock.MagicMock(return_value=auth_result)
+    module.store = types.SimpleNamespace(
+        get_user=lambda username: types.SimpleNamespace(is_admin=False)
+    )
     return module
 
 
@@ -223,6 +226,7 @@ def test_user_is_admin(monkeypatch):
 def _caller(host: str, username: str | None):
     return types.SimpleNamespace(
         client=types.SimpleNamespace(host=host),
+        headers={},
         state=types.SimpleNamespace(assistant_username=username),
     )
 

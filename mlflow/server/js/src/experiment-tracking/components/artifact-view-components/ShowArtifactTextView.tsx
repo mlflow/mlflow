@@ -40,6 +40,12 @@ class ShowArtifactTextView extends Component<Props, State> {
     this.fetchArtifacts = this.fetchArtifacts.bind(this);
   }
 
+  private artifactRequestId = 0;
+
+  componentWillUnmount() {
+    this.artifactRequestId += 1;
+  }
+
   static defaultProps = {
     getArtifact: fetchArtifactUnified,
   };
@@ -56,7 +62,13 @@ class ShowArtifactTextView extends Component<Props, State> {
   }
 
   componentDidUpdate(prevProps: Props) {
-    if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+    if (
+      this.props.path !== prevProps.path ||
+      this.props.runUuid !== prevProps.runUuid ||
+      this.props.artifactRootUri !== prevProps.artifactRootUri ||
+      this.props.isLoggedModelsMode !== prevProps.isLoggedModelsMode ||
+      this.props.loggedModelId !== prevProps.loggedModelId
+    ) {
       this.fetchArtifacts();
     }
   }
@@ -66,7 +78,7 @@ class ShowArtifactTextView extends Component<Props, State> {
       return <ArtifactViewSkeleton className="artifact-text-view-loading" />;
     }
     if (this.state.error) {
-      return <ArtifactViewErrorState className="artifact-text-view-error" />;
+      return <ArtifactViewErrorState error={this.state.error} className="artifact-text-view-error" />;
     } else {
       const isLargeFile = (this.props.size || 0) > LARGE_ARTIFACT_SIZE;
       const language = isLargeFile ? 'text' : getLanguage(this.props.path);
@@ -112,15 +124,18 @@ class ShowArtifactTextView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
+    const requestId = ++this.artifactRequestId;
     this.setState({ loading: true, error: undefined });
-    const { isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags } = this.props;
+    const { artifactRootUri, isLoggedModelsMode, loggedModelId, path, runUuid } = this.props;
 
     this.props
-      .getArtifact?.({ isLoggedModelsMode, loggedModelId, path, runUuid, experimentId, entityTags }, getArtifactContent)
+      .getArtifact?.({ artifactRootUri, isLoggedModelsMode, loggedModelId, path, runUuid }, getArtifactContent)
       .then((text: string) => {
-        this.setState({ text: text, loading: false });
+        if (requestId !== this.artifactRequestId) return;
+        this.setState({ text, error: undefined, loading: false });
       })
       .catch((error: Error) => {
+        if (requestId !== this.artifactRequestId) return;
         this.setState({ error: error, loading: false });
       });
     this.setState({ path: this.props.path });

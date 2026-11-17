@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from mlflow.exceptions import MlflowException
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
@@ -213,6 +214,52 @@ def test_responses_to_cc_fallback_to_str_on_non_serializable():
         "output": [NonSerializable()],
     })
     assert isinstance(result[0]["content"], str)
+
+
+def test_to_chat_completions_input_converts_image_parts():
+    request = ResponsesAgentRequest(
+        input=[
+            {
+                "type": "message",
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": "What is in this image?"},
+                    {"type": "input_image", "image_url": "https://example.com/a.png"},
+                    {
+                        "type": "input_image",
+                        "image_url": "data:image/png;base64,abc",
+                        "detail": "low",
+                    },
+                ],
+            }
+        ]
+    )
+    assert to_chat_completions_input([i.model_dump() for i in request.input]) == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What is in this image?"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,abc", "detail": "low"},
+                },
+            ],
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "part",
+    [
+        {"type": "input_file", "file_id": "file-123"},
+        {"type": "input_image", "file_id": "file-123"},
+    ],
+)
+def test_responses_to_cc_rejects_unconvertible_content_parts(part):
+    message = Message(role="user", content=[{"type": "input_text", "text": "hi"}, part])
+    with pytest.raises(MlflowException, match="Cannot convert a Responses content part"):
+        responses_to_cc(message.model_dump())
 
 
 def test_function_call_output_round_trip():

@@ -11,7 +11,23 @@ from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, Provi
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
-from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS
+from mlflow.utils.validation import GATEWAY_DESTINATION_KEYS, GATEWAY_REGION_KEYS
+
+# Credential selectors can take precedence over configured keys or select credentials from
+# the server's filesystem. They belong to endpoint configuration, never inference payloads.
+_LITELLM_CREDENTIAL_KEYS = frozenset({
+    "aws_access_key_id",
+    "aws_secret_access_key",
+    "aws_session_token",
+    "aws_session_name",
+    "aws_profile_name",
+    "aws_role_name",
+    "aws_web_identity_token",
+    "aws_external_id",
+    "aws_session_tags",
+    "vertex_credentials",
+    "vertex_ai_credentials",
+})
 
 
 def _usage_to_dict(usage: Any) -> dict[str, Any]:
@@ -127,8 +143,9 @@ class LiteLLMProvider(BaseProvider):
         destination is therefore policed here, before anything is handed to LiteLLM:
 
         - The request payload never chooses the destination. Request models allow extra
-          fields and LiteLLM would honor ``api_base``, its ``base_url`` alias and the other
-          ``GATEWAY_DESTINATION_KEYS``, so those are rejected whatever the secret holds.
+          fields and LiteLLM would honor ``api_base``, its ``base_url`` alias, the other
+          ``GATEWAY_DESTINATION_KEYS`` and the region keys it builds hosts from
+          (``GATEWAY_REGION_KEYS``), so those are rejected whatever the secret holds.
         - When upstream protection is on, the stored configuration may choose the upstream
           only through ``api_base`` (``base_url`` is folded in, since litellm prefers it),
           which is resolved and checked. The remaining destination keys are refused because
@@ -142,11 +159,17 @@ class LiteLLMProvider(BaseProvider):
             upstream_protection_enabled,
         )
 
-        if caller_keys := sorted(GATEWAY_DESTINATION_KEYS & set(payload)):
+        if caller_keys := sorted((GATEWAY_DESTINATION_KEYS | GATEWAY_REGION_KEYS) & set(payload)):
             raise HTTPException(
                 status_code=400,
                 detail=f"The request must not set {', '.join(map(repr, caller_keys))}: the "
                 "upstream destination is fixed by the endpoint configuration.",
+            )
+        if credential_keys := sorted(_LITELLM_CREDENTIAL_KEYS & set(payload)):
+            raise HTTPException(
+                status_code=400,
+                detail=f"The request must not set {', '.join(map(repr, credential_keys))}: "
+                "provider credentials are fixed by the endpoint configuration.",
             )
         kwargs = self._build_litellm_kwargs(payload)
         if not upstream_protection_enabled():
@@ -623,6 +646,8 @@ class LiteLLMProvider(BaseProvider):
             response = await litellm.acompletion(**kwargs, stream=True)
             async for chunk in response:
                 yield chunk
+            # Chunks are re-serialized from LiteLLM objects, so the upstream terminator is lost
+            yield b"data: [DONE]\n\n"
 
         return stream_generator()
 

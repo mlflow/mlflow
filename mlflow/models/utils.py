@@ -799,9 +799,14 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
                 f"datetime objects. Error: {e}"
             )
 
-    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
+    if t == DataType.datetime and (
+        values.dtype == object
+        or isinstance(values.dtype, pd.StringDtype)
+        or values.dtype == t.to_python()
+    ):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
+        # pandas 3 infers columns of date strings as StringDtype rather than object.
         try:
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
@@ -1399,7 +1404,12 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
         data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
     if isinstance(data, list) and isinstance(data_enforced, np.ndarray):
-        data_enforced = data_enforced.tolist()
+        # NumPy's tolist() converts datetime64[ns] values to integers.
+        data_enforced = (
+            pd.Series(data_enforced).tolist()
+            if arr.dtype == DataType.datetime
+            else data_enforced.tolist()
+        )
     elif isinstance(data, np.ndarray) and isinstance(data_enforced, list):
         data_enforced = np.array(data_enforced)
 

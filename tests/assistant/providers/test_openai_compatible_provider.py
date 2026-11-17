@@ -603,8 +603,8 @@ async def test_astream_empty_stream_with_terminal_is_not_flagged(provider):
 
 @pytest.mark.asyncio
 async def test_astream_usage_only_stream_is_not_flagged(provider):
-    # Some backends emit a trailing usage-summary chunk (choices empty) after a
-    # [DONE] the gateway strips. A usage report means the server did real work,
+    # Some backends emit a trailing usage-summary chunk (choices empty) as a
+    # separate final chunk. A usage report means the server did real work,
     # so it counts as a signal and must not be flagged as truncated.
     lines = [_sse({"choices": [], "usage": {"prompt_tokens": 3, "completion_tokens": 5}})]
     session, _calls = _make_aiohttp_session([lines])

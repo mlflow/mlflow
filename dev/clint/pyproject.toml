@@ -3,6 +3,7 @@ name = "clint"
 version = "0.1.0"
 description = "A custom linter for mlflow to enforce rules that ruff doesn't cover."
 readme = "README.md"
+requires-python = ">=3.11"
 authors = [{ name = "mlflow", email = "mlflow@mlflow.com" }]
 dependencies = ["tomli", "typing_extensions"]
 

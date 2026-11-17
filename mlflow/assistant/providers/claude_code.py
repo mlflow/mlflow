@@ -22,7 +22,10 @@ from mlflow.assistant.custom_view import (
     is_custom_view_request,
     parse_custom_view_response,
 )
-from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
+from mlflow.assistant.providers._subprocess_stream import (
+    SubprocessLineStream,
+    assistant_subprocess_env,
+)
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -446,6 +449,7 @@ class ClaudeCodeProvider(AssistantProvider):
                 capture_output=True,
                 text=True,
                 timeout=30,
+                env=assistant_subprocess_env(),
             )
 
             if result.returncode == 0:
@@ -586,7 +590,7 @@ class ClaudeCodeProvider(AssistantProvider):
                 cmd,
                 input_bytes=user_message.encode("utf-8"),
                 cwd=cwd,
-                env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
+                env=assistant_subprocess_env(MLFLOW_TRACKING_URI=tracking_uri),
             )
 
             # Save PID for cancellation support
