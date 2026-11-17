@@ -8,6 +8,9 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 import { RunEvaluationButton } from './RunEvaluationButton';
+import { useFeatureEnabled } from '../../hooks/useServerInfo';
+
+jest.mock('../../hooks/useServerInfo');
 
 const setupUserEvent = () => userEvent.setup({ pointerEventsCheck: 0 });
 
@@ -69,6 +72,7 @@ describe('RunEvaluationButton', () => {
   let user: ReturnType<typeof setupUserEvent>;
 
   beforeEach(() => {
+    jest.mocked(useFeatureEnabled).mockReturnValue(true);
     user = setupUserEvent();
     mockUseSearchMlflowTraces.mockReset();
     mockUseSearchMlflowTraces.mockReturnValue({ data: [], isLoading: false, isFetching: false });
@@ -400,6 +404,51 @@ describe('RunEvaluationButton', () => {
     await user.click(getJudgeCheckboxByName('My Custom Judge'));
 
     expect(screen.getByRole('button', { name: 'Run judge' })).toBeEnabled();
+  });
+
+  it.each([
+    { model: 'gateway:/judge', gateway: false, disabled: true },
+    { model: 'gateway:/catalog.schema.judge', gateway: false, disabled: true },
+    { model: 'openai:/gpt-4.1-mini', gateway: false, disabled: false },
+    { model: undefined, gateway: false, disabled: false },
+    { model: 'gateway:/judge', gateway: true, disabled: false },
+  ])('checks Gateway capability for $model with gateway=$gateway', async ({ model, gateway, disabled }) => {
+    jest.mocked(useFeatureEnabled).mockReturnValue(gateway);
+    mockUseSearchMlflowTraces.mockReturnValue({ data: [{ trace_id: 't-1' }], isLoading: false });
+    mockUseGetScheduledScorers.mockReturnValue({
+      data: {
+        scheduledScorers: [{ name: 'Saved judge', type: 'llm', model, instructions: 'Check the answer' }],
+      },
+      isLoading: false,
+    });
+    renderButton();
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
+    await user.click(getJudgeCheckboxByName('Saved judge'));
+
+    const run = screen.getByRole('button', { name: 'Run judge' });
+    if (disabled) {
+      expect(run).toBeDisabled();
+      expect(screen.getByRole('alert')).toHaveTextContent('AI Gateway is disabled');
+      await user.click(run);
+      expect(mockInvokeMutate).not.toHaveBeenCalled();
+    } else {
+      expect(run).toBeEnabled();
+      await user.click(run);
+      expect(mockInvokeMutate).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it('explains disabled Gateway for pre-built judges and clears the warning when deselected', async () => {
+    jest.mocked(useFeatureEnabled).mockReturnValue(false);
+    renderButton();
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
+    await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
+    await user.click(getJudgeCheckboxByName('Safety'));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('AI Gateway is disabled');
+    expect(screen.getByRole('button', { name: 'Run judge' })).toBeDisabled();
+    await user.click(getJudgeCheckboxByName('Safety'));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('switches the button text to "Run judges" when multiple judges are selected', async () => {

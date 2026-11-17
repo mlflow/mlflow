@@ -15907,6 +15907,10 @@
     "defaultMessage": "Metrics ({length})",
     "description": "Run page > Overview > Metrics table > Section title"
   },
+  "m48+Yy": {
+    "defaultMessage": "AI Gateway is disabled on this server, so the selected judges cannot be run.",
+    "description": "Warning when selected judges require the disabled AI Gateway"
+  },
   "m5GIsD": {
     "defaultMessage": "Open Settings",
     "description": "Button on the assistant error callout that opens the settings flow"

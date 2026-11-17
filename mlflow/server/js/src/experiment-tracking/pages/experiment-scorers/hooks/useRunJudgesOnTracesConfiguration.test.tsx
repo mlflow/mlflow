@@ -7,10 +7,20 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useRunJudgesOnTracesConfiguration } from './useRunScorerInTracesViewConfiguration';
 import type { ScorerEvaluation } from '../useEvaluateTracesAsync';
+import { useFeatureEnabled } from '../../../hooks/useServerInfo';
+
+jest.mock('../../../hooks/useServerInfo');
 
 jest.mock('./useGetScheduledScorers', () => ({
   useGetScheduledScorers: () => ({
-    data: { scheduledScorers: [{ name: 'tone_judge', type: 'llm' }] },
+    data: {
+      scheduledScorers: [
+        { name: 'tone_judge', type: 'llm' },
+        { name: 'gateway_judge', type: 'llm', model: 'gateway:/some-model' },
+        { name: 'dotted_gateway_judge', type: 'llm', model: 'gateway:/catalog.schema.judge' },
+        { name: 'direct_judge', type: 'llm', model: 'openai:/gpt-4.1-mini' },
+      ],
+    },
     isLoading: false,
   }),
 }));
@@ -37,6 +47,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
 
   beforeEach(() => {
     mockEvaluateTraces = jest.fn();
+    jest.mocked(useFeatureEnabled).mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -87,6 +98,46 @@ describe('useRunJudgesOnTracesConfiguration', () => {
     await user.click(await screen.findByText('tone_judge'));
 
     expect(screen.getByRole('checkbox', { name: /tone_judge/ })).toBeChecked();
+  });
+
+  it.each([
+    { names: ['gateway_judge'], gateway: false, disabled: true },
+    { names: ['dotted_gateway_judge'], gateway: false, disabled: true },
+    { names: ['direct_judge', 'gateway_judge'], gateway: false, disabled: true },
+    { names: ['direct_judge'], gateway: false, disabled: false },
+    { names: ['tone_judge'], gateway: false, disabled: false },
+    { names: ['gateway_judge'], gateway: true, disabled: false },
+  ])('checks Gateway capability for $names with gateway=$gateway', async ({ names, gateway, disabled }) => {
+    jest.mocked(useFeatureEnabled).mockReturnValue(gateway);
+    const ModalTestComponent = () => {
+      const { showRunJudgesModal, RunJudgesModal } = useRunJudgesOnTracesConfiguration(
+        mockEvaluateTraces,
+        undefined,
+        undefined,
+      );
+      return (
+        <>
+          <button onClick={() => showRunJudgesModal(['trace-1'])}>open</button>
+          {RunJudgesModal}
+        </>
+      );
+    };
+    const user = userEvent.setup();
+    render(<ModalTestComponent />, { wrapper });
+    await user.click(screen.getByText('open'));
+    for (const name of names) await user.click(await screen.findByText(name));
+
+    const run = screen.getByRole('button', { name: /^Run judges?$/ });
+    if (disabled) {
+      expect(run).toBeDisabled();
+      expect(screen.getByRole('alert')).toHaveTextContent('AI Gateway is disabled');
+      await user.click(run);
+      expect(mockEvaluateTraces).not.toHaveBeenCalled();
+    } else {
+      expect(run).toBeEnabled();
+      await user.click(run);
+      expect(mockEvaluateTraces).toHaveBeenCalledTimes(names.length);
+    }
   });
 
   it('should return null JudgesStatusBanner when there are no evaluations', () => {

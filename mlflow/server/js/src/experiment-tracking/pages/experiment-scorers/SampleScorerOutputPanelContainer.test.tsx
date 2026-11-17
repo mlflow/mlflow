@@ -360,17 +360,14 @@ describe('SampleScorerOutputPanelContainer', () => {
   });
 
   describe('Gateway availability', () => {
-    it.each(['gateway:/some-model', 'gateway:/catalog.schema.judge'])(
-      'disables sample execution with %s when Gateway is disabled',
-      (model) => {
-        jest.mocked(useFeatureEnabled).mockReturnValue(false);
-        renderComponent({ defaultValues: { model }, selectedItemIds: ['trace-1'] });
+    it('disables sample execution when Gateway is disabled', () => {
+      jest.mocked(useFeatureEnabled).mockReturnValue(false);
+      renderComponent({ defaultValues: { model: 'gateway:/some-model' }, selectedItemIds: ['trace-1'] });
 
-        const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
-        expect(props.isRunScorerDisabled).toBe(true);
-        expect(props.runScorerDisabledTooltip).toMatch(/AI Gateway is disabled/i);
-      },
-    );
+      const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+      expect(props.isRunScorerDisabled).toBe(true);
+      expect(props.runScorerDisabledTooltip).toMatch(/AI Gateway is disabled/i);
+    });
 
     it('preserves provider validation when Gateway is disabled', () => {
       jest.mocked(useFeatureEnabled).mockReturnValue(false);

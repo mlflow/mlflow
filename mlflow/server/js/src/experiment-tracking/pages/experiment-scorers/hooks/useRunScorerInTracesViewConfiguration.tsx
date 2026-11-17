@@ -27,6 +27,7 @@ import type { ScorerEvaluation, ScorerFinishedEvent } from '../useEvaluateTraces
 import { useTemplateOptions } from '../llmScorerUtils';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import {
+  GATEWAY_MODEL_PREFIX,
   formatGatewayModelFromEndpoint,
   getEndpointNameFromGatewayModel,
 } from '../../../../gateway/utils/gatewayUtils';
@@ -35,6 +36,7 @@ import { isEmpty } from 'lodash';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { invalidateMlflowSearchTracesCache } from '../../../../shared/web-shared/model-trace-explorer/hooks/invalidateMlflowSearchTracesCache';
 import { formatJudgeModelError } from '../utils/judgeModelErrors';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../../hooks/useServerInfo';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
@@ -190,6 +192,7 @@ const RunJudgeModalImpl = ({
   const [experimentId] = useExperimentIds();
   const { data, isLoading: loadingScorers } = useGetScheduledScorers(experimentId, { enabled: visible });
   const { templateOptions } = useTemplateOptions(scope);
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
   const intl = useIntl();
 
   const { theme } = useDesignSystemTheme();
@@ -225,6 +228,9 @@ const RunJudgeModalImpl = ({
 
   const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
   const hasSelectedTemplates = selectedTemplates.length > 0;
+  const isGatewayBlocked =
+    !gatewayEnabled &&
+    (hasSelectedTemplates || selectedScorers.some((scorer) => scorer.model?.startsWith(GATEWAY_MODEL_PREFIX)));
 
   const toggleScorer = (scorer: LLMScorer) => {
     setSelectedScorers((prev) => {
@@ -241,7 +247,7 @@ const RunJudgeModalImpl = ({
   };
 
   const handleModalConfirm = async () => {
-    if (selectedJudgeCount === 0) {
+    if (selectedJudgeCount === 0 || isGatewayBlocked) {
       return;
     }
     setError(undefined);
@@ -298,7 +304,7 @@ const RunJudgeModalImpl = ({
               })
         }
         okButtonProps={{
-          disabled: selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointName),
+          disabled: selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointName) || isGatewayBlocked,
         }}
         onOk={handleModalConfirm}
       >
@@ -322,10 +328,19 @@ const RunJudgeModalImpl = ({
           </Button>
         </div>
         <div css={{ marginBottom: theme.spacing.md }}>
-          {error && (
+          {(error || isGatewayBlocked) && (
             <Alert
-              message={error.message}
-              type="error"
+              message={
+                error ? (
+                  error.message
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="AI Gateway is disabled on this server, so the selected judges cannot be run."
+                    description="Warning when selected judges require the disabled AI Gateway"
+                  />
+                )
+              }
+              type={error ? 'error' : 'warning'}
               componentId="mlflow.experiment-scorers.traces-view-judge-error"
               css={{ marginBottom: theme.spacing.sm }}
               closable={false}
