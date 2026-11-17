@@ -110,22 +110,26 @@ describe('useModelTraceSearch content updates', () => {
   });
 
   it('keeps displayed results and highlighting paired until the latest collection completes', () => {
-    const root = { ...createNode('needle other replacement'), children: [createNode('needle other replacement')] };
+    const child = { ...createNode('needle replacement replacement replacement replacement'), key: 'child' };
+    const root = { ...createNode('needle needle other'), children: [child] };
     const { result } = renderSearch(root);
     act(() => result.current.setSearchFilter('needle'));
-    expect(result.current.matchData.totalMatches).toBe(2);
+    expect(result.current.matchData.totalMatches).toBe(3);
     jest.useFakeTimers();
     let clock = 0;
     jest.spyOn(performance, 'now').mockImplementation(() => (clock += 100));
 
     act(() => result.current.setSearchFilter('other'));
     expect(result.current.searchFilter).toBe('needle');
-    expect(result.current.matchData.totalMatches).toBe(2);
+    expect(result.current.matchData.totalMatches).toBe(3);
+    expect(result.current.matchData.match?.span).toBe(root);
     act(() => result.current.setSearchFilter('replacement'));
     expect(result.current.searchFilter).toBe('needle');
+    expect(result.current.matchData.totalMatches).toBe(3);
     act(() => jest.runAllTimers());
     expect(result.current.searchFilter).toBe('replacement');
-    expect(result.current.matchData.totalMatches).toBe(2);
+    expect(result.current.matchData.totalMatches).toBe(4);
+    expect(result.current.matchData.match?.span).toBe(child);
   });
 
   it('cancels pending collection on clear and unmount', () => {
