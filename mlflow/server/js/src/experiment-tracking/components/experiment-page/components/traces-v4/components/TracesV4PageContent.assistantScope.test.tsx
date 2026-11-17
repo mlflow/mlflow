@@ -120,7 +120,7 @@ describe('TracesV4PageContent trace drawer with the MLflow Assistant', () => {
     expect(screen.getByRole('button', { name: 'Exit full screen' })).toBeInTheDocument();
     expect(screen.queryByRole('separator', { name: 'Resize trace drawer' })).not.toBeInTheDocument();
     expect(within(drawer).queryByText('Share')).not.toBeInTheDocument();
-    expect(within(drawer).getByRole('button', { name: 'Share' })).toBeInTheDocument();
+    expect(await within(drawer).findByRole('button', { name: 'Share' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Exit full screen' }));
     expect(drawer).toHaveAttribute('data-trace-drawer-fullscreen', 'false');

@@ -1599,6 +1599,7 @@ export const ModelTraceExplorerDrawer = ({
                 )}
               </>
             ) : (
+              // Retain row height; action widths depend on available controls and viewport.
               <div css={{ height: theme.general.heightSm, flexShrink: 0 }} />
             )}
             <div

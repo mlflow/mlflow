@@ -66,13 +66,12 @@ describe('ModelTraceExplorerDrawer', () => {
     jest.useFakeTimers();
     const frame = jest.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
     try {
-      const deferredProps = { deferHeaderActions: true };
       render(
         <IntlProvider locale="en">
           <DesignSystemProvider>
             <HashRouter>
               <ModelTraceExplorerDrawer
-                {...deferredProps}
+                deferHeaderActions
                 selectPreviousEval={jest.fn()}
                 selectNextEval={jest.fn()}
                 isPreviousAvailable={false}
