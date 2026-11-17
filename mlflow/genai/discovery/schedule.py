@@ -42,8 +42,7 @@ SCHEDULE_VERSION = 1
 
 DEFAULT_TIMEZONE = "UTC"
 
-# Upper bound on how many clauses one schedule may carry. The tag is client-written, so its size
-# is read defensively; 20 is far more than the modal offers.
+# Keep these limits in sync with issueDetectionTraceScope.ts in the issue-detection UI.
 MAX_TRACE_FILTERS = 20
 MAX_COMPILED_FILTER_LENGTH = 10000
 
@@ -480,36 +479,26 @@ def _parse_model(entry: object) -> ScheduleModel | None:
 def parse_trace_filters(
     raw_value: str | None,
 ) -> tuple[ScheduleTraceFilter | CompiledTraceScopeClause, ...]:
-    """
-    Parse saved scope, raising on invalid compiled or uncompiled rich clauses.
-
-    Unusable legacy equality clauses are still dropped with a warning. Rich scope fails the
-    schedule read instead, so dispatch cannot widen the saved selection.
-    """
+    """Read the complete saved scope; invalid input must never widen scheduled analysis."""
     if not raw_value:
         return ()
     try:
         parsed = json.loads(raw_value)
-    except (TypeError, ValueError):
-        _logger.warning("Ignoring an unreadable issue-detection schedule trace filter tag")
-        return ()
-    if not isinstance(parsed, list):
-        return ()
-    filters = []
-    for entry in parsed[:MAX_TRACE_FILTERS]:
-        if (parsed_filter := _parse_trace_filter(entry)) is None:
-            _logger.warning(
-                "Ignoring an issue-detection schedule trace filter clause this server cannot "
-                "apply; the scheduled run will analyze traces the clause meant to exclude"
-            )
-        else:
-            filters.append(parsed_filter)
-    if len(parsed) > MAX_TRACE_FILTERS:
-        _logger.warning(
-            "An issue-detection schedule carries %d trace filter clauses; applying the first %d",
-            len(parsed),
-            MAX_TRACE_FILTERS,
+    except (TypeError, ValueError) as exc:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid saved issue-detection trace scope: unreadable JSON"
+        ) from exc
+    if not isinstance(parsed, list) or len(parsed) > MAX_TRACE_FILTERS:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid saved issue-detection trace scope: expected at most 20 clauses"
         )
+    filters = []
+    for entry in parsed:
+        if (parsed_filter := _parse_trace_filter(entry)) is None:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid saved issue-detection trace scope clause"
+            )
+        filters.append(parsed_filter)
     return tuple(filters)
 
 

@@ -18039,6 +18039,10 @@
     "defaultMessage": "Description",
     "description": "Experiment issues tab > Issue detail > Description section heading"
   },
+  "sk7riV": {
+    "defaultMessage": "Run Analysis saves any changes to priorities and trace scope for future manual and scheduled runs.",
+    "description": "Disclose that launching detection persists the applied customization"
+  },
   "sle/ER": {
     "defaultMessage": "Back to datasets",
     "description": "Link returning the user to the V2 evaluation datasets list page after a fetch error"

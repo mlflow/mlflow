@@ -12,6 +12,8 @@ export interface IssueDetectionTraceScopeValue {
 }
 
 const SEARCH_FIELD = 'issue_detection_search_query';
+// Keep these limits in sync with mlflow/genai/discovery/schedule.py.
+const MAX_TRACE_FILTERS = 20;
 const MAX_COMPILED_FILTER_LENGTH = 10000;
 export class InvalidIssueDetectionTraceScopeError extends Error {}
 
@@ -26,7 +28,7 @@ export const readIssueDetectionTraceScope = (
     const entries: unknown = JSON.parse(
       tags?.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value || '[]',
     );
-    if (!Array.isArray(entries) || entries.length > 20) throw new Error('Invalid trace scope.');
+    if (!Array.isArray(entries) || entries.length > MAX_TRACE_FILTERS) throw new Error('Invalid trace scope.');
     for (const entry of entries) {
       if (!entry || typeof entry !== 'object') throw new Error('Invalid trace filter.');
       if (typeof entry.value === 'string' && entry.value.includes("'")) {
@@ -127,7 +129,7 @@ export const serializeIssueDetectionTraceScope = (scope: IssueDetectionTraceScop
   if (saved.some((entry) => entry.compiled.length > MAX_COMPILED_FILTER_LENGTH)) {
     throw new Error('Each compiled trace filter must be at most 10000 characters.');
   }
-  if (saved.length > 20) throw new Error('Use at most 20 trace filters, including text search.');
+  if (saved.length > MAX_TRACE_FILTERS) throw new Error('Use at most 20 trace filters, including text search.');
   return saved.length ? JSON.stringify(saved) : '';
 };
 

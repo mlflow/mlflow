@@ -185,8 +185,9 @@ def test_no_clauses_make_an_empty_filter_string():
         None,
     ],
 )
-def test_a_clause_this_server_cannot_apply_is_dropped(entry: object):
-    assert parse_trace_filters(json.dumps([entry])) == ()
+def test_a_clause_this_server_cannot_apply_fails_closed(entry: object):
+    with pytest.raises(MlflowException, match="Invalid saved"):
+        parse_trace_filters(json.dumps([entry]))
 
 
 @pytest.mark.parametrize(
@@ -208,29 +209,26 @@ def test_a_clause_the_tab_would_keep_is_kept(entry: object, expected: str):
     assert parsed[0].to_filter_clause() == expected
 
 
-def test_a_dropped_clause_does_not_discard_the_usable_ones():
-    filters = parse_trace_filters(
-        json.dumps([
-            {"field": "metadata", "key": "environment", "value": "production"},
-            {"field": "metadata", "key": "bad`key", "value": "v"},
-            {"field": "tag", "key": "team", "value": "search"},
-        ])
-    )
-    assert filters == (
-        ScheduleTraceFilter(field="metadata", key="environment", value="production"),
-        ScheduleTraceFilter(field="tag", key="team", value="search"),
-    )
+def test_an_invalid_clause_blocks_the_whole_scope():
+    with pytest.raises(MlflowException, match="Invalid saved"):
+        parse_trace_filters(
+            json.dumps([
+                {"field": "metadata", "key": "environment", "value": "production"},
+                {"field": "metadata", "key": "bad`key", "value": "v"},
+                {"field": "tag", "key": "team", "value": "search"},
+            ])
+        )
 
 
-@pytest.mark.parametrize("raw_value", [None, "", "not json", '{"field": "metadata"}'])
-def test_an_unreadable_filter_tag_reads_as_no_clauses(raw_value: str | None):
+@pytest.mark.parametrize("raw_value", [None, "", "[]"])
+def test_an_absent_or_empty_filter_tag_reads_as_no_clauses(raw_value: str | None):
     assert parse_trace_filters(raw_value) == ()
 
 
-def test_more_clauses_than_the_cap_are_truncated_not_dropped():
+def test_the_maximum_number_of_clauses_is_preserved():
     entries = [
         {"field": "metadata", "key": f"k{index}", "value": "v"}
-        for index in range(MAX_TRACE_FILTERS + 5)
+        for index in range(MAX_TRACE_FILTERS)
     ]
     assert len(parse_trace_filters(json.dumps(entries))) == MAX_TRACE_FILTERS
 
@@ -958,7 +956,7 @@ def test_the_latest_fire_time_is_found_across_a_dst_transition(zone, transition_
         ), f"mismatch {offset_minutes:+d} min from the {zone} transition"
 
 
-def test_a_trace_filter_carrying_a_control_character_is_dropped():
+def test_a_trace_filter_carrying_a_control_character_fails_closed():
     # The key and value are spliced into a filter expression, so a newline or a null byte would
     # build a malformed clause.
     for key, value in [
@@ -969,7 +967,8 @@ def test_a_trace_filter_carrying_a_control_character_is_dropped():
         ("team", "a\nb"),
     ]:
         raw = json.dumps([{"field": "tag", "key": key, "value": value}])
-        assert parse_trace_filters(raw) == ()
+        with pytest.raises(MlflowException, match="Invalid saved"):
+            parse_trace_filters(raw)
     # An ordinary space is not a control character and stays usable.
     kept = parse_trace_filters(
         json.dumps([{"field": "tag", "key": "team", "value": "north america"}])
@@ -1135,3 +1134,17 @@ def test_compiled_scope_keeps_validated_expression_stable():
     assert clause.to_filter_clause() == "tags.team = 'search'"
     assert clause.to_dict()["compiled"] == "tags.team = 'search'"
     assert hash(clause) == hash(CompiledTraceScopeClause(compiled=clause.compiled, source={}))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "not-json",
+        "{}",
+        "null",
+        json.dumps([{"key": "team", "value": "search"}] * (MAX_TRACE_FILTERS + 1)),
+    ],
+)
+def test_invalid_scope_envelope_fails_closed(raw):
+    with pytest.raises(MlflowException, match="Invalid saved issue-detection trace scope"):
+        parse_trace_filters(raw)

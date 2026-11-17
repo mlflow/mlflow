@@ -67,9 +67,7 @@ const server = setupServer(
     const body = (await req.json()) as SavedTag;
     if (body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG) savesInFlight += 1;
     if (failWriteOfTag === body.key) {
-      // A failed trace filter write, like `saveFails`, ends the save before it is counted, since the
-      // save throws without writing anything more. A failed schedule write ends a counted save
-      // before its sync.
+      // A failed schedule write ends a counted save before its state sync.
       if (body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG) {
         savesInFlight -= 1;
       }
@@ -143,11 +141,6 @@ const scheduleTag = (
     ...(fireTime === undefined ? {} : { fireTime }),
     ...(weekday === undefined ? {} : { weekday }),
   }),
-});
-
-const traceFilterTag = (filters: unknown[]): SavedTag => ({
-  key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-  value: JSON.stringify(filters),
 });
 
 /** `at` is the route the dialog opens from, which decides whether its history link leads anywhere. */

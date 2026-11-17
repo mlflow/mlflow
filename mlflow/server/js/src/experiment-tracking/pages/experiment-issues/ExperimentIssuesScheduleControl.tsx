@@ -59,19 +59,6 @@ const isScheduleSetting = (value: string): value is IssueDetectionScheduleSettin
 /** The modal's two steps: the schedule itself, and the API key the chosen provider needs. */
 type ModalView = 'main' | 'apiKey';
 
-/**
- * Weekday names in the browser's own language, Monday first -- which is the numbering the
- * schedule stores and the server reads (`datetime.weekday()`), not the locale's first day.
- * Localized through `Intl` rather than through seven translated messages, since every locale
- * already has these names.
- */
-/**
- * Width of the dialog.
- *
- * Narrower than the design system's default, which left every row ending less than half way
- * across. What stops it going narrower still is the clause row below -- `Field | Key | Operator |
- * Value` plus its remove button -- which is the widest thing here and has to stay on one line.
- */
 const MODAL_WIDTH = 580;
 
 /** Widths of the schedule row's controls, sized to fit one line inside the dialog. */
@@ -277,8 +264,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
       triggerLabel
     );
 
-  // Seed the modal from the current schedule + filters so it opens showing what is active. With no
-  // filters we show no rows — just the "Add filter" button — so the user opts in explicitly.
+  // Seed the modal from the current cadence and model. Detection settings own trace scope.
   const openModal = useCallback(() => {
     // Read the schedule again on the way in. The draft below is seeded from what is already
     // loaded, so a reply that lands mid-edit cannot disturb it -- what it refreshes is the next
@@ -497,7 +483,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // explaining why -- the affordance stays discoverable and any cadence already saved is still
   // readable. Offering a working-looking switch that silently never fires would be worse.
   // A failed read leaves the values above as fallbacks rather than what is stored, so the modal
-  // must not open: saving the apparent "Off, no filters" state would replace a real schedule with
+  // must not open: saving the apparent "Off" state would replace a real schedule with
   // it. The reason and a retry sit on the trigger, since the modal that would otherwise carry them
   // is exactly what is being withheld.
   if (loadError) {

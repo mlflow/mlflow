@@ -984,3 +984,21 @@ def test_invalid_shared_scope_never_dispatches_or_initializes_state(store, dispa
     assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 0
     assert _state(store, experiment_id) is None
     assert MLFLOW_ISSUE_DETECTION_CHECKPOINT not in store.get_experiment(experiment_id).tags
+
+
+@pytest.mark.parametrize(
+    "raw", ["not-json", "{}", "null", json.dumps([{"key": "team", "value": "search"}] * 21)]
+)
+def test_invalid_scope_envelope_never_dispatches(store, dispatch, raw):
+    experiment_id = _experiment_with(
+        store,
+        "invalid-envelope",
+        **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY)),
+    )
+    store.set_experiment_tag(
+        experiment_id, ExperimentTag(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER, raw)
+    )
+    assert dispatch(ONE_PM_MS).call_count == 0
+    assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 0
+    assert _state(store, experiment_id) is None
+    assert MLFLOW_ISSUE_DETECTION_CHECKPOINT not in store.get_experiment(experiment_id).tags

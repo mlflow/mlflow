@@ -496,6 +496,14 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           description="Customize detection priorities and saved trace scope"
         />
       </Button>
+      {canEdit && (configuredSettings || configuredScope) && (
+        <Typography.Hint css={{ display: 'block', marginTop: theme.spacing.sm }}>
+          <FormattedMessage
+            defaultMessage="Run Analysis saves any changes to priorities and trace scope for future manual and scheduled runs."
+            description="Disclose that launching detection persists the applied customization"
+          />
+        </Typography.Hint>
+      )}
       {compileIssueDetectionTraceScope(effectiveScope) && (
         <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.sm }}>
           <FormattedMessage
