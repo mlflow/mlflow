@@ -10375,6 +10375,10 @@
     "defaultMessage": "Scanned <tracesLink>{totalTraces, plural, one {1 trace} other {# traces}}</tracesLink>, <issuesLink>{identifiedIssues, plural, one {1 issue} other {# issues}}</issuesLink> found",
     "description": "Issue detection progress > Progress summary when completed"
   },
+  "dXZhnz": {
+    "defaultMessage": "Re-enter this credential when changing the API Base URL hostname.",
+    "description": "Validation message shown when changing the API Base URL hostname"
+  },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
     "description": "Text max length hint"
