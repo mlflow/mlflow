@@ -180,7 +180,8 @@ and `"trace"`. Each field must be referenced by the judge's instructions.
 Defaults to the first of inputs/outputs/expectations/conversation/trace referenced by
 the judge's instructions. With multiple fields, each field is retrieved separately
 and results are merged with reciprocal rank fusion; earlier fields win ranking ties.
-Each field adds its own embedding index, so embedding cost scales with the number of fields.
+Each field adds one embedding index and one query embedding per scoring call, so cost
+scales with the number of fields.
 """,
 }
 
@@ -677,8 +678,11 @@ class MemoryAugmentedJudge(Judge):
                         )
                     )
                     positions.append(i)
+            # Over-fetch with several fields so fusion can see items ranked just past k
             retriever = dspy.retrievers.Embeddings(
-                embedder=self._embedder, corpus=corpus, k=self._retrieval_k
+                embedder=self._embedder,
+                corpus=corpus,
+                k=self._retrieval_k * len(query_fields),
             )
             retrievers[field] = (retriever, positions)
             _logger.debug(f"Episodic memory corpus for {field!r} contains {len(corpus)} examples")
@@ -881,7 +885,9 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 # only fire when ``judge`` is already a MemoryAugmentedJudge — a
                 # vanilla Judge has no in-memory fingerprints to match against.
                 assert isinstance(judge, MemoryAugmentedJudge)
-                if judge._retrieval_fields == retrieval_fields:
+                if get_query_fields(memory_judge._base_signature, judge._retrieval_fields) == (
+                    get_query_fields(memory_judge._base_signature, retrieval_fields)
+                ):
                     _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
                     return judge
                 # Memory is unchanged but the retrieval fields are not: rebuild the index.

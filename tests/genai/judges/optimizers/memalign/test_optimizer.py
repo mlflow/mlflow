@@ -1097,7 +1097,7 @@ def test_concurrent_first_call_on_deferred_multi_field_judge_does_not_raise(samp
             sample_judge, retrieval_fields=["inputs", "outputs"], _defer_init=True
         )
         judge._episodic_trace_ids = ["t1"]
-        first = threading.Thread(target=first_call)
+        first = threading.Thread(target=first_call, name="memalign-first-call")
         first.start()
         assert building.wait(timeout=30)
         try:
@@ -1665,6 +1665,84 @@ def test_retrieval_fields_multi_field_builds_one_index_per_field(sample_judge):
         assert assessment.metadata["retrieved_example_trace_ids"] == ["example_1", "example_2"]
 
 
+def test_retrieval_fields_over_fetches_per_field_before_fusion(sample_judge):
+    # Item 1 is second in both lists, so it only wins fusion if each list reaches past k.
+    rankings = {"in_": [0, 1, 2], "out_": [2, 1, 0]}
+    fetch_sizes = []
+
+    class FakeEmbeddings:
+        def __init__(self, embedder, corpus, k):
+            self.ranking = next(r for prefix, r in rankings.items() if corpus[0].startswith(prefix))
+            self.k = k
+            fetch_sizes.append(k)
+
+        def __call__(self, query):
+            return MagicMock(indices=self.ranking[: self.k])
+
+    examples = [
+        dspy.Example(inputs=f"in_{i}", outputs=f"out_{i}", result="yes", rationale="r")
+        for i in range(3)
+    ]
+    with (
+        patch("dspy.retrievers.Embeddings", FakeEmbeddings),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder"),
+        patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
+    ):
+        multi = MemoryAugmentedJudge(
+            sample_judge, retrieval_k=1, retrieval_fields=["inputs", "outputs"]
+        )
+        multi._episodic_memory = list(examples)
+        multi._build_episodic_memory()
+        assert fetch_sizes == [2, 2]
+        assessment = multi(inputs="q", outputs="a")
+        assert assessment.metadata["retrieved_example_trace_ids"] == ["example_1"]
+
+        fetch_sizes.clear()
+        single = MemoryAugmentedJudge(sample_judge, retrieval_k=1, retrieval_fields=["inputs"])
+        single._episodic_memory = list(examples)
+        single._build_episodic_memory()
+        assert fetch_sizes == [1]
+
+
+def _build_single_field_index_and_score(judge, field, example, **call_kwargs):
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+        memory_judge = MemoryAugmentedJudge(judge, retrieval_fields=[field])
+        memory_judge._episodic_memory = [example]
+        memory_judge._build_episodic_memory()
+        assert list(memory_judge._retrievers) == [field]
+        with patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})):
+            memory_judge(**call_kwargs)
+    return mocks["embeddings_class"].call_args.kwargs["corpus"], mocks["search"]
+
+
+def test_retrieval_fields_expectations_builds_corpus_and_query():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Does {{ outputs }} match {{ expectations }}?",
+        model="openai:/gpt-4",
+    )
+    example = dspy.Example(outputs="out_0", expectations={"answer": "42"})
+    corpus, search = _build_single_field_index_and_score(
+        judge, "expectations", example, outputs="out_q", expectations={"answer": "7"}
+    )
+    assert corpus == ["{'answer': '42'}"]
+    search.assert_called_once_with("{'answer': '7'}")
+
+
+def test_retrieval_fields_trace_builds_corpus_and_query(sample_traces):
+    judge = make_judge(
+        name="test_judge", instructions="Evaluate {{ trace }}", model="openai:/gpt-4"
+    )
+    trace = sample_traces[0]
+    corpus, search = _build_single_field_index_and_score(
+        judge, "trace", dspy.Example(trace=trace), trace=trace
+    )
+    assert len(corpus) == 1
+    assert "input_0" in corpus[0]
+    search.assert_called_once_with(corpus[0])
+
+
 def test_retrieval_fields_corpus_uses_truncation(sample_judge):
     with (
         mock_apis(guidelines=[]) as mocks,
@@ -1767,6 +1845,33 @@ def test_default_optimizer_realign_keeps_retrieval_fields(sample_judge, sample_t
 
     assert realigned._retrieval_fields == ["outputs"]
     assert list(realigned._retrievers) == ["outputs"]
+
+
+def test_judge_align_with_default_optimizer_keeps_retrieval_fields(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        aligned = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
+            sample_judge, sample_traces[:2]
+        )
+        # Judge.align with no optimizer goes through get_default_optimizer()
+        assert aligned.align(traces=sample_traces[:2]) is aligned
+        realigned = aligned.align(traces=sample_traces[:4])
+
+    assert realigned._retrieval_fields == ["outputs"]
+    assert list(realigned._retrievers) == ["outputs"]
+
+
+def test_realign_unchanged_traces_with_explicit_default_field_skips_rebuild(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=[]) as mocks:
+        judge_v1 = MemAlignOptimizer().align(sample_judge, sample_traces[:3])
+        index_builds = mocks["embeddings_class"].call_count
+
+        # sample_judge's default field is "inputs", so explicit ["inputs"] is not a change
+        same = MemAlignOptimizer(retrieval_fields=["inputs"]).align(judge_v1, sample_traces[:3])
+
+    assert same is judge_v1
+    assert mocks["embeddings_class"].call_count == index_builds
 
 
 def test_default_inputs_corpus_embeds_only_the_inputs_value(sample_judge, sample_traces):
