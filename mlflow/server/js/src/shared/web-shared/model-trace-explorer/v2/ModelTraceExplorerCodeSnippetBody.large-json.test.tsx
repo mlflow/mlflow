@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -36,13 +36,16 @@ describe('large structured JSON preview', () => {
     expect(screen.queryByText('"field-4999"')).not.toBeInTheDocument();
   });
 
-  it('keeps clipped JSON container toggles out of keyboard navigation', () => {
+  it('keeps clipped JSON containers non-interactive for mouse and keyboard users', async () => {
+    const user = userEvent.setup();
     const value = { document: payload };
     render(<ModelTraceExplorerCodeSnippetBody data={JSON.stringify(value)} />, { wrapper: Providers });
     expect(screen.queryByRole('button', { name: 'document' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'JSON container' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'See more' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+    await user.click(screen.getByText('"document"'));
+    expect(screen.getByText('"field-0"')).toBeInTheDocument();
   });
 
   it('mounts only the preview rows before See more is requested', () => {
@@ -54,16 +57,18 @@ describe('large structured JSON preview', () => {
 });
 
 describe('large JSON row interaction', () => {
+  beforeEach(() => {
+    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const height = this.hasAttribute('data-index') ? 24 : 480;
+      return { x: 0, y: 0, top: 0, left: 0, right: 800, bottom: height, width: 800, height, toJSON: () => ({}) };
+    });
+  });
   afterEach(() => {
     jest.restoreAllMocks();
     mockCopy.mockClear();
   });
 
   it('keeps the viewport and focused toggle mounted on collapse', async () => {
-    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const height = this.hasAttribute('data-index') ? 24 : 480;
-      return { x: 0, y: 0, top: 0, left: 0, right: 800, bottom: height, width: 800, height, toJSON: () => ({}) };
-    });
     const user = userEvent.setup();
     const value = { document: Object.fromEntries(Array.from({ length: 200 }, (_, index) => [`key-${index}`, index])) };
     render(<ModelTraceExplorerJsonRowsViewer value={value} expandDepth={1} />, { wrapper: Providers });
@@ -90,6 +95,16 @@ describe('large JSON row interaction', () => {
     render(<CollapsibleJsonViewer data={data} rowLimit={JSON_PREVIEW_ROW_LIMIT} />, { wrapper: Providers });
     expect(screen.getByText('0')).toBeInTheDocument();
     expect(screen.queryByText('999')).not.toBeInTheDocument();
+  });
+
+  it.each([198, 199])('selects the correct renderer for an array with %i entries plus two brackets', (entries) => {
+    const data = JSON.stringify(Array.from({ length: entries }, (_, index) => index));
+    render(<CollapsibleJsonViewer data={data} rowLimit={JSON_PREVIEW_ROW_LIMIT} />, { wrapper: Providers });
+    if (entries === 198) {
+      expect(screen.getAllByText('197').length).toBeGreaterThan(0);
+    } else {
+      expect(screen.queryByText('197')).not.toBeInTheDocument();
+    }
   });
 
   it('renders the maximum-depth message when the nested path remains expanded', () => {
@@ -121,10 +136,6 @@ describe('large JSON row interaction', () => {
   });
 
   it('virtualizes expanded rows and reaches the final value through the real scroll listener', async () => {
-    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const height = this.hasAttribute('data-index') ? 24 : 480;
-      return { x: 0, y: 0, top: 0, left: 0, right: 800, bottom: height, width: 800, height, toJSON: () => ({}) };
-    });
     const user = userEvent.setup();
     render(<ModelTraceExplorerCodeSnippetBody data={JSON.stringify(payload)} />, { wrapper: Providers });
     await user.click(screen.getByRole('button', { name: 'See more' }));
@@ -140,10 +151,6 @@ describe('large JSON row interaction', () => {
   });
 
   it('preserves keyboard container toggling, punctuation keys and replacement Unicode values', async () => {
-    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-      const height = this.hasAttribute('data-index') ? 24 : 480;
-      return { x: 0, y: 0, top: 0, left: 0, right: 800, bottom: height, width: 800, height, toJSON: () => ({}) };
-    });
     const user = userEvent.setup();
     const padded = { 'a.b': { 'quoted"key': 'café 日本語 🙂' }, padding: 'z'.repeat(100_000) };
     const { rerender } = render(<CollapsibleJsonViewer data={JSON.stringify(padded)} initialExpanded />, {

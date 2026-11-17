@@ -59,7 +59,6 @@ const getJsonRowStyles = (theme: Theme): JsonRowStyles => {
     header: css({
       display: 'flex',
       alignItems: 'center',
-      cursor: 'pointer',
       borderRadius: theme.borders.borderRadiusSm,
       marginLeft: -theme.spacing.xs,
       marginRight: -theme.spacing.xs,
@@ -144,18 +143,22 @@ const JsonRowView = React.memo(function JsonRowView({
           {lineNumber}
           <div
             css={styles.header}
-            style={indent}
+            style={{ ...indent, cursor: interactive ? 'pointer' : undefined }}
             role={interactive ? 'button' : undefined}
             tabIndex={interactive ? 0 : undefined}
             aria-expanded={interactive ? !row.collapsed : undefined}
             aria-label={interactive ? (row.nodeKey ?? 'JSON container') : undefined}
-            onKeyDown={(event) => {
-              if (interactive && (event.key === 'Enter' || event.key === ' ')) {
-                event.preventDefault();
-                onToggle(row.container);
-              }
-            }}
-            onClick={() => onToggle(row.container)}
+            onKeyDown={
+              interactive
+                ? (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onToggle(row.container);
+                    }
+                  }
+                : undefined
+            }
+            onClick={interactive ? () => onToggle(row.container) : undefined}
           >
             <span css={styles.chevron}>
               {row.collapsed ? (
