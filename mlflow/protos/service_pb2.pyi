@@ -6645,7 +6645,9 @@ class UpdateGatewaySecret(_message.Message):
 
     @_builtins.property
     def auth_config(self) -> _containers.ScalarMap[_builtins.str, _builtins.str]:
-        """Optional new auth configuration.
+        """Optional new auth configuration. Setting api_base to a different hostname requires
+        a non-empty secret_value in the same request. Clearing api_base and edits to
+        the path, scheme, or port do not require it.
         For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
         """
 
