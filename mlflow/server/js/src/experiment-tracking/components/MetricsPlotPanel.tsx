@@ -275,7 +275,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         })),
       )
       // Avoid fetching non existing metrics
-      .filter(({ runUuid, metricKey }: any) => this.props.latestMetricsByRunUuid[runUuid].hasOwnProperty(metricKey))
+      .filter(({ runUuid, metricKey }: any) => this.props.latestMetricsByRunUuid[runUuid]?.hasOwnProperty(metricKey))
       .map(async ({ runUuid, metricKey }: any) => {
         const requestIds = [];
         const id = getUUID();

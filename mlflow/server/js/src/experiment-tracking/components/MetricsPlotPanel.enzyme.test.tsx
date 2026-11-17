@@ -318,6 +318,25 @@ describe('unit tests', () => {
     }
   });
 
+  test('skips runs without metrics while other history loads remain pending', async () => {
+    const requests = renderWithPendingHistory();
+    const initialLoad = wrapper.instance().loadMetricHistoryPromise;
+    try {
+      const nextLoad = wrapper.instance().loadMetricHistory(['runUuid1', 'runWithoutMetrics'], ['metric_2']);
+      expect(requests).toHaveLength(2);
+      requests[0].resolve();
+      await initialLoad;
+      expect(wrapper.state('loading')).toBe(true);
+
+      requests[1].resolve();
+      await expect(nextLoad).resolves.toEqual([expect.any(String)]);
+      expect(wrapper.state('loading')).toBe(false);
+    } finally {
+      requests.forEach(({ resolve }) => resolve());
+      wrapper.unmount();
+    }
+  });
+
   test.each([false, true])('does not update state after unmount (history fails: %s)', async (fails) => {
     const requests = renderWithPendingHistory();
     const panel = wrapper.instance();
