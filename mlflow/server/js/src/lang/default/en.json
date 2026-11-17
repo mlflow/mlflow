@@ -9719,6 +9719,10 @@
     "defaultMessage": "Go to model",
     "description": "Run page > Header > Register model dropdown > Go to model button label"
   },
+  "T2B2Ir": {
+    "defaultMessage": "Up to {count} recent matching traces in this experiment",
+    "description": "Default saved-scope analysis samples matching traces across the experiment"
+  },
   "T3Ew34": {
     "defaultMessage": "Used by",
     "description": "Used by column header"

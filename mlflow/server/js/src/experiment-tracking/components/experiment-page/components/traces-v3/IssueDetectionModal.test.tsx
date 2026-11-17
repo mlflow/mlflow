@@ -487,7 +487,7 @@ describe('IssueDetectionModal', () => {
     },
   );
 
-  test('invalid customized scope never persists priorities before rejecting the run', async () => {
+  test('Apply keeps invalid scope next to its editable fields without persisting priorities', async () => {
     const save = jest.fn();
     jest.mocked(useIssueDetectionSettings).mockReturnValue({
       data: defaultIssueDetectionSettings(),
@@ -500,10 +500,16 @@ describe('IssueDetectionModal', () => {
     await userEvent.type(screen.getByRole('textbox', { name: 'Detection priorities' }), 'New priorities');
     await userEvent.type(screen.getByRole('textbox', { name: 'Target traces' }), "can't");
     await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
     await screen.findByText('Single quotes are not supported in trace filter values or text search.');
+    expect(screen.getByRole('textbox', { name: 'Target traces' })).toHaveValue("can't");
+    expect(screen.queryByRole('button', { name: 'Run Analysis' })).not.toBeInTheDocument();
     expect(save).not.toHaveBeenCalled();
     expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('button', { name: 'Run Analysis' })).toBeInTheDocument();
+    expect(
+      screen.queryByText('Single quotes are not supported in trace filter values or text search.'),
+    ).not.toBeInTheDocument();
   });
 
   test('equivalent applied scope and trimmed priorities do not rewrite tags on retry', async () => {
@@ -563,6 +569,9 @@ describe('IssueDetectionModal', () => {
     renderWithDesignSystem(
       <IssueDetectionModal {...defaultProps} availableTraceIds={Array.from({ length: 60 }, (_, i) => `trace-${i}`)} />,
     );
+    expect(screen.getByText('Up to 50 recent matching traces in this experiment')).toBeInTheDocument();
+    expect(screen.queryByText('50 traces selected')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Estimated cost/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
     await waitFor(() =>
       expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
@@ -578,6 +587,21 @@ describe('IssueDetectionModal', () => {
         orderBy: ['timestamp DESC'],
       }),
     );
+  });
+
+  test('saved customization without detected issues still offers setup with the saved values', async () => {
+    jest.mocked(useHasExperimentIssues).mockReturnValue({ data: { issues: [] }, isLoading: false } as any);
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({
+      data: { ...defaultIssueDetectionSettings(), instructions: 'Saved priorities' },
+      isLoading: false,
+    } as any);
+    jest.mocked(useIssueDetectionTraceScope).mockReturnValue({
+      data: { searchQuery: 'saved scope', filters: [] },
+      isLoading: false,
+    } as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    expect(await screen.findByRole('textbox', { name: 'Detection priorities' })).toHaveValue('Saved priorities');
+    expect(screen.getByRole('textbox', { name: 'Target traces' })).toHaveValue('saved scope');
   });
 
   test('an empty saved-scope intersection blocks the run with an inline error', async () => {

@@ -1091,6 +1091,33 @@ def test_saved_trace_scope_applies_rich_filters_and_text_search():
 
 
 @pytest.mark.parametrize(
+    ("field", "key", "operator", "value", "compiled"),
+    [
+        ("tag", "team", "=", "support", "tags.team = 'support'"),
+        ("tag", "team.name", "!=", "support", "tags.`team.name` != 'support'"),
+        ("metadata", "env", "=", "prod", "request_metadata.env = 'prod'"),
+        ("metadata", "env", "!=", "dev", "request_metadata.env != 'dev'"),
+        ("metadata", "env", "CONTAINS", "prod", "request_metadata.env ILIKE '%prod%'"),
+        ("state", None, "!=", "ERROR", "attributes.status != 'ERROR'"),
+        ("tag", "team", "=", "", "tags.`team` = ''"),
+    ],
+)
+def test_ui_compiled_scope_shapes_reach_the_server_parser(field, key, operator, value, compiled):
+    entry = {"field": field, "operator": operator, "value": value, "compiled": compiled}
+    if key is not None:
+        entry["key"] = key
+    (parsed,) = parse_trace_filters(json.dumps([entry]))
+    assert parsed.to_filter_clause() == compiled
+    assert parsed.to_dict() == entry
+
+
+@pytest.mark.parametrize("payload", ["{}", "null"])
+def test_non_list_scope_reports_its_shape(payload):
+    with pytest.raises(MlflowException, match="expected a list of clauses"):
+        parse_trace_filters(payload)
+
+
+@pytest.mark.parametrize(
     "compiled", [None, 42, "", "x" * 10001, "trace.invalid = 'value'", "DROP TABLE traces"]
 )
 def test_invalid_saved_trace_scope_does_not_widen_a_scheduled_run(compiled):

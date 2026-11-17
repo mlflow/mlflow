@@ -11031,7 +11031,7 @@ def test_schedule_state_handler_reports_no_next_run_without_a_schedule(mock_trac
 
 
 @pytest.mark.parametrize("scope", ["not-json", "{}", '[{"key": "bad\\\\key", "value": "x"}]'])
-def test_schedule_state_handler_invalid_scope_is_best_effort(mock_tracking_store, scope):
+def test_schedule_state_handler_invalid_scope_is_best_effort(mock_tracking_store, scope, caplog):
     _schedule_experiment(
         mock_tracking_store,
         json.dumps({"version": 1, "cadence": "daily", "timezone": "UTC", "fireTime": "16:00"}),
@@ -11046,6 +11046,7 @@ def test_schedule_state_handler_invalid_scope_is_best_effort(mock_tracking_store
     assert response.status_code == 200
     assert response.get_json() == {"next_fire_time_ms": None}
     mock_tracking_store.set_experiment_tag.assert_not_called()
+    assert "Could not read issue-detection schedule for experiment exp-123" in caplog.text
 
 
 def test_invoke_issue_detection_handler_rejects_cross_experiment_traces(

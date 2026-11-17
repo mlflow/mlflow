@@ -487,7 +487,11 @@ def parse_trace_filters(
         raise MlflowException.invalid_parameter_value(
             "Invalid saved issue-detection trace scope: unreadable JSON"
         ) from exc
-    if not isinstance(parsed, list) or len(parsed) > MAX_TRACE_FILTERS:
+    if not isinstance(parsed, list):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid saved issue-detection trace scope: expected a list of clauses"
+        )
+    if len(parsed) > MAX_TRACE_FILTERS:
         raise MlflowException.invalid_parameter_value(
             "Invalid saved issue-detection trace scope: "
             f"expected at most {MAX_TRACE_FILTERS} clauses"

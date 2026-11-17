@@ -19,6 +19,16 @@ export class InvalidIssueDetectionTraceScopeError extends Error {}
 
 export const emptyIssueDetectionTraceScope = (): IssueDetectionTraceScopeValue => ({ searchQuery: '', filters: [] });
 
+const compileScopeFilter = (clause: TraceFilterModel[number]): string | undefined =>
+  compileFilterModel([clause])[0] ??
+  // Legacy equality values may be empty; the shared editor treats those as incomplete.
+  (['tag', 'metadata'].includes(clause.field) &&
+  clause.operator === FilterOp.EQUALS &&
+  clause.key?.trim() &&
+  clause.value === ''
+    ? `${clause.field === 'tag' ? 'tags' : 'request_metadata'}.\`${clause.key.trim()}\` = ''`
+    : undefined);
+
 export const readIssueDetectionTraceScope = (
   tags: readonly { key: string; value?: string | null }[] | undefined | null,
 ): IssueDetectionTraceScopeValue => {
@@ -50,7 +60,13 @@ export const readIssueDetectionTraceScope = (
       }
       if (entry.field === SEARCH_FIELD && typeof entry.value === 'string') {
         scope.searchQuery = entry.value;
-      } else if (typeof entry.key === 'string' && entry.operator === undefined) {
+      } else if (
+        typeof entry.key === 'string' &&
+        (entry.operator === undefined ||
+          (entry.compiled === undefined &&
+            entry.operator === FilterOp.EQUALS &&
+            [undefined, 'tag', 'metadata'].includes(entry.field)))
+      ) {
         if (!entry.key.trim()) throw new Error('Invalid trace filter key.');
         scope.filters.push({
           field: entry.field === 'tag' ? 'tag' : 'metadata',
@@ -88,15 +104,18 @@ export const readIssueDetectionTraceScope = (
       ) {
         throw new Error('Rich trace filters require a saved expression.');
       } else {
-        compiled.push(...compileFilterModel(scope.filters.slice(-1)));
+        const expression = compileScopeFilter(scope.filters[scope.filters.length - 1]);
+        if (!expression) throw new Error('Unsupported trace filter.');
+        compiled.push(expression);
       }
     }
-  } catch {
+  } catch (cause) {
     throw new InvalidIssueDetectionTraceScopeError(
       'Could not read the saved trace scope. Reset it to all traces, then configure new filters before running analysis.',
+      { cause },
     );
   }
-  if (compileFilterModel(scope.filters).length !== scope.filters.length) {
+  if (scope.filters.some((clause) => !compileScopeFilter(clause))) {
     throw new InvalidIssueDetectionTraceScopeError(
       'The saved trace scope contains an unsupported filter. Reset it before running analysis.',
     );
@@ -106,7 +125,9 @@ export const readIssueDetectionTraceScope = (
 
 export const compileIssueDetectionTraceScope = (scope: IssueDetectionTraceScopeValue): string =>
   scope.filterString ??
-  [...compileFilterModel(scope.filters), buildFilter({ searchQuery: scope.searchQuery })].filter(Boolean).join(' AND ');
+  [...scope.filters.map(compileScopeFilter), buildFilter({ searchQuery: scope.searchQuery })]
+    .filter(Boolean)
+    .join(' AND ');
 
 export const loadIssueDetectionTraceScope = async (experimentId: string) => {
   const { experiment } = await MlflowService.getExperiment({ experiment_id: experimentId });
@@ -128,9 +149,9 @@ export const serializeIssueDetectionTraceScope = (scope: IssueDetectionTraceScop
     if (clause.field === 'duration' && !/^-?\d+(\.\d+)?$/.test(clause.value.trim())) {
       throw new Error('Enter a numeric duration before saving the trace scope.');
     }
-    const compiled = compileFilterModel([clause]);
-    if (compiled.length !== 1) throw new Error('Complete or remove each trace filter before saving.');
-    return { ...clause, compiled: compiled[0] };
+    const compiled = compileScopeFilter(clause);
+    if (!compiled) throw new Error('Complete or remove each trace filter before saving.');
+    return { ...clause, compiled };
   });
   const search = buildFilter({ searchQuery: normalized.searchQuery });
   const saved = [

@@ -171,7 +171,9 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   });
 
   const hasNoTraces = selectedTraceIds.length === 0 && availableTraceIds.length === 0;
-  const showLowTraceWarning = selectedTraceIds.length > 0 && selectedTraceIds.length < MIN_RECOMMENDED_TRACE_COUNT;
+  const usesScopedDefaultSample = !explicitSelection && Boolean(compileIssueDetectionTraceScope(effectiveScope));
+  const showLowTraceWarning =
+    !usesScopedDefaultSample && selectedTraceIds.length > 0 && selectedTraceIds.length < MIN_RECOMMENDED_TRACE_COUNT;
   const estimatedCost = estimateIssueDetectionCostUsd(selectedTraceIds.length);
 
   const {
@@ -392,13 +394,21 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             >
               <div css={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
                 <Typography.Text css={{ display: 'block' }}>
-                  <FormattedMessage
-                    defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
-                    description="Label showing number of traces selected"
-                    values={{ count: selectedTraceIds.length }}
-                  />
+                  {usesScopedDefaultSample ? (
+                    <FormattedMessage
+                      defaultMessage="Up to {count} recent matching traces in this experiment"
+                      description="Default saved-scope analysis samples matching traces across the experiment"
+                      values={{ count: QUICK_SELECT_TRACE_COUNT }}
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="{count, plural, one {1 trace selected} other {# traces selected}}"
+                      description="Label showing number of traces selected"
+                      values={{ count: selectedTraceIds.length }}
+                    />
+                  )}
                 </Typography.Text>
-                {selectedTraceIds.length > 0 && (
+                {!usesScopedDefaultSample && selectedTraceIds.length > 0 && (
                   <Typography.Hint>
                     <FormattedMessage
                       defaultMessage="Estimated cost: ~{low}-{high}"
@@ -579,11 +589,16 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     </div>
   );
 
+  const leaveCustomization = () => {
+    setConfigurationError(undefined);
+    setView('main');
+  };
+
   const renderFooter = () => {
     if (view === 'customize') {
       return (
         <>
-          <Button componentId="mlflow.traces.issue-detection-modal.customize-cancel" onClick={() => setView('main')}>
+          <Button componentId="mlflow.traces.issue-detection-modal.customize-cancel" onClick={leaveCustomization}>
             <FormattedMessage defaultMessage="Cancel" description="Discard customization draft" />
           </Button>
           <Button
@@ -591,9 +606,15 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             type="primary"
             disabled={canEdit && noFocusAreaSelected(settingsDraft)}
             onClick={() => {
-              setConfiguredSettings(settingsDraft);
-              setConfiguredScope(normalizeScope(scopeDraft));
-              setView('main');
+              try {
+                const normalized = normalizeScope(scopeDraft);
+                serializeIssueDetectionTraceScope(normalized);
+                setConfiguredSettings(settingsDraft);
+                setConfiguredScope(normalized);
+                leaveCustomization();
+              } catch (error) {
+                setConfigurationError(error instanceof Error ? error : new Error(String(error)));
+              }
             }}
           >
             <FormattedMessage defaultMessage="Apply" description="Apply customization to pending analysis" />
@@ -688,7 +709,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         isInvokingIssueDetection || isCreatingSecret || isPreparing
           ? undefined
           : view === 'customize'
-            ? () => setView('main')
+            ? leaveCustomization
             : handleClose
       }
       footer={renderFooter()}

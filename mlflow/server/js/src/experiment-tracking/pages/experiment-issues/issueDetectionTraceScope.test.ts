@@ -5,6 +5,7 @@ import { MlflowService } from '../../sdk/MlflowService';
 import { MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG } from '../../constants';
 import {
   compileIssueDetectionTraceScope,
+  InvalidIssueDetectionTraceScopeError,
   readIssueDetectionTraceScope,
   saveIssueDetectionTraceScope,
 } from './issueDetectionTraceScope';
@@ -84,6 +85,32 @@ describe('shared issue detection trace scope', () => {
     ).rejects.toThrow('Complete or remove');
     expect(MlflowService.setExperimentTag).not.toHaveBeenCalled();
   });
+});
+
+test.each([undefined, null, 7])('legacy empty value %j retains its equality constraint', async (value) => {
+  for (const operator of [undefined, FilterOp.EQUALS]) {
+    const scope = readIssueDetectionTraceScope([
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+        value: JSON.stringify([{ field: 'tag', operator, key: ' team ', value }]),
+      },
+    ]);
+    expect(scope.filters).toEqual([{ field: 'tag', operator: '=', key: 'team', value: '' }]);
+    expect(compileIssueDetectionTraceScope(scope)).toBe("tags.`team` = ''");
+    await saveIssueDetectionTraceScope('1', scope);
+    const saved = jest.mocked(MlflowService.setExperimentTag).mock.calls.at(-1)?.[0];
+    expect(compileIssueDetectionTraceScope(readIssueDetectionTraceScope([saved!]))).toBe("tags.`team` = ''");
+  }
+});
+
+test('unreadable scope retains its specific parse cause', () => {
+  try {
+    readIssueDetectionTraceScope([{ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: 'not-json' }]);
+    throw new Error('Expected invalid scope');
+  } catch (error) {
+    expect(error).toBeInstanceOf(InvalidIssueDetectionTraceScopeError);
+    expect((error as Error).cause).toBeInstanceOf(SyntaxError);
+  }
 });
 
 test.each(['not-json', '{}', '[{"field":"future","operator":"=","value":"x"}]'])(

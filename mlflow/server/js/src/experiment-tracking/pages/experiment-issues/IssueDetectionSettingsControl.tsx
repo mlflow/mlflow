@@ -1,6 +1,7 @@
 import { Alert, Button, GearIcon, FormUI, Modal, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import {
   defaultIssueDetectionSettings,
   noFocusAreaSelected,
@@ -73,14 +74,21 @@ export const IssueDetectionSettingsControl = ({ experimentId, buttonText }: Issu
       if (scopeChanged) {
         try {
           await scope.save.mutateAsync(normalized);
-        } catch {
+        } catch (cause) {
+          const detail =
+            cause instanceof ErrorWrapper
+              ? cause.getMessageField()
+              : cause instanceof Error
+                ? cause.message
+                : undefined;
           throw new Error(
             intl.formatMessage({
               defaultMessage:
                 'Priorities and focus areas were saved, but trace scope was not. Retry to finish saving, or cancel to keep the saved changes.',
               description:
                 'Issue detection settings modal > Partial save error after priorities succeeded and scope failed',
-            }),
+            }) + (detail ? ` ${detail}` : ''),
+            { cause },
           );
         }
       }

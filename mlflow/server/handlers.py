@@ -5936,8 +5936,11 @@ def _sync_issue_detection_schedule_state_handler():
     experiment = store.get_experiment(experiment_id)
     try:
         schedule = read_detection_schedule(experiment)
-    except MlflowException:
+    except MlflowException as exc:
         # An invalid scope blocks dispatch, but this best-effort read must not change timing.
+        _logger.warning(
+            "Could not read issue-detection schedule for experiment %s: %s", experiment_id, exc
+        )
         return jsonify({"next_fire_time_ms": None})
     if schedule is None:
         # Nothing stored, or a schedule this server does not recognize. Either way there is no

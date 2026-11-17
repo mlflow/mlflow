@@ -318,7 +318,7 @@ describe('IssueDetectionSettingsControl', () => {
     await userEvent.type(screen.getByPlaceholderText('Add a filter'), 'synthetic');
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByText(
-      'Priorities and focus areas were saved, but trace scope was not. Retry to finish saving, or cancel to keep the saved changes.',
+      /Priorities and focus areas were saved, but trace scope was not\. Retry to finish saving, or cancel to keep the saved changes\..*Scope unavailable/,
     );
     expect(written.map(({ key }) => key)).toEqual([MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG]);
     expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Persisted priorities');
@@ -329,8 +329,8 @@ describe('IssueDetectionSettingsControl', () => {
     await userEvent.type(screen.getByPlaceholderText('Add a filter'), 'synthetic');
     scopeFails = false;
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(written.at(-1)?.key).toBe(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument());
-    expect(written.at(-1)?.key).toBe(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG);
   });
 
   test('a failed settings read offers a retry instead of a dead control', async () => {
