@@ -10043,6 +10043,11 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                     status_code=e.get_http_status_code(),
                 )
             except FastAPIHTTPException as e:
+                # Match the JSON ``detail`` body the gateway handlers return for this error.
+                if e.status_code == HTTPStatus.UNSUPPORTED_MEDIA_TYPE:
+                    return JSONResponse(
+                        status_code=e.status_code, content={"detail": e.detail}, headers=e.headers
+                    )
                 return PlainTextResponse(str(e.detail), status_code=e.status_code)
             finally:
                 workspace_context.clear_server_request_workspace()

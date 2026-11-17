@@ -5686,7 +5686,7 @@ def test_gateway_rejects_non_json_content_type_before_authorization(
             auth=(username, password),
         )
     assert response.status_code == 415
-    assert "Content-Type must be 'application/json'" in response.text
+    assert "Content-Type must be 'application/json'" in response.json()["detail"]
 
 
 def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, monkeypatch):
