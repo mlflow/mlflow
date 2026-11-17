@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import math
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
@@ -30,6 +31,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
 )
 from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -235,6 +237,7 @@ def _run_databricks_agentic_loop(
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
     use_case: str | None = None,
+    on_usage: Callable[[Any], None] | None = None,
 ) -> T:
     """
     Run an agentic loop with Databricks chat completions.
@@ -249,6 +252,9 @@ def _run_databricks_agentic_loop(
         on_final_answer: Callback to process the final LLM response content.
             Receives the content string (or None if empty) and should return
             the appropriate result type or raise an exception.
+        use_case: The use case for the chat completion.
+        on_usage: Optional callback receiving judge_usage from every completion,
+            including None when usage is unavailable.
 
     Returns:
         Result from on_final_answer callback.
@@ -297,6 +303,8 @@ def _run_databricks_agentic_loop(
 
             parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
             message = _create_message_from_databricks_response(parsed_json)
+            if on_usage is not None:
+                on_usage(parsed_json.get("judge_usage"))
 
             if not message.tool_calls:
                 return on_final_answer(message.content)
@@ -310,6 +318,25 @@ def _run_databricks_agentic_loop(
         except Exception:
             _logger.debug("Failed during Databricks agentic loop iteration", exc_info=True)
             raise
+
+
+def _get_judge_usage_metadata(usages: list[Any]) -> dict[str, str]:
+    metadata = {}
+    for field, key in (
+        ("input_tokens", AssessmentMetadataKey.JUDGE_INPUT_TOKENS),
+        ("output_tokens", AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS),
+        ("estimated_dbus", AssessmentMetadataKey.JUDGE_ESTIMATED_DBUS),
+    ):
+        values = [usage.get(field) if isinstance(usage, dict) else None for usage in usages]
+        allowed_types = (int, float) if field == "estimated_dbus" else (int,)
+        # Only report a total when every completion has valid usage for this field.
+        if values and all(
+            type(value) in allowed_types and 0 <= value < math.inf for value in values
+        ):
+            total = sum(values)
+            if total < math.inf:
+                metadata[key] = str(total)
+    return metadata
 
 
 def _invoke_databricks_default_judge(
@@ -349,7 +376,13 @@ def _invoke_databricks_default_judge(
         def parse_judge_response(content: str | None) -> Feedback:
             return _parse_databricks_judge_response(content, assessment_name, trace)
 
-        return _run_databricks_agentic_loop(messages, trace, parse_judge_response, use_case)
+        usages = []
+        feedback = _run_databricks_agentic_loop(
+            messages, trace, parse_judge_response, use_case, on_usage=usages.append
+        )
+        if metadata := _get_judge_usage_metadata(usages):
+            feedback.metadata = {**(feedback.metadata or {}), **metadata}
+        return feedback
 
     except Exception as e:
         _logger.debug(f"Failed to invoke Databricks judge: {e}", exc_info=True)

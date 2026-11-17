@@ -172,6 +172,8 @@ class AssessmentMetadataKey:
     SOURCE_RUN_ID = "mlflow.assessment.sourceRunId"
     # Total LLM cost spent for generating the feedback (llm-as-a-judge).
     JUDGE_COST = "mlflow.assessment.judgeCost"
+    # Estimated Databricks Units consumed by all completions for the judge.
+    JUDGE_ESTIMATED_DBUS = "mlflow.assessment.judgeEstimatedDbus"
     # Token counts for the judge LLM call.
     JUDGE_INPUT_TOKENS = "mlflow.assessment.judgeInputTokens"
     JUDGE_OUTPUT_TOKENS = "mlflow.assessment.judgeOutputTokens"

@@ -11,10 +11,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
     _create_message_from_databricks_response,
+    _invoke_databricks_default_judge,
     _run_databricks_agentic_loop,
     call_chat_completions,
     serialize_messages_to_databricks_prompts,
 )
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.types.llm import ChatMessage, FunctionToolCallArguments, ToolCall
 from mlflow.utils import AttrDict
 
@@ -190,6 +192,188 @@ def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_e
 
 
 # Tests for _run_databricks_agentic_loop
+
+
+@pytest.mark.parametrize("as_json", [True, False])
+@pytest.mark.parametrize(
+    ("dbus", "expected_dbus"),
+    [
+        ([0.125, 0.25, 0.375], "0.75"),
+        ([0, 0, 0], "0"),
+        ([0.0, 0.0, 0.0], "0.0"),
+        ([1e308, 1e308, 1e308], None),
+    ],
+)
+def test_judge_usage_aggregates_all_completions(mock_trace, as_json, dbus, expected_dbus):
+    responses = []
+    for i in range(3):
+        message = {"role": "assistant", "content": '{"result": "yes"}'}
+        if i < 2:
+            message["tool_calls"] = [
+                {
+                    "id": f"call_{i}",
+                    "type": "function",
+                    "function": {"name": "get_root_span", "arguments": "{}"},
+                }
+            ]
+        output = {
+            "choices": [{"message": message}],
+            "judge_usage": {
+                "input_tokens": 100,
+                "output_tokens": 10,
+                "estimated_dbus": dbus[i],
+                "billing_sku": "SERVERLESS_REAL_TIME_INFERENCE",
+            },
+            "usage": {"prompt_tokens": 999, "completion_tokens": 999},
+        }
+        responses.append(AttrDict({"output_json": json.dumps(output) if as_json else output}))
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+            side_effect=responses,
+        ) as mock_call,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls",
+            return_value=[],
+        ),
+    ):
+        feedback = _invoke_databricks_default_judge("test", "quality", mock_trace)
+
+    assert feedback.value == "yes"
+    assert feedback.error is None
+    assert mock_call.call_count == 3
+    expected_metadata = {
+        AssessmentMetadataKey.JUDGE_INPUT_TOKENS: "300",
+        AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS: "30",
+    }
+    if expected_dbus is not None:
+        expected_metadata[AssessmentMetadataKey.JUDGE_ESTIMATED_DBUS] = expected_dbus
+    assert feedback.metadata == expected_metadata
+
+
+@pytest.mark.parametrize(
+    ("usage", "expected"),
+    [
+        (None, {}),
+        ("invalid", {}),
+        ([], {}),
+        ({}, {}),
+        (
+            {"input_tokens": 100, "output_tokens": 10},
+            {
+                AssessmentMetadataKey.JUDGE_INPUT_TOKENS: "100",
+                AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS: "10",
+            },
+        ),
+        (
+            {"input_tokens": 0, "output_tokens": 0, "estimated_dbus": 0},
+            {
+                AssessmentMetadataKey.JUDGE_INPUT_TOKENS: "0",
+                AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS: "0",
+                AssessmentMetadataKey.JUDGE_ESTIMATED_DBUS: "0",
+            },
+        ),
+        ({"estimated_dbus": 1e-12}, {AssessmentMetadataKey.JUDGE_ESTIMATED_DBUS: "1e-12"}),
+        ({"input_tokens": -1, "output_tokens": True, "estimated_dbus": "0.001"}, {}),
+        ({"input_tokens": 1.5, "output_tokens": "10", "estimated_dbus": -0.001}, {}),
+        ({"estimated_dbus": float("nan")}, {}),
+        ({"estimated_dbus": float("inf")}, {}),
+        ({"estimated_dbus": True}, {}),
+        ({"estimated_dbus": {}}, {}),
+    ],
+)
+def test_judge_usage_optional_metadata(usage, expected):
+    output = {
+        "choices": [{"message": {"role": "assistant", "content": '{"result": "yes"}'}}],
+    }
+    if usage is not None:
+        output["judge_usage"] = usage
+    with mock.patch(
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+        return_value=AttrDict({"output_json": json.dumps(output)}),
+    ):
+        feedback = _invoke_databricks_default_judge("test", "quality")
+
+    assert feedback.value == "yes"
+    assert feedback.error is None
+    assert (feedback.metadata or {}) == expected
+
+
+@pytest.mark.parametrize("incomplete_first", [True, False])
+@pytest.mark.parametrize(
+    ("incomplete_usage", "expected_metadata"),
+    [
+        (None, {}),
+        ({}, {}),
+        ({"estimated_dbus": None}, {}),
+        (
+            {"input_tokens": 100, "output_tokens": 10},
+            {
+                AssessmentMetadataKey.JUDGE_INPUT_TOKENS: "200",
+                AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS: "20",
+            },
+        ),
+        (
+            {"input_tokens": 100, "output_tokens": 10, "estimated_dbus": 0.001},
+            {
+                AssessmentMetadataKey.JUDGE_INPUT_TOKENS: "200",
+                AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS: "20",
+                AssessmentMetadataKey.JUDGE_ESTIMATED_DBUS: "0.002",
+            },
+        ),
+    ],
+)
+def test_judge_usage_omits_partial_totals(incomplete_first, incomplete_usage, expected_metadata):
+    usages = [
+        {
+            "estimated_dbus": 0.001,
+            "input_tokens": 100,
+            "output_tokens": 10,
+        },
+        incomplete_usage,
+    ]
+    if incomplete_first:
+        usages.reverse()
+    outputs = [
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {"name": "get_root_span", "arguments": "{}"},
+                            }
+                        ],
+                    }
+                }
+            ],
+            "judge_usage": usages[0],
+        },
+        {
+            "choices": [{"message": {"role": "assistant", "content": '{"result": "yes"}'}}],
+            "judge_usage": usages[1],
+        },
+    ]
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+            side_effect=[AttrDict({"output_json": json.dumps(output)}) for output in outputs],
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._process_tool_calls",
+            return_value=[],
+        ),
+    ):
+        feedback = _invoke_databricks_default_judge("test", "quality")
+
+    assert feedback.value == "yes"
+    assert feedback.error is None
+    assert (feedback.metadata or {}) == expected_metadata
 
 
 def test_agentic_loop_final_answer_without_tool_calls():
