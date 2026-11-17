@@ -72,6 +72,7 @@ from mlflow.entities import TraceInfo, TraceState
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.exceptions import MlflowException
 
+mlflow.set_tracking_uri("http://tracing-sdk.test")
 store = Mock()
 store.search_traces.return_value = ([], None)
 store.get_run.return_value.info.experiment_id = "1"
