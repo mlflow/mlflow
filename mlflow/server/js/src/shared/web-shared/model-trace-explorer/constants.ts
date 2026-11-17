@@ -43,5 +43,5 @@ export const CHUNK_INDEX_KEY = 'chunk_index';
 
 // Markdown safety cap prevents browser freezes on huge strings such as un-extracted base64.
 export const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;
-// Trace text payloads above this character count use a bounded plain-text window.
+// Trace text payloads above this UTF-16 code-unit count use a bounded plain-text window.
 export const LARGE_TRACE_TEXT_LIMIT = 100_000;

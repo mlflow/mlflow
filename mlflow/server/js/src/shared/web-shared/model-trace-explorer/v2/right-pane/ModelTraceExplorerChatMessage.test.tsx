@@ -6,6 +6,7 @@ import { fireEvent } from '@testing-library/react';
 
 import type { ModelTraceChatMessage } from '../ModelTrace.types';
 import { ModelTraceExplorerChatMessage } from './ModelTraceExplorerChatMessage';
+import * as chatRendererUtils from './ModelTraceExplorerChatRenderer.utils';
 
 const mockCopy = jest.fn();
 jest.mock('use-clipboard-copy', () => ({ useClipboard: () => ({ copy: mockCopy }) }));
@@ -128,6 +129,23 @@ describe('large chat text', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     expect(mockCopy).toHaveBeenCalledWith(reasoning);
     expect(container.querySelectorAll('*').length).toBeLessThan(200);
+  });
+
+  it('reuses reasoning classification across toggles and recomputes when reasoning changes', () => {
+    mockViewport();
+    const scan = jest.spyOn(chatRendererUtils, 'getDisplayLength');
+    const reasoning = 'synthetic reasoning café 日本語 🙂\n'.repeat(4000);
+    const message = { role: 'assistant' as const, content: 'small', reasoning };
+    const { rerender } = render(<ModelTraceExplorerChatMessage message={message} />, { wrapper: Providers });
+    const scans = () => scan.mock.calls.filter(([value]) => value === reasoning).length;
+    expect(scans()).toBe(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }));
+    rerender(<ModelTraceExplorerChatMessage message={{ ...message }} />);
+    expect(scans()).toBe(1);
+    const replacement = reasoning + 'replacement';
+    rerender(<ModelTraceExplorerChatMessage message={{ ...message, reasoning: replacement }} />);
+    expect(scan.mock.calls.filter(([value]) => value === replacement)).toHaveLength(1);
   });
 
   it('preserves images in an expanded large reasoning section', () => {

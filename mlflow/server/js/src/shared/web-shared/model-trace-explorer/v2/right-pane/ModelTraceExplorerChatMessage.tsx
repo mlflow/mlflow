@@ -210,10 +210,13 @@ function ModelTraceExplorerChatMessageContent({
 function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }) {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
-  const isLargeReasoning =
-    reasoning.length > LARGE_TRACE_TEXT_LIMIT &&
-    getDisplayLength(reasoning) === reasoning.length &&
-    !reasoning.includes('mlflow-attachment://');
+  const isLargeReasoning = useMemo(
+    () =>
+      reasoning.length > LARGE_TRACE_TEXT_LIMIT &&
+      getDisplayLength(reasoning) === reasoning.length &&
+      !reasoning.includes('mlflow-attachment://'),
+    [reasoning],
+  );
 
   return (
     <div
