@@ -164,6 +164,34 @@ describe('lazy span payloads', () => {
     }
   });
 
+  it.each(['baseline', 'candidate'])('keeps unmatched nested %s payloads deferred', (role) => {
+    const { parse, calls } = watchPayloads();
+    try {
+      const child = normalizeNewSpanData({ ...MOCK_V3_SPANS[1], attributes }, 0, 1000, [], {}, 'trace');
+      const root = normalizeNewSpanData({ ...MOCK_V3_SPANS[0], attributes }, 0, 1000, [child], {}, 'trace');
+      const result = buildModelTraceComparisonForest(
+        role === 'baseline' ? [root] : [],
+        role === 'candidate' ? [root] : [],
+      );
+      const displayRoot = result.topLevelNodes[0];
+      const displayChild = displayRoot.children?.[0];
+      expect(displayRoot).not.toBe(root);
+      expect(displayChild).not.toBe(child);
+      expect(displayChild?.parentId).toBe(String(root.key));
+      expect(result.comparisonNodeMap).toEqual({});
+      expect(result.comparisonNodeRoleMap).toEqual({ [String(root.key)]: role, [String(child.key)]: role });
+      expect(result.sourceNodeToDisplayNodeMap[`${role}:${String(child.key)}`]).toBe(displayChild);
+      expect([calls(outputs), calls(metadata)]).toEqual([0, 0]);
+      expect(displayRoot.outputs).toBe(root.outputs);
+      expect(displayChild?.outputs).toBe(child.outputs);
+      expect(displayRoot.attributes).toBe(root.attributes);
+      expect(displayChild?.attributes).toBe(child.attributes);
+      expect([calls(outputs), calls(metadata)]).toEqual([2, 2]);
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
   it('keeps payloads unparsed until read and shares cached reads with chat normalization', () => {
     const expectedInputs = JSON.parse(inputs);
     const { parse, calls } = watchPayloads();
