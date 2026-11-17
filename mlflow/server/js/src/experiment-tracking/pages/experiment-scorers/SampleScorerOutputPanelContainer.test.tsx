@@ -36,6 +36,7 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldSupportRunningDatabricksProviderJudgesFromUI: () => true,
 }));
 jest.mock('../../../gateway/utils/gatewayUtils', () => ({
+  GATEWAY_MODEL_PREFIX: 'gateway:/',
   ModelProvider: { GATEWAY: 'gateway', DATABRICKS: 'databricks', OTHER: 'other' },
   getModelProvider: (model: string | undefined) => {
     if (!model || model.startsWith('gateway:/')) return 'gateway';
@@ -360,6 +361,14 @@ describe('SampleScorerOutputPanelContainer', () => {
   });
 
   describe('Gateway availability', () => {
+    it.each([undefined, ''])('preserves default model execution without model selection (%s)', (model) => {
+      jest.mocked(useFeatureEnabled).mockReturnValue(false);
+      renderComponent({ defaultValues: { model }, selectedItemIds: ['trace-1'] });
+
+      const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+      expect(props.isRunScorerDisabled).toBe(false);
+    });
+
     it('disables sample execution when Gateway is disabled', () => {
       jest.mocked(useFeatureEnabled).mockReturnValue(false);
       renderComponent({ defaultValues: { model: 'gateway:/some-model' }, selectedItemIds: ['trace-1'] });
