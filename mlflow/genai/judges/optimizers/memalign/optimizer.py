@@ -179,9 +179,10 @@ retrieval, a non-empty list drawn from `"inputs"`, `"outputs"`, `"expectations"`
 and `"trace"`. Each field must be referenced by the judge's instructions.
 Defaults to the first of inputs/outputs/expectations/conversation/trace referenced by
 the judge's instructions. With multiple fields, each field is retrieved separately
-and results are merged with reciprocal rank fusion; earlier fields win ranking ties.
+and results are merged with reciprocal rank fusion.
 Each field adds one embedding index and one query embedding per scoring call, so cost
-scales with the number of fields.
+scales with the number of fields. When re-aligning an aligned judge, `None` keeps that
+judge's `retrieval_fields`; the other settings come from the optimizer.
 """,
 }
 

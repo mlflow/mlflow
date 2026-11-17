@@ -1102,6 +1102,7 @@ def test_concurrent_first_call_on_deferred_multi_field_judge_does_not_raise(samp
         assert building.wait(timeout=30)
         try:
             judge(inputs="q", outputs="a")  # the first call is mid-build: indexes unpublished
+            assert judge._retrievers is None
         finally:
             release.set()
             first.join(timeout=30)
