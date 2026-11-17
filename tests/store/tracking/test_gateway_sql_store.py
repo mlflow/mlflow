@@ -31,6 +31,7 @@ from mlflow.entities import (
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_ALREADY_EXISTS,
@@ -378,6 +379,70 @@ def test_update_gateway_secret_allows_api_base_change_with_secret_value(
 
     assert updated.auth_config == {"api_base": "https://new-provider.example/v1"}
     assert store._get_decrypted_secret(created.secret_id) == {"api_key": "new-key"}
+
+
+@pytest.fixture(params=["{invalid", "[]", '["unexpected"]', '"unexpected"', "42", "false", "null"])
+def secret_with_invalid_auth_config(store, request):
+    secret = store.create_gateway_secret(
+        secret_name="invalid-auth-config",
+        secret_value={"api_key": "original-key"},
+        provider="openai",
+        auth_config={"api_base": "https://original.example/v1"},
+    )
+    with store.ManagedSessionMaker(read_only=False) as session:
+        sql_secret = store._get_entity_or_raise(
+            session, SqlGatewaySecret, {"secret_id": secret.secret_id}, "GatewaySecret"
+        )
+        sql_secret.auth_config = request.param
+    return secret, request.param
+
+
+@pytest.mark.parametrize("secret_value", [None, {}])
+def test_update_gateway_secret_rejects_corrupt_config_hostname_comparison(
+    store, secret_with_invalid_auth_config, secret_value
+):
+    secret, stored_auth_config = secret_with_invalid_auth_config
+
+    with pytest.raises(MlflowException, match="Stored gateway secret auth_config") as exc:
+        store.update_gateway_secret(
+            secret_id=secret.secret_id,
+            secret_value=secret_value,
+            auth_config={"api_base": "https://new.example/v1"},
+        )
+
+    assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
+    with store.ManagedSessionMaker() as session:
+        sql_secret = store._get_entity_or_raise(
+            session, SqlGatewaySecret, {"secret_id": secret.secret_id}, "GatewaySecret"
+        )
+        assert sql_secret.auth_config == stored_auth_config
+    assert store._get_decrypted_secret(secret.secret_id) == {"api_key": "original-key"}
+
+
+@pytest.mark.parametrize(
+    ("auth_config", "secret_value"),
+    [
+        ({"api_base": "https://new.example/v1"}, {"api_key": "replacement-key"}),
+        ({}, None),
+        ({"api_base": ""}, None),
+        ({"api_version": "2024-02-01"}, None),
+    ],
+)
+def test_update_gateway_secret_repairs_corrupt_auth_config(
+    store, secret_with_invalid_auth_config, auth_config, secret_value
+):
+    secret, _ = secret_with_invalid_auth_config
+
+    updated = store.update_gateway_secret(
+        secret_id=secret.secret_id,
+        auth_config=auth_config,
+        secret_value=secret_value,
+    )
+
+    assert updated.auth_config == (auth_config or None)
+    assert store._get_decrypted_secret(secret.secret_id) == (
+        secret_value or {"api_key": "original-key"}
+    )
 
 
 @pytest.mark.parametrize("provider", [None, "openai"])

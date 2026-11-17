@@ -6,24 +6,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
-
-def load_gateway_auth_config(value: str | Mapping[str, Any] | None) -> dict[str, Any] | None:
-    if value is None:
-        return None
-    if isinstance(value, str):
-        if not value:
-            return None
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError as e:
-            raise MlflowException(
-                "Invalid gateway secret auth_config JSON.",
-                error_code=INVALID_PARAMETER_VALUE,
-            ) from e
-        return parsed or None
-    return dict(value) or None
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 
 
 def _api_base_hostname(auth_config: Mapping[str, Any] | None) -> str | None:
@@ -39,7 +22,7 @@ def _api_base_hostname(auth_config: Mapping[str, Any] | None) -> str | None:
 
 
 def validate_gateway_secret_update_does_not_retarget_credential(
-    existing_auth_config: Mapping[str, Any] | None,
+    existing_auth_config: str | None,
     updated_auth_config: Mapping[str, Any] | None,
     *,
     secret_value_provided: bool,
@@ -48,7 +31,24 @@ def validate_gateway_secret_update_does_not_retarget_credential(
         return
 
     updated_hostname = _api_base_hostname(updated_auth_config)
-    if updated_hostname is None or updated_hostname == _api_base_hostname(existing_auth_config):
+    if updated_hostname is None:
+        return
+
+    try:
+        parsed_auth_config = json.loads(existing_auth_config) if existing_auth_config else None
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            "Stored gateway secret auth_config is not a valid JSON object.",
+            error_code=INTERNAL_ERROR,
+        ) from e
+
+    if existing_auth_config and not isinstance(parsed_auth_config, dict):
+        raise MlflowException(
+            "Stored gateway secret auth_config is not a valid JSON object.",
+            error_code=INTERNAL_ERROR,
+        )
+
+    if updated_hostname == _api_base_hostname(parsed_auth_config):
         return
 
     raise MlflowException(

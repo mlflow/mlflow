@@ -67,7 +67,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
 )
 from mlflow.store.tracking.gateway.credential_scope import (
-    load_gateway_auth_config,
     validate_gateway_secret_update_does_not_retarget_credential,
 )
 from mlflow.telemetry.events import (
@@ -326,9 +325,8 @@ class SqlAlchemyGatewayStoreMixin:
                 session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
             )
 
-            existing_auth_config = load_gateway_auth_config(sql_secret.auth_config)
             validate_gateway_secret_update_does_not_retarget_credential(
-                existing_auth_config,
+                sql_secret.auth_config,
                 auth_config,
                 secret_value_provided=bool(secret_value),
             )
