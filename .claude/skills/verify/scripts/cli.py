@@ -18,7 +18,8 @@ VALIDATE_REVIEW = SKILLS_DIR.parent / "scripts" / "validate_review.py"
 
 
 def command(*args: str | Path, input: str | None = None) -> str:
-    return subprocess.check_output(args, input=input, text=True, stderr=subprocess.PIPE)
+    # stderr is inherited so subcommand warnings reach the workflow log.
+    return subprocess.check_output(args, input=input, text=True)
 
 
 def api(*args: str, data: dict[str, Any] | None = None) -> Any:
@@ -116,6 +117,9 @@ def embed(args: argparse.Namespace) -> int:
             *media_command(args.media_dir),
             "--repository-id",
             os.environ["REPOSITORY_ID"],
+            # A failed upload must fail this step so the publisher posts the
+            # incomplete-verification notice instead of a review missing its evidence.
+            "--strict",
             input=comment["body"],
         )
     args.payload_path.write_text(json.dumps(payload, indent=2) + "\n")
@@ -127,6 +131,11 @@ def publish(args: argparse.Namespace) -> int:
     pr = api(endpoint)
     if pr["state"] != "open":
         write_step_summary("PR closed; no review will be posted.")
+        return 0
+    # Verification can run long enough for a new push to land, and a stale approval is
+    # not dismissed on push.
+    if pr["head"]["sha"] != args.head_sha:
+        write_step_summary("PR head changed during verification; run /verify again.")
         return 0
     notice = f"> [Verification run]({args.run_url})."
     # Without a payload, verification did not produce a publishable review.
