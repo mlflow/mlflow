@@ -27,6 +27,7 @@ class FakeWorker {
 }
 
 describe('trace response parsing', () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   const originalDecoder = Object.getOwnPropertyDescriptor(globalThis, 'TextDecoder');
   const originalWorker = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
   let worker: FakeWorker;
@@ -35,12 +36,14 @@ describe('trace response parsing', () => {
     Object.defineProperty(globalThis, 'TextDecoder', { configurable: true, value: TextDecoder });
   });
   afterAll(() => {
+    warn.mockRestore();
     if (originalWorker) Object.defineProperty(globalThis, 'Worker', originalWorker);
     else delete (globalThis as { Worker?: unknown }).Worker;
     if (originalDecoder) Object.defineProperty(globalThis, 'TextDecoder', originalDecoder);
     else delete (globalThis as { TextDecoder?: unknown }).TextDecoder;
   });
   beforeEach(async () => {
+    warn.mockClear();
     Object.defineProperty(globalThis, 'Worker', { configurable: true, value: FakeWorker });
     jest.useFakeTimers();
     worker = new FakeWorker();
@@ -72,6 +75,8 @@ describe('trace response parsing', () => {
     parser = createTraceResponseParser();
     await expect(parser.parse(body(large))).resolves.toEqual(large);
     expect(jest.getTimerCount()).toBe(0);
+    expect(warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ cause: new Error('CSP') }));
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it('does not load worker code when Workers are unavailable', async () => {
@@ -191,6 +196,8 @@ describe('trace response parsing', () => {
         await expect(result).rejects.toMatchObject({ cause: new Error('post failed') });
       }
       expect(worker.terminate).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ message: expect.any(String) }));
       await expect(parser.parse(body(large))).resolves.toEqual(large);
       expect(jest.getTimerCount()).toBe(0);
     },
@@ -249,5 +256,6 @@ describe('trace response parsing', () => {
     await expect(result).rejects.toMatchObject({ name: 'AbortError' });
     await expect(parser.parse(body(large))).rejects.toMatchObject({ name: 'AbortError' });
     expect(jest.getTimerCount()).toBe(0);
+    expect(warn).not.toHaveBeenCalled();
   });
 });

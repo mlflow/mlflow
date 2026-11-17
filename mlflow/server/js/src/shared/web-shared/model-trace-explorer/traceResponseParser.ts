@@ -16,10 +16,18 @@ export const createTraceResponseParser = () => {
   let startTimer: ReturnType<typeof setTimeout> | undefined;
   const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
 
-  const stop = (error: Error) => {
-    // shortcut: disable a failed worker for this page; add bounded restart if transient failures warrant it.
+  const disable = (error: Error) => {
+    if (!disposed && !stopped) {
+      // eslint-disable-next-line no-console -- report permanent fallback once without trace bodies
+      console.warn('Trace response worker disabled; using native JSON parsing.', error);
+    }
     stopped = true;
     ready = false;
+  };
+
+  const stop = (error: Error) => {
+    // shortcut: disable a failed worker for this page; add bounded restart if transient failures warrant it.
+    disable(error);
     clearTimeout(startTimer);
     worker?.terminate();
     worker = undefined;
@@ -28,13 +36,17 @@ export const createTraceResponseParser = () => {
   };
 
   if (typeof Worker !== 'undefined') {
-    startTimer = setTimeout(() => stop(new TraceResponseWorkerLostError()), WORKER_TIMEOUT_MS);
+    startTimer = setTimeout(
+      () => stop(new TraceResponseWorkerLostError('Worker startup timed out')),
+      WORKER_TIMEOUT_MS,
+    );
     void import('./createTraceResponseWorker')
       .then(({ createTraceResponseWorker }) => {
         if (stopped) return;
         worker = createTraceResponseWorker();
-        worker.onerror = () => stop(new TraceResponseWorkerLostError());
-        worker.onmessageerror = () => stop(new TraceResponseWorkerLostError());
+        worker.onerror = (event) => stop(new TraceResponseWorkerLostError(event?.message || 'Worker execution failed'));
+        worker.onmessageerror = () =>
+          stop(new TraceResponseWorkerLostError('Worker response could not be deserialized'));
         worker.onmessage = ({ data }: MessageEvent<TraceResponseMessage>) => {
           if (!worker || disposed) return;
           if (data.type === 'ready') {
@@ -81,12 +93,13 @@ export const createTraceResponseParser = () => {
           pending.delete(id);
           finish(() => reject(abortError()));
         };
+        // Bound total wait, including time queued behind another parse.
         const timer = setTimeout(() => {
           pending.delete(id);
           // Keep existing requests independent, but do not reuse a worker that timed out.
-          ready = false;
-          stopped = true;
-          finish(() => reject(new TraceResponseWorkerLostError()));
+          const error = new TraceResponseWorkerLostError('Worker parsing timed out');
+          disable(error);
+          finish(() => reject(error));
         }, WORKER_TIMEOUT_MS);
         const finish = (settle: () => void) => {
           clearTimeout(timer);
