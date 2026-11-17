@@ -363,6 +363,7 @@ export const TracesV4TraceDrawer = ({
               {/* A session's trace opens with its assessments showing, as on the session page. */}
               <ModelTraceExplorer
                 modelTrace={traceData}
+                selectedSpanId={searchParams.get('spanId') ?? undefined}
                 {...(session ? { collapseAssessmentPane: 'force-open' as const } : {})}
                 comparisonModelTrace={isComparisonMode ? counterpartTraceData : undefined}
                 comparisonRole={isComparisonMode ? comparisonRole : undefined}
