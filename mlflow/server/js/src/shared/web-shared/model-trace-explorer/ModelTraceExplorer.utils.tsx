@@ -269,10 +269,13 @@ const getSectionMatchCounts = (
   return fields;
 };
 
-const getMatchesFromSections = (span: ModelTraceSpanNode, filter: string, sections: SearchSection[]): SearchMatch[] => {
+const SEARCH_SECTIONS: SearchSection[] = ['inputs', 'outputs', 'attributes', 'events', 'links'];
+
+/** Extracts payload matches with the metadata needed to jump to each occurrence. */
+export const getMatchesFromSpan = (span: ModelTraceSpanNode, filter: string): SearchMatch[] => {
   if (!filter) return [];
   const matches: SearchMatch[] = [];
-  for (const section of sections) {
+  for (const section of SEARCH_SECTIONS) {
     for (const { key, isKeyMatch, count } of getSectionMatchCounts(span, section, filter)) {
       if (isKeyMatch) matches.push({ span, section, key, isKeyMatch: true, matchIndex: 0 });
       for (let matchIndex = 0; matchIndex < count; matchIndex++) {
@@ -282,10 +285,6 @@ const getMatchesFromSections = (span: ModelTraceSpanNode, filter: string, sectio
   }
   return matches;
 };
-
-/** Extracts payload matches with the metadata needed to jump to each occurrence. */
-export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] =>
-  getMatchesFromSections(span, searchFilter, ['inputs', 'outputs', 'attributes', 'events', 'links']);
 
 export function searchTree(
   rootNode: ModelTraceSpanNode,

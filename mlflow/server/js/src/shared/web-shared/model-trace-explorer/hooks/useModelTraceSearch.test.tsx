@@ -16,12 +16,12 @@ const createNode = (value: string): ModelTraceSpanNode => ({
   traceId: 'tr-search-fixture',
 });
 
-const renderSearch = (root: ModelTraceSpanNode) => {
+const renderSearch = (root: ModelTraceSpanNode, selectedNode = root) => {
   const setSelectedNodeAndTab = jest.fn();
   const callbacks = { setSelectedNode: jest.fn(), setSelectedNodeAndTab, setExpandedKeys: jest.fn() };
   const hook = renderHook(
     ({ treeNodes, modelTraceInfo }: { treeNodes: ModelTraceSpanNode[]; modelTraceInfo: ModelTrace['info'] | null }) =>
-      useModelTraceSearch({ ...callbacks, treeNodes, selectedNode: treeNodes[0], modelTraceInfo }),
+      useModelTraceSearch({ ...callbacks, treeNodes, selectedNode, modelTraceInfo }),
     { initialProps: { treeNodes: [root], modelTraceInfo: null as ModelTrace['info'] | null } },
   );
   return { ...hook, ...callbacks };
@@ -70,7 +70,7 @@ describe('useModelTraceSearch content updates', () => {
   it('reselects the refreshed child while retaining its active occurrence', () => {
     const child = { ...createNode('needle needle'), key: 'child' };
     const root = { ...createNode('absent'), children: [child] };
-    const { result, rerender, setSelectedNode, setSelectedNodeAndTab } = renderSearch(root);
+    const { result, rerender, setSelectedNode, setSelectedNodeAndTab } = renderSearch(root, child);
     act(() => result.current.setSearchFilter('needle'));
     act(() => result.current.handleNextSearchMatch());
     setSelectedNode.mockClear();
@@ -92,6 +92,28 @@ describe('useModelTraceSearch content updates', () => {
     act(() => result.current.setSearchFilter('other'));
     expect(result.current.matchData.totalMatches).toBe(1);
     expect(result.current.matchData.currentMatchIndex).toBe(0);
+  });
+
+  it('refreshes a deliberately selected span without returning to the active match span', () => {
+    const child = { ...createNode('needle'), key: 'child' };
+    const root: ModelTraceSpanNode = { ...createNode('needle'), children: [child] };
+    const setSelectedNode = jest.fn();
+    const callbacks = { setSelectedNode, setSelectedNodeAndTab: jest.fn(), setExpandedKeys: jest.fn() };
+    const { result, rerender } = renderHook(
+      ({ treeNodes, selectedNode }) =>
+        useModelTraceSearch({ ...callbacks, treeNodes, selectedNode, modelTraceInfo: null }),
+      { initialProps: { treeNodes: [root], selectedNode: root } },
+    );
+    act(() => result.current.setSearchFilter('needle'));
+    expect(result.current.matchData.match?.span).toBe(root);
+    rerender({ treeNodes: [root], selectedNode: child });
+    setSelectedNode.mockClear();
+    const updatedChild = { ...child, title: 'refreshed child' };
+    const updatedRoot = { ...root, children: [updatedChild] };
+    rerender({ treeNodes: [updatedRoot], selectedNode: child });
+    expect(result.current.matchData.match?.span).toBe(updatedRoot);
+    expect(setSelectedNode).toHaveBeenLastCalledWith(updatedChild);
+    expect(callbacks.setSelectedNodeAndTab).toHaveBeenCalledTimes(1);
   });
 
   it('selects a remaining match when the active field disappears', () => {

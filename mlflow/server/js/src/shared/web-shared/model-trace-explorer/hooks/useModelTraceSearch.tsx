@@ -306,8 +306,9 @@ export const useModelTraceSearch = ({
         : -1;
       if (nextIndex >= 0) {
         setActiveMatchIndex(nextIndex);
-        if (matches[nextIndex].span !== selectedNode) {
-          setSelectedNode(matches[nextIndex].span);
+        const refreshedSelection = nodeMap[selectedNode?.key ?? ''] ?? matches[nextIndex].span;
+        if (refreshedSelection !== selectedNode) {
+          setSelectedNode(refreshedSelection);
         }
         return;
       }
