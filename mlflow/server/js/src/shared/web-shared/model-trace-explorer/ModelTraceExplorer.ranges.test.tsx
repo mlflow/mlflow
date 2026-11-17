@@ -2,7 +2,10 @@ import { describe, expect, it } from '@jest/globals';
 
 import type { ModelTraceSpanV2 } from './ModelTrace.types';
 import { MOCK_TRACE } from './ModelTraceExplorer.test-utils';
-import { parseModelTraceToTreeWithMultipleRoots as parseLegacyTree } from './ModelTraceExplorer.utils';
+import {
+  getModelTraceTimelineRange as getLegacyTimelineRange,
+  parseModelTraceToTreeWithMultipleRoots as parseLegacyTree,
+} from './ModelTraceExplorer.utils';
 import {
   getModelTraceTimelineRange,
   parseModelTraceToTreeWithMultipleRoots as parseTree,
@@ -42,6 +45,45 @@ describe('large trace time ranges', () => {
     expect(nodes).toHaveLength(SPAN_COUNT);
     expect(nodes[0].start).toBe(0);
     expect(nodes[SPAN_COUNT - 1].end).toBe(SPAN_COUNT);
+  });
+
+  it.each([
+    ['legacy', parseLegacyTree],
+    ['drawer', parseTree],
+  ] as const)('normalizes a wide %s V2 trace with explicit parent IDs', (_version, parse) => {
+    const normalizedSpans = spans.map((span, index) => ({
+      ...span,
+      parent_id: index === 0 ? '' : spans[0].context.span_id,
+    }));
+    const nodes = parse({ ...MOCK_TRACE, data: { spans: normalizedSpans } });
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].start).toBe(0);
+    expect(nodes[0].end).toBe(0.001);
+    expect(nodes[0].children).toHaveLength(SPAN_COUNT - 1);
+    expect(nodes[0].children?.[SPAN_COUNT - 2].end).toBe(SPAN_COUNT / 1000);
+  });
+
+  it('computes the legacy detail timeline range without spreading every root', () => {
+    const node = { key: 'wide', start: -5, end: 10 };
+    expect(getLegacyTimelineRange(Array.from({ length: SPAN_COUNT }, () => node))).toEqual({
+      traceStartTime: -5,
+      traceEndTime: 10,
+    });
+  });
+
+  it('retains wider baseline bounds and roots without a candidate', () => {
+    const nodes = [
+      { key: 'paired', start: -20, end: 30 },
+      { key: 'unpaired', start: -40, end: 50 },
+    ];
+    expect(getModelTraceTimelineRange(nodes, { paired: { key: 'paired', start: -10, end: 20 } })).toEqual({
+      traceStartTime: -40,
+      traceEndTime: 50,
+    });
+    expect(getModelTraceTimelineRange(nodes.slice(0, 1), { paired: { key: 'paired', start: -10, end: 20 } })).toEqual({
+      traceStartTime: -20,
+      traceEndTime: 30,
+    });
   });
 
   it('includes all baseline and candidate top-level spans in a wide comparison range', () => {

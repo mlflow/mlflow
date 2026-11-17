@@ -1103,24 +1103,7 @@ export const buildModelTraceComparisonForest = (
   };
 };
 
-export const getModelTraceTimelineRange = (
-  topLevelNodes: ModelTraceSpanNode[] | undefined,
-  comparisonNodeMap: Record<string, ModelTraceSpanNode>,
-): { traceStartTime: number; traceEndTime: number } => {
-  if (!topLevelNodes || topLevelNodes.length === 0) {
-    return { traceStartTime: 0, traceEndTime: 0 };
-  }
-  // A comparison's merged spans keep baseline times, so include their candidate sides: a longer
-  // candidate's later spans would otherwise fall outside the timeline.
-  let traceStartTime = Infinity;
-  let traceEndTime = -Infinity;
-  for (const node of topLevelNodes) {
-    const candidateNode = comparisonNodeMap[String(node.key)];
-    traceStartTime = Math.min(traceStartTime, node.start, candidateNode ? candidateNode.start : Infinity);
-    traceEndTime = Math.max(traceEndTime, node.end, candidateNode ? candidateNode.end : -Infinity);
-  }
-  return { traceStartTime, traceEndTime };
-};
+export { getModelTraceTimelineRange } from '../ModelTraceExplorer.utils';
 
 // returns a map of { [span_id: string] : Assessment[] }
 export const getAssessmentMap = (traceInfo: ModelTrace['info']): Record<string, Assessment[]> => {

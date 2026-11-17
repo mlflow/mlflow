@@ -14,6 +14,7 @@ import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateCon
 import { useModelTraceSearch } from './hooks/useModelTraceSearch';
 import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-pane/ModelTraceExplorerRightPaneTabs';
 import { TimelineTree } from './timeline-tree/TimelineTree';
+import { getModelTraceTimelineRange } from './ModelTraceExplorer.utils';
 import {
   DEFAULT_EXPAND_DEPTH,
   getModelTraceSpanNodeDepth,
@@ -297,16 +298,7 @@ export const ModelTraceExplorerDetailView = ({
     return Math.max(LEFT_PANE_HEADER_MIN_WIDTH_PX, minWidthForSpans);
   }, [filteredTreeNodes, theme.spacing.lg]);
 
-  const { traceStartTime, traceEndTime } = useMemo(() => {
-    if (!topLevelNodes || topLevelNodes.length === 0) {
-      return { traceStartTime: 0, traceEndTime: 0 };
-    }
-
-    const traceStartTime = Math.min(...topLevelNodes.map((node) => node.start));
-    const traceEndTime = Math.max(...topLevelNodes.map((node) => node.end));
-
-    return { traceStartTime, traceEndTime };
-  }, [topLevelNodes]);
+  const { traceStartTime, traceEndTime } = useMemo(() => getModelTraceTimelineRange(topLevelNodes), [topLevelNodes]);
 
   const graphCanvasContent = (
     <div
