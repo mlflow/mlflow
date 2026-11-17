@@ -330,7 +330,7 @@ class SqlAlchemyGatewayStoreMixin:
             validate_gateway_secret_update_does_not_retarget_credential(
                 existing_auth_config,
                 auth_config,
-                secret_value_provided=secret_value is not None,
+                secret_value_provided=bool(secret_value),
             )
 
             if secret_value is not None:

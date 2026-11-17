@@ -277,9 +277,11 @@ def test_update_gateway_secret_with_auth_config(store: SqlAlchemyStore):
 
 
 @pytest.mark.parametrize("provider", [None, "openai"])
+@pytest.mark.parametrize("secret_value", [None, {}])
 def test_update_gateway_secret_rejects_api_base_change_without_secret_value(
     store: SqlAlchemyStore,
     provider,
+    secret_value,
 ):
     created = store.create_gateway_secret(
         secret_name="retarget-me",
@@ -293,6 +295,7 @@ def test_update_gateway_secret_rejects_api_base_change_without_secret_value(
     ) as exc:
         store.update_gateway_secret(
             secret_id=created.secret_id,
+            secret_value=secret_value,
             auth_config={"api_base": "https://attacker.example/v1", "api_version": "2024-02-01"},
         )
 
@@ -305,9 +308,11 @@ def test_update_gateway_secret_rejects_api_base_change_without_secret_value(
 
 
 @pytest.mark.parametrize("provider", [None, "openai"])
+@pytest.mark.parametrize("secret_value", [None, {}])
 def test_update_gateway_secret_rejects_api_base_addition_without_secret_value(
     store: SqlAlchemyStore,
     provider,
+    secret_value,
 ):
     created = store.create_gateway_secret(
         secret_name="add-base",
@@ -321,6 +326,7 @@ def test_update_gateway_secret_rejects_api_base_addition_without_secret_value(
     ) as exc:
         store.update_gateway_secret(
             secret_id=created.secret_id,
+            secret_value=secret_value,
             auth_config={"api_base": "https://attacker.example/v1", "api_version": "2024-02-01"},
         )
 
