@@ -337,6 +337,24 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
 
 
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize(
+    ("literal", "expected"),
+    [
+        ("'it''s'", "it's"),
+        ("'it''''s'", "it''s"),
+        (r"'100\%\\it''s'", r"100\%\\it's"),
+        ("\"it''s\"", "it''s"),
+        ('"path\\name"', "path\\name"),
+    ],
+)
+def test_span_filter_quote_escaping(field, comparator, literal, expected):
+    assert SearchTraceUtils.parse_search_filter(f"span.{field} {comparator} {literal}") == [
+        {"type": "span", "key": field, "comparator": comparator, "value": expected}
+    ]
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error_message"),
     [

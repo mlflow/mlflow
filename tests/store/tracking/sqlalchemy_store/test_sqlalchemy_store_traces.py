@@ -1046,6 +1046,32 @@ def test_search_traces_span_ilike_escape(store: SqlAlchemyStore, field, pattern,
     assert {trace_names[trace.trace_id] for trace in traces} == expected
 
 
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize(
+    ("comparison", "expected"),
+    [
+        ("= '100%\\it''s'", {"100%\\it's"}),
+        ("!= '100%\\it''s'", {"plain", "100%\\it''s"}),
+        (r"ILIKE '100\%\\IT''S'", {"100%\\it's"}),
+        (r"ILIKE '%\%\\it''s%'", {"100%\\it's"}),
+        ("= \"100%\\it''s\"", {"100%\\it''s"}),
+    ],
+)
+def test_search_traces_span_escaped_quote(store: SqlAlchemyStore, field, comparison, expected):
+    exp_id = store.create_experiment("span_escaped_quote")
+    trace_names = {}
+    for index, value in enumerate(["plain", "100%\\it's", "100%\\it''s"]):
+        trace_id = f"trace{index}"
+        _create_trace(store, trace_id, exp_id)
+        store.log_spans(
+            exp_id, [create_test_span(trace_id, name=value, span_type=value, span_id=index + 1)]
+        )
+        trace_names[trace_id] = value
+
+    traces, _ = store.search_traces([exp_id], filter_string=f"span.{field} {comparison}")
+    assert {trace_names[trace.trace_id] for trace in traces} == expected
+
+
 def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_plain_text_search")
 

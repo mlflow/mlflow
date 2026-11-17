@@ -2215,7 +2215,10 @@ class SearchTraceUtils(SearchUtils):
                 )
         elif identifier_type == cls._SPAN_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
-                return cls._strip_quotes(token.value, expect_quoted_value=True)
+                value = cls._strip_quotes(token.value, expect_quoted_value=True)
+                if key in {"name", "type"} and token.value.startswith("'"):
+                    value = value.replace("''", "'")
+                return value
             elif isinstance(token, Parenthesis):
                 return cls._parse_attribute_lists(token)
             else:
