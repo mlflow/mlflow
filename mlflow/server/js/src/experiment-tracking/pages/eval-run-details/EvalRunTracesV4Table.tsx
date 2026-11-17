@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { type InputRef, useDesignSystemTheme } from '@databricks/design-system';
+import { ColumnSplitIcon, type InputRef, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { createTraceV4LongIdentifier, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -16,6 +16,7 @@ import {
   TracesErrorAlert,
   type SessionHrefGetter,
   type SessionSelectionHandler,
+  type TraceColumnHeaderAction,
   type TraceColumnId,
   type TraceHrefGetter,
   type TracesTableViewProps,
@@ -32,6 +33,10 @@ import { useDeleteTracesMutation } from '../../components/evaluations/hooks/useD
 import { useTracesV4Density } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4TraceActions';
+import {
+  isCustomTraceColumnId,
+  useTracesV4CustomColumns,
+} from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4CustomColumns';
 import { useTracesV4UnifiedSearch } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UnifiedSearch';
 import {
   getSessionAssessmentNames,
@@ -111,6 +116,11 @@ export const EvalRunTracesV4Table = ({
   const controller = useEvalRunTracesV4Controller({ experimentId, runUuid, seededAssessmentNames });
   const { url, page, columns, assessments, columnSizing, bulk, searchInput, filterModel, flags } = controller;
   const { density, setDensity } = useTracesV4Density(persistenceId);
+  const customColumns = useTracesV4CustomColumns(
+    page.traces,
+    columns.dynamicVisibilityById,
+    columns.setDynamicVisibility,
+  );
   // Edits, judge runs and deletes change the scores, so they reload the header summaries with the rows.
   const { refetch: refetchPage } = page;
   const { refetch: refetchAssessmentSummaries } = assessmentSummaries;
@@ -256,18 +266,45 @@ export const EvalRunTracesV4Table = ({
   const resetColumns = useCallback(() => {
     columns.resetToDefaults();
     assessments.reset();
+    customColumns.reset();
     setReorderedColumns(undefined);
-  }, [columns, assessments]);
+  }, [columns, assessments, customColumns]);
   const handleHideColumn = useCallback(
     (columnId: string) => {
-      if (isAssessmentColumnId(columnId)) {
+      if (isCustomTraceColumnId(columnId)) {
+        customColumns.toggle(columnId);
+      } else if (isAssessmentColumnId(columnId)) {
         assessments.toggle(columnId);
       } else if (isStandardColumnId(columnId)) {
         columns.toggleColumn(columnId);
       }
     },
-    [assessments, columns],
+    [customColumns, assessments, columns],
   );
+  const columnHeaderActions = useMemo<Readonly<Partial<Record<string, TraceColumnHeaderAction>>>>(() => {
+    const headerActions: Partial<Record<string, TraceColumnHeaderAction>> = {};
+    if (customColumns.tags.selectorOptions.length > 0) {
+      headerActions['tags'] = {
+        label: intl.formatMessage({
+          defaultMessage: 'Expand tag columns',
+          description: 'Column header action for expanding tag columns',
+        }),
+        icon: <ColumnSplitIcon />,
+        onClick: () => customColumns.tags.setAllVisible(true),
+      };
+    }
+    if (customColumns.metadata.selectorOptions.length > 0) {
+      headerActions['metadata'] = {
+        label: intl.formatMessage({
+          defaultMessage: 'Expand metadata columns',
+          description: 'Column header action for expanding metadata columns',
+        }),
+        icon: <ColumnSplitIcon />,
+        onClick: () => customColumns.metadata.setAllVisible(true),
+      };
+    }
+    return headerActions;
+  }, [customColumns.tags, customColumns.metadata, intl]);
 
   const handleTraceSelected = useCallback(
     (trace: ModelTraceInfoV3) =>
@@ -375,6 +412,7 @@ export const EvalRunTracesV4Table = ({
     onToggleColumn: columns.toggleColumn,
     onResetColumns: resetColumns,
     assessmentColumns: assessments,
+    customColumns,
     sort: url.sort,
     dir: url.dir,
     onSort: url.setSort,
@@ -406,12 +444,17 @@ export const EvalRunTracesV4Table = ({
   const getErrorDescription = useMemo(() => makeTracesV4ErrorDescription(intl), [intl]);
   // The cursor API returns no total, so the footer count shows only when the run fits on one page.
   const isTotalKnown = !page.hasNext && !page.hasPrev;
+  const extraColumns = useMemo(
+    () => [...customColumns.columnDefs, ...assessmentColumnDefs],
+    [customColumns.columnDefs, assessmentColumnDefs],
+  );
 
   const tableViewProps: TracesTableViewProps = {
     viewState,
     traces: page.traces,
     visibleColumns,
-    extraColumns: assessmentColumnDefs,
+    extraColumns,
+    columnHeaderActions,
     columnOrder: tableColumnOrder,
     initialColumnSizing: evalRunColumnSizing,
     onColumnSizingSettled: columnSizing.setColumnSizing,

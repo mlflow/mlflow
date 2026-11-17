@@ -9,6 +9,7 @@ import { useLocation } from '../../../common/utils/RoutingUtils';
 import { renderTracesV4Page } from '../../components/experiment-page/components/traces-v4/test-utils/renderTracesV4Page';
 import {
   makeFeedbackAssessment,
+  makeTaggedTrace,
   makeTrace,
   makeTraces,
 } from '../../components/experiment-page/components/traces-v4/test-utils/mockTraces';
@@ -186,6 +187,46 @@ describe('EvalRunTracesV4Table', () => {
     await user.click(within(menu).getByRole('menuitem', { name: /Columns/ }));
     expect(await screen.findByRole('menuitemcheckbox', { name: /Time/ })).not.toBeChecked();
     expect(screen.queryByRole('menuitemcheckbox', { name: /^Run/ })).not.toBeInTheDocument();
+  });
+
+  describe('trace tag columns', () => {
+    beforeEach(() => {
+      const tagged = makeTaggedTrace('tr-tagged', { 'parity.case': 'error', 'porter.split': 'validation' });
+      state.traces = [makeRunTrace(tagged.trace_id, { tags: tagged.tags })];
+    });
+
+    test('offers user tags as Display column choices and hides a chosen tag from its header', async () => {
+      const user = userEvent.setup();
+      renderTable();
+
+      await findTraceRow('tr-tagged');
+      await user.click(screen.getByRole('button', { name: 'Display' }));
+      await user.hover(screen.getByRole('menuitem', { name: 'Columns' }));
+      expect(await screen.findByRole('menuitemcheckbox', { name: 'parity.case' })).not.toBeChecked();
+      expect(screen.getByRole('menuitemcheckbox', { name: 'porter.split' })).not.toBeChecked();
+      expect(screen.queryByRole('menuitemcheckbox', { name: 'mlflow.traceInternal' })).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'parity.case' }));
+      const tagHeader = await screen.findByRole('columnheader', { name: 'parity.case' });
+      expect(screen.getByRole('cell', { name: 'error' })).toBeVisible();
+
+      await user.click(within(tagHeader).getByRole('button', { name: /^Column options/ }));
+      await user.click(screen.getByRole('menuitem', { name: 'Hide column' }));
+      await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'parity.case' })).not.toBeInTheDocument());
+    });
+
+    test('expands every user tag from the Tags header', async () => {
+      const user = userEvent.setup();
+      renderTable();
+
+      const tagsHeader = await screen.findByRole('columnheader', { name: 'Tags' });
+      await user.click(within(tagsHeader).getByRole('button', { name: /^Column options/ }));
+      await user.click(screen.getByRole('menuitem', { name: 'Expand tag columns' }));
+
+      expect(await screen.findByRole('columnheader', { name: 'parity.case' })).toBeVisible();
+      expect(screen.getByRole('columnheader', { name: 'porter.split' })).toBeVisible();
+      expect(screen.queryByRole('columnheader', { name: 'mlflow.traceInternal' })).not.toBeInTheDocument();
+    });
   });
 
   test('turns a typed query into a filter on the run’s traces', async () => {
