@@ -144,6 +144,42 @@ describe('useRunJudgesOnTracesConfiguration', () => {
     }
   });
 
+  it.each(['saved', 'template'])('clears a failed submission when selecting a %s judge', async (selection) => {
+    jest.mocked(useFeatureEnabled).mockReturnValue(false);
+    mockEvaluateTraces.mockImplementation(() => {
+      throw new Error('Previous submission failed');
+    });
+    const ModalTestComponent = () => {
+      const { showRunJudgesModal, RunJudgesModal } = useRunJudgesOnTracesConfiguration(
+        mockEvaluateTraces,
+        undefined,
+        undefined,
+      );
+      return (
+        <>
+          <button onClick={() => showRunJudgesModal(['trace-1'])}>open</button>
+          {RunJudgesModal}
+        </>
+      );
+    };
+    const user = userEvent.setup();
+    render(<ModalTestComponent />, { wrapper });
+    await user.click(screen.getByText('open'));
+    await user.click(await screen.findByText('direct_judge'));
+    await user.click(screen.getByRole('button', { name: 'Run judge' }));
+    expect(screen.getByText('Previous submission failed')).toBeInTheDocument();
+
+    if (selection === 'template') {
+      await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
+    }
+    await user.click(await screen.findByText(selection === 'template' ? 'Safety' : 'gateway_judge'));
+
+    expect(screen.queryByText('Previous submission failed')).not.toBeInTheDocument();
+    expect(screen.getByText(/AI Gateway is disabled/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Run judges' })).toBeDisabled();
+    expect(mockEvaluateTraces).toHaveBeenCalledTimes(1);
+  });
+
   it('should return null JudgesStatusBanner when there are no evaluations', () => {
     const { result } = renderHook(() => useRunJudgesOnTracesConfiguration(mockEvaluateTraces, {}, undefined), {
       wrapper,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { generateCopyName, hasMixedTypeSafeProviders, isGatewayModel } from './gatewayUtils';
+import { generateCopyName, hasMixedTypeSafeProviders, isExplicitGatewayModel } from './gatewayUtils';
 
 describe('gatewayUtils', () => {
   it.each<[string | undefined, boolean]>([
@@ -10,7 +10,7 @@ describe('gatewayUtils', () => {
     ['gateway:/model', true],
     ['gateway:/catalog.schema.judge', true],
   ])('identifies explicit Gateway models: %s', (model, expected) => {
-    expect(isGatewayModel(model)).toBe(expected);
+    expect(isExplicitGatewayModel(model)).toBe(expected);
   });
 
   describe('hasMixedTypeSafeProviders', () => {

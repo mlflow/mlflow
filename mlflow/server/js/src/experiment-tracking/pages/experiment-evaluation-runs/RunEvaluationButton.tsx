@@ -25,7 +25,7 @@ import { EndpointSelector } from '../../components/EndpointSelector';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
 import { useMonitoringFiltersTimeRange } from '../../hooks/useMonitoringFilters';
 import {
-  isGatewayModel,
+  isExplicitGatewayModel,
   formatGatewayModelFromEndpoint,
   getEndpointNameFromGatewayModel,
 } from '../../../gateway/utils/gatewayUtils';
@@ -65,7 +65,7 @@ export const RunEvaluationButton = ({
   const hasSelectedTemplates = selectedTemplates.length > 0;
   const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
   const isGatewayBlocked =
-    !gatewayEnabled && (hasSelectedTemplates || selectedScorers.some((scorer) => isGatewayModel(scorer.model)));
+    !gatewayEnabled && (hasSelectedTemplates || selectedScorers.some((scorer) => isExplicitGatewayModel(scorer.model)));
   const runJudgeDisabled =
     selectedTraceIds.length === 0 ||
     selectedJudgeCount === 0 ||
@@ -88,6 +88,7 @@ export const RunEvaluationButton = ({
   };
 
   const toggleScorer = (scorer: LLMScorer) => {
+    if (submissionError) clearSubmissionError();
     setSelectedScorers((prev) => {
       const isSelected = prev.some((s) => s.name === scorer.name);
       return isSelected ? prev.filter((s) => s.name !== scorer.name) : [...prev, scorer];
@@ -95,6 +96,7 @@ export const RunEvaluationButton = ({
   };
 
   const toggleTemplate = (template: LLM_TEMPLATE) => {
+    if (submissionError) clearSubmissionError();
     setSelectedTemplates((prev) => {
       const isSelected = prev.includes(template);
       return isSelected ? prev.filter((t) => t !== template) : [...prev, template];

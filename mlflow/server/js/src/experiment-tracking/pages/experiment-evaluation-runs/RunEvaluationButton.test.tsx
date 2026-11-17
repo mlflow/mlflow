@@ -451,6 +451,34 @@ describe('RunEvaluationButton', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it.each(['saved', 'template'])('clears the previous API error when selecting a %s judge', async (selection) => {
+    jest.mocked(useFeatureEnabled).mockReturnValue(false);
+    mockInvokeState = { isLoading: false, error: new Error('Previous submission failed') };
+    mockResetSubmit.mockImplementation(() => {
+      mockInvokeState.error = null;
+    });
+    mockUseGetScheduledScorers.mockReturnValue({
+      data: { scheduledScorers: [{ name: 'Gateway judge', type: 'llm', model: 'gateway:/judge' }] },
+      isLoading: false,
+    });
+    renderButton();
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
+    expect(screen.getByText('Previous submission failed')).toBeInTheDocument();
+
+    if (selection === 'template') {
+      await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
+    }
+    await user.click(getJudgeCheckboxByName(selection === 'template' ? 'Safety' : 'Gateway judge'));
+
+    expect(mockResetSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Previous submission failed')).not.toBeInTheDocument();
+    expect(screen.getByText(/AI Gateway is disabled/)).toBeInTheDocument();
+    const run = screen.getByRole('button', { name: 'Run judge' });
+    expect(run).toBeDisabled();
+    await user.click(run);
+    expect(mockInvokeMutate).not.toHaveBeenCalled();
+  });
+
   it('switches the button text to "Run judges" when multiple judges are selected', async () => {
     mockUseGetScheduledScorers.mockReturnValue({
       data: {
@@ -690,6 +718,7 @@ describe('RunEvaluationButton', () => {
       expect(mockInvokeMutate).not.toHaveBeenCalled();
 
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+      expect(mockResetSubmit).not.toHaveBeenCalled();
     });
 
     it('renders an inline error alert when the API call fails', async () => {
@@ -742,6 +771,11 @@ describe('RunEvaluationButton', () => {
       // The error is shown inline (not swallowed) and the network call is never made.
       expect(screen.getByText('Instructions are required for instructions-based LLM scorers')).toBeInTheDocument();
       expect(mockInvokeMutate).not.toHaveBeenCalled();
+
+      await user.click(getJudgeCheckboxByName('Broken Judge'));
+      expect(
+        screen.queryByText('Instructions are required for instructions-based LLM scorers'),
+      ).not.toBeInTheDocument();
     });
   });
 });
