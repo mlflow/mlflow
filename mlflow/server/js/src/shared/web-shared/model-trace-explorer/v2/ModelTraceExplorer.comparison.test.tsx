@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '../../query-client/queryClient
 
 import type { ModelTrace, ModelTraceSpanV2 } from './ModelTrace.types';
 import { ModelTraceExplorer } from './ModelTraceExplorer';
+import * as SpanView from './right-pane/ModelTraceExplorerDefaultSpanView';
 import { MOCK_TRACE } from '../ModelTraceExplorer.test-utils';
 import { ModelTraceExplorerPreferencesProvider } from './ModelTraceExplorerPreferencesContext';
 import { ModelTraceExplorerContextProvider } from './ModelTraceExplorerContext';
@@ -59,6 +60,32 @@ const TestComponent = ({
 );
 
 describe('ModelTraceExplorer trace comparison', () => {
+  it('reuses comparison payload fields while switching tabs', async () => {
+    const baseline = cloneDeep(MOCK_TRACE);
+    const candidate = cloneDeep(MOCK_TRACE);
+    for (const [trace, name] of [
+      [baseline, 'before'],
+      [candidate, 'after'],
+    ] as const) {
+      const root = trace.data.spans[0] as ModelTraceSpanV2;
+      root.attributes = {
+        'mlflow.spanType': JSON.stringify('CHAIN'),
+        'mlflow.spanInputs': JSON.stringify({ document: { cacheMarker: `comparison-${name}` } }),
+      };
+    }
+    render(<TestComponent modelTrace={baseline} comparisonModelTrace={candidate} comparisonRole="baseline" />);
+    const fields = jest.spyOn(SpanView, 'getSpanComparisonFields');
+    try {
+      await userEvent.click(screen.getByRole('tab', { name: /^Attributes/ }));
+      await userEvent.click(screen.getByRole('tab', { name: /^Inputs \/ Outputs/ }));
+      expect(fields).not.toHaveBeenCalled();
+      expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent('comparison-before');
+      expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent('comparison-after');
+    } finally {
+      fields.mockRestore();
+    }
+  });
+
   it('keeps unchanged comparison content expanded and sorts changed attributes first', async () => {
     const baselineTrace = cloneDeep(MOCK_TRACE);
     const candidateTrace = cloneDeep(MOCK_TRACE);

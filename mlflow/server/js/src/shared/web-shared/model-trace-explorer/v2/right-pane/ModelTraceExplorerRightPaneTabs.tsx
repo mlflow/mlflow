@@ -11,7 +11,7 @@ import { getSpanComparisonFields } from './ModelTraceExplorerDefaultSpanView';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
 import { ModelTraceExplorerLinksTab } from './ModelTraceExplorerLinksTab';
 import { ModelTraceExplorerRightPaneHeader } from './ModelTraceExplorerRightPaneHeader';
-import { ModelTraceExplorerPayloadCacheProvider } from './ModelTraceExplorerPayloadCache';
+import { ModelTraceExplorerPayloadCacheProvider, useCachedPayloadResult } from './ModelTraceExplorerPayloadCache';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { getDefaultActiveTab, getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
@@ -118,6 +118,19 @@ function ModelTraceExplorerRightPaneTabsImpl({
     [updatePaneSizeRatios],
   );
 
+  const baselineSpan = selectedNodeComparisonRole === 'candidate' ? selectedComparisonNode : activeSpan;
+  const candidateSpan = selectedNodeComparisonRole === 'candidate' ? activeSpan : selectedComparisonNode;
+  const baselineFields = useCachedPayloadResult(
+    'comparison-fields',
+    selectedNodeComparisonRole ? baselineSpan : undefined,
+    () => getSpanComparisonFields(selectedNodeComparisonRole ? baselineSpan : undefined),
+  );
+  const candidateFields = useCachedPayloadResult(
+    'comparison-fields',
+    selectedNodeComparisonRole ? candidateSpan : undefined,
+    () => getSpanComparisonFields(selectedNodeComparisonRole ? candidateSpan : undefined),
+  );
+
   if (isNil(activeSpan)) {
     return <Empty description="Please select a span to view more information" />;
   }
@@ -134,17 +147,12 @@ function ModelTraceExplorerRightPaneTabsImpl({
     ? getDefaultActiveTab({ ...selectedComparisonNode, events: [] }) === 'content'
     : false;
   const hasContent = getDefaultActiveTab({ ...activeSpan, events: [] }) === 'content' || hasComparisonContent;
-  const baselineSpan = selectedNodeComparisonRole === 'candidate' ? selectedComparisonNode : activeSpan;
-  const candidateSpan = selectedNodeComparisonRole === 'candidate' ? activeSpan : selectedComparisonNode;
-  const baselineFields = selectedNodeComparisonRole ? getSpanComparisonFields(baselineSpan) : undefined;
-  const candidateFields = selectedNodeComparisonRole ? getSpanComparisonFields(candidateSpan) : undefined;
-  const contentLineCounts =
-    baselineFields && candidateFields
-      ? sumLineCounts([
-          getFieldLineCounts(baselineFields.inputs, candidateFields.inputs),
-          getFieldLineCounts(baselineFields.outputs, candidateFields.outputs),
-        ])
-      : undefined;
+  const contentLineCounts = selectedNodeComparisonRole
+    ? sumLineCounts([
+        getFieldLineCounts(baselineFields.inputs, candidateFields.inputs),
+        getFieldLineCounts(baselineFields.outputs, candidateFields.outputs),
+      ])
+    : undefined;
   const attributeLineCounts = selectedNodeComparisonRole
     ? getFieldLineCounts(getAttributeFields(baselineSpan?.attributes), getAttributeFields(candidateSpan?.attributes))
     : undefined;

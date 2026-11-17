@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
+import userEvent from '@testing-library/user-event';
 import { render, screen } from '@databricks/web-shared/test-utils/render';
 
 import { ModelTraceExplorerPayloadCacheProvider } from './ModelTraceExplorerPayloadCache';
@@ -23,7 +24,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
     <DesignSystemProvider>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        {children}
+        <ModelTraceExplorerPayloadCacheProvider>{children}</ModelTraceExplorerPayloadCacheProvider>
       </QueryClientProvider>
     </DesignSystemProvider>
   </IntlProvider>
@@ -33,6 +34,43 @@ const spanView = (span: ModelTraceSpanNode) => (
 );
 
 describe('selected payload reuse', () => {
+  it('retains full section JSON when JSON tab content remounts', () => {
+    const pane = (visible: boolean) => (
+      <ModelTraceExplorerPayloadCacheProvider>
+        {visible && (
+          <ModelTraceExplorerDefaultSpanView
+            activeSpan={buildSpan()}
+            searchFilter=""
+            activeMatch={null}
+            defaultRenderMode="json"
+          />
+        )}
+      </ModelTraceExplorerPayloadCacheProvider>
+    );
+    const { rerender } = render(pane(true), { wrapper: Providers });
+    rerender(pane(false));
+    const stringify = jest.spyOn(JSON, 'stringify');
+    rerender(pane(true));
+    expect(stringify.mock.calls.filter(([value]) => value === payload)).toHaveLength(0);
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent(
+      'unchanged synthetic payload café 日本語',
+    );
+  });
+
+  it('shows null when switching a fallback conversation with undefined inputs to JSON', async () => {
+    const span = {
+      ...buildSpan(),
+      inputs: undefined,
+      chatMessages: [{ role: 'user' as const, content: 'fallback user text' }],
+    };
+    render(spanView(span), { wrapper: Providers });
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent('fallback user text');
+    await userEvent.click(screen.getByRole('button', { name: 'Pretty' }));
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'JSON' }));
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent('null');
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).not.toHaveTextContent('fallback user text');
+  });
+
   it('reuses serialized fields after tab content remounts and displays replacement payloads', () => {
     const pane = (span?: ModelTraceSpanNode) => (
       <ModelTraceExplorerPayloadCacheProvider>{span && spanView(span)}</ModelTraceExplorerPayloadCacheProvider>
