@@ -15,6 +15,7 @@ import { beforeEach } from '@jest/globals';
 import { it } from '@jest/globals';
 import { expect } from '@jest/globals';
 import { ScorerEvaluationScope } from './constants';
+import { useFeatureEnabled } from '../../hooks/useServerInfo';
 import {
   createTraceLocationForExperiment,
   createTraceLocationForDestinationPath,
@@ -22,6 +23,7 @@ import {
 import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 
 jest.mock('./useEvaluateTraces');
+jest.mock('../../hooks/useServerInfo');
 jest.mock('./SampleScorerOutputPanelRenderer');
 jest.mock('./SampleScorerTracesToEvaluatePicker', () => ({
   SampleScorerTracesToEvaluatePicker: () => null,
@@ -119,6 +121,7 @@ describe('SampleScorerOutputPanelContainer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(useFeatureEnabled).mockReturnValue(true);
 
     mockedUseEvaluateTraces.mockReturnValue([
       mockEvaluateTraces,
@@ -353,6 +356,29 @@ describe('SampleScorerOutputPanelContainer', () => {
       rendererProps.handleRunScorer();
 
       expect(onScorerFinished).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Gateway availability', () => {
+    it.each(['gateway:/some-model', 'gateway:/catalog.schema.judge'])(
+      'disables sample execution with %s when Gateway is disabled',
+      (model) => {
+        jest.mocked(useFeatureEnabled).mockReturnValue(false);
+        renderComponent({ defaultValues: { model }, selectedItemIds: ['trace-1'] });
+
+        const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+        expect(props.isRunScorerDisabled).toBe(true);
+        expect(props.runScorerDisabledTooltip).toMatch(/AI Gateway is disabled/i);
+      },
+    );
+
+    it('preserves provider validation when Gateway is disabled', () => {
+      jest.mocked(useFeatureEnabled).mockReturnValue(false);
+      renderComponent({ defaultValues: { model: 'openai:/gpt-4.1-mini' }, selectedItemIds: ['trace-1'] });
+
+      const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+      expect(props.isRunScorerDisabled).toBe(true);
+      expect(props.runScorerDisabledTooltip).toMatch(/only supported with databricks endpoints/i);
     });
   });
 

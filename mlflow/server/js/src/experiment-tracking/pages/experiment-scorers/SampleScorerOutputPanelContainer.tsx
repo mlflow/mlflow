@@ -23,6 +23,7 @@ import {
   shouldSupportRunningDatabricksProviderJudgesFromUI,
 } from '../../../common/utils/FeatureUtils';
 import { getModelProvider, ModelProvider } from '../../../gateway/utils/gatewayUtils';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../hooks/useServerInfo';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -42,6 +43,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   onSelectedItemIdsChange,
 }) => {
   const intl = useIntl();
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
   const {
     warehouseId: selectedWarehouseId,
     setWarehouseId: setSelectedWarehouseId,
@@ -239,6 +241,13 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       );
     }
 
+    if (!gatewayEnabled && modelProvider === ModelProvider.GATEWAY) {
+      return intl.formatMessage({
+        defaultMessage: 'AI Gateway is disabled on this server, so this judge model cannot be run.',
+        description: 'Tooltip when the selected judge model requires the disabled AI Gateway',
+      });
+    }
+
     // Judge-specific validation
     if (isInstructionsJudge) {
       // Custom judge mode
@@ -291,6 +300,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   }, [
     isSessionLevelScorer,
     modelValue,
+    gatewayEnabled,
     isInstructionsJudge,
     judgeInstructions,
     hasInstructionsError,

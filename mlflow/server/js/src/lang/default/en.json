@@ -17755,6 +17755,10 @@
     "defaultMessage": "Max Tokens",
     "description": "Label for max tokens input"
   },
+  "rsybQK": {
+    "defaultMessage": "AI Gateway is disabled on this server, so this judge model cannot be run.",
+    "description": "Tooltip when the selected judge model requires the disabled AI Gateway"
+  },
   "rt9clc": {
     "defaultMessage": "Return a 400 error with the guardrail name and reason. The original request or response is not passed through.",
     "description": "Block action description"
