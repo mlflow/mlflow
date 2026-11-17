@@ -48,7 +48,19 @@ export const createTraceResponseParser = () => {
             const request = pending.get(data.id);
             pending.delete(data.id);
             if (data.type === 'parsed') request?.resolve(data.value);
-            else request?.reject(new SyntaxError(data.message));
+            else {
+              const ErrorClass =
+                data.name === 'SyntaxError'
+                  ? SyntaxError
+                  : data.name === 'RangeError'
+                    ? RangeError
+                    : data.name === 'TypeError'
+                      ? TypeError
+                      : Error;
+              const error = new ErrorClass(data.message);
+              error.name = data.name;
+              request?.reject(error);
+            }
           }
         };
       })

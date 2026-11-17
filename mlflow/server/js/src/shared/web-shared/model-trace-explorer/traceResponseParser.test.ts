@@ -158,12 +158,26 @@ describe('trace response parsing', () => {
     const second = parser.parse(body(large));
     await Promise.resolve();
     const [a, b] = worker.postMessage.mock.calls.map(([request]) => request);
-    worker.send({ type: 'failed', id: b.id, message: 'bad JSON' });
+    worker.send({ type: 'failed', id: b.id, name: 'SyntaxError', message: 'bad JSON' });
     await expect(second).rejects.toThrow(SyntaxError);
     worker.send({ type: 'parsed', id: a.id, value: large });
     await expect(first).resolves.toEqual(large);
     expect(worker.terminate).not.toHaveBeenCalled();
   });
+
+  it.each([RangeError, TypeError, Error])(
+    'preserves a worker %p without labeling it a syntax error',
+    async (ErrorClass) => {
+      worker.send({ type: 'ready' });
+      const result = parser.parse(body(large));
+      await Promise.resolve();
+      const [{ id }] = worker.postMessage.mock.calls[0];
+      worker.send({ type: 'failed', id, name: ErrorClass.name, message: 'parse failed' });
+      await expect(result).rejects.toBeInstanceOf(ErrorClass);
+      await expect(result).rejects.toMatchObject({ name: ErrorClass.name, message: 'parse failed' });
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
 
   it.each(['error', 'messageerror', 'post failure'])(
     'rejects a lost body on %s and falls back for future responses',

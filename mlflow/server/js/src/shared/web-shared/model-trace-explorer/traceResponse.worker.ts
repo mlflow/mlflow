@@ -10,7 +10,12 @@ scope.onmessage = ({ data: { id, body } }) => {
     // shortcut: whole-object delivery still clones; chunk span replies for very large traces.
     scope.postMessage({ type: 'parsed', id, value: parseTraceResponseBody(body) });
   } catch (error) {
-    scope.postMessage({ type: 'failed', id, message: error instanceof Error ? error.message : String(error) });
+    scope.postMessage({
+      type: 'failed',
+      id,
+      name: error instanceof Error ? error.name : 'Error',
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 };
 scope.postMessage({ type: 'ready' });
