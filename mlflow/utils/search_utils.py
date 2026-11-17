@@ -2215,8 +2215,20 @@ class SearchTraceUtils(SearchUtils):
                 )
         elif identifier_type == cls._SPAN_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                if key in {"name", "type"}:
+                    return cls._parse_span_filter_literal(token.value)
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
+                if key in {"name", "type"}:
+                    # Normalize SQL literals before the existing Python-literal list validator.
+                    value = "".join(
+                        repr(cls._parse_span_filter_literal(item.value))
+                        if item.ttype
+                        in (TokenType.Literal.String.Single, TokenType.Literal.String.Symbol)
+                        else item.value
+                        for item in token.flatten()
+                    )
+                    token = Token(token.ttype, value)
                 return cls._parse_attribute_lists(token)
             else:
                 raise MlflowException(
@@ -2257,6 +2269,11 @@ class SearchTraceUtils(SearchUtils):
                 f"Expected one of {cls._VALID_IDENTIFIERS}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    @classmethod
+    def _parse_span_filter_literal(cls, literal):
+        value = cls._strip_quotes(literal, expect_quoted_value=True)
+        return value.replace("''", "'") if literal.startswith("'") else value
 
     @classmethod
     def _parse_attribute_lists(cls, token):
