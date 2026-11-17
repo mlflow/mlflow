@@ -4,6 +4,7 @@ from sqlalchemy.dialects import mssql, mysql, postgresql, sqlite
 from mlflow.entities import AssessmentSource, Feedback, TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import _get_filter_clauses_for_search_traces
+from mlflow.utils.search_utils import SearchTraceUtils
 
 from tests.store.tracking.sqlalchemy_store.conftest import _create_trace, create_test_span
 
@@ -118,3 +119,50 @@ def test_search_trace_groups_keep_custom_span_equality_semantics(store):
     }
     rows, _ = store.search_traces([exp], filter_string=" OR ".join(predicates))
     assert {trace.request_id for trace in rows} == expected
+
+
+@pytest.mark.parametrize(
+    "scope",
+    ["window", "run", "session", "request", "scorer", "correlation", "job"],
+)
+def test_composed_trace_filters_keep_automatic_scope(store, scope):
+    exp = store.create_experiment("automatic-scope")
+    run = store.create_run(exp, user_id="user", start_time=0, tags=[], run_name="run")
+    for trace_id, timestamp, state, pick in [
+        ("tr-inside-a", 20, TraceState.ERROR, "no"),
+        ("tr-inside-b", 30, TraceState.OK, "yes"),
+        ("tr-outside", 1, TraceState.OK, "yes"),
+    ]:
+        inside = trace_id != "tr-outside"
+        metadata = {"mlflow.trace.session": "inside" if inside else "outside"}
+        if not inside:
+            metadata["mlflow.sourceRun"] = "evaluation-run"
+        _create_trace(
+            store,
+            trace_id,
+            exp,
+            request_time=timestamp,
+            state=state,
+            trace_metadata=metadata,
+            tags={"pick": pick, "phrase": "AND OR (literal)"},
+        )
+    store.link_traces_to_run(["tr-inside-a", "tr-inside-b"], run.info.run_id)
+    mandatory = {
+        "window": "timestamp_ms >= 10 AND timestamp_ms <= 40",
+        "run": f"run_id = '{run.info.run_id}'",
+        "session": "metadata.`mlflow.trace.session` = 'inside'",
+        "request": "request_id != 'tr-outside'",
+        "scorer": "metadata.`mlflow.sourceRun` IS NULL",
+        "correlation": "timestamp_ms > 10",
+        "job": "timestamp_ms > 10 AND timestamp_ms <= 40",
+    }[scope]
+    expression = "status = 'ERROR' AND tags.pick = 'no' OR tags.pick = 'yes'"
+    combined = SearchTraceUtils.combine_filters(mandatory, expression)
+    repeated = SearchTraceUtils.combine_filters(
+        SearchTraceUtils.combine_filters("", combined, None), "tags.phrase = 'AND OR (literal)'"
+    )
+    for predicate in [combined, repeated]:
+        rows, _ = store.search_traces([exp], filter_string=predicate)
+        assert {t.request_id for t in rows} == {"tr-inside-a", "tr-inside-b"}
+    unsafe, _ = store.search_traces([exp], filter_string=f"{mandatory} AND {expression}")
+    assert {t.request_id for t in unsafe} == {"tr-inside-a", "tr-inside-b", "tr-outside"}

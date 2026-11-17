@@ -5712,12 +5712,8 @@ class SqlAlchemyStore(
             # Keep IDs as integers when filtering trace_info.experiment_id. psycopg v3
             # rejects VARCHAR parameters compared with this INTEGER column.
 
-            filter1_combined = (
-                f"{base_filter} and {filter_string1}" if base_filter else filter_string1
-            )
-            filter2_combined = (
-                f"{base_filter} and {filter_string2}" if base_filter else filter_string2
-            )
+            filter1_combined = SearchTraceUtils.combine_filters(base_filter, filter_string1)
+            filter2_combined = SearchTraceUtils.combine_filters(base_filter, filter_string2)
 
             filter1_subquery = self._build_trace_filter_subquery(
                 session, experiment_ids, filter1_combined

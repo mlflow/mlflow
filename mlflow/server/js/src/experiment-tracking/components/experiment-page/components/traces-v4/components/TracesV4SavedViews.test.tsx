@@ -10,6 +10,7 @@ import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/commo
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
 import { encodeSavedViewEnvelope } from '../../../utils/savedViewEnvelope';
+import * as savedViewEnvelope from '../../../utils/savedViewEnvelope';
 import { textCompressDeflate, textDecompressDeflate } from '@mlflow/mlflow/src/common/utils/StringUtils';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { TRACE_V4_SHARE_URL_PARAM_KEY, buildV4ViewQuery, captureV4ViewState } from '../utils/tracesV4SavedViewState';
@@ -352,7 +353,7 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     filterModel = [],
     assessmentVisibility = {},
   }: {
-    onRender: (s: any, search: string) => void;
+    onRender: (s: any, search: string, setParams: ReturnType<typeof useSearchParams>[1]) => void;
     filterModel?: TraceFilterModel;
     assessmentVisibility?: Record<string, boolean>;
   }) => {
@@ -366,14 +367,14 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       setAssessmentVisibility,
       setColumnOrder,
     });
-    const [params] = useSearchParams();
-    onRender(savedViews, params.toString());
+    const [params, setParams] = useSearchParams();
+    onRender(savedViews, params.toString(), setParams);
     return null;
   };
 
   const renderProbeAt = (
     entry: string,
-    onRender: (s: any, search: string) => void,
+    onRender: (s: any, search: string, setParams: ReturnType<typeof useSearchParams>[1]) => void,
     filterModel: TraceFilterModel = [],
     assessmentVisibility: Record<string, boolean> = {},
   ) =>
@@ -416,6 +417,30 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     // Live URL (q=x) + live columns ([start_time]) equal v1's stored state.
     renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s));
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+  });
+
+  test('does not decode the active saved view again after an unrelated URL edit', async () => {
+    const decode = jest.spyOn(savedViewEnvelope, 'deserializePersistedState');
+    try {
+      let state: any;
+      let navigate: ReturnType<typeof useSearchParams>[1];
+      renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s, _search, setParams) => {
+        state = s;
+        navigate = setParams;
+      });
+      await waitFor(() => expect(setColumns).toHaveBeenCalledWith(['start_time']));
+      expect(decode).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        navigate((params) => {
+          params.set('selectedTraceId', 'tr-other');
+          return params;
+        });
+      });
+      expect(state.dirtyStatus).toBe('clean');
+      expect(decode).toHaveBeenCalledTimes(1);
+    } finally {
+      decode.mockRestore();
+    }
   });
 
   test('dirtyStatus becomes dirty when the live URL diverges from the active view', async () => {

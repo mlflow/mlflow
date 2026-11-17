@@ -481,6 +481,9 @@ export const useTracesV4SavedViews = ({
   // but later user edits aren't clobbered on every render. Also gates the dirty diff so it never
   // flashes "dirty" against half-restored state.
   const hydratedViewIdRef = useRef<string | null>(null);
+  // Router setters change identity on URL edits; hydration follows the active view only.
+  const setSearchParamsRef = useRef(setSearchParams);
+  setSearchParamsRef.current = setSearchParams;
   useEffect(() => {
     if (!activeViewId) {
       setActiveStoredState(null);
@@ -503,7 +506,7 @@ export const useTracesV4SavedViews = ({
         setColumnOrder?.(decodeViewColumnOrder(state));
         const filters = supportedFilters(state.filters);
         if (filters.length) {
-          setSearchParams(
+          setSearchParamsRef.current(
             (params) => {
               if (!params.has('filters')) params.set('filters', JSON.stringify(filters));
               return params;
@@ -520,7 +523,6 @@ export const useTracesV4SavedViews = ({
     };
   }, [
     activeViewId,
-    setSearchParams,
     decodeViewState,
     setColumns,
     setColumnOrder,

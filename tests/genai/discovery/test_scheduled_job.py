@@ -180,7 +180,19 @@ def test_a_window_whose_sample_comes_back_empty_records_a_run_over_zero_traces(c
     assert checkpoint.last_run_id == "run-scheduled"
 
 
-def test_a_successful_occurrence_records_a_run_and_advances_the_watermark(client):
+@pytest.mark.parametrize(
+    ("trace_filter", "expected"),
+    [
+        ("tags.`team` = 'search'", "tags.`team` = 'search'"),
+        (
+            "tags.`team` = 'search' AND status = 'ERROR' OR tags.`team` = 'support'",
+            "(tags.`team` = 'search' AND status = 'ERROR' OR tags.`team` = 'support')",
+        ),
+    ],
+)
+def test_a_successful_occurrence_records_a_run_and_advances_the_watermark(
+    client, trace_filter, expected
+):
     newest = CheckpointTrace(trace_id="tr-newest", time_ms=WINDOW_UPPER_MS - 1)
     with (
         mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=client),
@@ -199,15 +211,14 @@ def test_a_successful_occurrence_records_a_run_and_advances_the_watermark(client
             window_lower_bound_ms=WINDOW_LOWER_MS,
             window_upper_bound_ms=WINDOW_UPPER_MS,
             categories=CATEGORIES,
-            trace_filter="tags.`team` = 'search'",
+            trace_filter=trace_filter,
         )
 
     sample.assert_called_once()
     assert sample.call_args.args[0] == MAX_SCHEDULED_SESSION_SAMPLE_SIZE
     # The occurrence's own window, ANDed with the schedule's clauses.
     assert sample.call_args.kwargs["search_kwargs"]["filter_string"] == (
-        f"timestamp_ms > {WINDOW_LOWER_MS} AND timestamp_ms <= {WINDOW_UPPER_MS} "
-        "AND tags.`team` = 'search'"
+        f"timestamp_ms > {WINDOW_LOWER_MS} AND timestamp_ms <= {WINDOW_UPPER_MS} AND {expected}"
     )
 
     tags = client.create_run.call_args.kwargs["tags"]

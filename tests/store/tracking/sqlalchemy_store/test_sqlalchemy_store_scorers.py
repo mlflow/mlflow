@@ -1766,7 +1766,8 @@ def test_calculate_trace_filter_correlation_empty_experiment_list(store):
     assert math.isnan(result.npmi)
 
 
-def test_calculate_trace_filter_correlation_with_base_filter(store):
+@pytest.mark.parametrize("compound", [False, True])
+def test_calculate_trace_filter_correlation_with_base_filter(store, compound):
     exp_id = _create_experiments(store, "base_filter_test")
 
     early_time = 1000000000000
@@ -1808,10 +1809,15 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
         store.start_trace(trace_info)
 
     base_filter = f"timestamp_ms >= {later_time} and timestamp_ms < {later_time + 100}"
+    filter1 = 'tags.has_error = "true"'
+    filter2 = 'tags.has_tool = "true"'
+    if compound:
+        filter1 = f'tags.missing = "true" AND status = "ERROR" OR {filter1}'
+        filter2 = f'tags.missing = "true" AND status = "ERROR" OR {filter2}'
     result = store.calculate_trace_filter_correlation(
         experiment_ids=[exp_id],
-        filter_string1='tags.has_error = "true"',
-        filter_string2='tags.has_tool = "true"',
+        filter_string1=filter1,
+        filter_string2=filter2,
         base_filter=base_filter,
     )
 
@@ -1838,14 +1844,38 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
 
     result_no_base = store.calculate_trace_filter_correlation(
         experiment_ids=[exp_id],
-        filter_string1='tags.has_error = "true"',
-        filter_string2='tags.has_tool = "true"',
+        filter_string1=filter1,
+        filter_string2=filter2,
     )
 
     assert result_no_base.total_count == 15
     assert result_no_base.filter1_count == 9
     assert result_no_base.filter2_count == 7
     assert result_no_base.joint_count == 5
+
+
+def test_calculate_trace_filter_correlation_groups_or_with_span_base(store):
+    exp = store.create_experiment("correlation-span-base")
+    for label, forced in [("split", "no"), ("same", "no"), ("forced", "yes")]:
+        trace_id = _create_trace_for_correlation(store, exp, tags={"forced": forced})
+        store.log_spans(
+            exp,
+            [
+                create_test_span(
+                    trace_id,
+                    name="target",
+                    span_type="LLM" if label == "same" else "CHAIN",
+                    span_id=1,
+                ),
+                create_test_span(trace_id, name="other", span_type="LLM", span_id=2),
+            ],
+        )
+    expression = "tags.forced = 'yes' OR span.type = 'LLM'"
+    result = store.calculate_trace_filter_correlation(
+        [exp], expression, expression, base_filter="span.name = 'target'"
+    )
+    assert result.total_count == 3
+    assert result.filter1_count == result.filter2_count == result.joint_count == 2
 
 
 def test_get_decrypted_secret_integration_simple(store):
