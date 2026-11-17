@@ -1015,11 +1015,22 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
         (r"100\%\_literal", {"100%_literal"}),
         (r"%\%%", {"100%_literal"}),
         (r"path\\name", {r"path\name"}),
+        (r"\[abc]", {"[abc]"}),
+        ("trailing\\", set()),
+        (r"trailing\\", {"trailing\\"}),
     ],
 )
 def test_search_traces_span_ilike_escape(store: SqlAlchemyStore, field, pattern, expected):
     exp_id = store.create_experiment("span_ilike_escape")
-    values = ["input_guardrail", "inputXguardrail", "100%_literal", r"path\name"]
+    values = [
+        "input_guardrail",
+        "inputXguardrail",
+        "100%_literal",
+        r"path\name",
+        "[abc]",
+        "a",
+        "trailing\\",
+    ]
     trace_names = {}
     for index, value in enumerate(values):
         trace_id = f"trace{index}"

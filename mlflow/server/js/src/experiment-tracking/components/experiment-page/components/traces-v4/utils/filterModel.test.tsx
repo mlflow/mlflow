@@ -218,6 +218,7 @@ describe.each(['span_name', 'span_type'])('%s literal values', (field) => {
   test.each([
     ['%', '\\%'],
     ['_', '\\_'],
+    ['[abc]', '\\[abc]'],
     ['path\\name', 'path\\\\name'],
     ["it's_100%", "it''s\\_100\\%"],
   ])('escapes %s for equals and contains, retaining literal not-equals', (value, escaped) => {

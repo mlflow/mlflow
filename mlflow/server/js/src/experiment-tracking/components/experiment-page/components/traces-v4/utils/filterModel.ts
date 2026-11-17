@@ -291,12 +291,12 @@ const compileContainsAwareClause = (field: string, operator: FilterOp, value: st
 };
 
 /**
- * Compile a span text field (name/type) clause, matching v3's span handling: the backend has no
+ * Compile a span text field (name/type) clause: the backend has no
  * `CONTAINS` token, so `EQUALS` becomes a case-insensitive exact `ILIKE 'value'` and `CONTAINS` a
  * substring `ILIKE '%value%'`, escaping LIKE metacharacters in the value; `NOT_EQUALS` passes through as `!=`.
  */
 const compileSpanTextClause = (field: string, operator: FilterOp, value: string): string => {
-  const escaped = escapeFilterValue(value).replace(/[\\%_]/g, '\\$&');
+  const escaped = escapeFilterValue(value).replace(/[\\%_[]/g, '\\$&');
   if (operator === FilterOp.EQUALS) {
     return `${field} ILIKE '${escaped}'`;
   }

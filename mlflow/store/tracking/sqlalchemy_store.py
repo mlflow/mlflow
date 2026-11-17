@@ -11266,7 +11266,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scope
                         "\\" if key_name in {"name", "type"} and comparator == "ILIKE" else None
                     )
                     val_filter = SearchTraceUtils.get_sql_comparison_func(
-                        comparator, dialect, escape=escape
+                        comparator, dialect, ilike_escape=escape
                     )(span_column, value)
                 span_attribute_filters.append(val_filter)
                 continue

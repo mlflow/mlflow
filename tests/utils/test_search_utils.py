@@ -1078,11 +1078,10 @@ def test_search_trace_utils_filter_metadata_is_null():
 
 
 @pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mysql", "mssql"])
-@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE"])
-def test_sql_comparison_explicit_escape(dialect, comparator):
+def test_sql_comparison_explicit_escape(dialect):
     engine_dialect = sa.dialects.registry.load(dialect)()
-    regular = SearchUtils.get_sql_comparison_func(comparator, dialect)(SqlSpan.name, r"a\_%")
-    escaped = SearchUtils.get_sql_comparison_func(comparator, dialect, escape="\\")(
+    regular = SearchUtils.get_sql_comparison_func("ILIKE", dialect)(SqlSpan.name, r"a\_%")
+    escaped = SearchUtils.get_sql_comparison_func("ILIKE", dialect, ilike_escape="\\")(
         SqlSpan.name, r"a\_%"
     )
     assert "ESCAPE" not in str(regular.compile(dialect=engine_dialect))

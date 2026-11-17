@@ -256,14 +256,14 @@ class SearchUtils:
         }[comparator]
 
     @staticmethod
-    def get_sql_comparison_func(comparator, dialect, *, escape=None):
+    def get_sql_comparison_func(comparator, dialect, *, ilike_escape=None):
         import sqlalchemy as sa
 
         def comparison_func(column, value):
             if comparator == "LIKE":
-                return column.like(value, escape=escape)
+                return column.like(value)
             elif comparator == "ILIKE":
-                return column.ilike(value, escape=escape)
+                return column.ilike(value, escape=ilike_escape)
             elif comparator == "IN":
                 return column.in_(value)
             elif comparator == "NOT IN":
@@ -301,17 +301,9 @@ class SearchUtils:
             }
             if comparator in templates:
                 column = f"{column.class_.__tablename__}.{column.key}"
-                template = templates[comparator]
-                if comparator == "LIKE" and escape is not None:
-                    template = template.replace(":value", ":value ESCAPE :escape")
-                expression = sa.text(template.format(column=column)).bindparams(
+                return sa.text(templates[comparator].format(column=column)).bindparams(
                     sa.bindparam("value", value=value, unique=True)
                 )
-                if comparator == "LIKE" and escape is not None:
-                    expression = expression.bindparams(
-                        sa.bindparam("escape", value=escape, unique=True)
-                    )
-                return expression
 
             if comparator in ("IN", "NOT IN"):
                 column_ref = f"{column.class_.__tablename__}.{column.key}"
