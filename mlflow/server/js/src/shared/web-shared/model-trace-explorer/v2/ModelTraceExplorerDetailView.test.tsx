@@ -71,7 +71,7 @@ describe('workflow layout work', () => {
       await userEvent.keyboard('{Escape}');
     };
     await toggleGraph();
-    const layout = jest.mocked(computeWorkflowLayout).mock.results[0].value;
+    const layout = jest.mocked(computeWorkflowLayout).mock.results[0].value as ReturnType<typeof computeWorkflowLayout>;
     const node = layout.nodes.find((workflowNode) =>
       workflowNode.spans.some((span) => span.key === '_generate_response'),
     );
