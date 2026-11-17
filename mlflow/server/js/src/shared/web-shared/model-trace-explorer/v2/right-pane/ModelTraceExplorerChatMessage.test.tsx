@@ -48,20 +48,26 @@ describe('large chat text', () => {
     expect(attempts()).toBe(1);
   });
 
-  it('keeps large messages as bounded plain text before and after expansion', () => {
+  it('keeps a large message preview in Markdown and bounds only its expansion', () => {
     mockViewport();
     const content = Array.from({ length: 3000 }, (_, index) => `**synthetic-${index}** with café 日本語 🙂`).join('\n');
     const { container } = render(<ModelTraceExplorerChatMessage message={{ role: 'assistant', content }} />, {
       wrapper: Providers,
     });
-    expect(screen.getByText(/Large content is displayed as plain text\./)).toBeInTheDocument();
-    expect(container.querySelector('strong')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
-    expect(mockCopy).toHaveBeenCalledWith(content);
+    const expectPreview = () => {
+      expect(screen.queryByText(/Large content is displayed as plain text\./)).not.toBeInTheDocument();
+      expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
+      expect(container.querySelector('strong')).toHaveTextContent('synthetic-0');
+    };
+    expectPreview();
     fireEvent.click(screen.getByText('See more'));
     expect(screen.getByRole('region', { name: 'Trace text' })).toHaveTextContent('synthetic-0');
     expect(container.textContent).not.toContain('synthetic-2999');
     expect(container.querySelectorAll('*').length).toBeLessThan(200);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(mockCopy).toHaveBeenCalledWith(content);
+    fireEvent.click(screen.getByText('See less'));
+    expectPreview();
   });
 
   it.each(['image', 'attachment'])('preserves mixed large text and %s rendering', (kind) => {
@@ -97,11 +103,16 @@ describe('large chat text', () => {
       <ModelTraceExplorerChatMessage message={{ role: 'tool', content, tool_call_id: 'synthetic-call' }} />,
       { wrapper: Providers },
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
-    expect(mockCopy).toHaveBeenCalledWith(content);
+    expect(screen.queryByText(/Large content is displayed as plain text\./)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('See more'));
     expect(screen.getByRole('region', { name: 'Trace text' })).toHaveTextContent('synthetic tool response');
     expect(container.querySelectorAll('*').length).toBeLessThan(200);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(mockCopy).toHaveBeenCalledWith(content);
+    fireEvent.click(screen.getByText('See less'));
+    expect(screen.queryByText(/Large content is displayed as plain text\./)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
   });
 
   it('bounds an expanded large reasoning section', () => {

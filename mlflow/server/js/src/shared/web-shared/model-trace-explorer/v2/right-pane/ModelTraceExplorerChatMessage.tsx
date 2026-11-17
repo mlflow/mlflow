@@ -383,7 +383,7 @@ export function ModelTraceExplorerChatMessage({
     !shouldDisplayCodeSnippet &&
     attachmentRefCount === 0 &&
     displayLength === content.length &&
-    displayLength > LARGE_TRACE_TEXT_LIMIT;
+    displayedContent.length > LARGE_TRACE_TEXT_LIMIT;
   const toolCallId = message.tool_call_id;
   const isToolResponse = (message.role === 'tool' || message.role === 'function') && toolCallId;
 
