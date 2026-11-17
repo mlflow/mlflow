@@ -1554,14 +1554,8 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
     if (!Array.isArray(attributes)) {
       return attributes;
     }
-    return attributes.reduce(
-      (acc, attr) => {
-        if (!attr.key || !attr.value) {
-          return acc;
-        }
-        return { ...acc, [attr.key]: getValue(attr.value) };
-      },
-      {} as Record<string, any>,
+    return Object.fromEntries(
+      attributes.filter((attr) => attr.key && attr.value).map((attr) => [attr.key, getValue(attr.value)]),
     );
   };
 
