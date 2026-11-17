@@ -1055,6 +1055,8 @@ def test_search_traces_span_ilike_escape(store: SqlAlchemyStore, field, pattern,
         (r"ILIKE '100\%\\IT''S'", {"100%\\it's"}),
         (r"ILIKE '%\%\\it''s%'", {"100%\\it's"}),
         ("= \"100%\\it''s\"", {"100%\\it''s"}),
+        ("IN ('100%\\it''s')", {"100%\\it's"}),
+        ("NOT IN ('100%\\it''s', 'plain')", {"100%\\it''s"}),
     ],
 )
 def test_search_traces_span_escaped_quote(store: SqlAlchemyStore, field, comparison, expected):
