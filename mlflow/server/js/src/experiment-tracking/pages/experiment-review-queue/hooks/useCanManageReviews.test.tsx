@@ -45,10 +45,42 @@ it.each(['edit', 'manage'] as const)('platform admins can %s without an explicit
   expect(AccountApi.getUserPermission).not.toHaveBeenCalled();
 });
 
-it('grants on a missing auth endpoint only', () => {
-  mockUser = { isError: true, error: new NotFoundError({}) };
+it('grants on the HTML 404 from a missing auth endpoint only', () => {
+  mockUser = {
+    isError: true,
+    error: new NotFoundError({
+      status: 404,
+      response: new Response('<!doctype html>', {
+        status: 404,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      }),
+    }),
+  };
   expect(renderPermission().result.current).toBe(true);
   expect(AccountApi.getUserPermission).not.toHaveBeenCalled();
+});
+
+it.each(['application/json', 'text/plain', undefined])(
+  'an auth user 404 with content-type %s denies',
+  (contentType) => {
+    const response = new Response(
+      JSON.stringify({ error_code: 'RESOURCE_DOES_NOT_EXIST', message: 'User not found' }),
+      {
+        status: 404,
+        headers: contentType ? { 'Content-Type': contentType } : undefined,
+      },
+    );
+    if (!contentType) response.headers.delete('content-type');
+    mockUser = { isError: true, error: new NotFoundError({ status: 404, response }) };
+    expect(renderPermission('edit').result.current).toBe(false);
+    expect(renderPermission().result.current).toBe(false);
+    expect(AccountApi.getUserPermission).not.toHaveBeenCalled();
+  },
+);
+
+it('a 404 without an HTTP response denies', () => {
+  mockUser = { isError: true, error: new NotFoundError({}) };
+  expect(renderPermission().result.current).toBe(false);
 });
 
 it.each([new Error('403'), new Error('500'), new Error('network')])('auth lookup failures deny: %s', (error) => {
@@ -128,4 +160,20 @@ it('queries normally when workspaces are definitively disabled', async () => {
   mockActiveWorkspace = null;
   const { result } = renderPermission();
   await waitFor(() => expect(result.current).toBe(true));
+});
+
+it.each(['admin', 'no-auth'])('unresolved workspaces also deny %s', (identity) => {
+  mockActiveWorkspace = null;
+  mockUser =
+    identity === 'admin'
+      ? { data: { user: { username: 'admin', is_admin: true } }, isError: false }
+      : {
+          isError: true,
+          error: new NotFoundError({
+            status: 404,
+            response: new Response(null, { status: 404, headers: { 'Content-Type': 'text/html' } }),
+          }),
+        };
+  expect(renderPermission().result.current).toBe(false);
+  expect(AccountApi.getUserPermission).not.toHaveBeenCalled();
 });

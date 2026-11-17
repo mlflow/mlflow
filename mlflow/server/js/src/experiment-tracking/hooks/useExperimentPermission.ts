@@ -21,13 +21,13 @@ export const useExperimentPermission = (experimentId: string, levels: string[]):
     refetchOnWindowFocus: false,
   });
 
-  // Only a missing auth endpoint identifies no-auth; lookup failures must never grant access.
+  // A missing auth route returns HTML; an unknown authenticated user can return a JSON 404.
+  const authRouteMissing =
+    user.error instanceof NotFoundError &&
+    user.error.response?.headers.get('content-type')?.split(';')[0].trim().toLowerCase() === 'text/html';
   return (
-    user.error instanceof NotFoundError ||
-    Boolean(
-      !user.isError &&
-      workspaceResolved &&
-      (isAdmin || (permission.isSuccess && levels.includes(permission.data.permission))),
-    )
+    workspaceResolved &&
+    (authRouteMissing ||
+      Boolean(!user.isError && (isAdmin || (permission.isSuccess && levels.includes(permission.data.permission)))))
   );
 };
