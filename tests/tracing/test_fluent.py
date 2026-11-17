@@ -1528,6 +1528,13 @@ def test_search_traces_with_run_id():
     )
     assert _get_names(traces) == ["tr-5"]
 
+    traces = mlflow.search_traces(
+        run_id=run2.info.run_id,
+        filter_string="tag.fruit = 'apple' OR tag.fruit = 'banana'",
+        flush=True,
+    )
+    assert set(_get_names(traces)) == {"tr-4", "tr-5"}
+
     with pytest.raises(MlflowException, match="You cannot filter by run_id when it is already"):
         mlflow.search_traces(
             run_id=run2.info.run_id,

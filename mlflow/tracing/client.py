@@ -6,6 +6,8 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Literal, Sequence
 
+import sqlparse
+
 import mlflow
 
 if TYPE_CHECKING:
@@ -372,6 +374,12 @@ class TracingClient:
                         "string and try again.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+                if any(
+                    token.is_keyword and token.normalized == "OR"
+                    for statement in sqlparse.parse(filter_string)
+                    for token in statement.tokens
+                ):
+                    filter_string = f"({filter_string})"
                 filter_string += f" AND {additional_filter}"
             else:
                 filter_string = additional_filter
