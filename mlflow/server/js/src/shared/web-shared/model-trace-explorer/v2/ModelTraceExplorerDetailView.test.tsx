@@ -19,7 +19,9 @@ jest.mock('../graph-view/GraphView.workflow', () => {
   return { ...workflow, computeWorkflowLayout: jest.fn(workflow.computeWorkflowLayout) };
 });
 jest.mock('../graph-view/GraphViewWorkflowCanvas', () => ({
-  GraphViewWorkflowCanvas: () => <div data-testid="workflow-canvas" />,
+  GraphViewWorkflowCanvas: ({ selectedNodeId }: { selectedNodeId: string | null }) => (
+    <div data-testid="workflow-canvas" data-selected-node-id={selectedNodeId} />
+  ),
 }));
 
 const renderExplorer = (enableGraphView = true) =>
@@ -55,5 +57,34 @@ describe('workflow layout work', () => {
     await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Show graph' }));
     expect(await screen.findByTestId('workflow-canvas')).toBeInTheDocument();
     expect(computeWorkflowLayout).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a tree selection linked through showing, hiding and reopening the graph', async () => {
+    renderExplorer();
+    await userEvent.click(await screen.findByTestId('timeline-tree-node-_generate_response'));
+    expect(screen.getByText('_generate_response-input')).toBeInTheDocument();
+    expect(computeWorkflowLayout).not.toHaveBeenCalled();
+
+    const toggleGraph = async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Trace display settings' }));
+      await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Show graph' }));
+      await userEvent.keyboard('{Escape}');
+    };
+    await toggleGraph();
+    const layout = jest.mocked(computeWorkflowLayout).mock.results[0].value;
+    const node = layout.nodes.find((workflowNode) =>
+      workflowNode.spans.some((span) => span.key === '_generate_response'),
+    );
+    expect(node).toBeDefined();
+    expect(await screen.findByTestId('workflow-canvas')).toHaveAttribute('data-selected-node-id', node?.id);
+
+    await toggleGraph();
+    expect(screen.queryByTestId('workflow-canvas')).not.toBeInTheDocument();
+    expect(screen.getByText('_generate_response-input')).toBeInTheDocument();
+    expect(computeWorkflowLayout).toHaveBeenCalledTimes(1);
+
+    await toggleGraph();
+    expect(await screen.findByTestId('workflow-canvas')).toHaveAttribute('data-selected-node-id', node?.id);
+    expect(screen.getByText('_generate_response-input')).toBeInTheDocument();
   });
 });
