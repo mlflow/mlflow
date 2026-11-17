@@ -23,17 +23,14 @@ describe('hierarchy lines', () => {
       zIndex: TimelineTreeZIndex.NORMAL,
     });
   });
-  it.each([false, true])('keeps an inactive or absent last line beneath the connector: %s', (shouldRender) => {
-    expect(
-      hierarchyLineStyles(
-        [
-          { shouldRender: true, isActive: true },
-          { shouldRender, isActive: false },
-        ],
-        'blue',
-        'grey',
-      )?.zIndex,
-    ).toBe(TimelineTreeZIndex.LOW);
+  it.each([
+    { shouldRender: false, isActive: false },
+    { shouldRender: true, isActive: false },
+    { shouldRender: false, isActive: true },
+  ])('keeps an inactive or absent last line beneath the connector: %p', (last) => {
+    expect(hierarchyLineStyles([{ shouldRender: true, isActive: true }, last], 'blue', 'grey')?.zIndex).toBe(
+      TimelineTreeZIndex.LOW,
+    );
   });
   it('omits the line layer when no straight lines are enabled', () => {
     expect(hierarchyLineStyles([], 'blue', 'grey')).toBeUndefined();

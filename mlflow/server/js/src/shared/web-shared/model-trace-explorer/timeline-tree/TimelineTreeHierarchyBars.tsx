@@ -1,11 +1,11 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 
-import { hierarchyLineStyles } from '../hierarchyLineStyles';
+import { getLineCenterX, hierarchyLineStyles } from '../hierarchyLineStyles';
 
 import type { HierarchyBar } from './TimelineTree.types';
 import { SPAN_INDENT_WIDTH, SPAN_ROW_HEIGHT, TimelineTreeZIndex } from './TimelineTree.utils';
 
-const IconBottomConnector = ({ active, left = '100%' }: { active: boolean; left?: string | number }) => {
+const IconBottomConnector = ({ active, left }: { active: boolean; left: number }) => {
   const { theme } = useDesignSystemTheme();
   const borderColor = active ? theme.colors.blue500 : theme.colors.border;
 
@@ -30,7 +30,7 @@ const IconBottomConnector = ({ active, left = '100%' }: { active: boolean; left?
   );
 };
 
-const IconLeftConnector = ({ active, left = '50%' }: { active: boolean; left?: string | number }) => {
+const IconLeftConnector = ({ active, left }: { active: boolean; left: number }) => {
   const { theme } = useDesignSystemTheme();
   const borderColor = active ? theme.colors.blue500 : theme.colors.border;
 
@@ -84,7 +84,7 @@ export const TimelineTreeHierarchyBars = ({
           position: 'relative',
         }}
       >
-        {hasChildren && <IconBottomConnector active={isInActiveChain && !isActiveSpan} />}
+        {hasChildren && <IconBottomConnector active={isInActiveChain && !isActiveSpan} left={0} />}
       </div>
     );
   }
@@ -99,10 +99,7 @@ export const TimelineTreeHierarchyBars = ({
       }}
     >
       {linesStyle && <div style={linesStyle} />}
-      <IconLeftConnector
-        active={isInActiveChain}
-        left={(linesToRender.length - 1) * SPAN_INDENT_WIDTH + SPAN_INDENT_WIDTH / 2}
-      />
+      <IconLeftConnector active={isInActiveChain} left={getLineCenterX(linesToRender.length - 1)} />
       {hasChildren && isExpanded && (
         <IconBottomConnector
           active={isInActiveChain && !isActiveSpan}

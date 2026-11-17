@@ -1,19 +1,11 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 
-import { hierarchyLineStyles } from '../../hierarchyLineStyles';
+import { getLineCenterX, hierarchyLineStyles } from '../../hierarchyLineStyles';
 
 import type { HierarchyBar } from './TimelineTree.types';
 import { SPAN_INDENT_WIDTH, SPAN_ROW_HEIGHT, TimelineTreeZIndex } from './TimelineTree.utils';
 
-const IconBottomConnector = ({
-  active,
-  rowHeight,
-  left = '100%',
-}: {
-  active: boolean;
-  rowHeight: number;
-  left?: string | number;
-}) => {
+const IconBottomConnector = ({ active, rowHeight, left }: { active: boolean; rowHeight: number; left: number }) => {
   const { theme } = useDesignSystemTheme();
   const borderColor = active ? theme.colors.blue500 : theme.colors.border;
 
@@ -41,15 +33,7 @@ const IconBottomConnector = ({
   );
 };
 
-const IconLeftConnector = ({
-  active,
-  rowHeight,
-  left = '50%',
-}: {
-  active: boolean;
-  rowHeight: number;
-  left?: string | number;
-}) => {
+const IconLeftConnector = ({ active, rowHeight, left }: { active: boolean; rowHeight: number; left: number }) => {
   const { theme } = useDesignSystemTheme();
   const borderColor = active ? theme.colors.blue500 : theme.colors.border;
 
@@ -107,7 +91,9 @@ export const TimelineTreeHierarchyBars = ({
           position: 'relative',
         }}
       >
-        {hasChildren && <IconBottomConnector active={isInActiveChain && !isActiveSpan} rowHeight={rowHeight} />}
+        {hasChildren && (
+          <IconBottomConnector active={isInActiveChain && !isActiveSpan} rowHeight={rowHeight} left={0} />
+        )}
       </div>
     );
   }
@@ -125,7 +111,7 @@ export const TimelineTreeHierarchyBars = ({
       <IconLeftConnector
         active={isInActiveChain || isActiveSpan}
         rowHeight={rowHeight}
-        left={(linesToRender.length - 1) * SPAN_INDENT_WIDTH + SPAN_INDENT_WIDTH / 2}
+        left={getLineCenterX(linesToRender.length - 1)}
       />
       {hasChildren && isExpanded && (
         <IconBottomConnector
