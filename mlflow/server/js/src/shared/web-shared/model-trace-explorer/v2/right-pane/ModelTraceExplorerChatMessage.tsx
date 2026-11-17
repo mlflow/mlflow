@@ -259,7 +259,7 @@ function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }
             padding: theme.spacing.sm,
             paddingTop: 0,
             borderTop: `1px solid ${theme.colors.borderDecorative}`,
-            marginBottom: -theme.typography.fontSizeBase,
+            marginBottom: reasoning.length > LARGE_TRACE_TEXT_LIMIT ? 0 : -theme.typography.fontSizeBase,
           }}
         >
           {reasoning.length > LARGE_TRACE_TEXT_LIMIT ? (
