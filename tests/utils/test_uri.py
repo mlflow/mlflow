@@ -1117,23 +1117,32 @@ def test_validate_path_within_directory_tolerates_extended_length_prefix(tmp_pat
     assert result == str(constructed_path)
 
 
-def test_validate_path_within_directory_rejects_outside_path_with_extended_length_prefix(
-    tmp_path,
-):
+@pytest.mark.parametrize("escapes", [False, True])
+def test_validate_path_within_directory_symlink_with_extended_length_prefix(tmp_path, escapes):
     base_dir = tmp_path / "artifacts"
     base_dir.mkdir()
-    constructed_path = tmp_path / "artifacts-evil" / "abc"
+    link_target = tmp_path / "external" if escapes else base_dir / "internal"
+    link_target.mkdir()
+    os.symlink(str(link_target), str(base_dir / "link"))
+    constructed_path = base_dir / "link" / "new_dir" / "abc"
     original_resolve = pathlib.Path.resolve
 
     def resolve_with_prefix(self, strict=False):
+        # Only the missing parent comes back prefixed, so the forms differ as in the Windows
+        # race. The internal link is accepted only after stripping, and stripping must not
+        # let the external link through.
         resolved = original_resolve(self, strict=strict)
-        return type(resolved)("\\\\?\\" + str(resolved))
+        return resolved if self.exists() else type(resolved)("\\\\?\\" + str(resolved))
 
-    with (
-        mock.patch.object(pathlib.Path, "resolve", autospec=True, side_effect=resolve_with_prefix),
-        pytest.raises(MlflowException, match="resolved path is outside the artifact directory"),
-    ):
-        validate_path_within_directory(str(base_dir), str(constructed_path))
+    with mock.patch.object(pathlib.Path, "resolve", autospec=True, side_effect=resolve_with_prefix):
+        if escapes:
+            with pytest.raises(
+                MlflowException, match="resolved path is outside the artifact directory"
+            ):
+                validate_path_within_directory(str(base_dir), str(constructed_path))
+        else:
+            result = validate_path_within_directory(str(base_dir), str(constructed_path))
+            assert result == str(constructed_path)
 
 
 @pytest.mark.parametrize(
