@@ -7,20 +7,25 @@ import { fireEvent } from '@testing-library/react';
 import { ModelTraceExplorerLargeText } from './ModelTraceExplorerLargeText';
 
 let visibleRows = [0, 1];
+let totalSize = 2000;
 const mockScrollToIndex = jest.fn();
 const mockMeasureElement = jest.fn();
 const mockCopy = jest.fn();
 let nextFrame = 0;
 const frames = new Map<number, FrameRequestCallback>();
-const flushFrames = () => {
+const flushFrame = () => {
   const pending = [...frames.values()];
   frames.clear();
   pending.forEach((callback) => callback(0));
 };
+const flushFrames = () => {
+  flushFrame();
+  flushFrame();
+};
 const mockVirtualizer = {
   scrollToIndex: mockScrollToIndex,
   measureElement: mockMeasureElement,
-  getTotalSize: () => 2000,
+  getTotalSize: () => totalSize,
   getVirtualItems: () => visibleRows.map((index) => ({ index, key: index, start: index * 20 })),
 };
 jest.mock('@tanstack/react-virtual', () => ({ useVirtualizer: () => mockVirtualizer }));
@@ -35,6 +40,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => (
 describe('large trace search rendering', () => {
   beforeEach(() => {
     visibleRows = [0, 1];
+    totalSize = 2000;
     jest.clearAllMocks();
     mockMeasureElement.mockReset();
     HTMLElement.prototype.scrollIntoView = jest.fn();
@@ -84,7 +90,7 @@ describe('large trace search rendering', () => {
     });
     expect(revealMeasurements).toEqual([]);
     expect(measured).toBe(true);
-    flushFrames();
+    flushFrame();
     expect(revealMeasurements).toEqual([true]);
   });
 
@@ -96,13 +102,15 @@ describe('large trace search rendering', () => {
     const { rerender } = render(snippet(0), { wrapper: Providers });
     flushFrames();
     expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+    const initialScrolls = mockScrollToIndex.mock.calls.length;
     visibleRows = [40, 41];
+    totalSize = 3000;
     rerender(snippet(0));
     flushFrames();
     visibleRows = [0, 1];
     rerender(snippet(0));
     expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
-    expect(mockScrollToIndex).toHaveBeenCalledTimes(1);
+    expect(mockScrollToIndex).toHaveBeenCalledTimes(initialScrolls);
     rerender(snippet(1));
     flushFrames();
     expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledTimes(2);

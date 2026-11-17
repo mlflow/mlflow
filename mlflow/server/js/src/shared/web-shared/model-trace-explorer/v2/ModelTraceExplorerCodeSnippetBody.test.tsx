@@ -5,6 +5,7 @@ import { render, screen } from '@databricks/web-shared/test-utils/render';
 import { fireEvent, waitFor } from '@testing-library/react';
 
 import { ModelTraceExplorerCodeSnippetBody } from './ModelTraceExplorerCodeSnippetBody';
+import { ModelTraceExplorerLargeText } from './ModelTraceExplorerLargeText';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
 import { formatJsonStringAsYaml } from './ModelTraceExplorerYaml.utils';
 import { MOCK_TRACE } from '../ModelTraceExplorer.test-utils';
@@ -25,6 +26,39 @@ describe('trace snippet preview', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     mockCopy.mockReset();
+  });
+
+  it('reveals a cold search hit after measured rows grow the scrollable content', async () => {
+    jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      return { x: 0, y: 0, top: 0, left: 0, width: 1000, height: 400, right: 1000, bottom: 400, toJSON: () => ({}) };
+    });
+    jest.spyOn(Element.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return Number.parseFloat((this.firstElementChild as HTMLElement)?.style.height) || 0;
+    });
+    jest.spyOn(HTMLElement.prototype, 'scrollTo').mockImplementation(function (
+      this: HTMLElement,
+      options: ScrollToOptions | number,
+    ) {
+      if (this.getAttribute('role') !== 'region' || typeof options === 'number') return;
+      const height = Number.parseFloat((this.firstElementChild as HTMLElement).style.height);
+      const top = Math.max(0, Math.min(options.top ?? 0, height - 400));
+      if (top !== this.scrollTop) {
+        this.scrollTop = top;
+        setTimeout(() => this.dispatchEvent(new Event('scroll')), 0);
+      }
+    });
+    render(
+      <ModelTraceExplorerLargeText
+        text={'filler '.repeat(20000) + 'unique-END'}
+        searchFilter="unique-END"
+        activeMatchIndex={0}
+      />,
+      { wrapper: Providers },
+    );
+    await waitFor(() => {
+      const reveals = jest.mocked(HTMLElement.prototype.scrollIntoView).mock.instances;
+      expect(reveals[reveals.length - 1]).toHaveTextContent('unique-END');
+    });
   });
 
   it.each(Object.values(CodeSnippetRenderMode))(
@@ -69,7 +103,6 @@ describe('trace snippet preview', () => {
       const reveals = jest.mocked(HTMLElement.prototype.scrollIntoView).mock.instances;
       const firstReveal = reveals[reveals.length - 1];
       expect(firstReveal).toHaveTextContent('Search-hit');
-      const initialScrolls = jest.mocked(HTMLElement.prototype.scrollTo).mock.calls.length;
       const initialReveals = jest.mocked(HTMLElement.prototype.scrollIntoView).mock.calls.length;
       rerender(snippet(1));
       await waitFor(() =>
@@ -80,7 +113,6 @@ describe('trace snippet preview', () => {
       const nextReveal = reveals[reveals.length - 1];
       expect(nextReveal).toHaveTextContent('Search-hit');
       expect(nextReveal).not.toBe(firstReveal);
-      expect(jest.mocked(HTMLElement.prototype.scrollTo).mock.calls.length).toBeGreaterThan(initialScrolls);
       fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
       expect(mockCopy).toHaveBeenCalledWith(
         renderMode === CodeSnippetRenderMode.YAML ? formatJsonStringAsYaml(data) : data,

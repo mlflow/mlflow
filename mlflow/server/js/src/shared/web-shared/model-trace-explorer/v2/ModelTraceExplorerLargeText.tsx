@@ -38,6 +38,10 @@ export const ModelTraceExplorerLargeText = ({
           ),
     [search, activeMatchIndex],
   );
+  const selection = useMemo(
+    () => ({ revealed: activeMatchIndex === undefined || !search.pattern }),
+    [search, activeMatchIndex],
+  );
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollElement.current,
@@ -45,30 +49,35 @@ export const ModelTraceExplorerLargeText = ({
     overscan: 10,
     initialRect: { width: 0, height: 400 },
   });
+  const totalSize = virtualizer.getTotalSize();
   useLayoutEffect(() => {
-    if (activeRow >= 0) virtualizer.scrollToIndex(activeRow, { align: 'center' });
-  }, [activeRow, activeMatchIndex, search, virtualizer]);
+    if (activeRow < 0 || selection.revealed) return;
+    // Initial row measurements must reach the spacer DOM before the browser clamps the scroll.
+    const frame = requestAnimationFrame(() => {
+      if (!selection.revealed) virtualizer.scrollToIndex(activeRow, { align: 'center' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeRow, selection, totalSize, virtualizer]);
   const revealActiveMatch = useMemo(() => {
     // Virtual rows can remount while the user scrolls without changing the search selection.
-    let revealed = false;
     let frame: number | undefined;
     return (node: HTMLSpanElement | null) => {
       if (frame !== undefined) {
         cancelAnimationFrame(frame);
         frame = undefined;
       }
-      if (node && search.pattern && activeMatchIndex !== undefined && !revealed) {
+      if (node && search.pattern && activeMatchIndex !== undefined && !selection.revealed) {
         // The parent row measures after this ref attaches and can move the match before the next frame.
         frame = requestAnimationFrame(() => {
           frame = undefined;
           if (node.isConnected) {
-            revealed = true;
+            selection.revealed = true;
             node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
           }
         });
       }
     };
-  }, [search, activeMatchIndex]);
+  }, [search, activeMatchIndex, selection]);
   const renderRow = (index: number) => {
     const row = rows[index];
     const firstMatch = search.matches[index];
@@ -143,7 +152,7 @@ export const ModelTraceExplorerLargeText = ({
         })}
         css={{ maxHeight: 400, overflow: 'auto', backgroundColor: theme.colors.backgroundSecondary }}
       >
-        <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        <div style={{ height: totalSize, position: 'relative' }}>
           {virtualizer.getVirtualItems().map(({ index, key, start }) => (
             <div
               key={key}
