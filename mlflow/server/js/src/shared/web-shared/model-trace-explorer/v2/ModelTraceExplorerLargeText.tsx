@@ -4,10 +4,9 @@ import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { getLargeTextRows } from './largeTextRows';
+import { CopyActionButton } from '../../copy/CopyActionButton';
 
-export const LARGE_TRACE_TEXT_LIMIT = 100_000;
-
-export const ModelTraceExplorerLargeText = ({ text }: { text: string }) => {
+export const ModelTraceExplorerLargeText = ({ text, copyText }: { text: string; copyText?: string }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const scrollElement = useRef<HTMLDivElement>(null);
@@ -22,12 +21,17 @@ export const ModelTraceExplorerLargeText = ({ text }: { text: string }) => {
 
   return (
     <div>
-      <Typography.Text color="secondary">
-        <FormattedMessage
-          defaultMessage="Large content is displayed as plain text."
-          description="Explains why large trace payloads are rendered without Markdown or syntax highlighting"
-        />
-      </Typography.Text>
+      <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm }}>
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Large content is displayed as plain text."
+            description="Explains why large trace payloads are rendered without Markdown or syntax highlighting"
+          />
+        </Typography.Text>
+        {copyText !== undefined && (
+          <CopyActionButton componentId="shared.model-trace-explorer.copy-large-text" copyText={copyText} />
+        )}
+      </div>
       <div
         ref={scrollElement}
         role="region"

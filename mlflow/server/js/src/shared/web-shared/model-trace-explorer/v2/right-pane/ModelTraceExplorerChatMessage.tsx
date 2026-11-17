@@ -32,9 +32,9 @@ import {
   ModelTraceExplorerToolIcon,
 } from './ModelTraceExplorerToolCallMessage';
 import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
-import { MARKDOWN_RENDER_SIZE_LIMIT } from '../../constants';
+import { LARGE_TRACE_TEXT_LIMIT, MARKDOWN_RENDER_SIZE_LIMIT } from '../../constants';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
-import { LARGE_TRACE_TEXT_LIMIT, ModelTraceExplorerLargeText } from '../ModelTraceExplorerLargeText';
+import { ModelTraceExplorerLargeText } from '../ModelTraceExplorerLargeText';
 
 function ClickToExpandImage({ src, alt }: { src: string; alt?: string }) {
   const { theme } = useDesignSystemTheme();
@@ -130,10 +130,12 @@ function ModelTraceExplorerChatMessageContent({
   content,
   shouldDisplayCodeSnippet,
   showsLargeText = false,
+  copyText,
 }: {
   content: string;
   shouldDisplayCodeSnippet: boolean;
   showsLargeText?: boolean;
+  copyText?: string;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
 
@@ -156,11 +158,12 @@ function ModelTraceExplorerChatMessageContent({
   if (showsLargeText) {
     return (
       <div css={{ padding: theme.spacing.sm, paddingTop: 0 }}>
-        <ModelTraceExplorerLargeText text={content} />
+        <ModelTraceExplorerLargeText text={content} copyText={copyText} />
       </div>
     );
   }
 
+  // Image URLs do not count toward the text limit; retain the existing cap for image-heavy messages.
   if (content.length > MARKDOWN_RENDER_SIZE_LIMIT) {
     return (
       <div css={{ padding: theme.spacing.sm, paddingTop: 0 }}>
@@ -260,7 +263,7 @@ function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }
           }}
         >
           {reasoning.length > LARGE_TRACE_TEXT_LIMIT ? (
-            <ModelTraceExplorerLargeText text={reasoning} />
+            <ModelTraceExplorerLargeText text={reasoning} copyText={reasoning} />
           ) : (
             <ChatMarkdown>{reasoning}</ChatMarkdown>
           )}
@@ -367,7 +370,10 @@ export function ModelTraceExplorerChatMessage({
   const effectiveLimit = CONTENT_TRUNCATION_LIMIT + attachmentRefCount * 150;
   const isExpandable = !shouldDisplayCodeSnippet && displayLength > effectiveLimit;
 
-  const displayedContent = isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content;
+  const displayedContent = useMemo(
+    () => (isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content),
+    [content, effectiveLimit, expanded, isExpandable],
+  );
   const showsLargeText = !shouldDisplayCodeSnippet && displayLength > LARGE_TRACE_TEXT_LIMIT;
   const toolCallId = message.tool_call_id;
   const isToolResponse = (message.role === 'tool' || message.role === 'function') && toolCallId;
@@ -421,6 +427,7 @@ export function ModelTraceExplorerChatMessage({
             content={displayedContent}
             shouldDisplayCodeSnippet={false}
             showsLargeText
+            copyText={content}
           />
         )}
         {shouldDisplayCodeSnippet && (
@@ -504,6 +511,7 @@ export function ModelTraceExplorerChatMessage({
           content={displayedContent}
           shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}
           showsLargeText={showsLargeText}
+          copyText={content}
         />
         {message.audioParts && message.audioParts.length > 0 && (
           <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />

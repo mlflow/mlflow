@@ -5,7 +5,8 @@ import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import { CopyActionButton } from '../../../copy/CopyActionButton';
 
-import { LARGE_TRACE_TEXT_LIMIT, ModelTraceExplorerLargeText } from '../ModelTraceExplorerLargeText';
+import { ModelTraceExplorerLargeText } from '../ModelTraceExplorerLargeText';
+import { LARGE_TRACE_TEXT_LIMIT } from '../../constants';
 
 const STRING_TRUNCATION_LIMIT = 400;
 

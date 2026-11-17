@@ -44,3 +44,4 @@ export const CHUNK_INDEX_KEY = 'chunk_index';
 // Threshold (in characters) above which markdown rendering is skipped to prevent
 // browser freezes from extremely large strings (e.g., un-extracted base64 data).
 export const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;
+export const LARGE_TRACE_TEXT_LIMIT = 100_000;
