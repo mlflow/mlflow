@@ -790,13 +790,18 @@ class MemAlignOptimizer(AlignmentOptimizer):
 
             _logger.debug(f"Starting MemAlign alignment with {len(traces)} traces")
 
+            # Re-aligning with a default optimizer (e.g. Judge.align) keeps the judge's fields.
+            retrieval_fields = self._retrieval_fields
+            if retrieval_fields is None and isinstance(judge, MemoryAugmentedJudge):
+                retrieval_fields = judge._retrieval_fields
+
             memory_judge = MemoryAugmentedJudge(
                 base_judge=judge,
                 reflection_lm=self._reflection_lm,
                 retrieval_k=self._retrieval_k,
                 embedding_model=self._embedding_model,
                 embedding_dim=self._embedding_dim,
-                retrieval_fields=self._retrieval_fields,
+                retrieval_fields=retrieval_fields,
             )
 
             # Build resolved examples once per incoming trace; reused for both change
@@ -856,15 +861,12 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 # only fire when ``judge`` is already a MemoryAugmentedJudge — a
                 # vanilla Judge has no in-memory fingerprints to match against.
                 assert isinstance(judge, MemoryAugmentedJudge)
-                if all(
-                    getattr(judge, f"_{field}") == getattr(memory_judge, f"_{field}")
-                    for field in _CONFIG_FIELDS
-                ):
+                if judge._retrieval_fields == retrieval_fields:
                     _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
                     return judge
-                # Memory is unchanged but the config is not: rebuild the index with it.
+                # Memory is unchanged but the retrieval fields are not: rebuild the index.
                 memory_judge._build_episodic_memory()
-                _logger.debug("MemAlign rebuilt episodic memory index for the new config.")
+                _logger.debug("MemAlign rebuilt episodic memory index for new retrieval_fields.")
                 return memory_judge
 
             if trace_ids_to_refresh:

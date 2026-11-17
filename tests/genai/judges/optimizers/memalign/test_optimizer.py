@@ -1672,6 +1672,20 @@ def test_realign_unchanged_traces_with_new_retrieval_fields_rebuilds_index(
     assert mocks["lm"].call_count == lm_calls
 
 
+def test_default_optimizer_realign_keeps_retrieval_fields(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        aligned = MemAlignOptimizer(retrieval_fields=["outputs"], retrieval_k=3).align(
+            sample_judge, sample_traces[:2]
+        )
+        # Unchanged traces: the input judge comes back as-is, other config included
+        assert MemAlignOptimizer().align(aligned, sample_traces[:2]) is aligned
+
+        realigned = MemAlignOptimizer().align(aligned, sample_traces[:4])
+
+    assert realigned._retrieval_fields == ["outputs"]
+    assert list(realigned._retrievers) == ["outputs"]
+
+
 def test_default_inputs_corpus_embeds_only_the_inputs_value(sample_judge, sample_traces):
     # getattr(example, "inputs") is dspy.Example's bound ``inputs`` method, whose repr would
     # leak the whole example (including the human label and rationale) into the corpus.
