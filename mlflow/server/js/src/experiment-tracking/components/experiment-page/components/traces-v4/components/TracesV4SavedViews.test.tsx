@@ -87,7 +87,6 @@ const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => 
     filterModel: [],
     setColumns: buttonSetColumns,
     resetColumns: jest.fn(),
-    setFilterModel: jest.fn(),
     customVisibility: {},
     setCustomVisibility: buttonSetCustomVisibility,
   });
@@ -364,7 +363,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       filterModel,
       setColumns,
       resetColumns: jest.fn(),
-      setFilterModel,
       assessmentVisibility,
       setAssessmentVisibility,
       setColumnOrder,
@@ -506,7 +504,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
         filterModel: [],
         setColumns,
         resetColumns: jest.fn(),
-        setFilterModel,
         setColumnOrder,
       });
       onRender(savedViews);
@@ -547,11 +544,17 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       ),
     ]);
     let state: any;
-    renderProbeAt('/', (s) => (state = s));
+    let search = '';
+    renderProbeAt('/', (s, sp) => {
+      state = s;
+      search = sp;
+    });
     await act(async () => {
       await state.openView('v1');
     });
-    expect(setFilterModel).toHaveBeenCalledWith([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
+    expect(JSON.parse(new URLSearchParams(search).get('filters') ?? '[]')).toEqual([
+      { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+    ]);
   });
 
   test('a filter-model divergence from the stored view reads as dirty', async () => {
@@ -596,7 +599,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     await act(async () => {
       await state.openView('v1');
     });
-    expect(setFilterModel).toHaveBeenLastCalledWith([]);
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
   });
 
@@ -632,7 +634,6 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
       filterModel: [],
       setColumns,
       resetColumns: jest.fn(),
-      setFilterModel,
     });
     const [params] = useSearchParams();
     onRender(savedViews, params.toString());
@@ -701,8 +702,9 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
     });
     // Columns restored into the user's store (V3 ids → V4 ids: request_time→start_time, request→input).
     expect(setColumns).toHaveBeenCalledWith(['start_time', 'input']);
-    // V3 filter[] → V4's in-memory popover model (not the URL-backed tag[]).
-    expect(setFilterModel).toHaveBeenCalledWith([{ field: 'state', operator: '=', value: 'ERROR' }]);
+    expect(JSON.parse(new URLSearchParams(search).get('filters') ?? '[]')).toEqual([
+      { field: 'state', operator: '=', value: 'ERROR' },
+    ]);
   });
 
   test('overwriting a V3 view migrates it: writes a V4 tag (same id) and deletes the V3 tag', async () => {
@@ -777,7 +779,6 @@ describe('useTracesV4SavedViews stale-tag refetch on active share key', () => {
       filterModel: [],
       setColumns: jest.fn(),
       resetColumns: jest.fn(),
-      setFilterModel: jest.fn(),
     });
     return null;
   };

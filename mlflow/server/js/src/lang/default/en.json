@@ -611,6 +611,10 @@
     "defaultMessage": "Continue editing the question to see a preview.",
     "description": "Review question preview render-error empty description"
   },
+  "0+AZJf": {
+    "defaultMessage": "SQL",
+    "description": "SQL trace filters tab"
+  },
   "0+djpP": {
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
@@ -1719,6 +1723,10 @@
     "defaultMessage": "Enter a model name not listed above. Capabilities may not be detected.",
     "description": "Help text for custom model input"
   },
+  "3o3Bbj": {
+    "defaultMessage": "Enter a whole number of milliseconds.",
+    "description": "Invalid trace filter duration"
+  },
   "3oBg7C": {
     "defaultMessage": "AI Gateway",
     "description": "Feature card title for AI Gateway"
@@ -1802,6 +1810,10 @@
   "44XPr5": {
     "defaultMessage": "Chart view",
     "description": "Label for the table view toggle button in the logged model list page"
+  },
+  "44nFpV": {
+    "defaultMessage": "Complete the condition before applying this filter.",
+    "description": "Error for an incomplete Basic condition shown in the SQL editor"
   },
   "451ETc": {
     "defaultMessage": "Session",
@@ -7039,6 +7051,10 @@
     "defaultMessage": "Select as baseline version",
     "description": "Label for selecting baseline prompt version in the comparison view"
   },
+  "KVhfVh": {
+    "defaultMessage": "Enter a trace search condition without WHERE, for example: attributes.execution_time_ms > 1000. Join conditions with AND. OR and grouped expressions are not supported. The server validates fields and operators.",
+    "description": "Supported OSS trace search predicate syntax"
+  },
   "KW2dOC": {
     "defaultMessage": "Inputs / Outputs",
     "description": "Label for the inputs and outputs tab of the model trace explorer."
@@ -7402,6 +7418,10 @@
   "Lpz85i": {
     "defaultMessage": "Edit API Key",
     "description": "Title for edit API key modal"
+  },
+  "Lqz3lp": {
+    "defaultMessage": "This SQL expression cannot be represented by Basic filters. Edit it in SQL.",
+    "description": "Warning for a predicate that Basic controls cannot represent"
   },
   "Ls2ris": {
     "defaultMessage": "Mark as reviewed",
@@ -8158,6 +8178,10 @@
   "O3RheJ": {
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
+  },
+  "O42YhU": {
+    "defaultMessage": "Loading SQL editor…",
+    "description": "Loading trace SQL editor"
   },
   "O45Gdv": {
     "defaultMessage": "Showing the first {count} matches — refine your search",
@@ -9631,6 +9655,10 @@
     "defaultMessage": "LLM judge feedback",
     "description": "Tooltip content for LLM judge feedback"
   },
+  "Sj2RSe": {
+    "defaultMessage": "Basic",
+    "description": "Basic trace filters tab"
+  },
   "SlD6nO": {
     "defaultMessage": "Reviewed",
     "description": "Review queue status: complete"
@@ -10590,6 +10618,10 @@
   "ViqP7B": {
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
+  },
+  "Vit87y": {
+    "defaultMessage": "Apply filter",
+    "description": "Apply trace SQL predicate button"
   },
   "Vjha2S": {
     "defaultMessage": "Guardrails",
@@ -11934,6 +11966,10 @@
   "a1liZ7": {
     "defaultMessage": "Export",
     "description": "Export traces to dataset modal action button"
+  },
+  "a2J5Vc": {
+    "defaultMessage": "Filter keys cannot contain backticks, double quotes, comments, or semicolons.",
+    "description": "Invalid custom key in trace filter"
   },
   "a2yLR1": {
     "defaultMessage": "Filters",
@@ -14911,6 +14947,10 @@
     "defaultMessage": "Image unavailable",
     "description": "Fallback shown when a custom trace view image binding is missing or invalid"
   },
+  "iuMq2A": {
+    "defaultMessage": "Trace filter predicate",
+    "description": "Label for the trace SQL predicate editor"
+  },
   "iuQHj+": {
     "defaultMessage": "Evaluation Runs",
     "description": "Accessible label for the evaluation runs side panel"
@@ -16810,6 +16850,10 @@
   "or3Jer": {
     "defaultMessage": "Select run {runName}",
     "description": "Accessible label for selecting a run by its assessment chart dot"
+  },
+  "orAXUW": {
+    "defaultMessage": "Trace filter predicate",
+    "description": "Accessible trace SQL editor label"
   },
   "orKoPo": {
     "defaultMessage": "Delete",

@@ -1,0 +1,82 @@
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { FilterOp } from '@databricks/web-shared/traces-table';
+import { makeTrace } from '../test-utils/mockTraces';
+import { renderPage, findTraceRow, state, env, URL } from '../test-utils/tracesV4PageContentTestBed';
+
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: () => true,
+}));
+jest.mock('@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery', () => ({
+  useGetExperimentQuery: () => ({ data: { tags: [] }, refetch: () => Promise.resolve({}) }),
+}));
+jest.mock('./SqlFilterEditor', () => ({
+  SqlFilterEditor: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    <textarea aria-label="Trace filter predicate" value={value} onChange={(event) => onChange(event.target.value)} />
+  ),
+}));
+const basic = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
+const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env LIKE 'qa%'" };
+const editor = () => screen.getByRole('textbox', { name: 'Trace filter predicate' });
+const initialUrl = (filters: (typeof basic)[]) =>
+  `${URL}?tag=team%3Dml&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+const filters = () => JSON.parse(new URLSearchParams(env.lastSearch).get('filters') ?? '[]');
+
+describe('trace SQL state and search', () => {
+  beforeEach(() => {
+    state.pages = { '': { traces: [makeTrace('tr-000')] } };
+  });
+
+  test('editing a SQL chip preserves Basic siblings and URL tags, including AND additions', async () => {
+    const user = userEvent.setup();
+    renderPage({ initialUrl: initialUrl([basic, sql]) });
+    await findTraceRow('tr-000');
+    await user.click(screen.getByRole('button', { name: `Edit filter SQL: ${sql.value}` }));
+    expect(await screen.findByRole('textbox', { name: 'Trace filter predicate' })).toHaveValue(sql.value);
+    const next = "tags.env LIKE 'qa%' AND tags.release IS NOT NULL";
+    fireEvent.change(editor(), { target: { value: next } });
+    await user.click(screen.getByRole('button', { name: 'Apply filter' }));
+    await waitFor(() => expect(filters()).toEqual([basic, { ...sql, value: next }]));
+    expect(new URLSearchParams(env.lastSearch).getAll('tag')).toEqual(['team=ml']);
+    await waitFor(() => expect(state.searchCalls.at(-1)?.filter).toContain(next));
+    expect(state.searchCalls.at(-1)?.filter).toContain('attributes.execution_time_ms > 1000');
+    expect(state.searchCalls.at(-1)?.filter).toContain("tags.team = 'ml'");
+    await user.click(screen.getByRole('button', { name: `Remove filter SQL: ${next}` }));
+    await waitFor(() => expect(filters()).toEqual([basic]));
+    expect(new URLSearchParams(env.lastSearch).get('tag')).toBe('team=ml');
+  }, 40000);
+
+  test('converting one Basic chip to SQL preserves sibling predicates and tags', async () => {
+    const user = userEvent.setup();
+    renderPage({ initialUrl: initialUrl([basic, sql]) });
+    await findTraceRow('tr-000');
+    await user.click(screen.getByRole('button', { name: /Edit filter latency/ }));
+    await user.click(await screen.findByRole('tab', { name: 'SQL' }));
+    expect(await screen.findByRole('textbox', { name: 'Trace filter predicate' })).toHaveValue(
+      'attributes.execution_time_ms > 1000',
+    );
+    fireEvent.change(editor(), { target: { value: 'attributes.execution_time_ms > 2000' } });
+    await user.click(screen.getByRole('button', { name: 'Apply filter' }));
+    await waitFor(() => expect(filters()).toEqual([{ ...basic, value: '2000' }, sql]));
+    expect(new URLSearchParams(env.lastSearch).get('tag')).toBe('team=ml');
+  }, 30000);
+
+  test('a cancelled SQL edit leaves the URL unchanged', async () => {
+    const user = userEvent.setup();
+    renderPage({ initialUrl: initialUrl([basic, sql]) });
+    await findTraceRow('tr-000');
+    const before = env.lastSearch;
+    await user.click(screen.getByRole('button', { name: `Edit filter SQL: ${sql.value}` }));
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Trace filter predicate' }), {
+      target: { value: 'attributes.status = bogus' },
+    });
+    await user.keyboard('{Escape}');
+    expect(env.lastSearch).toBe(before);
+    await user.click(screen.getByRole('button', { name: `Edit filter SQL: ${sql.value}` }));
+    expect(await screen.findByRole('textbox', { name: 'Trace filter predicate' })).toHaveValue(sql.value);
+  }, 30000);
+});

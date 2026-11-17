@@ -278,4 +278,30 @@ describe('useTracesV4UrlState', () => {
       ]);
     });
   });
+  test('restores validated filter shapes and updates filters with tags atomically', async () => {
+    const sql = { field: 'sql_where', operator: '=', value: "span.name IN ('a', 'b')" };
+    const { result } = await mountHook(
+      `/p?page=3&q=hello&traceId=tr-1&filters=${encodeURIComponent(JSON.stringify([sql, null, { field: 3 }, { ...sql, value: null }]))}&tag=env%3Dqa`,
+    );
+    expect(result.current.filterModel).toEqual([sql]);
+    act(() => result.current.setFilterState([], [{ key: 'team', value: 'ml' }]));
+    expect(result.current.filterModel).toEqual([]);
+    expect(result.current.tagFilters).toEqual([{ key: 'team', value: 'ml' }]);
+    expect(param('filters')).toBeNull();
+    expect(param('page')).toBeNull();
+    expect(param('q')).toBe('hello');
+    expect(param('traceId')).toBe('tr-1');
+  });
+
+  test.each(['null', '{}', 'bad JSON'])('ignores malformed filter state %s', async (filters) => {
+    const { result } = await mountHook(`/p?filters=${encodeURIComponent(filters)}`);
+    expect(result.current.filterModel).toEqual([]);
+  });
+  test('clearing a shared view keeps an explicit empty model across reload', async () => {
+    const { result } = await mountHook('/p?traceViewShareKey=v1&filters=[]&tag=env%3Dprod');
+    act(() => result.current.setFilterState([], []));
+    expect(param('filters')).toBe('[]');
+    expect(param('tag')).toBeNull();
+    expect(param('traceViewShareKey')).toBe('v1');
+  });
 });

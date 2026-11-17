@@ -5,6 +5,9 @@ import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/Featu
 import { useNumberSearchParam } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useNumberSearchParam';
 import {
   DEFAULT_PAGE_SIZE,
+  EMPTY_FILTER_MODEL,
+  FilterOp,
+  type TraceFilterModel,
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DIR,
   PAGE_SIZE_OPTIONS,
@@ -15,6 +18,7 @@ import {
 } from '@databricks/web-shared/traces-table';
 
 const Q_PARAM = 'q';
+const FILTERS_PARAM = 'filters';
 const PAGE_PARAM = 'page';
 const PAGE_SIZE_PARAM = 'pageSize';
 const SORT_PARAM = 'sort';
@@ -64,6 +68,10 @@ const toValidPageSize = (raw: string | null): PageSize => {
 };
 
 export interface TracesV4UrlState {
+  filterModel: TraceFilterModel;
+  setFilterModel: (next: TraceFilterModel) => void;
+  /** Updates predicates and URL tags atomically so neither update restores stale params. */
+  setFilterState: (next: TraceFilterModel, tags: TagFilter[]) => void;
   search: string;
   setSearch: (next: string) => void;
   /** 1-based page index. */
@@ -109,6 +117,42 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   // `searchParams` object directly.
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get(Q_PARAM) ?? '';
+  const serializedFilters = searchParams.get(FILTERS_PARAM);
+  const filterModel = useMemo<TraceFilterModel>(() => {
+    if (!serializedFilters) return EMPTY_FILTER_MODEL;
+    try {
+      const parsed: unknown = JSON.parse(serializedFilters);
+      if (!Array.isArray(parsed)) return EMPTY_FILTER_MODEL;
+      return parsed.filter(
+        (clause) =>
+          clause &&
+          typeof clause === 'object' &&
+          typeof clause.field === 'string' &&
+          typeof clause.value === 'string' &&
+          Object.values(FilterOp).includes(clause.operator) &&
+          (clause.key === undefined || typeof clause.key === 'string'),
+      );
+    } catch {
+      return EMPTY_FILTER_MODEL;
+    }
+  }, [serializedFilters]);
+  const setFilterState = useCallback(
+    (next: TraceFilterModel, tags?: TagFilter[]) => {
+      setSearchParams((params) => {
+        if (next.length || params.has('traceViewShareKey')) params.set(FILTERS_PARAM, JSON.stringify(next));
+        else params.delete(FILTERS_PARAM);
+        if (tags !== undefined) {
+          params.delete(TAG_PARAM);
+          tags.forEach((tag) => params.append(TAG_PARAM, encodeTagFilter(tag)));
+        }
+        params.delete(PAGE_PARAM);
+        return params;
+      });
+    },
+    [setSearchParams],
+  );
+  const setFilterModel = useCallback((next: TraceFilterModel) => setFilterState(next), [setFilterState]);
+
   const [pageIndex, setPageIndex] = useNumberSearchParam({ key: PAGE_PARAM, defaultValue: 1, min: 1 });
   const pageSizeRaw = searchParams.get(PAGE_SIZE_PARAM);
   const sortRaw = searchParams.get(SORT_PARAM);
@@ -270,6 +314,9 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   const clearTagFilters = useCallback(() => rewriteTagFilters(() => []), [rewriteTagFilters]);
 
   return {
+    filterModel,
+    setFilterModel,
+    setFilterState,
     search,
     setSearch,
     pageIndex,

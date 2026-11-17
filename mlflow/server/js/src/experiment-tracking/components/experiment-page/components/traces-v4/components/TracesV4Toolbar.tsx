@@ -37,6 +37,7 @@ import { useMlflowTraceFilterFields } from '../utils/filterModel';
 export interface TracesV4ToolbarParams {
   filterModel: TraceFilterModel;
   onFilterChange: (next: TraceFilterModel) => void;
+  sqlFilter?: TraceFilterButtonProps['sqlFilter'];
   /** Clear every active filter — popover clauses and URL tag filters both. */
   onClearFilters: () => void;
   activeFilterCount: number;
@@ -160,7 +161,7 @@ const COLUMN_OPTIONS: ColumnSelectorOption[] = [
 export interface TracesV4ToolbarSlots {
   /** The filter editor anchored to a consumer-rendered trigger, such as the unified search box. */
   renderFilterEditor: (
-    renderTrigger: (openEditor: (filterIndex?: number) => void) => React.ReactNode,
+    renderTrigger: (openEditor: (filterIndex?: number | 'sql') => void) => React.ReactNode,
   ) => React.ReactNode;
   /** Rendered before the shared search box: the Views dropdown, the Traces/Sessions switch, then the date range. */
   leftControls: React.ReactNode;
@@ -178,6 +179,7 @@ export interface TracesV4ToolbarSlots {
 export const useTracesV4ToolbarSlots = ({
   filterModel,
   onFilterChange,
+  sqlFilter,
   onClearFilters,
   activeFilterCount,
   visibleColumns,
@@ -424,6 +426,7 @@ export const useTracesV4ToolbarSlots = ({
         fields={filterFields}
         filterModel={filterModel}
         onChange={onFilterChange}
+        sqlFilter={sqlFilter}
         onClearAll={onClearFilters}
         activeCount={activeFilterCount}
         renderTrigger={renderTrigger}
@@ -438,6 +441,7 @@ export const useTracesV4ToolbarSlots = ({
             fields={filterFields}
             filterModel={filterModel}
             onChange={onFilterChange}
+            sqlFilter={sqlFilter}
             onClearAll={onClearFilters}
             activeCount={activeFilterCount}
             description={filterDescription}

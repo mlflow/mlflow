@@ -44,6 +44,12 @@ const NUMERIC_OPERATORS: FilterOp[] = [
   FilterOp.LESS_THAN_OR_EQUALS,
 ];
 
+export const SQL_FILTER_FIELD = 'sql_where';
+export const isSqlFilterClause = (clause: FilterClause): boolean => clause.field === SQL_FILTER_FIELD;
+export const isValidDuration = (value: string): boolean => /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
+export const isSafeFilterKey = (key: string): boolean =>
+  !/[`";\\]|--|\/\*|\*\//.test(key) && !Array.from(key).some((char) => char.charCodeAt(0) < 32);
+
 /** Session operators with the new evaluation runs UI (the server has no null checks for them here). */
 const SESSION_OPERATORS: FilterOp[] = [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS];
 
@@ -274,11 +280,13 @@ export const useMlflowTraceFilterFields = (
  * the stored baseline the same way (an unsupported clause can't strand a view permanently dirty).
  */
 export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
+  (isSqlFilterClause(clause) && clause.operator === FilterOp.EQUALS && clause.value.trim().length > 0) ||
   fields.some(
     (field) =>
       field.id === clause.field &&
       field.operators.includes(clause.operator) &&
-      (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
+      (!field.requiresKey ||
+        (typeof clause.key === 'string' && clause.key.trim() !== '' && isSafeFilterKey(clause.key))),
   );
 
 /**
@@ -310,8 +318,7 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
  * The `tags.<key>` field reference, backticked only when the key contains a `.` or a space (matching
  * the shared `createMlflowSearchFilter` tag clause), so dotted/spaced keys survive.
  */
-const tagFieldRef = (key: string): string =>
-  key.includes('.') || key.includes(' ') ? `tags.\`${key}\`` : `tags.${key}`;
+const tagFieldRef = (key: string): string => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? `tags.${key}` : `tags.\`${key}\``);
 
 const NO_NUMERIC_ASSESSMENT_KEYS: ReadonlySet<string> = new Set();
 
@@ -359,6 +366,13 @@ const compileClause = (
     return undefined;
   }
   const { field, operator, value, key } = clause;
+  if (!Object.values(FilterOp).includes(operator) || (key !== undefined && !isSafeFilterKey(key))) {
+    return undefined;
+  }
+  if (isSqlFilterClause(clause)) {
+    // This remains a search-DSL predicate: the existing search API parses and validates it.
+    return operator === FilterOp.EQUALS ? value.trim() : undefined;
+  }
   // Every clause below wraps `value` in a single-quoted literal, so escape it once up front (the
   // numeric `duration` case doesn't quote and simply doesn't use this).
   const v = escapeFilterValue(value);
@@ -366,7 +380,7 @@ const compileClause = (
     case 'state':
       return enhanced ? `attributes.status ${operator} '${v}'` : `attributes.status = '${v}'`;
     case 'duration':
-      return `attributes.execution_time_ms ${operator} ${value}`;
+      return isValidDuration(value) ? `attributes.execution_time_ms ${operator} ${Number(value)}` : undefined;
     case 'trace_name':
       return compileContainsAwareClause('attributes.name', operator, value);
     case 'service_name':
@@ -404,7 +418,11 @@ const compileClause = (
       return `${tagFieldRef(key ?? '')} ${operator} '${v}'`;
     case 'metadata':
       // Arbitrary trace-metadata key, matching v3's custom-metadata clause (CONTAINS → ILIKE).
-      return compileContainsAwareClause(`request_metadata.${key ?? ''}`, operator, value);
+      return compileContainsAwareClause(
+        `request_metadata.${/^[A-Za-z_][A-Za-z0-9_.]*$/.test(key ?? '') ? key : `"${key}"`}`,
+        operator,
+        value,
+      );
     case 'assessment':
       // The key is the assessment name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to a `feedback.\`<name>\`` clause (matching the shared `createMlflowSearchFilter`);
@@ -457,4 +475,6 @@ export const compileFilterModel = (
  * tag clause. Structural `{ key, value }` input keeps this util free of a hook import.
  */
 export const compileTagFilters = (tagFilters: { key: string; value: string }[]): string[] =>
-  tagFilters.map(({ key, value }) => `${tagFieldRef(key)} = '${escapeFilterValue(value)}'`);
+  tagFilters
+    .filter(({ key }) => isSafeFilterKey(key))
+    .map(({ key, value }) => `${tagFieldRef(key)} = '${escapeFilterValue(value)}'`);

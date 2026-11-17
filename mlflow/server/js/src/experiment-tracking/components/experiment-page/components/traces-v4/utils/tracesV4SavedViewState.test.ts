@@ -81,7 +81,7 @@ describe('captureV4ViewState', () => {
   });
 
   test('stores the live popover filter model, and omits an empty one', () => {
-    // Filters are React state (not URL-backed), so they're passed in and stored on the envelope; an
+    // Filters are passed in and stored on the envelope; an
     // empty model is omitted so a filter-less view stays byte-identical to a legacy (pre-filter) one.
     const withFilters = captureV4ViewState(
       params('q=x'),
@@ -89,8 +89,10 @@ describe('captureV4ViewState', () => {
       [{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }],
     );
     expect(withFilters.filters).toEqual([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
-    // Filters never leak into the rebuilt URL query.
-    expect(params(buildV4ViewQuery(withFilters, 'view-1')).has('filters')).toBe(false);
+    // Share links carry the same predicates as the stored view.
+    expect(JSON.parse(params(buildV4ViewQuery(withFilters, 'view-1')).get('filters') ?? '[]')).toEqual(
+      withFilters.filters,
+    );
 
     const noFilters = captureV4ViewState(params('q=x'), ['start_time'], []);
     expect(noFilters.filters).toBeUndefined();

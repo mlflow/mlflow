@@ -1,5 +1,18 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
+// The OSS bundle uses React Suspense directly.
+// eslint-disable-next-line no-restricted-imports
+import { Suspense } from 'react';
 import { Global, keyframes } from '@emotion/react';
 import {
   ApplyDesignSystemContextOverrides,
@@ -16,6 +29,7 @@ import {
 import { doesTraceSupportV4API, MLFLOW_SOURCE_RUN_KEY, RunName } from '@databricks/web-shared/genai-traces-table';
 import {
   EMPTY_FILTER_MODEL,
+  FilterOp,
   TRACE_COLUMN_IDS,
   TracesErrorAlert,
   type SessionHrefGetter,
@@ -44,6 +58,16 @@ import {
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
+import {
+  compileFilterModel,
+  compileTagFilters,
+  isSqlFilterClause,
+  isSafeFilterKey,
+  isValidDuration,
+  SQL_FILTER_FIELD,
+  useMlflowTraceFilterFields,
+} from '../utils/filterModel';
+import { parseBasicTraceFilter } from '../utils/traceSqlFilters';
 import { isCustomTraceColumnId } from '../utils/customColumns';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
@@ -64,6 +88,10 @@ import { useCancelJob } from '@mlflow/mlflow/src/experiment-tracking/components/
 import { isJobComplete } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useFetchJobStatus';
 import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
 import { useExperimentPageRevampContext } from '../../../../../pages/experiment-page-tabs/ExperimentPageRevampContext';
+
+const SqlFilterEditor = lazy(() =>
+  import('./SqlFilterEditor').then(({ SqlFilterEditor }) => ({ default: SqlFilterEditor })),
+);
 
 interface TracesV4PageContentProps {
   experimentId: string;
@@ -379,7 +407,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     filterModel,
     setColumns: columns.setColumns,
     resetColumns,
-    setFilterModel: controller.setFilterModel,
     assessmentNames: assessments.candidateNames,
     assessmentVisibility: assessments.visibilityByName,
     setAssessmentVisibility: assessments.setVisibility,
@@ -607,9 +634,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // Filter button "clear all": resets exactly what the count badge totals — the popover clauses AND
   // the URL tag filters — but leaves the search box (a separate control the badge doesn't count).
   const clearAllFilters = useCallback(() => {
-    controller.setFilterModel(EMPTY_FILTER_MODEL);
-    url.clearTagFilters();
-  }, [controller, url]);
+    url.setFilterState(EMPTY_FILTER_MODEL, []);
+  }, [url]);
   // Empty-state "clear filters": the broader reset that also clears the search query, since the
   // no-results state can be caused by the search too.
   const clearFilters = useCallback(() => {
@@ -658,16 +684,97 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // shows the applied filters as pills and turns typed queries into filters.
   const unifiedSearchEnabled = shouldEnableNewEvalRunsUi();
   const unifiedSearch = useTracesV4UnifiedSearch({
+    setFilterState: url.setFilterState,
     filterModel,
-    setFilterModel: controller.setFilterModel,
     tagFilters: url.tagFilters,
-    setTagFilters: url.setTagFilters,
     searchInput,
   });
 
+  const filterFields = useMlflowTraceFilterFields(assessments.candidateNames, page.traces);
+  const basicFilterModel = filterModel.filter((clause) => !isSqlFilterClause(clause));
+  const sqlClauses = filterModel.filter(isSqlFilterClause);
+  const basicEditorModel = unifiedSearch.searchFilterModel.filter((clause) => !isSqlFilterClause(clause));
+  const formatBasic = (model: typeof filterModel) =>
+    compileFilterModel(model, controller.numericAssessmentKeys).join(' AND ');
+  const parseBasic = (value: string) => parseBasicTraceFilter(value, filterFields, formatBasic);
+  const sqlValue = formatBasic(sqlClauses);
   const toolbarSlots = useTracesV4ToolbarSlots({
-    filterModel: unifiedSearchEnabled ? unifiedSearch.searchFilterModel : filterModel,
-    onFilterChange: unifiedSearchEnabled ? unifiedSearch.setSearchFilters : controller.setFilterModel,
+    filterModel: basicEditorModel,
+    onFilterChange: (next) => unifiedSearch.setSearchFilters([...next, ...sqlClauses]),
+    filterFields,
+    validateFilters: (model) => {
+      if (model.some(({ key }) => key !== undefined && !isSafeFilterKey(key))) {
+        return intl.formatMessage({
+          defaultMessage: 'Filter keys cannot contain backticks, double quotes, comments, or semicolons.',
+          description: 'Invalid custom key in trace filter',
+        });
+      }
+      return model.some(({ field, value }) => field === 'duration' && value.trim() && !isValidDuration(value))
+        ? intl.formatMessage({
+            defaultMessage: 'Enter a whole number of milliseconds.',
+            description: 'Invalid trace filter duration',
+          })
+        : undefined;
+    },
+    sqlFilter: {
+      value: [
+        ...compileFilterModel(filterModel, controller.numericAssessmentKeys),
+        ...compileTagFilters(url.tagFilters),
+      ].join(' AND '),
+      onChange: (value) =>
+        url.setFilterState(parseBasic(value) ?? [{ field: SQL_FILTER_FIELD, operator: FilterOp.EQUALS, value }], []),
+      appliedClause: {
+        value: sqlValue,
+        onChange: (value) =>
+          controller.setFilterModel([
+            ...basicFilterModel,
+            ...(value.trim() ? [{ field: SQL_FILTER_FIELD, operator: FilterOp.EQUALS, value: value.trim() }] : []),
+          ]),
+      },
+      replaceClause: (index, value) => {
+        const replacesTag = index >= basicFilterModel.length;
+        const model = replacesTag ? basicEditorModel : basicFilterModel;
+        const parsed = parseBasic(value);
+        const nextBasic = model.flatMap((clause, clauseIndex) => (clauseIndex === index ? (parsed ?? []) : [clause]));
+        const nextSql = parsed ? sqlValue : [sqlValue, value].filter(Boolean).join(' AND ');
+        const next = [
+          ...nextBasic,
+          ...(nextSql ? [{ field: SQL_FILTER_FIELD, operator: FilterOp.EQUALS, value: nextSql }] : []),
+        ];
+        url.setFilterState(next, replacesTag ? [] : url.tagFilters);
+        return [formatBasic(next), ...(replacesTag ? [] : compileTagFilters(url.tagFilters))]
+          .filter(Boolean)
+          .join(' AND ');
+      },
+      formatBasic,
+      formatBasicDraft: (model) =>
+        model
+          .map((clause) => {
+            const compiled = formatBasic([clause]);
+            if (compiled || clause.value.trim() || clause.key === '') return compiled;
+            return formatBasic([{ ...clause, value: '0' }]).replace(/(?:0|'[^']*')$/, '');
+          })
+          .filter(Boolean)
+          .join(' AND '),
+      parseBasic,
+      error: page.error instanceof Error ? page.error : undefined,
+      isFetching: page.isFetching,
+      preferSql: sqlClauses.length > 0,
+      renderEditor: (value, onChange) => (
+        <Suspense
+          fallback={
+            <div role="status">
+              {intl.formatMessage({
+                defaultMessage: 'Loading SQL editor…',
+                description: 'Loading trace SQL editor',
+              })}
+            </div>
+          }
+        >
+          <SqlFilterEditor value={value} onChange={onChange} fields={filterFields} />
+        </Suspense>
+      ),
+    },
     hideFilterButton: unifiedSearchEnabled,
     ...(unifiedSearchEnabled ? { traces: page.traces } : {}),
     onClearFilters: clearAllFilters,

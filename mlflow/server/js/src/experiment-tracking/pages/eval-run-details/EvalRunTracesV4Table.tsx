@@ -320,9 +320,8 @@ export const EvalRunTracesV4Table = ({
   );
 
   const clearAllFilters = useCallback(() => {
-    controller.setFilterModel(EMPTY_FILTER_MODEL);
-    url.clearTagFilters();
-  }, [controller, url]);
+    url.setFilterState(EMPTY_FILTER_MODEL, []);
+  }, [url]);
   const clearFilters = useCallback(() => {
     searchInput.clear();
     clearAllFilters();
@@ -370,9 +369,8 @@ export const EvalRunTracesV4Table = ({
 
   const unifiedSearch = useTracesV4UnifiedSearch({
     filterModel,
-    setFilterModel: controller.setFilterModel,
+    setFilterState: url.setFilterState,
     tagFilters: url.tagFilters,
-    setTagFilters: url.setTagFilters,
     searchInput,
   });
 

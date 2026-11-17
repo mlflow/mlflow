@@ -11,7 +11,7 @@ import {
   type FilterFieldDef,
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
-import { useMlflowTraceFilterFields } from '../utils/filterModel';
+import { isSqlFilterClause, useMlflowTraceFilterFields } from '../utils/filterModel';
 import {
   buildTraceSearchFields,
   formatTraceSearchFieldName,
@@ -38,7 +38,7 @@ export interface TracesV4SearchProps {
   onApplyFilter: (clause: FilterClause) => void;
   filterModel?: TraceFilterModel;
   onRemoveFilter?: (index: number) => void;
-  onOpenFilter?: (index?: number) => void;
+  onOpenFilter?: (index?: number | 'sql') => void;
   onRunTextSearch?: (text: string) => void;
   /** Desired inline width, independent of the available toolbar space. */
   onMinimumWidthChange?: (width: number) => void;
@@ -175,7 +175,7 @@ export const TracesV4Search = ({
   const remember = (entry: RecentSearch) => {
     setRecent((previous) => [entry, ...previous.filter((item) => item.text !== entry.text)].slice(0, 5));
   };
-  const openFilter = (index?: number) => {
+  const openFilter = (index?: number | 'sql') => {
     // Close the portal before the editor moves focus to its trigger/input.
     flushSync(() => setOpen(false));
     onOpenFilter?.(index);
@@ -400,9 +400,9 @@ export const TracesV4Search = ({
     isClauseComplete(clause)
       ? [
           {
-            text: clauseText(clause),
-            label: clauseLabel(clause),
-            onEdit: () => openFilter(index),
+            text: isSqlFilterClause(clause) ? `SQL: ${clause.value}` : clauseText(clause),
+            label: isSqlFilterClause(clause) ? `SQL: ${clause.value}` : clauseLabel(clause),
+            onEdit: () => openFilter(isSqlFilterClause(clause) ? 'sql' : index),
             onRemove: () => onRemoveFilter?.(index),
           },
         ]
