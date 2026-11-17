@@ -51,11 +51,14 @@ it('keeps redesigned metric-row connector centers at 24px', () => {
   expect(getByTestId('icon-bottom-connector')).toHaveAttribute('data-active', 'true');
 });
 
-it('keeps legacy connector offsets and both gradient colors aligned across gaps', () => {
+it.each([
+  ['legacy', LegacyBars],
+  ['redesigned', RedesignedBars],
+] as const)('keeps %s connector offsets and both gradient colors aligned across gaps', (_name, Bars) => {
   const { result } = renderHook(
     () => {
       const { theme } = useDesignSystemTheme();
-      const element = LegacyBars({
+      const element = Bars({
         isActiveSpan: false,
         isInActiveChain: true,
         linesToRender: [
