@@ -5827,6 +5827,10 @@
     "defaultMessage": "URL",
     "description": "Webhook URL field label"
   },
+  "GiRXF7": {
+    "defaultMessage": "Search highlights are limited for dense results. Use Next/Previous to reveal every match.",
+    "description": "Explains how to navigate all search results when dense trace text limits visible highlights"
+  },
   "GifD0J": {
     "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
     "description": "Demo banner description"

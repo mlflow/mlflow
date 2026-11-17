@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
@@ -6,6 +6,8 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { getLargeTextRows, getLargeTextSearchRows } from './largeTextRows';
 import { CopyActionButton } from '../../copy/CopyActionButton';
 import { ACTIVE_HIGHLIGHT_COLOR, INACTIVE_HIGHLIGHT_COLOR } from '../constants';
+
+const MAX_ROW_HIGHLIGHTS = 20;
 
 export const ModelTraceExplorerLargeText = ({
   text,
@@ -23,6 +25,10 @@ export const ModelTraceExplorerLargeText = ({
   const scrollElement = useRef<HTMLDivElement>(null);
   const rows = useMemo(() => getLargeTextRows(text), [text]);
   const search = useMemo(() => getLargeTextSearchRows(text, rows, searchFilter), [text, rows, searchFilter]);
+  const highlightsLimited = useMemo(
+    () => search.matches.some((match) => match && match.lastIndex - match.index >= MAX_ROW_HIGHLIGHTS),
+    [search],
+  );
   const activeRow = useMemo(
     () =>
       activeMatchIndex === undefined
@@ -42,9 +48,16 @@ export const ModelTraceExplorerLargeText = ({
   useEffect(() => {
     if (activeRow >= 0) virtualizer.scrollToIndex(activeRow, { align: 'center' });
   }, [activeRow, activeMatchIndex, search, virtualizer]);
-  const revealActiveMatch = useCallback((node: HTMLSpanElement | null) => {
-    node?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, []);
+  const revealActiveMatch = useMemo(() => {
+    // Virtual rows can remount while the user scrolls without changing the search selection.
+    let revealed = false;
+    return (node: HTMLSpanElement | null) => {
+      if (node && search.pattern && activeMatchIndex !== undefined && !revealed) {
+        revealed = true;
+        node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    };
+  }, [search, activeMatchIndex]);
   const renderRow = (index: number) => {
     const row = rows[index];
     const firstMatch = search.matches[index];
@@ -55,23 +68,32 @@ export const ModelTraceExplorerLargeText = ({
     const parts: React.ReactNode[] = [];
     let cursor = row.start;
     let matchIndex = firstMatch.index;
+    let highlights = 0;
+    const activeInRow =
+      activeMatchIndex !== undefined &&
+      activeMatchIndex >= firstMatch.index &&
+      activeMatchIndex <= firstMatch.lastIndex;
     for (let match = regex.exec(data); match && firstMatch.offset + match.index < row.end; match = regex.exec(data)) {
       const offset = firstMatch.offset + match.index;
       const start = Math.max(row.start, offset);
       const end = Math.min(row.end, firstMatch.offset + regex.lastIndex);
       const active = matchIndex === activeMatchIndex;
-      parts.push(
-        text.slice(cursor, start),
-        <span
-          key={offset}
-          ref={active && offset >= row.start ? revealActiveMatch : undefined}
-          css={{ backgroundColor: theme.colors[active ? ACTIVE_HIGHLIGHT_COLOR : INACTIVE_HIGHLIGHT_COLOR] }}
-        >
-          {text.slice(start, end)}
-        </span>,
-      );
-      cursor = end;
+      if (highlights < MAX_ROW_HIGHLIGHTS || active) {
+        parts.push(
+          text.slice(cursor, start),
+          <span
+            key={offset}
+            ref={active && offset >= row.start ? revealActiveMatch : undefined}
+            css={{ backgroundColor: theme.colors[active ? ACTIVE_HIGHLIGHT_COLOR : INACTIVE_HIGHLIGHT_COLOR] }}
+          >
+            {text.slice(start, end)}
+          </span>,
+        );
+        cursor = end;
+        highlights++;
+      }
       matchIndex++;
+      if (highlights >= MAX_ROW_HIGHLIGHTS && (!activeInRow || matchIndex > activeMatchIndex)) break;
     }
     parts.push(text.slice(cursor, row.end));
     return parts;
@@ -85,6 +107,15 @@ export const ModelTraceExplorerLargeText = ({
             defaultMessage="Large content is displayed as plain text. Browser find and text selection cover only part of the value. Use Copy for the full text."
             description="Explains large trace text display and how to access the complete value for finding or selecting text"
           />
+          {highlightsLimited && (
+            <>
+              {' '}
+              <FormattedMessage
+                defaultMessage="Search highlights are limited for dense results. Use Next/Previous to reveal every match."
+                description="Explains how to navigate all search results when dense trace text limits visible highlights"
+              />
+            </>
+          )}
         </Typography.Text>
         {copyText !== undefined && (
           <CopyActionButton componentId="shared.model-trace-explorer.copy-large-text" copyText={copyText} />
