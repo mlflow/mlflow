@@ -32,6 +32,11 @@ import { useDeleteTracesMutation } from '../../components/evaluations/hooks/useD
 import { useTracesV4Density } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4TraceActions';
+import {
+  isCustomTraceColumnId,
+  useTracesV4CustomColumnHeaderActions,
+  useTracesV4CustomColumns,
+} from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4CustomColumns';
 import { useTracesV4UnifiedSearch } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UnifiedSearch';
 import {
   getSessionAssessmentNames,
@@ -111,6 +116,11 @@ export const EvalRunTracesV4Table = ({
   const controller = useEvalRunTracesV4Controller({ experimentId, runUuid, seededAssessmentNames });
   const { url, page, columns, assessments, columnSizing, bulk, searchInput, filterModel, flags } = controller;
   const { density, setDensity } = useTracesV4Density(persistenceId);
+  const customColumns = useTracesV4CustomColumns(
+    page.traces,
+    columns.dynamicVisibilityById,
+    columns.setDynamicVisibility,
+  );
   // Edits, judge runs and deletes change the scores, so they reload the header summaries with the rows.
   const { refetch: refetchPage } = page;
   const { refetch: refetchAssessmentSummaries } = assessmentSummaries;
@@ -256,18 +266,22 @@ export const EvalRunTracesV4Table = ({
   const resetColumns = useCallback(() => {
     columns.resetToDefaults();
     assessments.reset();
+    customColumns.reset();
     setReorderedColumns(undefined);
-  }, [columns, assessments]);
+  }, [columns, assessments, customColumns]);
   const handleHideColumn = useCallback(
     (columnId: string) => {
-      if (isAssessmentColumnId(columnId)) {
+      if (isCustomTraceColumnId(columnId)) {
+        customColumns.toggle(columnId);
+      } else if (isAssessmentColumnId(columnId)) {
         assessments.toggle(columnId);
       } else if (isStandardColumnId(columnId)) {
         columns.toggleColumn(columnId);
       }
     },
-    [assessments, columns],
+    [customColumns, assessments, columns],
   );
+  const columnHeaderActions = useTracesV4CustomColumnHeaderActions(customColumns);
 
   const handleTraceSelected = useCallback(
     (trace: ModelTraceInfoV3) =>
@@ -375,6 +389,7 @@ export const EvalRunTracesV4Table = ({
     onToggleColumn: columns.toggleColumn,
     onResetColumns: resetColumns,
     assessmentColumns: assessments,
+    customColumns,
     sort: url.sort,
     dir: url.dir,
     onSort: url.setSort,
@@ -406,12 +421,17 @@ export const EvalRunTracesV4Table = ({
   const getErrorDescription = useMemo(() => makeTracesV4ErrorDescription(intl), [intl]);
   // The cursor API returns no total, so the footer count shows only when the run fits on one page.
   const isTotalKnown = !page.hasNext && !page.hasPrev;
+  const extraColumns = useMemo(
+    () => [...customColumns.columnDefs, ...assessmentColumnDefs],
+    [customColumns.columnDefs, assessmentColumnDefs],
+  );
 
   const tableViewProps: TracesTableViewProps = {
     viewState,
     traces: page.traces,
     visibleColumns,
-    extraColumns: assessmentColumnDefs,
+    extraColumns,
+    columnHeaderActions,
     columnOrder: tableColumnOrder,
     initialColumnSizing: evalRunColumnSizing,
     onColumnSizingSettled: columnSizing.setColumnSizing,

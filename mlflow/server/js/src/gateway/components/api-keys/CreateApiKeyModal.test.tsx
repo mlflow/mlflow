@@ -10,44 +10,60 @@ jest.mock('../../hooks/useCreateSecret');
 jest.mock('../../hooks/useProviderConfigQuery');
 jest.mock('../create-endpoint', () => ({
   ProviderSelect: ({ onChange }: { onChange: (provider: string) => void }) => (
-    <button onClick={() => onChange('vertex_ai')}>Select Vertex AI</button>
+    <>
+      <button onClick={() => onChange('openai')}>Select OpenAI</button>
+      <button onClick={() => onChange('vertex_ai')}>Select Vertex AI</button>
+    </>
   ),
 }));
 let mockAuthMode = 'default_chain';
 jest.mock('../secrets', () => ({
   SecretFormFields: ({ value, onChange }: { value: SecretFormData; onChange: (data: SecretFormData) => void }) => (
-    <button
-      onClick={() =>
-        onChange({
-          ...value,
-          name: 'vertex-adc',
-          authMode: mockAuthMode,
-          configFields: { vertex_project: 'my-project', vertex_location: 'us-central1' },
-        })
-      }
-    >
-      Fill form
-    </button>
+    <>
+      <input
+        aria-label="API key"
+        value={value.secretFields['api_key'] ?? ''}
+        onChange={(e) => onChange({ ...value, name: 'my-key', secretFields: { api_key: e.target.value } })}
+      />
+      <button
+        onClick={() =>
+          onChange({
+            ...value,
+            name: 'vertex-adc',
+            authMode: mockAuthMode,
+            configFields: { vertex_project: 'my-project', vertex_location: 'us-central1' },
+          })
+        }
+      >
+        Fill form
+      </button>
+    </>
   ),
 }));
 
-const vertexProviderConfig = {
-  default_mode: 'service_account_json',
-  auth_modes: [
-    {
-      mode: 'service_account_json',
-      display_name: 'Service Account JSON',
-      // Optional so the submit button stays enabled and validateForm decides
-      secret_fields: [{ name: 'vertex_credentials', type: 'string', required: false }],
-      config_fields: [{ name: 'vertex_project', type: 'string', required: true }],
-    },
-    {
-      mode: 'default_chain',
-      display_name: 'Application Default Credentials',
-      secret_fields: [],
-      config_fields: [{ name: 'vertex_project', type: 'string', required: true }],
-    },
-  ],
+const providerConfigs = {
+  openai: {
+    default_mode: 'api_key',
+    auth_modes: [{ mode: 'api_key', secret_fields: [{ name: 'api_key', required: true }], config_fields: [] }],
+  },
+  vertex_ai: {
+    default_mode: 'service_account_json',
+    auth_modes: [
+      {
+        mode: 'service_account_json',
+        display_name: 'Service Account JSON',
+        // Optional so the submit button stays enabled and validateForm decides
+        secret_fields: [{ name: 'vertex_credentials', type: 'string', required: false }],
+        config_fields: [{ name: 'vertex_project', type: 'string', required: true }],
+      },
+      {
+        mode: 'default_chain',
+        display_name: 'Application Default Credentials',
+        secret_fields: [],
+        config_fields: [{ name: 'vertex_project', type: 'string', required: true }],
+      },
+    ],
+  },
 };
 
 describe('CreateApiKeyModal', () => {
@@ -63,7 +79,24 @@ describe('CreateApiKeyModal', () => {
       error: null,
       reset: jest.fn(),
     } as any);
-    jest.mocked(useProviderConfigQuery).mockReturnValue({ data: vertexProviderConfig } as any);
+    jest
+      .mocked(useProviderConfigQuery)
+      .mockImplementation(
+        ({ provider }) => ({ data: providerConfigs[provider as keyof typeof providerConfigs] }) as any,
+      );
+  });
+
+  test('disables creating a key that contains non-ASCII characters', async () => {
+    renderWithDesignSystem(<CreateApiKeyModal open onClose={jest.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Select OpenAI' }));
+
+    const input = screen.getByLabelText('API key');
+    await userEvent.type(input, '가나다');
+    expect(screen.getByRole('button', { name: 'Create API Key' })).toBeDisabled();
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'rkskek');
+    expect(screen.getByRole('button', { name: 'Create API Key' })).toBeEnabled();
   });
 
   test('creates a key for an auth mode without secret fields', async () => {
