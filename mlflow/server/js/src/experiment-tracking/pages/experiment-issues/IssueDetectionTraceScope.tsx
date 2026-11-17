@@ -29,13 +29,15 @@ export const IssueDetectionTraceScope = ({
 }) => {
   const fields = useMlflowTraceFilterFields();
   const normalize = useNormalizeIssueDetectionTraceScope();
+  const update = (value: IssueDetectionTraceScopeValue) =>
+    onChange({ searchQuery: value.searchQuery, filters: value.filters });
   const clear = () => onChange(emptyIssueDetectionTraceScope());
   return (
     <fieldset disabled={disabled} css={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
       <TraceFilterButton
         fields={fields}
         filterModel={scope.filters}
-        onChange={(filters) => onChange({ ...scope, filters })}
+        onChange={(filters) => update({ ...scope, filters })}
         onClearAll={clear}
         activeCount={scope.filters.length}
         renderTrigger={(openEditor) => (
@@ -43,12 +45,12 @@ export const IssueDetectionTraceScope = ({
             traces={NO_TRACES}
             filterModel={scope.filters}
             value={scope.searchQuery}
-            onChange={(searchQuery) => onChange({ ...scope, searchQuery })}
+            onChange={(searchQuery) => update({ ...scope, searchQuery })}
             onClear={clear}
-            onSubmit={() => onChange(normalize(scope))}
-            onRunTextSearch={(searchQuery) => onChange({ ...scope, searchQuery })}
-            onApplyFilter={(clause) => onChange({ searchQuery: '', filters: [...scope.filters, clause] })}
-            onRemoveFilter={(index) => onChange({ ...scope, filters: scope.filters.filter((_, i) => i !== index) })}
+            onSubmit={() => update(normalize(scope))}
+            onRunTextSearch={(searchQuery) => update({ ...scope, searchQuery })}
+            onApplyFilter={(clause) => update({ searchQuery: '', filters: [...scope.filters, clause] })}
+            onRemoveFilter={(index) => update({ ...scope, filters: scope.filters.filter((_, i) => i !== index) })}
             onOpenFilter={openEditor}
           />
         )}

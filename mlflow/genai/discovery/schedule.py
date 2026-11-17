@@ -45,6 +45,7 @@ DEFAULT_TIMEZONE = "UTC"
 # Upper bound on how many clauses one schedule may carry. The tag is client-written, so its size
 # is read defensively; 20 is far more than the modal offers.
 MAX_TRACE_FILTERS = 20
+MAX_COMPILED_FILTER_LENGTH = 10000
 
 # A clause's key and value are spliced into a ``search_traces`` filter string, so a character that
 # would break the expression or change which traces it matches makes the clause unusable. Such a
@@ -319,13 +320,32 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | CompiledTraceSco
         return None
     if "compiled" in entry:
         compiled = entry["compiled"]
-        if not isinstance(compiled, str) or not compiled.strip() or len(compiled) > 10000:
+        if (
+            not isinstance(compiled, str)
+            or not compiled.strip()
+            or len(compiled) > MAX_COMPILED_FILTER_LENGTH
+        ):
             raise MlflowException.invalid_parameter_value(
                 "Invalid saved issue-detection trace scope"
             )
         # Reject an invalid active scope instead of silently analyzing excluded traces.
-        SearchTraceUtils.parse_search_filter_for_search_traces(compiled)
+        clauses = SearchTraceUtils.parse_search_filter_for_search_traces(compiled)
+        if any("'" in str(clause.get("value", "")) for clause in clauses):
+            raise MlflowException.invalid_parameter_value(
+                "Single quotes are not supported in saved issue-detection trace scope values"
+            )
+        if any("`" in str(clause.get("key", "")) for clause in clauses):
+            raise MlflowException.invalid_parameter_value(
+                "Backticks are not supported in saved issue-detection trace scope keys"
+            )
         return CompiledTraceScopeClause(source=entry)
+    if entry.get("operator", "=") != "=" or (
+        entry.get("field") not in (None, "tag", "metadata")
+        and ("operator" in entry or "key" not in entry)
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid saved issue-detection trace scope: rich clauses require compiled filters"
+        )
     # Anything that is not "tag" reads as request metadata, as it does in the tab, so a clause
     # written before this field existed is applied rather than dropped.
     field: Literal["metadata", "tag"] = "tag" if entry.get("field") == "tag" else "metadata"
@@ -341,10 +361,6 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | CompiledTraceSco
     # dropping the clause.
     raw_value = entry.get("value")
     value = raw_value if isinstance(raw_value, str) else ""
-    # An unknown operator is dropped rather than coerced to "=": coercing "!=" would analyze a
-    # set disjoint from the one the clause asked for, hiding the traces it meant to select.
-    if entry.get("operator", "=") != "=":
-        return None
     if any(char in key or char in value for char in _FORBIDDEN_FILTER_CHARS):
         return None
     if _has_control_char(key) or _has_control_char(value):
@@ -464,10 +480,10 @@ def parse_trace_filters(
     raw_value: str | None,
 ) -> tuple[ScheduleTraceFilter | CompiledTraceScopeClause, ...]:
     """
-    Parse the trace-filter tag, dropping any clause this reader cannot use.
+    Parse saved scope, raising on invalid compiled or uncompiled rich clauses.
 
-    Dropping a clause widens what a run analyzes, so each is logged. The clauses that did parse
-    are still returned, which keeps the schedule narrowed by the rest rather than not at all.
+    Unusable legacy equality clauses are still dropped with a warning. Rich scope fails the
+    schedule read instead, so dispatch cannot widen the saved selection.
     """
     if not raw_value:
         return ()

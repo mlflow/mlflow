@@ -960,3 +960,27 @@ def test_shared_setup_edits_apply_to_the_next_occurrence_without_retiming(store,
     )
     assert params["categories"] == ["correctness"]
     assert params["instructions"] == "Focus on feedback"
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"field": "duration", "compiled": "trace.invalid = 'value'"},
+        {"field": "duration", "operator": ">", "value": "1000"},
+        {"field": "tag", "compiled": "tags.`team` = 'don''t'"},
+    ],
+)
+def test_invalid_shared_scope_never_dispatches_or_initializes_state(store, dispatch, entry):
+    experiment_id = _experiment_with(
+        store,
+        "invalid-shared-scope",
+        **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY)),
+    )
+    store.set_experiment_tag(
+        experiment_id,
+        ExperimentTag(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER, json.dumps([entry])),
+    )
+    assert dispatch(ONE_PM_MS).call_count == 0
+    assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 0
+    assert _state(store, experiment_id) is None
+    assert MLFLOW_ISSUE_DETECTION_CHECKPOINT not in store.get_experiment(experiment_id).tags

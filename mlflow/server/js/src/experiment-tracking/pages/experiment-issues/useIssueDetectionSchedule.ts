@@ -12,7 +12,6 @@ import {
   type IssueDetectionScheduleModel,
   type IssueDetectionScheduleSetting,
   type IssueDetectionScheduleUpdate,
-  type ScheduleTraceFilter,
 } from './issueDetectionSchedule';
 
 export const ISSUE_DETECTION_SCHEDULE_QUERY_KEY = 'EXPERIMENT_ISSUE_DETECTION_SCHEDULE';
@@ -34,8 +33,6 @@ export const useScheduledDetectionAvailable = (): boolean =>
 export interface UseIssueDetectionScheduleResult {
   /** Current setting derived from the stored schedule (a paused schedule reads as 'off'). */
   setting: IssueDetectionScheduleSetting;
-  /** Current trace filter clauses (persisted independently of pause) for prefilling the modal. */
-  traceFilters: ScheduleTraceFilter[];
   /** Time of day the cadence fires, `HH:MM`, read in `timezone`. */
   startTime: string;
   /** Weekday a weekly cadence fires on, Monday as 0. */
@@ -71,7 +68,7 @@ export interface UseIssueDetectionScheduleResult {
    */
   reload: () => void;
   /**
-   * Apply the desired cadence + clauses. Resolves once the writes succeed and rejects if any
+   * Apply the desired cadence. Resolves once the writes succeed and rejects if any
    * fail, so the modal can await it -- keeping itself open on failure instead of closing and
    * silently discarding the user's draft.
    */
@@ -81,8 +78,7 @@ export interface UseIssueDetectionScheduleResult {
 /**
  * Reads and mutates the experiment's recurring issue-detection schedule.
  *
- * The schedule lives in experiment tags that the server's dispatcher reads, so saving one is two
- * tag writes rather than a call to a schedule service.
+ * The cadence tag is read by the dispatcher; detection settings own the separate scope tag.
  */
 export const useIssueDetectionSchedule = ({
   experimentId,
@@ -114,8 +110,7 @@ export const useIssueDetectionSchedule = ({
     // makes turning it back on restore the cadence rather than start from nothing.
     mutationFn: (update) => saveIssueDetectionSchedule(experimentId, update, schedule),
     onSuccess: (saved) => queryClient.setQueryData(queryKey, saved),
-    // On failure, reconcile the cache with what actually persisted: the two tag writes are not
-    // atomic, so a reopened modal should show the real stored state rather than the draft.
+    // On failure, a reopened modal should show stored state rather than the draft.
     onError: () => {
       queryClient.invalidateQueries(queryKey);
     },
@@ -125,7 +120,6 @@ export const useIssueDetectionSchedule = ({
 
   return {
     setting: schedule?.setting ?? noIssueDetectionSchedule().setting,
-    traceFilters: schedule?.traceFilters ?? [],
     startTime: schedule?.startTime ?? DEFAULT_ISSUE_DETECTION_START_TIME,
     weekday: schedule?.weekday ?? DEFAULT_ISSUE_DETECTION_WEEKDAY,
     nextRunMs: schedule?.nextRunMs,

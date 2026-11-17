@@ -563,7 +563,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     defaultMessage: 'Model',
     description: 'Experiment issues tab > Schedule modal label for the model scheduled runs analyze with',
   });
-  const filtersDisabled = cadence === 'off';
+  const scheduleOff = cadence === 'off';
   const { hour, minute } = splitStartTime(startTime);
   // The quarter hours the dispatcher can fire at, plus the stored minute when it is not one of
   // them: a schedule set by hand to 09:08 is shown and saved as 09:08 rather than being moved to
@@ -787,7 +787,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                       label={hourFieldLabel}
                       width={TIME_PART_WIDTH}
                       value={hour}
-                      disabled={filtersDisabled}
+                      disabled={scheduleOff}
                       onChange={({ target }) => setStartTime(joinStartTime(target.value, minute))}
                       contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
                     >
@@ -804,7 +804,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                       label={minuteFieldLabel}
                       width={TIME_PART_WIDTH}
                       value={minute}
-                      disabled={filtersDisabled}
+                      disabled={scheduleOff}
                       onChange={({ target }) => setStartTime(joinStartTime(hour, target.value))}
                       contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
                     >
@@ -830,7 +830,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                       defaultMessage: 'Search timezones',
                       description: 'Experiment issues tab > Schedule modal placeholder of the timezone search input',
                     })}
-                    disabled={filtersDisabled}
+                    disabled={scheduleOff}
                     clearOnOpen
                   />
                 </div>
@@ -843,7 +843,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                       endpoints={endpoints}
                       value={selection}
                       onChange={setSelection}
-                      disabled={filtersDisabled}
+                      disabled={scheduleOff}
                       // The modal raises its own stacking context, which this control's option list
                       // and its "Create endpoint" modal would otherwise render below.
                       overlayZIndex={theme.options.zIndexBase + 40}

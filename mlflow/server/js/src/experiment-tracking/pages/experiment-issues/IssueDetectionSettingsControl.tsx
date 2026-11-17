@@ -137,10 +137,14 @@ export const IssueDetectionSettingsControl = ({ experimentId, buttonText }: Issu
             <Alert
               componentId={`${COMPONENT_ID}.error`}
               type="error"
-              message={intl.formatMessage({
-                defaultMessage: 'Could not save issue detection settings. Try again.',
-                description: 'Issue detection settings modal > Save error',
-              })}
+              message={
+                scope.save.error instanceof Error
+                  ? scope.save.error.message
+                  : intl.formatMessage({
+                      defaultMessage: 'Could not save issue detection settings. Try again.',
+                      description: 'Issue detection settings modal > Save error',
+                    })
+              }
               closable={false}
             />
           )}

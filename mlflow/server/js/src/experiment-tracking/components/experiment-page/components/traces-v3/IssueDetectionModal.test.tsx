@@ -12,6 +12,7 @@ import { useApiKeyConfiguration } from '../../../../../gateway/components/model-
 import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/useIssueDetectionSettings';
 import { defaultIssueDetectionSettings } from '../../../../pages/experiment-issues/issueDetectionSettings';
 import { useHasExperimentIssues } from '../../../../pages/experiment-issues/useExperimentIssues';
+import { useNormalizeIssueDetectionTraceScope } from '../../../../pages/experiment-issues/IssueDetectionTraceScope';
 import { useIssueDetectionTraceScope } from '../../../../pages/experiment-issues/useIssueDetectionTraceScope';
 import { searchMlflowTracesQueryFn } from '../../../../../shared/web-shared/genai-traces-table/hooks/useMlflowTraces';
 
@@ -25,8 +26,14 @@ jest.mock('../../../../pages/experiment-issues/useIssueDetectionTraceScope', () 
   useIssueDetectionTraceScope: jest.fn(),
 }));
 jest.mock('../../../../pages/experiment-issues/IssueDetectionTraceScope', () => ({
-  useNormalizeIssueDetectionTraceScope: () => (scope: unknown) => scope,
-  IssueDetectionTraceScope: () => <div>Trace scope editor</div>,
+  useNormalizeIssueDetectionTraceScope: jest.fn(() => (scope: unknown) => scope),
+  IssueDetectionTraceScope: ({ scope, onChange }: any) => (
+    <input
+      aria-label="Target traces"
+      value={scope.searchQuery}
+      onChange={(event) => onChange({ searchQuery: event.target.value, filters: scope.filters })}
+    />
+  ),
 }));
 
 jest.mock('../../../../pages/experiment-issues/useIssueDetectionSettings', () => ({
@@ -85,6 +92,7 @@ describe('IssueDetectionModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(useNormalizeIssueDetectionTraceScope).mockReturnValue((scope) => scope);
     jest.mocked(useExperimentPermission).mockReturnValue(true);
     clearSubmittedIssueDetectionJob();
     jest.mocked(searchMlflowTracesQueryFn).mockReset();
@@ -461,6 +469,68 @@ describe('IssueDetectionModal', () => {
         filter: "attributes.request_id IN ('trace-1','trace-2') AND trace.text ILIKE '%feedback%'",
       }),
     );
+  });
+
+  test('saved scope re-searches up to 50 recent traces without an explicit selection', async () => {
+    jest
+      .mocked(useIssueDetectionTraceScope)
+      .mockReturnValue({ data: { searchQuery: 'feedback', filters: [] }, isLoading: false } as any);
+    jest.mocked(searchMlflowTracesQueryFn).mockResolvedValue([{ trace_id: 'matching-trace' }] as any);
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} availableTraceIds={Array.from({ length: 60 }, (_, i) => `trace-${i}`)} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    await waitFor(() =>
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({ traceIds: ['matching-trace'] }),
+        expect.any(Object),
+      ),
+    );
+    expect(searchMlflowTracesQueryFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filter: "trace.text ILIKE '%feedback%'",
+        pageSize: 50,
+        limit: 50,
+        orderBy: ['timestamp DESC'],
+      }),
+    );
+  });
+
+  test('an empty saved-scope intersection blocks the run with an inline error', async () => {
+    jest
+      .mocked(useIssueDetectionTraceScope)
+      .mockReturnValue({ data: { searchQuery: 'feedback', filters: [] }, isLoading: false } as any);
+    jest.mocked(searchMlflowTracesQueryFn).mockResolvedValue([]);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    expect(await screen.findByText(/No selected traces match the saved trace scope/)).toBeInTheDocument();
+    expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
+  });
+
+  test('Apply normalizes a complete structured query without Enter before saving or launching', async () => {
+    const actual = jest.requireActual<typeof import('../../../../pages/experiment-issues/IssueDetectionTraceScope')>(
+      '../../../../pages/experiment-issues/IssueDetectionTraceScope',
+    );
+    jest.mocked(useNormalizeIssueDetectionTraceScope).mockImplementation(actual.useNormalizeIssueDetectionTraceScope);
+    const save = jest.fn<any>().mockResolvedValue({ searchQuery: '', filters: [] });
+    jest.mocked(useIssueDetectionTraceScope).mockReturnValue({
+      data: { searchQuery: '', filters: [] },
+      isLoading: false,
+      save: { mutateAsync: save },
+    } as any);
+    jest.mocked(searchMlflowTracesQueryFn).mockResolvedValue([{ trace_id: 'trace-1' }] as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Target traces' }), `tag."team" = 'support'`);
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith({
+        searchQuery: '',
+        filters: [{ field: 'tag', key: 'team', operator: '=', value: 'support' }],
+      }),
+    );
+    await waitFor(() => expect(mockInvokeIssueDetection).toHaveBeenCalledTimes(1));
   });
 
   test('a failed customization save keeps the draft and permits retry without starting a run', async () => {

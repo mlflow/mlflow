@@ -355,54 +355,6 @@ export const loadIssueDetectionSchedule = async (experimentId: string): Promise<
 };
 
 /**
- * Characters the server drops a clause for. A clause is spliced into a trace-search expression
- * where a backtick or quote breaks it, and that grammar has no escape, so the server has no way to
- * apply such a clause. Rejecting the draft here is what stops a schedule being saved with a filter
- * that looks active in this modal and is silently ignored by every run.
- */
-const UNSUPPORTED_FILTER_CHARACTERS = ['`', "'", '"', '\\'];
-
-/**
- * Also dropped by the server: a control character or DEL makes a malformed clause, so
- * `_has_control_char` in `mlflow/genai/discovery/schedule.py` refuses it the same way, and this
- * applies the same bounds. Easy to arrive here by paste rather than by typing -- a tab or a
- * newline carried along with a copied value -- and invisible once in the field, which is exactly
- * why the modal has to name it.
- */
-const isControlCharacter = (character: string): boolean => {
-  const code = character.codePointAt(0) ?? 0;
-  return code < 0x20 || code === 0x7f;
-};
-
-/**
- * How many clauses a schedule may carry. The server applies only this many and ignores the rest,
- * so offering a further one here would show a filter as active that no run ever applies. Must
- * stay in step with `MAX_TRACE_FILTERS` on the server.
- */
-export const MAX_TRACE_FILTERS = 20;
-
-export const unsupportedFilterCharacter = (filter: ScheduleTraceFilter): string | undefined => {
-  const punctuation = UNSUPPORTED_FILTER_CHARACTERS.find(
-    (character) => filter.key.includes(character) || filter.value.includes(character),
-  );
-  if (punctuation) {
-    return punctuation;
-  }
-  // Spread rather than indexed, so a character outside the basic plane is one item and cannot be
-  // split into surrogates that look like something else.
-  const control = [...filter.key, ...filter.value].find(isControlCharacter);
-  // Named by code point, because the character itself has nothing to show: "Remove the  character
-  // from the filter" would name nothing at all.
-  return control === undefined ? undefined : `U+${control.codePointAt(0)?.toString(16).toUpperCase().padStart(4, '0')}`;
-};
-
-/** Blank-key clauses are dropped and keys trimmed, so the stored model stays clean. */
-export const normalizeTraceFilters = (filters: ScheduleTraceFilter[]): ScheduleTraceFilter[] =>
-  filters
-    .map((filter) => ({ field: filter.field, operator: filter.operator, key: filter.key.trim(), value: filter.value }))
-    .filter((filter) => filter.key.length > 0);
-
-/**
  * The weekday names a schedule's stored weekday indexes into, Monday first.
  *
  * Monday-first because that is the order the schedule stores (Monday as 0), not a display
@@ -476,7 +428,6 @@ export const resolveScheduleTimezone = (chosen?: string, stored?: string): strin
 
 export interface IssueDetectionScheduleUpdate {
   setting: IssueDetectionScheduleSetting;
-  traceFilters?: ScheduleTraceFilter[];
   model?: IssueDetectionScheduleModel;
   /** Omitted keeps the stored start time, the way omitting the model keeps the stored model. */
   startTime?: string;
@@ -490,7 +441,7 @@ export interface IssueDetectionScheduleUpdate {
  * Ask the server to bring the schedule's dispatch state in line with what was just written, and
  * to say when it next runs.
  *
- * The two tag writes above go through the generic tag endpoint, so nothing on the server learns a
+ * The cadence write goes through the generic tag endpoint, so nothing on the server learns a
  * schedule was saved; without this the next run was computed only by the following dispatcher
  * pass, up to a quarter of an hour later, and the dialog had nothing to show for exactly as long
  * as someone was waiting to be told what they had just scheduled.
@@ -518,23 +469,13 @@ const syncScheduleState = async (experimentId: string): Promise<number | undefin
  * restores what was chosen before. Turning it off with nothing stored writes a paused schedule with
  * no cadence, which the server reads as nothing to run.
  *
- * The clauses are written **before** the cadence, and the order is the safety property rather than
- * a detail: the cadence tag is what makes the dispatcher pick the schedule up, so writing it first
- * opened a window -- a failed second write, or a dispatcher poll landing between the two -- where a
- * run could analyze traces the clauses were meant to exclude. Written in this order, a narrowed
- * scope is in force before anything can run under it, and a failure before the cadence write
- * leaves the schedule as it was.
- *
- * The two writes are still not atomic, so a failure between them can leave the stored clauses
- * ahead of the cadence. That failure is surfaced to the user, both tags are rewritten on every
- * save, and the direction it can fail in is the safe one.
+ * Shared trace scope is owned by detection settings; cadence edits never write its tag.
  */
 export const saveIssueDetectionSchedule = async (
   experimentId: string,
-  { setting, traceFilters, model, startTime, weekday, timezone }: IssueDetectionScheduleUpdate,
+  { setting, model, startTime, weekday, timezone }: IssueDetectionScheduleUpdate,
   current?: IssueDetectionSchedule,
 ): Promise<IssueDetectionSchedule> => {
-  const normalized = traceFilters ? normalizeTraceFilters(traceFilters) : (current?.traceFilters ?? []);
   const cadence = setting === 'off' ? current?.cadence : setting;
   // Like the cadence, the model, start time, weekday and timezone are kept while paused so
   // turning the schedule back on restores what it had.
@@ -544,19 +485,6 @@ export const saveIssueDetectionSchedule = async (
   const savedStartTime = parseIssueDetectionStartTime(startTime ?? current?.startTime);
   const savedWeekday = parseIssueDetectionWeekday(weekday ?? current?.weekday);
   const savedTimezone = resolveScheduleTimezone(timezone, current?.timezone);
-  if (traceFilters) {
-    // Older clients can edit equality clauses; keep the saved scope they cannot represent.
-    const { experiment } = await MlflowService.getExperiment({ experiment_id: experimentId });
-    const raw = parseJson(
-      experiment?.tags?.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value,
-    );
-    const preserved = Array.isArray(raw) ? raw.filter((entry) => isRecord(entry) && !parseTraceFilter(entry)) : [];
-    await MlflowService.setExperimentTag({
-      experiment_id: experimentId,
-      key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-      value: JSON.stringify([...normalized, ...preserved]),
-    });
-  }
   await MlflowService.setExperimentTag({
     experiment_id: experimentId,
     key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
@@ -575,11 +503,11 @@ export const saveIssueDetectionSchedule = async (
     cadence,
     startTime: savedStartTime,
     weekday: savedWeekday,
-    // Answered by the server now that the tags are written, so the dialog can say when the
+    // Answered by the server now that the cadence is written, so the dialog can say when the
     // schedule runs next the moment it is saved. Undefined if that call did not get through,
     // which is the old behaviour: no line until the dispatcher's next pass.
     nextRunMs: await syncScheduleState(experimentId),
-    traceFilters: normalized,
+    traceFilters: current?.traceFilters ?? [],
     model: savedModel,
     timezone: savedTimezone,
   };

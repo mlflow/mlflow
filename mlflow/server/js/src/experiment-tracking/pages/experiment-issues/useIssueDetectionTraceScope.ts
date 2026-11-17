@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@databricks/web-shared/query-client';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { loadIssueDetectionTraceScope, saveIssueDetectionTraceScope } from './issueDetectionTraceScope';
+import { ISSUE_DETECTION_SCHEDULE_QUERY_KEY } from './useIssueDetectionSchedule';
 
 export const ISSUE_DETECTION_TRACE_SCOPE_QUERY_KEY = 'EXPERIMENT_ISSUE_DETECTION_TRACE_SCOPE';
 
@@ -22,7 +23,7 @@ export const useIssueDetectionTraceScope = (experimentId: string, enabled = true
     onSuccess: (saved) => {
       client.setQueryData(queryKey, saved);
       void client
-        .invalidateQueries(['EXPERIMENT_ISSUE_DETECTION_SCHEDULE', workspace, experimentId])
+        .invalidateQueries([ISSUE_DETECTION_SCHEDULE_QUERY_KEY, workspace, experimentId])
         .catch(() => undefined);
     },
   });

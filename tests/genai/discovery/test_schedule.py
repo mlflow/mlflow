@@ -175,7 +175,6 @@ def test_no_clauses_make_an_empty_filter_string():
         {"field": "metadata", "key": "", "value": "v"},
         {"field": "metadata", "key": "   ", "value": "v"},
         {"field": "metadata", "key": 7, "value": "v"},
-        {"field": "metadata", "key": "k", "value": "v", "operator": "!="},
         {"field": "metadata", "key": "k`", "value": "v"},
         {"field": "metadata", "key": "k", "value": "v' OR '1' = '1"},
         {"field": "metadata", "key": "k", "value": 'say "hi"'},
@@ -1097,3 +1096,35 @@ def test_invalid_saved_trace_scope_does_not_widen_a_scheduled_run(compiled):
 
     with pytest.raises(MlflowException, match="Invalid"):
         parse_trace_filters(json.dumps([{"field": "duration", "compiled": compiled}]))
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"field": "duration", "operator": ">", "value": "1000"},
+        {"field": "tag", "operator": "!=", "key": "team", "value": "support"},
+        {"field": "issue_detection_search_query", "value": "feedback"},
+    ],
+)
+def test_rich_scope_without_a_saved_expression_fails_closed(entry):
+    from mlflow.exceptions import MlflowException
+
+    with pytest.raises(MlflowException, match="require compiled"):
+        parse_trace_filters(json.dumps([entry]))
+
+
+def test_doubled_quotes_are_not_escapes_in_trace_search():
+    from mlflow.exceptions import MlflowException
+    from mlflow.utils.search_utils import SearchTraceUtils
+
+    compiled = "tags.`team` = 'don''t'"
+    assert SearchTraceUtils.parse_search_filter_for_search_traces(compiled)[0]["value"] == "don''t"
+    with pytest.raises(MlflowException, match="Single quotes"):
+        parse_trace_filters(json.dumps([{"field": "tag", "compiled": compiled}]))
+
+
+def test_backticks_in_compiled_scope_keys_are_rejected():
+    from mlflow.exceptions import MlflowException
+
+    with pytest.raises(MlflowException, match="Invalid|Backticks"):
+        parse_trace_filters(json.dumps([{"compiled": "tags.`bad``key` = 'value'"}]))

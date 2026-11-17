@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { FilterOp } from '@databricks/web-shared/traces-table';
+import * as FeatureUtils from '../../../common/utils/FeatureUtils';
 import { MlflowService } from '../../sdk/MlflowService';
 import { MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG } from '../../constants';
 import {
@@ -26,7 +27,7 @@ describe('shared issue detection trace scope', () => {
           ]),
         },
       ]),
-    ).toEqual({
+    ).toMatchObject({
       searchQuery: '',
       filters: [
         { field: 'metadata', operator: '=', key: 'env', value: 'prod' },
@@ -43,7 +44,7 @@ describe('shared issue detection trace scope', () => {
     await saveIssueDetectionTraceScope('1', scope);
     const tag = jest.mocked(MlflowService.setExperimentTag).mock.calls[0][0];
     expect(tag.key).toBe(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG);
-    expect(readIssueDetectionTraceScope([tag])).toEqual(scope);
+    expect(readIssueDetectionTraceScope([tag])).toMatchObject(scope);
     expect(
       JSON.parse(tag.value)
         .map((entry: { compiled: string }) => entry.compiled)
@@ -93,3 +94,33 @@ test.each(['not-json', '{}', '[{"field":"future","operator":"=","value":"x"}]'])
     ).toThrow();
   },
 );
+
+test('saved compiled scope stays identical when filter feature flags change', async () => {
+  const flag = jest.spyOn(FeatureUtils, 'shouldEnableNewEvalRunsUi').mockReturnValue(true);
+  try {
+    await saveIssueDetectionTraceScope('1', {
+      searchQuery: '',
+      filters: [{ field: 'state', operator: FilterOp.NOT_EQUALS, value: 'ERROR' }],
+    });
+    const tag = jest.mocked(MlflowService.setExperimentTag).mock.calls.slice(-1)[0][0];
+    const scheduled = JSON.parse(tag.value)
+      .map((entry: { compiled: string }) => entry.compiled)
+      .join(' AND ');
+    flag.mockReturnValue(false);
+    expect(compileIssueDetectionTraceScope(readIssueDetectionTraceScope([tag]))).toBe(scheduled);
+    expect(scheduled).toBe("attributes.status != 'ERROR'");
+  } finally {
+    flag.mockRestore();
+  }
+});
+
+test.each([
+  { searchQuery: 'x'.repeat(10000), filters: [] },
+  { searchQuery: '', filters: [{ field: 'tag', key: 'bad`key', operator: FilterOp.EQUALS, value: 'value' }] },
+  { searchQuery: "don't", filters: [] },
+  { searchQuery: '', filters: [{ field: 'tag', key: 'team', operator: FilterOp.EQUALS, value: "don't" }] },
+])('unusable saved expressions do not overwrite scope: %j', async (scope) => {
+  jest.mocked(MlflowService.setExperimentTag).mockClear();
+  await expect(saveIssueDetectionTraceScope('1', scope)).rejects.toThrow();
+  expect(MlflowService.setExperimentTag).not.toHaveBeenCalled();
+});

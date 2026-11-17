@@ -21,7 +21,6 @@ import {
   splitStartTime,
   startTimeHourOptions,
   startTimeMinuteOptions,
-  unsupportedFilterCharacter,
 } from './issueDetectionSchedule';
 
 const clause = (raw: unknown) =>
@@ -79,38 +78,6 @@ describe('parseScheduleTraceFilters', () => {
     ['junk', 'not-json'],
   ])('%s reads as no filters', (_label, raw) => {
     expect(clause(raw)).toEqual([]);
-  });
-});
-
-describe('unsupportedFilterCharacter', () => {
-  const clauseWith = (value: string) => ({ field: 'metadata' as const, operator: '=' as const, key: 'env', value });
-
-  test.each([
-    ['a backtick', '`', '`'],
-    ['a single quote', "o'brien", "'"],
-    ['a double quote', 'say "yes"', '"'],
-    ['a backslash', 'a\\b', '\\'],
-  ])('%s is reported as itself', (_label, value, expected) => {
-    expect(unsupportedFilterCharacter(clauseWith(value))).toBe(expected);
-  });
-
-  test.each([
-    ['a tab', 'production\t', 'U+0009'],
-    ['a newline', 'production\n', 'U+000A'],
-    ['a NUL', 'production\u0000', 'U+0000'],
-    ['a DEL', 'production\u007f', 'U+007F'],
-  ])('%s is reported by code point, since it shows nothing in the field', (_label, value, expected) => {
-    // The server drops a clause carrying one of these, so a schedule saved with it would show a
-    // filter in the modal that no run ever applies.
-    expect(unsupportedFilterCharacter(clauseWith(value))).toBe(expected);
-  });
-
-  test('a control character in the key is caught too', () => {
-    expect(unsupportedFilterCharacter({ field: 'tag', operator: '=', key: 'te\tam', value: 'search' })).toBe('U+0009');
-  });
-
-  test('an ordinary value is accepted, spaces and all', () => {
-    expect(unsupportedFilterCharacter(clauseWith('north america'))).toBeUndefined();
   });
 });
 
@@ -296,7 +263,7 @@ jest.mock('../../sdk/MlflowService', () => ({
 }));
 jest.mock('../../../common/utils/FetchUtils', () => ({ fetchAPI: jest.fn(), getAjaxUrl: (url: string) => url }));
 
-describe('saving cadence and legacy trace filters', () => {
+describe('saving cadence preserves shared trace scope', () => {
   beforeEach(() => {
     jest.mocked(MlflowService.getExperiment).mockReset();
     jest.mocked(MlflowService.setExperimentTag).mockReset();
@@ -309,33 +276,5 @@ describe('saving cadence and legacy trace filters', () => {
     expect(MlflowService.setExperimentTag).toHaveBeenCalledWith(
       expect.objectContaining({ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG }),
     );
-  });
-
-  test('a legacy equality edit preserves rich and keyless clauses', async () => {
-    const rich = { field: 'duration', operator: '>', value: '1000', compiled: 'attributes.execution_time_ms > 1000' };
-    const text = {
-      field: 'issue_detection_search_query',
-      value: 'feedback',
-      compiled: "trace.text ILIKE '%feedback%'",
-    };
-    jest.mocked(MlflowService.getExperiment).mockResolvedValue({
-      experiment: {
-        tags: [
-          {
-            key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-            value: JSON.stringify([rich, text, { field: 'tag', key: 'old', value: 'prod' }]),
-          },
-        ],
-      },
-    } as any);
-    await saveIssueDetectionSchedule('1', { setting: 'off', traceFilters: [] });
-    const saved = jest.mocked(MlflowService.setExperimentTag).mock.calls[0][0];
-    expect(JSON.parse(saved.value)).toEqual([rich, text]);
-  });
-
-  test('a failed preservation read writes nothing', async () => {
-    jest.mocked(MlflowService.getExperiment).mockRejectedValue(new Error('offline'));
-    await expect(saveIssueDetectionSchedule('1', { setting: 'off', traceFilters: [] })).rejects.toThrow('offline');
-    expect(MlflowService.setExperimentTag).not.toHaveBeenCalled();
   });
 });
