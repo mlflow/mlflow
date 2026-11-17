@@ -279,15 +279,11 @@ export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: strin
 
   map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links') => {
     if (label === 'events') {
-      for (const match of getMatchesFromEvent(span, searchFilter)) {
-        matches.push(match);
-      }
+      matches.push(...getMatchesFromEvent(span, searchFilter));
       return;
     }
     if (label === 'links') {
-      for (const match of getMatchesFromLinks(span, searchFilter)) {
-        matches.push(match);
-      }
+      matches.push(...getMatchesFromLinks(span, searchFilter));
       return;
     }
 
@@ -354,12 +350,8 @@ export function searchTree(
       spanFilterState,
     );
 
-    for (const node of childNodes) {
-      filteredChildren.push(node);
-    }
-    for (const match of childMatches) {
-      matches.push(match);
-    }
+    filteredChildren.push(...childNodes);
+    matches.push(...childMatches);
   });
 
   const spanName = ((rootNode.title as string) ?? '').toLowerCase();

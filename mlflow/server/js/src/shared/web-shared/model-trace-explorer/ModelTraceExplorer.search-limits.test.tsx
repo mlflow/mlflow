@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import { ModelSpanType, type ModelTraceSpanNode } from './ModelTrace.types';
 import { getMatchesFromSpan, searchTree } from './ModelTraceExplorer.utils';
-import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
+import { TEST_SPAN_FILTER_STATE } from './v2/timeline-tree/TimelineTree.test-utils';
 
 const node = (key: string): ModelTraceSpanNode => ({
   key,
@@ -17,7 +17,7 @@ const node = (key: string): ModelTraceSpanNode => ({
 });
 const MATCH_COUNT = 150_000;
 
-describe('trace search result aggregation', () => {
+describe('shared trace search result aggregation', () => {
   it('keeps all event matches above the argument limit', () => {
     const span = node('event');
     span.events = [{ name: 'event', timestamp: 0, attributes: { value: 'x'.repeat(MATCH_COUNT) } }];
@@ -34,7 +34,7 @@ describe('trace search result aggregation', () => {
     expect(matches[MATCH_COUNT - 1]).toMatchObject({ span, section: 'links', matchIndex: MATCH_COUNT - 1 });
   });
 
-  it('keeps child matches above the argument limit in parent-first order', () => {
+  it('retains existing child aggregation and parent-first match order', () => {
     const root = node('root');
     root.inputs = { value: 'x' };
     const child = node('child');
