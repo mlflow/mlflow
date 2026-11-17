@@ -86,7 +86,7 @@ describe('compileFilterModel', () => {
       {
         name: 'span name equals → span.name ILIKE exact (case-insensitive, no CONTAINS token)',
         clause: { field: 'span_name', operator: FilterOp.EQUALS, value: 'my_span' },
-        expected: "span.name ILIKE 'my_span'",
+        expected: "span.name ILIKE 'my\\_span'",
       },
       {
         name: 'span name contains → span.name ILIKE substring',
@@ -211,6 +211,25 @@ describe('compileFilterModel', () => {
         [],
       );
     });
+  });
+});
+
+describe.each(['span_name', 'span_type'])('%s literal values', (field) => {
+  test.each([
+    ['%', '\\%'],
+    ['_', '\\_'],
+    ['[abc]', '\\[abc]'],
+    ['path\\name', 'path\\\\name'],
+    ["it's_100%", "it''s\\_100\\%"],
+  ])('escapes %s for equals and contains, retaining literal not-equals', (value, escaped) => {
+    const ref = field === 'span_name' ? 'span.name' : 'span.type';
+    expect(compileFilterModel([{ field, operator: FilterOp.EQUALS, value }])).toEqual([`${ref} ILIKE '${escaped}'`]);
+    expect(compileFilterModel([{ field, operator: FilterOp.CONTAINS, value }])).toEqual([
+      `${ref} ILIKE '%${escaped}%'`,
+    ]);
+    expect(compileFilterModel([{ field, operator: FilterOp.NOT_EQUALS, value }])).toEqual([
+      `${ref} != '${value.replace(/'/g, "''")}'`,
+    ]);
   });
 });
 

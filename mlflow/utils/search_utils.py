@@ -256,14 +256,14 @@ class SearchUtils:
         }[comparator]
 
     @staticmethod
-    def get_sql_comparison_func(comparator, dialect):
+    def get_sql_comparison_func(comparator, dialect, *, ilike_escape=None):
         import sqlalchemy as sa
 
         def comparison_func(column, value):
             if comparator == "LIKE":
                 return column.like(value)
             elif comparator == "ILIKE":
-                return column.ilike(value)
+                return column.ilike(value, escape=ilike_escape)
             elif comparator == "IN":
                 return column.in_(value)
             elif comparator == "NOT IN":
