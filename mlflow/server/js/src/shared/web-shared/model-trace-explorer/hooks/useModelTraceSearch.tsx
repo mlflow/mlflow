@@ -1,5 +1,5 @@
 import { compact } from 'lodash';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type {
   ModelTraceExplorerTab,
@@ -15,8 +15,10 @@ import {
   getTimelineTreeNodesList,
   getTimelineTreeNodesMap,
 } from '../timeline-tree/TimelineTree.utils';
+import { collectModelTraceSearchMatches } from './collectModelTraceSearchMatches';
 
 const EMPTY_COMPARISON_NODE_MAP: Record<string, ModelTraceSpanNode> = {};
+const EMPTY_SEARCH_RESULT = { filteredTreeNodes: [] as ModelTraceSpanNode[], matches: [] as SearchMatch[], filter: '' };
 
 const getDefaultSpanFilterState = (treeNodes: ModelTraceSpanNode[]): SpanFilterState => {
   const spanTypeDisplayState: Record<string, boolean> = {};
@@ -152,31 +154,77 @@ export const useModelTraceSearch = ({
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [spanFilterState, setSpanFilterState] = useState<SpanFilterState>(() => getDefaultSpanFilterState(treeNodes));
   const [activeMatchIndex, setActiveMatchIndex] = useState(0);
-  const treeNodesKeys = useMemo(() => treeNodes.map((n) => n.key).join(','), [treeNodes]);
-  const { filteredTreeNodes, matches } = useMemo(() => {
+  const previousSearch = useRef<{
+    filter: string;
+    spanFilterState: SpanFilterState;
+    matches: SearchMatch[];
+  }>();
+  const normalizedFilter = searchFilter.toLowerCase().trim();
+  const hasComparisonNodes = Object.keys(comparisonNodeMap).length > 0;
+  const [collected, setCollected] = useState<{
+    treeNodes: ModelTraceSpanNode[];
+    filter: string;
+    matches: Map<ModelTraceSpanNode, SearchMatch[]>;
+  }>();
+  useEffect(() => {
+    if (!normalizedFilter || hasComparisonNodes) {
+      setCollected(undefined);
+      return undefined;
+    }
+    return collectModelTraceSearchMatches(treeNodes, normalizedFilter, (matches) => {
+      setCollected({ treeNodes, filter: normalizedFilter, matches });
+    });
+  }, [treeNodes, normalizedFilter, hasComparisonNodes]);
+
+  const completedResult = useMemo(() => {
     if (!treeNodes || treeNodes.length === 0) {
-      return {
-        filteredTreeNodes: [],
-        matches: [],
-      };
+      return { ...EMPTY_SEARCH_RESULT, filter: normalizedFilter };
+    }
+    if (
+      !hasComparisonNodes &&
+      normalizedFilter &&
+      (collected?.treeNodes !== treeNodes || collected.filter !== normalizedFilter)
+    ) {
+      return undefined;
     }
 
     // Run search over each root and merge results
-    const hasComparisonNodes = Object.keys(comparisonNodeMap).length > 0;
     const merged = treeNodes.map((root) =>
       hasComparisonNodes
         ? searchComparisonTree(root, searchFilter, spanFilterState, comparisonNodeMap)
-        : searchTree(root, searchFilter, spanFilterState),
+        : searchTree(
+            root,
+            searchFilter,
+            spanFilterState,
+            normalizedFilter ? (span) => collected?.matches.get(span) ?? [] : undefined,
+          ),
     );
     return {
       filteredTreeNodes: merged.flatMap((r) => r.filteredTreeNodes),
       matches: merged.flatMap((r) => r.matches),
+      filter: normalizedFilter,
     };
-    // use the span IDs to determine whether the state should be recomputed.
-    // using the whole object seems to cause the state to be reset at
-    // unexpected times.
+    // Metadata refreshes also refresh selection without resetting the active occurrence.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeNodesKeys, searchFilter, spanFilterState, modelTraceInfo, comparisonNodeMap]);
+  }, [
+    treeNodes,
+    searchFilter,
+    normalizedFilter,
+    spanFilterState,
+    modelTraceInfo,
+    comparisonNodeMap,
+    hasComparisonNodes,
+    collected,
+  ]);
+  const traceId = treeNodes[0]?.traceId;
+  const lastCompletedResult = useRef({ traceId, result: EMPTY_SEARCH_RESULT });
+  if (completedResult) lastCompletedResult.current = { traceId, result: completedResult };
+  const {
+    filteredTreeNodes,
+    matches,
+    filter: displayedFilter,
+  } = completedResult ??
+  (lastCompletedResult.current.traceId === traceId ? lastCompletedResult.current.result : EMPTY_SEARCH_RESULT);
 
   const nodeMap = useMemo(() => {
     return getTimelineTreeNodesMap(filteredTreeNodes);
@@ -209,6 +257,9 @@ export const useModelTraceSearch = ({
   }, [activeMatchIndex, selectMatch]);
 
   useLayoutEffect(() => {
+    const previous = previousSearch.current;
+    const filter = displayedFilter;
+    previousSearch.current = { filter, spanFilterState, matches };
     if (filteredTreeNodes.length === 0) {
       return;
     }
@@ -238,7 +289,29 @@ export const useModelTraceSearch = ({
       return;
     }
 
-    // when matches update, select the first match
+    if (previous?.filter === filter && previous.spanFilterState === spanFilterState) {
+      const active = previous.matches[activeMatchIndex];
+      const nextIndex = active
+        ? matches.findIndex(
+            (match) =>
+              match.span.key === active.span.key &&
+              match.span.traceId === active.span.traceId &&
+              match.section === active.section &&
+              match.key === active.key &&
+              match.isKeyMatch === active.isKeyMatch &&
+              match.matchIndex === active.matchIndex,
+          )
+        : -1;
+      if (nextIndex >= 0) {
+        setActiveMatchIndex(nextIndex);
+        if (matches[nextIndex].span !== selectedNode) {
+          setSelectedNode(matches[nextIndex].span);
+        }
+        return;
+      }
+    }
+
+    // A new query or a removed active match starts at the first remaining match.
     setActiveMatchIndex(0);
     setSelectedNodeAndTab(matches[0].span, getTabForMatch(matches[0]));
     // don't subscribe to selectedNode to prevent infinite loop
@@ -251,7 +324,7 @@ export const useModelTraceSearch = ({
       totalMatches: matches.length,
       currentMatchIndex: activeMatchIndex,
     },
-    searchFilter: searchFilter.toLowerCase().trim(),
+    searchFilter: displayedFilter,
     setSearchFilter,
     spanFilterState,
     setSpanFilterState,

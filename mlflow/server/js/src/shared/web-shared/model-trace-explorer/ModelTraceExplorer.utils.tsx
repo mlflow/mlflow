@@ -359,6 +359,7 @@ export function searchTree(
   rootNode: ModelTraceSpanNode,
   searchFilter: string,
   spanFilterState: SpanFilterState,
+  getSpanMatches = getMatchesFromSpan,
 ): {
   filteredTreeNodes: ModelTraceSpanNode[];
   matches: SearchMatch[];
@@ -424,7 +425,7 @@ export function searchTree(
     }
 
     const spanName = typeof node.title === 'string' ? node.title.toLowerCase() : '';
-    const spanMatches = getMatchesFromSpan(node, searchFilterLowercased);
+    const spanMatches = getSpanMatches(node, searchFilterLowercased);
 
     // check if the span passes the text, type, and log-level filters
     const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
