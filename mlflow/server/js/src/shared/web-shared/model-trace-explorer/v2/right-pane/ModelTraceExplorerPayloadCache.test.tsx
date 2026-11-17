@@ -9,7 +9,7 @@ describe('selected payload cache', () => {
   it('retains recently inspected payloads and evicts the least recently used after eight results', () => {
     const compute = jest.fn((value: number) => ({ value }));
     const { result, rerender } = renderHook(
-      ({ value }) => useCachedPayloadResult('test', value, () => compute(value)),
+      ({ value }) => useCachedPayloadResult('fields', value, () => compute(value)),
       { initialProps: { value: 0 }, wrapper },
     );
     const first = result.current;
@@ -26,17 +26,31 @@ describe('selected payload cache', () => {
     expect(compute).toHaveBeenCalledTimes(10);
   });
 
+  it('retains two comparison pairs of fields while JSON results fill their own budget', () => {
+    const compute = jest.fn((value: number) => ({ value }));
+    const { result, rerender } = renderHook(
+      ({ kind, value }) => useCachedPayloadResult(kind, value, () => compute(value)),
+      { initialProps: { kind: 'fields' as 'fields' | 'section-json', value: 0 }, wrapper },
+    );
+    const first = result.current;
+    for (let value = 1; value < 8; value++) rerender({ kind: 'fields', value });
+    for (let value = 0; value < 8; value++) rerender({ kind: 'section-json', value });
+    rerender({ kind: 'fields', value: 0 });
+    expect(result.current).toBe(first);
+    expect(compute).toHaveBeenCalledTimes(16);
+  });
+
   it('separates result kinds and pane lifetimes', () => {
     const payload = { text: 'synthetic' };
     const compute = jest.fn(() => 'result');
     const { rerender } = renderHook(({ kind }) => useCachedPayloadResult(kind, payload, compute), {
-      initialProps: { kind: 'json' },
+      initialProps: { kind: 'fields' as 'fields' | 'section-json' },
       wrapper,
     });
-    rerender({ kind: 'yaml' });
-    rerender({ kind: 'json' });
+    rerender({ kind: 'section-json' });
+    rerender({ kind: 'fields' });
     expect(compute).toHaveBeenCalledTimes(2);
-    const otherPane = renderHook(() => useCachedPayloadResult('json', payload, compute), { wrapper });
+    const otherPane = renderHook(() => useCachedPayloadResult('fields', payload, compute), { wrapper });
     expect(otherPane.result.current).toBe('result');
     expect(compute).toHaveBeenCalledTimes(3);
   });

@@ -4,6 +4,7 @@ import { IntlProvider } from '@databricks/i18n';
 import userEvent from '@testing-library/user-event';
 import { render, screen } from '@databricks/web-shared/test-utils/render';
 
+import { ModelTraceExplorerViewStateContext } from '../ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerPayloadCacheProvider } from './ModelTraceExplorerPayloadCache';
 import { ModelTraceExplorerDefaultSpanView } from './ModelTraceExplorerDefaultSpanView';
 import { MOCK_CHAT_SPAN } from '../../ModelTraceExplorer.test-utils';
@@ -34,6 +35,32 @@ const spanView = (span: ModelTraceSpanNode) => (
 );
 
 describe('selected payload reuse', () => {
+  it.each(['json', 'yaml'] as const)('does not serialize hidden %s sections during a comparison', (mode) => {
+    const span = buildSpan();
+    const stringify = jest.spyOn(JSON, 'stringify');
+    render(
+      <ModelTraceExplorerViewStateContext.Consumer>
+        {(state) => (
+          <ModelTraceExplorerViewStateContext.Provider
+            value={{ ...state, selectedNodeComparisonRole: 'baseline', selectedComparisonNode: buildSpan() }}
+          >
+            <ModelTraceExplorerDefaultSpanView
+              activeSpan={span}
+              searchFilter=""
+              activeMatch={null}
+              defaultRenderMode={mode}
+            />
+          </ModelTraceExplorerViewStateContext.Provider>
+        )}
+      </ModelTraceExplorerViewStateContext.Consumer>,
+      { wrapper: Providers },
+    );
+    expect(stringify.mock.calls.filter(([value]) => value === payload)).toHaveLength(0);
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent(
+      'unchanged synthetic payload',
+    );
+  });
+
   it('retains full section JSON when JSON tab content remounts', () => {
     const pane = (visible: boolean) => (
       <ModelTraceExplorerPayloadCacheProvider>

@@ -7,11 +7,11 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { ModelTraceExplorerAttributesTab, normalizeSpanAttributes } from './ModelTraceExplorerAttributesTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
-import { getSpanComparisonFields } from './ModelTraceExplorerDefaultSpanView';
+import { useSpanComparisonFields } from './ModelTraceExplorerDefaultSpanView';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
 import { ModelTraceExplorerLinksTab } from './ModelTraceExplorerLinksTab';
 import { ModelTraceExplorerRightPaneHeader } from './ModelTraceExplorerRightPaneHeader';
-import { ModelTraceExplorerPayloadCacheProvider, useCachedPayloadResult } from './ModelTraceExplorerPayloadCache';
+import { ModelTraceExplorerPayloadCacheProvider } from './ModelTraceExplorerPayloadCache';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { getDefaultActiveTab, getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
@@ -120,16 +120,8 @@ function ModelTraceExplorerRightPaneTabsImpl({
 
   const baselineSpan = selectedNodeComparisonRole === 'candidate' ? selectedComparisonNode : activeSpan;
   const candidateSpan = selectedNodeComparisonRole === 'candidate' ? activeSpan : selectedComparisonNode;
-  const baselineFields = useCachedPayloadResult(
-    'comparison-fields',
-    selectedNodeComparisonRole ? baselineSpan : undefined,
-    () => getSpanComparisonFields(selectedNodeComparisonRole ? baselineSpan : undefined),
-  );
-  const candidateFields = useCachedPayloadResult(
-    'comparison-fields',
-    selectedNodeComparisonRole ? candidateSpan : undefined,
-    () => getSpanComparisonFields(selectedNodeComparisonRole ? candidateSpan : undefined),
-  );
+  const baselineFields = useSpanComparisonFields(selectedNodeComparisonRole ? baselineSpan : undefined);
+  const candidateFields = useSpanComparisonFields(selectedNodeComparisonRole ? candidateSpan : undefined);
 
   if (isNil(activeSpan)) {
     return <Empty description="Please select a span to view more information" />;

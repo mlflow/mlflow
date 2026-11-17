@@ -1,5 +1,5 @@
 import { isNil } from 'lodash';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 
 import { Button, ChevronDownIcon, DropdownMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -52,6 +52,15 @@ const getInitialSectionRenderMode = (
 };
 
 const stringifySectionData = (data: unknown) => JSON.stringify(data ?? null, null, 2);
+
+// Mount only for a visible JSON/YAML section, keeping serialization out of Pretty and comparison views.
+function ModelTraceExplorerSectionSnippet({
+  data,
+  ...props
+}: Omit<ComponentProps<typeof ModelTraceExplorerCodeSnippet>, 'data'> & { data: unknown }) {
+  const json = useCachedPayloadResult('section-json', data, () => stringifySectionData(data));
+  return <ModelTraceExplorerCodeSnippet {...props} data={json} />;
+}
 
 const getInputChatMessages = (
   activeSpan: ModelTraceSpanNode | undefined,
@@ -120,15 +129,20 @@ const getEffectiveComparisonFields = (
 // The input and output fields a comparison shows for a span, one entry per rendered field.
 export const getSpanComparisonFields = (
   span: ModelTraceSpanNode | undefined,
+  inputs: ModelTraceExplorerField[],
+  outputs: ModelTraceExplorerField[],
 ): { inputs: ModelTraceExplorerField[]; outputs: ModelTraceExplorerField[] } => {
   const inputChatMessages = getInputChatMessages(span);
   return {
-    inputs: getEffectiveComparisonFields(createListFromObject(span?.inputs), inputChatMessages),
-    outputs: getEffectiveComparisonFields(
-      createListFromObject(span?.outputs),
-      getOutputChatMessages(span, inputChatMessages.messages),
-    ),
+    inputs: getEffectiveComparisonFields(inputs, inputChatMessages),
+    outputs: getEffectiveComparisonFields(outputs, getOutputChatMessages(span, inputChatMessages.messages)),
   };
+};
+
+export const useSpanComparisonFields = (span: ModelTraceSpanNode | undefined) => {
+  const inputs = useCachedPayloadResult('fields', span?.inputs, () => createListFromObject(span?.inputs));
+  const outputs = useCachedPayloadResult('fields', span?.outputs, () => createListFromObject(span?.outputs));
+  return useMemo(() => getSpanComparisonFields(span, inputs, outputs), [span, inputs, outputs]);
 };
 
 export function ModelTraceExplorerDefaultSpanView({
@@ -170,16 +184,6 @@ export function ModelTraceExplorerDefaultSpanView({
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
   const decision = useMemo(() => resolveDecision(activeSpan), [activeSpan]);
-  const inputsJson = useCachedPayloadResult(
-    'section-json',
-    sectionRenderModes.inputs === 'pretty' ? undefined : activeSpan?.inputs,
-    () => (sectionRenderModes.inputs === 'pretty' ? undefined : stringifySectionData(activeSpan?.inputs)),
-  );
-  const outputsJson = useCachedPayloadResult(
-    'section-json',
-    sectionRenderModes.outputs === 'pretty' ? undefined : activeSpan?.outputs,
-    () => (sectionRenderModes.outputs === 'pretty' ? undefined : stringifySectionData(activeSpan?.outputs)),
-  );
   const comparisonInputList = useCachedPayloadResult('fields', selectedComparisonNode?.inputs, () =>
     createListFromObject(selectedComparisonNode?.inputs),
   );
@@ -433,9 +437,9 @@ export function ModelTraceExplorerDefaultSpanView({
     }
 
     return (
-      <ModelTraceExplorerCodeSnippet
+      <ModelTraceExplorerSectionSnippet
         title=""
-        data={(section === 'inputs' ? inputsJson : outputsJson) ?? stringifySectionData(data)}
+        data={data}
         initialRenderMode={
           sectionRenderModes[section] === 'yaml' ? CodeSnippetRenderMode.YAML : CodeSnippetRenderMode.JSON
         }

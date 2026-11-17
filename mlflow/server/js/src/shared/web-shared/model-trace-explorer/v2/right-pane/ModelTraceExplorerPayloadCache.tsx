@@ -1,20 +1,25 @@
 import { createContext, useContext, useMemo, useRef, useState } from 'react';
 
-type PayloadCache = <T>(kind: string, payload: unknown, compute: () => T) => T;
+type PayloadCacheKind = 'fields' | 'section-json';
+type PayloadCache = <T>(kind: PayloadCacheKind, payload: unknown, compute: () => T) => T;
 const PayloadCacheContext = createContext<PayloadCache | undefined>(undefined);
 
 const createPayloadCache = (): PayloadCache => {
-  const entries: { kind: string; payload: unknown; result: unknown }[] = [];
-  return <T,>(kind: string, payload: unknown, compute: () => T): T => {
-    const index = entries.findIndex((entry) => entry.kind === kind && entry.payload === payload);
+  const kinds: Record<PayloadCacheKind, { payload: unknown; result: unknown }[]> = {
+    fields: [],
+    'section-json': [],
+  };
+  return <T,>(kind: PayloadCacheKind, payload: unknown, compute: () => T): T => {
+    const entries = kinds[kind];
+    const index = entries.findIndex((entry) => entry.payload === payload);
     if (index >= 0) {
       const [entry] = entries.splice(index, 1);
       entries.unshift(entry);
       return entry.result as T;
     }
     const result = compute();
-    entries.unshift({ kind, payload, result });
-    // Keep only a few selected payloads while switching tabs or inspecting nearby spans.
+    entries.unshift({ payload, result });
+    // Each kind retains eight payloads, so section JSON cannot evict comparison field pairs.
     if (entries.length > 8) entries.pop();
     return result;
   };
@@ -26,7 +31,7 @@ export const ModelTraceExplorerPayloadCacheProvider = ({ children }: { children:
 };
 
 // Payloads are immutable trace values; each kind computes a result using only that payload.
-export const useCachedPayloadResult = <T,>(kind: string, payload: unknown, compute: () => T): T => {
+export const useCachedPayloadResult = <T,>(kind: PayloadCacheKind, payload: unknown, compute: () => T): T => {
   const cache = useContext(PayloadCacheContext);
   const computeRef = useRef(compute);
   computeRef.current = compute;
