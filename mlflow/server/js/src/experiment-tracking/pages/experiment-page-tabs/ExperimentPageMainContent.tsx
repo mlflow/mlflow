@@ -11,9 +11,9 @@ export interface ExperimentPageMainContentProps {
 }
 
 /**
- * Keeps every revamped experiment route on the same page grid. The asymmetric
- * padding preserves the established datasets-v2 and traces-v4 content position:
- * PageWrapper supplies the remaining horizontal viewport gutter.
+ * Keeps routed content mounted when experiment metadata switches layouts.
+ * Classic mode uses uniform padding without headers or an extra main landmark.
+ * Revamped mode preserves the page grid, with PageWrapper supplying the viewport gutter.
  */
 export const ExperimentPageMainContent = ({
   breadcrumbs,
