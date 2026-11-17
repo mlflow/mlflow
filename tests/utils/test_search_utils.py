@@ -375,7 +375,7 @@ def test_span_filter_list_quote_escaping(field, comparator, literal, expected):
 
 @pytest.mark.parametrize("literal", ["()", "(1)", "('valid', 1)", "(('nested',),)"])
 def test_span_filter_list_rejects_invalid_values(literal):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="While parsing a list in the query"):
         SearchTraceUtils.parse_search_filter(f"span.name IN {literal}")
 
 
