@@ -64,7 +64,7 @@ export const ModelTraceExplorerTextFieldRenderer = ({
           },
         }}
       >
-        {value.length > LARGE_TRACE_TEXT_LIMIT ? (
+        {displayValue.length > LARGE_TRACE_TEXT_LIMIT ? (
           <ModelTraceExplorerLargeText text={displayValue} />
         ) : (
           <GenAIMarkdownRenderer>{displayValue}</GenAIMarkdownRenderer>

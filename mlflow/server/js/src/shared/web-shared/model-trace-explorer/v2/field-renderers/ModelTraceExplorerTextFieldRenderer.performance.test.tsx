@@ -25,6 +25,24 @@ describe('large trace text rendering', () => {
     expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
   });
 
+  it('keeps collapsed large-value previews in Markdown without a virtualization warning', () => {
+    const value = '**preview café 🌳** ' + 'x'.repeat(100_000);
+    const { container } = render(<ModelTraceExplorerTextFieldRenderer title="payload" value={value} />, {
+      wrapper: Providers,
+    });
+    const expectPreview = () => {
+      expect(container.querySelector('strong')).toHaveTextContent('preview café 🌳');
+      expect(container.textContent).toContain('x'.repeat(350) + '...');
+      expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
+      expect(screen.queryByText(/Browser find and text selection/)).not.toBeInTheDocument();
+    };
+    expectPreview();
+    fireEvent.click(screen.getByText('See more'));
+    expect(screen.getByRole('region', { name: 'Trace text' })).toBeInTheDocument();
+    fireEvent.click(screen.getByText('See less'));
+    expectPreview();
+  });
+
   it('bounds the DOM for a large expanded value', () => {
     jest.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
       const height = this.hasAttribute('data-index') ? 20 : 400;
