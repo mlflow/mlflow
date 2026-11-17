@@ -1,5 +1,6 @@
 import {
   isNil,
+  memoize,
   omitBy,
   mapValues,
   isArray,
@@ -14,6 +15,8 @@ import {
   keyBy,
   isEmpty,
 } from 'lodash';
+
+import { copyModelTraceSpanNode } from '../copyModelTraceSpanNode';
 
 import Utils from '../../../../common/utils/Utils';
 import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
@@ -374,7 +377,7 @@ export function searchTree(
 
   if (nodeShouldBeDisplayed) {
     return {
-      filteredTreeNodes: [{ ...rootNode, children: filteredChildren }],
+      filteredTreeNodes: [copyModelTraceSpanNode(rootNode, { children: filteredChildren })],
       matches: spanMatches.concat(matches),
     };
   }
@@ -573,8 +576,10 @@ export const normalizeNewSpanData = (
   traceId: string,
 ): ModelTraceSpanNode => {
   const spanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
-  const inputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanInputs') as string);
-  const outputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanOutputs') as string);
+  const rawInputs = getSpanAttribute(span.attributes, 'mlflow.spanInputs');
+  const rawOutputs = getSpanAttribute(span.attributes, 'mlflow.spanOutputs');
+  const inputs = memoize(() => tryDeserializeAttribute(rawInputs as string));
+  const outputs = memoize(() => tryDeserializeAttribute(rawOutputs as string));
   const parentId = getModelTraceSpanParentId(span);
   const spanId = getModelTraceSpanId(span);
 
@@ -586,15 +591,19 @@ export const normalizeNewSpanData = (
   }
 
   // data that powers the "chat" tab
-  const messagesAttributeValue = tryDeserializeAttribute(
-    getSpanAttribute(span.attributes, 'mlflow.chat.messages') as string,
-  );
+  const rawMessages = getSpanAttribute(span.attributes, 'mlflow.chat.messages');
+  const rawTools = getSpanAttribute(span.attributes, 'mlflow.chat.tools');
   const messageFormat = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.message.format') as string);
-  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat, children);
-  const chatTools = getChatToolsFromSpan(
-    tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.chat.tools') as string),
-    inputs,
+  const chatMessages = memoize(() =>
+    getChatMessagesFromSpan(
+      tryDeserializeAttribute(rawMessages as string),
+      inputs(),
+      outputs(),
+      messageFormat,
+      children,
+    ),
   );
+  const chatTools = memoize(() => getChatToolsFromSpan(tryDeserializeAttribute(rawTools as string), inputs()));
 
   // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
@@ -606,10 +615,8 @@ export const normalizeNewSpanData = (
   );
 
   // remove other private mlflow attributes
-  const attributes = mapValues(
-    omitBy(span.attributes, (_, key) => key.startsWith('mlflow.')),
-    (value) => tryDeserializeAttribute(value),
-  );
+  const publicAttributes = omitBy(span.attributes, (_, key) => key.startsWith('mlflow.'));
+  const attributes = memoize(() => mapValues(publicAttributes, (value) => tryDeserializeAttribute(value)));
   const events = span.events;
   const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;
@@ -629,14 +636,24 @@ export const normalizeNewSpanData = (
     start,
     end,
     children: children.slice().sort((a, b) => a.start - b.start),
-    inputs,
-    outputs,
-    attributes,
+    get inputs() {
+      return inputs();
+    },
+    get outputs() {
+      return outputs();
+    },
+    get attributes() {
+      return attributes();
+    },
     events,
     links,
     chatMessageFormat: messageFormat,
-    chatMessages,
-    chatTools,
+    get chatMessages() {
+      return chatMessages();
+    },
+    get chatTools() {
+      return chatTools();
+    },
     parentId,
     assessments,
     traceId,
@@ -1018,11 +1035,10 @@ export const buildModelTraceComparisonForest = (
     role: ModelTraceComparisonRole,
     displayParentId?: string,
   ): ModelTraceSpanNode => {
-    const displayNode: ModelTraceSpanNode = {
-      ...node,
+    const displayNode = copyModelTraceSpanNode(node, {
       parentId: displayParentId,
       children: node.children?.map((child) => cloneOneSidedSubtree(child, role, String(node.key))),
-    };
+    });
     comparisonNodeRoleMap[String(displayNode.key)] = role;
     sourceNodeToDisplayNodeMap[sourceKey(role, node)] = displayNode;
     return displayNode;
@@ -1058,11 +1074,10 @@ export const buildModelTraceComparisonForest = (
       if (!candidateNode) {
         displayNodes.push(cloneOneSidedSubtree(baselineNode, 'baseline', displayParentId));
       } else {
-        const displayNode: ModelTraceSpanNode = {
-          ...baselineNode,
+        const displayNode = copyModelTraceSpanNode(baselineNode, {
           parentId: displayParentId,
           children: mergeSiblings(baselineNode.children ?? [], candidateNode.children ?? [], String(baselineNode.key)),
-        };
+        });
         comparisonNodeMap[String(displayNode.key)] = candidateNode;
         comparisonNodeRoleMap[String(displayNode.key)] = 'baseline';
         sourceNodeToDisplayNodeMap[sourceKey('baseline', baselineNode)] = displayNode;

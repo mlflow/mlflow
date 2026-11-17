@@ -1,5 +1,6 @@
 import {
   isNil,
+  memoize,
   omitBy,
   mapValues,
   isArray,
@@ -15,6 +16,8 @@ import {
   isObject,
   isEmpty,
 } from 'lodash';
+
+import { copyModelTraceSpanNode } from './copyModelTraceSpanNode';
 import { useMemo } from 'react';
 
 import type {
@@ -445,7 +448,7 @@ export function searchTree(
     entriesByNode.set(
       node,
       nodeShouldBeDisplayed
-        ? { filteredTreeNodes: [{ ...node, children: filteredChildren }], ownMatches: spanMatches }
+        ? { filteredTreeNodes: [copyModelTraceSpanNode(node, { children: filteredChildren })], ownMatches: spanMatches }
         : // otherwise cut the span out of the tree by returning the children directly
           { filteredTreeNodes: filteredChildren, ownMatches: [] },
     );
@@ -644,8 +647,10 @@ export const normalizeNewSpanData = (
   traceId: string,
 ): ModelTraceSpanNode => {
   const spanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
-  const inputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanInputs') as string);
-  const outputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanOutputs') as string);
+  const rawInputs = getSpanAttribute(span.attributes, 'mlflow.spanInputs');
+  const rawOutputs = getSpanAttribute(span.attributes, 'mlflow.spanOutputs');
+  const inputs = memoize(() => tryDeserializeAttribute(rawInputs as string));
+  const outputs = memoize(() => tryDeserializeAttribute(rawOutputs as string));
   const parentId = getModelTraceSpanParentId(span);
   const spanId = getModelTraceSpanId(span);
 
@@ -657,15 +662,19 @@ export const normalizeNewSpanData = (
   }
 
   // data that powers the "chat" tab
-  const messagesAttributeValue = tryDeserializeAttribute(
-    getSpanAttribute(span.attributes, 'mlflow.chat.messages') as string,
-  );
+  const rawMessages = getSpanAttribute(span.attributes, 'mlflow.chat.messages');
+  const rawTools = getSpanAttribute(span.attributes, 'mlflow.chat.tools');
   const messageFormat = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.message.format') as string);
-  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat, children);
-  const chatTools = getChatToolsFromSpan(
-    tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.chat.tools') as string),
-    inputs,
+  const chatMessages = memoize(() =>
+    getChatMessagesFromSpan(
+      tryDeserializeAttribute(rawMessages as string),
+      inputs(),
+      outputs(),
+      messageFormat,
+      children,
+    ),
   );
+  const chatTools = memoize(() => getChatToolsFromSpan(tryDeserializeAttribute(rawTools as string), inputs()));
 
   // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
@@ -678,10 +687,8 @@ export const normalizeNewSpanData = (
   const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
 
   // remove other private mlflow attributes
-  const attributes = mapValues(
-    omitBy(span.attributes, (_, key) => key.startsWith('mlflow.')),
-    (value) => tryDeserializeAttribute(value),
-  );
+  const publicAttributes = omitBy(span.attributes, (_, key) => key.startsWith('mlflow.'));
+  const attributes = memoize(() => mapValues(publicAttributes, (value) => tryDeserializeAttribute(value)));
   const events = span.events;
   const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;
@@ -701,14 +708,24 @@ export const normalizeNewSpanData = (
     start,
     end,
     children: children.slice().sort((a, b) => a.start - b.start),
-    inputs,
-    outputs,
-    attributes,
+    get inputs() {
+      return inputs();
+    },
+    get outputs() {
+      return outputs();
+    },
+    get attributes() {
+      return attributes();
+    },
     events,
     links,
     chatMessageFormat: messageFormat,
-    chatMessages,
-    chatTools,
+    get chatMessages() {
+      return chatMessages();
+    },
+    get chatTools() {
+      return chatTools();
+    },
     parentId,
     assessments,
     traceId,
