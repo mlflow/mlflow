@@ -6,7 +6,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { SearchMatch } from './ModelTrace.types';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
-import { getTextPreview, hasMoreLinesThan } from './ModelTraceExplorerCodeSnippet.utils';
+import { getTextPreview } from './ModelTraceExplorerCodeSnippet.utils';
 import { CollapsibleJsonViewer } from './CollapsibleJsonViewer';
 import { ModelTraceExplorerHighlightedCodeSnippet } from './ModelTraceExplorerHighlightedCodeSnippet';
 import { GenAIMarkdownRenderer } from '../genai-markdown-renderer/GenAIMarkdownRenderer';
@@ -58,7 +58,7 @@ export function ModelTraceExplorerCodeSnippetBody({
   const expandable =
     isContentLong ||
     dataToTruncate.length > MAX_CHARS_FOR_PREVIEW ||
-    hasMoreLinesThan(dataToTruncate, MAX_LINES_FOR_PREVIEW);
+    dataToTruncate.split('\n').length > MAX_LINES_FOR_PREVIEW;
 
   // Truncate to the preview limits while collapsed.
   const displayedData = useMemo(() => {
