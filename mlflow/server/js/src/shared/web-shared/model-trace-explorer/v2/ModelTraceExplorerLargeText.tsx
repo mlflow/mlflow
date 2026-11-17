@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
@@ -45,16 +45,27 @@ export const ModelTraceExplorerLargeText = ({
     overscan: 10,
     initialRect: { width: 0, height: 400 },
   });
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (activeRow >= 0) virtualizer.scrollToIndex(activeRow, { align: 'center' });
   }, [activeRow, activeMatchIndex, search, virtualizer]);
   const revealActiveMatch = useMemo(() => {
     // Virtual rows can remount while the user scrolls without changing the search selection.
     let revealed = false;
+    let frame: number | undefined;
     return (node: HTMLSpanElement | null) => {
+      if (frame !== undefined) {
+        cancelAnimationFrame(frame);
+        frame = undefined;
+      }
       if (node && search.pattern && activeMatchIndex !== undefined && !revealed) {
-        revealed = true;
-        node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        // The parent row measures after this ref attaches and can move the match before the next frame.
+        frame = requestAnimationFrame(() => {
+          frame = undefined;
+          if (node.isConnected) {
+            revealed = true;
+            node.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          }
+        });
       }
     };
   }, [search, activeMatchIndex]);
