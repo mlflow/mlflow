@@ -205,7 +205,11 @@ export const getModelTraceSpanNodeDepth = (node: ModelTraceSpanNode): number => 
 };
 
 export function getMaxModelTraceSpanNodeDepth(nodes: ModelTraceSpanNode[]): number {
-  return nodes.reduce((depth, node) => Math.max(depth, getModelTraceSpanNodeDepth(node)), -Infinity);
+  let depth = -Infinity;
+  for (const node of nodes) {
+    depth = Math.max(depth, getModelTraceSpanNodeDepth(node));
+  }
+  return depth;
 }
 
 export const getSpanNodeParentIds = (
