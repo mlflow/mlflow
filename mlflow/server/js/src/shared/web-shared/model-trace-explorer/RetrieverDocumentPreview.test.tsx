@@ -7,6 +7,7 @@ import { IntlProvider } from '@databricks/i18n';
 
 import { ModelTraceExplorerRetrieverDocument as LegacyDocument } from './right-pane/ModelTraceExplorerRetrieverDocument';
 import { ModelTraceExplorerRetrieverDocument as RedesignedDocument } from './v2/right-pane/ModelTraceExplorerRetrieverDocument';
+import { getRetrieverDocumentPreviewText } from './getRetrieverDocumentPreviewText';
 
 const text = `DOCUMENT-START café 🌳 ${'document body '.repeat(5000)}DOCUMENT-END`;
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -14,6 +15,13 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
     <IntlProvider locale="en">{children}</IntlProvider>
   </DesignSystemProvider>
 );
+
+describe('getRetrieverDocumentPreviewText', () => {
+  it('preserves the exact limit and truncates the first unit above it', () => {
+    expect(getRetrieverDocumentPreviewText('x'.repeat(1000))).toBe('x'.repeat(1000));
+    expect(getRetrieverDocumentPreviewText('x'.repeat(1001))).toBe(`${'x'.repeat(999)}…`);
+  });
+});
 
 describe.each([
   ['legacy', LegacyDocument],
@@ -40,6 +48,14 @@ describe.each([
   it('keeps short text unchanged', () => {
     render(<Document text="short café 🌳 document" metadata={{}} />, { wrapper: Wrapper });
     expect(screen.getByText('short café 🌳 document').textContent).toBe('short café 🌳 document');
+  });
+
+  it.each([null, undefined, false, 0])('preserves malformed document content %s without crashing', (value) => {
+    render(<Document text={value as unknown as string} metadata={{ source: 'fixture-source' }} />, {
+      wrapper: Wrapper,
+    });
+    expect(screen.getByText(/fixture-source/)).toBeInTheDocument();
+    if (value === 0) expect(screen.getByText('0')).toBeInTheDocument();
   });
 
   it('does not cut an emoji surrogate pair at the preview boundary', () => {
