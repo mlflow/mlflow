@@ -1428,7 +1428,14 @@ def _create_trace_with_spans_for_correlation(store, experiment_id, span_configs)
     return _create_trace_for_correlation(store, experiment_id, spans=span_configs)
 
 
-def test_calculate_trace_filter_correlation_basic(store):
+@pytest.mark.parametrize(
+    "filter_string1",
+    [
+        'tags.primary_span_type = "TOOL"',
+        '(tags.primary_span_type = "TOOL" OR tags.primary_span_type = "MISSING")',
+    ],
+)
+def test_calculate_trace_filter_correlation_basic(store, filter_string1):
     exp_id = _create_experiments(store, "correlation_test")
 
     for i in range(10):
@@ -1447,7 +1454,7 @@ def test_calculate_trace_filter_correlation_basic(store):
 
     result = store.calculate_trace_filter_correlation(
         experiment_ids=[exp_id],
-        filter_string1='tags.primary_span_type = "TOOL"',
+        filter_string1=filter_string1,
         filter_string2='tags.has_error = "true"',
     )
 
