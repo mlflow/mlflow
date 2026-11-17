@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import type { ModelTraceSpanNode, SpanFilterState } from '../ModelTrace.types';
 import { DEFAULT_EXPAND_DEPTH, getTimelineTreeNodesMap } from '../timeline-tree/TimelineTree.utils';
 
+/** Reconciles topology; changes to trace ID, search text, or span-filter object identity reset expansion. */
 export const useModelTraceExpansion = (
   treeNodes: ModelTraceSpanNode[],
   traceId: string | undefined,
