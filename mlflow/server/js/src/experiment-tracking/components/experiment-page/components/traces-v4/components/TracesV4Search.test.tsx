@@ -100,8 +100,8 @@ const clearButton = () => screen.getByRole('button', { name: 'close-circle' });
 // eslint-disable-next-line testing-library/no-node-access -- rc-select only exposes the active neighborhood through ARIA.
 const visibleOptions = () => Array.from(document.querySelectorAll('[class*="-select-item-option"][aria-label]'));
 // rc-select reads the legacy keyCode/which properties for option navigation.
-const pressKey = (key: 'ArrowDown' | 'Enter') => {
-  const keyCode = key === 'ArrowDown' ? 40 : 13;
+const pressKey = (key: 'ArrowDown' | 'ArrowUp' | 'Enter') => {
+  const keyCode = { ArrowDown: 40, ArrowUp: 38, Enter: 13 }[key];
   fireEvent.keyDown(searchBox(), { key, code: key, keyCode, which: keyCode });
 };
 const queryText = (text: string) => (_: string, element: Element | null) =>
@@ -461,13 +461,14 @@ describe('editable query keyboard and operator selection', () => {
     renderSearch({ onSubmit });
     await slowlyTypeEachKey(searchBox(), 'porter-no-match');
 
-    fireEvent.keyDown(searchBox(), { key: 'ArrowUp', code: 'ArrowUp', keyCode: 38, which: 38 });
+    pressKey('ArrowUp');
 
     const [suggestion] = visibleOptions();
     expect(visibleOptions()).toHaveLength(1);
     expect(suggestion).toHaveAttribute('aria-label', 'Search text “porter-no-match”');
     expect(suggestion).toHaveAttribute('class', expect.stringContaining('-select-item-option-active'));
     pressKey('Enter');
+    // Guard against double submission; the active-option assertion above covers the ArrowUp regression.
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
