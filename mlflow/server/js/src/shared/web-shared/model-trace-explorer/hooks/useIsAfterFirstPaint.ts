@@ -3,6 +3,7 @@ import { unstable_batchedUpdates } from 'react-dom';
 
 let pendingCallbacks: Set<() => void> | undefined;
 
+/** Uses the initial defer value only; deferred callers become ready once after paint and remain ready. */
 export const useIsAfterFirstPaint = (defer: boolean): boolean => {
   const [ready, setReady] = useState(!defer);
   useEffect(() => {
