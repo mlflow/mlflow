@@ -1,6 +1,6 @@
 import { Global } from '@emotion/react';
-import { clamp, values, isString } from 'lodash';
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { clamp, isString } from 'lodash';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useResizeObserver } from '../../hooks/useResizeObserver';
@@ -16,15 +16,10 @@ import ModelTraceExplorerResizablePane from './ModelTraceExplorerResizablePane';
 import ModelTraceExplorerSearchBox from './ModelTraceExplorerSearchBox';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { useModelTraceSearch } from '../hooks/useModelTraceSearch';
-import { useArrayMemo } from '../hooks/useArrayMemo';
+import { useModelTraceExpansion } from '../hooks/useModelTraceExpansion';
 import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-pane/ModelTraceExplorerRightPaneTabs';
 import { TimelineTree } from './timeline-tree/TimelineTree';
-import {
-  DEFAULT_EXPAND_DEPTH,
-  getModelTraceSpanNodeDepth,
-  getTimelineTreeNodesMap,
-  SPAN_INDENT_WIDTH,
-} from './timeline-tree/TimelineTree.utils';
+import { getModelTraceSpanNodeDepth, SPAN_INDENT_WIDTH } from './timeline-tree/TimelineTree.utils';
 import { DEFAULT_WORKFLOW_LAYOUT_CONFIG, EXPANDED_WORKFLOW_LAYOUT_CONFIG } from '../graph-view/GraphView.types';
 import { computeWorkflowPathToRoot } from '../graph-view/GraphView.utils';
 import { computeWorkflowLayout } from '../graph-view/GraphView.workflow';
@@ -344,15 +339,7 @@ export const ModelTraceExplorerDetailView = ({
     [nodeMap, onSelectNode],
   );
 
-  const visibleSpanKeys = useMemo(
-    () => values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key),
-    [filteredTreeNodes],
-  );
-  const stableSpanKeys = useArrayMemo(visibleSpanKeys);
-  const traceId = topLevelNodes[0]?.traceId;
-  useLayoutEffect(() => {
-    setExpandedKeys(new Set(stableSpanKeys));
-  }, [stableSpanKeys, traceId, setExpandedKeys]);
+  useModelTraceExpansion(filteredTreeNodes, topLevelNodes[0]?.traceId, searchFilter, spanFilterState, setExpandedKeys);
 
   const leftPaneMinWidth = useMemo(() => {
     const minWidthForSpans =

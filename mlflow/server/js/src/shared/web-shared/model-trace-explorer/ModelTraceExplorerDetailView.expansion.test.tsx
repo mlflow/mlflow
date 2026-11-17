@@ -80,7 +80,28 @@ describe.each(['legacy', 'redesigned'])('%s detail expansion across refresh', (v
     rerender(<Wrapper trace={refreshed} />);
     expect(screen.queryByTestId('timeline-tree-node-leaf-a')).not.toBeInTheDocument();
     expect(screen.getByTestId('timeline-tree-node-leaf-b')).toBeInTheDocument();
-    const anotherTrace = cloneDeep(refreshed);
+    const growing = cloneDeep(refreshed);
+    const addedBranch = cloneDeep(growing.data.spans[3]) as ModelTraceSpanV2;
+    addedBranch.context.span_id = 'branch-c';
+    addedBranch.name = 'branch-c';
+    const addedLeaf = cloneDeep(growing.data.spans[4]) as ModelTraceSpanV2;
+    addedLeaf.context.span_id = 'leaf-c';
+    addedLeaf.name = 'leaf-c';
+    addedLeaf.parent_id = 'branch-c';
+    growing.data.spans.push(addedBranch, addedLeaf);
+    rerender(<Wrapper trace={growing} />);
+    expect(screen.queryByTestId('timeline-tree-node-leaf-a')).not.toBeInTheDocument();
+    expect(screen.getByTestId('timeline-tree-node-leaf-b')).toBeInTheDocument();
+    expect(screen.getByTestId('timeline-tree-node-leaf-c')).toBeInTheDocument();
+    const shrinking = cloneDeep(growing);
+    shrinking.data.spans = shrinking.data.spans.filter(
+      (span) => (span as ModelTraceSpanV2).context.span_id !== 'leaf-b',
+    );
+    rerender(<Wrapper trace={shrinking} />);
+    expect(screen.queryByTestId('timeline-tree-node-leaf-a')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('timeline-tree-node-leaf-b')).not.toBeInTheDocument();
+    expect(screen.getByTestId('timeline-tree-node-leaf-c')).toBeInTheDocument();
+    const anotherTrace = cloneDeep(shrinking);
     (anotherTrace.info as ModelTraceInfo).request_id = 'tr-other-expansion';
     (anotherTrace.data.spans as ModelTraceSpanV2[]).forEach((span) => {
       span.context.trace_id = 'tr-other-expansion';
