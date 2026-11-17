@@ -31,3 +31,21 @@ it('reconciles added and removed keys while retaining choices and unchanged Set 
   rerender({ tree: nodes('a', 'c'), traceId: 'trace-2', query: 'match' });
   expect(result.current.expanded).toEqual(new Set(['a', 'c']));
 });
+
+it('resets expansion when span filter state changes for the same trace and query', () => {
+  const tree = nodes('a', 'b');
+  const { result, rerender } = renderHook(
+    ({ spanFilters }) => {
+      const [expanded, setExpanded] = useState<Set<string | number>>(new Set());
+      useModelTraceExpansion(tree, 'trace-1', 'match', spanFilters, setExpanded);
+      return { expanded, setExpanded };
+    },
+    { initialProps: { spanFilters: filters } },
+  );
+  act(() => result.current.setExpanded(new Set(['b'])));
+  const collapsed = result.current.expanded;
+  rerender({ spanFilters: filters });
+  expect(result.current.expanded).toBe(collapsed);
+  rerender({ spanFilters: { ...filters } });
+  expect(result.current.expanded).toEqual(new Set(['a', 'b']));
+});
