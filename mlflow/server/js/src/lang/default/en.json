@@ -5939,6 +5939,10 @@
     "defaultMessage": "Edit tags for version {version}",
     "description": "Title for editing tags on a skill version"
   },
+  "H6IGV4": {
+    "defaultMessage": "Edit permission on this experiment is required to create a dataset.",
+    "description": "Tooltip explaining why dataset creation is disabled"
+  },
   "H6aarx": {
     "defaultMessage": "Reset to saved",
     "description": "Menu item that discards unsaved edits and re-applies the active saved view's stored state"
@@ -6050,10 +6054,6 @@
   "HUC492": {
     "defaultMessage": "See detailed trace view",
     "description": "Evaluation review > see detailed trace view button"
-  },
-  "HUJl1N": {
-    "defaultMessage": "Edit permission on this experiment must be confirmed before you can create a dataset.",
-    "description": "Tooltip explaining why dataset creation is disabled"
   },
   "HUf9qJ": {
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",

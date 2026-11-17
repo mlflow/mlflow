@@ -181,9 +181,54 @@ describe('CreateDatasetButton permissions', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  test('supports servers without auth', async () => {
-    userStatus = 404;
-    renderButton();
+  test.each(['text/html; charset=utf-8', 'TEXT/HTML; charset=UTF-8'])(
+    'supports servers without auth (%s)',
+    async (contentType) => {
+      server.use(
+        rest.get('/ajax-api/2.0/mlflow/users/current', (_req, res, ctx) =>
+          res(ctx.status(404), ctx.set('Content-Type', contentType), ctx.body('<h1>Not Found</h1>')),
+        ),
+      );
+      renderButton();
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Create dataset' })).toBeEnabled());
+      expect(permissionRequests).toEqual([]);
+    },
+  );
+
+  test('does not treat a plain-text 404 as auth disabled', async () => {
+    server.use(
+      rest.get('/ajax-api/2.0/mlflow/users/current', (_req, res, ctx) =>
+        res(ctx.status(404), ctx.set('Content-Type', 'text/plain'), ctx.body('Not found')),
+      ),
+    );
+    const { queryClient } = renderButton();
+    await waitFor(() => expect(queryClient.getQueryState(['account_current_user'])?.status).toBe('error'));
+    expect(screen.getByRole('button', { name: 'Create dataset' })).toBeDisabled();
+  });
+
+  test('denies an auth-enabled missing-user JSON 404', async () => {
+    server.use(
+      rest.get('/ajax-api/2.0/mlflow/users/current', (_req, res, ctx) =>
+        res(ctx.status(404), ctx.json({ error_code: 'RESOURCE_DOES_NOT_EXIST', message: 'User not found' })),
+      ),
+    );
+    const { queryClient } = renderButton();
+    await waitFor(() => expect(queryClient.getQueryState(['account_current_user'])?.status).toBe('error'));
+    expect(screen.getByRole('button', { name: 'Create dataset' })).toBeDisabled();
+    expect(permissionRequests).toEqual([]);
+  });
+
+  test('waits for workspace context on servers without auth', async () => {
+    jest.mocked(useWorkspacesEnabled).mockReturnValue({ workspacesEnabled: true, loading: false });
+    server.use(
+      rest.get('/ajax-api/2.0/mlflow/users/current', (_req, res, ctx) =>
+        res(ctx.status(404), ctx.set('Content-Type', 'text/html'), ctx.body('<h1>Not Found</h1>')),
+      ),
+    );
+    const { queryClient } = renderButton();
+    await waitFor(() => expect(queryClient.getQueryState(['account_current_user'])?.status).toBe('error'));
+    expect(screen.getByRole('button', { name: 'Create dataset' })).toBeDisabled();
+    act(() => setActiveWorkspace('ws-a'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Create dataset' })).toBeEnabled());
     expect(permissionRequests).toEqual([]);
   });

@@ -20,11 +20,11 @@ export const useCanCreateDataset = (experimentId: string): boolean => {
     refetchOnWindowFocus: false,
   });
 
-  // Only the missing auth endpoint identifies a no-auth server; lookup failures must not grant access.
+  // Missing auth routes return HTML; an auth-enabled missing user returns a JSON 404.
   return (
-    user.error instanceof NotFoundError ||
-    (!user.isError &&
-      workspaceResolved &&
-      (isAdmin || (permission.isSuccess && ['EDIT', 'MANAGE'].includes(permission.data.permission))))
+    workspaceResolved &&
+    ((user.error instanceof NotFoundError &&
+      user.error.response?.headers.get('content-type')?.split(';')[0].trim().toLowerCase() === 'text/html') ||
+      (!user.isError && (isAdmin || (permission.isSuccess && ['EDIT', 'MANAGE'].includes(permission.data.permission)))))
   );
 };
