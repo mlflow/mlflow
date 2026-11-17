@@ -632,8 +632,39 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       await state.openView('v1');
     });
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
-    expect(new URLSearchParams(search).get('filters')).toBeNull();
+    expect(new URLSearchParams(search).get('filters')).toBe('[]');
   });
+
+  test.each([false, true])(
+    'share and open validate the same stored filters (valid clause: %s)',
+    async (includeValid) => {
+      const valid = { field: 'tag', key: 'build:version', operator: FilterOp.EQUALS, value: 'v1' };
+      mockExperiment([
+        await makeV4ViewTag(
+          'v1',
+          'Known',
+          1000,
+          'q=x',
+          ['start_time'],
+          [{ field: 'state', operator: FilterOp.CONTAINS, value: 'ERROR' }, ...(includeValid ? [valid] : [])],
+        ),
+      ]);
+      let state: any;
+      let search = '';
+      renderProbeAt('/', (s, sp) => {
+        state = s;
+        search = sp;
+      });
+      let link = '';
+      await act(async () => {
+        link = await state.buildShareUrl('v1');
+        await state.openView('v1');
+      });
+      const shared = new URLSearchParams(link.split('?')[1]);
+      expect(shared.toString()).toBe(new URLSearchParams(search).toString());
+      expect(JSON.parse(shared.get('filters') ?? 'null')).toEqual(includeValid ? [valid] : []);
+    },
+  );
 
   test('opening a view restores its stored assessment-column visibility', async () => {
     // v1 stored with one assessment hidden; opening it must push the full map into the live store.

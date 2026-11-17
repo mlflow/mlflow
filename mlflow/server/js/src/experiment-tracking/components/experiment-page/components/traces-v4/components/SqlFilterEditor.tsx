@@ -76,7 +76,7 @@ export const SqlFilterEditor = ({
           endLineNumber: position.lineNumber,
           endColumn: position.column,
         });
-        const prefix = before.match(/(?:^|\s)((?:[\w.]|`[^`]*`|"[^"]*")*)$/)?.[1] ?? '';
+        const prefix = before.match(/(?:^|[\s(])((?:[\w.]|`[^`]*`|"[^"]*")*)$/)?.[1] ?? '';
         return {
           suggestions: columns
             .filter((column) => column.toLowerCase().startsWith(prefix.toLowerCase()))

@@ -33,6 +33,8 @@ describe('SQL to Basic conversion', () => {
     'SELECT * FROM traces',
     "attributes.name = 'unfinished",
     'attributes.execution_time_ms > 1.5',
+    String.raw`tags.a = 'x\' AND tags.b = 'y'`,
+    String.raw`tags.a = 'x\\' AND tags.b = 'y'`,
   ])('leaves a nonrepresentable predicate in SQL: %s', (sql) => {
     expect(parseBasicTraceFilter(sql, fields())).toBeUndefined();
   });
@@ -47,5 +49,10 @@ describe('SQL to Basic conversion', () => {
 
   test('empty SQL clears filters', () => {
     expect(parseBasicTraceFilter('  ', fields())).toEqual([]);
+  });
+
+  test('round trips a backslash that does not precede a quote', () => {
+    const model = [{ field: 'tag', key: 'path', operator: FilterOp.EQUALS, value: String.raw`a\b` }];
+    expect(parseBasicTraceFilter(compileFilterModel(model).join(' AND '), fields())).toEqual(model);
   });
 });

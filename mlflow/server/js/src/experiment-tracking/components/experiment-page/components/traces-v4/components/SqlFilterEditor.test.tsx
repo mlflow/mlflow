@@ -93,3 +93,25 @@ test('session completion round trips to the Basic session field', () => {
     { field: 'session', key: undefined, operator: FilterOp.EQUALS, value: 'session-1' },
   ]);
 });
+
+test.each(['(', '((', "tags.env = 'qa' AND ("])('replaces the column prefix after %s', (group) => {
+  const before = `${group}attributes.`;
+  const original = mockModel.getValueInRange;
+  mockModel.getValueInRange = () => before;
+  try {
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <SqlFilterEditor value={before} onChange={jest.fn()} fields={[]} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    const provider = mockRegister.mock.calls.at(-1)?.[1];
+    const completion = provider
+      .provideCompletionItems(mockModel, { lineNumber: 1, column: before.length + 1 })
+      .suggestions.find(({ label }: { label: string }) => label === 'attributes.status');
+    expect(before.slice(0, completion.range.startColumn - 1) + completion.insertText).toBe(`${group}attributes.status`);
+  } finally {
+    mockModel.getValueInRange = original;
+  }
+});

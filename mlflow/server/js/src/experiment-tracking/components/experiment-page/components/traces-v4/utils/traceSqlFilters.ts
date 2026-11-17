@@ -32,6 +32,8 @@ export const parseBasicTraceFilter = (
   format: (model: TraceFilterModel) => string = (model) => compileFilterModel(model).join(' AND '),
 ): TraceFilterModel | undefined => {
   if (!sql.trim()) return [];
+  // Backslash-quote spellings differ across server tokenizers; preserve them in SQL.
+  if (/\\['"]/.test(sql)) return undefined;
   const terms: string[] = [];
   let quote = '';
   let start = 0;

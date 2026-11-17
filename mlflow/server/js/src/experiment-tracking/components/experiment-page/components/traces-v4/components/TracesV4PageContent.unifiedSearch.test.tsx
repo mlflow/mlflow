@@ -45,6 +45,17 @@ describe('TracesV4PageContent unified search', () => {
     expect(screen.queryByPlaceholderText('Add a filter')).not.toBeInTheDocument();
   }, 20000);
 
+  test('with the new eval runs UI off, keeps URL tags outside the Basic-only filter popover', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    const user = userEvent.setup();
+    renderPage({ initialUrl: `${URL}?tag=${encodeURIComponent('env=prod')}` });
+    await findTraceRow('tr-000');
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
+    expect(screen.queryByRole('tab', { name: 'SQL' })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('prod')).not.toBeInTheDocument();
+    expect(new URLSearchParams(env.lastSearch).get('tag')).toBe('env=prod');
+  }, 20000);
+
   test('with the new eval runs UI on, turns a typed query into a filter pill', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const user = userEvent.setup();

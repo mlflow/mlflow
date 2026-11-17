@@ -675,7 +675,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     isFetching: page.isFetching,
   });
   const toolbarSlots = useTracesV4ToolbarSlots({
-    ...filterEditor,
+    ...(unifiedSearchEnabled ? filterEditor : { filterModel, onFilterChange: controller.setFilterModel }),
     hideFilterButton: unifiedSearchEnabled,
     ...(unifiedSearchEnabled ? { traces: page.traces } : {}),
     onClearFilters: clearAllFilters,

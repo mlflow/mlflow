@@ -22,6 +22,7 @@ import {
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
 import { isAssessmentColumnEligible } from '../../components/experiment-page/components/traces-v4/utils/assessmentColumns';
+import { isSupportedFilterField } from '../../components/experiment-page/components/traces-v4/utils/filterModel';
 import { getComparisonRunTraces } from './evalRunSessionComparisonRows';
 
 export const COMPARISON_FILTER_FIELDS = new Set([
@@ -74,15 +75,7 @@ export const validateComparisonFilters = (
 ): string | undefined => {
   for (const clause of model) {
     // Local comparisons support finite numeric values and literal keys beyond the server filter grammar.
-    if (
-      !isClauseComplete(clause) ||
-      !fields.some(
-        (field) =>
-          field.id === clause.field &&
-          field.operators.includes(clause.operator) &&
-          (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
-      )
-    ) {
+    if (!isClauseComplete(clause) || !isSupportedFilterField(fields, clause)) {
       return intl.formatMessage({
         defaultMessage: 'Complete or remove unsupported filters before applying.',
         description: 'Invalid or incomplete comparison trace filter',

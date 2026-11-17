@@ -339,10 +339,7 @@ export const useTracesV4SavedViews = ({
   // resolvable columns leaves the user's columns untouched rather than hiding everything.
   const applyView = useCallback(
     (state: CapturedV4ViewState, id: string) => {
-      const params = new URLSearchParams(buildV4ViewQuery(state, id));
-      const filters = supportedFilters(state.filters);
-      params.delete('filters');
-      if (filters.length) params.set('filters', JSON.stringify(filters));
+      const params = new URLSearchParams(buildV4ViewQuery({ ...state, filters: supportedFilters(state.filters) }, id));
       setSearchParams(params);
       const columns = decodeViewColumns(state, TRACE_COLUMN_IDS);
       if (columns) {
@@ -392,9 +389,11 @@ export const useTracesV4SavedViews = ({
   const buildShareUrl = useCallback(
     async (id: string): Promise<string | null> => {
       const state = await decodeViewState(id);
-      return state ? getTraceV4SavedViewShareUrl(experimentId, state, id) : null;
+      return state
+        ? getTraceV4SavedViewShareUrl(experimentId, { ...state, filters: supportedFilters(state.filters) }, id)
+        : null;
     },
-    [decodeViewState, experimentId],
+    [decodeViewState, experimentId, supportedFilters],
   );
 
   const activeShareKey = searchParams.get(TRACE_V4_SHARE_URL_PARAM_KEY);

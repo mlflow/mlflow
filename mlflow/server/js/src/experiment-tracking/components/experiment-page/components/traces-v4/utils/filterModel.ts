@@ -275,6 +275,14 @@ export const useMlflowTraceFilterFields = (
   }, [intl, assessmentNames, enhanced, traceSuggestions, availableAssessmentNames]);
 };
 
+export const isSupportedFilterField = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
+  fields.some(
+    (field) =>
+      field.id === clause.field &&
+      field.operators.includes(clause.operator) &&
+      (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
+  );
+
 /**
  * Validate a persisted filter clause against the current field set, operator, key and value rules.
  * Used when restoring URL filters or a saved view so a clause referencing a field/operator that no longer exists is dropped
@@ -289,13 +297,7 @@ export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: Filter
   isClauseComplete(clause) &&
   (clause.key === undefined || isSafeFilterKey(clause.key)) &&
   (clause.field !== 'duration' || isValidDuration(clause.value)) &&
-  ((isSqlFilterClause(clause) && clause.operator === FilterOp.EQUALS) ||
-    fields.some(
-      (field) =>
-        field.id === clause.field &&
-        field.operators.includes(clause.operator) &&
-        (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
-    ));
+  ((isSqlFilterClause(clause) && clause.operator === FilterOp.EQUALS) || isSupportedFilterField(fields, clause));
 
 /**
  * Compile a text field where only `CONTAINS` needs translation (to `ILIKE '%value%'`, since the
