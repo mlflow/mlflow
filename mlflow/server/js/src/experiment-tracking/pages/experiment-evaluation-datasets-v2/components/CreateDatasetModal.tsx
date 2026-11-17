@@ -49,7 +49,7 @@ export const CreateDatasetButton = ({ experimentId, buttonText, buttonProps = {}
           componentId="mlflow.eval-datasets-v2.create-dataset.permission-tooltip"
           content={
             <FormattedMessage
-              defaultMessage="You need Edit permission on this experiment to perform this action."
+              defaultMessage="Edit permission on this experiment must be confirmed before you can create a dataset."
               description="Tooltip explaining why dataset creation is disabled"
             />
           }

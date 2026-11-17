@@ -4539,10 +4539,6 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
-  "CDqnL2": {
-    "defaultMessage": "You need Edit permission on this experiment to perform this action.",
-    "description": "Tooltip explaining why dataset creation is disabled"
-  },
   "CE32Hw": {
     "defaultMessage": "Skill not found",
     "description": "Title when a Skill cannot be loaded"
@@ -6054,6 +6050,10 @@
   "HUC492": {
     "defaultMessage": "See detailed trace view",
     "description": "Evaluation review > see detailed trace view button"
+  },
+  "HUJl1N": {
+    "defaultMessage": "Edit permission on this experiment must be confirmed before you can create a dataset.",
+    "description": "Tooltip explaining why dataset creation is disabled"
   },
   "HUf9qJ": {
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
@@ -7854,10 +7854,6 @@
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
     "description": "Time duration in months"
-  },
-  "N7BCue": {
-    "defaultMessage": "Create dataset",
-    "description": "Create evaluation dataset button"
   },
   "N7KBFa": {
     "defaultMessage": "Create view",
