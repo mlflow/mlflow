@@ -192,7 +192,16 @@ describe('EvalRunTracesV4Table', () => {
   describe('trace tag columns', () => {
     beforeEach(() => {
       const tagged = makeTaggedTrace('tr-tagged', { 'parity.case': 'error', 'porter.split': 'validation' });
-      state.traces = [makeRunTrace(tagged.trace_id, { tags: tagged.tags })];
+      state.traces = [
+        makeRunTrace(tagged.trace_id, {
+          tags: tagged.tags,
+          trace_metadata: {
+            ...tagged.trace_metadata,
+            'parity.meta': 'candidate',
+            'mlflow.internalMetadata': 'hidden',
+          },
+        }),
+      ];
     });
 
     test('offers user tags as Display column choices and hides a chosen tag from its header', async () => {
@@ -226,6 +235,40 @@ describe('EvalRunTracesV4Table', () => {
       expect(await screen.findByRole('columnheader', { name: 'parity.case' })).toBeVisible();
       expect(screen.getByRole('columnheader', { name: 'porter.split' })).toBeVisible();
       expect(screen.queryByRole('columnheader', { name: 'mlflow.traceInternal' })).not.toBeInTheDocument();
+    });
+
+    test('expands user metadata from the Metadata header', async () => {
+      const user = userEvent.setup();
+      renderTable();
+
+      await findTraceRow('tr-tagged');
+      await user.click(screen.getByRole('button', { name: 'Display' }));
+      await user.click(screen.getByRole('menuitem', { name: 'Columns' }));
+      const metadataOptions = await screen.findAllByRole('menuitemcheckbox', { name: 'Metadata' });
+      fireEvent.click(metadataOptions[0]);
+      const metadataHeader = await screen.findByRole('columnheader', { name: 'Metadata' });
+      await user.click(within(metadataHeader).getByRole('button', { name: /^Column options/ }));
+      await user.click(screen.getByRole('menuitem', { name: 'Expand metadata columns' }));
+
+      expect(await screen.findByRole('columnheader', { name: 'parity.meta' })).toBeVisible();
+      expect(screen.getByRole('cell', { name: 'candidate' })).toBeVisible();
+      expect(screen.queryByRole('columnheader', { name: 'mlflow.internalMetadata' })).not.toBeInTheDocument();
+    });
+
+    test('resets a visible custom column to the default table columns', async () => {
+      const user = userEvent.setup();
+      renderTable();
+
+      await findTraceRow('tr-tagged');
+      await user.click(screen.getByRole('button', { name: 'Display' }));
+      await user.hover(screen.getByRole('menuitem', { name: 'Columns' }));
+      fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'parity.case' }));
+      expect(await screen.findByRole('columnheader', { name: 'parity.case' })).toBeVisible();
+
+      // Column checkboxes intentionally keep the submenu open, so reset from the same menu.
+      fireEvent.click(await screen.findByRole('menuitem', { name: 'Reset to defaults' }));
+
+      await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'parity.case' })).not.toBeInTheDocument());
     });
   });
 

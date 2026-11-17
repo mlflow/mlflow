@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { ColumnSplitIcon, type InputRef, useDesignSystemTheme } from '@databricks/design-system';
+import { type InputRef, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { createTraceV4LongIdentifier, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -16,7 +16,6 @@ import {
   TracesErrorAlert,
   type SessionHrefGetter,
   type SessionSelectionHandler,
-  type TraceColumnHeaderAction,
   type TraceColumnId,
   type TraceHrefGetter,
   type TracesTableViewProps,
@@ -35,6 +34,7 @@ import { useTracesV4Notifications } from '../../components/experiment-page/compo
 import { useTracesV4TraceActions } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4TraceActions';
 import {
   isCustomTraceColumnId,
+  useTracesV4CustomColumnHeaderActions,
   useTracesV4CustomColumns,
 } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4CustomColumns';
 import { useTracesV4UnifiedSearch } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UnifiedSearch';
@@ -281,30 +281,7 @@ export const EvalRunTracesV4Table = ({
     },
     [customColumns, assessments, columns],
   );
-  const columnHeaderActions = useMemo<Readonly<Partial<Record<string, TraceColumnHeaderAction>>>>(() => {
-    const headerActions: Partial<Record<string, TraceColumnHeaderAction>> = {};
-    if (customColumns.tags.selectorOptions.length > 0) {
-      headerActions['tags'] = {
-        label: intl.formatMessage({
-          defaultMessage: 'Expand tag columns',
-          description: 'Column header action for expanding tag columns',
-        }),
-        icon: <ColumnSplitIcon />,
-        onClick: () => customColumns.tags.setAllVisible(true),
-      };
-    }
-    if (customColumns.metadata.selectorOptions.length > 0) {
-      headerActions['metadata'] = {
-        label: intl.formatMessage({
-          defaultMessage: 'Expand metadata columns',
-          description: 'Column header action for expanding metadata columns',
-        }),
-        icon: <ColumnSplitIcon />,
-        onClick: () => customColumns.metadata.setAllVisible(true),
-      };
-    }
-    return headerActions;
-  }, [customColumns.tags, customColumns.metadata, intl]);
+  const columnHeaderActions = useTracesV4CustomColumnHeaderActions(customColumns);
 
   const handleTraceSelected = useCallback(
     (trace: ModelTraceInfoV3) =>
