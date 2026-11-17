@@ -609,17 +609,15 @@ def write_detection_schedule(
     store: AbstractStore, experiment_id: str, schedule: DetectionSchedule
 ) -> None:
     """
-    Persist the cadence and filter tags. Both are rewritten so they stay consistent.
+    Replace the cadence and shared trace scope with the supplied schedule.
 
-    The filters are written **before** the cadence, matching the tab's writer, and the order is
-    the safety property rather than a detail: the cadence tag is what makes the dispatcher pick
-    the schedule up, so writing it first leaves a window -- a failed second write, or a poll
-    landing between the two -- where a run could analyze traces the new clauses meant to exclude.
-    This way a narrowed scope is in force before anything runs under it, and a failure before the
-    cadence write leaves the schedule as it was.
+    This is a complete writer for callers such as the demo generator: omitted ``trace_filters``
+    replace any saved shared scope with an empty scope. Cadence-only edits must preserve the
+    current scope instead of calling this helper with an unpopulated schedule.
 
-    The two writes are not atomic, so a failure between them can leave the stored filters ahead of
-    the cadence. Both are rewritten on every save, and that is the safe direction to fail in.
+    Scope is written before cadence so a newly activated schedule cannot dispatch before its
+    intended filters are saved. The writes are not atomic; a failed cadence write can leave the
+    shared scope updated while cadence remains unchanged.
     """
     store.set_experiment_tag(
         experiment_id,

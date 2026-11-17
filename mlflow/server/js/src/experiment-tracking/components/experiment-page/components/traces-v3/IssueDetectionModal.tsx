@@ -12,6 +12,7 @@ import {
   Alert,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { SelectTracesModal } from '../../../SelectTracesModal';
@@ -20,6 +21,7 @@ import { useApiKeyConfiguration } from '../../../../../gateway/components/model-
 import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/useIssueDetectionSettings';
 import {
   defaultIssueDetectionSettings,
+  issueDetectionPartialSaveError,
   type IssueDetectionSettings,
   noFocusAreaSelected,
   selectedDetectionCategories,
@@ -226,11 +228,17 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       const storedScope = scope.data ?? emptyIssueDetectionTraceScope();
       const scopeChanged =
         serializedScope !== undefined && serializedScope !== serializeIssueDetectionTraceScope(storedScope);
+      let settingsSaved = false;
       if (canEdit && settings && JSON.stringify(settings) !== JSON.stringify(detectionSettings)) {
         await saveSettings.mutateAsync(settings);
+        settingsSaved = true;
       }
       if (scopeChanged && configuredScope) {
-        await scope.save.mutateAsync(configuredScope);
+        try {
+          await scope.save.mutateAsync(configuredScope);
+        } catch (cause) {
+          throw settingsSaved ? issueDetectionPartialSaveError(cause, intl) : cause;
+        }
       }
       let traceIds = selectedTraceIds;
       const savedFilter = compileIssueDetectionTraceScope(
@@ -281,7 +289,11 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         },
       );
     } catch (error) {
-      setConfigurationError(error instanceof Error ? error : new Error(String(error)));
+      setConfigurationError(
+        error instanceof Error
+          ? error
+          : new Error(error instanceof ErrorWrapper ? error.getMessageField() : String(error), { cause: error }),
+      );
     } finally {
       preparing.current = false;
       setIsPreparing(false);
@@ -613,7 +625,13 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
                 setConfiguredScope(normalized);
                 leaveCustomization();
               } catch (error) {
-                setConfigurationError(error instanceof Error ? error : new Error(String(error)));
+                setConfigurationError(
+                  error instanceof Error
+                    ? error
+                    : new Error(error instanceof ErrorWrapper ? error.getMessageField() : String(error), {
+                        cause: error,
+                      }),
+                );
               }
             }}
           >
