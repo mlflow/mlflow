@@ -218,7 +218,9 @@ export const useModelTraceSearch = ({
   ]);
   const traceId = treeNodes[0]?.traceId;
   const lastCompletedResult = useRef({ traceId, result: EMPTY_SEARCH_RESULT });
-  if (completedResult) lastCompletedResult.current = { traceId, result: completedResult };
+  useLayoutEffect(() => {
+    if (completedResult) lastCompletedResult.current = { traceId, result: completedResult };
+  }, [completedResult, traceId]);
   const {
     filteredTreeNodes,
     matches,

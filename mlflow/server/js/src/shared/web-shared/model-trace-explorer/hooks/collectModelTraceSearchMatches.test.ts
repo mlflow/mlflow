@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { getMatchesFromSpan } from '../ModelTraceExplorer.utils';
-import { collectModelTraceSearchMatches, getModelTraceSpanSearchMatches } from './collectModelTraceSearchMatches';
+import { collectModelTraceSearchMatches } from './collectModelTraceSearchMatches';
 
 const span = (key: string, value = 'needle'): ModelTraceSpanNode => ({
   key,
@@ -59,30 +59,12 @@ describe('collectModelTraceSearchMatches', () => {
     expect(matches.get(root)).toEqual(getMatchesFromSpan(root, 'needle'));
   });
 
-  it.each(['needle', ' ', '\\n', '"', 'false', '42', 'ee', 'value'])(
-    'preserves every section and occurrence for %p',
-    (filter) => {
-      const root = {
-        ...span('root'),
-        inputs: { value: ['needle needle', { nested: 'a\nneedle' }, false, 42] },
-        outputs: 'needle',
-        attributes: { value: { needle: 'needle' }, empty: null },
-        events: [
-          { name: 'event', time_unix_nano: 0, attributes: { value: ['needle', 'needle'] } },
-          { name: 'empty', time_unix_nano: 0 },
-        ],
-        links: [{ trace_id: 'other', span_id: 'linked', attributes: { value: { needle: 'needle' } } }],
-      };
-      expect(getModelTraceSpanSearchMatches(root, filter)).toEqual(getMatchesFromSpan(root, filter));
-    },
-  );
-
   it('reuses unchanged payload counts without retaining the old span wrapper', () => {
     const root = { ...span('root'), inputs: { value: 'needle needle' } };
-    const expected = getModelTraceSpanSearchMatches(root, 'needle');
+    const expected = getMatchesFromSpan(root, 'needle');
     const rebuilt = { ...root, title: 'new title' };
     const stringify = jest.spyOn(JSON, 'stringify');
-    const matches = getModelTraceSpanSearchMatches(rebuilt, 'needle');
+    const matches = getMatchesFromSpan(rebuilt, 'needle');
     expect(stringify).not.toHaveBeenCalled();
     expect(matches).toEqual(expected.map((match) => ({ ...match, span: rebuilt })));
     expect(matches.every((match) => match.span === rebuilt)).toBe(true);
@@ -90,9 +72,9 @@ describe('collectModelTraceSearchMatches', () => {
 
   it('invalidates counts for a new query or replacement payload', () => {
     const root = span('root', 'needle needle other');
-    expect(getModelTraceSpanSearchMatches(root, 'needle')).toHaveLength(2);
-    expect(getModelTraceSpanSearchMatches(root, 'other')).toHaveLength(1);
-    expect(getModelTraceSpanSearchMatches({ ...root, attributes: { value: 'other other' } }, 'other')).toHaveLength(2);
-    expect(getModelTraceSpanSearchMatches(root, '')).toEqual([]);
+    expect(getMatchesFromSpan(root, 'needle')).toHaveLength(2);
+    expect(getMatchesFromSpan(root, 'other')).toHaveLength(1);
+    expect(getMatchesFromSpan({ ...root, attributes: { value: 'other other' } }, 'other')).toHaveLength(2);
+    expect(getMatchesFromSpan(root, '')).toEqual([]);
   });
 });

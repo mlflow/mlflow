@@ -212,148 +212,84 @@ export const getSpanLogLevel = (node: ModelTraceSpanNode): SpanLogLevel => {
   return node.logLevel ?? SpanLogLevel.DEBUG;
 };
 
-export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
-  const events = span.events;
-  if (!events) {
-    return [];
-  }
-
-  const matches: SearchMatch[] = [];
-  events.forEach((event, index) => {
-    const attributes = event.attributes;
-
-    if (!attributes) {
-      return;
-    }
-
-    Object.keys(attributes).forEach((attribute) => {
-      const isKeyMatch = attribute.toLowerCase().includes(searchFilter);
-      const key = getEventAttributeKey(event.name, index, attribute);
-
-      if (isKeyMatch) {
-        matches.push({
-          span,
-          section: 'events',
-          key,
-          isKeyMatch: true,
-          matchIndex: 0,
-        });
-      }
-
-      // event values can be arbitrary JSON
-      const value = JSON.stringify(attributes[attribute]).toLowerCase();
-      const numValueMatches = value.split(searchFilter).length - 1;
-      for (let i = 0; i < numValueMatches; i++) {
-        matches.push({
-          span,
-          section: 'events',
-          key,
-          isKeyMatch: false,
-          matchIndex: i,
-        });
-      }
-    });
-  });
-
-  return matches;
-};
-
 export const getLinkFieldKey = (index: number, field: string): string => {
   return `link-${index}-${field}`;
 };
 
-const getMatchesFromLinks = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
-  const links = span.links;
-  if (!links) {
-    return [];
-  }
+type SearchSection = SearchMatch['section'];
+type FieldMatchCounts = { key: string; isKeyMatch: boolean; count: number };
+const payloadMatchCounts = new WeakMap<
+  WeakKey,
+  { filter: string; section: SearchSection; fields: FieldMatchCounts[] }
+>();
 
-  const matches: SearchMatch[] = [];
-  links.forEach((link, index) => {
-    const attributes = link.attributes;
-    if (!attributes || Object.keys(attributes).length === 0) return;
-
-    Object.entries(attributes).forEach(([attrKey, attrValue]) => {
-      const key = getLinkFieldKey(index, attrKey);
-      const isKeyMatch = attrKey.toLowerCase().includes(searchFilter);
-      if (isKeyMatch) {
-        matches.push({ span, section: 'links', key, isKeyMatch: true, matchIndex: 0 });
-      }
-
-      const value = JSON.stringify(attrValue, null, 2).toLowerCase();
-      const numValueMatches = value.split(searchFilter).length - 1;
-      for (let i = 0; i < numValueMatches; i++) {
-        matches.push({ span, section: 'links', key, isKeyMatch: false, matchIndex: i });
-      }
-    });
-  });
-
-  return matches;
+const countOccurrences = (text: string, filter: string): number => {
+  let count = 0;
+  for (let index = text.indexOf(filter); index >= 0; index = text.indexOf(filter, index + filter.length)) count++;
+  return count;
 };
 
-/**
- * This function extracts all the matches from a span based on the search filter,
- * and appends some necessary metadata that is necessary for the jump-to-search
- * function.
- */
-export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
-  // if search filter is empty, don't generate matches
-  // because there will be nothing to highlight anyway
-  if (!searchFilter) {
-    return [];
-  }
+const getSectionMatchCounts = (
+  span: ModelTraceSpanNode,
+  section: SearchSection,
+  filter: string,
+): FieldMatchCounts[] => {
+  const payload = span[section];
+  const cached = payload && typeof payload === 'object' ? payloadMatchCounts.get(payload) : undefined;
+  if (cached?.filter === filter && cached.section === section) return cached.fields;
 
-  const matches: SearchMatch[] = [];
-
-  const sections = {
-    inputs: span?.inputs,
-    outputs: span?.outputs,
-    attributes: span?.attributes,
-    events: span?.events,
-    links: span?.links,
-  };
-
-  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links') => {
-    if (label === 'events') {
-      matches.push(...getMatchesFromEvent(span, searchFilter));
-      return;
-    }
-    if (label === 'links') {
-      matches.push(...getMatchesFromLinks(span, searchFilter));
-      return;
-    }
-
-    const sectionList = createListFromObject(section);
-    sectionList.forEach((item) => {
-      // NOTE: this ignores the fact that there might be multiple matches in a key
-      // for example, if the key is "aaaaa", and the search filter is "a". However,
-      // implementing support for this case would make the code needlessly complex.
-      // If we receive feedback that this is a problem, we can revisit this.
-      const isKeyMatch = item.key.toLowerCase().includes(searchFilter);
-      if (isKeyMatch) {
-        matches.push({
-          span: span,
-          section: label,
-          key: item.key,
-          isKeyMatch: true,
-          matchIndex: 0,
-        });
-      }
-
-      const numValueMatches = item.value.toLowerCase().split(searchFilter).length - 1;
-      for (let i = 0; i < numValueMatches; i++) {
-        matches.push({
-          span: span,
-          section: label,
-          key: item.key,
-          isKeyMatch: false,
-          matchIndex: i,
+  const fields: FieldMatchCounts[] = [];
+  if (section === 'events' || section === 'links') {
+    span[section]?.forEach((entry, index) => {
+      for (const [key, value] of Object.entries(entry.attributes ?? {})) {
+        fields.push({
+          key:
+            section === 'events'
+              ? getEventAttributeKey((entry as ModelTraceEvent).name, index, key)
+              : getLinkFieldKey(index, key),
+          isKeyMatch: key.toLowerCase().includes(filter),
+          count: countOccurrences(
+            JSON.stringify(value, null, section === 'links' ? 2 : undefined).toLowerCase(),
+            filter,
+          ),
         });
       }
     });
-  });
+  } else {
+    for (const { key, value } of createListFromObject(payload)) {
+      fields.push({
+        key,
+        // Keys have one highlight even when the query occurs more than once.
+        isKeyMatch: key.toLowerCase().includes(filter),
+        count: countOccurrences(value.toLowerCase(), filter),
+      });
+    }
+  }
+  // Keep only the last query's counts; rebuilt wrappers must not retain old span objects.
+  if (payload && typeof payload === 'object') payloadMatchCounts.set(payload, { filter, section, fields });
+  return fields;
+};
+
+const getMatchesFromSections = (span: ModelTraceSpanNode, filter: string, sections: SearchSection[]): SearchMatch[] => {
+  if (!filter) return [];
+  const matches: SearchMatch[] = [];
+  for (const section of sections) {
+    for (const { key, isKeyMatch, count } of getSectionMatchCounts(span, section, filter)) {
+      if (isKeyMatch) matches.push({ span, section, key, isKeyMatch: true, matchIndex: 0 });
+      for (let matchIndex = 0; matchIndex < count; matchIndex++) {
+        matches.push({ span, section, key, isKeyMatch: false, matchIndex });
+      }
+    }
+  }
   return matches;
 };
+
+export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] =>
+  getMatchesFromSections(span, searchFilter, ['events']);
+
+/** Extracts payload matches with the metadata needed to jump to each occurrence. */
+export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] =>
+  getMatchesFromSections(span, searchFilter, ['inputs', 'outputs', 'attributes', 'events', 'links']);
 
 export function searchTree(
   rootNode: ModelTraceSpanNode,

@@ -24,7 +24,7 @@ const renderSearch = (root: ModelTraceSpanNode) => {
       useModelTraceSearch({ ...callbacks, treeNodes, selectedNode: treeNodes[0], modelTraceInfo }),
     { initialProps: { treeNodes: [root], modelTraceInfo: null as ModelTrace['info'] | null } },
   );
-  return { ...hook, setSelectedNodeAndTab };
+  return { ...hook, ...callbacks };
 };
 
 describe('useModelTraceSearch content updates', () => {
@@ -65,6 +65,23 @@ describe('useModelTraceSearch content updates', () => {
     expect(result.current.matchData.totalMatches).toBe(3);
     expect(result.current.matchData.currentMatchIndex).toBe(2);
     expect(result.current.matchData.match).toMatchObject({ key: 'value', matchIndex: 1 });
+  });
+
+  it('reselects the refreshed child while retaining its active occurrence', () => {
+    const child = { ...createNode('needle needle'), key: 'child' };
+    const root = { ...createNode('absent'), children: [child] };
+    const { result, rerender, setSelectedNode, setSelectedNodeAndTab } = renderSearch(root);
+    act(() => result.current.setSearchFilter('needle'));
+    act(() => result.current.handleNextSearchMatch());
+    setSelectedNode.mockClear();
+    setSelectedNodeAndTab.mockClear();
+
+    const updatedChild = { ...child, title: 'updated child' };
+    rerender({ treeNodes: [{ ...root, children: [updatedChild] }], modelTraceInfo: null });
+    expect(result.current.matchData.currentMatchIndex).toBe(1);
+    expect(result.current.matchData.match).toMatchObject({ span: updatedChild, key: 'value', matchIndex: 1 });
+    expect(setSelectedNode).toHaveBeenLastCalledWith(updatedChild);
+    expect(setSelectedNodeAndTab).not.toHaveBeenCalled();
   });
 
   it('starts a different query at its first match', () => {

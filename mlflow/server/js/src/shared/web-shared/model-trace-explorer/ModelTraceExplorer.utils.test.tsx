@@ -449,6 +449,61 @@ describe('searchTreeBySpanId', () => {
 });
 
 describe('getMatchesFromSpan', () => {
+  it.each(['needle', 'ee'])('preserves section order, key highlights and value occurrences for %p', (filter) => {
+    const span: ModelTraceSpanNode = {
+      key: 'root',
+      title: 'root',
+      start: 0,
+      end: 1,
+      assessments: [],
+      traceId: 'trace',
+      inputs: { needle: 'needle needle' },
+      outputs: ['needle'],
+      events: [{ name: 'event', time_unix_nano: 0, attributes: { needle: ['needle', 'needle'] } }],
+      links: [{ trace_id: 'other', span_id: 'linked', attributes: { needle: { needle: 'needle' } } }],
+    };
+    expect(
+      getMatchesFromSpan(span, filter).map(({ section, key, isKeyMatch, matchIndex }) => [
+        section,
+        key,
+        isKeyMatch,
+        matchIndex,
+      ]),
+    ).toEqual([
+      ['inputs', 'needle', true, 0],
+      ['inputs', 'needle', false, 0],
+      ['inputs', 'needle', false, 1],
+      ['outputs', '', false, 0],
+      ['events', 'event-0-needle', true, 0],
+      ['events', 'event-0-needle', false, 0],
+      ['events', 'event-0-needle', false, 1],
+      ['links', 'link-0-needle', true, 0],
+      ['links', 'link-0-needle', false, 0],
+      ['links', 'link-0-needle', false, 1],
+    ]);
+  });
+
+  it('counts pretty JSON whitespace for ordinary fields and links, while keeping events compact', () => {
+    const value = { nested: 'value' };
+    const span: ModelTraceSpanNode = {
+      key: 'root',
+      title: 'root',
+      start: 0,
+      end: 1,
+      assessments: [],
+      traceId: 'trace',
+      inputs: { value },
+      events: [{ name: 'event', time_unix_nano: 0, attributes: { value } }],
+      links: [{ trace_id: 'other', span_id: 'linked', attributes: { value } }],
+    };
+    expect(getMatchesFromSpan(span, '\n').map(({ section }) => section)).toEqual([
+      'inputs',
+      'inputs',
+      'links',
+      'links',
+    ]);
+  });
+
   it('should not crash if a span has any undefined fields', () => {
     const spanNode: ModelTraceSpanNode = {
       key: 'test',
