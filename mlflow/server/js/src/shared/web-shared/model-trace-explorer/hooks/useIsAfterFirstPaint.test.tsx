@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import React from 'react';
 import { act, renderHook } from '@testing-library/react';
 
 import { useIsAfterFirstPaint } from './useIsAfterFirstPaint';
@@ -42,16 +43,24 @@ describe('useIsAfterFirstPaint', () => {
 
   it('removes unmounted subscribers before the scheduled paint', () => {
     const frame = jest.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
-    let renders = 0;
-    const { unmount } = renderHook(() => {
-      renders++;
-      return useIsAfterFirstPaint(true);
-    });
+    const setReady = jest.fn();
+    const useState = React.useState;
+    jest.spyOn(React, 'useState').mockImplementation(((initial: unknown) => {
+      const [value, setValue] = useState(initial);
+      return [
+        value,
+        (next: unknown) => {
+          setReady(next);
+          setValue(next);
+        },
+      ];
+    }) as typeof React.useState);
+    const { unmount } = renderHook(() => useIsAfterFirstPaint(true));
     unmount();
     act(() => {
       frame.mock.calls[0][0](0);
       jest.runOnlyPendingTimers();
     });
-    expect(renders).toBe(1);
+    expect(setReady).not.toHaveBeenCalled();
   });
 });
