@@ -1628,8 +1628,14 @@ def test_retrieval_fields_not_in_instructions_raises_at_align(sample_traces):
             MlflowException,
             match="retrieval_fields includes 'outputs' but the judge's instructions only "
             "reference: inputs",
-        ):
+        ) as exc_info:
             optimizer.align(judge, sample_traces[:2])
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+    # Deferred construction (e.g. deserialization) validates too, before any first call
+    with pytest.raises(MlflowException, match="retrieval_fields includes 'outputs'") as exc_info:
+        MemoryAugmentedJudge(judge, retrieval_fields=["outputs"], _defer_init=True)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 def test_retrieval_fields_single_field_builds_corpus_and_queries_that_field(

@@ -116,6 +116,19 @@ def _validate_retrieval_fields(retrieval_fields: Any) -> list[str] | None:
     return list(retrieval_fields)
 
 
+def _check_retrieval_fields_referenced(judge: Judge, retrieval_fields: list[str] | None) -> None:
+    if retrieval_fields is None:
+        return
+    referenced = [field.name for field in judge.get_input_fields()]
+    for field in retrieval_fields:
+        if field not in referenced:
+            raise MlflowException(
+                f"retrieval_fields includes {field!r} but the judge's instructions only "
+                f"reference: {', '.join(referenced)}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
 def _generate_fingerprint(
     examples: Iterable["dspy.Example"],
 ) -> frozenset[tuple[str | None, int | None]]:
@@ -222,6 +235,7 @@ class MemoryAugmentedJudge(Judge):
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
+        _check_retrieval_fields_referenced(effective_base_judge, retrieval_fields)
 
         super().__init__(
             name=effective_base_judge.name,
@@ -647,13 +661,6 @@ class MemoryAugmentedJudge(Judge):
                 "the following fields: inputs, outputs, expectations, conversation, trace.",
                 error_code=INTERNAL_ERROR,
             )
-        for field in query_fields:
-            if field not in self._base_signature.input_fields:
-                raise MlflowException(
-                    f"retrieval_fields includes {field!r} but the judge's instructions only "
-                    f"reference: {', '.join(self._base_signature.input_fields)}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
 
         # Read fields with .get(): getattr(example, "inputs") is the bound Example.inputs method.
         # Drop examples with no value for any query field; they can never be retrieved.
@@ -799,6 +806,13 @@ class MemAlignOptimizer(AlignmentOptimizer):
         Returns:
             Memory-augmented judge aligned with feedback.
         """
+        # Re-aligning with a default optimizer (e.g. Judge.align) keeps the judge's fields.
+        retrieval_fields = self._retrieval_fields
+        if retrieval_fields is None and isinstance(judge, MemoryAugmentedJudge):
+            retrieval_fields = judge._retrieval_fields
+        # Checked before the try so the error is not rewrapped as INTERNAL_ERROR.
+        _check_retrieval_fields_referenced(judge, retrieval_fields)
+
         try:
             if not traces:
                 raise MlflowException(
@@ -806,11 +820,6 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 )
 
             _logger.debug(f"Starting MemAlign alignment with {len(traces)} traces")
-
-            # Re-aligning with a default optimizer (e.g. Judge.align) keeps the judge's fields.
-            retrieval_fields = self._retrieval_fields
-            if retrieval_fields is None and isinstance(judge, MemoryAugmentedJudge):
-                retrieval_fields = judge._retrieval_fields
 
             memory_judge = MemoryAugmentedJudge(
                 base_judge=judge,
