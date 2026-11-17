@@ -5,7 +5,7 @@ import { useDesignSystemTheme, Typography, Button, ChevronDownIcon, ChevronRight
 import type { ModelTraceSpanNode } from '../../ModelTrace.types';
 import { spanTimeFormatter, TimelineTreeZIndex } from '../TimelineTree.utils';
 import { TimelineTreeSpanTooltip } from '../TimelineTreeSpanTooltip';
-import { fitGanttLabel } from './ganttLabelFit';
+import { fitGanttLabel } from '../../ganttLabelFit';
 
 export const TimelineTreeGanttNode = ({
   node,
