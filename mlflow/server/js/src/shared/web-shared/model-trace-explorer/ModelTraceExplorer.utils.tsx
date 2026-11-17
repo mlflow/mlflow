@@ -1,6 +1,6 @@
 import {
   isNil,
-  memoize,
+  once,
   omitBy,
   mapValues,
   isArray,
@@ -17,8 +17,9 @@ import {
   isEmpty,
 } from 'lodash';
 
-import { copyModelTraceSpanNode } from './copyModelTraceSpanNode';
 import { useMemo } from 'react';
+
+import { copyModelTraceSpanNode } from './copyModelTraceSpanNode';
 
 import type {
   SearchMatch,
@@ -649,8 +650,8 @@ export const normalizeNewSpanData = (
   const spanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
   const rawInputs = getSpanAttribute(span.attributes, 'mlflow.spanInputs');
   const rawOutputs = getSpanAttribute(span.attributes, 'mlflow.spanOutputs');
-  const inputs = memoize(() => tryDeserializeAttribute(rawInputs as string));
-  const outputs = memoize(() => tryDeserializeAttribute(rawOutputs as string));
+  const inputs = once(() => tryDeserializeAttribute(rawInputs as string));
+  const outputs = once(() => tryDeserializeAttribute(rawOutputs as string));
   const parentId = getModelTraceSpanParentId(span);
   const spanId = getModelTraceSpanId(span);
 
@@ -665,7 +666,7 @@ export const normalizeNewSpanData = (
   const rawMessages = getSpanAttribute(span.attributes, 'mlflow.chat.messages');
   const rawTools = getSpanAttribute(span.attributes, 'mlflow.chat.tools');
   const messageFormat = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.message.format') as string);
-  const chatMessages = memoize(() =>
+  const chatMessages = once(() =>
     getChatMessagesFromSpan(
       tryDeserializeAttribute(rawMessages as string),
       inputs(),
@@ -674,7 +675,7 @@ export const normalizeNewSpanData = (
       children,
     ),
   );
-  const chatTools = memoize(() => getChatToolsFromSpan(tryDeserializeAttribute(rawTools as string), inputs()));
+  const chatTools = once(() => getChatToolsFromSpan(tryDeserializeAttribute(rawTools as string), inputs()));
 
   // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
@@ -688,7 +689,7 @@ export const normalizeNewSpanData = (
 
   // remove other private mlflow attributes
   const publicAttributes = omitBy(span.attributes, (_, key) => key.startsWith('mlflow.'));
-  const attributes = memoize(() => mapValues(publicAttributes, (value) => tryDeserializeAttribute(value)));
+  const attributes = once(() => mapValues(publicAttributes, (value) => tryDeserializeAttribute(value)));
   const events = span.events;
   const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;

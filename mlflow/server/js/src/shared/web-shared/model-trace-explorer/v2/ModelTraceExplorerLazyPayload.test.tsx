@@ -1,8 +1,9 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { screen } from '@testing-library/react';
+import { act, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from '@databricks/web-shared/test-utils/render';
 
+import { useModelTraceSearch } from '../hooks/useModelTraceSearch';
 import { MOCK_V3_SPANS, MOCK_V3_TRACE } from '../ModelTraceExplorer.test-utils';
 import {
   normalizeNewSpanData as normalizeLegacySpan,
@@ -102,12 +103,56 @@ describe('lazy span payloads', () => {
     }
   });
 
+  it('keeps unselected payloads deferred when the comparison search hook filters span types', () => {
+    const childInputs = JSON.stringify({ value: 'comparison child' });
+    const { parse, calls } = watchPayloads();
+    try {
+      const child = normalizeLegacySpan(
+        { ...MOCK_V3_SPANS[1], attributes: { ...attributes, 'mlflow.spanInputs': childInputs } },
+        0,
+        1000,
+        [],
+        {},
+        'trace',
+      );
+      const root = normalizeLegacySpan({ ...MOCK_V3_SPANS[0], attributes }, 0, 1000, [child], {}, 'trace');
+      const comparison = normalizeLegacySpan({ ...MOCK_V3_SPANS[0], attributes }, 0, 1000, [], {}, 'candidate');
+      const comparisonNodeMap = { [String(root.key)]: comparison };
+      const { result } = renderHook(() =>
+        useModelTraceSearch({
+          treeNodes: [root],
+          selectedNode: root,
+          setSelectedNode: jest.fn(),
+          setSelectedNodeAndTab: jest.fn(),
+          setExpandedKeys: jest.fn(),
+          modelTraceInfo: null,
+          comparisonNodeMap,
+        }),
+      );
+      act(() =>
+        result.current.setSpanFilterState({
+          ...result.current.spanFilterState,
+          spanTypeDisplayState: { ...result.current.spanFilterState.spanTypeDisplayState, LLM: false },
+        }),
+      );
+      const filtered = result.current.filteredTreeNodes[0];
+      expect(filtered).not.toBe(root);
+      expect(filtered.children?.[0]).not.toBe(child);
+      expect([calls(childInputs), calls(outputs), calls(metadata)]).toEqual([0, 0, 0]);
+      expect(filtered.children?.[0].inputs).toEqual({ value: 'comparison child' });
+      expect(calls(childInputs)).toBe(1);
+    } finally {
+      parse.mockRestore();
+    }
+  });
+
   it('does not read output or attribute payloads while aligning comparison trees', () => {
     const { parse, calls } = watchPayloads();
     try {
       const baseline = makeNode();
       const candidate = makeNode();
       const result = buildModelTraceComparisonForest([baseline], [candidate]);
+      expect(calls(inputs)).toBe(2);
       expect(calls(outputs)).toBe(0);
       expect(calls(metadata)).toBe(0);
       expect(result.topLevelNodes[0].outputs).toBe(baseline.outputs);
