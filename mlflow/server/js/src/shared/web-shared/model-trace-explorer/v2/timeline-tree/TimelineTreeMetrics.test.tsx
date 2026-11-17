@@ -164,7 +164,10 @@ describe('getTimelineTreeMetricValue', () => {
 
   it('reads replacement data for nodes with the same span id', () => {
     const original = { ...span, tokenUsage: undefined, attributes: {} };
-    const replacement = { ...original, tokenUsage: { total_tokens: 42 } };
+    const replacement = {
+      ...original,
+      attributes: { 'gen_ai.usage.input_tokens': 40, 'gen_ai.usage.output_tokens': 2 },
+    };
     expect(original.key).toBe(replacement.key);
     expect(getTimelineTreeMetricValue('tokens', original, intl)).toBeUndefined();
     expect(getTimelineTreeMetricValue('tokens', replacement, intl)?.value).toBe('42');
