@@ -296,7 +296,15 @@ jobs:
               --disallowed-tools WebSearch \
               --print --verbose --output-format stream-json \
               "/nightly /tmp/nightly-out \"$RUN_IDS\"" \
-            | .claude/scripts/stream.sh "$RUNNER_TEMP/nightly-analysis/stream.jsonl"
+            | .claude/scripts/stream.sh "$RUNNER_TEMP/stream.jsonl"
+      - name: Upload agent stream
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-stream-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/stream.jsonl
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Reset worktree
         if: always()
         run: |
