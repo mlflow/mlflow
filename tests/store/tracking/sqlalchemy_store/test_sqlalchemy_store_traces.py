@@ -57,7 +57,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
@@ -1021,6 +1021,8 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     ],
 )
 def test_search_traces_span_ilike_escape(store: SqlAlchemyStore, field, pattern, expected):
+    if pattern == "trailing\\" and store.db_type != SQLITE:
+        pytest.skip("Incomplete LIKE escape patterns have database-specific behavior.")
     exp_id = store.create_experiment("span_ilike_escape")
     values = [
         "input_guardrail",
