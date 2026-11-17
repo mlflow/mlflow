@@ -1482,22 +1482,49 @@ describe('getDefaultActiveTab', () => {
     expect(getDefaultActiveTab(normalSpan)).toBe('content');
   });
 
+  it.each([0, false])('keeps scalar %s content available', (value) => {
+    expect(
+      getDefaultActiveTab({
+        ...MOCK_CHAT_SPAN,
+        inputs: value,
+        outputs: undefined,
+        chatMessages: undefined,
+        chatTools: undefined,
+      }),
+    ).toBe('content');
+  });
+
+  it.each(['chatMessages', 'chatTools'] as const)('keeps %s-only content available', (field) => {
+    const node = {
+      ...MOCK_CHAT_SPAN,
+      inputs: undefined,
+      outputs: undefined,
+      chatMessages: undefined,
+      chatTools: undefined,
+    };
+    Object.assign(node, { [field]: MOCK_CHAT_SPAN[field] });
+    expect(getDefaultActiveTab(node)).toBe('content');
+  });
+
   it('should return attributes if the node has no chat messages or inputs or outputs', () => {
     const otelSpan = parseModelTraceToTree(MOCK_OTEL_TRACE) as ModelTraceSpanNode;
     expect(getDefaultActiveTab(otelSpan)).toBe('attributes');
   });
 
-  it.each([{}, [], ''])('should return attributes if the node only has an empty payload', (emptyPayload) => {
-    expect(
-      getDefaultActiveTab({
-        ...MOCK_CHAT_SPAN,
-        inputs: emptyPayload,
-        outputs: undefined,
-        chatMessages: undefined,
-        chatTools: undefined,
-      }),
-    ).toBe('attributes');
-  });
+  it.each([null, undefined, {}, [], ''])(
+    'should return attributes if the node only has an empty payload',
+    (emptyPayload) => {
+      expect(
+        getDefaultActiveTab({
+          ...MOCK_CHAT_SPAN,
+          inputs: emptyPayload,
+          outputs: undefined,
+          chatMessages: undefined,
+          chatTools: undefined,
+        }),
+      ).toBe('attributes');
+    },
+  );
 });
 
 describe('decodeSpanId', () => {

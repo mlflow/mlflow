@@ -1479,6 +1479,25 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
 
 export { prettyPrintChatMessage, prettyPrintToolCall };
 
+export const hasSpanContent = (selectedNode: ModelTraceSpanNode | undefined): boolean => {
+  if (isNil(selectedNode)) {
+    return false;
+  }
+
+  const hasPayload = (payload: unknown): boolean => {
+    if (isNil(payload)) return false;
+    if (typeof payload === 'string' || Array.isArray(payload)) return payload.length > 0;
+    if (typeof payload === 'object') return Object.keys(payload).length > 0;
+    return true;
+  };
+  return (
+    hasPayload(selectedNode.inputs) ||
+    hasPayload(selectedNode.outputs) ||
+    (selectedNode.chatMessages?.length ?? 0) > 0 ||
+    (selectedNode.chatTools?.length ?? 0) > 0
+  );
+};
+
 export const getDefaultActiveTab = (selectedNode: ModelTraceSpanNode | undefined): ModelTraceExplorerTab => {
   if (isNil(selectedNode)) {
     return 'content';
@@ -1489,22 +1508,7 @@ export const getDefaultActiveTab = (selectedNode: ModelTraceSpanNode | undefined
     return 'events';
   }
 
-  const hasPayload = (payload: unknown): boolean => {
-    if (isNil(payload)) return false;
-    if (typeof payload === 'string' || Array.isArray(payload)) return payload.length > 0;
-    if (typeof payload === 'object') return Object.keys(payload).length > 0;
-    return true;
-  };
-  const hasContent =
-    hasPayload(selectedNode.inputs) ||
-    hasPayload(selectedNode.outputs) ||
-    (selectedNode.chatMessages?.length ?? 0) > 0 ||
-    (selectedNode.chatTools?.length ?? 0) > 0;
-  if (hasContent) {
-    return 'content';
-  }
-
-  return 'attributes';
+  return hasSpanContent(selectedNode) ? 'content' : 'attributes';
 };
 
 /**
