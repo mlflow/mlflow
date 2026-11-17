@@ -21,7 +21,7 @@ from mlflow.genai.judges.optimizers.memalign.prompts import (
     GUIDELINES_SECTION_HEADER,
 )
 from mlflow.genai.judges.optimizers.memalign.utils import (
-    ALLOWED_RETRIEVAL_FIELDS,
+    _ALLOWED_RETRIEVAL_FIELDS,
     Guideline,
     distill_guidelines,
     get_default_embedding_model,
@@ -95,7 +95,7 @@ def _build_embedder(embedding_model: str, embedding_dim: int) -> "dspy.Embedder"
 def _validate_retrieval_fields(retrieval_fields: Any) -> list[str] | None:
     if retrieval_fields is None:
         return None
-    allowed = ", ".join(ALLOWED_RETRIEVAL_FIELDS)
+    allowed = ", ".join(_ALLOWED_RETRIEVAL_FIELDS)
     if not isinstance(retrieval_fields, list) or not retrieval_fields:
         raise MlflowException(
             f"retrieval_fields must be a non-empty list of field names from: {allowed}. "
@@ -103,7 +103,7 @@ def _validate_retrieval_fields(retrieval_fields: Any) -> list[str] | None:
             error_code=INVALID_PARAMETER_VALUE,
         )
     for field in retrieval_fields:
-        if field not in ALLOWED_RETRIEVAL_FIELDS:
+        if field not in _ALLOWED_RETRIEVAL_FIELDS:
             raise MlflowException(
                 f"retrieval_fields contains unsupported value {field!r}. Allowed values: {allowed}",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -180,7 +180,8 @@ retrieval, a non-empty list drawn from `"inputs"`, `"outputs"`, `"expectations"`
 and `"trace"`. Each field must be referenced by the judge's instructions.
 Defaults to the first of inputs/outputs/expectations/conversation/trace referenced by
 the judge's instructions. With multiple fields, each field is retrieved separately
-and results are merged with reciprocal rank fusion.
+and results are merged with reciprocal rank fusion; earlier fields win ranking ties.
+Each field adds its own embedding index, so embedding cost scales with the number of fields.
 """,
 }
 

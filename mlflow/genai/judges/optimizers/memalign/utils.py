@@ -57,7 +57,7 @@ _QUERY_FIELD_PRIORITY = ["inputs", "outputs", "expectations", "conversation", "t
 
 # Fields users may pass as ``retrieval_fields``. ``conversation`` is excluded because the judge
 # never passes it into the retrieval query, so it would silently retrieve nothing.
-ALLOWED_RETRIEVAL_FIELDS = ("inputs", "outputs", "expectations", "trace")
+_ALLOWED_RETRIEVAL_FIELDS = ("inputs", "outputs", "expectations", "trace")
 
 # Standard reciprocal rank fusion constant (Cormack et al., 2009)
 _RRF_K = 60
