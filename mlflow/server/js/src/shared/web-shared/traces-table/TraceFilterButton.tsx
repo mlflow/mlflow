@@ -778,11 +778,12 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
       </Popover.Anchor>
       <Popover.Content
         align={renderTrigger ? 'start' : 'end'}
+        collisionPadding={16}
         css={{
           padding: theme.spacing.md,
           width: sqlFilter ? (activeTab === 'sql' ? 560 : 'max-content') : undefined,
           maxWidth: 'calc(100vw - 32px)',
-          maxHeight: 'calc(100vh - 32px)',
+          maxHeight: 'min(calc(100vh - 32px), var(--radix-popover-content-available-height, 100vh))',
           overflow: 'auto',
           boxSizing: 'border-box',
         }}
