@@ -301,13 +301,14 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         }
         return { requestIds, success: true };
       });
-    this.loadMetricHistoryPromise = Promise.all(promises).then((results) => {
-      // Ensure we don't set state if component is unmounted
-      if (this._isMounted) {
-        this.setState({ loading: false });
-      }
-      return results.flatMap(({ requestIds }) => requestIds);
-    });
+    this.loadMetricHistoryPromise = Promise.all(promises)
+      .then((results) => results.flatMap(({ requestIds }) => requestIds))
+      .finally(() => {
+        // Ensure we don't set state if component is unmounted
+        if (this._isMounted) {
+          this.setState({ loading: false });
+        }
+      });
     return this.loadMetricHistoryPromise;
   };
 
