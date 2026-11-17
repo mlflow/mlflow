@@ -5,7 +5,9 @@ import { I18nUtils } from '@databricks/i18n';
 
 import { ModelSpanType, type ModelTraceSpanNode } from '../ModelTrace.types';
 import type { TimelineTreeMetric } from '../ModelTraceExplorerPreferencesContext';
-import { getTimelineTreeMetricValue } from './TimelineTreeMetrics';
+import { getTimelineTreeComparisonMetricValues, getTimelineTreeMetricValue } from './TimelineTreeMetrics';
+import * as tokenUsageUtils from '../ModelTraceTokenUsage.utils';
+import * as timelineUtils from './TimelineTree.utils';
 import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../../common/utils/FeatureUtils', () => ({
@@ -115,5 +117,69 @@ describe('getTimelineTreeMetricValue', () => {
     };
 
     expect(getTimelineTreeMetricValue(metric, spanWithoutOptionalMetrics, intl)).toBeUndefined();
+  });
+
+  it('does not repeatedly inspect attributes for a span without token usage', () => {
+    const node = { ...span, tokenUsage: undefined, attributes: {} };
+    const read = jest.spyOn(tokenUsageUtils, 'getSpanTokenUsage');
+    try {
+      for (let render = 0; render < 8; render++) {
+        expect(getTimelineTreeMetricValue('tokens', node, intl)).toBeUndefined();
+      }
+      expect(read).toHaveBeenCalledTimes(1);
+    } finally {
+      read.mockRestore();
+    }
+  });
+
+  it.each([0, 42])('reuses fallback token usage including %s across metric reads', (total) => {
+    const node = {
+      ...span,
+      tokenUsage: undefined,
+      attributes: { 'gen_ai.usage.input_tokens': total, 'gen_ai.usage.output_tokens': 0 },
+    };
+    const read = jest.spyOn(tokenUsageUtils, 'getSpanTokenUsage');
+    try {
+      expect(getTimelineTreeMetricValue('tokens', node, intl)?.value).toBe(String(total));
+      expect(getTimelineTreeMetricValue('tokens', node, intl)?.value).toBe(String(total));
+      expect(read).toHaveBeenCalledTimes(1);
+    } finally {
+      read.mockRestore();
+    }
+  });
+
+  it('shares a span token result between its row and comparison tooltip', () => {
+    const node = { ...otelGenAiSpan };
+    const read = jest.spyOn(tokenUsageUtils, 'getSpanTokenUsage');
+    try {
+      expect(getTimelineTreeMetricValue('tokens', node, intl)?.value).toBe('173');
+      expect(getTimelineTreeComparisonMetricValues(node, undefined, intl)).toContainEqual(
+        expect.objectContaining({ key: 'tokens', baseline: '173', candidate: '—' }),
+      );
+      expect(read).toHaveBeenCalledTimes(1);
+    } finally {
+      read.mockRestore();
+    }
+  });
+
+  it('reads replacement data for nodes with the same span id', () => {
+    const original = { ...span, tokenUsage: undefined, attributes: {} };
+    const replacement = { ...original, tokenUsage: { total_tokens: 42 } };
+    expect(original.key).toBe(replacement.key);
+    expect(getTimelineTreeMetricValue('tokens', original, intl)).toBeUndefined();
+    expect(getTimelineTreeMetricValue('tokens', replacement, intl)?.value).toBe('42');
+  });
+
+  it('formats duration only when the duration metric is requested', () => {
+    const format = jest.spyOn(timelineUtils, 'spanTimeFormatter');
+    try {
+      getTimelineTreeMetricValue('tokens', span, intl);
+      getTimelineTreeMetricValue('cost', span, intl);
+      expect(format).not.toHaveBeenCalled();
+      expect(getTimelineTreeMetricValue('duration', span, intl)?.value).toBe('3.20s');
+      expect(format).toHaveBeenCalledTimes(1);
+    } finally {
+      format.mockRestore();
+    }
   });
 });
