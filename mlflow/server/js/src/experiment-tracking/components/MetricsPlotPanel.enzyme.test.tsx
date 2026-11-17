@@ -50,7 +50,7 @@ let instance: any;
 let minimalPropsForLineChart: any;
 let minimalPropsForBarChart: any;
 let minimalStore: any;
-let getMetricHistoryApi;
+let getMetricHistoryApi: jest.Mock<() => Promise<{ value: { next_page_token?: string } }>>;
 let getRunApi: any;
 let navigate;
 
@@ -220,6 +220,26 @@ describe('unit tests', () => {
     expect(MetricsPlotPanel.predictChartType(minimalPropsForBarChart.metricsWithRunInfoAndHistory)).toBe(
       CHART_TYPE_BAR,
     );
+  });
+
+  test.each([false, true])('stops loading after a metric history failure (later page: %s)', async (laterPage) => {
+    const error = new Error('Metric history unavailable');
+    getMetricHistoryApi.mockRejectedValue(error);
+    if (laterPage) {
+      getMetricHistoryApi.mockResolvedValueOnce({ value: { next_page_token: 'next-page' } });
+    }
+    wrapper = shallow(
+      <MetricsPlotPanel
+        {...minimalPropsForLineChart}
+        runUuids={['runUuid1']}
+        location={{ ...minimalPropsForLineChart.location, search: '?plot_metric_keys=["metric_1"]' }}
+      />,
+    );
+
+    expect(wrapper.state('loading')).toBe(true);
+    await expect(wrapper.instance().loadMetricHistoryPromise).rejects.toBe(error);
+    expect(wrapper.state('loading')).toBe(false);
+    expect(getMetricHistoryApi).toHaveBeenCalledTimes(laterPage ? 2 : 1);
   });
 
   test('getMetrics() should sort the history by timestamp for `Time (Relative)` x-axis', () => {
