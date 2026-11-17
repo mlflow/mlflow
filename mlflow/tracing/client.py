@@ -70,7 +70,6 @@ from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
-from mlflow.utils.search_utils import SearchTraceUtils
 from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
@@ -337,6 +336,8 @@ class TracingClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        from mlflow.utils.search_utils import SearchTraceUtils
+
         if model_id is not None:
             if filter_string:
                 raise MlflowException(

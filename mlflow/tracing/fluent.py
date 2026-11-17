@@ -57,7 +57,6 @@ from mlflow.tracing.utils.search import traces_to_df
 from mlflow.tracking._tracking_service.utils import get_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated, deprecated_parameter
-from mlflow.utils.search_utils import SearchTraceUtils
 from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import is_databricks_uri
 from mlflow.utils.validation import _validate_list_param
@@ -1350,6 +1349,8 @@ def search_sessions(
 
     # Step 2: Fetch complete traces for each session in parallel
     def fetch_session_traces(session_id: str) -> list[Trace]:
+        from mlflow.utils.search_utils import SearchTraceUtils
+
         session_filter = SearchTraceUtils.format_equals_filter(
             f"metadata.`{session_id_key}`", session_id
         )

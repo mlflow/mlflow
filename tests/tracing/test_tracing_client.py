@@ -1,5 +1,7 @@
 import contextvars
 import json
+import subprocess
+import sys
 import uuid
 from unittest.mock import Mock, patch
 
@@ -31,6 +33,36 @@ from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH
 
 from tests.tracing.helper import skip_when_testing_trace_sdk
+
+
+def test_tracing_sdk_imports_without_sqlparse():
+    code = """
+import importlib.abc
+import importlib.metadata
+import sys
+
+version = importlib.metadata.version
+def installed_version(name):
+    if name in {"mlflow", "mlflow-skinny"}:
+        raise importlib.metadata.PackageNotFoundError(name)
+    return version(name)
+importlib.metadata.version = installed_version
+
+class NoSqlparse(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "sqlparse" or fullname.startswith("sqlparse."):
+            raise ModuleNotFoundError("sqlparse is not a tracing SDK dependency")
+sys.meta_path.insert(0, NoSqlparse())
+
+import mlflow
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.fluent import start_span
+assert mlflow.version.IS_TRACING_SDK_ONLY
+assert callable(TracingClient) and callable(start_span)
+assert "sqlparse" not in sys.modules
+"""
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_search_traces_rejects_unrepresentable_model_id(monkeypatch):
