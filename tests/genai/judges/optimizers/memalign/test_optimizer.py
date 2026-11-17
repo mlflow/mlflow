@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
+import dspy
 import pytest
 
 import mlflow
@@ -496,7 +497,7 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
 
         # Verify deferred components are None
         assert restored._base_signature is None
-        assert restored._retriever is None
+        assert restored._retrievers is None
 
 
 def test_scorer_model_validate_routes_to_memory_augmented_judge(sample_judge, sample_traces):
@@ -1037,7 +1038,9 @@ def test_concurrent_calls_do_not_leak_retrieved_examples_across_rows(sample_judg
             rationale="Test",
         )
 
-    aligned_judge._retriever = MagicMock(side_effect=retriever_side_effect)
+    aligned_judge._retrievers = {
+        "inputs": (MagicMock(side_effect=retriever_side_effect), [0, 1, 2])
+    }
 
     with (
         patch(
@@ -1505,6 +1508,168 @@ def test_memory_augmented_judge_round_trip_preserves_base_judge_session_level():
     restored = Scorer.model_validate(dumped)
     assert isinstance(restored, MemoryAugmentedJudge)
     assert restored._base_judge.session_level == "episode"
+
+
+# =============================================================================
+# retrieval_fields tests
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    ("retrieval_fields", "match"),
+    [
+        (["context"], "unsupported value 'context'. Allowed values: inputs, outputs, expectations"),
+        (["conversation"], "unsupported value 'conversation'"),
+        ([], "non-empty list"),
+        ("inputs", "non-empty list"),
+        (["inputs", "inputs"], "duplicates"),
+        ([1], "unsupported value 1"),
+    ],
+)
+def test_retrieval_fields_validation(sample_judge, retrieval_fields, match):
+    with pytest.raises(MlflowException, match=match) as exc_info:
+        MemAlignOptimizer(retrieval_fields=retrieval_fields)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+    with pytest.raises(MlflowException, match=match) as exc_info:
+        MemoryAugmentedJudge(sample_judge, retrieval_fields=retrieval_fields, _defer_init=True)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_retrieval_fields_not_in_instructions_raises_at_align(sample_traces):
+    judge = make_judge(
+        name="test_judge", instructions="Is {{ inputs }} polite?", model="openai:/gpt-4"
+    )
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer(retrieval_fields=["outputs"])
+        with pytest.raises(
+            MlflowException,
+            match="retrieval_fields includes 'outputs' but the judge's instructions only "
+            "reference: inputs",
+        ):
+            optimizer.align(judge, sample_traces[:2])
+
+
+def test_retrieval_fields_single_field_builds_corpus_and_queries_that_field(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+        optimizer = MemAlignOptimizer(retrieval_fields=["outputs"])
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
+        assert len(corpus) == 3
+        assert all("output_" in text and "input_" not in text for text in corpus)
+        assert list(aligned_judge._retrievers) == ["outputs"]
+
+        with patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})):
+            aligned_judge(inputs="the finding", outputs="the reply")
+        mocks["search"].assert_called_once_with("the reply")
+
+
+def test_retrieval_fields_multi_field_builds_one_index_per_field(sample_judge):
+    with mock_apis(guidelines=[]) as mocks:
+        judge = MemoryAugmentedJudge(sample_judge, retrieval_fields=["inputs", "outputs"])
+        judge._episodic_memory = [
+            dspy.Example(inputs="in_0", outputs="out_0"),
+            dspy.Example(inputs="in_1", outputs=None),
+            dspy.Example(inputs=None, outputs="out_2"),
+            dspy.Example(inputs=None, outputs=None),
+        ]
+        judge._build_episodic_memory()
+
+        corpora = [c.kwargs["corpus"] for c in mocks["embeddings_class"].call_args_list]
+        assert corpora == [["in_0", "in_1"], ["out_0", "out_2"]]
+        # The example with neither field is dropped; positions map corpus -> memory index
+        assert len(judge._episodic_memory) == 3
+        assert {field: positions for field, (_, positions) in judge._retrievers.items()} == {
+            "inputs": [0, 1],
+            "outputs": [0, 2],
+        }
+
+        # Example 2 matches only on outputs but still lands in the top-k via RRF
+        inputs_retriever = MagicMock(return_value=MagicMock(indices=[1, 0]))
+        outputs_retriever = MagicMock(return_value=MagicMock(indices=[1]))
+        judge._retrievers = {
+            "inputs": (inputs_retriever, [0, 1]),
+            "outputs": (outputs_retriever, [0, 2]),
+        }
+        judge._retrieval_k = 2
+        with patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})):
+            assessment = judge(inputs="q_in", outputs="q_out")
+        inputs_retriever.assert_called_once_with("q_in")
+        outputs_retriever.assert_called_once_with("q_out")
+        assert assessment.metadata["retrieved_example_trace_ids"] == ["example_1", "example_2"]
+
+
+def test_retrieval_fields_corpus_uses_truncation(sample_judge):
+    with (
+        mock_apis(guidelines=[]) as mocks,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.truncate_to_token_limit",
+            side_effect=lambda text, model, model_type: text[:3],
+        ) as mock_truncate,
+    ):
+        judge = MemoryAugmentedJudge(sample_judge, retrieval_fields=["outputs"])
+        judge._episodic_memory = [dspy.Example(inputs="in_0", outputs="long output")]
+        judge._build_episodic_memory()
+
+    mock_truncate.assert_called_once_with(
+        "long output", "openai:/text-embedding-3-small", model_type="embedding"
+    )
+    assert mocks["embeddings_class"].call_args.kwargs["corpus"] == ["lon"]
+
+
+def test_retrieval_fields_serialization_round_trip(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer(retrieval_fields=["outputs", "inputs"])
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:2])
+
+    dumped = aligned_judge.model_dump()
+    assert dumped["memory_augmented_judge_data"]["retrieval_fields"] == ["outputs", "inputs"]
+    restored = Scorer.model_validate(dumped)
+    assert restored._retrieval_fields == ["outputs", "inputs"]
+    assert restored._create_copy()._retrieval_fields == ["outputs", "inputs"]
+
+    # Payloads written before retrieval_fields existed load with the default
+    del dumped["memory_augmented_judge_data"]["retrieval_fields"]
+    assert Scorer.model_validate(dumped)._retrieval_fields is None
+
+
+def test_unalign_preserves_retrieval_fields(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer(retrieval_fields=["outputs"])
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+        unaligned = aligned_judge.unalign(sample_traces[:1])
+    assert unaligned._retrieval_fields == ["outputs"]
+    assert list(unaligned._retrievers) == ["outputs"]
+
+
+def test_realign_unchanged_traces_with_new_retrieval_fields_rebuilds_index(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=["Guideline A"]) as mocks:
+        judge_v1 = MemAlignOptimizer().align(sample_judge, sample_traces[:3])
+        assert list(judge_v1._retrievers) == ["inputs"]
+        lm_calls = mocks["lm"].call_count
+
+        # Identical config keeps today's skip: the input judge is returned unchanged
+        assert MemAlignOptimizer().align(judge_v1, sample_traces[:3]) is judge_v1
+
+        judge_v2 = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
+            judge_v1, sample_traces[:3]
+        )
+
+    assert judge_v2 is not judge_v1
+    assert judge_v2._retrieval_fields == ["outputs"]
+    assert list(judge_v2._retrievers) == ["outputs"]
+    corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
+    assert all("output_" in text for text in corpus)
+    assert len(judge_v2._episodic_memory) == len(judge_v1._episodic_memory)
+    assert [g.guideline_text for g in judge_v2._semantic_memory] == ["Guideline A"]
+    # Memory is unchanged, so no re-distillation
+    assert mocks["lm"].call_count == lm_calls
 
 
 def test_default_inputs_corpus_embeds_only_the_inputs_value(sample_judge, sample_traces):

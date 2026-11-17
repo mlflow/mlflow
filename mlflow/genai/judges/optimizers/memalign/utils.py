@@ -55,21 +55,34 @@ _FLEX_TOKENS = 5000
 # Priority list of fields to use for building corpus and retrieval queries
 _QUERY_FIELD_PRIORITY = ["inputs", "outputs", "expectations", "conversation", "trace"]
 
+# Fields users may pass as ``retrieval_fields``. ``conversation`` is excluded because the judge
+# never passes it into the retrieval query, so it would silently retrieve nothing.
+ALLOWED_RETRIEVAL_FIELDS = ("inputs", "outputs", "expectations", "trace")
 
-def get_query_field(signature: "dspy.Signature") -> str | None:
-    """Get the field name to use for building corpus and retrieval queries.
+# Standard reciprocal rank fusion constant (Cormack et al., 2009)
+_RRF_K = 60
+
+
+def get_query_fields(
+    signature: "dspy.Signature", retrieval_fields: list[str] | None = None
+) -> list[str]:
+    """Get the field names to use for building corpus and retrieval queries.
 
     Args:
         signature: DSPy signature defining input fields
+        retrieval_fields: Fields explicitly requested by the user. When None, defaults to
+            the first field from the priority list that exists in the signature.
 
     Returns:
-        The first field from priority list that exists in signature's input_fields,
-        or None if no matching field is found.
+        ``retrieval_fields`` if given, otherwise a single-element list with the first
+        priority field present in the signature's input_fields, or an empty list.
     """
+    if retrieval_fields is not None:
+        return list(retrieval_fields)
     for field_name in _QUERY_FIELD_PRIORITY:
         if field_name in signature.input_fields:
-            return field_name
-    return None
+            return [field_name]
+    return []
 
 
 @lru_cache(maxsize=1)
@@ -537,34 +550,62 @@ def distill_guidelines(
     return new_guidelines
 
 
+def value_to_truncated_embedding_text(value: Any, embedding_model: str) -> str:
+    """Convert a value to embedding text truncated to the embedding model's token limit.
+
+    Shared by the corpus and query sides of episodic retrieval so both embed identical text.
+    """
+    return truncate_to_token_limit(
+        value_to_embedding_text(value), embedding_model, model_type="embedding"
+    )
+
+
+def reciprocal_rank_fusion(ranked_lists: list[list[int]], k: int) -> list[int]:
+    """Merge ranked lists with reciprocal rank fusion and return the top ``k`` items.
+
+    Each item scores ``sum(1 / (_RRF_K + rank))`` over the lists it appears in (rank is
+    0-based). Ties keep the order in which items were first seen.
+    """
+    scores: dict[int, float] = {}
+    for ranked in ranked_lists:
+        for rank, item in enumerate(ranked):
+            scores[item] = scores.get(item, 0.0) + 1.0 / (_RRF_K + rank)
+    # sorted() is stable and dicts keep insertion order, so ties fall back to first appearance
+    return sorted(scores, key=lambda item: -scores[item])[:k]
+
+
 def retrieve_relevant_examples(
-    retriever: "dspy.retrievers.Embeddings",
+    retrievers: dict[str, tuple["dspy.retrievers.Embeddings", list[int]]] | None,
     examples: list["dspy.Example"],
     query_kwargs: dict[str, Any],
-    signature: "dspy.Signature",
+    embedding_model: str,
+    retrieval_k: int,
 ) -> list[tuple["dspy.Example", str]]:
     """Retrieve relevant examples using semantic search.
 
     Args:
-        retriever: DSPy Embeddings retriever
+        retrievers: Mapping from field name to a ``(retriever, positions)`` pair, where
+            ``positions[i]`` is the index in ``examples`` of the retriever's i-th corpus entry.
         examples: List of all examples
         query_kwargs: Query parameters to construct search query
-        signature: DSPy signature defining input fields
+        embedding_model: Embedding model, used to truncate queries to its token limit
+        retrieval_k: Maximum number of examples to return
 
     Returns:
         List of tuples of (retrieved example, trace ID)
     """
-    if not examples or retriever is None:
+    if not examples or not retrievers:
         return []
 
-    query_field = get_query_field(signature)
-    value = query_kwargs.get(query_field) if query_field else None
-    query = value_to_embedding_text(value) if value else ""
-    if not query:
-        return []
+    ranked_lists = []
+    for field, (retriever, positions) in retrievers.items():
+        if not (value := query_kwargs.get(field)):
+            continue
+        if query := value_to_truncated_embedding_text(value, embedding_model):
+            search_results = retriever(query)
+            ranked_lists.append([positions[int(i)] for i in search_results.indices])
 
-    search_results = retriever(query)
-    indices = [int(i) for i in search_results.indices]
+    indices = reciprocal_rank_fusion(ranked_lists, retrieval_k)
 
     return [
         (
