@@ -1,9 +1,11 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 
+import { hierarchyLineStyles } from './hierarchyLineStyles';
+
 import type { HierarchyBar } from './TimelineTree.types';
 import { SPAN_INDENT_WIDTH, SPAN_ROW_HEIGHT, TimelineTreeZIndex } from './TimelineTree.utils';
 
-const IconBottomConnector = ({ active }: { active: boolean }) => {
+const IconBottomConnector = ({ active, left = '100%' }: { active: boolean; left?: string | number }) => {
   const { theme } = useDesignSystemTheme();
   const borderColor = active ? theme.colors.blue500 : theme.colors.border;
 
@@ -11,7 +13,7 @@ const IconBottomConnector = ({ active }: { active: boolean }) => {
     <div
       css={{
         position: 'absolute',
-        left: '100%',
+        left,
         bottom: 0,
         // not sure why the +1 is necessary but
         // there is a 1 pixel misalignment with the
@@ -28,7 +30,7 @@ const IconBottomConnector = ({ active }: { active: boolean }) => {
   );
 };
 
-const IconLeftConnector = ({ active }: { active: boolean }) => {
+const IconLeftConnector = ({ active, left = '50%' }: { active: boolean; left?: string | number }) => {
   const { theme } = useDesignSystemTheme();
   const borderColor = active ? theme.colors.blue500 : theme.colors.border;
 
@@ -36,7 +38,7 @@ const IconLeftConnector = ({ active }: { active: boolean }) => {
     <div
       css={{
         position: 'absolute',
-        left: '50%',
+        left,
         top: 0,
         width: SPAN_INDENT_WIDTH / 2,
         height: theme.spacing.md,
@@ -44,25 +46,6 @@ const IconLeftConnector = ({ active }: { active: boolean }) => {
         borderBottomLeftRadius: theme.borders.borderRadiusMd,
         borderBottom: `1px solid ${borderColor}`,
         borderLeft: `1px solid ${borderColor}`,
-        zIndex: active ? TimelineTreeZIndex.NORMAL : TimelineTreeZIndex.LOW,
-      }}
-    />
-  );
-};
-
-const VerticalConnector = ({ active }: { active: boolean }) => {
-  const { theme } = useDesignSystemTheme();
-  const borderColor = active ? theme.colors.blue500 : theme.colors.border;
-
-  return (
-    <div
-      css={{
-        position: 'absolute',
-        width: SPAN_INDENT_WIDTH / 2,
-        left: '50%',
-        height: SPAN_ROW_HEIGHT,
-        borderLeft: `1px solid ${borderColor}`,
-        boxSizing: 'border-box',
         zIndex: active ? TimelineTreeZIndex.NORMAL : TimelineTreeZIndex.LOW,
       }}
     />
@@ -89,6 +72,8 @@ export const TimelineTreeHierarchyBars = ({
   hasChildren: boolean;
   isExpanded: boolean;
 }) => {
+  const { theme } = useDesignSystemTheme();
+  const linesStyle = hierarchyLineStyles(linesToRender, theme.colors.blue500, theme.colors.border);
   if (linesToRender.length === 0) {
     return (
       <div
@@ -105,34 +90,25 @@ export const TimelineTreeHierarchyBars = ({
   }
 
   return (
-    <>
-      {linesToRender.map(({ shouldRender, isActive }, idx) => (
-        // for each depth level, render a spacer. depending on the span's
-        // position within the tree, the spacer might be empty or contain
-        // a vertical bar
-        <div
-          key={idx}
-          css={{
-            width: SPAN_INDENT_WIDTH,
-            height: SPAN_ROW_HEIGHT,
-            boxSizing: 'border-box',
-            position: 'relative',
-          }}
-        >
-          {shouldRender && (
-            // render a vertical bar in the middle of the spacer
-            <VerticalConnector active={isActive} />
-          )}
-          {idx === linesToRender.length - 1 && (
-            // at the last spacer, render a curved
-            // line that connects up to the parent
-            <>
-              <IconLeftConnector active={isInActiveChain} />
-              {hasChildren && isExpanded && <IconBottomConnector active={isInActiveChain && !isActiveSpan} />}
-            </>
-          )}
-        </div>
-      ))}
-    </>
+    <div
+      css={{
+        width: SPAN_INDENT_WIDTH * linesToRender.length,
+        height: SPAN_ROW_HEIGHT,
+        boxSizing: 'border-box',
+        position: 'relative',
+      }}
+    >
+      {linesStyle && <div style={linesStyle} />}
+      <IconLeftConnector
+        active={isInActiveChain}
+        left={(linesToRender.length - 1) * SPAN_INDENT_WIDTH + SPAN_INDENT_WIDTH / 2}
+      />
+      {hasChildren && isExpanded && (
+        <IconBottomConnector
+          active={isInActiveChain && !isActiveSpan}
+          left={linesToRender.length * SPAN_INDENT_WIDTH}
+        />
+      )}
+    </div>
   );
 };

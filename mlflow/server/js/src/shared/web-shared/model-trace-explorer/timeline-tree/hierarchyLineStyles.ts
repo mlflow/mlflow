@@ -1,0 +1,30 @@
+import type { CSSProperties } from 'react';
+import type { HierarchyBar } from './TimelineTree.types';
+import { SPAN_INDENT_WIDTH, TimelineTreeZIndex } from './TimelineTree.utils';
+
+export const hierarchyLineStyles = (
+  lines: HierarchyBar[],
+  activeColor: string,
+  inactiveColor: string,
+): CSSProperties | undefined => {
+  const visible = lines.flatMap((line, depth) => (line.shouldRender ? [{ ...line, depth }] : []));
+  if (!visible.length) return undefined;
+  const last = lines[lines.length - 1];
+  return {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage: visible
+      .map(({ isActive }) => {
+        const color = isActive ? activeColor : inactiveColor;
+        return `linear-gradient(${color}, ${color})`;
+      })
+      .join(', '),
+    backgroundPosition: visible
+      .map(({ depth }) => `${depth * SPAN_INDENT_WIDTH + SPAN_INDENT_WIDTH / 2}px 0`)
+      .join(', '),
+    backgroundSize: '1px 100%',
+    backgroundRepeat: 'no-repeat',
+    // Only the last straight line crosses a connector.
+    zIndex: last.shouldRender && last.isActive ? TimelineTreeZIndex.NORMAL : TimelineTreeZIndex.LOW,
+  };
+};
