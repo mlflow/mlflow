@@ -13,7 +13,7 @@ import { ModelTraceExplorerLinksTab } from './ModelTraceExplorerLinksTab';
 import { ModelTraceExplorerRightPaneHeader } from './ModelTraceExplorerRightPaneHeader';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
-import { getDefaultActiveTab, getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
+import { hasSpanContent, getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerBadge } from '../../ModelTraceExplorerBadge';
 import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
@@ -129,10 +129,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     (activeSpan.events?.length ?? 0) > 0 || hasException || hasComparisonEvents || hasComparisonException;
   const linkCount = activeSpan.links?.length ?? 0;
   const hasLinks = linkCount > 0;
-  const hasComparisonContent = selectedComparisonNode
-    ? getDefaultActiveTab({ ...selectedComparisonNode, events: [] }) === 'content'
-    : false;
-  const hasContent = getDefaultActiveTab({ ...activeSpan, events: [] }) === 'content' || hasComparisonContent;
+  const hasContent = hasSpanContent(activeSpan) || hasSpanContent(selectedComparisonNode);
   const baselineSpan = selectedNodeComparisonRole === 'candidate' ? selectedComparisonNode : activeSpan;
   const candidateSpan = selectedNodeComparisonRole === 'candidate' ? activeSpan : selectedComparisonNode;
   const baselineFields = selectedNodeComparisonRole ? getSpanComparisonFields(baselineSpan) : undefined;
