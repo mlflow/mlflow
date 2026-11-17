@@ -108,4 +108,28 @@ describe('trace SQL state and search', () => {
     },
     30000,
   );
+  test('preserves OR alternatives when converting a Basic sibling to SQL', async () => {
+    const oldOr = "tags.env = 'qa' OR tags.env = 'prod'";
+    const nextOr = "attributes.status = 'ERROR' OR tags.release = 'canary'";
+    renderPage({ initialUrl: initialUrl([basic, { ...sql, value: oldOr }]) });
+    await findTraceRow('tr-000');
+    await userEvent.click(screen.getByRole('button', { name: /Edit filter latency/ }));
+    await userEvent.click(await screen.findByRole('tab', { name: 'SQL' }));
+    fireEvent.change(editor(), { target: { value: nextOr } });
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filter' }));
+    await waitFor(() => expect(filters()).toEqual([{ ...sql, value: `(${oldOr}) AND (${nextOr})` }]));
+    expect(new URLSearchParams(env.lastSearch).get('tag')).toBe('team=ml');
+  }, 30000);
+
+  test('groups an OR chip with its siblings in the full SQL editor', async () => {
+    const expression = "tags.env = 'qa' OR tags.env = 'prod'";
+    renderPage({ initialUrl: initialUrl([basic, { ...sql, value: expression }]) });
+    await findTraceRow('tr-000');
+    await userEvent.click(screen.getByRole('combobox', { name: 'Type something to use full text search' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Add a Filter' }));
+    await userEvent.click(await screen.findByRole('tab', { name: 'SQL' }));
+    expect(await screen.findByRole('textbox', { name: 'Trace filter predicate' })).toHaveValue(
+      `attributes.execution_time_ms > 1000 AND (${expression}) AND tags.team = 'ml'`,
+    );
+  }, 30000);
 });

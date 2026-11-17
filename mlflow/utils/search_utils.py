@@ -1938,6 +1938,23 @@ class SearchTraceUtils(SearchUtils):
         parsed = cls.parse_search_filter(filter_string)
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
 
+    @staticmethod
+    def combine_filters(*filters):
+        """Conjoin predicates without letting a top-level OR bypass another constraint."""
+        filters = [expression for expression in filters if expression]
+        if len(filters) < 2:
+            return "".join(filters)
+        clauses = []
+        for expression in filters:
+            if any(
+                token.is_keyword and token.normalized == "OR"
+                for statement in sqlparse.parse(expression)
+                for token in statement.tokens
+            ):
+                expression = f"({expression})"
+            clauses.append(expression)
+        return " AND ".join(clauses)
+
     @classmethod
     def parse_search_filter_groups(cls, filter_string):
         """Return alternative conjunctions, preserving AND precedence and span co-occurrence."""

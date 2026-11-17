@@ -58,6 +58,7 @@ import {
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
+import { buildFilter } from '../utils/buildTracesV4SearchParams';
 import {
   compileFilterModel,
   compileTagFilters,
@@ -695,7 +696,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   const sqlClauses = filterModel.filter(isSqlFilterClause);
   const basicEditorModel = unifiedSearch.searchFilterModel.filter((clause) => !isSqlFilterClause(clause));
   const formatBasic = (model: typeof filterModel) =>
-    compileFilterModel(model, controller.numericAssessmentKeys).join(' AND ');
+    buildFilter({ extraClauses: compileFilterModel(model, controller.numericAssessmentKeys) }) ?? '';
   const parseBasic = (value: string) => parseBasicTraceFilter(value, filterFields, formatBasic);
   const sqlValue = formatBasic(sqlClauses);
   const toolbarSlots = useTracesV4ToolbarSlots({
@@ -717,10 +718,13 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
         : undefined;
     },
     sqlFilter: {
-      value: [
-        ...compileFilterModel(filterModel, controller.numericAssessmentKeys),
-        ...compileTagFilters(url.tagFilters),
-      ].join(' AND '),
+      value:
+        buildFilter({
+          extraClauses: [
+            ...compileFilterModel(filterModel, controller.numericAssessmentKeys),
+            ...compileTagFilters(url.tagFilters),
+          ],
+        }) ?? '',
       onChange: (value) =>
         url.setFilterState(parseBasic(value) ?? [{ field: SQL_FILTER_FIELD, operator: FilterOp.EQUALS, value }], []),
       appliedClause: {
@@ -736,15 +740,17 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
         const model = replacesTag ? basicEditorModel : basicFilterModel;
         const parsed = parseBasic(value);
         const nextBasic = model.flatMap((clause, clauseIndex) => (clauseIndex === index ? (parsed ?? []) : [clause]));
-        const nextSql = parsed ? sqlValue : [sqlValue, value].filter(Boolean).join(' AND ');
+        const nextSql = parsed ? sqlValue : (buildFilter({ extraClauses: [sqlValue, value] }) ?? '');
         const next = [
           ...nextBasic,
           ...(nextSql ? [{ field: SQL_FILTER_FIELD, operator: FilterOp.EQUALS, value: nextSql }] : []),
         ];
         url.setFilterState(next, replacesTag ? [] : url.tagFilters);
-        return [formatBasic(next), ...(replacesTag ? [] : compileTagFilters(url.tagFilters))]
-          .filter(Boolean)
-          .join(' AND ');
+        return (
+          buildFilter({
+            extraClauses: [formatBasic(next), ...(replacesTag ? [] : compileTagFilters(url.tagFilters))],
+          }) ?? ''
+        );
       },
       formatBasic,
       parseBasic,

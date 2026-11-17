@@ -194,18 +194,25 @@ def test_fetch_traces_skips_tracking_store_traces_in_fallback(trace_loader, mock
     assert len(result) == 0
 
 
-def test_fetch_trace_infos_in_range_single_page(trace_loader, mock_store, sample_traces):
+@pytest.mark.parametrize(
+    ("user_filter", "combined_user_filter"),
+    [
+        ("tags.env = 'prod'", "tags.env = 'prod'"),
+        ("tags.env = 'prod' OR tags.env = 'qa'", "(tags.env = 'prod' OR tags.env = 'qa')"),
+    ],
+)
+def test_fetch_trace_infos_in_range_single_page(
+    trace_loader, mock_store, sample_traces, user_filter, combined_user_filter
+):
     mock_store.search_traces.return_value = (sample_traces, None)
 
-    result = trace_loader.fetch_trace_infos_in_range(
-        "exp1", 1000, 2000, filter_string="tags.env = 'prod'"
-    )
+    result = trace_loader.fetch_trace_infos_in_range("exp1", 1000, 2000, filter_string=user_filter)
 
     assert len(result) == 5
     mock_store.search_traces.assert_called_once_with(
         experiment_ids=["exp1"],
         filter_string=(
-            "trace.timestamp_ms >= 1000 AND trace.timestamp_ms <= 2000 AND tags.env = 'prod'"
+            f"trace.timestamp_ms >= 1000 AND trace.timestamp_ms <= 2000 AND {combined_user_filter}"
         ),
         max_results=100,
         order_by=["timestamp_ms ASC", "request_id ASC"],

@@ -6,8 +6,6 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from typing import TYPE_CHECKING, Literal, Sequence
 
-import sqlparse
-
 import mlflow
 
 if TYPE_CHECKING:
@@ -72,6 +70,7 @@ from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
+from mlflow.utils.search_utils import SearchTraceUtils
 from mlflow.utils.thread_utils import map_with_context
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
@@ -374,13 +373,7 @@ class TracingClient:
                         "string and try again.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                if any(
-                    token.is_keyword and token.normalized == "OR"
-                    for statement in sqlparse.parse(filter_string)
-                    for token in statement.tokens
-                ):
-                    filter_string = f"({filter_string})"
-                filter_string += f" AND {additional_filter}"
+                filter_string = SearchTraceUtils.combine_filters(filter_string, additional_filter)
             else:
                 filter_string = additional_filter
 

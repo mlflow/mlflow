@@ -112,3 +112,24 @@ def test_trace_filter_groups_fold_same_span_field_alternatives():
         "span.attributes.foo = 'a' OR span.attributes.FOO = 'b'"
     )
     assert len(groups) == 2
+
+
+@pytest.mark.parametrize(
+    ("expressions", "expected"),
+    [
+        ((None, ""), ""),
+        (("tags.env = 'prod'", None), "tags.env = 'prod'"),
+        (("tags.env = 'a' OR tags.env = 'b'",), "tags.env = 'a' OR tags.env = 'b'"),
+        (("tags.env = 'AND OR (x)'", "status = 'OK'"), "tags.env = 'AND OR (x)' AND status = 'OK'"),
+        (
+            ("(tags.env = 'a' OR tags.env = 'b')", "status = 'OK'"),
+            "(tags.env = 'a' OR tags.env = 'b') AND status = 'OK'",
+        ),
+        (
+            ("tags.env = 'a' OR tags.env = 'b'", "status = 'OK'"),
+            "(tags.env = 'a' OR tags.env = 'b') AND status = 'OK'",
+        ),
+    ],
+)
+def test_combine_trace_filters(expressions, expected):
+    assert SearchTraceUtils.combine_filters(*expressions) == expected
