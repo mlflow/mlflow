@@ -1868,10 +1868,12 @@ class SearchTraceUtils(SearchUtils):
         """Filters a set of traces based on a search filter string."""
         if not filter_string:
             return traces
-        parsed = cls.parse_search_filter_for_search_traces(filter_string)
+        groups = cls.parse_search_filter_groups(filter_string)
 
         def trace_matches(trace):
-            return all(cls._does_trace_match_clause(trace, s) for s in parsed)
+            return any(
+                all(cls._does_trace_match_clause(trace, s) for s in group) for group in groups
+            )
 
         return list(filter(trace_matches, traces))
 
@@ -1935,6 +1937,96 @@ class SearchTraceUtils(SearchUtils):
     def parse_search_filter_for_search_traces(cls, filter_string):
         parsed = cls.parse_search_filter(filter_string)
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
+
+    @classmethod
+    def parse_search_filter_groups(cls, filter_string):
+        """Return alternative conjunctions, preserving AND precedence and span co-occurrence."""
+        if not filter_string:
+            return [[]]
+
+        def invalid():
+            raise MlflowException.invalid_parameter_value("Invalid clause(s) in filter string")
+
+        def bounded(groups):
+            if len(groups) > 1 and all(len(group) == 1 for group in groups):
+                first = groups[0][0]
+                if (
+                    first["type"] == cls._SPAN_IDENTIFIER
+                    and first["key"] != cls._SPAN_CONTENT_KEY
+                    and all(
+                        clause["type"] == first["type"]
+                        and clause["key"] == first["key"]
+                        and clause["comparator"].upper() in ("=", "IN")
+                        for [clause] in groups
+                    )
+                ):
+                    values = tuple(
+                        value
+                        for [clause] in groups
+                        for value in (
+                            clause["value"]
+                            if clause["comparator"].upper() == "IN"
+                            else [clause["value"]]
+                        )
+                    )
+                    if len(values) > 200:
+                        raise MlflowException.invalid_parameter_value(
+                            "Trace span OR filter supports at most 200 values"
+                        )
+                    return [[{**first, "comparator": "IN", "value": values}]]
+            # Distribution can grow exponentially even for a short input expression.
+            if len(groups) > 32 or (len(groups) > 1 and sum(map(len, groups)) > 256):
+                raise MlflowException.invalid_parameter_value(
+                    "Trace filter is too complex: at most 32 alternative conjunctions "
+                    "and 256 expanded predicates are supported"
+                )
+            return groups
+
+        def parse_tokens(tokens, depth=0):
+            if depth > 32:
+                raise MlflowException.invalid_parameter_value("Trace filter nesting exceeds 32")
+            tokens = _join_in_comparison_tokens(tokens, search_traces=True)
+            if not tokens:
+                invalid()
+            alternatives = []
+            conjunction = [[]]
+            expecting_operand = True
+            operator = "AND"
+            for token in tokens:
+                if expecting_operand:
+                    if isinstance(token, Parenthesis):
+                        operand = parse_tokens(token.tokens[1:-1], depth + 1)
+                    elif isinstance(token, Comparison):
+                        operand = [
+                            [cls._replace_key_to_tag_or_metadata(cls._get_comparison(token))]
+                        ]
+                    else:
+                        invalid()
+                    if operator == "AND":
+                        conjunction = bounded([a + b for a in conjunction for b in operand])
+                    else:
+                        alternatives.extend(conjunction)
+                        conjunction = operand
+                    # Check limits here, but fold OR only after its higher-precedence ANDs.
+                    bounded(alternatives + conjunction)
+                else:
+                    if not token.match(TokenType.Keyword, ["AND", "OR"]):
+                        invalid()
+                    operator = token.value.upper()
+                expecting_operand = not expecting_operand
+            if expecting_operand:
+                invalid()
+            return bounded(alternatives + conjunction)
+
+        try:
+            statements = sqlparse.parse(filter_string)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid clause(s) in filter string"
+            ) from e
+        if len(statements) != 1:
+            invalid()
+        return parse_tokens(statements[0].tokens)
 
     @classmethod
     def _replace_key_to_tag_or_metadata(cls, parsed: dict[str, Any]):

@@ -51,6 +51,27 @@ export const escapeFilterValue = (value: string): string => value.replace(/'/g, 
 export const isExactTraceIdSearch = (searchQuery?: string): boolean =>
   normalizeTraceIdQuery(searchQuery?.trim() ?? '') !== undefined;
 
+const groupTopLevelOr = (clause: string): string => {
+  let quote = '';
+  let depth = 0;
+  for (let i = 0; i < clause.length; i++) {
+    const char = clause[i];
+    if (quote) {
+      if (char === '\\' && quote !== '`') i++;
+      else if (char === quote) {
+        if (clause[i + 1] === quote) i++;
+        else quote = '';
+      }
+    } else if (char === "'" || char === '"' || char === '`') quote = char;
+    else if (char === '(') depth++;
+    else if (char === ')') depth--;
+    else if (depth === 0 && /^OR(?![\w.$])/i.test(clause.slice(i)) && !/[\w.$]/.test(clause[i - 1] ?? '')) {
+      return `(${clause})`;
+    }
+  }
+  return clause;
+};
+
 export interface BuildFilterParams {
   /** Free-text search. A trace-id token becomes an indexed `request_id` lookup; otherwise ILIKE. */
   searchQuery?: string;
@@ -112,7 +133,7 @@ export const buildFilter = ({ searchQuery, timeRange, extraClauses }: BuildFilte
     }
   }
 
-  return clauses.length > 0 ? clauses.join(' AND ') : undefined;
+  return clauses.length > 0 ? (clauses.length > 1 ? clauses.map(groupTopLevelOr) : clauses).join(' AND ') : undefined;
 };
 
 /**

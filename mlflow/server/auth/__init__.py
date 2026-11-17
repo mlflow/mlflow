@@ -4505,10 +4505,10 @@ def _trace_search_selects_on_tiers(
         if not filter_string:
             continue
         try:
-            parsed = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+            parsed = SearchTraceUtils.parse_search_filter_groups(filter_string)
         except Exception:
             return every_tier
-        for comparison in parsed:
+        for comparison in (comparison for group in parsed for comparison in group):
             key_type = comparison.get("type")
             key_name = comparison.get("key")
             if SearchTraceUtils.is_assessment(key_type, key_name, comparison.get("comparator")):

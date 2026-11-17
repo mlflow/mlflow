@@ -6,7 +6,7 @@ import TabItem from '@theme/TabItem';
 
 This guide will walk you through how to search for traces in MLflow using both the MLflow UI and Python API. This resource will be valuable if you're interested in querying specific traces based on their metadata, tags, execution time, status, or other trace attributes.
 
-MLflow's trace search functionality allows you to leverage SQL-like syntax to filter your traces based on a variety of conditions. While the `OR` keyword is not supported, the search functionality is powerful enough to handle complex queries for trace discovery and analysis.
+MLflow trace search supports SQL-like filter predicates combined with `AND`, `OR`, and nested parentheses. Each field retains its supported comparators; Boolean `NOT` is not supported.
 
 :::important
 **Local File Store offers only limited search capabilities and can become slow as data volume grows.** As of MLflow 3.6.0, the FileStore is deprecated. We recommend migrating to a SQL-backed store or Databricks for improved performance and more robust search functionality.
@@ -274,6 +274,18 @@ mlflow.search_traces(
 ```
 
 #### Combine Multiple Conditions
+
+`AND` binds more tightly than `OR`. Use parentheses when a time range or another filter must apply to every alternative:
+
+```python
+mlflow.search_traces(
+    filter_string="(trace.status = 'ERROR' OR trace.execution_time_ms > 1000) AND tags.env = 'prod'"
+)
+```
+
+OR expressions support up to 32 expanded alternative conjunctions and 256 expanded predicates. Equalities on the same span field can be combined into a single `IN` predicate with up to 200 values. Nesting is limited to 32 levels. Within each alternative, combined span predicates match the same span.
+
+These grouping rules apply to trace search. Other search APIs and trace metrics retain their own filter syntax.
 
 ```python
 # Complex query with tags and status
