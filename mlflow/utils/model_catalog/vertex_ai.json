@@ -4453,30 +4453,7 @@
     "multimodalembedding": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 2048
-      },
-      "pricing": {
-        "input_per_million_tokens": 0.8,
-        "output_per_million_tokens": 0,
-        "modality": {
-          "video": {
-            "input_per_second": 0.0005
-          }
-        }
-      },
-      "capabilities": {
-        "function_calling": false,
-        "vision": false,
-        "reasoning": false,
-        "prompt_caching": false,
-        "response_schema": false
-      },
-      "last_updated_at": "2026-10-27"
-    },
-    "multimodalembedding@001": {
-      "mode": "embedding",
-      "context_window": {
-        "max_input": 2048
+        "max_input": 32
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
@@ -4495,7 +4472,31 @@
         "response_schema": false
       },
       "deprecation_date": "2027-04-01",
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-17"
+    },
+    "multimodalembedding@001": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.8,
+        "output_per_million_tokens": 0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0005
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-04-01",
+      "last_updated_at": "2026-11-17"
     },
     "openai/gpt-oss-120b-maas": {
       "mode": "chat",
