@@ -4539,6 +4539,10 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CDqnL2": {
+    "defaultMessage": "You need Edit permission on this experiment to perform this action.",
+    "description": "Tooltip explaining why dataset creation is disabled"
+  },
   "CE32Hw": {
     "defaultMessage": "Skill not found",
     "description": "Title when a Skill cannot be loaded"
