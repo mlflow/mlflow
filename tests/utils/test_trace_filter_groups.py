@@ -135,6 +135,27 @@ def test_combine_trace_filters(expressions, expected):
 
 
 @pytest.mark.parametrize(
+    "field", ["metadata.`mlflow.trace.session`", "request_metadata.`mlflow.modelId`"]
+)
+@pytest.mark.parametrize(
+    "value", ["plain-id", "AND OR (literal)", r"a\b", "O''Reilly", '["a","b"]']
+)
+def test_trace_equality_formatter_preserves_existing_literals(field, value):
+    expression = SearchTraceUtils.format_equals_filter(field, value)
+    assert expression == f"{field} = '{value}'"
+    expected = SearchTraceUtils.parse_search_filter_for_search_traces(f"{field} = ''")[0]
+    assert SearchTraceUtils.parse_search_filter_groups(expression) == [
+        [{**expected, "value": value}]
+    ]
+
+
+@pytest.mark.parametrize("value", ["O'Reilly", "'", "a'b'c"])
+def test_trace_equality_formatter_rejects_unrepresentable_literals(value):
+    with pytest.raises(MlflowException, match="single equality filter"):
+        SearchTraceUtils.format_equals_filter("metadata.`mlflow.trace.session`", value)
+
+
+@pytest.mark.parametrize(
     "expression",
     [
         "AND status = 'OK'",

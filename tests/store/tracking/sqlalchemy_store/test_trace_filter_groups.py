@@ -166,3 +166,13 @@ def test_composed_trace_filters_keep_automatic_scope(store, scope):
         assert {t.request_id for t in rows} == {"tr-inside-a", "tr-inside-b"}
     unsafe, _ = store.search_traces([exp], filter_string=f"{mandatory} AND {expression}")
     assert {t.request_id for t in unsafe} == {"tr-inside-a", "tr-inside-b", "tr-outside"}
+
+
+@pytest.mark.parametrize("value", [r"a\b", "O''Reilly", '["a","b"]', "AND OR (literal)"])
+def test_atomic_session_filter_preserves_exact_value(store, value):
+    exp = store.create_experiment("literal-session")
+    for trace_id, session_id in [("tr-wanted", value), ("tr-other", "another-session")]:
+        _create_trace(store, trace_id, exp, trace_metadata={"mlflow.trace.session": session_id})
+    expression = SearchTraceUtils.format_equals_filter("metadata.`mlflow.trace.session`", value)
+    rows, _ = store.search_traces([exp], filter_string=expression)
+    assert [t.request_id for t in rows] == ["tr-wanted"]

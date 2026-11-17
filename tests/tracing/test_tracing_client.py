@@ -33,6 +33,14 @@ from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINAT
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
 
+def test_search_traces_rejects_unrepresentable_model_id(monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, raising=False)
+    with patch("mlflow.tracing.client._get_store") as get_store:
+        with pytest.raises(MlflowException, match="single equality filter"):
+            TracingClient().search_traces(locations=["1"], model_id="O'Reilly")
+    get_store.return_value.search_traces.assert_not_called()
+
+
 def test_get_trace_v4():
     mock_store = Mock()
     mock_store.batch_get_traces.return_value = ["dummy_trace"]

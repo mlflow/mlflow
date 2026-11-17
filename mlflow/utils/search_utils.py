@@ -1941,6 +1941,22 @@ class SearchTraceUtils(SearchUtils):
         parsed = cls.parse_search_filter(filter_string)
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
 
+    @classmethod
+    def format_equals_filter(cls, field, value):
+        """Build a string equality filter that preserves the entire atom and literal value."""
+        value = str(value)
+        expression = f"{field} = '{value}'"
+        try:
+            expected = cls.parse_search_filter_for_search_traces(f"{field} = ''")
+            parsed = cls.parse_search_filter_for_search_traces(expression)
+            if len(expected) == 1 and parsed == [{**expected[0], "value": value}]:
+                return expression
+        except MlflowException:
+            pass
+        raise MlflowException.invalid_parameter_value(
+            f"Value cannot be represented as a single equality filter for {field}"
+        )
+
     @staticmethod
     def combine_filters(*filters):
         """Conjoin predicates without letting a top-level OR bypass another constraint."""

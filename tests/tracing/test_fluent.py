@@ -2801,6 +2801,13 @@ def test_search_sessions_empty():
     assert sessions == []
 
 
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires the full tracking store.")
+def test_search_sessions_rejects_unrepresentable_session_id():
+    _create_trace_with_session("O'Reilly", "quoted-session")
+    with pytest.raises(MlflowException, match="single equality filter"):
+        mlflow.search_sessions()
+
+
 @pytest.mark.skipif(
     IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
 )
