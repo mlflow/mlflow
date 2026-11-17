@@ -5312,6 +5312,13 @@
         "output_per_million_tokens": 0.5,
         "cache_read_per_million_tokens": 0.01,
         "cache_write_per_million_tokens": 0.125,
+        "service_tiers": {
+          "flex": {
+            "input_per_million_tokens": 0.05,
+            "output_per_million_tokens": 0.25,
+            "cache_read_per_million_tokens": 0.005
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 272000,
@@ -5337,7 +5344,7 @@
         "response_schema": true
       },
       "deprecation_date": "2028-03-11",
-      "last_updated_at": "2026-11-13"
+      "last_updated_at": "2026-11-17"
     },
     "gpt-6-luna-2026-09-22": {
       "mode": "chat",
