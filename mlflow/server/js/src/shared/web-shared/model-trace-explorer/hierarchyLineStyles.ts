@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react';
-import type { HierarchyBar } from './TimelineTree.types';
-import { SPAN_INDENT_WIDTH, TimelineTreeZIndex } from './TimelineTree.utils';
+export const SPAN_INDENT_WIDTH = 16;
+export const TimelineTreeZIndex = { HIGH: 5, NORMAL: 3, LOW: 1 };
 
 export const hierarchyLineStyles = (
-  lines: HierarchyBar[],
+  lines: { shouldRender: boolean; isActive: boolean }[],
   activeColor: string,
   inactiveColor: string,
 ): CSSProperties | undefined => {

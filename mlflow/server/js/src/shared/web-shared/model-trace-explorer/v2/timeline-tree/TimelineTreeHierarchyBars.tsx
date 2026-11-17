@@ -1,6 +1,6 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 
-import { hierarchyLineStyles } from '../../timeline-tree/hierarchyLineStyles';
+import { hierarchyLineStyles } from '../../hierarchyLineStyles';
 
 import type { HierarchyBar } from './TimelineTree.types';
 import { SPAN_INDENT_WIDTH, SPAN_ROW_HEIGHT, TimelineTreeZIndex } from './TimelineTree.utils';

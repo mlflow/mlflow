@@ -1,6 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { hierarchyLineStyles } from './hierarchyLineStyles';
-import { TimelineTreeZIndex } from './TimelineTree.utils';
+import { hierarchyLineStyles, TimelineTreeZIndex } from './hierarchyLineStyles';
 
 describe('hierarchy lines', () => {
   it('keeps enabled ancestor line positions and colors across gaps', () => {
