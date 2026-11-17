@@ -27,8 +27,8 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     get_default_embedding_model,
     get_query_fields,
     retrieve_relevant_examples,
+    truncate_to_token_limit,
     value_to_embedding_text,
-    value_to_truncated_embedding_text,
 )
 from mlflow.genai.judges.utils import get_default_model
 from mlflow.genai.scorers.base import (
@@ -302,7 +302,6 @@ class MemoryAugmentedJudge(Judge):
             retrievers=self._retrievers,
             examples=self._episodic_memory,
             query_kwargs=query_kwargs,
-            embedding_model=self._embedding_model,
             retrieval_k=self._retrieval_k,
         )
 
@@ -671,7 +670,13 @@ class MemoryAugmentedJudge(Judge):
             positions = []
             for i, example in enumerate(episodic_memory):
                 if value := example.get(field):
-                    corpus.append(value_to_truncated_embedding_text(value, self._embedding_model))
+                    corpus.append(
+                        truncate_to_token_limit(
+                            value_to_embedding_text(value),
+                            self._embedding_model,
+                            model_type="embedding",
+                        )
+                    )
                     positions.append(i)
             retriever = dspy.retrievers.Embeddings(
                 embedder=self._embedder, corpus=corpus, k=self._retrieval_k

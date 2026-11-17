@@ -550,16 +550,6 @@ def distill_guidelines(
     return new_guidelines
 
 
-def value_to_truncated_embedding_text(value: Any, embedding_model: str) -> str:
-    """Convert a value to embedding text truncated to the embedding model's token limit.
-
-    Shared by the corpus and query sides of episodic retrieval so both embed identical text.
-    """
-    return truncate_to_token_limit(
-        value_to_embedding_text(value), embedding_model, model_type="embedding"
-    )
-
-
 def reciprocal_rank_fusion(ranked_lists: list[list[int]], k: int) -> list[int]:
     """Merge ranked lists with reciprocal rank fusion and return the top ``k`` items.
 
@@ -578,7 +568,6 @@ def retrieve_relevant_examples(
     retrievers: dict[str, tuple["dspy.retrievers.Embeddings", list[int]]] | None,
     examples: list["dspy.Example"],
     query_kwargs: dict[str, Any],
-    embedding_model: str,
     retrieval_k: int,
 ) -> list[tuple["dspy.Example", str]]:
     """Retrieve relevant examples using semantic search.
@@ -588,7 +577,6 @@ def retrieve_relevant_examples(
             ``positions[i]`` is the index in ``examples`` of the retriever's i-th corpus entry.
         examples: List of all examples
         query_kwargs: Query parameters to construct search query
-        embedding_model: Embedding model, used to truncate queries to its token limit
         retrieval_k: Maximum number of examples to return
 
     Returns:
@@ -601,7 +589,7 @@ def retrieve_relevant_examples(
     for field, (retriever, positions) in retrievers.items():
         if not (value := query_kwargs.get(field)):
             continue
-        if query := value_to_truncated_embedding_text(value, embedding_model):
+        if query := value_to_embedding_text(value):
             search_results = retriever(query)
             ranked_lists.append([positions[int(i)] for i in search_results.indices])
 

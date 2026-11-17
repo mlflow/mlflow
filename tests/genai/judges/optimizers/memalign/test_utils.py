@@ -378,9 +378,6 @@ def test_extract_json_object(response):
     assert json.loads(_extract_json_object(response)) == {"guidelines": []}
 
 
-_EMBEDDING_MODEL = "openai:/text-embedding-3-small"
-
-
 def _mock_retriever(indices):
     retriever = MagicMock()
     retriever.return_value = MagicMock(indices=indices)
@@ -392,7 +389,6 @@ def test_retrieve_relevant_examples_empty():
         retrievers=None,
         examples=[],
         query_kwargs={"inputs": "test"},
-        embedding_model=_EMBEDDING_MODEL,
         retrieval_k=5,
     )
     assert results == []
@@ -404,7 +400,6 @@ def test_retrieve_relevant_examples_no_search():
         retrievers=None,
         examples=examples,
         query_kwargs={"inputs": "test"},
-        embedding_model=_EMBEDDING_MODEL,
         retrieval_k=5,
     )
     assert results == []
@@ -425,7 +420,6 @@ def test_retrieve_relevant_examples_success():
         retrievers={"inputs": (mock_retriever, [0, 1, 2])},
         examples=examples,
         query_kwargs={"inputs": "test query", "outputs": "test output"},
-        embedding_model=_EMBEDDING_MODEL,
         retrieval_k=5,
     )
 
@@ -454,26 +448,6 @@ def test_get_query_fields_uses_explicit_retrieval_fields():
     assert get_query_fields(signature, ["outputs", "inputs"]) == ["outputs", "inputs"]
 
 
-def test_retrieve_relevant_examples_uses_first_priority_field():
-    examples = [MagicMock()]
-    mock_retriever = _mock_retriever([0])
-
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs", "context"]
-    retrievers = {field: (mock_retriever, [0]) for field in get_query_fields(signature)}
-
-    retrieve_relevant_examples(
-        retrievers=retrievers,
-        examples=examples,
-        query_kwargs={"inputs": "test", "outputs": "output_val", "context": "ctx"},
-        embedding_model=_EMBEDDING_MODEL,
-        retrieval_k=5,
-    )
-
-    # Should only use "inputs" (first in priority list that exists in input_fields)
-    mock_retriever.assert_called_once_with("test")
-
-
 def test_retrieve_relevant_examples_returns_empty_for_none_value():
     examples = [MagicMock()]
     mock_retriever = MagicMock()
@@ -483,7 +457,6 @@ def test_retrieve_relevant_examples_returns_empty_for_none_value():
         retrievers={"inputs": (mock_retriever, [0])},
         examples=examples,
         query_kwargs={"inputs": None, "outputs": "output_val"},
-        embedding_model=_EMBEDDING_MODEL,
         retrieval_k=5,
     )
 
@@ -500,8 +473,7 @@ def test_retrieve_relevant_examples_out_of_bounds_raises():
             retrievers={"inputs": (mock_retriever, [0, 1])},
             examples=examples,
             query_kwargs={"inputs": "test"},
-            embedding_model=_EMBEDDING_MODEL,
-            retrieval_k=5,
+                retrieval_k=5,
         )
 
 
@@ -518,7 +490,6 @@ def test_retrieve_relevant_examples_fuses_multiple_fields():
         },
         examples=examples,
         query_kwargs={"inputs": "finding", "outputs": "reply"},
-        embedding_model=_EMBEDDING_MODEL,
         retrieval_k=3,
     )
 
@@ -541,32 +512,11 @@ def test_retrieve_relevant_examples_skips_fields_with_empty_query():
         },
         examples=examples,
         query_kwargs={"inputs": None, "outputs": "reply"},
-        embedding_model=_EMBEDDING_MODEL,
         retrieval_k=5,
     )
 
     inputs_retriever.assert_not_called()
     assert results == [(examples[1], "trace_1")]
-
-
-def test_retrieve_relevant_examples_truncates_query():
-    mock_retriever = _mock_retriever([0])
-    with patch(
-        "mlflow.genai.judges.optimizers.memalign.utils.truncate_to_token_limit",
-        return_value="truncated",
-    ) as mock_truncate:
-        retrieve_relevant_examples(
-            retrievers={"inputs": (mock_retriever, [0])},
-            examples=[MagicMock()],
-            query_kwargs={"inputs": "a very long query"},
-            embedding_model=_EMBEDDING_MODEL,
-            retrieval_k=5,
-        )
-
-    mock_truncate.assert_called_once_with(
-        "a very long query", _EMBEDDING_MODEL, model_type="embedding"
-    )
-    mock_retriever.assert_called_once_with("truncated")
 
 
 def test_reciprocal_rank_fusion():

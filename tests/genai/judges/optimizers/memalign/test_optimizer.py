@@ -1689,7 +1689,7 @@ def test_retrieval_fields_corpus_uses_truncation(sample_judge):
     with (
         mock_apis(guidelines=[]) as mocks,
         patch(
-            "mlflow.genai.judges.optimizers.memalign.utils.truncate_to_token_limit",
+            "mlflow.genai.judges.optimizers.memalign.optimizer.truncate_to_token_limit",
             side_effect=lambda text, model, model_type: text[:3],
         ) as mock_truncate,
     ):
