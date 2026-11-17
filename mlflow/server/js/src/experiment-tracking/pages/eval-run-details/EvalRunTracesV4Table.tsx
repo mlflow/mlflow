@@ -59,6 +59,7 @@ import {
   EvalRunAssessmentHeaderToggle,
   hasCollapsibleAssessmentChart,
 } from './EvalRunAssessmentColumnHeader';
+import { useTableHorizontalScrollAnchor } from './useTableHorizontalScrollAnchor';
 
 export interface EvalRunTracesV4TableProps {
   experimentId: string;
@@ -423,6 +424,11 @@ export const EvalRunTracesV4Table = ({
     () => [...customColumns.columnDefs, ...assessmentColumnDefs],
     [customColumns.columnDefs, assessmentColumnDefs],
   );
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  useTableHorizontalScrollAnchor(
+    tableContainerRef,
+    JSON.stringify([visibleColumns, extraColumns.map(({ id }) => id), tableColumnOrder, controller.isGroupedBySession]),
+  );
 
   const tableViewProps: TracesTableViewProps = {
     viewState,
@@ -533,6 +539,11 @@ export const EvalRunTracesV4Table = ({
     <TracesV4TableSurface
       providerProps={providerProps}
       tableViewProps={tableViewProps}
+      renderTableView={(tableView) => (
+        <div ref={tableContainerRef} css={{ display: 'contents' }}>
+          {tableView}
+        </div>
+      )}
       drawerProps={drawerProps}
       layoutProps={{
         paddingTop: 0,

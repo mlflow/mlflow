@@ -97,6 +97,7 @@ type MetricsPlotPanelProps = OwnMetricsPlotPanelProps & typeof MetricsPlotPanel.
 
 export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, MetricsPlotPanelState> {
   _isMounted = false;
+  pendingHistoryLoads = 0;
 
   static defaultProps = {
     containsInfinities: false,
@@ -264,6 +265,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
   };
 
   loadMetricHistory = (runUuids: any, metricKeys: any) => {
+    this.pendingHistoryLoads += 1;
     this.setState({ loading: true });
     const promises = runUuids
       .flatMap((id: any) =>
@@ -273,7 +275,7 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
         })),
       )
       // Avoid fetching non existing metrics
-      .filter(({ runUuid, metricKey }: any) => this.props.latestMetricsByRunUuid[runUuid].hasOwnProperty(metricKey))
+      .filter(({ runUuid, metricKey }: any) => this.props.latestMetricsByRunUuid[runUuid]?.hasOwnProperty(metricKey))
       .map(async ({ runUuid, metricKey }: any) => {
         const requestIds = [];
         const id = getUUID();
@@ -304,8 +306,9 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     this.loadMetricHistoryPromise = Promise.all(promises)
       .then((results) => results.flatMap(({ requestIds }) => requestIds))
       .finally(() => {
+        this.pendingHistoryLoads -= 1;
         // Ensure we don't set state if component is unmounted
-        if (this._isMounted) {
+        if (this._isMounted && this.pendingHistoryLoads === 0) {
           this.setState({ loading: false });
         }
       });
@@ -468,7 +471,6 @@ export class MetricsPlotPanel extends React.Component<MetricsPlotPanelProps, Met
     const newMetricKeys = metricKeys.filter((k: any) => !existingMetricKeys.includes(k));
     this.updateUrlState({ selectedMetricKeys: metricKeys });
     this.loadMetricHistory(this.props.runUuids, newMetricKeys).then((requestIds) => {
-      this.setState({ loading: false });
       this.setState((prevState: any) => ({
         historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
       }));
