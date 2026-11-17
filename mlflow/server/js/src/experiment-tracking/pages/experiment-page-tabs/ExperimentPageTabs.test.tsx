@@ -616,7 +616,7 @@ describe('ExperimentLoggedModelListPage', () => {
         expect(await screen.findByText('Experiment runs page')).toBeInTheDocument();
         expect(await screen.findByTestId('experiment-observatory-link')).toBeInTheDocument();
         expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
-        expect(screen.getByRole('main')).toContainElement(screen.getByText('Experiment runs page'));
+        expect(screen.queryByRole('main')).not.toBeInTheDocument();
       });
     });
   });

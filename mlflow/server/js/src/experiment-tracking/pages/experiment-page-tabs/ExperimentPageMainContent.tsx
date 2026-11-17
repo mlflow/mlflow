@@ -27,7 +27,8 @@ export const ExperimentPageMainContent = ({
   const alignedTopPaddingAndContentGap = theme.spacing.lg - verticalOffset;
 
   return (
-    <main
+    <div
+      role={revamped ? 'main' : undefined}
       css={[
         { display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 },
         revamped
@@ -53,6 +54,6 @@ export const ExperimentPageMainContent = ({
       )}
       {revamped && headerDescription}
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0 }}>{children}</div>
-    </main>
+    </div>
   );
 };

@@ -20,6 +20,28 @@ describe('ExperimentPageMainContent', () => {
     expect(main).toContainElement(screen.getByRole('button', { name: 'Page action' }));
   });
 
+  test('keeps the classic container without adding a landmark or rendering revamped headers', () => {
+    render(
+      <DesignSystemProvider>
+        <ExperimentPageMainContent
+          revamped={false}
+          breadcrumbs={<div>Breadcrumbs</div>}
+          pageActions={<button>Page action</button>}
+          headerDescription={<div>Description</div>}
+        >
+          <div>Tab content</div>
+        </ExperimentPageMainContent>
+      </DesignSystemProvider>,
+    );
+
+    const wrapper = screen.getByText('Tab content').parentElement?.parentElement;
+    expect(wrapper?.tagName).toBe('DIV');
+    expect(screen.queryByRole('main')).not.toBeInTheDocument();
+    expect(screen.queryByText('Breadcrumbs')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Page action' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Description')).not.toBeInTheDocument();
+  });
+
   test('leaves out the header row without breadcrumbs or actions, without remounting the content', () => {
     const onMount = jest.fn();
     const TabContent = () => {
