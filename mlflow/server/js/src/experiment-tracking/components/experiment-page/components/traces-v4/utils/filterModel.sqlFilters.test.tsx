@@ -14,13 +14,25 @@ describe('trace predicate compilation', () => {
     expect(compileFilterModel([{ field: 'state', operator: 'OR 1=1' as FilterOp, value: 'OK' }])).toEqual([]);
   });
 
-  test.each(['k`ey', "x' OR 1=1 --", 'a;DROP', 'x"y', 'line\nbreak'])(
-    'does not compile an unsafe dynamic key %s',
+  test.each(['k`ey', 'x"y', 'path\\key', 'line\nbreak'])('does not compile an unsafe dynamic key %s', (key) => {
+    for (const field of ['tag', 'metadata', 'assessment', 'expectation']) {
+      expect(compileFilterModel([{ field, key, operator: FilterOp.EQUALS, value: 'v' }])).toEqual([]);
+    }
+    expect(compileTagFilters([{ key, value: 'v' }])).toEqual([]);
+  });
+
+  test.each(['my--tag', 'a;tag', 'x/*y', 'x*/y', "x' OR 1=1 --"])(
+    'preserves a safely quoted punctuation key %s',
     (key) => {
-      for (const field of ['tag', 'metadata', 'assessment', 'expectation']) {
-        expect(compileFilterModel([{ field, key, operator: FilterOp.EQUALS, value: 'v' }])).toEqual([]);
+      expect(compileTagFilters([{ key, value: 'v' }])).toEqual([`tags.\`${key}\` = 'v'`]);
+      for (const [field, ref] of [
+        ['tag', `tags.\`${key}\``],
+        ['metadata', `request_metadata."${key}"`],
+        ['assessment', `feedback.\`${key}\``],
+        ['expectation', `expectation.\`${key}\``],
+      ]) {
+        expect(compileFilterModel([{ field, key, operator: FilterOp.EQUALS, value: 'v' }])).toEqual([`${ref} = 'v'`]);
       }
-      expect(compileTagFilters([{ key, value: 'v' }])).toEqual([]);
     },
   );
 

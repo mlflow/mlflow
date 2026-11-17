@@ -218,11 +218,19 @@ describe('useTracesV4UrlState', () => {
 
     test('drops unsafe URL tag keys so rendered pills match the compiled query', async () => {
       const params = new URLSearchParams();
-      for (const key of ['env', 'bad`key', 'bad"key', 'bad--key', 'bad;key']) {
+      for (const key of ['env', 'bad`key', 'bad"key', 'line\nbreak', 'path\\key']) {
         params.append('tag', `${encodeURIComponent(key)}=prod`);
       }
       const { result } = await mountHook(`/p?${params}`);
       expect(result.current.tagFilters).toEqual([{ key: 'env', value: 'prod' }]);
+    });
+
+    test('retains URL tag keys that are safe inside quoted identifiers', async () => {
+      const keys = ['my--tag', 'a;tag', 'x/*y', 'x*/y'];
+      const params = new URLSearchParams();
+      keys.forEach((key) => params.append('tag', `${encodeURIComponent(key)}=v`));
+      const { result } = await mountHook(`/p?${params}`);
+      expect(result.current.tagFilters).toEqual(keys.map((key) => ({ key, value: 'v' })));
     });
 
     test('addTagFilter appends an encoded key=value and clears the page param', async () => {
@@ -326,7 +334,7 @@ describe('useTracesV4UrlState', () => {
       { field: 'state', operator: FilterOp.CONTAINS, value: 'OK' },
       { ...valid, operator: FilterOp.CONTAINS },
       { ...valid, value: '1.5' },
-      { field: 'tag', key: 'x;bad', operator: FilterOp.EQUALS, value: 'v' },
+      { field: 'tag', key: 'x`bad', operator: FilterOp.EQUALS, value: 'v' },
       { field: 'removed', operator: FilterOp.EQUALS, value: 'v' },
     ];
     const { result } = await mountHook(`/p?filters=${encodeURIComponent(JSON.stringify(clauses))}`);

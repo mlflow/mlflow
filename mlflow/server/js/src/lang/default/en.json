@@ -11967,10 +11967,6 @@
     "defaultMessage": "Export",
     "description": "Export traces to dataset modal action button"
   },
-  "a2J5Vc": {
-    "defaultMessage": "Filter keys cannot contain backticks, double quotes, comments, or semicolons.",
-    "description": "Invalid custom key in trace filter"
-  },
   "a2yLR1": {
     "defaultMessage": "Filters",
     "description": "Experiment issues tab > Filter popover title"
@@ -17186,6 +17182,10 @@
   "py8r3I": {
     "defaultMessage": "Safety",
     "description": "Experiment issues tab > Safety category filter option"
+  },
+  "py97t3": {
+    "defaultMessage": "Filter keys cannot contain backticks, double quotes, backslashes, or control characters.",
+    "description": "Invalid custom key in trace filter"
   },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",

@@ -418,14 +418,15 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
     }
   }, [open]);
   // The applied clause being edited on its own; only a custom trigger opens the editor this way.
-  const [editIndex, setEditIndex] = useState<number>();
+  const [editTarget, setEditTarget] = useState<number | 'sql'>();
+  const editIndex = typeof editTarget === 'number' ? editTarget : undefined;
+  const editingSqlClause = editTarget === 'sql';
   const hasCustomTrigger = Boolean(renderTrigger);
 
   const [activeTab, setActiveTab] = useState('basic');
   const [sqlDraft, setSqlDraft] = useState('');
   const [sqlOnlyDraft, setSqlOnlyDraft] = useState(false);
   const [basicReplacesSql, setBasicReplacesSql] = useState(false);
-  const [editingSqlClause, setEditingSqlClause] = useState(false);
   const [sqlError, setSqlError] = useState<string>();
   const basicSqlDraftRef = useRef<string>();
   const pendingSqlRef = useRef<{ value: string; applied: string; previousError?: Error; sawFetch: boolean }>();
@@ -443,8 +444,7 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
         : sqlFilterConfig;
     const basic = index === undefined ? filterModel.map((clause) => ({ ...clause })) : [{ ...filterModel[index] }];
     const nextSql = index !== undefined ? (config?.formatBasic(basic) ?? '') : (config?.value ?? '');
-    setEditIndex(index);
-    setEditingSqlClause(isSql);
+    setEditTarget(target);
     setDraft(isSql ? (config?.parseBasic(nextSql) ?? []) : basic.length ? basic : [makeEmptyClause(fields)]);
     setSqlDraft(nextSql);
     setActiveTab(isSql || (index === undefined && config?.preferSql) ? 'sql' : 'basic');
@@ -470,7 +470,6 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
     if (!pending) return;
     if (sqlFilter?.isFetching) pending.sawFetch = true;
     if (sqlFilter?.error && sqlFilter.error !== pending.previousError && sqlFilter.value.trim() === pending.applied) {
-      setEditIndex(undefined);
       setSqlDraft(pending.value);
       setSqlOnlyDraft(true);
       setActiveTab('sql');
@@ -580,8 +579,7 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
     }
     if (editIndex !== undefined && sqlFilter.replaceClause) {
       const applied = sqlFilter.replaceClause(editIndex, value);
-      setEditIndex(undefined);
-      setEditingSqlClause(false);
+      setEditTarget(undefined);
       pendingSqlRef.current = { value: applied, applied, previousError: sqlFilter.error, sawFetch: false };
     } else {
       const parsed = sqlFilter.parseBasic(value);

@@ -47,8 +47,9 @@ const NUMERIC_OPERATORS: FilterOp[] = [
 export const SQL_FILTER_FIELD = 'sql_where';
 export const isSqlFilterClause = (clause: FilterClause): boolean => clause.field === SQL_FILTER_FIELD;
 export const isValidDuration = (value: string): boolean => /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
+// Punctuation remains literal inside quoted identifiers; delimiters and escapes cannot be embedded.
 export const isSafeFilterKey = (key: string): boolean =>
-  !/[`";\\]|--|\/\*|\*\//.test(key) && !Array.from(key).some((char) => char.charCodeAt(0) < 32);
+  !/[`"\\]/.test(key) && !Array.from(key).some((char) => char.charCodeAt(0) < 32);
 
 /** Session operators with the new evaluation runs UI (the server has no null checks for them here). */
 const SESSION_OPERATORS: FilterOp[] = [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS];
@@ -322,8 +323,7 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
 };
 
 /**
- * The `tags.<key>` field reference, backticked only when the key contains a `.` or a space (matching
- * the shared `createMlflowSearchFilter` tag clause), so dotted/spaced keys survive.
+ * Quote any tag key that is not a plain identifier, preserving punctuation as part of the key.
  */
 const tagFieldRef = (key: string): string => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? `tags.${key}` : `tags.\`${key}\``);
 
@@ -478,8 +478,8 @@ export const compileFilterModel = (
 
 /**
  * Compile URL-backed click-to-filter tag constraints into `tags.<key> = '<value>'` clauses. The key
- * is backticked only when it contains a `.` or a space, matching the shared `createMlflowSearchFilter`
- * tag clause. Structural `{ key, value }` input keeps this util free of a hook import.
+ * is quoted unless it is a plain identifier. Structural `{ key, value }` input keeps this util free
+ * of a hook import.
  */
 export const compileTagFilters = (tagFilters: { key: string; value: string }[]): string[] =>
   tagFilters

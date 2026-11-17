@@ -153,3 +153,21 @@ def test_trace_filter_groups_keep_custom_span_attributes_as_alternatives():
         "span.attributes.foo = 'a' OR span.attributes.foo = 'b'"
     )
     assert [[clause["comparator"] for clause in group] for group in groups] == [["="], ["="]]
+
+
+@pytest.mark.parametrize("expression", ["status = 'OK' OR status = 'ERROR'", "(status = 'OK')"])
+def test_trace_filter_groups_support_legacy_sqlparse_whitespace(monkeypatch, expression):
+    monkeypatch.setattr("mlflow.utils.search_utils.sqlparse.__version__", "0.4.3")
+    assert SearchTraceUtils.parse_search_filter_groups(expression)
+
+
+@pytest.mark.parametrize("key", ["my--tag", "a;tag", "x/*y", "x*/y", "x' OR 1=1 --"])
+@pytest.mark.parametrize(
+    ("namespace", "quote"),
+    [("tags", "`"), ("request_metadata", '"'), ("feedback", "`"), ("expectation", "`")],
+)
+def test_trace_filter_groups_keep_quoted_punctuation_keys_literal(key, namespace, quote):
+    groups = SearchTraceUtils.parse_search_filter_groups(f"{namespace}.{quote}{key}{quote} = 'v'")
+    assert len(groups) == len(groups[0]) == 1
+    assert groups[0][0]["key"] == key
+    assert groups[0][0]["value"] == "v"

@@ -73,7 +73,10 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
     if Version(sqlparse.__version__) < Version("0.4.4"):
         # In sqlparse < 0.4.4, IN is treated as a comparison, we don't need to join tokens
         return tokens
+    return _normalize_comparison_tokens(tokens, search_traces)
 
+
+def _normalize_comparison_tokens(tokens, search_traces=False):
     non_whitespace_tokens = [t for t in tokens if not t.is_whitespace]
     joined_tokens = []
     num_tokens = len(non_whitespace_tokens)
@@ -1964,7 +1967,7 @@ class SearchTraceUtils(SearchUtils):
         def invalid():
             raise MlflowException.invalid_parameter_value("Invalid clause(s) in filter string")
 
-        def bounded(groups):
+        def normalize_and_bound_groups(groups):
             if len(groups) > 1 and all(len(group) == 1 for group in groups):
                 first = groups[0][0]
                 if (
@@ -2002,7 +2005,7 @@ class SearchTraceUtils(SearchUtils):
         def parse_tokens(tokens, depth=0):
             if depth > 32:
                 raise MlflowException.invalid_parameter_value("Trace filter nesting exceeds 32")
-            tokens = _join_in_comparison_tokens(tokens, search_traces=True)
+            tokens = _normalize_comparison_tokens(tokens, search_traces=True)
             if not tokens:
                 invalid()
             alternatives = []
@@ -2020,12 +2023,14 @@ class SearchTraceUtils(SearchUtils):
                     else:
                         invalid()
                     if operator == "AND":
-                        conjunction = bounded([a + b for a in conjunction for b in operand])
+                        conjunction = normalize_and_bound_groups([
+                            a + b for a in conjunction for b in operand
+                        ])
                     else:
                         alternatives.extend(conjunction)
                         conjunction = operand
                     # Check limits here, but fold OR only after its higher-precedence ANDs.
-                    bounded(alternatives + conjunction)
+                    normalize_and_bound_groups(alternatives + conjunction)
                 else:
                     if not token.match(TokenType.Keyword, ["AND", "OR"]):
                         invalid()
@@ -2033,7 +2038,7 @@ class SearchTraceUtils(SearchUtils):
                 expecting_operand = not expecting_operand
             if expecting_operand:
                 invalid()
-            return bounded(alternatives + conjunction)
+            return normalize_and_bound_groups(alternatives + conjunction)
 
         try:
             statements = sqlparse.parse(filter_string)

@@ -68,6 +68,7 @@ export interface UseEvalRunTracesV4ControllerResult {
   bulk: ReturnType<typeof useBulkTraceSelection>;
   searchInput: ReturnType<typeof useDebouncedSearchInput>;
   filterModel: TraceFilterModel;
+  numericAssessmentKeys: ReadonlySet<string>;
   setFilterModel: (next: TraceFilterModel) => void;
   activeFilterCount: number;
   /** Selected trace id, exposed only after the trace is known to belong to this run. */
@@ -325,6 +326,7 @@ export const useEvalRunTracesV4Controller = ({
     bulk,
     searchInput,
     filterModel,
+    numericAssessmentKeys,
     setFilterModel,
     activeFilterCount,
     activeTraceId,
