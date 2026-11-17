@@ -44,6 +44,7 @@ export const IssueDetectionTraceScope = ({
           <TracesV4Search
             traces={NO_TRACES}
             filterModel={scope.filters}
+            showIncompleteFilters
             value={scope.searchQuery}
             onChange={(searchQuery) => update({ ...scope, searchQuery })}
             onClear={clear}

@@ -37,6 +37,8 @@ export interface TracesV4SearchProps {
   onSubmit: () => void;
   onApplyFilter: (clause: FilterClause) => void;
   filterModel?: TraceFilterModel;
+  /** Persisted scopes can contain active empty-string equality clauses. */
+  showIncompleteFilters?: boolean;
   onRemoveFilter?: (index: number) => void;
   onOpenFilter?: (index?: number) => void;
   onRunTextSearch?: (text: string) => void;
@@ -90,7 +92,7 @@ const FilterQueryLabel = ({ field, fieldKey, operator, value, displayValue, suff
   <QueryLabel
     field={formatTraceSearchFieldName(typeof field === 'string' ? field : field.id, fieldKey)}
     operator={operator}
-    value={value ? formatTraceSearchValue(field, value, displayValue) : undefined}
+    value={value !== undefined ? formatTraceSearchValue(field, value, displayValue) : undefined}
     suffix={suffix}
   />
 );
@@ -105,6 +107,7 @@ export const TracesV4Search = ({
   inputRef,
   suffix,
   filterModel = [],
+  showIncompleteFilters = false,
   onRemoveFilter,
   onOpenFilter,
   onRunTextSearch,
@@ -397,7 +400,7 @@ export const TracesV4Search = ({
     : intl.formatMessage({ defaultMessage: 'Add a filter', description: 'Idle trace search placeholder' });
 
   const chips = filterModel.flatMap((clause, index) =>
-    isClauseComplete(clause)
+    showIncompleteFilters || isClauseComplete(clause)
       ? [
           {
             text: clauseText(clause),

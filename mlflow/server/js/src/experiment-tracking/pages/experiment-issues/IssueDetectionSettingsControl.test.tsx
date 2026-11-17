@@ -69,6 +69,20 @@ beforeEach(() => {
 });
 
 describe('IssueDetectionSettingsControl', () => {
+  test.each([undefined, null, 7])('a legacy empty equality value %j stays visible in setup', async (value) => {
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+        value: JSON.stringify([{ field: 'tag', operator: '=', key: 'team', value }]),
+      },
+    ];
+    render();
+    await openSettings();
+    expect(screen.getByRole('button', { name: "Edit filter tag.team = ''" })).toHaveTextContent("tag.team = ''");
+    expect(screen.queryByText(/Could not read the saved trace scope/)).not.toBeInTheDocument();
+    expect(written).toEqual([]);
+  });
+
   test('users without edit permission cannot change saved settings', async () => {
     jest.mocked(useExperimentPermission).mockReturnValue(false);
     render();

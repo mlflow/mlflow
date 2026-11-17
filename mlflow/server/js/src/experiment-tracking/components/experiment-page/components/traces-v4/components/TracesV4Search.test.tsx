@@ -42,7 +42,12 @@ const observedTrace = makeTrace('trace-1', {
 
 interface SearchHarnessProps extends Pick<
   TracesV4SearchProps,
-  'filterModel' | 'onRemoveFilter' | 'onOpenFilter' | 'onRunTextSearch' | 'onMinimumWidthChange'
+  | 'filterModel'
+  | 'onRemoveFilter'
+  | 'onOpenFilter'
+  | 'onRunTextSearch'
+  | 'onMinimumWidthChange'
+  | 'showIncompleteFilters'
 > {
   experimentId?: string;
   traces?: ModelTraceInfoV3[];
@@ -124,6 +129,23 @@ describe('TracesV4Search', () => {
     expect(searchBox()).toHaveAttribute('aria-expanded', 'false');
     await user.click(searchBox());
     expect(searchBox()).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test.each([false, true])('empty saved values are shown only when requested (%s)', async (showIncompleteFilters) => {
+    const onOpenFilter = jest.fn();
+    renderSearch({
+      showIncompleteFilters,
+      onOpenFilter,
+      filterModel: [{ field: 'tag', key: 'team', operator: FilterOp.EQUALS, value: '' }],
+    });
+    const chip = screen.queryByRole('button', { name: "Edit filter tag.team = ''" });
+    if (showIncompleteFilters) {
+      expect(chip).toHaveTextContent("tag.team = ''");
+      await userEvent.click(chip!);
+      expect(onOpenFilter).toHaveBeenCalledWith(0);
+    } else {
+      expect(chip).not.toBeInTheDocument();
+    }
   });
 
   test('clearing search text leaves filter pills alone', async () => {
