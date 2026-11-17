@@ -104,3 +104,17 @@ def test_search_trace_groups_bind_values(store, dialect):
         compiled = statement.compile(dialect=dialect.dialect())
         assert marker not in str(compiled)
         assert marker in compiled.params.values()
+
+
+def test_search_trace_groups_keep_custom_span_equality_semantics(store):
+    exp = store.create_experiment("grouped-custom-span-search")
+    _create_trace(store, "tr-custom", exp)
+    store.log_spans(exp, [create_test_span("tr-custom", attributes={"foo": "a"})])
+    predicates = ["span.attributes.foo = 'a'", "span.attributes.foo = 'b'"]
+    expected = {
+        trace.request_id
+        for predicate in predicates
+        for trace in store.search_traces([exp], filter_string=predicate)[0]
+    }
+    rows, _ = store.search_traces([exp], filter_string=" OR ".join(predicates))
+    assert {trace.request_id for trace in rows} == expected

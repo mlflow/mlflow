@@ -40,7 +40,6 @@ def test_trace_filter_groups(expression, keys):
     "expression",
     [
         "()",
-        "AND status = 'OK'",
         "status = 'OK' OR",
         "status = 'OK' AND OR status = 'ERROR'",
         "status = 'OK' (status = 'ERROR')",
@@ -133,3 +132,24 @@ def test_trace_filter_groups_fold_same_span_field_alternatives():
 )
 def test_combine_trace_filters(expressions, expected):
     assert SearchTraceUtils.combine_filters(*expressions) == expected
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "AND status = 'OK'",
+        "status = 'OK' AND",
+        "status = 'OK' tags.env = 'prod'",
+    ],
+)
+def test_trace_filter_groups_preserve_legacy_flat_shapes(expression):
+    assert SearchTraceUtils.parse_search_filter_groups(expression) == [
+        SearchTraceUtils.parse_search_filter_for_search_traces(expression)
+    ]
+
+
+def test_trace_filter_groups_keep_custom_span_attributes_as_alternatives():
+    groups = SearchTraceUtils.parse_search_filter_groups(
+        "span.attributes.foo = 'a' OR span.attributes.foo = 'b'"
+    )
+    assert [[clause["comparator"] for clause in group] for group in groups] == [["="], ["="]]

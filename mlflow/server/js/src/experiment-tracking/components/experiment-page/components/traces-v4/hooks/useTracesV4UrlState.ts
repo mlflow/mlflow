@@ -15,7 +15,7 @@ import {
   type SortDirection,
   type TraceColumnId,
 } from '@databricks/web-shared/traces-table';
-import { isSupportedFilterClause, useMlflowTraceFilterFields } from '../utils/filterModel';
+import { isSafeFilterKey, isSupportedFilterClause, useMlflowTraceFilterFields } from '../utils/filterModel';
 import { TRACE_V4_SHARE_URL_PARAM_KEY } from '../utils/tracesV4SavedViewState';
 
 const Q_PARAM = 'q';
@@ -54,7 +54,8 @@ const decodeTagFilter = (raw: string): TagFilter | undefined => {
   if (eq < 0) {
     return undefined;
   }
-  return { key: decodeURIComponent(raw.slice(0, eq)), value: decodeURIComponent(raw.slice(eq + 1)) };
+  const key = decodeURIComponent(raw.slice(0, eq));
+  return isSafeFilterKey(key) ? { key, value: decodeURIComponent(raw.slice(eq + 1)) } : undefined;
 };
 
 const sameTagFilter = (a: TagFilter, b: TagFilter): boolean => a.key === b.key && a.value === b.value;

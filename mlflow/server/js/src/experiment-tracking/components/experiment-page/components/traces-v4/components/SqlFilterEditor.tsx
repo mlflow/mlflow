@@ -24,7 +24,7 @@ const COLUMNS = [
   'span.status',
   'span.content',
   'request_metadata."mlflow.trace.user"',
-  'request_metadata."mlflow.trace.session"',
+  'request_metadata.mlflow.trace.session',
   'request_metadata."mlflow.source.name"',
   'issue.id',
 ];

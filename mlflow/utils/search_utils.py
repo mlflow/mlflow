@@ -1969,7 +1969,7 @@ class SearchTraceUtils(SearchUtils):
                 first = groups[0][0]
                 if (
                     first["type"] == cls._SPAN_IDENTIFIER
-                    and first["key"] != cls._SPAN_CONTENT_KEY
+                    and first["key"] in cls._SUPPORTED_SPAN_ATTRIBUTES
                     and all(
                         clause["type"] == first["type"]
                         and clause["key"] == first["key"]
@@ -2043,7 +2043,11 @@ class SearchTraceUtils(SearchUtils):
             ) from e
         if len(statements) != 1:
             invalid()
-        return parse_tokens(statements[0].tokens)
+        tokens = _join_in_comparison_tokens(statements[0].tokens, search_traces=True)
+        # Preserve accepted legacy flat filters, including optional/repeated AND separators.
+        if all(not cls._invalid_statement_token_search_traces(token) for token in tokens):
+            return [cls.parse_search_filter_for_search_traces(filter_string)]
+        return parse_tokens(tokens)
 
     @classmethod
     def _replace_key_to_tag_or_metadata(cls, parsed: dict[str, Any]):

@@ -216,6 +216,15 @@ describe('useTracesV4UrlState', () => {
       ]);
     });
 
+    test('drops unsafe URL tag keys so rendered pills match the compiled query', async () => {
+      const params = new URLSearchParams();
+      for (const key of ['env', 'bad`key', 'bad"key', 'bad--key', 'bad;key']) {
+        params.append('tag', `${encodeURIComponent(key)}=prod`);
+      }
+      const { result } = await mountHook(`/p?${params}`);
+      expect(result.current.tagFilters).toEqual([{ key: 'env', value: 'prod' }]);
+    });
+
     test('addTagFilter appends an encoded key=value and clears the page param', async () => {
       const { result } = await mountHook('/p?page=5');
       act(() => result.current.addTagFilter('env', 'prod'));
