@@ -12,7 +12,7 @@ import {
   MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
 } from '../../constants';
 import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
-import { ISSUE_DETECTION_SCHEDULE_VERSION, MAX_TRACE_FILTERS, scheduleTiming } from './issueDetectionSchedule';
+import { ISSUE_DETECTION_SCHEDULE_VERSION, scheduleTiming } from './issueDetectionSchedule';
 
 interface SavedTag {
   key: string;
@@ -40,8 +40,7 @@ let gatewaySecrets: { secret_id: string; secret_name: string; provider: string }
 let envCredentialsAvailable: boolean | undefined;
 let createdSecrets: { secret_name: string; provider?: string; secret_value: Record<string, string> }[];
 /**
- * Saves that have written their trace filters but not yet reached their last call. A save writes the
- * trace filters, then the schedule, then syncs the dispatch state, so a test that stops waiting after
+ * Saves that have written the cadence but not yet synced the dispatch state. A test that stops waiting after
  * an earlier step would let the rest land in the next test's tags.
  */
 let savesInFlight: number;
@@ -66,6 +65,7 @@ const server = setupServer(
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
     }
     const body = (await req.json()) as SavedTag;
+    if (body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG) savesInFlight += 1;
     if (failWriteOfTag === body.key) {
       // A failed trace filter write, like `saveFails`, ends the save before it is counted, since the
       // save throws without writing anything more. A failed schedule write ends a counted save
@@ -74,9 +74,6 @@ const server = setupServer(
         savesInFlight -= 1;
       }
       return res(ctx.status(500), ctx.json({ message: 'nope' }));
-    }
-    if (body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG) {
-      savesInFlight += 1;
     }
     written.push({ key: body.key, value: body.value });
     experimentTags = [...experimentTags.filter(({ key }) => key !== body.key), { key: body.key, value: body.value }];
@@ -173,9 +170,6 @@ const COMPONENT_ID = 'mlflow.experiment-issues.schedule';
 
 const savedSchedule = (): Record<string, unknown> =>
   JSON.parse(written.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG)?.value ?? '{}');
-
-const savedTraceFilters = (): unknown[] =>
-  JSON.parse(written.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value ?? 'null');
 
 const openModal = async (user: ReturnType<typeof setup>, name: RegExp | string = /schedule detection/i) => {
   // Re-queried each poll, because `server-info` answering swaps the control's disabled branch for
@@ -293,102 +287,26 @@ describe('ExperimentIssuesScheduleControl', () => {
     expect(written).toEqual([]);
   });
 
-  test('shows only the Add filter button when there are no clauses, and saves none', async () => {
-    const user = setup();
-    render();
-    await openModal(user);
-
-    expect(screen.queryByRole('combobox', { name: 'Field' })).not.toBeInTheDocument();
-    await chooseCadence(user, 'Daily');
-    await save(user);
-
-    await waitFor(() => expect(savedSchedule()['cadence']).toBe('daily'));
-    expect(savedTraceFilters()).toEqual([]);
-    // Saved in the browser's zone, so the cadence keeps firing at the local hour it was set in.
-    expect(savedSchedule()['timezone']).toEqual(expect.any(String));
-  });
-
-  test('adds and saves clauses, defaulting a new row to the metadata field and the equals operator', async () => {
-    const user = setup();
-    render();
-    await openModal(user);
-    await chooseCadence(user, 'Daily');
-
-    await user.click(await screen.findByRole('button', { name: 'Add filter' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'environment');
-    await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'production');
-    await save(user);
-
-    await waitFor(() =>
-      expect(savedTraceFilters()).toEqual([
-        { field: 'metadata', operator: '=', key: 'environment', value: 'production' },
-      ]),
-    );
-  });
-
-  test('prefills mixed metadata and tag clauses and preserves field and operator on save', async () => {
-    const stored = [
-      { field: 'metadata', operator: '=', key: 'environment', value: 'production' },
-      { field: 'tag', operator: '=', key: 'team', value: 'search' },
+  test('cadence edits preserve the shared saved trace scope without writing its tag', async () => {
+    const scope = [
+      { field: 'duration', operator: '>', value: '1000', compiled: 'attributes.execution_time_ms > 1000' },
     ];
-    experimentTags = [scheduleTag('daily'), traceFilterTag(stored)];
-    const user = setup();
-    render();
-
-    await openModal(user, /scheduled: daily/i);
-    const keys = await screen.findAllByRole('textbox', { name: 'Filter key' });
-    expect(keys.map((input) => (input as HTMLInputElement).value)).toEqual(['environment', 'team']);
-
-    await save(user);
-    await waitFor(() => expect(savedTraceFilters()).toEqual(stored));
-  });
-
-  test('drops a removed clause from the saved model', async () => {
     experimentTags = [
       scheduleTag('daily'),
-      traceFilterTag([
-        { field: 'metadata', operator: '=', key: 'environment', value: 'production' },
-        { field: 'tag', operator: '=', key: 'team', value: 'search' },
-      ]),
+      { key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: JSON.stringify(scope) },
     ];
     const user = setup();
     render();
-
     await openModal(user, /scheduled: daily/i);
-    const removeButtons = await screen.findAllByRole('button', { name: 'Remove filter' });
-    await user.click(removeButtons[0]);
+    expect(screen.queryByRole('button', { name: 'Add filter' })).not.toBeInTheDocument();
+    expect(screen.getByText('Uses the trace scope saved in issue detection settings.')).toBeInTheDocument();
+    await chooseCadence(user, 'Weekly');
     await save(user);
-
-    await waitFor(() =>
-      expect(savedTraceFilters()).toEqual([{ field: 'tag', operator: '=', key: 'team', value: 'search' }]),
-    );
-  });
-
-  test('removing the last clause collapses back to just the Add filter button', async () => {
-    experimentTags = [
-      scheduleTag('daily'),
-      traceFilterTag([{ field: 'tag', operator: '=', key: 'team', value: 'search' }]),
-    ];
-    const user = setup();
-    render();
-
-    await openModal(user, /scheduled: daily/i);
-    await user.click(await screen.findByRole('button', { name: 'Remove filter' }));
-    expect(screen.queryByRole('textbox', { name: 'Filter key' })).not.toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Add filter' })).toBeInTheDocument();
-  });
-
-  test('a blank-key clause is dropped rather than saved', async () => {
-    const user = setup();
-    render();
-    await openModal(user);
-    await chooseCadence(user, 'Daily');
-
-    await user.click(await screen.findByRole('button', { name: 'Add filter' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'production');
-    await save(user);
-
-    await waitFor(() => expect(savedTraceFilters()).toEqual([]));
+    await waitFor(() => expect(written).toHaveLength(1));
+    expect(written[0].key).toBe(MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG);
+    expect(
+      JSON.parse(experimentTags.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)!.value),
+    ).toEqual(scope);
   });
 
   test('holds Save until the model selection resolves, so an active schedule never saves without one', async () => {
@@ -734,21 +652,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await waitFor(() => expect(screen.queryByText(costNote)).not.toBeInTheDocument());
   });
 
-  test('offers no more filters than scheduled runs apply', async () => {
-    const user = setup();
-    render();
-    await openModal(user);
-    await chooseCadence(user, 'Daily');
-
-    const addFilter = await screen.findByRole('button', { name: 'Add filter' });
-    for (let i = 0; i < MAX_TRACE_FILTERS; i++) {
-      await user.click(addFilter);
-    }
-    expect(await screen.findAllByRole('textbox', { name: 'Filter key' })).toHaveLength(MAX_TRACE_FILTERS);
-    // A further clause would show here as active and be dropped by every run.
-    expect(addFilter).toBeDisabled();
-  });
-
   test("keeps a schedule's stored timezone when it is edited from somewhere else", async () => {
     // Pausing a Tokyo schedule from another zone must not resume it at 09:00 local to the pauser.
     experimentTags = [scheduleTag('daily', false, 'Asia/Tokyo')];
@@ -786,22 +689,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await waitFor(() => expect(savedSchedule()['paused']).toBe(true));
     // The cadence is kept, so turning it back on restores it.
     expect(savedSchedule()['cadence']).toBe('hourly');
-  });
-
-  test('disables the clause inputs and Add filter when the cadence is Off', async () => {
-    experimentTags = [
-      scheduleTag('hourly'),
-      traceFilterTag([{ field: 'tag', operator: '=', key: 'team', value: 'search' }]),
-    ];
-    const user = setup();
-    render();
-
-    await openModal(user, /scheduled: hourly/i);
-    expect(await screen.findByRole('textbox', { name: 'Filter key' })).not.toBeDisabled();
-
-    await chooseCadence(user, 'Off');
-    expect(await screen.findByRole('textbox', { name: 'Filter key' })).toBeDisabled();
-    expect(await screen.findByRole('button', { name: 'Add filter' })).toBeDisabled();
   });
 
   test('keeps the modal open and shows an error when saving fails', async () => {
@@ -964,23 +851,6 @@ describe('ExperimentIssuesScheduleControl', () => {
       model: 'gpt-5.6-sol',
       secretId: 'sec-mine',
     });
-  });
-
-  test('rejects a pasted control character, naming it by code point', async () => {
-    // The server drops a clause carrying one, and a tab shows nothing in the field -- hence naming
-    // the code point rather than echoing the value.
-    const user = setup();
-    render();
-    await openModal(user);
-    await chooseCadence(user, 'Daily');
-    await user.click(await screen.findByRole('button', { name: 'Add filter' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'environment');
-    await user.click(await screen.findByRole('textbox', { name: 'Filter value' }));
-    await user.paste('production\t');
-    await save(user);
-
-    expect(await screen.findByText(/U\+0009/)).toBeInTheDocument();
-    expect(written).toEqual([]);
   });
 
   test('asks for an API key before saving when neither the server nor AI Gateway has one', async () => {
@@ -1167,61 +1037,6 @@ describe('ExperimentIssuesScheduleControl', () => {
     await user.click(await screen.findByRole('button', { name: 'Back' }));
 
     expect(await screen.findByRole('combobox', { name: /cadence/i })).toHaveTextContent('Daily');
-  });
-
-  test('the filters are stored before the cadence that activates them', async () => {
-    const user = setup();
-    render();
-    await openModal(user);
-    await chooseCadence(user, 'Daily');
-    await user.click(await screen.findByRole('button', { name: 'Add filter' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'environment');
-    await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'production');
-    await save(user);
-
-    await waitFor(() => expect(written).toHaveLength(2));
-    // The cadence is what makes the dispatcher pick the schedule up, so it must land last --
-    // written first, a poll in between could run against clauses not yet stored.
-    expect(written.map(({ key }) => key)).toEqual([
-      MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-      MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
-    ]);
-  });
-
-  test('a schedule is not activated when its filters cannot be stored', async () => {
-    failWriteOfTag = MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG;
-    const user = setup();
-    render();
-    await openModal(user);
-    await chooseCadence(user, 'Daily');
-    await save(user);
-
-    expect(await screen.findByText(/Couldn't save the schedule/)).toBeInTheDocument();
-    // Nothing was activated, so no run can happen under clauses that were never stored.
-    expect(written).toEqual([]);
-  });
-
-  test('a clause the server cannot match on is rejected instead of saved', async () => {
-    const user = setup();
-    render();
-    await openModal(user);
-    await chooseCadence(user, 'Daily');
-    await user.click(await screen.findByRole('button', { name: 'Add filter' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Filter key' }), 'team');
-    await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), "o'brien");
-    await save(user);
-
-    expect(await screen.findByText(/cannot match on it/)).toBeInTheDocument();
-    // Nothing is stored, so the modal never shows a filter that every run would ignore.
-    expect(written).toEqual([]);
-
-    // Correcting the value clears the message and lets the save through.
-    await user.clear(await screen.findByRole('textbox', { name: 'Filter value' }));
-    await user.type(await screen.findByRole('textbox', { name: 'Filter value' }), 'obrien');
-    await save(user);
-    await waitFor(() =>
-      expect(savedTraceFilters()).toEqual([{ field: 'metadata', operator: '=', key: 'team', value: 'obrien' }]),
-    );
   });
 
   test('a schedule that could not be read is not editable, and offers a retry', async () => {

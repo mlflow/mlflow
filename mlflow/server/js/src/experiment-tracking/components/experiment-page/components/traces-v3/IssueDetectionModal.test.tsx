@@ -1,6 +1,7 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/utils/TestUtils.react18';
+import { useExperimentPermission } from '../../../../hooks/useExperimentPermission';
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { clearSubmittedIssueDetectionJob, getSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
@@ -10,8 +11,24 @@ import { useModelsQuery } from '../../../../../gateway/hooks/useModelsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/useIssueDetectionSettings';
 import { defaultIssueDetectionSettings } from '../../../../pages/experiment-issues/issueDetectionSettings';
+import { useHasExperimentIssues } from '../../../../pages/experiment-issues/useExperimentIssues';
+import { useIssueDetectionTraceScope } from '../../../../pages/experiment-issues/useIssueDetectionTraceScope';
+import { searchMlflowTracesQueryFn } from '../../../../../shared/web-shared/genai-traces-table/hooks/useMlflowTraces';
 
 jest.mock('./hooks/useInvokeIssueDetection');
+jest.mock('../../../../hooks/useExperimentPermission');
+jest.mock('../../../../pages/experiment-issues/useExperimentIssues', () => ({ useHasExperimentIssues: jest.fn() }));
+jest.mock('../../../../../shared/web-shared/genai-traces-table/hooks/useMlflowTraces', () => ({
+  searchMlflowTracesQueryFn: jest.fn(),
+}));
+jest.mock('../../../../pages/experiment-issues/useIssueDetectionTraceScope', () => ({
+  useIssueDetectionTraceScope: jest.fn(),
+}));
+jest.mock('../../../../pages/experiment-issues/IssueDetectionTraceScope', () => ({
+  useNormalizeIssueDetectionTraceScope: () => (scope: unknown) => scope,
+  IssueDetectionTraceScope: () => <div>Trace scope editor</div>,
+}));
+
 jest.mock('../../../../pages/experiment-issues/useIssueDetectionSettings', () => ({
   useIssueDetectionSettings: jest.fn(),
 }));
@@ -68,8 +85,20 @@ describe('IssueDetectionModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(useExperimentPermission).mockReturnValue(true);
     clearSubmittedIssueDetectionJob();
+    jest.mocked(searchMlflowTracesQueryFn).mockReset();
     mockSettings();
+    jest
+      .mocked(useHasExperimentIssues)
+      .mockReturnValue({ data: { issues: [{ issue_id: 'existing' }] }, isLoading: false, error: null } as any);
+    jest.mocked(useIssueDetectionTraceScope).mockReturnValue({
+      data: { searchQuery: '', filters: [] },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+      save: { mutateAsync: jest.fn() },
+    } as any);
     jest.mocked(useEndpointsQuery).mockReturnValue({ data: [], isLoading: false, refetch: jest.fn() } as any);
     jest.mocked(useModelsQuery).mockImplementation(
       ({ provider } = {}) =>
@@ -365,57 +394,133 @@ describe('IssueDetectionModal', () => {
     expect(screen.queryByText(/no focus area selected/)).not.toBeInTheDocument();
   });
 
-  test('a failed refresh over loaded settings says what the run will actually use', async () => {
-    // React Query keeps the cached data alongside a failed background refetch, and the run is
-    // submitted with it -- so claiming "the defaults will be used" here would be false.
-    jest.mocked(useIssueDetectionSettings).mockReturnValue({
-      data: { instructions: 'Only report high severity.', categories: { safety: true } },
-      isLoading: false,
-      error: new Error('nope'),
-    } as any);
+  test.each([undefined, { instructions: 'Only report high severity.', categories: { safety: true } }])(
+    'an unreadable configuration blocks analysis even with cached settings %j',
+    async (data) => {
+      const refetch = jest.fn();
+      jest
+        .mocked(useIssueDetectionSettings)
+        .mockReturnValue({ data, isLoading: false, error: new Error('offline'), refetch } as any);
+      renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+      expect(
+        screen.getByText('Could not load issue detection settings. Retry before starting analysis.'),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Run Analysis' })).toBeDisabled();
+      await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+      expect(refetch).toHaveBeenCalledTimes(1);
+      expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
+    },
+  );
+
+  test('customization keeps a draft until Run and Cancel discards edits', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
-
-    expect(screen.getByText(/could not be refreshed, so this run uses the last ones loaded/)).toBeInTheDocument();
-    expect(screen.queryByText(/will use the defaults/)).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
-
-    await waitFor(() => {
-      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          categories: ['safety'],
-          instructions: 'Only report high severity.',
-        }),
-        expect.any(Object),
-      );
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Detection priorities' }), 'Unsaved priorities');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }));
+    expect(screen.getByRole('textbox', { name: 'Detection priorities' })).toHaveValue('');
+    expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
   });
 
-  test('settings that failed to load say so rather than quietly using the defaults', async () => {
-    // Blocking on a tag read would strand a feature that worked before settings existed, so
-    // the run is still allowed -- but not silently.
+  test.each([null, new Error('history offline')])(
+    'first runs offer setup and defaults make no settings writes with advisory history %s',
+    async (error) => {
+      jest.mocked(useHasExperimentIssues).mockReturnValue({ data: { issues: [] }, isLoading: false, error } as any);
+      const save = jest.fn();
+      jest.mocked(useIssueDetectionSettings).mockReturnValue({
+        data: defaultIssueDetectionSettings(),
+        isLoading: false,
+        error: null,
+        save: { mutateAsync: save },
+      } as any);
+      renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+      expect(await screen.findByRole('textbox', { name: 'Detection priorities' })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+      await waitFor(() => expect(mockInvokeIssueDetection).toHaveBeenCalledTimes(1));
+      expect(save).not.toHaveBeenCalled();
+      expect(searchMlflowTracesQueryFn).not.toHaveBeenCalled();
+    },
+  );
+
+  test('saved scope intersects an explicit selection before starting analysis', async () => {
     jest
-      .mocked(useIssueDetectionSettings)
-      .mockReturnValue({ data: undefined, isLoading: false, error: new Error('nope') } as any);
-    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
-
-    expect(
-      screen.getByText(
-        "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
-      ),
-    ).toBeInTheDocument();
-
-    await userEvent.click(screen.getByText('Run Analysis').closest('button')!);
-
-    await waitFor(() => {
+      .mocked(useIssueDetectionTraceScope)
+      .mockReturnValue({ data: { searchQuery: 'feedback', filters: [] }, isLoading: false, error: null } as any);
+    jest.mocked(searchMlflowTracesQueryFn).mockResolvedValue([{ trace_id: 'trace-1' }] as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1', 'trace-2']} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    await waitFor(() =>
       expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
-        expect.objectContaining({
-          categories: ['correctness', 'latency', 'execution', 'adherence', 'relevance', 'safety', 'cost'],
-          instructions: undefined,
-        }),
+        expect.objectContaining({ traceIds: ['trace-1'] }),
         expect.any(Object),
-      );
-    });
+      ),
+    );
+    expect(searchMlflowTracesQueryFn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filter: "attributes.request_id IN ('trace-1','trace-2') AND trace.text ILIKE '%feedback%'",
+      }),
+    );
+  });
+
+  test('a failed customization save keeps the draft and permits retry without starting a run', async () => {
+    const save = jest
+      .fn<any>()
+      .mockRejectedValueOnce(new Error('save failed'))
+      .mockResolvedValue(defaultIssueDetectionSettings());
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({
+      data: defaultIssueDetectionSettings(),
+      isLoading: false,
+      error: null,
+      save: { mutateAsync: save },
+    } as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Customize' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Detection priorities' }), 'Focus on feedback');
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    expect(await screen.findByText('save failed')).toBeInTheDocument();
+    expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    await waitFor(() =>
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({ instructions: 'Focus on feedback' }),
+        expect.any(Object),
+      ),
+    );
+  });
+
+  test('read-only setup uses saved settings without writes and disables editing', async () => {
+    jest.mocked(useExperimentPermission).mockReturnValue(false);
+    jest.mocked(useHasExperimentIssues).mockReturnValue({ data: { issues: [] }, isLoading: false } as any);
+    const save = jest.fn();
+    const saveScope = jest.fn();
+    jest.mocked(useIssueDetectionTraceScope).mockReturnValue({
+      data: { searchQuery: '', filters: [] },
+      isLoading: false,
+      error: null,
+      save: { mutateAsync: saveScope },
+    } as any);
+    const settings = { ...defaultIssueDetectionSettings(), instructions: 'Saved priorities' };
+    jest.mocked(useIssueDetectionSettings).mockReturnValue({
+      data: settings,
+      isLoading: false,
+      error: null,
+      save: { mutateAsync: save },
+    } as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    expect(await screen.findByRole('textbox', { name: 'Detection priorities' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(screen.getByRole('button', { name: 'Customize' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    await waitFor(() =>
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({ instructions: 'Saved priorities' }),
+        expect.any(Object),
+      ),
+    );
+    expect(save).not.toHaveBeenCalled();
+    expect(saveScope).not.toHaveBeenCalled();
   });
 
   test('shows a low-trace tip when fewer than 10 traces are selected', () => {

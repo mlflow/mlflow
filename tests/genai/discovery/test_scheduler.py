@@ -917,3 +917,46 @@ def test_a_scheduled_job_records_no_creator_so_only_an_admin_can_inspect_it(stor
         # Not even the admin passes the *ownership* check -- admins reach these routes by
         # bypassing RBAC entirely, not by owning the job.
         assert validate_is_job_owner() is False
+
+
+def test_shared_setup_edits_apply_to_the_next_occurrence_without_retiming(store, dispatch):
+    experiment_id = _experiment_with(
+        store, "shared-setup", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+    before = _state(store, experiment_id)
+    store.set_experiment_tag(
+        experiment_id,
+        ExperimentTag(
+            MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
+            json.dumps([
+                {
+                    "field": "duration",
+                    "operator": ">",
+                    "value": "1000",
+                    "compiled": "attributes.execution_time_ms > 1000",
+                },
+                {
+                    "field": "issue_detection_search_query",
+                    "value": "feedback",
+                    "compiled": "trace.text ILIKE '%feedback%'",
+                },
+            ]),
+        ),
+    )
+    store.set_experiment_tag(
+        experiment_id,
+        ExperimentTag(
+            MLFLOW_ISSUE_DETECTION_PRIORITIES,
+            json.dumps({"instructions": "Focus on feedback", "categories": {"correctness": True}}),
+        ),
+    )
+    assert dispatch(ONE_PM_MS + HOUR_MS // 2).call_count == 0
+    assert _state(store, experiment_id).next_fire_time_ms == before.next_fire_time_ms
+    params = dispatch(ONE_PM_MS + HOUR_MS).call_args.kwargs["params"]
+    assert (
+        params["trace_filter"]
+        == "attributes.execution_time_ms > 1000 AND trace.text ILIKE '%feedback%'"
+    )
+    assert params["categories"] == ["correctness"]
+    assert params["instructions"] == "Focus on feedback"

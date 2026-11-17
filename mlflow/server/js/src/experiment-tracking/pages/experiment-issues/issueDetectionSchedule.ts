@@ -231,6 +231,7 @@ const parseTraceFilter = (entry: unknown): ScheduleTraceFilter | undefined => {
   if (operator !== undefined && operator !== '=') {
     return undefined;
   }
+  if (operator !== undefined && field !== undefined && field !== 'tag' && field !== 'metadata') return undefined;
   // Anything that is not 'tag' is request metadata, so a clause written before the field existed
   // still applies; a missing or non-text value reads as empty.
   return {
@@ -475,7 +476,7 @@ export const resolveScheduleTimezone = (chosen?: string, stored?: string): strin
 
 export interface IssueDetectionScheduleUpdate {
   setting: IssueDetectionScheduleSetting;
-  traceFilters: ScheduleTraceFilter[];
+  traceFilters?: ScheduleTraceFilter[];
   model?: IssueDetectionScheduleModel;
   /** Omitted keeps the stored start time, the way omitting the model keeps the stored model. */
   startTime?: string;
@@ -533,7 +534,7 @@ export const saveIssueDetectionSchedule = async (
   { setting, traceFilters, model, startTime, weekday, timezone }: IssueDetectionScheduleUpdate,
   current?: IssueDetectionSchedule,
 ): Promise<IssueDetectionSchedule> => {
-  const normalized = normalizeTraceFilters(traceFilters);
+  const normalized = traceFilters ? normalizeTraceFilters(traceFilters) : (current?.traceFilters ?? []);
   const cadence = setting === 'off' ? current?.cadence : setting;
   // Like the cadence, the model, start time, weekday and timezone are kept while paused so
   // turning the schedule back on restores what it had.
@@ -543,11 +544,19 @@ export const saveIssueDetectionSchedule = async (
   const savedStartTime = parseIssueDetectionStartTime(startTime ?? current?.startTime);
   const savedWeekday = parseIssueDetectionWeekday(weekday ?? current?.weekday);
   const savedTimezone = resolveScheduleTimezone(timezone, current?.timezone);
-  await MlflowService.setExperimentTag({
-    experiment_id: experimentId,
-    key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-    value: JSON.stringify(normalized),
-  });
+  if (traceFilters) {
+    // Older clients can edit equality clauses; keep the saved scope they cannot represent.
+    const { experiment } = await MlflowService.getExperiment({ experiment_id: experimentId });
+    const raw = parseJson(
+      experiment?.tags?.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value,
+    );
+    const preserved = Array.isArray(raw) ? raw.filter((entry) => isRecord(entry) && !parseTraceFilter(entry)) : [];
+    await MlflowService.setExperimentTag({
+      experiment_id: experimentId,
+      key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+      value: JSON.stringify([...normalized, ...preserved]),
+    });
+  }
   await MlflowService.setExperimentTag({
     experiment_id: experimentId,
     key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,

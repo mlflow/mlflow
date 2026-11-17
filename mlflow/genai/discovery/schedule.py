@@ -24,12 +24,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_SCHEDULE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
 )
+from mlflow.utils.search_utils import SearchTraceUtils
 
 _logger = logging.getLogger(__name__)
 
@@ -119,6 +121,19 @@ class ScheduleTraceFilter:
 
 
 @dataclass(frozen=True)
+class CompiledTraceScopeClause:
+    """A saved UI trace filter, validated by the trace-search parser before use."""
+
+    source: dict[str, Any]
+
+    def to_filter_clause(self) -> str:
+        return self.source["compiled"]
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.source
+
+
+@dataclass(frozen=True)
 class ScheduleModel:
     """
     The model a scheduled run analyzes with, as chosen in the schedule modal.
@@ -189,7 +204,7 @@ class DetectionSchedule:
     cadence: DetectionCadence
     timezone: str = DEFAULT_TIMEZONE
     paused: bool = False
-    trace_filters: tuple[ScheduleTraceFilter, ...] = ()
+    trace_filters: tuple[ScheduleTraceFilter | CompiledTraceScopeClause, ...] = ()
     model: ScheduleModel | None = None
     # Time of day the cadence fires, ``"HH:MM"`` in ``timezone``. Daily and weekly use both
     # halves; hourly uses the minute and ignores the hour.
@@ -299,9 +314,18 @@ def _parse_envelope(raw_value: str | None) -> dict[str, Any] | None:
     return parsed
 
 
-def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
+def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | CompiledTraceScopeClause | None:
     if not isinstance(entry, dict):
         return None
+    if "compiled" in entry:
+        compiled = entry["compiled"]
+        if not isinstance(compiled, str) or not compiled.strip() or len(compiled) > 10000:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid saved issue-detection trace scope"
+            )
+        # Reject an invalid active scope instead of silently analyzing excluded traces.
+        SearchTraceUtils.parse_search_filter_for_search_traces(compiled)
+        return CompiledTraceScopeClause(source=entry)
     # Anything that is not "tag" reads as request metadata, as it does in the tab, so a clause
     # written before this field existed is applied rather than dropped.
     field: Literal["metadata", "tag"] = "tag" if entry.get("field") == "tag" else "metadata"
@@ -436,7 +460,9 @@ def _parse_model(entry: object) -> ScheduleModel | None:
     )
 
 
-def parse_trace_filters(raw_value: str | None) -> tuple[ScheduleTraceFilter, ...]:
+def parse_trace_filters(
+    raw_value: str | None,
+) -> tuple[ScheduleTraceFilter | CompiledTraceScopeClause, ...]:
     """
     Parse the trace-filter tag, dropping any clause this reader cannot use.
 

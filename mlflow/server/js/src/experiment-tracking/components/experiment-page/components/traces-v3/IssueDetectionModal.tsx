@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Modal,
   Button,
@@ -19,6 +19,8 @@ import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuer
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/useIssueDetectionSettings';
 import {
+  defaultIssueDetectionSettings,
+  type IssueDetectionSettings,
   noFocusAreaSelected,
   selectedDetectionCategories,
 } from '../../../../pages/experiment-issues/issueDetectionSettings';
@@ -31,7 +33,22 @@ import {
   type IssueDetectionModelSelection,
 } from './IssueDetectionModelDropdown';
 import { useActiveWorkspace } from '../../../../../workspaces/utils/WorkspaceUtils';
+import { useExperimentPermission } from '../../../../hooks/useExperimentPermission';
 import heroImg from '../../../../../common/static/issue-detection-empty.svg';
+import { IssueDetectionSettingsForm } from '../../../../pages/experiment-issues/IssueDetectionSettingsForm';
+import {
+  IssueDetectionTraceScope,
+  useNormalizeIssueDetectionTraceScope,
+} from '../../../../pages/experiment-issues/IssueDetectionTraceScope';
+import {
+  compileIssueDetectionTraceScope,
+  emptyIssueDetectionTraceScope,
+  type IssueDetectionTraceScopeValue,
+} from '../../../../pages/experiment-issues/issueDetectionTraceScope';
+import { useIssueDetectionTraceScope } from '../../../../pages/experiment-issues/useIssueDetectionTraceScope';
+import { useHasExperimentIssues } from '../../../../pages/experiment-issues/useExperimentIssues';
+import { searchMlflowTracesQueryFn } from '../../../../../shared/web-shared/genai-traces-table/hooks/useMlflowTraces';
+import { escapeFilterValue } from '../traces-v4/utils/buildTracesV4SearchParams';
 
 interface IssueDetectionModalProps {
   onClose: () => void;
@@ -46,7 +63,7 @@ const MIN_RECOMMENDED_TRACE_COUNT = 10;
 
 const MISSING_API_KEY_ERROR_FRAGMENT = 'No API key available';
 
-type ModalView = 'main' | 'apiKey';
+type ModalView = 'main' | 'apiKey' | 'customize';
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   onClose,
@@ -65,6 +82,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       ? initialSelectedTraceIds
       : availableTraceIds.slice(0, QUICK_SELECT_TRACE_COUNT);
   });
+  const [explicitSelection, setExplicitSelection] = useState(initialSelectedTraceIds.length > 0);
   const [selection, setSelection] = useState<IssueDetectionModelSelection | null>(null);
   const [view, setView] = useState<ModalView>('main');
   const [apiKeyDraft, setApiKeyDraft] = useState('');
@@ -78,17 +96,55 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     data: detectionSettings,
     isLoading: isLoadingDetectionSettings,
     error: detectionSettingsError,
+    refetch: refetchSettings,
+    save: saveSettings,
   } = useIssueDetectionSettings(experimentId ?? '', Boolean(experimentId));
+  const scope = useIssueDetectionTraceScope(experimentId ?? '', Boolean(experimentId));
+  const normalizeScope = useNormalizeIssueDetectionTraceScope();
+  const canEdit = useExperimentPermission(experimentId ?? '', ['EDIT', 'MANAGE']);
+  const [configuredSettings, setConfiguredSettings] = useState<IssueDetectionSettings>();
+  const [configuredScope, setConfiguredScope] = useState<IssueDetectionTraceScopeValue>();
+  const [settingsDraft, setSettingsDraft] = useState<IssueDetectionSettings>(defaultIssueDetectionSettings);
+  const [scopeDraft, setScopeDraft] = useState<IssueDetectionTraceScopeValue>(emptyIssueDetectionTraceScope);
+  const [isPreparing, setIsPreparing] = useState(false);
+  const preparing = useRef(false);
+  const [configurationError, setConfigurationError] = useState<Error>();
+  const history = useHasExperimentIssues(experimentId ?? '', Boolean(experimentId));
+  const [onboardingResolved, setOnboardingResolved] = useState(false);
+  const effectiveSettings = (canEdit ? configuredSettings : undefined) ?? detectionSettings;
+  const effectiveScope = (canEdit ? configuredScope : undefined) ?? scope.data ?? emptyIssueDetectionTraceScope();
+  const configurationLoadError = detectionSettingsError ?? scope.error;
   // A run submitted before the settings arrive would silently use the defaults and drop the
   // saved priorities, which is worse than waiting: it is an expensive run whose results
   // quietly ignore the experiment's configuration.
   const isWaitingForDetectionSettings = Boolean(
-    experimentId && isLoadingDetectionSettings && !detectionSettings && !detectionSettingsError,
+    experimentId &&
+    ((isLoadingDetectionSettings && !detectionSettings && !detectionSettingsError) ||
+      (scope.isLoading && !scope.data && !scope.error)),
   );
   // The one case where what is stored and what is sent differ, so it is disclosed here as well
   // as in the settings modal: this is where the run is actually started, and someone who saved
   // the setting a week ago is not looking at that modal now.
-  const savedSettingsSelectNothing = noFocusAreaSelected(detectionSettings);
+  const savedSettingsSelectNothing = noFocusAreaSelected(effectiveSettings);
+
+  useEffect(() => {
+    if (onboardingResolved || isWaitingForDetectionSettings || configurationLoadError || history.isLoading) return;
+    // A completed run with no issues is still a first run for setup purposes.
+    if (!history.data?.issues?.length) {
+      setSettingsDraft(detectionSettings ?? defaultIssueDetectionSettings());
+      setScopeDraft(scope.data ?? emptyIssueDetectionTraceScope());
+      setView('customize');
+    }
+    setOnboardingResolved(true);
+  }, [
+    onboardingResolved,
+    isWaitingForDetectionSettings,
+    configurationLoadError,
+    history.isLoading,
+    history.data,
+    detectionSettings,
+    scope.data,
+  ]);
 
   // Default to the first gateway endpoint, else the first core provider
   useEffect(() => {
@@ -121,7 +177,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     isLoading: isInvokingIssueDetection,
     error: issueDetectionError,
     reset: resetIssueDetection,
-  } = useInvokeIssueDetection();
+  } = useInvokeIssueDetection(experimentId);
 
   const {
     mutate: createSecret,
@@ -142,42 +198,82 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const isFormValid =
     selectedTraceIds.length > 0 &&
     !isWaitingForDetectionSettings &&
+    !configurationLoadError &&
+    onboardingResolved &&
+    !isPreparing &&
+    !isInvokingIssueDetection &&
     Boolean(
       selection && (selection.mode === 'endpoint' ? selection.endpointName : selection.provider && selection.model),
     );
 
-  const submitRun = (secretIdOverride?: string) => {
-    if (!selection || !experimentId) return;
+  const submitRun = async (secretIdOverride?: string) => {
+    if (!selection || !experimentId || !isFormValid || preparing.current) return;
+    preparing.current = true;
+    setIsPreparing(true);
+    setConfigurationError(undefined);
+    try {
+      if (canEdit && configuredSettings && JSON.stringify(configuredSettings) !== JSON.stringify(detectionSettings)) {
+        await saveSettings.mutateAsync(configuredSettings);
+      }
+      if (canEdit && configuredScope && JSON.stringify(configuredScope) !== JSON.stringify(scope.data)) {
+        await scope.save.mutateAsync(configuredScope);
+      }
+      let traceIds = selectedTraceIds;
+      const savedFilter = compileIssueDetectionTraceScope(effectiveScope);
+      if (savedFilter) {
+        const selectionFilter = explicitSelection
+          ? `attributes.request_id IN (${selectedTraceIds.map((id) => `'${escapeFilterValue(id)}'`).join(',')})`
+          : undefined;
+        const traces = await searchMlflowTracesQueryFn({
+          locations: [{ type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: experimentId } }],
+          filter: [selectionFilter, savedFilter].filter(Boolean).join(' AND '),
+          pageSize: explicitSelection ? Math.min(selectedTraceIds.length, 500) : QUICK_SELECT_TRACE_COUNT,
+          limit: explicitSelection ? selectedTraceIds.length : QUICK_SELECT_TRACE_COUNT,
+          orderBy: ['timestamp DESC'],
+        });
+        traceIds = traces.map((trace) => trace.trace_id);
+        if (!traceIds.length) {
+          throw new Error(
+            'No selected traces match the saved trace scope. Change the selection or customize the scope.',
+          );
+        }
+      }
 
-    invokeIssueDetection(
-      {
-        experimentId,
-        traceIds: selectedTraceIds,
-        categories: selectedDetectionCategories(detectionSettings),
-        instructions: detectionSettings?.instructions || undefined,
-        provider: selection.provider,
-        model: selection.model,
-        secret_id: selection.mode === 'direct' ? (secretIdOverride ?? existingSecrets[0]?.secret_id) : undefined,
-        endpoint_name: selection.mode === 'endpoint' ? selection.endpointName : undefined,
-      },
-      {
-        onSuccess: (response) => {
-          const traceCount = selectedTraceIds.length;
-          recordSubmittedIssueDetectionJob({
-            workspace,
-            experimentId,
-            jobId: response.job_id,
-            runId: response.run_id,
-            traceCount,
-          });
-          onClose();
+      invokeIssueDetection(
+        {
+          experimentId,
+          traceIds,
+          categories: selectedDetectionCategories(effectiveSettings),
+          instructions: effectiveSettings?.instructions || undefined,
+          provider: selection.provider,
+          model: selection.model,
+          secret_id: selection.mode === 'direct' ? (secretIdOverride ?? existingSecrets[0]?.secret_id) : undefined,
+          endpoint_name: selection.mode === 'endpoint' ? selection.endpointName : undefined,
         },
-      },
-    );
+        {
+          onSuccess: (response) => {
+            const traceCount = traceIds.length;
+            recordSubmittedIssueDetectionJob({
+              workspace,
+              experimentId,
+              jobId: response.job_id,
+              runId: response.run_id,
+              traceCount,
+            });
+            onClose();
+          },
+        },
+      );
+    } catch (error) {
+      setConfigurationError(error instanceof Error ? error : new Error(String(error)));
+    } finally {
+      preparing.current = false;
+      setIsPreparing(false);
+    }
   };
 
   const handleContinueAndRun = () => {
-    if (!selection || !apiKeyDraft.trim()) return;
+    if (!selection || !apiKeyDraft.trim() || !isFormValid || isCreatingSecret) return;
     createSecret(
       {
         secret_name: generateRandomName(selection.provider),
@@ -319,38 +415,58 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           closable={false}
         />
       )}
-      {detectionSettingsError && !detectionSettings && (
-        // Blocking the run on a tag read would strand a feature that worked before settings
-        // existed; running without saying so would hide that the configuration was ignored.
+      {configurationLoadError && (
         <Alert
-          componentId="mlflow.traces.issue-detection-modal.settings-unavailable"
-          type="warning"
-          css={{ marginTop: theme.spacing.md }}
-          message={intl.formatMessage({
-            defaultMessage:
-              "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
-            description:
-              'Warning in the issue detection modal shown when the saved detection settings could not be loaded',
-          })}
+          componentId="mlflow.traces.issue-detection-modal.settings-load-error"
+          type="error"
           closable={false}
+          message={intl.formatMessage({
+            defaultMessage: 'Could not load issue detection settings. Retry before starting analysis.',
+            description: 'Blocking detection settings read error',
+          })}
+          actions={[
+            {
+              componentId: 'mlflow.traces.issue-detection-modal.retry-settings',
+              children: intl.formatMessage({
+                defaultMessage: 'Retry',
+                description: 'Retry issue detection configuration',
+              }),
+              onClick: () => {
+                void refetchSettings();
+                void scope.refetch();
+              },
+            },
+          ]}
         />
       )}
-      {detectionSettingsError && detectionSettings && (
-        // A refresh that fails over settings already loaded is a different situation, and saying
-        // "the defaults will be used" here would be false: the run is submitted with these
-        // values, so what it says has to be what is sent.
-        <Alert
-          componentId="mlflow.traces.issue-detection-modal.settings-not-refreshed"
-          type="warning"
-          css={{ marginTop: theme.spacing.md }}
-          message={intl.formatMessage({
-            defaultMessage:
-              "This experiment's issue detection settings could not be refreshed, so this run uses the last ones loaded. Reopen this dialog to try again.",
-            description:
-              'Warning in the issue detection modal shown when the saved detection settings could not be refreshed and the previously loaded ones are used',
-          })}
-          closable={false}
+      <Button
+        componentId="mlflow.traces.issue-detection-modal.customize"
+        type="link"
+        disabled={
+          !canEdit ||
+          isWaitingForDetectionSettings ||
+          Boolean(configurationLoadError) ||
+          isPreparing ||
+          isInvokingIssueDetection
+        }
+        onClick={() => {
+          setSettingsDraft(effectiveSettings ?? defaultIssueDetectionSettings());
+          setScopeDraft(effectiveScope);
+          setView('customize');
+        }}
+      >
+        <FormattedMessage
+          defaultMessage="Customize"
+          description="Customize detection priorities and saved trace scope"
         />
+      </Button>
+      {compileIssueDetectionTraceScope(effectiveScope) && (
+        <Typography.Text color="secondary" css={{ display: 'block', marginTop: theme.spacing.sm }}>
+          <FormattedMessage
+            defaultMessage="The saved trace scope further limits which traces are analyzed."
+            description="Manual detection uses shared scope"
+          />
+        </Typography.Text>
       )}
       {showLowTraceWarning && (
         <div
@@ -420,11 +536,34 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   );
 
   const renderFooter = () => {
+    if (view === 'customize') {
+      return (
+        <>
+          <Button componentId="mlflow.traces.issue-detection-modal.customize-cancel" onClick={() => setView('main')}>
+            <FormattedMessage defaultMessage="Cancel" description="Discard customization draft" />
+          </Button>
+          <Button
+            componentId="mlflow.traces.issue-detection-modal.customize-apply"
+            type="primary"
+            disabled={canEdit && noFocusAreaSelected(settingsDraft)}
+            onClick={() => {
+              setConfiguredSettings(settingsDraft);
+              setConfiguredScope(normalizeScope(scopeDraft));
+              setView('main');
+            }}
+          >
+            <FormattedMessage defaultMessage="Apply" description="Apply customization to pending analysis" />
+          </Button>
+        </>
+      );
+    }
+
     if (view === 'apiKey') {
       return (
         <>
           <Button
             componentId="mlflow.traces.issue-detection-modal.api-key-back"
+            disabled={isCreatingSecret || isPreparing || isInvokingIssueDetection}
             onClick={() => {
               resetCreateSecret();
               setView('main');
@@ -436,8 +575,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             componentId="mlflow.traces.issue-detection-modal.api-key-continue"
             type="primary"
             onClick={handleContinueAndRun}
-            loading={isCreatingSecret || isInvokingIssueDetection}
-            disabled={!apiKeyDraft.trim()}
+            loading={isCreatingSecret || isPreparing || isInvokingIssueDetection}
+            disabled={!apiKeyDraft.trim() || !isFormValid}
           >
             <SparkleIcon css={{ marginRight: theme.spacing.xs }} />
             <FormattedMessage
@@ -470,7 +609,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             componentId="mlflow.traces.issue-detection-modal.submit"
             type="primary"
             onClick={() => submitRun()}
-            loading={isInvokingIssueDetection}
+            loading={isPreparing || isInvokingIssueDetection}
             disabled={!isFormValid}
           >
             <SparkleIcon css={{ marginRight: theme.spacing.xs }} />
@@ -498,10 +637,16 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       }
       visible
       dangerouslySetAntdProps={{
-        width: 520,
+        width: view === 'customize' ? 720 : 520,
         bodyStyle: { paddingLeft: 32, paddingRight: 32, paddingBottom: 24, overflowY: 'auto' },
       }}
-      onCancel={isInvokingIssueDetection || isCreatingSecret ? undefined : handleClose}
+      onCancel={
+        isInvokingIssueDetection || isCreatingSecret || isPreparing
+          ? undefined
+          : view === 'customize'
+            ? () => setView('main')
+            : handleClose
+      }
       footer={renderFooter()}
     >
       <div>
@@ -515,12 +660,45 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             css={{ marginBottom: theme.spacing.md }}
           />
         )}
+        {configurationError && (
+          <Alert
+            componentId="mlflow.traces.issue-detection-modal.configuration-error"
+            type="error"
+            message={configurationError.message}
+            closable={false}
+          />
+        )}
         {view === 'main' && renderMainView()}
+        {view === 'customize' && (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+            {history.error && (
+              <Alert
+                componentId="mlflow.traces.issue-detection-modal.history-unavailable"
+                type="info"
+                message={intl.formatMessage({
+                  defaultMessage: 'Issue history is unavailable. You can still configure and run analysis.',
+                  description: 'Advisory issue history read error',
+                })}
+                closable={false}
+              />
+            )}
+            <IssueDetectionSettingsForm draft={settingsDraft} setDraft={setSettingsDraft} disabled={!canEdit} />
+            <Typography.Text bold>
+              <FormattedMessage
+                defaultMessage="Filter target traces"
+                description="Detection setup trace scope section"
+              />
+            </Typography.Text>
+            <IssueDetectionTraceScope scope={scopeDraft} onChange={setScopeDraft} disabled={!canEdit} />
+          </div>
+        )}
+
         {view === 'apiKey' && renderApiKeyView()}
         {isSelectTracesModalOpen && (
           <SelectTracesModal
             onClose={() => setIsSelectTracesModalOpen(false)}
             onSuccess={(traceIds) => {
+              setExplicitSelection(true);
               setSelectedTraceIds(traceIds);
               setIsSelectTracesModalOpen(false);
             }}

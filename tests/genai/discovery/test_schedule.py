@@ -1062,3 +1062,38 @@ def test_a_model_naming_neither_an_endpoint_nor_a_provider_and_model_is_rejected
         ScheduleModel(provider="openai")
     assert ScheduleModel(endpoint_name="my-endpoint").to_model_uri() == "gateway:/my-endpoint"
     assert ScheduleModel(provider="OpenAI", model="gpt-5").to_model_uri() == "openai:/gpt-5"
+
+
+def test_saved_trace_scope_applies_rich_filters_and_text_search():
+    entries = [
+        {
+            "field": "duration",
+            "operator": ">",
+            "value": "1000",
+            "compiled": "attributes.execution_time_ms > 1000",
+        },
+        {
+            "field": "issue_detection_search_query",
+            "value": "customer feedback",
+            "compiled": "trace.text ILIKE '%customer feedback%'",
+        },
+    ]
+    schedule = parse_detection_schedule(
+        json.dumps({"version": 1, "cadence": "daily", "timezone": "UTC"}),
+        json.dumps(entries),
+    )
+    assert (
+        schedule.to_filter_string()
+        == "attributes.execution_time_ms > 1000 AND trace.text ILIKE '%customer feedback%'"
+    )
+    assert json.loads(schedule.trace_filters_to_json()) == entries
+
+
+@pytest.mark.parametrize(
+    "compiled", [None, 42, "", "x" * 10001, "trace.invalid = 'value'", "DROP TABLE traces"]
+)
+def test_invalid_saved_trace_scope_does_not_widen_a_scheduled_run(compiled):
+    from mlflow.exceptions import MlflowException
+
+    with pytest.raises(MlflowException, match="Invalid"):
+        parse_trace_filters(json.dumps([{"field": "duration", "compiled": compiled}]))

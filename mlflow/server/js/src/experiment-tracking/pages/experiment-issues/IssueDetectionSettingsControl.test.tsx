@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from '@jest/globals';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { rest } from 'msw';
 import userEvent from '@testing-library/user-event';
 
@@ -7,6 +7,9 @@ import { setupServer } from '../../../common/utils/setup-msw';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
 import { MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG } from '../../constants';
 import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
+
+import { useExperimentPermission } from '../../hooks/useExperimentPermission';
+jest.mock('../../hooks/useExperimentPermission');
 
 interface SavedTag {
   key: string;
@@ -55,6 +58,7 @@ const openSettings = async () => {
 const savedSettings = () => JSON.parse(written.at(-1)!.value);
 
 beforeEach(() => {
+  jest.mocked(useExperimentPermission).mockReturnValue(true);
   experimentTags = [];
   written = [];
   saveFails = false;
@@ -62,6 +66,13 @@ beforeEach(() => {
 });
 
 describe('IssueDetectionSettingsControl', () => {
+  test('users without edit permission cannot change saved settings', async () => {
+    jest.mocked(useExperimentPermission).mockReturnValue(false);
+    render();
+    expect(await screen.findByRole('button', { name: 'Issue detection settings' })).toBeDisabled();
+    expect(written).toEqual([]);
+  });
+
   test('an experiment with no saved settings opens with every focus area selected', async () => {
     render();
     await openSettings();
@@ -173,6 +184,24 @@ describe('IssueDetectionSettingsControl', () => {
     expect(screen.queryByText(/already exists/)).not.toBeInTheDocument();
   });
 
+  test.each(['latency', 'LATENCY', '  Latency  '])(
+    'rejects an omitted built-in custom category %s',
+    async (category) => {
+      experimentTags = [
+        {
+          key: MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG,
+          value: JSON.stringify({ instructions: '', categories: { correctness: true } }),
+        },
+      ];
+      render();
+      await openSettings();
+      await userEvent.click(screen.getByRole('button', { name: 'Custom category' }));
+      await userEvent.type(screen.getByRole('textbox', { name: 'Custom category' }), category);
+      expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+      expect(written).toHaveLength(0);
+    },
+  );
+
   test('a focus area name containing a template variable is rejected', async () => {
     // Reported in review: such a name saves fine but then reaches the judge's instructions,
     // where a doubled brace declares a template variable. The server rewrites it rather than
@@ -198,6 +227,8 @@ describe('IssueDetectionSettingsControl', () => {
     await openSettings();
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove custom category pii leakage' }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Correctness' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(written).toHaveLength(1));

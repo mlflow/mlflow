@@ -1,7 +1,13 @@
-import { describe, expect, test } from '@jest/globals';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { MlflowService } from '../../sdk/MlflowService';
 
-import { MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG, MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG } from '../../constants';
 import {
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+} from '../../constants';
+import {
+  saveIssueDetectionSchedule,
   DEFAULT_ISSUE_DETECTION_START_TIME,
   DEFAULT_ISSUE_DETECTION_WEEKDAY,
   ISSUE_DETECTION_SCHEDULE_VERSION,
@@ -282,5 +288,54 @@ describe('the next run the server has worked out', () => {
         },
       ]).nextRunMs,
     ).toBeUndefined();
+  });
+});
+
+jest.mock('../../sdk/MlflowService', () => ({
+  MlflowService: { getExperiment: jest.fn(), setExperimentTag: jest.fn() },
+}));
+jest.mock('../../../common/utils/FetchUtils', () => ({ fetchAPI: jest.fn(), getAjaxUrl: (url: string) => url }));
+
+describe('saving cadence and legacy trace filters', () => {
+  beforeEach(() => {
+    jest.mocked(MlflowService.getExperiment).mockReset();
+    jest.mocked(MlflowService.setExperimentTag).mockReset();
+  });
+
+  test('a cadence-only edit never reads or overwrites shared scope', async () => {
+    await saveIssueDetectionSchedule('1', { setting: 'off' });
+    expect(MlflowService.getExperiment).not.toHaveBeenCalled();
+    expect(MlflowService.setExperimentTag).toHaveBeenCalledTimes(1);
+    expect(MlflowService.setExperimentTag).toHaveBeenCalledWith(
+      expect.objectContaining({ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG }),
+    );
+  });
+
+  test('a legacy equality edit preserves rich and keyless clauses', async () => {
+    const rich = { field: 'duration', operator: '>', value: '1000', compiled: 'attributes.execution_time_ms > 1000' };
+    const text = {
+      field: 'issue_detection_search_query',
+      value: 'feedback',
+      compiled: "trace.text ILIKE '%feedback%'",
+    };
+    jest.mocked(MlflowService.getExperiment).mockResolvedValue({
+      experiment: {
+        tags: [
+          {
+            key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+            value: JSON.stringify([rich, text, { field: 'tag', key: 'old', value: 'prod' }]),
+          },
+        ],
+      },
+    } as any);
+    await saveIssueDetectionSchedule('1', { setting: 'off', traceFilters: [] });
+    const saved = jest.mocked(MlflowService.setExperimentTag).mock.calls[0][0];
+    expect(JSON.parse(saved.value)).toEqual([rich, text]);
+  });
+
+  test('a failed preservation read writes nothing', async () => {
+    jest.mocked(MlflowService.getExperiment).mockRejectedValue(new Error('offline'));
+    await expect(saveIssueDetectionSchedule('1', { setting: 'off', traceFilters: [] })).rejects.toThrow('offline');
+    expect(MlflowService.setExperimentTag).not.toHaveBeenCalled();
   });
 });
