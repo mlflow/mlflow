@@ -12,7 +12,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { GenAIMarkdownRenderer } from '../../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import type { FeedbackAssessment } from '../ModelTrace.types';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 import { AssessmentDisplayValue } from '../../assessments-pane/AssessmentDisplayValue';
 import { getAssessmentDisplayName } from '../../assessments-pane/AssessmentsPane.utils';
 import { KeyValueTag } from '../../key-value-tag/KeyValueTag';
@@ -31,7 +31,7 @@ export function ModelTraceExplorerRetrieverDocumentFull({
   logDocumentClick?: (action: string) => void;
 }): JSX.Element {
   const { theme } = useDesignSystemTheme();
-  const { highlightAssessment, setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { highlightAssessment, setAssessmentsPaneExpanded } = useModelTraceExplorerViewControls();
 
   const handleAssessmentBadgeClick = useCallback(
     (e: React.MouseEvent) => {

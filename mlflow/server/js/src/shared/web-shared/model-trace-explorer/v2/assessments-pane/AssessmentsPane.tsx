@@ -7,7 +7,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { ASSESSMENT_PANE_MIN_WIDTH } from '../../assessments-pane/AssessmentsPane.utils';
 import { isEvaluatingTracesInDetailsViewEnabled, shouldUseTracesV4API } from '../../FeatureUtils';
 import type { Assessment, ExpectationAssessment, FeedbackAssessment } from '../ModelTrace.types';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 import { useTraceCachedActions } from '../../hooks/useTraceCachedActions';
 import { AssessmentsPaneExpectationsSection } from '../../assessments-pane/AssessmentsPaneExpectationsSection';
 import { AssessmentsPaneFeedbackSection } from './AssessmentsPaneFeedbackSection';
@@ -47,7 +47,7 @@ export const AssessmentsPane = ({
   }, [assessments, reconstructAssessments, cachedActions]);
 
   const { theme } = useDesignSystemTheme();
-  const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+  const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewControls();
 
   const { feedbacks, expectations } = useMemo(() => {
     const feedbacks: FeedbackAssessment[] = [];

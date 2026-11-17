@@ -16,7 +16,7 @@ import {
   useModelTraceExplorerPreferences,
 } from '../ModelTraceExplorerPreferencesContext';
 import {
-  ModelTraceExplorerViewStateContext,
+  ModelTraceExplorerSpanRowStateContext,
   useModelTraceExplorerViewState,
 } from '../ModelTraceExplorerViewStateContext';
 import { MOCK_TRACE } from '../../ModelTraceExplorer.test-utils';
@@ -63,10 +63,10 @@ const ViewStateOverride = ({ children }: { children: React.ReactNode }) => {
   const [activeTab, setActiveTab] = useState(viewState.activeTab);
 
   return (
-    <ModelTraceExplorerViewStateContext.Provider value={{ ...viewState, activeTab, setActiveTab }}>
+    <ModelTraceExplorerSpanRowStateContext.Provider value={{ ...viewState, setActiveTab }}>
       {children}
       <span data-testid="active-tab">{activeTab}</span>
-    </ModelTraceExplorerViewStateContext.Provider>
+    </ModelTraceExplorerSpanRowStateContext.Provider>
   );
 };
 

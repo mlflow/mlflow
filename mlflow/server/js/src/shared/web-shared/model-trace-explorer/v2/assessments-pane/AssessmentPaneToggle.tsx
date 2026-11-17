@@ -9,7 +9,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 
 export const AssessmentPaneToggle = ({
   assessmentCount = 0,
@@ -21,7 +21,7 @@ export const AssessmentPaneToggle = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled } =
-    useModelTraceExplorerViewState();
+    useModelTraceExplorerViewControls();
   const hasAssessments = assessmentCount > 0;
   const label = hasAssessments
     ? intl.formatMessage(

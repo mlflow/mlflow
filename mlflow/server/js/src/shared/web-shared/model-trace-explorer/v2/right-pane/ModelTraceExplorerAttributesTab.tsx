@@ -19,7 +19,7 @@ import {
   areModelTraceComparisonValuesEqual,
   ModelTraceExplorerFieldRenderer,
 } from '../field-renderers/ModelTraceExplorerFieldRenderer';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 
 type AttributesRenderMode = 'pretty' | 'json' | 'yaml';
 
@@ -49,7 +49,7 @@ export function ModelTraceExplorerAttributesTab({
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
   const { renderMode } = useModelTraceExplorerPreferences();
-  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewState();
+  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewControls();
   const [attributesRenderMode, setAttributesRenderMode] = useState<AttributesRenderMode>(
     renderMode === 'json' || renderMode === 'yaml' ? renderMode : 'pretty',
   );

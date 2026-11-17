@@ -15,7 +15,7 @@ import { useIntl } from '@databricks/i18n';
 import type { SpanFilterState } from '../ModelTrace.types';
 import { type TimelineTreeMetric, useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 import { getDisplayNameForSpanType } from '../ModelTraceExplorer.utils';
-import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerViewControls } from '../ModelTraceExplorerViewStateContext';
 
 const DISPLAY_METRIC_OPTIONS = ['duration', 'tokens', 'cost'] as const satisfies readonly TimelineTreeMetric[];
 
@@ -36,7 +36,7 @@ export const TimelineTreeFilterButton = ({
   const intl = useIntl();
   const { addSnack } = useSnackBar();
   const { timelineTreeMetrics, setTimelineTreeMetrics } = useModelTraceExplorerPreferences();
-  const { refreshTrace, isRefreshingTrace } = useModelTraceExplorerViewState();
+  const { refreshTrace, isRefreshingTrace } = useModelTraceExplorerViewControls();
 
   const metricLabel = (metric: (typeof DISPLAY_METRIC_OPTIONS)[number]): string => {
     switch (metric) {

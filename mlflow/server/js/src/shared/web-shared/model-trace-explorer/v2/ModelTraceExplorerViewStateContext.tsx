@@ -71,40 +71,57 @@ export type ModelTraceExplorerViewState = {
   selectedSpanIdOnRenderDisplayId?: string;
 };
 
-export const ModelTraceExplorerViewStateContext: React.Context<ModelTraceExplorerViewState> =
-  createContext<ModelTraceExplorerViewState>({
-    rootNode: null,
-    nodeMap: {},
-    activeView: 'detail',
-    setActiveView: () => {},
-    selectedNode: undefined,
-    setSelectedNode: () => {},
-    activeTab: 'content',
-    setActiveTab: () => {},
-    showGraph: false,
-    setShowGraph: () => {},
-    showTimelineTreeGantt: false,
-    setShowTimelineTreeGantt: () => {},
-    assessmentsPaneExpanded: false,
-    setAssessmentsPaneExpanded: () => {},
-    isTraceInitialLoading: false,
-    assessmentsPaneEnabled: true,
-    updatePaneSizeRatios: () => {},
-    getPaneSizeRatios: () => getDefaultPaneSizeRatios(),
-    readOnly: false,
-    hideAssessments: false,
-    topLevelNodes: [],
-    subscribeToHighlightEvent: () => () => {},
-    highlightAssessment: () => {},
-    refreshTrace: undefined,
-    isRefreshingTrace: false,
-    comparisonRole: undefined,
-    comparisonNodeMap: {},
-    comparisonNodeRoleMap: {},
-    selectedComparisonNode: undefined,
-    selectedNodeComparisonRole: undefined,
-    selectedSpanIdOnRenderDisplayId: undefined,
-  });
+const DEFAULT_VIEW_STATE: ModelTraceExplorerViewState = {
+  rootNode: null,
+  nodeMap: {},
+  activeView: 'detail',
+  setActiveView: () => {},
+  selectedNode: undefined,
+  setSelectedNode: () => {},
+  activeTab: 'content',
+  setActiveTab: () => {},
+  showGraph: false,
+  setShowGraph: () => {},
+  showTimelineTreeGantt: false,
+  setShowTimelineTreeGantt: () => {},
+  assessmentsPaneExpanded: false,
+  setAssessmentsPaneExpanded: () => {},
+  isTraceInitialLoading: false,
+  assessmentsPaneEnabled: true,
+  updatePaneSizeRatios: () => {},
+  getPaneSizeRatios: () => getDefaultPaneSizeRatios(),
+  readOnly: false,
+  hideAssessments: false,
+  topLevelNodes: [],
+  subscribeToHighlightEvent: () => () => {},
+  highlightAssessment: () => {},
+  refreshTrace: undefined,
+  isRefreshingTrace: false,
+  comparisonRole: undefined,
+  comparisonNodeMap: {},
+  comparisonNodeRoleMap: {},
+  selectedComparisonNode: undefined,
+  selectedNodeComparisonRole: undefined,
+  selectedSpanIdOnRenderDisplayId: undefined,
+};
+
+export const ModelTraceExplorerViewStateContext = createContext(DEFAULT_VIEW_STATE);
+
+// Row actions ignore selection and tabs; comparison refreshes still update the row pairing maps.
+export type ModelTraceExplorerSpanRowState = Pick<
+  ModelTraceExplorerViewState,
+  'setActiveTab' | 'setAssessmentsPaneExpanded' | 'comparisonNodeMap' | 'comparisonNodeRoleMap'
+>;
+export const ModelTraceExplorerSpanRowStateContext = createContext<ModelTraceExplorerSpanRowState>(DEFAULT_VIEW_STATE);
+export const useModelTraceExplorerSpanRowState = () => useContext(ModelTraceExplorerSpanRowStateContext);
+
+// Comparison consumers still receive refreshed pairing and selection data in this slice.
+export type ModelTraceExplorerViewControls = Omit<
+  ModelTraceExplorerViewState,
+  'rootNode' | 'nodeMap' | 'topLevelNodes' | 'selectedNode'
+>;
+const ModelTraceExplorerViewControlsContext = createContext<ModelTraceExplorerViewControls>(DEFAULT_VIEW_STATE);
+export const useModelTraceExplorerViewControls = () => useContext(ModelTraceExplorerViewControlsContext);
 
 export const useModelTraceExplorerViewState = (): ModelTraceExplorerViewState => {
   return useContext(ModelTraceExplorerViewStateContext);
@@ -174,7 +191,10 @@ export const ModelTraceExplorerViewStateProvider = ({
   const selectedSpanIdOnRenderDisplayId = selectedSpanOnRender ? String(selectedSpanOnRender.key) : undefined;
   const hasAssessments = (defaultSelectedNode?.assessments?.length ?? 0) > 0;
 
-  const preferences = useModelTraceExplorerPreferences();
+  const {
+    assessmentsPaneExpanded: preferredAssessmentsPaneExpanded,
+    setAssessmentsPaneExpanded: persistAssessmentsPaneExpanded,
+  } = useModelTraceExplorerPreferences();
 
   // Stores the pane size rations. Uses mutable ref instead of useState to avoid unnecessary rerenders,
   // as the pane size ratios are used only during the initial render.
@@ -208,8 +228,8 @@ export const ModelTraceExplorerViewStateProvider = ({
     setSelectedNode(nodeMap[String(selectedNode.key)] ?? rootNode ?? topLevelNodes[0]);
   }, [nodeMap, rootNode, selectedNode, topLevelNodes]);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
-    if (preferences.assessmentsPaneExpanded !== undefined) {
-      return preferences.assessmentsPaneExpanded;
+    if (preferredAssessmentsPaneExpanded !== undefined) {
+      return preferredAssessmentsPaneExpanded;
     }
     return (
       (initialAssessmentsPaneCollapsed === false && hasAssessments) || initialAssessmentsPaneCollapsed === 'force-open'
@@ -219,9 +239,9 @@ export const ModelTraceExplorerViewStateProvider = ({
   const setAssessmentsPaneExpanded = useCallback(
     (expanded: boolean) => {
       setAssessmentsPaneExpandedInternal(expanded);
-      preferences.setAssessmentsPaneExpanded(expanded);
+      persistAssessmentsPaneExpanded(expanded);
     },
-    [preferences],
+    [persistAssessmentsPaneExpanded],
   );
 
   const pendingHighlightRef = useRef<string | null>(null);
@@ -261,15 +281,12 @@ export const ModelTraceExplorerViewStateProvider = ({
     );
   }, [selectedNode]);
 
-  const value = useMemo(
+  const viewControls = useMemo(
     () => ({
-      rootNode,
-      nodeMap,
       activeView,
       setActiveView,
       activeTab,
       setActiveTab,
-      selectedNode,
       setSelectedNode,
       showGraph,
       setShowGraph,
@@ -283,7 +300,6 @@ export const ModelTraceExplorerViewStateProvider = ({
       getPaneSizeRatios,
       readOnly,
       hideAssessments,
-      topLevelNodes,
       subscribeToHighlightEvent,
       highlightAssessment,
       refreshTrace,
@@ -298,10 +314,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     [
       activeView,
       setActiveView,
-      nodeMap,
       activeTab,
-      rootNode,
-      selectedNode,
       showGraph,
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
@@ -313,7 +326,6 @@ export const ModelTraceExplorerViewStateProvider = ({
       getPaneSizeRatios,
       readOnly,
       hideAssessments,
-      topLevelNodes,
       refreshTrace,
       isRefreshingTrace,
       comparisonRole,
@@ -327,7 +339,21 @@ export const ModelTraceExplorerViewStateProvider = ({
     ],
   );
 
+  const value = useMemo(
+    () => ({ ...viewControls, rootNode, nodeMap, selectedNode, topLevelNodes }),
+    [viewControls, rootNode, nodeMap, selectedNode, topLevelNodes],
+  );
+  const spanRowState = useMemo(
+    () => ({ setActiveTab, setAssessmentsPaneExpanded, comparisonNodeMap, comparisonNodeRoleMap }),
+    [setActiveTab, setAssessmentsPaneExpanded, comparisonNodeMap, comparisonNodeRoleMap],
+  );
   return (
-    <ModelTraceExplorerViewStateContext.Provider value={value}>{children}</ModelTraceExplorerViewStateContext.Provider>
+    <ModelTraceExplorerViewStateContext.Provider value={value}>
+      <ModelTraceExplorerViewControlsContext.Provider value={viewControls}>
+        <ModelTraceExplorerSpanRowStateContext.Provider value={spanRowState}>
+          {children}
+        </ModelTraceExplorerSpanRowStateContext.Provider>
+      </ModelTraceExplorerViewControlsContext.Provider>
+    </ModelTraceExplorerViewStateContext.Provider>
   );
 };
