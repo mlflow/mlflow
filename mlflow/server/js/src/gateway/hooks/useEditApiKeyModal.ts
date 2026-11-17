@@ -56,10 +56,6 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
   const intl = useIntl();
   const [formData, setFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
   const [initialFormData, setInitialFormData] = useState<SecretFormData>(INITIAL_FORM_DATA);
-  const [errors, setErrors] = useState<{
-    secretFields?: Record<string, string>;
-    configFields?: Record<string, string>;
-  }>({});
 
   const { mutateAsync: updateSecret, isLoading, error: mutationError, reset: resetMutation } = useUpdateSecret();
 
@@ -101,7 +97,6 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       };
       setFormData(data);
       setInitialFormData(data);
-      setErrors({});
       resetMutationRef.current();
     }
   }, [secret]);
@@ -114,50 +109,31 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     [resetMutation],
   );
 
-  const validateForm = useCallback((): boolean => {
-    const newErrors: typeof errors = {};
+  const missingSecretFieldNames = useMemo(() => {
+    if (!secret || !hasApiBaseHostnameChanged(formData, initialFormData)) return [];
 
-    // When editing an existing key, secret fields are optional (backend keeps existing values)
-    if (!secret) {
-      const hasSecretValues = Object.values(formData.secretFields).some((v) => Boolean(v));
-      if (!hasSecretValues) {
-        newErrors.secretFields = {};
-      }
-    }
+    return getCredentialReplacementFieldNames(secret, selectedAuthMode, formData, initialFormData).filter(
+      (fieldName) => !formData.secretFields[fieldName]?.trim(),
+    );
+  }, [secret, formData, initialFormData, selectedAuthMode]);
 
-    if (secret && hasApiBaseHostnameChanged(formData, initialFormData)) {
-      const requiredSecretFieldNames = getCredentialReplacementFieldNames(
-        secret,
-        selectedAuthMode,
-        formData,
-        initialFormData,
-      );
-      const missingSecretFieldNames = requiredSecretFieldNames.filter((fieldName) => {
-        return !formData.secretFields[fieldName]?.trim();
-      });
+  const errors = useMemo<{ secretFields?: Record<string, string>; configFields?: Record<string, string> }>(() => {
+    if (missingSecretFieldNames.length === 0) return {};
 
-      if (missingSecretFieldNames.length > 0) {
-        const message = intl.formatMessage({
-          defaultMessage: 'Re-enter this credential when changing the API Base URL hostname.',
-          description: 'Validation message shown when changing the API Base URL hostname',
-        });
-        newErrors.secretFields = Object.fromEntries(missingSecretFieldNames.map((fieldName) => [fieldName, message]));
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }, [secret, formData, initialFormData, selectedAuthMode, intl]);
+    const message = intl.formatMessage({
+      defaultMessage: 'Re-enter this credential when changing the API Base URL hostname.',
+      description: 'Validation message shown when changing the API Base URL hostname',
+    });
+    return { secretFields: Object.fromEntries(missingSecretFieldNames.map((fieldName) => [fieldName, message])) };
+  }, [missingSecretFieldNames, intl]);
 
   const resetForm = useCallback(() => {
     setFormData(initialFormData);
-    setErrors({});
     resetMutation();
   }, [initialFormData, resetMutation]);
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
-    setErrors({});
     resetMutation();
     onClose();
   }, [onClose, resetMutation]);
@@ -177,7 +153,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
   }, [mutationError, intl]);
 
   const handleSubmit = useCallback(async () => {
-    if (!secret || !validateForm()) return;
+    if (!secret || missingSecretFieldNames.length > 0) return;
 
     try {
       const effectiveAuthMode = formData.authMode || selectedAuthMode?.mode;
@@ -198,13 +174,12 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       // Update initial state to match saved values so isDirty resets,
       // but keep form populated (don't reset to empty like handleClose does)
       setInitialFormData(formData);
-      setErrors({});
       resetMutation();
       onSuccess?.();
     } catch {
       // Error is handled by mutation state
     }
-  }, [secret, validateForm, formData, selectedAuthMode, updateSecret, resetMutation, onSuccess]);
+  }, [secret, missingSecretFieldNames, formData, selectedAuthMode, updateSecret, resetMutation, onSuccess]);
 
   const isDirty = useMemo(() => {
     if (JSON.stringify(formData.secretFields) !== JSON.stringify(initialFormData.secretFields)) return true;
@@ -227,20 +202,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
       if (!allRequiredSecretsProvided) return false;
     }
 
-    if (secret && hasApiBaseHostnameChanged(formData, initialFormData)) {
-      const requiredSecretFieldNames = getCredentialReplacementFieldNames(
-        secret,
-        selectedAuthMode,
-        formData,
-        initialFormData,
-      );
-      if (
-        requiredSecretFieldNames.length === 0 ||
-        requiredSecretFieldNames.some((fieldName) => !formData.secretFields[fieldName]?.trim())
-      ) {
-        return false;
-      }
-    }
+    if (missingSecretFieldNames.length > 0) return false;
 
     const requiredConfigFields = selectedAuthMode?.config_fields?.filter((f) => f.required) ?? [];
     const allRequiredConfigsProvided = requiredConfigFields.every((field) =>
@@ -249,7 +211,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     if (!allRequiredConfigsProvided) return false;
 
     return true;
-  }, [secret, isDirty, formData, initialFormData, selectedAuthMode]);
+  }, [secret, isDirty, formData, missingSecretFieldNames, selectedAuthMode]);
 
   return {
     formData,

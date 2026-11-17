@@ -145,7 +145,7 @@ describe('useEditApiKeyModal', () => {
     expect(result.current.isFormValid).toBe(true);
   });
 
-  test('isFormValid is false when api_base changes without secret values', () => {
+  test('shows missing credential errors on hostname change without submitting and clears them on re-entry', () => {
     const { result } = renderHook(
       () => useEditApiKeyModal({ secret: mockApiBaseSecret, onClose: mockOnClose, onSuccess: mockOnSuccess }),
       { wrapper: createWrapper() },
@@ -159,6 +159,70 @@ describe('useEditApiKeyModal', () => {
     });
 
     expect(result.current.isFormValid).toBe(false);
+    expect(result.current.errors.secretFields).toEqual({
+      api_key: 'Re-enter this credential when changing the API Base URL hostname.',
+    });
+    expect(mockUpdateSecret).not.toHaveBeenCalled();
+
+    act(() => {
+      result.current.handleFormDataChange({
+        ...result.current.formData,
+        secretFields: { api_key: 'sk-new-key' },
+      });
+    });
+
+    expect(result.current.isFormValid).toBe(true);
+    expect(result.current.errors).toEqual({});
+  });
+
+  test('clears missing credential errors when the hostname change is reverted', () => {
+    const { result } = renderHook(
+      () => useEditApiKeyModal({ secret: mockApiBaseSecret, onClose: mockOnClose, onSuccess: mockOnSuccess }),
+      { wrapper: createWrapper() },
+    );
+
+    act(() => {
+      result.current.handleFormDataChange({
+        ...result.current.formData,
+        configFields: { api_base: 'https://proxy.example.com/v1' },
+      });
+    });
+    expect(result.current.errors.secretFields?.['api_key']).toBeDefined();
+
+    act(() => {
+      result.current.handleFormDataChange({
+        ...result.current.formData,
+        configFields: { api_base: 'https://api.openai.com/v2' },
+      });
+    });
+
+    expect(result.current.isFormValid).toBe(true);
+    expect(result.current.errors).toEqual({});
+  });
+
+  test('allows submitting replacement credentials when there are no required field names', async () => {
+    const secret = { ...mockApiBaseSecret, masked_values: {} };
+    const { result } = renderHook(
+      () => useEditApiKeyModal({ secret, onClose: mockOnClose, onSuccess: mockOnSuccess }),
+      { wrapper: createWrapper() },
+    );
+
+    act(() => {
+      result.current.handleFormDataChange({
+        ...result.current.formData,
+        configFields: { api_base: 'https://proxy.example.com/v1' },
+        secretFields: { api_key: 'sk-new-key' },
+      });
+    });
+
+    expect(result.current.isFormValid).toBe(true);
+    expect(result.current.errors).toEqual({});
+
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(mockUpdateSecret).toHaveBeenCalledWith(expect.objectContaining({ secret_value: { api_key: 'sk-new-key' } }));
   });
 
   test.each([
@@ -181,6 +245,7 @@ describe('useEditApiKeyModal', () => {
     });
 
     expect(result.current.isFormValid).toBe(true);
+    expect(result.current.errors).toEqual({});
     await act(async () => {
       await result.current.handleSubmit();
     });
@@ -343,10 +408,6 @@ describe('useEditApiKeyModal', () => {
     });
 
     expect(result.current.isFormValid).toBe(false);
-
-    await act(async () => {
-      await result.current.handleSubmit();
-    });
     expect(mockUpdateSecret).not.toHaveBeenCalled();
     expect(result.current.errors.secretFields?.['portkey_config']).toBe(
       'Re-enter this credential when changing the API Base URL hostname.',
@@ -367,6 +428,7 @@ describe('useEditApiKeyModal', () => {
     });
 
     expect(result.current.isFormValid).toBe(true);
+    expect(result.current.errors).toEqual({});
 
     await act(async () => {
       await result.current.handleSubmit();
