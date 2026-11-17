@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import { ModelSpanType, type ModelTraceSpanNode } from './ModelTrace.types';
 import { getMatchesFromSpan, searchTree } from './ModelTraceExplorer.utils';
-import { TEST_SPAN_FILTER_STATE } from './v2/timeline-tree/TimelineTree.test-utils';
+import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
 const node = (key: string): ModelTraceSpanNode => ({
   key,
@@ -34,16 +34,16 @@ describe('shared trace search result aggregation', () => {
     expect(matches[MATCH_COUNT - 1]).toMatchObject({ span, section: 'links', matchIndex: MATCH_COUNT - 1 });
   });
 
-  it('retains existing child aggregation and parent-first match order', () => {
+  it('retains parent-first order while aggregating a child event above the argument limit', () => {
     const root = node('root');
     root.inputs = { value: 'x' };
     const child = node('child');
-    child.outputs = { value: 'x'.repeat(MATCH_COUNT) };
+    child.events = [{ name: 'event', timestamp: 0, attributes: { value: 'x'.repeat(MATCH_COUNT) } }];
     root.children = [child];
     const { matches, filteredTreeNodes } = searchTree(root, 'x', TEST_SPAN_FILTER_STATE);
     expect(matches).toHaveLength(MATCH_COUNT + 1);
     expect(matches[0]).toMatchObject({ span: root, section: 'inputs', matchIndex: 0 });
-    expect(matches[MATCH_COUNT]).toMatchObject({ span: child, section: 'outputs', matchIndex: MATCH_COUNT - 1 });
+    expect(matches[MATCH_COUNT]).toMatchObject({ span: child, section: 'events', matchIndex: MATCH_COUNT - 1 });
     expect(filteredTreeNodes[0].children?.[0].key).toBe('child');
   });
 });
