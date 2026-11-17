@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useRef, useState } from 'react';
 
-type PayloadCacheKind = 'fields' | 'section-json';
+type PayloadCacheKind = 'fields' | 'section-json' | 'input-chat-json' | 'output-chat-json';
 type PayloadCache = <T>(kind: PayloadCacheKind, payload: unknown, compute: () => T) => T;
 const PayloadCacheContext = createContext<PayloadCache | undefined>(undefined);
 
@@ -10,6 +10,8 @@ const createPayloadCache = (): PayloadCache => {
   const kinds: Record<PayloadCacheKind, { payload: unknown; result: unknown }[]> = {
     fields: [],
     'section-json': [],
+    'input-chat-json': [],
+    'output-chat-json': [],
   };
   return <T,>(kind: PayloadCacheKind, payload: unknown, compute: () => T): T => {
     const entries = kinds[kind];

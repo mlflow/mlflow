@@ -46,21 +46,29 @@ describe('selected payload cache', () => {
     const compute = jest.fn((value: number) => ({ value }));
     const { result, rerender } = renderHook(
       ({ kind, value }) => useCachedPayloadResult(kind, value, () => compute(value)),
-      { initialProps: { kind: 'fields' as 'fields' | 'section-json', value: 0 }, wrapper },
+      {
+        initialProps: {
+          kind: 'fields' as 'fields' | 'section-json' | 'input-chat-json' | 'output-chat-json',
+          value: 0,
+        },
+        wrapper,
+      },
     );
     const first = result.current;
     for (let value = 1; value < 8; value++) rerender({ kind: 'fields', value });
     for (let value = 0; value < 8; value++) rerender({ kind: 'section-json', value });
+    for (let value = 0; value < 8; value++) rerender({ kind: 'input-chat-json', value });
+    for (let value = 0; value < 8; value++) rerender({ kind: 'output-chat-json', value });
     rerender({ kind: 'fields', value: 0 });
     expect(result.current).toBe(first);
-    expect(compute).toHaveBeenCalledTimes(16);
+    expect(compute).toHaveBeenCalledTimes(32);
   });
 
   it('separates result kinds and pane lifetimes', () => {
     const payload = { text: 'synthetic' };
     const compute = jest.fn(() => 'result');
     const { rerender } = renderHook(({ kind }) => useCachedPayloadResult(kind, payload, compute), {
-      initialProps: { kind: 'fields' as 'fields' | 'section-json' },
+      initialProps: { kind: 'fields' as 'fields' | 'section-json' | 'input-chat-json' | 'output-chat-json' },
       wrapper,
     });
     rerender({ kind: 'section-json' });

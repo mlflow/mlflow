@@ -111,38 +111,45 @@ const getOutputChatMessages = (
   };
 };
 
-// In a comparison, chat messages that did not come from the payload itself are compared as one extra field.
-const getEffectiveComparisonFields = (
-  fields: ModelTraceExplorerField[],
-  chatMessages: { messages: ModelTraceChatMessage[]; hasTopLevelChatPayload: boolean },
-): ModelTraceExplorerField[] => {
-  if (chatMessages.hasTopLevelChatPayload || chatMessages.messages.length === 0) {
-    return fields;
-  }
-
-  return [
-    ...fields.filter(({ key }) => key !== 'mlflow.chat.messages'),
-    { key: 'mlflow.chat.messages', value: JSON.stringify(chatMessages.messages, null, 2) },
-  ];
-};
-
-// The input and output fields a comparison shows for a span, one entry per rendered field.
-export const getSpanComparisonFields = (
-  span: ModelTraceSpanNode | undefined,
-  inputs: ModelTraceExplorerField[],
-  outputs: ModelTraceExplorerField[],
-): { inputs: ModelTraceExplorerField[]; outputs: ModelTraceExplorerField[] } => {
-  const inputChatMessages = getInputChatMessages(span);
-  return {
-    inputs: getEffectiveComparisonFields(inputs, inputChatMessages),
-    outputs: getEffectiveComparisonFields(outputs, getOutputChatMessages(span, inputChatMessages.messages)),
-  };
-};
-
-export const useSpanComparisonFields = (span: ModelTraceSpanNode | undefined) => {
-  const inputs = useCachedPayloadResult('fields', span?.inputs, () => createListFromObject(span?.inputs));
-  const outputs = useCachedPayloadResult('fields', span?.outputs, () => createListFromObject(span?.outputs));
-  return useMemo(() => getSpanComparisonFields(span, inputs, outputs), [span, inputs, outputs]);
+// Fallback conversations share the payload cache across badge and pane consumers.
+export const useSpanComparisonFields = (span: ModelTraceSpanNode | undefined, comparison = true) => {
+  const rawInputs = useCachedPayloadResult('fields', span?.inputs, () => createListFromObject(span?.inputs));
+  const rawOutputs = useCachedPayloadResult('fields', span?.outputs, () => createListFromObject(span?.outputs));
+  const inputChat = useMemo(() => getInputChatMessages(span), [span]);
+  const outputChat = useMemo(() => getOutputChatMessages(span, inputChat.messages), [span, inputChat]);
+  const needsInputFallback = comparison && !inputChat.hasTopLevelChatPayload && inputChat.messages.length > 0;
+  const needsOutputFallback = comparison && !outputChat.hasTopLevelChatPayload && outputChat.messages.length > 0;
+  const inputFallback = useCachedPayloadResult(
+    'input-chat-json',
+    needsInputFallback ? span?.chatMessages : undefined,
+    () => (needsInputFallback ? JSON.stringify(inputChat.messages, null, 2) : undefined),
+  );
+  const outputFallback = useCachedPayloadResult(
+    'output-chat-json',
+    needsOutputFallback ? span?.chatMessages : undefined,
+    () => (needsOutputFallback ? JSON.stringify(outputChat.messages, null, 2) : undefined),
+  );
+  const inputs = useMemo(
+    () =>
+      inputFallback === undefined
+        ? rawInputs
+        : [
+            ...rawInputs.filter(({ key }) => key !== 'mlflow.chat.messages'),
+            { key: 'mlflow.chat.messages', value: inputFallback },
+          ],
+    [rawInputs, inputFallback],
+  );
+  const outputs = useMemo(
+    () =>
+      outputFallback === undefined
+        ? rawOutputs
+        : [
+            ...rawOutputs.filter(({ key }) => key !== 'mlflow.chat.messages'),
+            { key: 'mlflow.chat.messages', value: outputFallback },
+          ],
+    [rawOutputs, outputFallback],
+  );
+  return { inputs, outputs, rawInputs, rawOutputs, inputChat, outputChat };
 };
 
 export function ModelTraceExplorerDefaultSpanView({
@@ -168,49 +175,22 @@ export function ModelTraceExplorerDefaultSpanView({
     outputs: getInitialSectionRenderMode(defaultRenderMode),
   });
   const [openSectionRenderModeDropdown, setOpenSectionRenderModeDropdown] = useState<'inputs' | 'outputs' | null>(null);
-  const inputList = useCachedPayloadResult('fields', activeSpan?.inputs, () =>
-    createListFromObject(activeSpan?.inputs),
-  );
-  const outputList = useCachedPayloadResult('fields', activeSpan?.outputs, () =>
-    createListFromObject(activeSpan?.outputs),
-  );
-  const inputChatMessagesResult = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
+  const {
+    rawInputs: inputList,
+    rawOutputs: outputList,
+    inputChat: inputChatMessagesResult,
+    outputChat: outputChatMessagesResult,
+    inputs: effectiveInputList,
+    outputs: effectiveOutputList,
+  } = useSpanComparisonFields(activeSpan, Boolean(comparisonRole));
   const inputChatMessages = inputChatMessagesResult.messages;
   const inputHasTopLevelChatPayload = inputChatMessagesResult.hasTopLevelChatPayload;
-  const outputChatMessagesResult = useMemo(
-    () => getOutputChatMessages(activeSpan, inputChatMessages),
-    [activeSpan, inputChatMessages],
-  );
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
+  const { inputs: effectiveComparisonInputList, outputs: effectiveComparisonOutputList } = useSpanComparisonFields(
+    comparisonRole ? selectedComparisonNode : undefined,
+  );
   const decision = useMemo(() => resolveDecision(activeSpan), [activeSpan]);
-  const comparisonInputList = useCachedPayloadResult('fields', selectedComparisonNode?.inputs, () =>
-    createListFromObject(selectedComparisonNode?.inputs),
-  );
-  const comparisonOutputList = useCachedPayloadResult('fields', selectedComparisonNode?.outputs, () =>
-    createListFromObject(selectedComparisonNode?.outputs),
-  );
-  const comparisonInputChat = useMemo(() => getInputChatMessages(selectedComparisonNode), [selectedComparisonNode]);
-  const comparisonOutputChat = useMemo(
-    () => getOutputChatMessages(selectedComparisonNode, comparisonInputChat.messages),
-    [comparisonInputChat, selectedComparisonNode],
-  );
-  const effectiveInputList = useMemo(
-    () => getEffectiveComparisonFields(inputList, inputChatMessagesResult),
-    [inputChatMessagesResult, inputList],
-  );
-  const effectiveOutputList = useMemo(
-    () => getEffectiveComparisonFields(outputList, outputChatMessagesResult),
-    [outputChatMessagesResult, outputList],
-  );
-  const effectiveComparisonInputList = useMemo(
-    () => getEffectiveComparisonFields(comparisonInputList, comparisonInputChat),
-    [comparisonInputChat, comparisonInputList],
-  );
-  const effectiveComparisonOutputList = useMemo(
-    () => getEffectiveComparisonFields(comparisonOutputList, comparisonOutputChat),
-    [comparisonOutputChat, comparisonOutputList],
-  );
 
   if (isNil(activeSpan)) {
     return null;

@@ -6,7 +6,7 @@ import { render, screen } from '@databricks/web-shared/test-utils/render';
 
 import { ModelTraceExplorerViewStateContext } from '../ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerPayloadCacheProvider } from './ModelTraceExplorerPayloadCache';
-import { ModelTraceExplorerDefaultSpanView } from './ModelTraceExplorerDefaultSpanView';
+import { ModelTraceExplorerDefaultSpanView, useSpanComparisonFields } from './ModelTraceExplorerDefaultSpanView';
 import { MOCK_CHAT_SPAN } from '../../ModelTraceExplorer.test-utils';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { QueryClient, QueryClientProvider } from '../../../query-client/queryClient';
@@ -35,6 +35,75 @@ const spanView = (span: ModelTraceSpanNode) => (
 );
 
 describe('selected payload reuse', () => {
+  it('does not build fallback comparison fields in an ordinary trace', () => {
+    const message = { role: 'user' as const, content: 'ordinary fallback café' };
+    const span = { ...buildSpan(), inputs: undefined, chatMessages: [message] };
+    const stringify = jest.spyOn(JSON, 'stringify');
+    render(spanView(span), { wrapper: Providers });
+    expect(stringify.mock.calls.filter(([value]) => Array.isArray(value) && value.includes(message))).toHaveLength(0);
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent('ordinary fallback café');
+  });
+
+  it('shares fallback conversation field serialization between badges and the visible comparison pane', () => {
+    const span: ModelTraceSpanNode = {
+      ...buildSpan(),
+      inputs: undefined,
+      chatMessages: [
+        { role: 'user', content: 'cache-fallback user café 日本語 🙂' },
+        { role: 'assistant', content: 'cache-fallback assistant' },
+      ],
+    };
+    const other: ModelTraceSpanNode = {
+      ...span,
+      key: 'other',
+      chatMessages: [
+        { role: 'user', content: 'cache-fallback changed user' },
+        { role: 'assistant', content: 'cache-fallback changed assistant' },
+      ],
+    };
+    const Badge = ({ value }: { value: ModelTraceSpanNode }) => {
+      const fields = useSpanComparisonFields(value);
+      return <span>{fields.inputs.length + fields.outputs.length}</span>;
+    };
+    const pane = (visible: boolean, active = span) => (
+      <>
+        <Badge value={active} />
+        <Badge value={other} />
+        {visible && (
+          <ModelTraceExplorerViewStateContext.Consumer>
+            {(state) => (
+              <ModelTraceExplorerViewStateContext.Provider
+                value={{ ...state, selectedNodeComparisonRole: 'baseline', selectedComparisonNode: other }}
+              >
+                {spanView(active)}
+              </ModelTraceExplorerViewStateContext.Provider>
+            )}
+          </ModelTraceExplorerViewStateContext.Consumer>
+        )}
+      </>
+    );
+    const originalMessages = new Set([...(span.chatMessages ?? []), ...(other.chatMessages ?? [])]);
+    const stringify = jest.spyOn(JSON, 'stringify');
+    const calls = () =>
+      stringify.mock.calls.filter(
+        ([value, _replacer, space]) =>
+          space === 2 && Array.isArray(value) && value.some((message) => originalMessages.has(message)),
+      );
+    const { rerender } = render(pane(true), { wrapper: Providers });
+    expect(calls()).toHaveLength(4);
+    rerender(pane(false));
+    rerender(pane(true, { ...span }));
+    expect(calls()).toHaveLength(4);
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent('cache-fallback user café');
+    const replacement = { ...span, chatMessages: [{ role: 'user' as const, content: 'cache-fallback replacement' }] };
+    originalMessages.add(replacement.chatMessages[0]);
+    rerender(pane(true, replacement));
+    expect(calls()).toHaveLength(5);
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent(
+      'cache-fallback replacement',
+    );
+  });
+
   it.each(['json', 'yaml'] as const)('does not serialize hidden %s sections during a comparison', (mode) => {
     const span = buildSpan();
     const stringify = jest.spyOn(JSON, 'stringify');
