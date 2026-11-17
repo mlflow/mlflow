@@ -89,10 +89,10 @@ const renderDrawer = ({ traceId, initialUrl = URL }: { traceId?: string; initial
 
 describe('TracesV4TraceDrawer', () => {
   test.each([
-    ['child', 'child'],
-    ['missing-span', 'root'],
-    [undefined, 'root'],
-  ])('opens span %s in a trace drawer deep link, falling back to %s', async (spanId, expectedSpan) => {
+    { name: 'selects the linked child', spanId: 'child', expectedSpan: 'child' },
+    { name: 'falls back to root for an unknown span', spanId: 'missing-span', expectedSpan: 'root' },
+    { name: 'defaults to root without a span parameter', spanId: undefined, expectedSpan: 'root' },
+  ])('$name in a trace drawer deep link', async ({ spanId, expectedSpan }) => {
     state.spans = ['root', 'child'].map((name, index) => ({
       name,
       context: { span_id: name, trace_id: ON_PAGE_TRACE.trace_id },
