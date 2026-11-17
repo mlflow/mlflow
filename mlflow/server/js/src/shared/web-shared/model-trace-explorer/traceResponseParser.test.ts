@@ -66,18 +66,12 @@ describe('trace response parsing', () => {
     expect(input.json).toHaveBeenCalledTimes(1);
     expect(input.arrayBuffer).not.toHaveBeenCalled();
     parser.dispose();
-    for (const setup of [
-      () => factory.mockReturnValue(undefined),
-      () =>
-        factory.mockImplementation(() => {
-          throw Error('CSP');
-        }),
-    ]) {
-      setup();
-      parser = createTraceResponseParser();
-      await expect(parser.parse(body(large))).resolves.toEqual(large);
-      expect(jest.getTimerCount()).toBe(0);
-    }
+    factory.mockImplementation(() => {
+      throw Error('CSP');
+    });
+    parser = createTraceResponseParser();
+    await expect(parser.parse(body(large))).resolves.toEqual(large);
+    expect(jest.getTimerCount()).toBe(0);
   });
 
   it('does not load worker code when Workers are unavailable', async () => {
@@ -193,13 +187,16 @@ describe('trace response parsing', () => {
       if (failure === 'error') worker.onerror?.();
       if (failure === 'messageerror') worker.onmessageerror?.();
       await expect(result).rejects.toBeInstanceOf(TraceResponseWorkerLostError);
+      if (failure === 'post failure') {
+        await expect(result).rejects.toMatchObject({ cause: new Error('post failed') });
+      }
       expect(worker.terminate).toHaveBeenCalledTimes(1);
       await expect(parser.parse(body(large))).resolves.toEqual(large);
       expect(jest.getTimerCount()).toBe(0);
     },
   );
 
-  it('times out only the affected request and still accepts unrelated and later replies', async () => {
+  it('retires a timed-out worker after unrelated requests finish and parses future responses natively', async () => {
     worker.send({ type: 'ready' });
     const first = parser.parse(body(large));
     await Promise.resolve();
@@ -213,11 +210,11 @@ describe('trace response parsing', () => {
     worker.send({ type: 'parsed', id: b.id, value: large });
     await expect(second).resolves.toEqual(large);
     worker.send({ type: 'parsed', id: a.id, value: large });
-    const third = parser.parse(body(large));
-    await Promise.resolve();
-    const [{ id }] = worker.postMessage.mock.calls[2];
-    worker.send({ type: 'parsed', id, value: large });
-    await expect(third).resolves.toEqual(large);
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+    const third = response(large);
+    await expect(parser.parse(third as unknown as Response)).resolves.toEqual(large);
+    expect(third.json).toHaveBeenCalledTimes(1);
+    expect(worker.postMessage).toHaveBeenCalledTimes(2);
     expect(jest.getTimerCount()).toBe(0);
   });
 

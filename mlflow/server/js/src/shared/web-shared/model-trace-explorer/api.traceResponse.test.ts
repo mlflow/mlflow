@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import { getBatchTracesV4, getExperimentTraceV3, getTraceV3, getTraceV3Data, getTraceV3Info } from './api';
+import {
+  getBatchTracesV4,
+  getExperimentTraceV3,
+  getTraceV3,
+  getTraceV3Data,
+  getTraceV3Info,
+  TracesServiceV4,
+} from './api';
 import { fetchAPI } from './ModelTraceExplorer.request.utils';
 import { createTraceResponseParser, TraceResponseWorkerLostError } from './traceResponseParser';
 
@@ -62,6 +69,20 @@ describe('trace body response parsing', () => {
     expect(fetchMock.mock.calls.every((call) => call[3] === signal)).toBe(true);
     expect(parse).toHaveBeenCalledTimes(4);
     expect(parse.mock.calls.every((call) => call[1] === signal)).toBe(true);
+  });
+
+  it('forwards v4 single-trace cancellation to the batch request and parser', async () => {
+    const { signal } = new AbortController();
+    const trace = { trace_info: { trace_id: 'tr-owned' }, spans: [] };
+    parse.mockResolvedValue({ traces: [trace] });
+    await expect(TracesServiceV4.getTraceV4('trace:/synthetic/tr-owned', undefined, signal)).resolves.toEqual({
+      info: trace.trace_info,
+      data: { spans: [] },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain('/synthetic/batchGet?trace_ids=tr-owned');
+    expect(fetchMock.mock.calls[0][3]).toBe(signal);
+    expect(parse).toHaveBeenCalledWith(response, signal);
   });
 
   it('does not retry a lost body when its caller has canceled', async () => {

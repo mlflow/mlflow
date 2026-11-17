@@ -8,7 +8,7 @@ import {
   getTrace,
 } from './TraceUtils';
 import type { ModelTrace, ModelTraceSpanV2, ModelTraceSpanV3 } from '@databricks/web-shared/model-trace-explorer';
-import { getExperimentTraceV3, TracesServiceV3 } from '@databricks/web-shared/model-trace-explorer';
+import { getExperimentTraceV3, TracesServiceV3, TracesServiceV4 } from '@databricks/web-shared/model-trace-explorer';
 import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '@databricks/web-shared/genai-traces-table';
 
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
@@ -1142,6 +1142,15 @@ describe('getTrace', () => {
 
     expect(mockGetExperimentTraceV3).not.toHaveBeenCalled();
     expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1', undefined);
+  });
+
+  it('forwards cancellation through a v4 trace identifier', async () => {
+    const { signal } = new AbortController();
+    mockGetSpansLocation.mockReturnValue(undefined);
+    await getTrace('trace:/synthetic/tr-owned', undefined, undefined, signal);
+    expect(TracesServiceV4.getTraceV4).toHaveBeenCalledWith('trace:/synthetic/tr-owned', undefined, signal);
+    expect(mockGetTraceV3).not.toHaveBeenCalled();
+    expect(mockGetExperimentTraceV3).not.toHaveBeenCalled();
   });
 
   it('forwards cancellation through tracking-store and artifact routes', async () => {

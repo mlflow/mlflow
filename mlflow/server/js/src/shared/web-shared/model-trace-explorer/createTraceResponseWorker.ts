@@ -1,2 +1,2 @@
-export const createTraceResponseWorker = (): Worker | undefined =>
-  typeof Worker === 'undefined' ? undefined : new Worker(new URL('./traceResponse.worker.ts', import.meta.url));
+export const createTraceResponseWorker = (): Worker =>
+  new Worker(new URL('./traceResponse.worker.ts', import.meta.url));

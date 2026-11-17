@@ -33,10 +33,6 @@ export const createTraceResponseParser = () => {
       .then(({ createTraceResponseWorker }) => {
         if (stopped) return;
         worker = createTraceResponseWorker();
-        if (!worker) {
-          stop(new TraceResponseWorkerLostError());
-          return;
-        }
         worker.onerror = () => stop(new TraceResponseWorkerLostError());
         worker.onmessageerror = () => stop(new TraceResponseWorkerLostError());
         worker.onmessage = ({ data }: MessageEvent<TraceResponseMessage>) => {
@@ -64,7 +60,7 @@ export const createTraceResponseParser = () => {
           }
         };
       })
-      .catch(() => stop(new TraceResponseWorkerLostError()));
+      .catch((cause) => stop(new TraceResponseWorkerLostError('Worker startup failed', { cause })));
   }
 
   return {
@@ -87,11 +83,18 @@ export const createTraceResponseParser = () => {
         };
         const timer = setTimeout(() => {
           pending.delete(id);
+          // Keep existing requests independent, but do not reuse a worker that timed out.
+          ready = false;
+          stopped = true;
           finish(() => reject(new TraceResponseWorkerLostError()));
         }, WORKER_TIMEOUT_MS);
         const finish = (settle: () => void) => {
           clearTimeout(timer);
           signal?.removeEventListener('abort', onAbort);
+          if (stopped && !pending.size) {
+            worker?.terminate();
+            worker = undefined;
+          }
           settle();
         };
         signal?.addEventListener('abort', onAbort, { once: true });
@@ -101,8 +104,8 @@ export const createTraceResponseParser = () => {
         });
         try {
           worker?.postMessage({ id, body }, [body]);
-        } catch {
-          stop(new TraceResponseWorkerLostError());
+        } catch (cause) {
+          stop(new TraceResponseWorkerLostError('Worker transfer failed', { cause }));
         }
       });
     },
