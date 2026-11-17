@@ -118,21 +118,21 @@ describe('large JSON row interaction', () => {
     expect(screen.queryByText('"hidden leaf"')).not.toBeInTheDocument();
   });
 
-  it('uses the large-payload expansion depth with either initialExpanded value', () => {
+  it.each([100_000, 1_000_001])('keeps small nesting expanded beside a %i-character string', (length) => {
     const data = JSON.stringify({
-      nested: { deeper: { deepest: { leaf: 'hidden default' } } },
-      padding: 'z'.repeat(100_000),
+      nested: { deeper: { deepest: { leaf: 'visible default' } } },
+      padding: 'z'.repeat(length),
     });
     const { rerender } = render(<CollapsibleJsonViewer data={data} rowLimit={JSON_PREVIEW_ROW_LIMIT} />, {
       wrapper: Providers,
     });
-    expect(screen.queryByText('"hidden default"')).not.toBeInTheDocument();
+    expect(screen.getByText('"visible default"')).toBeInTheDocument();
     rerender(<CollapsibleJsonViewer data={data} initialExpanded rowLimit={JSON_PREVIEW_ROW_LIMIT} />);
-    expect(screen.queryByText('"hidden default"')).not.toBeInTheDocument();
+    expect(screen.getByText('"visible default"')).toBeInTheDocument();
     rerender(
-      <CollapsibleJsonViewer data={JSON.stringify({ nested: { deeper: { deepest: { leaf: 'hidden default' } } } })} />,
+      <CollapsibleJsonViewer data={JSON.stringify({ nested: { deeper: { deepest: { leaf: 'visible default' } } } })} />,
     );
-    expect(screen.getByText('"hidden default"')).toBeInTheDocument();
+    expect(screen.getByText('"visible default"')).toBeInTheDocument();
   });
 
   it('virtualizes expanded rows and reaches the final value through the real scroll listener', async () => {
@@ -152,7 +152,10 @@ describe('large JSON row interaction', () => {
 
   it('preserves keyboard container toggling, punctuation keys and replacement Unicode values', async () => {
     const user = userEvent.setup();
-    const padded = { 'a.b': { 'quoted"key': 'café 日本語 🙂' }, padding: 'z'.repeat(100_000) };
+    const padded = {
+      'a.b': { 'quoted"key': 'café 日本語 🙂' },
+      padding: Array.from({ length: 300 }, (_, index) => index),
+    };
     const { rerender } = render(<CollapsibleJsonViewer data={JSON.stringify(padded)} initialExpanded />, {
       wrapper: Providers,
     });

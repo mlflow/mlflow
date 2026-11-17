@@ -10,7 +10,6 @@ import {
   getJsonRows,
   getJsonRowsExpandDepth,
   JSON_ROWS_MAX_DEPTH as MAX_DEPTH,
-  LARGE_JSON_MIN_CHARS,
 } from './ModelTraceExplorerJsonRows.utils';
 import {
   getJsonColors,
@@ -372,10 +371,8 @@ export function CollapsibleJsonViewer({
   }, [parseResult.data]);
 
   const isLargeJson = useMemo(
-    () =>
-      data.length >= LARGE_JSON_MIN_CHARS ||
-      getJsonRows(parseResult.data, () => true, LARGE_JSON_MIN_ROWS + 1).length > LARGE_JSON_MIN_ROWS,
-    [data.length, parseResult.data],
+    () => getJsonRows(parseResult.data, () => true, LARGE_JSON_MIN_ROWS + 1).length > LARGE_JSON_MIN_ROWS,
+    [parseResult.data],
   );
 
   if (!parseResult.success) {
