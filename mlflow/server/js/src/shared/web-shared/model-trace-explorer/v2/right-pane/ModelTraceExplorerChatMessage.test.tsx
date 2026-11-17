@@ -9,6 +9,11 @@ import { ModelTraceExplorerChatMessage } from './ModelTraceExplorerChatMessage';
 
 const mockCopy = jest.fn();
 jest.mock('use-clipboard-copy', () => ({ useClipboard: () => ({ copy: mockCopy }) }));
+jest.mock('../field-renderers/ModelTraceExplorerAttachmentRenderer', () => ({
+  ModelTraceExplorerAttachmentRenderer: ({ attachmentId }: { attachmentId: string }) => (
+    <span>attachment:{attachmentId}</span>
+  ),
+}));
 
 const Providers = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
@@ -59,6 +64,32 @@ describe('large chat text', () => {
     expect(container.querySelectorAll('*').length).toBeLessThan(200);
   });
 
+  it.each(['image', 'attachment'])('preserves mixed large text and %s rendering', (kind) => {
+    const uri =
+      kind === 'image'
+        ? 'https://example.invalid/image.png'
+        : 'mlflow-attachment://synthetic-pdf?content_type=application%2Fpdf&trace_id=tr-synthetic';
+    const content = `![synthetic](${uri}) **mixed café 🌳** ` + 'x'.repeat(100_001);
+    const { container } = render(<ModelTraceExplorerChatMessage message={{ role: 'assistant', content }} />, {
+      wrapper: Providers,
+    });
+    const expectMedia = () => {
+      if (kind === 'image') {
+        expect(screen.getByRole('img', { name: 'synthetic' })).toHaveAttribute('src', uri);
+      } else {
+        expect(screen.getByText('attachment:synthetic-pdf')).toBeInTheDocument();
+      }
+      expect(container.querySelector('strong')).toHaveTextContent('mixed café 🌳');
+      expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
+    };
+    expectMedia();
+    fireEvent.click(screen.getByText('See more'));
+    expectMedia();
+    expect(container.textContent).toContain('x'.repeat(100_001));
+    fireEvent.click(screen.getByText('See less'));
+    expectMedia();
+  });
+
   it('bounds a large non-JSON tool response', () => {
     mockViewport();
     const content = 'synthetic tool response café 日本語 🙂\n'.repeat(4000);
@@ -86,6 +117,16 @@ describe('large chat text', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     expect(mockCopy).toHaveBeenCalledWith(reasoning);
     expect(container.querySelectorAll('*').length).toBeLessThan(200);
+  });
+
+  it('preserves images in an expanded large reasoning section', () => {
+    const reasoning = '![reasoning image](https://example.invalid/reasoning.png) ' + 'x'.repeat(100_001);
+    render(<ModelTraceExplorerChatMessage message={{ role: 'assistant', content: 'small', reasoning }} />, {
+      wrapper: Providers,
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }));
+    expect(screen.getByRole('img', { name: 'reasoning image' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
   });
 
   it('keeps all large text available past the old one-megabyte cap', () => {

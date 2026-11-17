@@ -25,7 +25,7 @@ describe('large trace text rendering', () => {
     expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
   });
 
-  it('keeps collapsed large-value previews in Markdown without a virtualization warning', () => {
+  it('keeps collapsed large-value previews in Markdown without the partial-selection banner', () => {
     const value = '**preview café 🌳** ' + 'x'.repeat(100_000);
     const { container } = render(<ModelTraceExplorerTextFieldRenderer title="payload" value={value} />, {
       wrapper: Providers,

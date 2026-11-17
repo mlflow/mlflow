@@ -41,7 +41,7 @@ export const INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE = '_issue_discovery_judge
 export const MLFLOW_SPAN_OUTPUT_KEY = 'span_output_key';
 export const CHUNK_INDEX_KEY = 'chunk_index';
 
-// Markdown safety cap in characters; v2 chat retains it for image-heavy messages.
+// Markdown safety cap prevents browser freezes on huge strings such as un-extracted base64.
 export const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;
 // Trace text payloads above this character count use a bounded plain-text window.
 export const LARGE_TRACE_TEXT_LIMIT = 100_000;

@@ -210,6 +210,10 @@ function ModelTraceExplorerChatMessageContent({
 function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }) {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
+  const isLargeReasoning =
+    reasoning.length > LARGE_TRACE_TEXT_LIMIT &&
+    getDisplayLength(reasoning) === reasoning.length &&
+    !reasoning.includes('mlflow-attachment://');
 
   return (
     <div
@@ -259,10 +263,10 @@ function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }
             padding: theme.spacing.sm,
             paddingTop: 0,
             borderTop: `1px solid ${theme.colors.borderDecorative}`,
-            marginBottom: reasoning.length > LARGE_TRACE_TEXT_LIMIT ? 0 : -theme.typography.fontSizeBase,
+            marginBottom: isLargeReasoning ? 0 : -theme.typography.fontSizeBase,
           }}
         >
-          {reasoning.length > LARGE_TRACE_TEXT_LIMIT ? (
+          {isLargeReasoning ? (
             <ModelTraceExplorerLargeText text={reasoning} copyText={reasoning} />
           ) : (
             <ChatMarkdown>{reasoning}</ChatMarkdown>
@@ -374,7 +378,12 @@ export function ModelTraceExplorerChatMessage({
     () => (isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content),
     [content, effectiveLimit, expanded, isExpandable],
   );
-  const showsLargeText = !shouldDisplayCodeSnippet && displayLength > LARGE_TRACE_TEXT_LIMIT;
+  // Mixed media must keep its image/attachment-aware Markdown path.
+  const showsLargeText =
+    !shouldDisplayCodeSnippet &&
+    attachmentRefCount === 0 &&
+    displayLength === content.length &&
+    displayLength > LARGE_TRACE_TEXT_LIMIT;
   const toolCallId = message.tool_call_id;
   const isToolResponse = (message.role === 'tool' || message.role === 'function') && toolCallId;
 
@@ -422,18 +431,12 @@ export function ModelTraceExplorerChatMessage({
             </Typography.Text>
           )}
         </div>
-        {showsLargeText && (
-          <ModelTraceExplorerChatMessageContent
-            content={displayedContent}
-            shouldDisplayCodeSnippet={false}
-            showsLargeText
-            copyText={content}
-          />
-        )}
-        {shouldDisplayCodeSnippet && (
+        {(showsLargeText || shouldDisplayCodeSnippet) && (
           <ModelTraceExplorerChatMessageContent
             content={displayedContent}
             shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}
+            showsLargeText={showsLargeText}
+            copyText={content}
           />
         )}
         {isExpandable && (
