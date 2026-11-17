@@ -1006,6 +1006,33 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     assert len(traces) == 0
 
 
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        (r"INPUT\_GUARDRAIL", {"input_guardrail"}),
+        ("input_guardrail", {"input_guardrail", "inputXguardrail"}),
+        (r"100\%\_literal", {"100%_literal"}),
+        (r"%\%%", {"100%_literal"}),
+        (r"path\\name", {r"path\name"}),
+    ],
+)
+def test_search_traces_span_ilike_escape(store: SqlAlchemyStore, field, pattern, expected):
+    exp_id = store.create_experiment("span_ilike_escape")
+    values = ["input_guardrail", "inputXguardrail", "100%_literal", r"path\name"]
+    trace_names = {}
+    for index, value in enumerate(values):
+        trace_id = f"trace{index}"
+        _create_trace(store, trace_id, exp_id)
+        store.log_spans(
+            exp_id, [create_test_span(trace_id, name=value, span_type=value, span_id=index + 1)]
+        )
+        trace_names[trace_id] = value
+
+    traces, _ = store.search_traces([exp_id], filter_string=f"span.{field} ILIKE '{pattern}'")
+    assert {trace_names[trace.trace_id] for trace in traces} == expected
+
+
 def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_plain_text_search")
 

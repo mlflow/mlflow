@@ -3,6 +3,7 @@ import json
 import re
 
 import pytest
+import sqlalchemy as sa
 
 from mlflow.entities import (
     Dataset,
@@ -23,6 +24,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.models import SqlSpan
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
@@ -1073,6 +1075,20 @@ def test_search_trace_utils_filter_metadata_is_null():
 
     result = SearchTraceUtils.filter(traces, "metadata.session IS NOT NULL")
     assert {t.trace_id for t in result} == {"t1"}
+
+
+@pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mysql", "mssql"])
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE"])
+def test_sql_comparison_explicit_escape(dialect, comparator):
+    engine_dialect = sa.dialects.registry.load(dialect)()
+    regular = SearchUtils.get_sql_comparison_func(comparator, dialect)(SqlSpan.name, r"a\_%")
+    escaped = SearchUtils.get_sql_comparison_func(comparator, dialect, escape="\\")(
+        SqlSpan.name, r"a\_%"
+    )
+    assert "ESCAPE" not in str(regular.compile(dialect=engine_dialect))
+    assert "ESCAPE" in str(escaped.compile(dialect=engine_dialect))
+    if dialect == "mssql":
+        assert "COLLATE" in str(escaped.compile(dialect=engine_dialect))
 
 
 def _mysql_sql(comparator, expression, value):
