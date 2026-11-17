@@ -792,8 +792,12 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
   });
 
   // Compute a global time window for the tree
-  const globalStartTime = Math.min(...spans.map((s) => getModelTraceSpanStartTime(s)));
-  const globalEndTime = Math.max(...spans.map((s) => getModelTraceSpanEndTime(s)));
+  let globalStartTime = Infinity;
+  let globalEndTime = -Infinity;
+  for (const span of spans) {
+    globalStartTime = Math.min(globalStartTime, getModelTraceSpanStartTime(span));
+    globalEndTime = Math.max(globalEndTime, getModelTraceSpanEndTime(span));
+  }
   const assessmentMap = getAssessmentMap(trace.info);
 
   function getSpanNodeFromData(span_id: string): ModelTraceSpanNode {
@@ -1108,14 +1112,14 @@ export const getModelTraceTimelineRange = (
   }
   // A comparison's merged spans keep baseline times, so include their candidate sides: a longer
   // candidate's later spans would otherwise fall outside the timeline.
-  const rangeNodes = topLevelNodes.flatMap((node) => {
+  let traceStartTime = Infinity;
+  let traceEndTime = -Infinity;
+  for (const node of topLevelNodes) {
     const candidateNode = comparisonNodeMap[String(node.key)];
-    return candidateNode ? [node, candidateNode] : [node];
-  });
-  return {
-    traceStartTime: Math.min(...rangeNodes.map((node) => node.start)),
-    traceEndTime: Math.max(...rangeNodes.map((node) => node.end)),
-  };
+    traceStartTime = Math.min(traceStartTime, node.start, candidateNode ? candidateNode.start : Infinity);
+    traceEndTime = Math.max(traceEndTime, node.end, candidateNode ? candidateNode.end : -Infinity);
+  }
+  return { traceStartTime, traceEndTime };
 };
 
 // returns a map of { [span_id: string] : Assessment[] }
