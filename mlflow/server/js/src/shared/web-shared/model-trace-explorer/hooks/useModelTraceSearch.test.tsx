@@ -94,6 +94,18 @@ describe('useModelTraceSearch content updates', () => {
     expect(result.current.matchData.currentMatchIndex).toBe(0);
   });
 
+  it('resets the active occurrence when span filter state changes', () => {
+    const { result, setSelectedNodeAndTab } = renderSearch(createNode('needle needle'));
+    act(() => result.current.setSearchFilter('needle'));
+    act(() => result.current.handleNextSearchMatch());
+    expect(result.current.matchData.currentMatchIndex).toBe(1);
+    setSelectedNodeAndTab.mockClear();
+    act(() => result.current.setSpanFilterState({ ...result.current.spanFilterState, showExceptions: false }));
+    expect(result.current.matchData.totalMatches).toBe(2);
+    expect(result.current.matchData.currentMatchIndex).toBe(0);
+    expect(setSelectedNodeAndTab).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes a deliberately selected span without returning to the active match span', () => {
     const child = { ...createNode('needle'), key: 'child' };
     const root: ModelTraceSpanNode = { ...createNode('needle'), children: [child] };

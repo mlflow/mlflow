@@ -16,6 +16,7 @@ import ModelTraceExplorerResizablePane from './ModelTraceExplorerResizablePane';
 import ModelTraceExplorerSearchBox from './ModelTraceExplorerSearchBox';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { useModelTraceSearch } from '../hooks/useModelTraceSearch';
+import { useArrayMemo } from '../hooks/useArrayMemo';
 import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-pane/ModelTraceExplorerRightPaneTabs';
 import { TimelineTree } from './timeline-tree/TimelineTree';
 import {
@@ -343,10 +344,15 @@ export const ModelTraceExplorerDetailView = ({
     [nodeMap, onSelectNode],
   );
 
+  const visibleSpanKeys = useMemo(
+    () => values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key),
+    [filteredTreeNodes],
+  );
+  const stableSpanKeys = useArrayMemo(visibleSpanKeys);
+  const traceId = topLevelNodes[0]?.traceId;
   useLayoutEffect(() => {
-    const list = values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
-    setExpandedKeys(new Set(list));
-  }, [filteredTreeNodes, setExpandedKeys]);
+    setExpandedKeys(new Set(stableSpanKeys));
+  }, [stableSpanKeys, traceId, setExpandedKeys]);
 
   const leftPaneMinWidth = useMemo(() => {
     const minWidthForSpans =
