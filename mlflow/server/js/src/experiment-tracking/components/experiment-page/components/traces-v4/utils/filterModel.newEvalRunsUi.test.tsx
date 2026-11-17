@@ -240,3 +240,15 @@ describe('filters with the new evaluation runs UI off', () => {
     ).toBe(false);
   });
 });
+
+test.each([false, true])('SQL restoration and compilation require the SQL editor flag: %s', (enabled) => {
+  jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(enabled);
+  const sql = {
+    field: 'sql_where',
+    operator: FilterOp.EQUALS,
+    value: "tags.env = 'qa' OR attributes.status = 'ERROR'",
+  };
+  const { result } = renderHook(() => useMlflowTraceFilterFields(), { wrapper });
+  expect(isSupportedFilterClause(result.current, sql)).toBe(enabled);
+  expect(compileFilterModel([sql])).toEqual(enabled ? [sql.value] : []);
+});

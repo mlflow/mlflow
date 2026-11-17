@@ -297,7 +297,9 @@ export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: Filter
   isClauseComplete(clause) &&
   (clause.key === undefined || isSafeFilterKey(clause.key)) &&
   (clause.field !== 'duration' || isValidDuration(clause.value)) &&
-  ((isSqlFilterClause(clause) && clause.operator === FilterOp.EQUALS) || isSupportedFilterField(fields, clause));
+  (isSqlFilterClause(clause)
+    ? shouldEnableNewEvalRunsUi() && clause.operator === FilterOp.EQUALS
+    : isSupportedFilterField(fields, clause));
 
 /**
  * Compile a text field where only `CONTAINS` needs translation (to `ILIKE '%value%'`, since the
@@ -380,7 +382,7 @@ const compileClause = (
   }
   if (isSqlFilterClause(clause)) {
     // This remains a search-DSL predicate: the existing search API parses and validates it.
-    return operator === FilterOp.EQUALS ? value.trim() : undefined;
+    return enhanced && operator === FilterOp.EQUALS ? value.trim() : undefined;
   }
   // Every clause below wraps `value` in a single-quoted literal, so escape it once up front (the
   // numeric `duration` case doesn't quote and simply doesn't use this).

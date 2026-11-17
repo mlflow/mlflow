@@ -2053,7 +2053,13 @@ class SearchTraceUtils(SearchUtils):
         tokens = _join_in_comparison_tokens(statements[0].tokens, search_traces=True)
         # Preserve accepted legacy flat filters, including optional/repeated AND separators.
         if all(not cls._invalid_statement_token_search_traces(token) for token in tokens):
-            return [cls.parse_search_filter_for_search_traces(filter_string)]
+            return [
+                [
+                    cls._replace_key_to_tag_or_metadata(cls._get_comparison(token))
+                    for token in tokens
+                    if isinstance(token, Comparison)
+                ]
+            ]
         return parse_tokens(tokens)
 
     @classmethod

@@ -1,4 +1,5 @@
-import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import * as FeatureUtils from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import { render, screen, waitFor, fireEvent, act } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -343,6 +344,9 @@ describe('TracesV4SavedViewsButton', () => {
 });
 
 describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   const setColumns = jest.fn();
   const setColumnOrder = jest.fn();
   // Report BOTH the hook API and the live URL search each render, so assertions read the in-memory
@@ -663,6 +667,50 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       const shared = new URLSearchParams(link.split('?')[1]);
       expect(shared.toString()).toBe(new URLSearchParams(search).toString());
       expect(JSON.parse(shared.get('filters') ?? 'null')).toEqual(includeValid ? [valid] : []);
+    },
+  );
+
+  test.each([false, true])(
+    'open, share, reset and absent-only hydration respect the SQL editor flag: %s',
+    async (enabled) => {
+      jest.spyOn(FeatureUtils, 'shouldEnableNewEvalRunsUi').mockReturnValue(enabled);
+      const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env = 'qa'" };
+      const basic = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
+      const expected = enabled ? [sql, basic] : [basic];
+      mockExperiment([await makeV4ViewTag('v1', 'Known', 1000, 'q=x', ['start_time'], [sql, basic])]);
+      let state: any;
+      let search = '';
+      let setParams: ReturnType<typeof useSearchParams>[1];
+      renderProbeAt(
+        '/?q=x&traceViewShareKey=v1',
+        (s, sp, setter) => {
+          state = s;
+          search = sp;
+          setParams = setter;
+        },
+        expected,
+      );
+      await waitFor(() => expect(JSON.parse(new URLSearchParams(search).get('filters') ?? 'null')).toEqual(expected));
+      await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+      let link = '';
+      await act(async () => {
+        link = await state.buildShareUrl('v1');
+        await state.openView('v1');
+      });
+      const shared = new URLSearchParams(link.split('?')[1]);
+      expect(shared.toString()).toBe(search);
+      expect(JSON.parse(shared.get('filters') ?? 'null')).toEqual(expected);
+      await act(async () => {
+        setParams!((params) => {
+          params.set('filters', '[]');
+          return params;
+        });
+      });
+      await waitFor(() => expect(new URLSearchParams(search).get('filters')).toBe('[]'));
+      await act(async () => {
+        await state.resetActiveView();
+      });
+      expect(JSON.parse(new URLSearchParams(search).get('filters') ?? 'null')).toEqual(expected);
     },
   );
 

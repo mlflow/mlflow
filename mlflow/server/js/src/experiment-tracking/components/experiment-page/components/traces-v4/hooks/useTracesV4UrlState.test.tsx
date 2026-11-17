@@ -300,6 +300,7 @@ describe('useTracesV4UrlState', () => {
     });
   });
   test('restores validated filter shapes and updates filters with tags atomically', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const sql = { field: 'sql_where', operator: '=', value: "span.name IN ('a', 'b')" };
     const { result } = await mountHook(
       `/p?page=3&q=hello&traceId=tr-1&filters=${encodeURIComponent(JSON.stringify([sql, null, { field: 3 }, { ...sql, value: null }]))}&tag=env%3Dqa`,
@@ -326,6 +327,7 @@ describe('useTracesV4UrlState', () => {
     expect(param('traceViewShareKey')).toBe('v1');
   });
   test('restores only supported clauses while preserving a SQL predicate', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env = 'qa'" };
     const valid = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
     const clauses = [
@@ -339,5 +341,16 @@ describe('useTracesV4UrlState', () => {
     ];
     const { result } = await mountHook(`/p?filters=${encodeURIComponent(JSON.stringify(clauses))}`);
     expect(result.current.filterModel).toEqual([sql, valid]);
+  });
+
+  test.each([false, true])('restored SQL is active only while its editor is enabled: %s', async (enabled) => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(enabled);
+    const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env = 'qa'" };
+    const basic = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
+    const { result } = await mountHook(
+      `/p?traceViewShareKey=v1&filters=${encodeURIComponent(JSON.stringify([sql, basic]))}&tag=team%3Dml`,
+    );
+    expect(result.current.filterModel).toEqual(enabled ? [sql, basic] : [basic]);
+    expect(result.current.tagFilters).toEqual([{ key: 'team', value: 'ml' }]);
   });
 });

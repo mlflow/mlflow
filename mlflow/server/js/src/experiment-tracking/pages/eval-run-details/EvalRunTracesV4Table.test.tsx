@@ -1,3 +1,4 @@
+import * as FeatureUtils from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { FilterOp } from '@databricks/web-shared/traces-table';
@@ -112,6 +113,7 @@ describe('EvalRunTracesV4Table', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
     window.localStorage.clear();
   });
 
@@ -295,6 +297,22 @@ describe('EvalRunTracesV4Table', () => {
     await userEvent.click(await screen.findByRole('button', { name: "Remove filter state = 'ERROR'" }));
     await waitFor(() => expect(screen.queryByRole('button', { name: /Remove filter/ })).not.toBeInTheDocument());
     expect(new URLSearchParams(lastSearch).get('filters')).toBeNull();
+  });
+
+  test.each([false, true])('restored SQL executes only with its editor enabled: %s', async (enabled) => {
+    jest.spyOn(FeatureUtils, 'shouldEnableNewEvalRunsUi').mockReturnValue(enabled);
+    const expression = "tags.hidden = 'sql-only'";
+    const filters = [
+      { field: 'sql_where', operator: FilterOp.EQUALS, value: expression },
+      { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' },
+    ];
+    renderTable(`${RUN_URL}?${new URLSearchParams({ filters: JSON.stringify(filters), tag: 'team=ml' })}`);
+    await findTraceRow('tr-000');
+    await waitFor(() => expect(state.searchCalls.at(-1)?.filter).toContain('attributes.execution_time_ms > 1000'));
+    const query = state.searchCalls.at(-1)?.filter;
+    expect(query).toContain(RUN_FILTER);
+    expect(query).toContain("tags.team = 'ml'");
+    expect(query?.includes(expression)).toBe(enabled);
   });
 
   test('edits and removes a restored SQL pill without dropping sibling or run constraints', async () => {

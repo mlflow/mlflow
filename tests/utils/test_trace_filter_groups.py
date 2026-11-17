@@ -1,6 +1,8 @@
 from itertools import product
+from unittest import mock
 
 import pytest
+import sqlparse
 
 from mlflow.entities import TraceInfo, TraceState
 from mlflow.entities.trace_location import TraceLocation
@@ -170,6 +172,24 @@ def test_trace_filter_groups_preserve_legacy_flat_shapes(expression):
     assert SearchTraceUtils.parse_search_filter_groups(expression) == [
         SearchTraceUtils.parse_search_filter_for_search_traces(expression)
     ]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "status = 'OK'",
+        "AND status = 'OK' AND AND",
+        "status = 'OK' tags.env = 'prod'",
+        "span.name IN ('O''Reilly', 'AND OR') AND span.type NOT IN ('CHAIN')",
+        "name = 'AND OR' AND run_id = 'run-1' AND execution_time > 10",
+        "metadata.`mlflow.trace.session` = 'raw\\backslash'",
+    ],
+)
+def test_trace_filter_groups_parse_flat_filter_once(expression):
+    expected = SearchTraceUtils.parse_search_filter_for_search_traces(expression)
+    with mock.patch("mlflow.utils.search_utils.sqlparse.parse", wraps=sqlparse.parse) as parse:
+        assert SearchTraceUtils.parse_search_filter_groups(expression) == [expected]
+    parse.assert_called_once_with(expression)
 
 
 def test_trace_filter_groups_keep_custom_span_attributes_as_alternatives():
