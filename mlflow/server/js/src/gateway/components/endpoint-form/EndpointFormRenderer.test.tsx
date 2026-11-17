@@ -19,63 +19,70 @@ jest.mock('../edit-endpoint/UsageTrackingConfigurator', () => ({ UsageTrackingCo
 const authModes = [{ mode: 'api_key', secret_fields: [{ name: 'api_key', required: true }], config_fields: [] }];
 
 describe('EndpointFormRenderer subscriptions', () => {
-  test('keeps unrelated sections stable while updating credentials, summary and submission', async () => {
-    jest.mocked(useModelsQuery).mockReturnValue({ data: [] } as any);
-    jest.mocked(useProviderConfigQuery).mockReturnValue({ data: { auth_modes: authModes } } as any);
-    jest.mocked(useApiKeyConfiguration).mockReturnValue({
-      existingSecrets: [],
-      isLoadingSecrets: false,
-      authModes,
-      defaultAuthMode: 'api_key',
-      isLoadingProviderConfig: false,
-    } as any);
-    const onSubmit = jest.fn(async (_values: EndpointFormData) => {});
-    const resetErrors = jest.fn();
-    function Harness() {
-      const form = useForm<EndpointFormData>({
-        defaultValues: {
-          name: 'test-endpoint',
-          provider: 'openai',
-          modelName: 'model-1',
-          secretMode: 'new',
-          existingSecretId: '',
-          newSecret: { name: '', authMode: 'api_key', secretFields: {}, configFields: {} },
-          usageTracking: false,
-        },
+  test.each([null, new Error('Endpoint creation failed')])(
+    'keeps unrelated sections stable while updating credentials, summary and submission (error: %s)',
+    async (error) => {
+      jest.mocked(useModelsQuery).mockReturnValue({ data: [] } as any);
+      jest.mocked(useProviderConfigQuery).mockReturnValue({ data: { auth_modes: authModes } } as any);
+      jest.mocked(useApiKeyConfiguration).mockReturnValue({
+        existingSecrets: [],
+        isLoadingSecrets: false,
+        authModes,
+        defaultAuthMode: 'api_key',
+        isLoadingProviderConfig: false,
+      } as any);
+      const onSubmit = jest.fn(async (_values: EndpointFormData) => {});
+      const resetErrors = jest.fn();
+      function Harness() {
+        const form = useForm<EndpointFormData>({
+          defaultValues: {
+            name: 'test-endpoint',
+            provider: 'openai',
+            modelName: 'model-1',
+            secretMode: 'new',
+            existingSecretId: '',
+            newSecret: { name: '', authMode: 'api_key', secretFields: {}, configFields: {} },
+            usageTracking: false,
+          },
+        });
+        return (
+          <MemoryRouter>
+            <FormProvider {...form}>
+              <EndpointFormRenderer
+                mode="create"
+                isSubmitting={false}
+                error={error}
+                errorMessage={error?.message ?? null}
+                resetErrors={resetErrors}
+                onSubmit={onSubmit}
+                onCancel={jest.fn()}
+                onNameBlur={jest.fn()}
+              />
+            </FormProvider>
+          </MemoryRouter>
+        );
+      }
+      renderWithDesignSystem(<Harness />);
+      jest.mocked(UsageTrackingConfigurator).mockClear();
+      const create = screen.getByRole('button', { name: 'Create' });
+      expect(create).toBeDisabled();
+      await userEvent.type(screen.getByRole('textbox', { name: /API key name/ }), 'my-key');
+      await userEvent.type(screen.getByLabelText(/^API Key/), 'synthetic-key');
+      await waitFor(() => expect(create).toBeEnabled());
+      expect(screen.getByText('my-key')).toBeInTheDocument();
+      await userEvent.type(screen.getByPlaceholderText('my-endpoint'), '-updated');
+      if (error) {
+        expect(resetErrors).toHaveBeenCalledTimes('-updated'.length);
+      } else {
+        expect(resetErrors).not.toHaveBeenCalled();
+      }
+      expect(UsageTrackingConfigurator).not.toHaveBeenCalled();
+      await userEvent.click(create);
+      await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+      expect(onSubmit.mock.calls[0][0]).toMatchObject({
+        name: 'test-endpoint-updated',
+        newSecret: { name: 'my-key', secretFields: { api_key: 'synthetic-key' } },
       });
-      return (
-        <MemoryRouter>
-          <FormProvider {...form}>
-            <EndpointFormRenderer
-              mode="create"
-              isSubmitting={false}
-              error={null}
-              errorMessage={null}
-              resetErrors={resetErrors}
-              onSubmit={onSubmit}
-              onCancel={jest.fn()}
-              onNameBlur={jest.fn()}
-            />
-          </FormProvider>
-        </MemoryRouter>
-      );
-    }
-    renderWithDesignSystem(<Harness />);
-    jest.mocked(UsageTrackingConfigurator).mockClear();
-    const create = screen.getByRole('button', { name: 'Create' });
-    expect(create).toBeDisabled();
-    await userEvent.type(screen.getByRole('textbox', { name: /API key name/ }), 'my-key');
-    await userEvent.type(screen.getByLabelText(/^API Key/), 'synthetic-key');
-    await waitFor(() => expect(create).toBeEnabled());
-    expect(screen.getByText('my-key')).toBeInTheDocument();
-    await userEvent.type(screen.getByPlaceholderText('my-endpoint'), '-updated');
-    expect(resetErrors).not.toHaveBeenCalled();
-    expect(UsageTrackingConfigurator).not.toHaveBeenCalled();
-    await userEvent.click(create);
-    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({
-      name: 'test-endpoint-updated',
-      newSecret: { name: 'my-key', secretFields: { api_key: 'synthetic-key' } },
-    });
-  });
+    },
+  );
 });
