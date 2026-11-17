@@ -6801,6 +6801,27 @@
       },
       "last_updated_at": "2026-10-28"
     },
+    "global.openai.gpt-5.6-cyber": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 12.5,
+        "output_per_million_tokens": 75.0,
+        "cache_read_per_million_tokens": 1.25,
+        "cache_write_per_million_tokens": 15.625
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-16"
+    },
     "global.openai.gpt-5.6-luna": {
       "mode": "chat",
       "context_window": {
@@ -7040,6 +7061,36 @@
         "response_schema": false
       },
       "last_updated_at": "2026-10-27"
+    },
+    "global.openai.gpt-daybreak-blue-5.6-sol": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0,
+        "cache_read_per_million_tokens": 0.4,
+        "cache_write_per_million_tokens": 5.0,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 8.0,
+            "cache_write_per_million_tokens": 10.0,
+            "cache_read_per_million_tokens": 0.8,
+            "output_per_million_tokens": 30.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-16"
     },
     "global.twelvelabs.pegasus-1-2-v1:0": {
       "mode": "chat",
@@ -14277,6 +14328,27 @@
       },
       "last_updated_at": "2026-10-28"
     },
+    "us.openai.gpt-5.6-cyber": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 13.75,
+        "output_per_million_tokens": 82.5,
+        "cache_read_per_million_tokens": 1.375,
+        "cache_write_per_million_tokens": 17.1875
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-16"
+    },
     "us.openai.gpt-5.6-luna": {
       "mode": "chat",
       "context_window": {
@@ -14516,6 +14588,36 @@
         "response_schema": false
       },
       "last_updated_at": "2026-10-27"
+    },
+    "us.openai.gpt-daybreak-blue-5.6-sol": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 4.4,
+        "output_per_million_tokens": 22.0,
+        "cache_read_per_million_tokens": 0.44,
+        "cache_write_per_million_tokens": 5.5,
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "input_per_million_tokens": 8.8,
+            "cache_write_per_million_tokens": 11.0,
+            "cache_read_per_million_tokens": 0.88,
+            "output_per_million_tokens": 33.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-16"
     },
     "us.twelvelabs.marengo-embed-2-7-v1:0": {
       "mode": "embedding",

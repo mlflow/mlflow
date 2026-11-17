@@ -57,7 +57,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
@@ -1004,6 +1004,74 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     # Test no matches
     traces, _ = store.search_traces([exp_id], filter_string='span.name = "nonexistent"')
     assert len(traces) == 0
+
+
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        (r"INPUT\_GUARDRAIL", {"input_guardrail"}),
+        ("input_guardrail", {"input_guardrail", "inputXguardrail"}),
+        (r"100\%\_literal", {"100%_literal"}),
+        (r"%\%%", {"100%_literal"}),
+        (r"path\\name", {r"path\name"}),
+        (r"\[abc]", {"[abc]"}),
+        ("trailing\\", set()),
+        (r"trailing\\", {"trailing\\"}),
+    ],
+)
+def test_search_traces_span_ilike_escape(store: SqlAlchemyStore, field, pattern, expected):
+    if pattern == "trailing\\" and store.db_type != SQLITE:
+        pytest.skip("Incomplete LIKE escape patterns have database-specific behavior.")
+    exp_id = store.create_experiment("span_ilike_escape")
+    values = [
+        "input_guardrail",
+        "inputXguardrail",
+        "100%_literal",
+        r"path\name",
+        "[abc]",
+        "a",
+        "trailing\\",
+    ]
+    trace_names = {}
+    for index, value in enumerate(values):
+        trace_id = f"trace{index}"
+        _create_trace(store, trace_id, exp_id)
+        store.log_spans(
+            exp_id, [create_test_span(trace_id, name=value, span_type=value, span_id=index + 1)]
+        )
+        trace_names[trace_id] = value
+
+    traces, _ = store.search_traces([exp_id], filter_string=f"span.{field} ILIKE '{pattern}'")
+    assert {trace_names[trace.trace_id] for trace in traces} == expected
+
+
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize(
+    ("comparison", "expected"),
+    [
+        ("= '100%\\it''s'", {"100%\\it's"}),
+        ("!= '100%\\it''s'", {"plain", "100%\\it''s"}),
+        (r"ILIKE '100\%\\IT''S'", {"100%\\it's"}),
+        (r"ILIKE '%\%\\it''s%'", {"100%\\it's"}),
+        ("= \"100%\\it''s\"", {"100%\\it''s"}),
+        ("IN ('100%\\it''s')", {"100%\\it's"}),
+        ("NOT IN ('100%\\it''s', 'plain')", {"100%\\it''s"}),
+    ],
+)
+def test_search_traces_span_escaped_quote(store: SqlAlchemyStore, field, comparison, expected):
+    exp_id = store.create_experiment("span_escaped_quote")
+    trace_names = {}
+    for index, value in enumerate(["plain", "100%\\it's", "100%\\it''s"]):
+        trace_id = f"trace{index}"
+        _create_trace(store, trace_id, exp_id)
+        store.log_spans(
+            exp_id, [create_test_span(trace_id, name=value, span_type=value, span_id=index + 1)]
+        )
+        trace_names[trace_id] = value
+
+    traces, _ = store.search_traces([exp_id], filter_string=f"span.{field} {comparison}")
+    assert {trace_names[trace.trace_id] for trace in traces} == expected
 
 
 def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
