@@ -1,6 +1,14 @@
 import { describe, expect, it } from '@jest/globals';
 
 import type { ModelTraceSpanV2 } from './ModelTrace.types';
+import {
+  getMaxModelTraceSpanNodeDepth as getLegacyMaxDepth,
+  getModelTraceSpanNodeDepth as getLegacyDepth,
+} from './timeline-tree/TimelineTree.utils';
+import {
+  getMaxModelTraceSpanNodeDepth as getMaxDepth,
+  getModelTraceSpanNodeDepth as getDepth,
+} from './v2/timeline-tree/TimelineTree.utils';
 import { MOCK_TRACE } from './ModelTraceExplorer.test-utils';
 import {
   getModelTraceTimelineRange as getLegacyTimelineRange,
@@ -93,5 +101,20 @@ describe('large trace time ranges', () => {
       traceStartTime: -10,
       traceEndTime: 20,
     });
+  });
+});
+
+describe.each([
+  ['legacy', getLegacyDepth, getLegacyMaxDepth],
+  ['drawer', getDepth, getMaxDepth],
+] as const)('%s wide tree depths', (_version, depth, maxDepth) => {
+  const leaf = { key: 'leaf', title: 'leaf', start: 0, end: 1, attributes: {}, traceId: 'trace', assessments: [] };
+  const leaves = Array.from({ length: SPAN_COUNT }, () => leaf);
+  it('finds the depth of a node with many direct children', () => {
+    expect(depth({ ...leaf, children: leaves })).toBe(1);
+  });
+  it('finds the maximum depth across many roots without a spread', () => {
+    expect(maxDepth([...leaves, { ...leaf, children: [{ ...leaf, children: [leaf] }] }])).toBe(2);
+    expect(maxDepth([])).toBe(-Infinity);
   });
 });

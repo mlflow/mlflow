@@ -17,7 +17,7 @@ import { TimelineTree } from './timeline-tree/TimelineTree';
 import { getModelTraceTimelineRange } from './ModelTraceExplorer.utils';
 import {
   DEFAULT_EXPAND_DEPTH,
-  getModelTraceSpanNodeDepth,
+  getMaxModelTraceSpanNodeDepth,
   getTimelineTreeNodesMap,
   SPAN_INDENT_WIDTH,
 } from './timeline-tree/TimelineTree.utils';
@@ -293,7 +293,7 @@ export const ModelTraceExplorerDetailView = ({
 
   const leftPaneMinWidth = useMemo(() => {
     const minWidthForSpans =
-      Math.max(...filteredTreeNodes.map(getModelTraceSpanNodeDepth)) * SPAN_INDENT_WIDTH +
+      getMaxModelTraceSpanNodeDepth(filteredTreeNodes) * SPAN_INDENT_WIDTH +
       LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS * theme.spacing.lg;
     return Math.max(LEFT_PANE_HEADER_MIN_WIDTH_PX, minWidthForSpans);
   }, [filteredTreeNodes, theme.spacing.lg]);
