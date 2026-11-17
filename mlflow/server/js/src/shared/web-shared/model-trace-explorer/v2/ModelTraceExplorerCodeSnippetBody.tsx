@@ -74,14 +74,13 @@ export function ModelTraceExplorerCodeSnippetBody({
 
   const expandable =
     isContentLong ||
-    dataToTruncate.split('\n').length > maxLinesForPreview ||
-    dataToTruncate.length > maxCharsForPreview;
+    dataToTruncate.length > maxCharsForPreview ||
+    dataToTruncate.split('\n', maxLinesForPreview + 1).length > maxLinesForPreview;
 
   // Truncate after first 3 lines if not expanded
   const displayedData = useMemo(() => {
     if (expandable && !expanded) {
-      const split = dataToTruncate.split('\n').slice(0, maxLinesForPreview).join('\n');
-      return split.length > maxCharsForPreview ? split.slice(0, maxCharsForPreview) : split;
+      return dataToTruncate.slice(0, maxCharsForPreview).split('\n', maxLinesForPreview).join('\n');
     }
 
     return dataToTruncate;

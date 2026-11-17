@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import {
   ChevronDownIcon,
@@ -34,6 +34,7 @@ import {
 import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
 import { MARKDOWN_RENDER_SIZE_LIMIT } from '../../constants';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
+import { LARGE_TRACE_TEXT_LIMIT, ModelTraceExplorerLargeText } from '../ModelTraceExplorerLargeText';
 
 function ClickToExpandImage({ src, alt }: { src: string; alt?: string }) {
   const { theme } = useDesignSystemTheme();
@@ -122,12 +123,17 @@ const tryGetJsonContent = (content: string) => {
   }
 };
 
+const ChatMarkdown = memo(GenAIMarkdownRenderer);
+const CHAT_MARKDOWN_COMPONENTS = { img: attachmentAwareImgRenderer };
+
 function ModelTraceExplorerChatMessageContent({
   content,
   shouldDisplayCodeSnippet,
+  showsLargeText = false,
 }: {
   content: string;
   shouldDisplayCodeSnippet: boolean;
+  showsLargeText?: boolean;
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
 
@@ -144,6 +150,14 @@ function ModelTraceExplorerChatMessageContent({
         containsActiveMatch={false}
         renderMode={CodeSnippetRenderMode.JSON}
       />
+    );
+  }
+
+  if (showsLargeText) {
+    return (
+      <div css={{ padding: theme.spacing.sm, paddingTop: 0 }}>
+        <ModelTraceExplorerLargeText text={content} />
+      </div>
     );
   }
 
@@ -183,12 +197,9 @@ function ModelTraceExplorerChatMessageContent({
         marginBottom: -theme.typography.fontSizeBase,
       }}
     >
-      <GenAIMarkdownRenderer
-        components={{ img: attachmentAwareImgRenderer }}
-        urlTransform={attachmentAwareUrlTransform}
-      >
+      <ChatMarkdown components={CHAT_MARKDOWN_COMPONENTS} urlTransform={attachmentAwareUrlTransform}>
         {content}
-      </GenAIMarkdownRenderer>
+      </ChatMarkdown>
     </div>
   );
 }
@@ -248,7 +259,11 @@ function ModelTraceExplorerReasoningSection({ reasoning }: { reasoning: string }
             marginBottom: -theme.typography.fontSizeBase,
           }}
         >
-          <GenAIMarkdownRenderer>{reasoning}</GenAIMarkdownRenderer>
+          {reasoning.length > LARGE_TRACE_TEXT_LIMIT ? (
+            <ModelTraceExplorerLargeText text={reasoning} />
+          ) : (
+            <ChatMarkdown>{reasoning}</ChatMarkdown>
+          )}
         </div>
       )}
     </div>
@@ -333,7 +348,14 @@ export function ModelTraceExplorerChatMessage({
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
-  const { content, isJson } = tryGetJsonContent(message.content ?? '');
+  const { content, isJson, attachmentRefCount, displayLength } = useMemo(() => {
+    const parsed = tryGetJsonContent(message.content ?? '');
+    return {
+      ...parsed,
+      attachmentRefCount: parsed.content.split('mlflow-attachment://').length - 1,
+      displayLength: getDisplayLength(parsed.content),
+    };
+  }, [message.content]);
 
   // tool call responses can be JSON, and in these cases
   // it's more helpful to display the message as JSON
@@ -342,11 +364,11 @@ export function ModelTraceExplorerChatMessage({
   // snippet. otherwise, we need to truncate the content manually.
   // Increase truncation limit when attachment refs are present since the refs themselves
   // are lightweight (~120 chars each) and truncating mid-ref breaks markdown rendering.
-  const attachmentRefCount = content.split('mlflow-attachment://').length - 1;
   const effectiveLimit = CONTENT_TRUNCATION_LIMIT + attachmentRefCount * 150;
-  const isExpandable = !shouldDisplayCodeSnippet && getDisplayLength(content) > effectiveLimit;
+  const isExpandable = !shouldDisplayCodeSnippet && displayLength > effectiveLimit;
 
   const displayedContent = isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content;
+  const showsLargeText = !shouldDisplayCodeSnippet && displayLength > LARGE_TRACE_TEXT_LIMIT;
   const toolCallId = message.tool_call_id;
   const isToolResponse = (message.role === 'tool' || message.role === 'function') && toolCallId;
 
@@ -388,12 +410,19 @@ export function ModelTraceExplorerChatMessage({
             {displayName}
           </Typography.Text>
           <ModelTraceExplorerToolCallIdLink toolCallId={toolCallId} />
-          {displayedContent && !shouldDisplayCodeSnippet && (
+          {displayedContent && !shouldDisplayCodeSnippet && !showsLargeText && (
             <Typography.Text color="secondary" css={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: 0 }}>
               {displayedContent}
             </Typography.Text>
           )}
         </div>
+        {showsLargeText && (
+          <ModelTraceExplorerChatMessageContent
+            content={displayedContent}
+            shouldDisplayCodeSnippet={false}
+            showsLargeText
+          />
+        )}
         {shouldDisplayCodeSnippet && (
           <ModelTraceExplorerChatMessageContent
             content={displayedContent}
@@ -474,6 +503,7 @@ export function ModelTraceExplorerChatMessage({
         <ModelTraceExplorerChatMessageContent
           content={displayedContent}
           shouldDisplayCodeSnippet={shouldDisplayCodeSnippet}
+          showsLargeText={showsLargeText}
         />
         {message.audioParts && message.audioParts.length > 0 && (
           <ModelTraceExplorerAudioPlayer audioParts={message.audioParts} />

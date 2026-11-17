@@ -635,6 +635,10 @@
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
   },
+  "03RJAt": {
+    "defaultMessage": "Trace text",
+    "description": "Scrollable large trace text region"
+  },
   "050N3C": {
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
@@ -8210,6 +8214,10 @@
   "OCBP3+": {
     "defaultMessage": "Specific user",
     "description": "Budget scope option limiting the policy to one user"
+  },
+  "OCKR3j": {
+    "defaultMessage": "Large content is displayed as plain text.",
+    "description": "Explains why large trace payloads are rendered without Markdown or syntax highlighting"
   },
   "OCZ6Y6": {
     "defaultMessage": "Git branch",
