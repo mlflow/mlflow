@@ -1,8 +1,11 @@
+from itertools import product
+
 import pytest
 
 from mlflow.entities import TraceInfo, TraceState
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.utils.search import format_trace_metadata_filter
 from mlflow.utils.search_utils import SearchTraceMetricsUtils, SearchTraceUtils
 
 
@@ -192,3 +195,25 @@ def test_trace_filter_groups_keep_quoted_punctuation_keys_literal(key, namespace
     assert len(groups) == len(groups[0]) == 1
     assert groups[0][0]["key"] == key
     assert groups[0][0]["value"] == "v"
+
+
+@pytest.mark.parametrize(
+    "field", ["metadata.`mlflow.trace.session`", "request_metadata.`mlflow.modelId`"]
+)
+def test_sdk_metadata_formatter_matches_complete_parser_atom(field):
+    values = ["AND OR (literal)", r"raw\backslash", "O''Reilly", '["a","b"]', "line\nbreak"]
+    values.extend("".join(chars) for size in range(5) for chars in product("a'\\ ", repeat=size))
+    expected = SearchTraceUtils.parse_search_filter_for_search_traces(f"{field} = ''")[0]
+    for value in values:
+        try:
+            expression = format_trace_metadata_filter(field, value)
+        except MlflowException:
+            # Some backslash/quote spellings are valid under only one server tokenizer.
+            if "\\\\'" not in value:
+                with pytest.raises(MlflowException, match="single equality filter"):
+                    SearchTraceUtils.format_equals_filter(field, value)
+        else:
+            assert expression == SearchTraceUtils.format_equals_filter(field, value)
+            assert SearchTraceUtils.parse_search_filter_groups(expression) == [
+                [{**expected, "value": value}]
+            ]

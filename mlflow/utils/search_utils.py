@@ -34,6 +34,7 @@ from mlflow.tracing.constant import (
     TraceMetricSearchKey,
     TraceTagKey,
 )
+from mlflow.tracing.utils.search import combine_trace_filters
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
@@ -1957,22 +1958,7 @@ class SearchTraceUtils(SearchUtils):
             f"Value cannot be represented as a single equality filter for {field}"
         )
 
-    @staticmethod
-    def combine_filters(*filters):
-        """Conjoin predicates without letting a top-level OR bypass another constraint."""
-        filters = [expression for expression in filters if expression]
-        if len(filters) < 2:
-            return "".join(filters)
-        clauses = []
-        for expression in filters:
-            if any(
-                token.is_keyword and token.normalized == "OR"
-                for statement in sqlparse.parse(expression)
-                for token in statement.tokens
-            ):
-                expression = f"({expression})"
-            clauses.append(expression)
-        return " AND ".join(clauses)
+    combine_filters = staticmethod(combine_trace_filters)
 
     @classmethod
     def parse_search_filter_groups(cls, filter_string):

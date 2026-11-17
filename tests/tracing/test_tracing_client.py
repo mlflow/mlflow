@@ -35,30 +35,108 @@ from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINAT
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
 
-def test_tracing_sdk_imports_without_sqlparse():
-    code = """
+def test_tracing_sdk_queries_without_sqlparse():
+    code = r"""
 import importlib.abc
 import importlib.metadata
 import sys
 
 version = importlib.metadata.version
+
+
 def installed_version(name):
     if name in {"mlflow", "mlflow-skinny"}:
         raise importlib.metadata.PackageNotFoundError(name)
     return version(name)
+
+
 importlib.metadata.version = installed_version
+
 
 class NoSqlparse(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
         if fullname == "sqlparse" or fullname.startswith("sqlparse."):
             raise ModuleNotFoundError("sqlparse is not a tracing SDK dependency")
+
+
 sys.meta_path.insert(0, NoSqlparse())
 
 import mlflow
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.fluent import start_span
+
 assert mlflow.version.IS_TRACING_SDK_ONLY
 assert callable(TracingClient) and callable(start_span)
+from unittest.mock import Mock, patch
+from mlflow.entities import TraceInfo, TraceState
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.exceptions import MlflowException
+
+store = Mock()
+store.search_traces.return_value = ([], None)
+store.get_run.return_value.info.experiment_id = "1"
+with patch("mlflow.tracing.client._get_store", return_value=store):
+    client = TracingClient()
+    for predicate in [None, "", "status = 'OK'", "tags.env = 'AND OR (literal)'"]:
+        assert (
+            client.search_traces(locations=["1"], filter_string=predicate, include_spans=False)
+            == []
+        )
+        assert store.search_traces.call_args.kwargs["filter_string"] == predicate
+    predicate = "status = 'OK' OR status = 'ERROR'"
+    assert client.search_traces(locations=["1"], filter_string=predicate, run_id="run-id") == []
+    assert store.search_traces.call_args.kwargs["filter_string"] == (
+        "(" + predicate + ") AND attribute.run_id = 'run-id'"
+    )
+    for value in ["plain-id", "AND OR (literal)", r"raw\id", "O''Reilly"]:
+        assert client.search_traces(locations=["1"], model_id=value) == []
+        assert store.search_traces.call_args.kwargs["filter_string"] == (
+            "request_metadata.`mlflow.modelId` = '" + value + "'"
+        )
+    try:
+        client.search_traces(locations=["1"], model_id="O'Reilly")
+    except MlflowException as error:
+        assert "single equality filter" in str(error)
+    else:
+        raise AssertionError("Unrepresentable model ID was accepted")
+    with patch("mlflow.tracing.fluent.TracingClient", return_value=client):
+        assert mlflow.search_traces(locations=["1"], return_type="list", include_spans=False) == []
+        assert mlflow.search_sessions(locations=["1"], include_spans=False) == []
+        sessions = ["O''Reilly", r"raw\id"]
+        infos = [
+            TraceInfo(
+                trace_id="tr-" + str(i),
+                trace_location=TraceLocation.from_experiment_id("1"),
+                request_time=i,
+                execution_duration=1,
+                state=TraceState.OK,
+                trace_metadata={"mlflow.trace.session": value},
+                tags={},
+            )
+            for i, value in enumerate([sessions[0], sessions[0], sessions[1]])
+        ]
+
+        def search(**kwargs):
+            predicate = kwargs["filter_string"]
+            return (
+                [
+                    info
+                    for info in infos
+                    if not predicate
+                    or predicate
+                    == "metadata.`mlflow.trace.session` = '"
+                    + info.trace_metadata["mlflow.trace.session"]
+                    + "'"
+                ],
+                None,
+            )
+
+        store.search_traces.side_effect = search
+        result = mlflow.search_sessions(locations=["1"], include_spans=False)
+        assert {session.id: [trace.info.trace_id for trace in session] for session in result} == {
+            sessions[0]: ["tr-0", "tr-1"],
+            sessions[1]: ["tr-2"],
+        }
 assert "sqlparse" not in sys.modules
 """
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
