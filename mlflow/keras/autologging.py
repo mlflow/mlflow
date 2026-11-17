@@ -42,11 +42,12 @@ def _log_dataset(dataset, source, context, name=None, targets=None, model_id=Non
     """Helper function to log the dataset information to MLflow."""
     try:
         import tensorflow as tf
-
-        is_tf_dataset = isinstance(dataset, tf.data.Dataset)
-        is_tf_tensor = isinstance(dataset, tf.Tensor)
     except ImportError:
-        pass
+        # Keras 3 can run on non-TensorFlow backends (e.g., JAX) without TensorFlow installed.
+        tf = None
+
+    is_tf_dataset = tf is not None and isinstance(dataset, tf.data.Dataset)
+    is_tf_tensor = tf is not None and isinstance(dataset, tf.Tensor)
 
     if isinstance(dataset, np.ndarray):
         dataset = from_numpy(features=dataset, targets=targets, source=source, name=name)
@@ -58,7 +59,7 @@ def _log_dataset(dataset, source, context, name=None, targets=None, model_id=Non
         x = dataset[0]
         y = dataset[1]
         # check if x and y are tensors
-        if isinstance(x, tf.Tensor) and isinstance(y, tf.Tensor):
+        if tf is not None and isinstance(x, tf.Tensor) and isinstance(y, tf.Tensor):
             dataset = from_tensorflow(features=x, source=source, targets=y, name=name)
         else:
             dataset = from_numpy(features=x, targets=y, source=source, name=name)
