@@ -93,6 +93,7 @@ describe('getJsonRowsExpandDepth', () => {
   it('expands less of larger payloads', () => {
     expect(getJsonRowsExpandDepth(10_000)).toBe(DEFAULT_JSON_ROWS_EXPAND_DEPTH);
     expect(getJsonRowsExpandDepth(500_000)).toBeLessThan(DEFAULT_JSON_ROWS_EXPAND_DEPTH);
+    expect(getJsonRowsExpandDepth(100_000)).toBe(getJsonRowsExpandDepth(500_000));
     expect(getJsonRowsExpandDepth(5_000_000)).toBeLessThan(getJsonRowsExpandDepth(500_000));
   });
 });

@@ -1,68 +1,22 @@
 /* eslint-disable @databricks/no-hardcoded-colors */
 import { ChevronDownIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
 import type { CSSObject } from '@emotion/react';
-import { isObject, truncate } from 'lodash';
+import { isObject } from 'lodash';
 import { Fragment, useMemo, useState } from 'react';
 
 import { ModelTraceExplorerJsonRowsViewer } from './ModelTraceExplorerJsonRowsViewer';
-import { getJsonRowsExpandDepth } from './ModelTraceExplorerJsonRows.utils';
+import { getJsonRowsExpandDepth, LARGE_JSON_MIN_CHARS } from './ModelTraceExplorerJsonRows.utils';
+import { getJsonColors, renderPrimitiveValue, type JsonColors } from './ModelTraceExplorerJsonRendering.utils';
 
-const LARGE_JSON_MIN_CHARS = 100_000;
+export { getJsonColors } from './ModelTraceExplorerJsonRendering.utils';
+
 const MAX_DEPTH = 100;
 const INITIAL_EXPAND_DEPTH = 5;
-const MAX_STRING_LENGTH = 1000;
 interface CollapsibleJsonViewerProps {
   data: string;
   initialExpanded?: boolean;
+  /** Applies only to the large-payload row renderer; smaller values keep the legacy view. */
   rowLimit?: number;
-}
-
-type JsonColors = {
-  key: string;
-  string: string;
-  number: string;
-  boolean: string;
-  null: string;
-  punctuation: string;
-};
-
-export function getJsonColors(isDarkMode: boolean, textPrimary: string, textSecondary: string): JsonColors {
-  // colors that match Prism's JSON syntax highlighting, this is what users are used to
-  // + combination of theme/databricks-duotone-dark.ts and theme/databricks-light.ts
-  return {
-    key: isDarkMode ? '#5DFAFC' : '#39adb5',
-    string: isDarkMode ? '#ffffff' : textPrimary,
-    number: isDarkMode ? '#3AACE2' : '#f5871f',
-    boolean: isDarkMode ? '#ffffff' : textPrimary,
-    null: isDarkMode ? '#ffffff' : textPrimary,
-    punctuation: textSecondary,
-  };
-}
-
-export function renderPrimitiveValue(val: unknown, colors: JsonColors): React.ReactNode {
-  if (val === null) {
-    return <span css={{ color: colors.null }}>null</span>;
-  }
-  if (val === undefined) {
-    return <span css={{ color: colors.null }}>undefined</span>;
-  }
-  if (typeof val === 'string') {
-    const truncated = truncate(val, { length: MAX_STRING_LENGTH });
-    return <span css={{ color: colors.string }}>"{truncated}"</span>;
-  }
-  if (typeof val === 'number') {
-    if (Number.isNaN(val)) {
-      return <span css={{ color: colors.null }}>NaN</span>;
-    }
-    if (!Number.isFinite(val)) {
-      return <span css={{ color: colors.null }}>{val > 0 ? 'Infinity' : '-Infinity'}</span>;
-    }
-    return <span css={{ color: colors.number }}>{val}</span>;
-  }
-  if (typeof val === 'boolean') {
-    return <span css={{ color: colors.boolean }}>{String(val)}</span>;
-  }
-  return <span css={{ color: colors.null }}>{String(val)}</span>;
 }
 
 interface LineInfo {
@@ -449,9 +403,8 @@ export function CollapsibleJsonViewer({
   if (data.length >= LARGE_JSON_MIN_CHARS && isObject(parseResult.data)) {
     return (
       <ModelTraceExplorerJsonRowsViewer
-        key={data}
         value={parseResult.data}
-        expandDepth={initialExpanded ? getJsonRowsExpandDepth(data.length) : 0}
+        expandDepth={getJsonRowsExpandDepth(data.length)}
         rowLimit={rowLimit}
       />
     );

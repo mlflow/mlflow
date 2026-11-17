@@ -6,7 +6,8 @@ import { IntlProvider } from '@databricks/i18n';
 import { render } from '@databricks/web-shared/test-utils/render';
 
 import { CollapsibleJsonViewer } from './CollapsibleJsonViewer';
-import { ModelTraceExplorerCodeSnippetBody } from './ModelTraceExplorerCodeSnippetBody';
+import { ModelTraceExplorerCodeSnippetBody, JSON_PREVIEW_ROW_LIMIT } from './ModelTraceExplorerCodeSnippetBody';
+import { ModelTraceExplorerJsonRowsViewer } from './ModelTraceExplorerJsonRowsViewer';
 
 const mockCopy = jest.fn();
 jest.mock('use-clipboard-copy', () => ({ useClipboard: () => ({ copy: mockCopy }) }));
@@ -28,7 +29,7 @@ describe('large structured JSON preview', () => {
     const user = userEvent.setup();
     const data = JSON.stringify({ ...payload, unicode: 'café 日本語 🙂 Кириллица العربية', final: 'complete' });
     render(<ModelTraceExplorerCodeSnippetBody data={data} />, { wrapper: Providers });
-    await user.click(screen.getAllByRole('button')[0]);
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
     expect(mockCopy).toHaveBeenCalledWith(data);
     expect(JSON.parse(mockCopy.mock.calls[0][0] as string)).toEqual(JSON.parse(data));
     expect(screen.queryByText('"field-4999"')).not.toBeInTheDocument();
@@ -46,6 +47,38 @@ describe('large JSON row interaction', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     mockCopy.mockClear();
+  });
+
+  it('keeps the viewport and focused toggle mounted when collapsing below 200 rows', async () => {
+    jest.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      const height = this.hasAttribute('data-index') ? 24 : 480;
+      return { x: 0, y: 0, top: 0, left: 0, right: 800, bottom: height, width: 800, height, toJSON: () => ({}) };
+    });
+    const user = userEvent.setup();
+    const value = { document: Object.fromEntries(Array.from({ length: 200 }, (_, index) => [`key-${index}`, index])) };
+    render(<ModelTraceExplorerJsonRowsViewer value={value} expandDepth={1} />, { wrapper: Providers });
+    const viewport = screen.getByRole('region', { name: 'JSON' });
+    const toggle = screen.getByRole('button', { name: 'document' });
+    toggle.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('region', { name: 'JSON' })).toBe(viewport);
+    expect(screen.getByRole('button', { name: 'document' })).toBe(toggle);
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.keyboard('{Enter}');
+    expect(toggle).toHaveFocus();
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('"key-0"')).toBeInTheDocument();
+  });
+
+  it('uses the large-payload expansion depth with either initialExpanded value', () => {
+    const data = JSON.stringify({ nested: { leaf: 'visible default' }, padding: 'z'.repeat(100_000) });
+    const { rerender } = render(<CollapsibleJsonViewer data={data} rowLimit={JSON_PREVIEW_ROW_LIMIT} />, {
+      wrapper: Providers,
+    });
+    expect(screen.getByText('"visible default"')).toBeInTheDocument();
+    rerender(<CollapsibleJsonViewer data={data} initialExpanded rowLimit={JSON_PREVIEW_ROW_LIMIT} />);
+    expect(screen.getByText('"visible default"')).toBeInTheDocument();
   });
 
   it('virtualizes expanded rows and reaches the final value through the real scroll listener', async () => {
@@ -70,9 +103,12 @@ describe('large JSON row interaction', () => {
   it('preserves keyboard container toggling, punctuation keys and replacement Unicode values', async () => {
     const user = userEvent.setup();
     const padded = { 'a.b': { 'quoted"key': 'café 日本語 🙂' }, padding: 'z'.repeat(100_000) };
-    const { rerender } = render(<CollapsibleJsonViewer data={JSON.stringify(padded)} initialExpanded rowLimit={8} />, {
-      wrapper: Providers,
-    });
+    const { rerender } = render(
+      <CollapsibleJsonViewer data={JSON.stringify(padded)} initialExpanded rowLimit={JSON_PREVIEW_ROW_LIMIT} />,
+      {
+        wrapper: Providers,
+      },
+    );
     const toggle = screen.getByRole('button', { name: 'a.b' });
     toggle.focus();
     await user.keyboard('{Enter}');
@@ -84,7 +120,7 @@ describe('large JSON row interaction', () => {
       <CollapsibleJsonViewer
         data={JSON.stringify({ ...padded, 'a.b': { 'quoted"key': 'updated Кириллица العربية' } })}
         initialExpanded
-        rowLimit={8}
+        rowLimit={JSON_PREVIEW_ROW_LIMIT}
       />,
     );
     expect(screen.getByText('"updated Кириллица العربية"')).toBeInTheDocument();

@@ -4,11 +4,9 @@ import { css, type SerializedStyles } from '@emotion/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 
-import { getJsonColors, renderPrimitiveValue } from './CollapsibleJsonViewer';
+import { getJsonColors, renderPrimitiveValue } from './ModelTraceExplorerJsonRendering.utils';
 import { getJsonRows, type JsonRow } from './ModelTraceExplorerJsonRows.utils';
 
-// Below this many lines every row is rendered, as CollapsibleJsonViewer does.
-const VIRTUALIZE_MIN_ROWS = 200;
 const ESTIMATED_ROW_HEIGHT = 24;
 const VIRTUAL_VIEWPORT_MAX_HEIGHT = '70vh';
 const EMPTY_TOGGLED: ReadonlySet<WeakKey> = new Set();
@@ -242,7 +240,8 @@ export function ModelTraceExplorerJsonRowsViewer({
     [value, expandDepth, toggled, rowLimit],
   );
 
-  const shouldVirtualize = rowLimit === undefined && rows.length >= VIRTUALIZE_MIN_ROWS;
+  // Keep the expanded viewport and focused toggles mounted when containers collapse.
+  const shouldVirtualize = rowLimit === undefined;
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: shouldVirtualize ? rows.length : 0,

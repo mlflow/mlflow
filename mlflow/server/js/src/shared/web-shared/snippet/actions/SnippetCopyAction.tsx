@@ -14,10 +14,11 @@ export interface SnippetCopyActionProps extends ButtonProps {
 }
 
 export function SnippetCopyAction({ copyText, onClick, ...props }: SnippetCopyActionProps) {
-  const { actionIcon, tooltipMessage, copy } = useCopyController(copyText);
+  const { actionIcon, tooltipMessage, copy, ariaLabel } = useCopyController(copyText);
 
   return (
     <SnippetActionButton
+      aria-label={ariaLabel}
       tooltipMessage={tooltipMessage}
       icon={actionIcon}
       onClick={(e) => {

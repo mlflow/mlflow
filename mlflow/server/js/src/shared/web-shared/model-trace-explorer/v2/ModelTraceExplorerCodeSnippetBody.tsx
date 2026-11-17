@@ -6,7 +6,8 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { SearchMatch } from './ModelTrace.types';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
-import { CollapsibleJsonViewer, getJsonColors } from './CollapsibleJsonViewer';
+import { CollapsibleJsonViewer } from './CollapsibleJsonViewer';
+import { getJsonColors } from './ModelTraceExplorerJsonRendering.utils';
 import { ModelTraceExplorerHighlightedCodeSnippet } from '../ModelTraceExplorerHighlightedCodeSnippet';
 import { formatJsonStringAsYaml } from './ModelTraceExplorerYaml.utils';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
@@ -20,6 +21,7 @@ const MAX_CHARS_FOR_PREVIEW = 300;
 const YAML_MAX_LINES_FOR_PREVIEW = 100;
 const YAML_MAX_CHARS_FOR_PREVIEW = 12000;
 const JSON_PREVIEW_HEIGHT = 110;
+export const JSON_PREVIEW_ROW_LIMIT = 8;
 
 export function ModelTraceExplorerCodeSnippetBody({
   data,
@@ -132,7 +134,7 @@ export function ModelTraceExplorerCodeSnippetBody({
             position: 'relative',
           }}
         >
-          <CollapsibleJsonViewer data={data} initialExpanded rowLimit={expanded ? undefined : 8} />
+          <CollapsibleJsonViewer data={data} initialExpanded rowLimit={expanded ? undefined : JSON_PREVIEW_ROW_LIMIT} />
           {expandable && !expanded && (
             <div
               css={{

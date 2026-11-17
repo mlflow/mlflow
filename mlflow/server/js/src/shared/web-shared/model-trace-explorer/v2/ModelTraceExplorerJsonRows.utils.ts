@@ -2,6 +2,7 @@ import { isObject } from 'lodash';
 
 // Mirrors CollapsibleJsonViewer, whose nesting cutoff and line numbering these rows reproduce.
 export const JSON_ROWS_MAX_DEPTH = 100;
+export const LARGE_JSON_MIN_CHARS = 100_000;
 export const DEFAULT_JSON_ROWS_EXPAND_DEPTH = 5;
 
 export type JsonRow =
@@ -56,7 +57,7 @@ export interface JsonRowsResult {
 /**
  * Flattens a JSON value into the lines CollapsibleJsonViewer would draw, walking only expanded containers.
  * Line numbers count collapsed content as if it were expanded, as that viewer does. With `maxRows`, the walk
- * stops early, so a preview costs only the lines it shows.
+ * bounds rendered rows. Logical line counting can still visit entire collapsed subtrees.
  */
 export const getJsonRows = (
   root: unknown,
@@ -146,7 +147,7 @@ export const getJsonRowsExpandDepth = (jsonLength: number): number => {
   if (jsonLength > 1_000_000) {
     return 1;
   }
-  if (jsonLength > 100_000) {
+  if (jsonLength >= LARGE_JSON_MIN_CHARS) {
     return 2;
   }
   return DEFAULT_JSON_ROWS_EXPAND_DEPTH;
