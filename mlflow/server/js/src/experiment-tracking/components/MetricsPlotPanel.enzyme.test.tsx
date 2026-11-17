@@ -242,6 +242,99 @@ describe('unit tests', () => {
     expect(getMetricHistoryApi).toHaveBeenCalledTimes(laterPage ? 2 : 1);
   });
 
+  const renderWithPendingHistory = () => {
+    const requests: Array<{ resolve: () => void; reject: (error: Error) => void }> = [];
+    getMetricHistoryApi.mockImplementation(
+      () => new Promise((resolve, reject) => requests.push({ resolve: () => resolve({ value: {} }), reject })),
+    );
+    wrapper = shallow(
+      <MetricsPlotPanel
+        {...minimalPropsForLineChart}
+        runUuids={['runUuid1']}
+        completedRunUuids={[]}
+        location={{
+          ...minimalPropsForLineChart.location,
+          search: '?runs=["runUuid1"]&experiments=["1"]&plot_metric_keys=["metric_1"]',
+        }}
+      />,
+    );
+    return requests;
+  };
+
+  test('keeps the spinner visible until an overlapping poll finishes', async () => {
+    jest.useFakeTimers();
+    const requests = renderWithPendingHistory();
+    const initialLoad = wrapper.instance().loadMetricHistoryPromise;
+    try {
+      jest.advanceTimersByTime(EXPERIMENT_RUNS_FULL_METRICS_POLLING_INTERVAL);
+      const poll = wrapper.instance().loadMetricHistoryPromise;
+      expect(requests).toHaveLength(2);
+      requests[0].resolve();
+      await expect(initialLoad).resolves.toEqual([expect.any(String)]);
+      expect(wrapper.find('Spinner').prop('css')).toEqual({ visibility: 'visible' });
+
+      requests[1].resolve();
+      await expect(poll).resolves.toEqual([expect.any(String)]);
+      expect(wrapper.find('Spinner').prop('css')).toEqual({ visibility: 'hidden' });
+    } finally {
+      wrapper.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  test('keeps loading when a metric selection finishes before the initial history', async () => {
+    const requests = renderWithPendingHistory();
+    const initialLoad = wrapper.instance().loadMetricHistoryPromise;
+    try {
+      wrapper.instance().handleMetricsSelectChange(['metric_1', 'metric_2']);
+      const selectionLoad = wrapper.instance().loadMetricHistoryPromise;
+      requests[1].resolve();
+      await selectionLoad;
+      expect(wrapper.find('Spinner').prop('css')).toEqual({ visibility: 'visible' });
+
+      requests[0].resolve();
+      await initialLoad;
+      expect(wrapper.find('Spinner').prop('css')).toEqual({ visibility: 'hidden' });
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  test('a rejected overlapping load preserves the error and leaves other loads pending', async () => {
+    const requests = renderWithPendingHistory();
+    const initialLoad = wrapper.instance().loadMetricHistoryPromise;
+    const error = new Error('History unavailable');
+    try {
+      const nextLoad = wrapper.instance().loadMetricHistory(['runUuid1'], ['metric_2']);
+      requests[1].reject(error);
+      await expect(nextLoad).rejects.toBe(error);
+      expect(wrapper.state('loading')).toBe(true);
+
+      requests[0].resolve();
+      await initialLoad;
+      expect(wrapper.state('loading')).toBe(false);
+    } finally {
+      wrapper.unmount();
+    }
+  });
+
+  test.each([false, true])('does not update state after unmount (history fails: %s)', async (fails) => {
+    const requests = renderWithPendingHistory();
+    const panel = wrapper.instance();
+    const load = panel.loadMetricHistoryPromise;
+    wrapper.unmount();
+    const setState = jest.spyOn(panel, 'setState');
+    if (fails) {
+      const error = new Error('History unavailable');
+      requests[0].reject(error);
+      await expect(load).rejects.toBe(error);
+    } else {
+      requests[0].resolve();
+      await load;
+    }
+    expect(setState).not.toHaveBeenCalled();
+  });
+
   test('getMetrics() should sort the history by timestamp for `Time (Relative)` x-axis', () => {
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
     instance = wrapper.instance();
