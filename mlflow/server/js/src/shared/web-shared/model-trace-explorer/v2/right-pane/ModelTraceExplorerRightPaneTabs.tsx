@@ -11,6 +11,7 @@ import { getSpanComparisonFields } from './ModelTraceExplorerDefaultSpanView';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
 import { ModelTraceExplorerLinksTab } from './ModelTraceExplorerLinksTab';
 import { ModelTraceExplorerRightPaneHeader } from './ModelTraceExplorerRightPaneHeader';
+import { ModelTraceExplorerPayloadCacheProvider } from './ModelTraceExplorerPayloadCache';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { getDefaultActiveTab, getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
@@ -324,4 +325,10 @@ function ModelTraceExplorerRightPaneTabsImpl({
 
 export const ModelTraceExplorerRightPaneTabs: React.NamedExoticComponent<
   React.ComponentProps<typeof ModelTraceExplorerRightPaneTabsImpl>
-> = React.memo(ModelTraceExplorerRightPaneTabsImpl);
+> = React.memo(function ModelTraceExplorerRightPaneTabs(props) {
+  return (
+    <ModelTraceExplorerPayloadCacheProvider>
+      <ModelTraceExplorerRightPaneTabsImpl {...props} />
+    </ModelTraceExplorerPayloadCacheProvider>
+  );
+});

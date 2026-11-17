@@ -31,6 +31,7 @@ import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { DecisionAnswers, DecisionInputs } from './DecisionView';
 import { resolveDecision } from './decision-utils';
+import { useCachedPayloadResult } from './ModelTraceExplorerPayloadCache';
 import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
@@ -153,8 +154,12 @@ export function ModelTraceExplorerDefaultSpanView({
     outputs: getInitialSectionRenderMode(defaultRenderMode),
   });
   const [openSectionRenderModeDropdown, setOpenSectionRenderModeDropdown] = useState<'inputs' | 'outputs' | null>(null);
-  const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
-  const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
+  const inputList = useCachedPayloadResult('fields', activeSpan?.inputs, () =>
+    createListFromObject(activeSpan?.inputs),
+  );
+  const outputList = useCachedPayloadResult('fields', activeSpan?.outputs, () =>
+    createListFromObject(activeSpan?.outputs),
+  );
   const inputChatMessagesResult = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
   const inputChatMessages = inputChatMessagesResult.messages;
   const inputHasTopLevelChatPayload = inputChatMessagesResult.hasTopLevelChatPayload;
@@ -165,13 +170,21 @@ export function ModelTraceExplorerDefaultSpanView({
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
   const decision = useMemo(() => resolveDecision(activeSpan), [activeSpan]);
-  const comparisonInputList = useMemo(
-    () => createListFromObject(selectedComparisonNode?.inputs),
-    [selectedComparisonNode],
+  const inputsJson = useCachedPayloadResult(
+    'section-json',
+    sectionRenderModes.inputs === 'pretty' ? undefined : activeSpan?.inputs,
+    () => (sectionRenderModes.inputs === 'pretty' ? undefined : stringifySectionData(activeSpan?.inputs)),
   );
-  const comparisonOutputList = useMemo(
-    () => createListFromObject(selectedComparisonNode?.outputs),
-    [selectedComparisonNode],
+  const outputsJson = useCachedPayloadResult(
+    'section-json',
+    sectionRenderModes.outputs === 'pretty' ? undefined : activeSpan?.outputs,
+    () => (sectionRenderModes.outputs === 'pretty' ? undefined : stringifySectionData(activeSpan?.outputs)),
+  );
+  const comparisonInputList = useCachedPayloadResult('fields', selectedComparisonNode?.inputs, () =>
+    createListFromObject(selectedComparisonNode?.inputs),
+  );
+  const comparisonOutputList = useCachedPayloadResult('fields', selectedComparisonNode?.outputs, () =>
+    createListFromObject(selectedComparisonNode?.outputs),
   );
   const comparisonInputChat = useMemo(() => getInputChatMessages(selectedComparisonNode), [selectedComparisonNode]);
   const comparisonOutputChat = useMemo(
@@ -419,11 +432,10 @@ export function ModelTraceExplorerDefaultSpanView({
       return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
     }
 
-    const stringifiedData = stringifySectionData(data);
     return (
       <ModelTraceExplorerCodeSnippet
         title=""
-        data={stringifiedData}
+        data={(section === 'inputs' ? inputsJson : outputsJson) ?? stringifySectionData(data)}
         initialRenderMode={
           sectionRenderModes[section] === 'yaml' ? CodeSnippetRenderMode.YAML : CodeSnippetRenderMode.JSON
         }
