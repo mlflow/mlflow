@@ -5,13 +5,18 @@ import { isObject } from 'lodash';
 import { Fragment, useMemo, useState } from 'react';
 
 import { ModelTraceExplorerJsonRowsViewer } from './ModelTraceExplorerJsonRowsViewer';
-import { getJsonRowsExpandDepth, LARGE_JSON_MIN_CHARS } from './ModelTraceExplorerJsonRows.utils';
+import {
+  DEFAULT_JSON_ROWS_EXPAND_DEPTH as INITIAL_EXPAND_DEPTH,
+  getJsonRows,
+  getJsonRowsExpandDepth,
+  JSON_ROWS_MAX_DEPTH as MAX_DEPTH,
+  LARGE_JSON_MIN_CHARS,
+} from './ModelTraceExplorerJsonRows.utils';
 import { getJsonColors, renderPrimitiveValue, type JsonColors } from './ModelTraceExplorerJsonRendering.utils';
 
 export { getJsonColors } from './ModelTraceExplorerJsonRendering.utils';
 
-const MAX_DEPTH = 100;
-const INITIAL_EXPAND_DEPTH = 5;
+const LARGE_JSON_MIN_ROWS = 200;
 interface CollapsibleJsonViewerProps {
   data: string;
   initialExpanded?: boolean;
@@ -368,6 +373,13 @@ export function CollapsibleJsonViewer({
     );
   }, [parseResult.data]);
 
+  const useJsonRows = useMemo(
+    () =>
+      data.length >= LARGE_JSON_MIN_CHARS ||
+      getJsonRows(parseResult.data, () => true, LARGE_JSON_MIN_ROWS + 1).length > LARGE_JSON_MIN_ROWS,
+    [data.length, parseResult.data],
+  );
+
   if (!parseResult.success) {
     return (
       <div
@@ -400,7 +412,7 @@ export function CollapsibleJsonViewer({
     );
   }
 
-  if (data.length >= LARGE_JSON_MIN_CHARS && isObject(parseResult.data)) {
+  if (useJsonRows) {
     return (
       <ModelTraceExplorerJsonRowsViewer
         value={parseResult.data}

@@ -4,6 +4,7 @@ import {
   DEFAULT_JSON_ROWS_EXPAND_DEPTH,
   getJsonRows,
   getJsonRowsExpandDepth,
+  JSON_ROWS_MAX_DEPTH,
 } from './ModelTraceExplorerJsonRows.utils';
 
 const expandToDefaultDepth = (_container: WeakKey, depth: number) => depth <= DEFAULT_JSON_ROWS_EXPAND_DEPTH;
@@ -75,6 +76,19 @@ describe('getJsonRows', () => {
     getJsonRows(deep, () => false);
     const rows = getJsonRows({ leaf, after: true }, (_container, depth) => depth === 0);
     expect(describeRows(rows)).toEqual(['1 -{', '6 leaf{...', '7 after=true', '8 }']);
+  });
+
+  it('emits the maximum-depth row for expanded nesting past the cutoff', () => {
+    let value: unknown = 'hidden leaf';
+    for (let depth = 0; depth < JSON_ROWS_MAX_DEPTH + 2; depth++) value = [value];
+    const rows = getJsonRows(value, () => true);
+    expect(rows[JSON_ROWS_MAX_DEPTH + 1]).toEqual({
+      kind: 'maxDepth',
+      depth: JSON_ROWS_MAX_DEPTH + 1,
+      line: JSON_ROWS_MAX_DEPTH + 2,
+    });
+    expect(rows.filter((row) => row.kind === 'maxDepth')).toHaveLength(1);
+    expect(rows.some((row) => row.kind === 'primitive')).toBe(false);
   });
 
   it('stops at the row limit', () => {

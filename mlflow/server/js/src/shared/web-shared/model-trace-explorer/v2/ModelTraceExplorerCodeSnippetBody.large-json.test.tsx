@@ -8,6 +8,7 @@ import { render } from '@databricks/web-shared/test-utils/render';
 import { CollapsibleJsonViewer } from './CollapsibleJsonViewer';
 import { ModelTraceExplorerCodeSnippetBody, JSON_PREVIEW_ROW_LIMIT } from './ModelTraceExplorerCodeSnippetBody';
 import { ModelTraceExplorerJsonRowsViewer } from './ModelTraceExplorerJsonRowsViewer';
+import { JSON_ROWS_MAX_DEPTH } from './ModelTraceExplorerJsonRows.utils';
 
 const mockCopy = jest.fn();
 jest.mock('use-clipboard-copy', () => ({ useClipboard: () => ({ copy: mockCopy }) }));
@@ -69,6 +70,28 @@ describe('large JSON row interaction', () => {
     expect(toggle).toHaveFocus();
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('"key-0"')).toBeInTheDocument();
+  });
+
+  it.each([
+    Array.from({ length: 1000 }, (_, index) => index),
+    Object.fromEntries(Array.from({ length: 1000 }, (_, index) => [`k${index}`, index])),
+  ])('bounds previews with many short entries below the character threshold', (value) => {
+    const data = JSON.stringify(value);
+    expect(data.length).toBeLessThan(100_000);
+    render(<CollapsibleJsonViewer data={data} rowLimit={JSON_PREVIEW_ROW_LIMIT} />, { wrapper: Providers });
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.queryByText('999')).not.toBeInTheDocument();
+  });
+
+  it('renders the maximum-depth message when the nested path remains expanded', () => {
+    let value: unknown = 'hidden leaf';
+    for (let depth = 0; depth < JSON_ROWS_MAX_DEPTH + 2; depth++) value = [value];
+    render(
+      <ModelTraceExplorerJsonRowsViewer value={value as unknown[]} expandDepth={JSON_ROWS_MAX_DEPTH} rowLimit={300} />,
+      { wrapper: Providers },
+    );
+    expect(screen.getByText('[Max depth reached]')).toBeInTheDocument();
+    expect(screen.queryByText('"hidden leaf"')).not.toBeInTheDocument();
   });
 
   it('uses the large-payload expansion depth with either initialExpanded value', () => {

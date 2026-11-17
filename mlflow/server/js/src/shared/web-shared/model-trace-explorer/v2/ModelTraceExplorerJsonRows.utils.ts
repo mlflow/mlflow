@@ -1,6 +1,6 @@
 import { isObject } from 'lodash';
 
-// Mirrors CollapsibleJsonViewer, whose nesting cutoff and line numbering these rows reproduce.
+// Shared with CollapsibleJsonViewer to keep nesting and default expansion consistent.
 export const JSON_ROWS_MAX_DEPTH = 100;
 export const LARGE_JSON_MIN_CHARS = 100_000;
 export const DEFAULT_JSON_ROWS_EXPAND_DEPTH = 5;
