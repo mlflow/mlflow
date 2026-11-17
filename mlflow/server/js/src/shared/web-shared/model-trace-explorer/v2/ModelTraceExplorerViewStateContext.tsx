@@ -107,7 +107,7 @@ const DEFAULT_VIEW_STATE: ModelTraceExplorerViewState = {
 
 export const ModelTraceExplorerViewStateContext = createContext(DEFAULT_VIEW_STATE);
 
-// Row actions stay independent of selection, tabs and refreshed trace content.
+// Row actions ignore selection and tabs; comparison refreshes still update the row pairing maps.
 export type ModelTraceExplorerSpanRowState = Pick<
   ModelTraceExplorerViewState,
   'setActiveTab' | 'setAssessmentsPaneExpanded' | 'comparisonNodeMap' | 'comparisonNodeRoleMap'
@@ -115,6 +115,7 @@ export type ModelTraceExplorerSpanRowState = Pick<
 export const ModelTraceExplorerSpanRowStateContext = createContext<ModelTraceExplorerSpanRowState>(DEFAULT_VIEW_STATE);
 export const useModelTraceExplorerSpanRowState = () => useContext(ModelTraceExplorerSpanRowStateContext);
 
+// Comparison consumers still receive refreshed pairing and selection data in this slice.
 export type ModelTraceExplorerViewControls = Omit<
   ModelTraceExplorerViewState,
   'rootNode' | 'nodeMap' | 'topLevelNodes' | 'selectedNode'

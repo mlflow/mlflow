@@ -21,6 +21,7 @@ const Controls = memo(function Controls() {
   return (
     <>
       <output aria-label="Current tab">{activeTab}</output>
+      <output aria-label="Assessments expanded">{String(assessmentsPaneExpanded)}</output>
       <button onClick={() => setAssessmentsPaneExpanded(!assessmentsPaneExpanded)}>Toggle assessments</button>
     </>
   );
@@ -80,7 +81,10 @@ describe('trace view subscriptions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Row attributes' }));
     expect(screen.getByLabelText('Current tab')).toHaveTextContent('attributes');
     expect(controlsRender.mock.calls.length).toBe(counts[0] + 1);
+    const wasExpanded = screen.getByLabelText('Assessments expanded').textContent === 'true';
     fireEvent.click(screen.getByRole('button', { name: 'Toggle assessments' }));
+    expect(screen.getByLabelText('Assessments expanded')).toHaveTextContent(String(!wasExpanded));
+    expect(controlsRender.mock.calls.length).toBe(counts[0] + 2);
     expect(rowRender.mock.calls.length).toBe(counts[1]);
   });
 });
