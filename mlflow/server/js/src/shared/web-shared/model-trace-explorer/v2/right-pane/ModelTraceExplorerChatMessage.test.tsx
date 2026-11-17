@@ -7,6 +7,9 @@ import { fireEvent } from '@testing-library/react';
 import type { ModelTraceChatMessage } from '../ModelTrace.types';
 import { ModelTraceExplorerChatMessage } from './ModelTraceExplorerChatMessage';
 
+const mockCopy = jest.fn();
+jest.mock('use-clipboard-copy', () => ({ useClipboard: () => ({ copy: mockCopy }) }));
+
 const Providers = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
     <DesignSystemProvider>{children}</DesignSystemProvider>
@@ -22,6 +25,7 @@ const mockViewport = () =>
 describe('large chat text', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    mockCopy.mockReset();
   });
 
   it('preserves small Markdown/images and reuses unchanged content normalization', () => {
@@ -47,6 +51,8 @@ describe('large chat text', () => {
     });
     expect(screen.getByText('Large content is displayed as plain text.')).toBeInTheDocument();
     expect(container.querySelector('strong')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(mockCopy).toHaveBeenCalledWith(content);
     fireEvent.click(screen.getByText('See more'));
     expect(screen.getByRole('region', { name: 'Trace text' })).toHaveTextContent('synthetic-0');
     expect(container.textContent).not.toContain('synthetic-2999');
@@ -60,6 +66,8 @@ describe('large chat text', () => {
       <ModelTraceExplorerChatMessage message={{ role: 'tool', content, tool_call_id: 'synthetic-call' }} />,
       { wrapper: Providers },
     );
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(mockCopy).toHaveBeenCalledWith(content);
     fireEvent.click(screen.getByText('See more'));
     expect(screen.getByRole('region', { name: 'Trace text' })).toHaveTextContent('synthetic tool response');
     expect(container.querySelectorAll('*').length).toBeLessThan(200);
@@ -75,6 +83,32 @@ describe('large chat text', () => {
     expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reasoning' }));
     expect(screen.getByRole('region', { name: 'Trace text' })).toHaveTextContent('synthetic reasoning');
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(mockCopy).toHaveBeenCalledWith(reasoning);
     expect(container.querySelectorAll('*').length).toBeLessThan(200);
+  });
+
+  it('keeps all large text available past the old one-megabyte cap', () => {
+    mockViewport();
+    const content = 'synthetic café 日本語 🙂\n'.repeat(50000);
+    const { container } = render(<ModelTraceExplorerChatMessage message={{ role: 'assistant', content }} />, {
+      wrapper: Providers,
+    });
+    fireEvent.click(screen.getByText('See more'));
+    expect(screen.getByRole('region', { name: 'Trace text' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(mockCopy).toHaveBeenCalledWith(content);
+    expect(container.querySelectorAll('*').length).toBeLessThan(200);
+    expect(screen.queryByText(/Content too large to render/)).not.toBeInTheDocument();
+  });
+
+  it('retains the existing render cap for image-heavy messages', () => {
+    const content = `![synthetic](data:image/png;base64,${'a'.repeat(1000100)})`;
+    const { container } = render(<ModelTraceExplorerChatMessage message={{ role: 'assistant', content }} />, {
+      wrapper: Providers,
+    });
+    expect(screen.getByText(/Content too large to render/)).toBeInTheDocument();
+    expect(container.querySelector('pre')?.textContent).toHaveLength(10000);
+    expect(screen.queryByRole('region', { name: 'Trace text' })).not.toBeInTheDocument();
   });
 });

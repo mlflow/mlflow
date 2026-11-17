@@ -2580,6 +2580,7 @@ module.exports = {
   "shared.model-trace-explorer.compare-modal.trace-id-tag-tooltip": "",
   "shared.model-trace-explorer.content-tab.render-mode": "",
   "shared.model-trace-explorer.conversation-toggle": "",
+  "shared.model-trace-explorer.copy-large-text": "",
   "shared.model-trace-explorer.copy-scalar": "",
   "shared.model-trace-explorer.copy-snippet": "",
   "shared.model-trace-explorer.copy-snippet-markdown": "",
