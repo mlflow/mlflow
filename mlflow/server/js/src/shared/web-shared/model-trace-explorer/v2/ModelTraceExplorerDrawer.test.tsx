@@ -62,6 +62,42 @@ describe('ModelTraceExplorerDrawer', () => {
     setBrowserUrl(originalUrl);
   });
 
+  test('can paint its body and close control before mounting optional header actions', () => {
+    jest.useFakeTimers();
+    const frame = jest.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 1);
+    try {
+      const deferredProps = { deferHeaderActions: true };
+      render(
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <HashRouter>
+              <ModelTraceExplorerDrawer
+                {...deferredProps}
+                selectPreviousEval={jest.fn()}
+                selectNextEval={jest.fn()}
+                isPreviousAvailable={false}
+                isNextAvailable={false}
+                handleClose={jest.fn()}
+              >
+                <div>synthetic trace body</div>
+              </ModelTraceExplorerDrawer>
+            </HashRouter>
+          </DesignSystemProvider>
+        </IntlProvider>,
+      );
+      expect(screen.getByText('synthetic trace body')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Close trace panel' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
+      act(() => frame.mock.calls.forEach(([callback]) => callback(0)));
+      expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
+      act(() => jest.runOnlyPendingTimers());
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+    } finally {
+      frame.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
   test('copies a link to the trace that keeps the hash route and path prefix', async () => {
     const traceUrl = `${window.location.origin}/mlflow/#/experiments/1/traces?selectedEvaluationId=tr-abc123`;
     setBrowserUrl(traceUrl);

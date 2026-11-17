@@ -45,7 +45,14 @@ export const useRunScorerInTracesViewConfiguration = (
   scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
 ): UseRunScorerInTracesViewConfigurationReturnType => {
   const [experimentId] = useExperimentIds();
+  return useRunScorerInTracesViewConfigurationForExperiment(experimentId, scope);
+};
 
+// Callers with an experiment ID can avoid subscribing to unrelated route updates.
+export const useRunScorerInTracesViewConfigurationForExperiment = (
+  experimentId: string,
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+): UseRunScorerInTracesViewConfigurationReturnType => {
   const scorerFinishSubscribers = useRef<((event: ScorerFinishedEvent) => void)[]>([]);
 
   const onScorerFinished = useCallback((event: ScorerFinishedEvent) => {

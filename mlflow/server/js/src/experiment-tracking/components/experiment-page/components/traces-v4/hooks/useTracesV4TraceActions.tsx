@@ -7,7 +7,8 @@ import { isEvaluatingTracesInDetailsViewEnabled } from '@databricks/web-shared/m
 import { type GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import {
-  useRunScorerInTracesViewConfiguration,
+  type useRunScorerInTracesViewConfiguration,
+  useRunScorerInTracesViewConfigurationForExperiment,
   useRunJudgesOnTracesConfiguration,
 } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { ExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
@@ -61,7 +62,7 @@ export const useTracesV4TraceActions = (
 ): TracesV4TraceActions => {
   const getTrace: GetTraceFunction = getTraceV3;
 
-  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
+  const runJudgeConfiguration = useRunScorerInTracesViewConfigurationForExperiment(experimentId);
   const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(
     runJudgeConfiguration.evaluateTraces,
     runJudgeConfiguration.allEvaluations,
