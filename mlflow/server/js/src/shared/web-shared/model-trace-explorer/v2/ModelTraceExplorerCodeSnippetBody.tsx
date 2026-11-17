@@ -6,6 +6,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { SearchMatch } from './ModelTrace.types';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
+import { getTextPreview, hasMoreLinesThan } from './ModelTraceExplorerCodeSnippet.utils';
 import { CollapsibleJsonViewer, getJsonColors } from './CollapsibleJsonViewer';
 import { ModelTraceExplorerHighlightedCodeSnippet } from '../ModelTraceExplorerHighlightedCodeSnippet';
 import { formatJsonStringAsYaml } from './ModelTraceExplorerYaml.utils';
@@ -73,15 +74,12 @@ export function ModelTraceExplorerCodeSnippetBody({
   );
 
   const expandable =
-    isContentLong ||
-    dataToTruncate.split('\n').length > maxLinesForPreview ||
-    dataToTruncate.length > maxCharsForPreview;
+    isContentLong || dataToTruncate.length > maxCharsForPreview || hasMoreLinesThan(dataToTruncate, maxLinesForPreview);
 
   // Truncate after first 3 lines if not expanded
   const displayedData = useMemo(() => {
     if (expandable && !expanded) {
-      const split = dataToTruncate.split('\n').slice(0, maxLinesForPreview).join('\n');
-      return split.length > maxCharsForPreview ? split.slice(0, maxCharsForPreview) : split;
+      return getTextPreview(dataToTruncate, maxLinesForPreview, maxCharsForPreview);
     }
 
     return dataToTruncate;
