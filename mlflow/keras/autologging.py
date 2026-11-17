@@ -205,7 +205,7 @@ def autolog(
             mlflow.log_param("batch_size", batch_size)
             unlogged_params.append("batch_size")
 
-        log_fn_args_as_params(original, [], kwargs, unlogged_params)
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
         model_id = None
         if log_models:
             model_id = _initialize_logged_model("model", flavor="keras").model_id
@@ -233,7 +233,10 @@ def autolog(
         )
         _check_existing_mlflow_callback(callbacks)
         callbacks.append(mlflow_callback)
-        kwargs["callbacks"] = callbacks
+        if len(args) >= 6:
+            args = (*args[:5], callbacks, *args[6:])
+        else:
+            kwargs["callbacks"] = callbacks
         history = original(inst, *args, **kwargs)
 
         if log_models:

@@ -248,3 +248,25 @@ def test_autolog_does_not_modify_user_callbacks_across_fit_calls():
     for run in runs:
         assert run.info.status == "FINISHED"
         assert "loss" in run.data.metrics
+
+
+def test_autolog_logs_positional_fit_args_and_respects_positional_callbacks():
+    mlflow.keras.autolog(log_models=False, log_datasets=False)
+
+    data = np.random.uniform(size=(8, 28, 28, 3))
+    label = np.random.randint(2, size=8)
+    history = keras.callbacks.History()
+    callbacks = [history]
+
+    # x, y, batch_size, epochs, verbose, callbacks
+    model = _create_keras_model()
+    model.fit(data, label, 4, 3, 0, callbacks)
+
+    assert callbacks == [history]
+    assert history.params["epochs"] == 3
+    run = mlflow.last_active_run()
+    assert run.data.params["epochs"] == "3"
+    assert run.data.params["batch_size"] == "4"
+    flush_async_logging()
+    run = mlflow.get_run(run.info.run_id)
+    assert "loss" in run.data.metrics
