@@ -1117,6 +1117,25 @@ def test_validate_path_within_directory_tolerates_extended_length_prefix(tmp_pat
     assert result == str(constructed_path)
 
 
+def test_validate_path_within_directory_rejects_outside_path_with_extended_length_prefix(
+    tmp_path,
+):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = tmp_path / "artifacts-evil" / "abc"
+    original_resolve = pathlib.Path.resolve
+
+    def resolve_with_prefix(self, strict=False):
+        resolved = original_resolve(self, strict=strict)
+        return type(resolved)("\\\\?\\" + str(resolved))
+
+    with (
+        mock.patch.object(pathlib.Path, "resolve", autospec=True, side_effect=resolve_with_prefix),
+        pytest.raises(MlflowException, match="resolved path is outside the artifact directory"),
+    ):
+        validate_path_within_directory(str(base_dir), str(constructed_path))
+
+
 @pytest.mark.parametrize(
     ("path", "expected"),
     [
