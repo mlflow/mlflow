@@ -1,6 +1,7 @@
 import os
 import pathlib
 import posixpath
+from unittest import mock
 
 import pytest
 
@@ -8,6 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.os import is_windows
 from mlflow.utils.uri import (
+    _strip_extended_length_prefix,
     add_databricks_profile_info_to_artifact_uri,
     append_to_uri_path,
     append_to_uri_query_params,
@@ -1093,6 +1095,41 @@ def test_validate_path_within_directory_allows_internal_symlink(tmp_path):
     os.symlink(str(real_file), str(symlink_path))
     result = validate_path_within_directory(str(base_dir), str(symlink_path))
     assert result == str(symlink_path)
+
+
+def test_validate_path_within_directory_tolerates_extended_length_prefix(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "skills" / "@acme" / "reviewer" / "abc"
+    original_resolve = pathlib.Path.resolve
+
+    def resolve_with_prefix(self, strict=False):
+        # Mimics Windows' non-strict realpath keeping the prefix for a missing directory
+        # when a concurrent mkdir changes the error code of its re-check.
+        resolved = original_resolve(self, strict=strict)
+        return resolved if self.exists() else type(resolved)("\\\\?\\" + str(resolved))
+
+    with mock.patch.object(
+        pathlib.Path, "resolve", autospec=True, side_effect=resolve_with_prefix
+    ) as resolve:
+        result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    resolve.assert_called()
+    assert result == str(constructed_path)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("\\\\?\\C:\\artifacts\\a", "C:\\artifacts\\a"),
+        ("\\\\?\\UNC\\server\\share\\a", "\\\\server\\share\\a"),
+        ("C:\\artifacts\\a", "C:\\artifacts\\a"),
+        ("\\\\server\\share\\a", "\\\\server\\share\\a"),
+    ],
+)
+def test_strip_extended_length_prefix(path, expected):
+    assert _strip_extended_length_prefix(pathlib.PureWindowsPath(path)) == (
+        pathlib.PureWindowsPath(expected)
+    )
 
 
 def test_validate_path_within_directory_allows_base_dir_itself(tmp_path):
