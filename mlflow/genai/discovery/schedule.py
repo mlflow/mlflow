@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Literal
@@ -125,13 +125,14 @@ class ScheduleTraceFilter:
 class CompiledTraceScopeClause:
     """A saved UI trace filter, validated by the trace-search parser before use."""
 
-    source: dict[str, Any]
+    compiled: str
+    source: dict[str, Any] = field(compare=False, hash=False)
 
     def to_filter_clause(self) -> str:
-        return self.source["compiled"]
+        return self.compiled
 
     def to_dict(self) -> dict[str, Any]:
-        return self.source
+        return {**self.source, "compiled": self.compiled}
 
 
 @dataclass(frozen=True)
@@ -338,7 +339,7 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | CompiledTraceSco
             raise MlflowException.invalid_parameter_value(
                 "Backticks are not supported in saved issue-detection trace scope keys"
             )
-        return CompiledTraceScopeClause(source=entry)
+        return CompiledTraceScopeClause(compiled=compiled, source=dict(entry))
     if entry.get("operator", "=") != "=" or (
         entry.get("field") not in (None, "tag", "metadata")
         and ("operator" in entry or "key" not in entry)

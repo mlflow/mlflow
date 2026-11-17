@@ -1,10 +1,6 @@
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { MlflowService } from '../../sdk/MlflowService';
-import {
-  MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
-  MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
-  MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-} from '../../constants';
+import { MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG, MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG } from '../../constants';
 
 /**
  * The experiment's recurring issue-detection schedule, as stored.
@@ -13,28 +9,6 @@ import {
  * experiment tags below, so this module is the adapter between the control and those tags; the
  * types it exports are the ones the control is written against.
  */
-
-/** Which trace namespace a filter clause matches on: request metadata or a tag. */
-export type ScheduleTraceFilterField = 'metadata' | 'tag';
-
-/**
- * The comparison a filter clause applies. Only equality is offered today; the operator is persisted
- * anyway so the stored schema is ready to carry other comparisons (e.g. `!=`) without a migration.
- */
-export type ScheduleTraceFilterOperator = '=';
-
-/**
- * One equality clause attached to an experiment's schedule, matching either request metadata
- * (`request_metadata.<key>`) or a tag (`tags.<key>`). A schedule may carry several (ANDed): a
- * scheduled run only analyzes traces matching every clause (`key` = `value`). Stored as a JSON
- * array in its own experiment tag so the clauses can be recovered to prefill the schedule modal.
- */
-export interface ScheduleTraceFilter {
-  field: ScheduleTraceFilterField;
-  operator: ScheduleTraceFilterOperator;
-  key: string;
-  value: string;
-}
 
 /**
  * The model a scheduled run analyzes with: either an AI Gateway endpoint or a provider's model
@@ -118,7 +92,6 @@ export interface IssueDetectionSchedule {
    * recorded against different timing would describe a schedule that no longer exists.
    */
   nextRunMs: number | undefined;
-  traceFilters: ScheduleTraceFilter[];
   /** Undefined on a schedule saved before a model could be chosen: the server default applies. */
   model: IssueDetectionScheduleModel | undefined;
   /**
@@ -134,7 +107,6 @@ export const noIssueDetectionSchedule = (): IssueDetectionSchedule => ({
   startTime: DEFAULT_ISSUE_DETECTION_START_TIME,
   weekday: DEFAULT_ISSUE_DETECTION_WEEKDAY,
   nextRunMs: undefined,
-  traceFilters: [],
   model: undefined,
   timezone: undefined,
 });
@@ -218,30 +190,6 @@ const parseJson = (raw: string | null | undefined): unknown => {
   }
 };
 
-const parseTraceFilter = (entry: unknown): ScheduleTraceFilter | undefined => {
-  if (!isRecord(entry)) {
-    return undefined;
-  }
-  const { field, key, value, operator } = entry;
-  if (typeof key !== 'string' || key.trim().length === 0) {
-    return undefined;
-  }
-  // Only equality exists today; an operator this version cannot apply drops the clause rather
-  // than being coerced to '=', which would select a set disjoint from the one it asked for.
-  if (operator !== undefined && operator !== '=') {
-    return undefined;
-  }
-  if (operator !== undefined && field !== undefined && field !== 'tag' && field !== 'metadata') return undefined;
-  // Anything that is not 'tag' is request metadata, so a clause written before the field existed
-  // still applies; a missing or non-text value reads as empty.
-  return {
-    field: field === 'tag' ? 'tag' : 'metadata',
-    operator: '=',
-    key: key.trim(),
-    value: typeof value === 'string' ? value : '',
-  };
-};
-
 const parseScheduleModel = (entry: unknown): IssueDetectionScheduleModel | undefined => {
   if (!isRecord(entry)) {
     return undefined;
@@ -258,17 +206,6 @@ const parseScheduleModel = (entry: unknown): IssueDetectionScheduleModel | undef
     };
   }
   return undefined;
-};
-
-export const parseScheduleTraceFilters = (raw: string | null | undefined): ScheduleTraceFilter[] => {
-  const parsed = parseJson(raw);
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-  return parsed.flatMap((entry) => {
-    const filter = parseTraceFilter(entry);
-    return filter ? [filter] : [];
-  });
 };
 
 /**
@@ -321,12 +258,9 @@ export const readIssueDetectionScheduleFromTags = (
   tags: readonly ExperimentTag[] | undefined | null,
 ): IssueDetectionSchedule => {
   const scheduleTag = tags?.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG)?.value;
-  const traceFilters = parseScheduleTraceFilters(
-    tags?.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value,
-  );
   const parsed = parseJson(scheduleTag);
   if (!isRecord(parsed) || parsed['version'] !== ISSUE_DETECTION_SCHEDULE_VERSION) {
-    return { ...noIssueDetectionSchedule(), traceFilters };
+    return noIssueDetectionSchedule();
   }
   const cadence = isFrequency(parsed['cadence']) ? parsed['cadence'] : undefined;
   const paused = parsed['paused'] === true;
@@ -336,7 +270,6 @@ export const readIssueDetectionScheduleFromTags = (
     cadence,
     startTime: parseIssueDetectionStartTime(parsed['fireTime']),
     weekday: parseIssueDetectionWeekday(parsed['weekday']),
-    traceFilters,
     model: parseScheduleModel(parsed['model']),
     timezone: typeof storedTimezone === 'string' && storedTimezone.trim().length > 0 ? storedTimezone : undefined,
   };
@@ -507,7 +440,6 @@ export const saveIssueDetectionSchedule = async (
     // schedule runs next the moment it is saved. Undefined if that call did not get through,
     // which is the old behaviour: no line until the dispatcher's next pass.
     nextRunMs: await syncScheduleState(experimentId),
-    traceFilters: current?.traceFilters ?? [],
     model: savedModel,
     timezone: savedTimezone,
   };

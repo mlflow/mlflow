@@ -42,6 +42,7 @@ import {
 } from '../../../../pages/experiment-issues/IssueDetectionTraceScope';
 import {
   compileIssueDetectionTraceScope,
+  InvalidIssueDetectionTraceScopeError,
   emptyIssueDetectionTraceScope,
   type IssueDetectionTraceScopeValue,
 } from '../../../../pages/experiment-issues/issueDetectionTraceScope';
@@ -244,7 +245,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           experimentId,
           traceIds,
           categories: selectedDetectionCategories(effectiveSettings),
-          instructions: effectiveSettings?.instructions || undefined,
+          instructions: effectiveSettings?.instructions.trim() || undefined,
           provider: selection.provider,
           model: selection.model,
           secret_id: selection.mode === 'direct' ? (secretIdOverride ?? existingSecrets[0]?.secret_id) : undefined,
@@ -409,7 +410,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           css={{ marginTop: theme.spacing.md }}
           message={intl.formatMessage({
             defaultMessage:
-              "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
+              'Previously saved settings have no focus area selected. This run considers all areas; select at least one when editing settings.',
             description: 'Note in the issue detection modal shown when the saved settings deselect every focus area',
           })}
           closable={false}
@@ -420,11 +421,33 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           componentId="mlflow.traces.issue-detection-modal.settings-load-error"
           type="error"
           closable={false}
-          message={intl.formatMessage({
-            defaultMessage: 'Could not load issue detection settings. Retry before starting analysis.',
-            description: 'Blocking detection settings read error',
-          })}
+          message={
+            scope.error instanceof InvalidIssueDetectionTraceScopeError
+              ? scope.save.error
+                ? intl.formatMessage({
+                    defaultMessage: 'Could not reset trace scope. Try again.',
+                    description: 'Invalid issue detection trace scope reset error',
+                  })
+                : scope.error.message
+              : intl.formatMessage({
+                  defaultMessage: 'Could not load issue detection settings. Retry before starting analysis.',
+                  description: 'Blocking detection settings read error',
+                })
+          }
           actions={[
+            ...(canEdit && scope.error instanceof InvalidIssueDetectionTraceScopeError
+              ? [
+                  {
+                    componentId: 'mlflow.traces.issue-detection-modal.reset-scope',
+                    children: intl.formatMessage({
+                      defaultMessage: 'Reset trace scope to all traces',
+                      description: 'Explicitly discard an invalid saved issue detection scope',
+                    }),
+                    disabled: scope.save.isLoading,
+                    onClick: () => scope.save.mutate(emptyIssueDetectionTraceScope()),
+                  },
+                ]
+              : []),
             {
               componentId: 'mlflow.traces.issue-detection-modal.retry-settings',
               children: intl.formatMessage({

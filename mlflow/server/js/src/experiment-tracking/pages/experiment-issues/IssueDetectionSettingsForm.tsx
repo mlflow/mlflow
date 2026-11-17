@@ -186,7 +186,7 @@ export const IssueDetectionSettingsForm = ({
             // than discovered from the network request.
             <FormUI.Hint>
               {intl.formatMessage({
-                defaultMessage: 'With no focus area selected, detection considers all of them.',
+                defaultMessage: 'Select at least one focus area to save these settings.',
                 description: 'Issue detection settings modal > Hint shown when every focus area has been deselected',
               })}
             </FormUI.Hint>

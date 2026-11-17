@@ -8519,6 +8519,10 @@
     "defaultMessage": "Select session {sessionId}",
     "description": "Aria label for selecting every trace in a grouped session"
   },
+  "PD1Bde": {
+    "defaultMessage": "Select at least one focus area to save these settings.",
+    "description": "Issue detection settings modal > Hint shown when every focus area has been deselected"
+  },
   "PDAMaL": {
     "defaultMessage": "Model version alias deleted",
     "description": "Webhook event label"
@@ -10727,6 +10731,10 @@
     "defaultMessage": "Inputs",
     "description": "Column selector label for the inputs column"
   },
+  "WClOYo": {
+    "defaultMessage": "Previously saved settings have no focus area selected. This run considers all areas; select at least one when editing settings.",
+    "description": "Note in the issue detection modal shown when the saved settings deselect every focus area"
+  },
   "WDGZAH": {
     "defaultMessage": "The response is unusually slow, overall or in a single span.",
     "description": "Issue category description for latency"
@@ -11410,6 +11418,10 @@
   "YINJEO": {
     "defaultMessage": "Metric",
     "description": "Column title for the column displaying the metric names for a run"
+  },
+  "YJAIXP": {
+    "defaultMessage": "Reset trace scope to all traces",
+    "description": "Explicitly discard an invalid saved issue detection scope"
   },
   "YJVvRW": {
     "defaultMessage": "Refresh session",
@@ -13035,10 +13047,6 @@
     "defaultMessage": "Flag for review",
     "description": "Bulk action that assigns the selected traces to a review queue"
   },
-  "diS6Td": {
-    "defaultMessage": "With no focus area selected, detection considers all of them.",
-    "description": "Issue detection settings modal > Hint shown when every focus area has been deselected"
-  },
   "dkv7sq": {
     "defaultMessage": "Beta",
     "description": "Skill Registry beta feature tag"
@@ -14414,10 +14422,6 @@
   "he7/4n": {
     "defaultMessage": "Pick your language and follow the steps.",
     "description": "Description above the manual setup steps in the traces empty state"
-  },
-  "hevxNa": {
-    "defaultMessage": "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
-    "description": "Note in the issue detection modal shown when the saved settings deselect every focus area"
   },
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",
@@ -16190,6 +16194,10 @@
   "mv6CY3": {
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
+  },
+  "mvfgfK": {
+    "defaultMessage": "Could not reset trace scope. Try again.",
+    "description": "Invalid issue detection trace scope reset error"
   },
   "mwR/4I": {
     "defaultMessage": "Active",

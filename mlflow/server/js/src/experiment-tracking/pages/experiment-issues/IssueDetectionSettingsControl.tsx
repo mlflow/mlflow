@@ -10,7 +10,11 @@ import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import { useIssueDetectionSettings } from './useIssueDetectionSettings';
 import { IssueDetectionSettingsForm } from './IssueDetectionSettingsForm';
 import { IssueDetectionTraceScope, useNormalizeIssueDetectionTraceScope } from './IssueDetectionTraceScope';
-import { emptyIssueDetectionTraceScope, type IssueDetectionTraceScopeValue } from './issueDetectionTraceScope';
+import {
+  emptyIssueDetectionTraceScope,
+  InvalidIssueDetectionTraceScopeError,
+  type IssueDetectionTraceScopeValue,
+} from './issueDetectionTraceScope';
 import { useIssueDetectionTraceScope } from './useIssueDetectionTraceScope';
 
 const COMPONENT_ID = 'mlflow.experiment-issues.detection-settings';
@@ -111,6 +115,36 @@ export const IssueDetectionSettingsControl = ({ experimentId, buttonText }: Issu
             {buttonText}
           </Button>
         </Tooltip>
+      )}
+      {scope.error instanceof InvalidIssueDetectionTraceScopeError && (
+        <Alert
+          componentId={`${COMPONENT_ID}.invalid-scope`}
+          type="error"
+          closable={false}
+          message={
+            scope.save.error
+              ? intl.formatMessage({
+                  defaultMessage: 'Could not reset trace scope. Try again.',
+                  description: 'Invalid issue detection trace scope reset error',
+                })
+              : scope.error.message
+          }
+          actions={
+            canEdit
+              ? [
+                  {
+                    componentId: `${COMPONENT_ID}.reset-scope`,
+                    children: intl.formatMessage({
+                      defaultMessage: 'Reset trace scope to all traces',
+                      description: 'Explicitly discard an invalid saved issue detection scope',
+                    }),
+                    disabled: scope.save.isLoading,
+                    onClick: () => scope.save.mutate(emptyIssueDetectionTraceScope()),
+                  },
+                ]
+              : []
+          }
+        />
       )}
       <Modal
         componentId={`${COMPONENT_ID}.modal`}

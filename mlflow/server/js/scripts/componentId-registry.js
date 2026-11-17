@@ -2402,6 +2402,7 @@ module.exports = {
   "mlflow.traces.issue-detection-modal.model": "",
   "mlflow.traces.issue-detection-modal.model-dropdown": "",
   "mlflow.traces.issue-detection-modal.no-focus-area-selected": "",
+  "mlflow.traces.issue-detection-modal.reset-scope": "",
   "mlflow.traces.issue-detection-modal.retry-settings": "",
   "mlflow.traces.issue-detection-modal.settings-load-error": "",
   "mlflow.traces.issue-detection-modal.submit": "",

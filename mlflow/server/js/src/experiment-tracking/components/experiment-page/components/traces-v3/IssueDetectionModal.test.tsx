@@ -13,6 +13,7 @@ import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/u
 import { defaultIssueDetectionSettings } from '../../../../pages/experiment-issues/issueDetectionSettings';
 import { useHasExperimentIssues } from '../../../../pages/experiment-issues/useExperimentIssues';
 import { useNormalizeIssueDetectionTraceScope } from '../../../../pages/experiment-issues/IssueDetectionTraceScope';
+import { InvalidIssueDetectionTraceScopeError } from '../../../../pages/experiment-issues/issueDetectionTraceScope';
 import { useIssueDetectionTraceScope } from '../../../../pages/experiment-issues/useIssueDetectionTraceScope';
 import { searchMlflowTracesQueryFn } from '../../../../../shared/web-shared/genai-traces-table/hooks/useMlflowTraces';
 
@@ -351,6 +352,41 @@ describe('IssueDetectionModal', () => {
     });
   });
 
+  test.each([
+    ['  Only high severity.  ', 'Only high severity.'],
+    ['   ', undefined],
+  ])('run priorities are normalized like persisted settings: %s', async (instructions, expected) => {
+    mockSettings({ ...defaultIssueDetectionSettings(), instructions });
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Run Analysis' }));
+    await waitFor(() =>
+      expect(mockInvokeIssueDetection).toHaveBeenCalledWith(
+        expect.objectContaining({ instructions: expected }),
+        expect.any(Object),
+      ),
+    );
+  });
+
+  test.each([true, false])('invalid scope recovery is explicit and edit-gated (canEdit=%s)', async (canEdit) => {
+    jest.mocked(useExperimentPermission).mockReturnValue(canEdit);
+    const reset = jest.fn();
+    jest.mocked(useIssueDetectionTraceScope).mockReturnValue({
+      error: new InvalidIssueDetectionTraceScopeError('Saved scope is invalid; reset before analysis.'),
+      isLoading: false,
+      save: { mutate: reset },
+      refetch: jest.fn(),
+    } as any);
+    renderWithDesignSystem(<IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} />);
+    expect(screen.getByText('Saved scope is invalid; reset before analysis.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Run Analysis' })).toBeDisabled();
+    const button = screen.queryByRole('button', { name: 'Reset trace scope to all traces' });
+    if (canEdit) {
+      await userEvent.click(button!);
+      expect(reset).toHaveBeenCalledWith({ searchQuery: '', filters: [] });
+    } else expect(button).not.toBeInTheDocument();
+    expect(mockInvokeIssueDetection).not.toHaveBeenCalled();
+  });
+
   test('analysis cannot start while the settings are still loading', async () => {
     // Reported in review: submitting here would silently use the defaults and drop the saved
     // priorities -- an expensive run whose results ignore the experiment's configuration.
@@ -380,7 +416,7 @@ describe('IssueDetectionModal', () => {
 
     expect(
       screen.getByText(
-        "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
+        'Previously saved settings have no focus area selected. This run considers all areas; select at least one when editing settings.',
       ),
     ).toBeInTheDocument();
 

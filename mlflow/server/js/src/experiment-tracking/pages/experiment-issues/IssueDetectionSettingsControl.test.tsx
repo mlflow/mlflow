@@ -5,7 +5,10 @@ import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
-import { MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG } from '../../constants';
+import {
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+  MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG,
+} from '../../constants';
 import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
 
 import { useExperimentPermission } from '../../hooks/useExperimentPermission';
@@ -70,6 +73,33 @@ describe('IssueDetectionSettingsControl', () => {
     jest.mocked(useExperimentPermission).mockReturnValue(false);
     render();
     expect(await screen.findByRole('button', { name: 'Issue detection settings' })).toBeDisabled();
+    expect(written).toEqual([]);
+  });
+
+  test('invalid saved scope can be explicitly reset without changing priorities, including a failed reset retry', async () => {
+    experimentTags = [{ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: 'not-json' }];
+    saveFails = true;
+    render();
+    const reset = await screen.findByRole('button', { name: 'Reset trace scope to all traces' });
+    expect(screen.getByText(/Could not read the saved trace scope/)).toBeInTheDocument();
+    await userEvent.click(reset);
+    await screen.findByText('Could not reset trace scope. Try again.');
+    expect(written).toEqual([]);
+    saveFails = false;
+    await userEvent.click(reset);
+    await waitFor(() =>
+      expect(written).toEqual([{ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: '' }]),
+    );
+    await openSettings();
+    expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('');
+  });
+
+  test('a read-only user cannot reset an invalid scope', async () => {
+    experimentTags = [{ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: 'not-json' }];
+    jest.mocked(useExperimentPermission).mockReturnValue(false);
+    render();
+    await screen.findByRole('button', { name: /retry loading issue detection settings/i });
+    expect(screen.queryByRole('button', { name: 'Reset trace scope to all traces' })).not.toBeInTheDocument();
     expect(written).toEqual([]);
   });
 
@@ -235,7 +265,7 @@ describe('IssueDetectionSettingsControl', () => {
     expect(savedSettings().categories['pii leakage']).toBeUndefined();
   });
 
-  test('deselecting every focus area says what the run will do instead', async () => {
+  test('deselecting every focus area explains why Save is disabled', async () => {
     render();
     await openSettings();
 
@@ -244,7 +274,7 @@ describe('IssueDetectionSettingsControl', () => {
     }
 
     // Silently detecting everything would read as the settings being ignored.
-    expect(screen.getByText('With no focus area selected, detection considers all of them.')).toBeInTheDocument();
+    expect(screen.getByText('Select at least one focus area to save these settings.')).toBeInTheDocument();
   });
 
   test('a failed save keeps the modal open with the draft intact', async () => {

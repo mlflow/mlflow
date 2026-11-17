@@ -15,6 +15,7 @@ from mlflow.genai.discovery.schedule import (
     MAX_MODEL_IDENTIFIER_LENGTH,
     MAX_TRACE_FILTERS,
     SCHEDULE_VERSION,
+    CompiledTraceScopeClause,
     DetectionCadence,
     DetectionSchedule,
     DetectionScheduleState,
@@ -1126,5 +1127,14 @@ def test_doubled_quotes_are_not_escapes_in_trace_search():
 def test_backticks_in_compiled_scope_keys_are_rejected():
     from mlflow.exceptions import MlflowException
 
-    with pytest.raises(MlflowException, match="Invalid|Backticks"):
+    with pytest.raises(MlflowException, match="Backticks"):
         parse_trace_filters(json.dumps([{"compiled": "tags.`bad``key` = 'value'"}]))
+
+
+def test_compiled_scope_keeps_validated_expression_stable():
+    source = {"compiled": "tags.team = 'search'"}
+    clause = CompiledTraceScopeClause(compiled=source["compiled"], source=source)
+    source["compiled"] = "invalid"
+    assert clause.to_filter_clause() == "tags.team = 'search'"
+    assert clause.to_dict()["compiled"] == "tags.team = 'search'"
+    assert hash(clause) == hash(CompiledTraceScopeClause(compiled=clause.compiled, source={}))

@@ -13,6 +13,8 @@ export interface IssueDetectionTraceScopeValue {
 
 const SEARCH_FIELD = 'issue_detection_search_query';
 const MAX_COMPILED_FILTER_LENGTH = 10000;
+export class InvalidIssueDetectionTraceScopeError extends Error {}
+
 export const emptyIssueDetectionTraceScope = (): IssueDetectionTraceScopeValue => ({ searchQuery: '', filters: [] });
 
 export const readIssueDetectionTraceScope = (
@@ -77,12 +79,14 @@ export const readIssueDetectionTraceScope = (
       }
     }
   } catch {
-    throw new Error(
-      'Could not read the saved trace scope. Repair the experiment trace-scope tag before running analysis.',
+    throw new InvalidIssueDetectionTraceScopeError(
+      'Could not read the saved trace scope. Reset it to all traces, then configure new filters before running analysis.',
     );
   }
   if (compileFilterModel(scope.filters).length !== scope.filters.length) {
-    throw new Error('The saved trace scope contains an unsupported filter.');
+    throw new InvalidIssueDetectionTraceScopeError(
+      'The saved trace scope contains an unsupported filter. Reset it before running analysis.',
+    );
   }
   return compiled.length ? { ...scope, filterString: compiled.join(' AND ') } : scope;
 };
