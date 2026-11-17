@@ -7,7 +7,7 @@ import logging
 import sys
 import uuid
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, fields, is_dataclass, replace
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
@@ -428,9 +428,10 @@ def calculate_cost_by_model_and_token_usage(
     # only be disjoint counts, so add the cache tokens back to avoid pricing a negative count.
     # Disjoint counts where the uncached input is at least the cache tokens are indistinguishable
     # from inclusive counts, so they are still priced as inclusive.
-    cache_tokens = (cached or 0) + (created or 0)
-    if prompt_tokens is not None and prompt_tokens < cache_tokens:
-        prompt_tokens += cache_tokens
+    with suppress(TypeError):  # Malformed counts are left for the pricer to reject, as before.
+        cache_tokens = (cached or 0) + (created or 0)
+        if prompt_tokens < cache_tokens:
+            prompt_tokens += cache_tokens
 
     # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
     # litellm's signature does not accept it, so only pass it to the builtin.

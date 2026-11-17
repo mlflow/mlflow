@@ -946,10 +946,15 @@ def test_disjoint_cache_token_counts_passed_to_litellm_as_inclusive(mock_litellm
     assert all(call.kwargs["prompt_tokens"] == 260 for call in mock_litellm_cost.call_args_list)
 
 
-@pytest.mark.parametrize("cache_read_input_tokens", [None, 200])
-def test_builtin_cost_with_none_input_tokens_returns_none(cache_read_input_tokens):
+@pytest.mark.parametrize(
+    ("input_tokens", "cache_read_input_tokens"),
+    [(None, None), (None, 200), ("100", None), ("100", 200), (100, "50")],
+)
+def test_builtin_cost_with_malformed_token_counts_returns_none(
+    input_tokens, cache_read_input_tokens
+):
     usage = {
-        "input_tokens": None,
+        "input_tokens": input_tokens,
         "output_tokens": 5,
         "cache_read_input_tokens": cache_read_input_tokens,
     }
