@@ -272,6 +272,24 @@ describe('EvalRunTracesV4Table', () => {
     });
   });
 
+  test('adds, reloads, and removes a unified-search predicate in the run query', async () => {
+    const table = renderTable();
+    await findTraceRow('tr-000');
+    const searchBox = screen.getByRole('combobox', { name: 'Type something to use full text search' });
+    fireEvent.change(searchBox, { target: { value: "state = 'ERROR'" } });
+    fireEvent.keyDown(searchBox, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+    await waitFor(() => expect(state.searchCalls.at(-1)?.filter).toBe(`${RUN_FILTER} AND attributes.status = 'ERROR'`));
+    const query = lastSearch;
+    expect(JSON.parse(new URLSearchParams(query).get('filters') ?? '[]')).toHaveLength(1);
+    table.unmount();
+    state.searchCalls = [];
+    renderTable(`${RUN_URL}${query}`);
+    await waitFor(() => expect(state.searchCalls.at(-1)?.filter).toBe(`${RUN_FILTER} AND attributes.status = 'ERROR'`));
+    await userEvent.click(await screen.findByRole('button', { name: "Remove filter state = 'ERROR'" }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Remove filter/ })).not.toBeInTheDocument());
+    expect(new URLSearchParams(lastSearch).get('filters')).toBeNull();
+  });
+
   test('turns a typed query into a filter on the run’s traces', async () => {
     state.traces = [makeRunTrace('tr-000', { assessments: [makeFeedbackAssessment('relevance', 'yes')] })];
     renderTable();

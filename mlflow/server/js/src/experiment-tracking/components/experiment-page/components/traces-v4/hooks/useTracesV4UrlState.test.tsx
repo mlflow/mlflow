@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
+import { IntlProvider } from 'react-intl';
 import { act, renderHook } from '@testing-library/react';
 import { useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import {
@@ -8,6 +9,7 @@ import {
   testRoute,
   waitForRoutesToBeRendered,
 } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+import { FilterOp } from '@databricks/web-shared/traces-table';
 import { useTracesV4UrlState } from './useTracesV4UrlState';
 import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
@@ -35,18 +37,20 @@ describe('useTracesV4UrlState', () => {
     lastSearch = '';
     const result = renderHook(() => useTracesV4UrlState(), {
       wrapper: ({ children }) => (
-        <TestRouter
-          history={history}
-          initialEntries={[initialUrl]}
-          routes={[
-            testRoute(
-              <>
-                <LocationSpy />
-                <div>{children}</div>
-              </>,
-            ),
-          ]}
-        />
+        <IntlProvider locale="en">
+          <TestRouter
+            history={history}
+            initialEntries={[initialUrl]}
+            routes={[
+              testRoute(
+                <>
+                  <LocationSpy />
+                  <div>{children}</div>
+                </>,
+              ),
+            ]}
+          />
+        </IntlProvider>
       ),
     });
     await waitForRoutesToBeRendered();
@@ -303,5 +307,20 @@ describe('useTracesV4UrlState', () => {
     expect(param('filters')).toBe('[]');
     expect(param('tag')).toBeNull();
     expect(param('traceViewShareKey')).toBe('v1');
+  });
+  test('restores only supported clauses while preserving a SQL predicate', async () => {
+    const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env = 'qa'" };
+    const valid = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
+    const clauses = [
+      sql,
+      valid,
+      { field: 'state', operator: FilterOp.CONTAINS, value: 'OK' },
+      { ...valid, operator: FilterOp.CONTAINS },
+      { ...valid, value: '1.5' },
+      { field: 'tag', key: 'x;bad', operator: FilterOp.EQUALS, value: 'v' },
+      { field: 'removed', operator: FilterOp.EQUALS, value: 'v' },
+    ];
+    const { result } = await mountHook(`/p?filters=${encodeURIComponent(JSON.stringify(clauses))}`);
+    expect(result.current.filterModel).toEqual([sql, valid]);
   });
 });

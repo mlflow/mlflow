@@ -63,9 +63,9 @@ export interface TraceFilterButtonProps {
     value: string;
     onChange: (value: string) => void;
     appliedClause?: { value: string; onChange: (value: string) => void };
+    /** Applies a scoped replacement and returns the resulting predicate for error recovery. */
     replaceClause?: (index: number, value: string) => string;
     formatBasic: (model: TraceFilterModel) => string;
-    formatBasicDraft?: (model: TraceFilterModel) => string;
     parseBasic: (value: string) => TraceFilterModel | undefined;
     renderEditor?: (value: string, onChange: (value: string) => void) => React.ReactNode;
     error?: Error;
@@ -802,14 +802,13 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
             componentId={`${COMPONENT_ID}.filter.tabs`}
             value={activeTab}
             onValueChange={(tab) => {
-              if (tab === 'sql' && sqlFilter && !sqlOnlyDraft) {
-                const value =
-                  sqlFilter.formatBasicDraft?.(draft) ?? sqlFilter.formatBasic(draft.filter(isClauseComplete));
+              if (tab === 'sql' && !sqlOnlyDraft) {
+                const value = sqlFilter.formatBasic(draft.filter(isClauseComplete));
                 basicSqlDraftRef.current = value;
                 setSqlDraft(value);
                 setSqlError(undefined);
               }
-              if (tab === 'basic' && sqlFilter && sqlDraft !== basicSqlDraftRef.current) {
+              if (tab === 'basic' && sqlDraft !== basicSqlDraftRef.current) {
                 const parsed = sqlFilter.parseBasic(sqlDraft);
                 setSqlOnlyDraft(parsed === undefined);
                 if (parsed) {
@@ -820,7 +819,7 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
               setActiveTab(tab);
             }}
           >
-            {sqlFilter && (editIndex === undefined || sqlFilter.replaceClause) && (
+            {(editIndex === undefined || sqlFilter.replaceClause) && (
               <Tabs.List>
                 <Tabs.Trigger value="basic">
                   <FormattedMessage defaultMessage="Basic" description="Basic trace filters tab" />
@@ -833,37 +832,35 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
             <Tabs.Content value="basic" tabIndex={-1}>
               {basicEditor}
             </Tabs.Content>
-            {sqlFilter && (
-              <Tabs.Content value="sql" tabIndex={-1}>
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                  <Typography.Text>
-                    {intl.formatMessage({
+            <Tabs.Content value="sql" tabIndex={-1}>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <Typography.Text>
+                  {intl.formatMessage({
+                    defaultMessage: 'Trace filter predicate',
+                    description: 'Label for the trace SQL predicate editor',
+                  })}
+                </Typography.Text>
+                {sqlFilter.renderEditor?.(sqlDraft, changeSqlDraft) ?? (
+                  <Input.TextArea
+                    componentId={`${COMPONENT_ID}.filter.sql`}
+                    aria-label={intl.formatMessage({
                       defaultMessage: 'Trace filter predicate',
-                      description: 'Label for the trace SQL predicate editor',
+                      description: 'Accessible trace SQL editor label',
                     })}
-                  </Typography.Text>
-                  {sqlFilter.renderEditor?.(sqlDraft, changeSqlDraft) ?? (
-                    <Input.TextArea
-                      componentId={`${COMPONENT_ID}.filter.sql`}
-                      aria-label={intl.formatMessage({
-                        defaultMessage: 'Trace filter predicate',
-                        description: 'Accessible trace SQL editor label',
-                      })}
-                      value={sqlDraft}
-                      onChange={(event) => changeSqlDraft(event.target.value)}
-                      autoSize={{ minRows: 4, maxRows: 8 }}
-                    />
-                  )}
-                  {(sqlError ||
-                    (sqlDraft.trim() && sqlDraft.trim() === sqlFilter.value.trim() && sqlFilter.error?.message)) && (
-                    <FormUI.Message type="error" message={sqlError ?? sqlFilter.error?.message} />
-                  )}
-                  <Button componentId={`${COMPONENT_ID}.filter.sql-apply`} type="primary" onClick={applySqlFilter}>
-                    <FormattedMessage defaultMessage="Apply filter" description="Apply trace SQL predicate button" />
-                  </Button>
-                </div>
-              </Tabs.Content>
-            )}
+                    value={sqlDraft}
+                    onChange={(event) => changeSqlDraft(event.target.value)}
+                    autoSize={{ minRows: 4, maxRows: 8 }}
+                  />
+                )}
+                {(sqlError ||
+                  (sqlDraft.trim() && sqlDraft.trim() === sqlFilter.value.trim() && sqlFilter.error?.message)) && (
+                  <FormUI.Message type="error" message={sqlError ?? sqlFilter.error?.message} />
+                )}
+                <Button componentId={`${COMPONENT_ID}.filter.sql-apply`} type="primary" onClick={applySqlFilter}>
+                  <FormattedMessage defaultMessage="Apply filter" description="Apply trace SQL predicate button" />
+                </Button>
+              </div>
+            </Tabs.Content>
           </Tabs.Root>
         ) : (
           basicEditor

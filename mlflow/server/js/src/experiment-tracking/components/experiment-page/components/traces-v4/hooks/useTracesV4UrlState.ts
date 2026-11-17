@@ -6,7 +6,6 @@ import { useNumberSearchParam } from '@mlflow/mlflow/src/experiment-tracking/pag
 import {
   DEFAULT_PAGE_SIZE,
   EMPTY_FILTER_MODEL,
-  FilterOp,
   type TraceFilterModel,
   DEFAULT_SORT_COLUMN,
   DEFAULT_SORT_DIR,
@@ -16,6 +15,8 @@ import {
   type SortDirection,
   type TraceColumnId,
 } from '@databricks/web-shared/traces-table';
+import { isSupportedFilterClause, useMlflowTraceFilterFields } from '../utils/filterModel';
+import { TRACE_V4_SHARE_URL_PARAM_KEY } from '../utils/tracesV4SavedViewState';
 
 const Q_PARAM = 'q';
 const FILTERS_PARAM = 'filters';
@@ -117,29 +118,22 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
   // `searchParams` object directly.
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get(Q_PARAM) ?? '';
+  const filterFields = useMlflowTraceFilterFields();
   const serializedFilters = searchParams.get(FILTERS_PARAM);
   const filterModel = useMemo<TraceFilterModel>(() => {
     if (!serializedFilters) return EMPTY_FILTER_MODEL;
     try {
       const parsed: unknown = JSON.parse(serializedFilters);
       if (!Array.isArray(parsed)) return EMPTY_FILTER_MODEL;
-      return parsed.filter(
-        (clause) =>
-          clause &&
-          typeof clause === 'object' &&
-          typeof clause.field === 'string' &&
-          typeof clause.value === 'string' &&
-          Object.values(FilterOp).includes(clause.operator) &&
-          (clause.key === undefined || typeof clause.key === 'string'),
-      );
+      return parsed.filter((clause) => isSupportedFilterClause(filterFields, clause));
     } catch {
       return EMPTY_FILTER_MODEL;
     }
-  }, [serializedFilters]);
+  }, [serializedFilters, filterFields]);
   const setFilterState = useCallback(
     (next: TraceFilterModel, tags?: TagFilter[]) => {
       setSearchParams((params) => {
-        if (next.length || params.has('traceViewShareKey')) params.set(FILTERS_PARAM, JSON.stringify(next));
+        if (next.length || params.has(TRACE_V4_SHARE_URL_PARAM_KEY)) params.set(FILTERS_PARAM, JSON.stringify(next));
         else params.delete(FILTERS_PARAM);
         if (tags !== undefined) {
           params.delete(TAG_PARAM);

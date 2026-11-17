@@ -346,7 +346,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
   const setColumnOrder = jest.fn();
   // Report BOTH the hook API and the live URL search each render, so assertions read the in-memory
   // router's state (TestRouter never touches window.location.hash) after a param rewrite.
-  const setFilterModel = jest.fn();
   const setAssessmentVisibility = jest.fn();
   const DirtyProbe = ({
     onRender,
@@ -595,11 +594,20 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       ),
     ]);
     let state: any;
-    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s), []);
+    let search = '';
+    renderProbeAt(
+      `/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`,
+      (s, sp) => {
+        state = s;
+        search = sp;
+      },
+      [],
+    );
     await act(async () => {
       await state.openView('v1');
     });
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+    expect(new URLSearchParams(search).get('filters')).toBeNull();
   });
 
   test('opening a view restores its stored assessment-column visibility', async () => {
@@ -626,7 +634,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
 
 describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
   const setColumns = jest.fn();
-  const setFilterModel = jest.fn();
   const V3Probe = ({ onRender }: { onRender: (s: any, search: string) => void }) => {
     const savedViews = useTracesV4SavedViews({
       experimentId: 'exp-1',

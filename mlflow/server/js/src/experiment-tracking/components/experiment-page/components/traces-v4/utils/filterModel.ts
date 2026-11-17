@@ -69,6 +69,8 @@ const stateLabel = (intl: IntlShape, value: string): string => {
   }
 };
 
+const EMPTY_ASSESSMENT_NAMES: string[] = [];
+
 /**
  * The MLflow trace filter fields, in dropdown order, with localized labels — fed to the shared
  * `TraceFilterButton`. Operators per field mirror v1's `getAvailableOperators` for the V4 path; the
@@ -76,7 +78,7 @@ const stateLabel = (intl: IntlShape, value: string): string => {
  * whose key (the feedback name) is a freeform-capable combobox suggesting the candidate names.
  */
 export const useMlflowTraceFilterFields = (
-  assessmentNames: string[] = [],
+  assessmentNames: string[] = EMPTY_ASSESSMENT_NAMES,
   /** Rows on the current page, used for value suggestions with the new evaluation runs UI. */
   traces?: ModelTraceInfoV3[],
 ): FilterFieldDef[] => {
@@ -273,21 +275,26 @@ export const useMlflowTraceFilterFields = (
 };
 
 /**
- * Validate a persisted filter clause against the current field set: the field still exists, still
- * offers the clause's operator, and (for a `requiresKey` field) carries a non-blank key. Used when
- * restoring a saved view so a clause referencing a field/operator that no longer exists is dropped
+ * Validate a persisted filter clause against the current field set, operator, key and value rules.
+ * Used when restoring URL filters or a saved view so a clause referencing a field/operator that no longer exists is dropped
  * rather than silently producing wrong results — and, symmetrically, so the dirty diff normalizes
  * the stored baseline the same way (an unsupported clause can't strand a view permanently dirty).
  */
 export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
-  (isSqlFilterClause(clause) && clause.operator === FilterOp.EQUALS && clause.value.trim().length > 0) ||
-  fields.some(
-    (field) =>
-      field.id === clause.field &&
-      field.operators.includes(clause.operator) &&
-      (!field.requiresKey ||
-        (typeof clause.key === 'string' && clause.key.trim() !== '' && isSafeFilterKey(clause.key))),
-  );
+  clause != null &&
+  typeof clause.field === 'string' &&
+  typeof clause.value === 'string' &&
+  (clause.key === undefined || typeof clause.key === 'string') &&
+  isClauseComplete(clause) &&
+  (clause.key === undefined || isSafeFilterKey(clause.key)) &&
+  (clause.field !== 'duration' || isValidDuration(clause.value)) &&
+  ((isSqlFilterClause(clause) && clause.operator === FilterOp.EQUALS) ||
+    fields.some(
+      (field) =>
+        field.id === clause.field &&
+        field.operators.includes(clause.operator) &&
+        (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
+    ));
 
 /**
  * Compile a text field where only `CONTAINS` needs translation (to `ILIKE '%value%'`, since the

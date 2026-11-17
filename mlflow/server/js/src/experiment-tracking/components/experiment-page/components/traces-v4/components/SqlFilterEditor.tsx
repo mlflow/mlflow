@@ -125,7 +125,7 @@ export const SqlFilterEditor = ({
       <Typography.Text color="secondary">
         {intl.formatMessage({
           defaultMessage:
-            'Enter a trace search condition without WHERE, for example: attributes.execution_time_ms > 1000. Join conditions with AND. OR and grouped expressions are not supported. The server validates fields and operators.',
+            'Enter a trace search condition without WHERE, for example: attributes.execution_time_ms > 1000. The server validates syntax, fields, and operators.',
           description: 'Supported OSS trace search predicate syntax',
         })}
       </Typography.Text>

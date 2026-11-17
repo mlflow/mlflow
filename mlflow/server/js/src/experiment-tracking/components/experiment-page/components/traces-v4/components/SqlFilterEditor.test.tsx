@@ -63,7 +63,7 @@ test('suggests quoted loaded keys only for its own model and unregisters complet
     }),
   ]);
   expect(provider.provideCompletionItems({}, position).suggestions).toEqual([]);
-  expect(screen.getByText(/Join conditions with AND/)).toBeInTheDocument();
+  expect(screen.getByText(/The server validates syntax, fields, and operators/)).toBeInTheDocument();
   unmount();
   expect(mockDispose).toHaveBeenCalled();
 });

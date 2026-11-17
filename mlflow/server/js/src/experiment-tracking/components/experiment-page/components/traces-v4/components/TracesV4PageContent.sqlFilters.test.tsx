@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FilterOp } from '@databricks/web-shared/traces-table';
-import { makeTrace } from '../test-utils/mockTraces';
+import { FilterOp, type TraceFilterModel } from '@databricks/web-shared/traces-table';
+import { makeFeedbackAssessment, makeTrace } from '../test-utils/mockTraces';
 import { renderPage, findTraceRow, state, env, URL } from '../test-utils/tracesV4PageContentTestBed';
 
 jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
@@ -22,7 +22,7 @@ jest.mock('./SqlFilterEditor', () => ({
 const basic = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
 const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env LIKE 'qa%'" };
 const editor = () => screen.getByRole('textbox', { name: 'Trace filter predicate' });
-const initialUrl = (filters: (typeof basic)[]) =>
+const initialUrl = (filters: TraceFilterModel) =>
   `${URL}?tag=team%3Dml&filters=${encodeURIComponent(JSON.stringify(filters))}`;
 const filters = () => JSON.parse(new URLSearchParams(env.lastSearch).get('filters') ?? '[]');
 
@@ -79,4 +79,33 @@ describe('trace SQL state and search', () => {
     await user.click(screen.getByRole('button', { name: `Edit filter SQL: ${sql.value}` }));
     expect(await screen.findByRole('textbox', { name: 'Trace filter predicate' })).toHaveValue(sql.value);
   }, 30000);
+  test.each([FilterOp.EQUALS, FilterOp.NOT_EQUALS])(
+    'does not invent numeric assessment conditions for an incomplete %s draft',
+    async (operator) => {
+      state.pages = { '': { traces: [makeTrace('tr-000', { assessments: [makeFeedbackAssessment('score', 4)] })] } };
+      renderPage({ initialUrl: initialUrl([{ field: 'assessment', key: 'score', operator, value: '4' }]) });
+      await findTraceRow('tr-000');
+      await waitFor(() =>
+        expect(state.searchCalls.at(-1)?.filter).toContain(
+          operator === FilterOp.EQUALS
+            ? 'feedback.`score` >= 4 AND feedback.`score` <= 4'
+            : "feedback.`score` != '4.0'",
+        ),
+      );
+      await userEvent.click(screen.getByRole('button', { name: `Edit filter feedback.score ${operator} '4'` }));
+      await userEvent.click(await screen.findByRole('combobox', { name: 'Filter field' }));
+      await userEvent.click(await screen.findByRole('option', { name: 'Tag' }));
+      await userEvent.click(screen.getByRole('combobox', { name: 'Filter field' }));
+      await userEvent.click(await screen.findByRole('option', { name: 'Feedback' }));
+      await userEvent.click(screen.getByRole('combobox', { name: 'Filter key' }));
+      await userEvent.click(await screen.findByRole('option', { name: 'score' }));
+      if (operator === FilterOp.NOT_EQUALS) {
+        await userEvent.click(screen.getByRole('combobox', { name: 'Filter operator' }));
+        await userEvent.click(await screen.findByRole('option', { name: '!=' }));
+      }
+      await userEvent.click(screen.getByRole('tab', { name: 'SQL' }));
+      expect(await screen.findByRole('textbox', { name: 'Trace filter predicate' })).toHaveValue('');
+    },
+    30000,
+  );
 });

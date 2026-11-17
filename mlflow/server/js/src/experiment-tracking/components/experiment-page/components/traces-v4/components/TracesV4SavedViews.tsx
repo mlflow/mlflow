@@ -333,14 +333,15 @@ export const useTracesV4SavedViews = ({
     [experiment?.tags],
   );
 
-  // Activate a view: rewrite the URL query to its state (+ the share key), and restore the two
-  // column store. Predicates are validated before restoring them into the same URL update.
+  // Activate a view: rewrite the URL query to its state (+ the share key), and restore its
+  // column stores. Predicates are validated before restoring them into the same URL update.
   // The V4 hooks read the params on the next render, so this IS the applied view. A view with no
   // resolvable columns leaves the user's columns untouched rather than hiding everything.
   const applyView = useCallback(
     (state: CapturedV4ViewState, id: string) => {
       const params = new URLSearchParams(buildV4ViewQuery(state, id));
       const filters = supportedFilters(state.filters);
+      params.delete('filters');
       if (filters.length) params.set('filters', JSON.stringify(filters));
       setSearchParams(params);
       const columns = decodeViewColumns(state, TRACE_COLUMN_IDS);
@@ -360,8 +361,8 @@ export const useTracesV4SavedViews = ({
     [setSearchParams, setColumns, setColumnOrder, supportedFilters, setAssessmentVisibility, setCustomVisibility],
   );
 
-  // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
-  // popover filters). Time-range label is kept (not dropped) so the default has a window, not empty.
+  // Return to the default state: drop every view param (including filters) and reset columns.
+  // Keep a default time window.
   const resetToDefaultView = useCallback(() => {
     setSearchParams(new URLSearchParams({ startTimeLabel: DEFAULT_TRACES_V4_TIME_LABEL }));
     resetColumns();

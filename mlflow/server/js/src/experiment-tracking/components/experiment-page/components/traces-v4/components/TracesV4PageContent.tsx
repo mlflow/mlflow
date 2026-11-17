@@ -747,15 +747,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
           .join(' AND ');
       },
       formatBasic,
-      formatBasicDraft: (model) =>
-        model
-          .map((clause) => {
-            const compiled = formatBasic([clause]);
-            if (compiled || clause.value.trim() || clause.key === '') return compiled;
-            return formatBasic([{ ...clause, value: '0' }]).replace(/(?:0|'[^']*')$/, '');
-          })
-          .filter(Boolean)
-          .join(' AND '),
       parseBasic,
       error: page.error instanceof Error ? page.error : undefined,
       isFetching: page.isFetching,
