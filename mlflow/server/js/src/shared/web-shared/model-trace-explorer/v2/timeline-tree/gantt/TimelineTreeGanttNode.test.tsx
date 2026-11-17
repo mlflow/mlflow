@@ -4,13 +4,17 @@ import { render } from '@databricks/web-shared/test-utils/render';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
-import { TimelineTreeGanttNode } from './TimelineTreeGanttNode';
+import { TimelineTreeGanttNode as RedesignedGantt } from './TimelineTreeGanttNode';
+import { TimelineTreeGanttNode as LegacyGantt } from '../../../timeline-tree/gantt/TimelineTreeGanttNode';
 
 afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('Gantt label fitting', () => {
+describe.each([
+  ['legacy', LegacyGantt],
+  ['redesigned', RedesignedGantt],
+] as const)('%s Gantt label fitting', (_name, TimelineTreeGanttNode) => {
   it('exposes all labels before measuring and keeps short and long labels in the right place', async () => {
     const visibleAtMeasurement: number[] = [];
     jest.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
