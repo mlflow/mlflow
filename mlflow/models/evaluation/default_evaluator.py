@@ -82,8 +82,8 @@ def _extract_output_and_other_columns(
             ])
         elif len(model_predictions[0]) == 1:
             # Set the only key as self.predictions and its value as self.y_pred
-            key, value = list(model_predictions[0].items())[0]
-            y_pred = pd.Series(value, name=key)
+            key = next(iter(model_predictions[0]))
+            y_pred = pd.Series([p.get(key) for p in model_predictions], name=key)
             output_column_name = key
         elif output_column_name is None:
             raise MlflowException(
