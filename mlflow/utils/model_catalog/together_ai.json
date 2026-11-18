@@ -611,6 +611,26 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "Qwen/Qwen4-Max": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 1000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.425,
+        "output_per_million_tokens": 4.275,
+        "cache_read_per_million_tokens": 0.07125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-18"
+    },
     "arcee-ai/trinity-mini": {
       "mode": "chat",
       "context_window": {
