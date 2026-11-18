@@ -1452,6 +1452,93 @@ def test_load_pt2_model_rejects_pickled_weight_listed_in_upper_cased_weights_con
 @pytest.mark.skipif(
     Version(torch.__version__) < Version("2.10"), reason="This test requires torch>=2.10"
 )
+def test_load_pt2_model_rejects_pickled_weight_listed_as_raw_tensor_in_nested_config(
+    model_path, data, monkeypatch, tmp_path
+):
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+    marker_path = tmp_path / "payload_executed"
+    pt2_path = Path(model_path) / "data" / "model.pt2"
+    buffer = io.BytesIO()
+    torch.save(_FileCreatingPayload(marker_path), buffer)
+    with zipfile.ZipFile(pt2_path) as archive:
+        records = {info.filename: archive.read(info) for info in archive.infolist()}
+    config_name = next(n for n in records if n.endswith("data/weights/model_weights_config.json"))
+    weights_dir = config_name.rsplit("/", 1)[0]
+    # The weights config lists the nested record as pickled, while a nested config at the
+    # record's directory lists the same record as a raw tensor.
+    nested_dir = f"{weights_dir}/x/data/weights"
+    config = json.loads(records[config_name])
+    config["config"]["pickled"] = {
+        "path_name": "x/data/weights/weight_99",
+        "is_param": False,
+        "use_pickle": True,
+        "tensor_meta": None,
+    }
+    records[config_name] = json.dumps(config).encode()
+    records[f"{nested_dir}/decoy_config.json"] = json.dumps({
+        "config": {"raw": {"path_name": "weight_99", "use_pickle": False}}
+    }).encode()
+    records[f"{nested_dir}/weight_99"] = buffer.getvalue()
+    with zipfile.ZipFile(pt2_path, "w") as archive:
+        for name, content in records.items():
+            archive.writestr(name, content)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    # No raw tensor records are trusted, so validation rejects the first one it reads.
+    with pytest.raises(MlflowException, match=r"record '[^']*/data/weights/weight_\d+'"):
+        mlflow.pytorch.load_model(model_path)
+    assert not marker_path.exists()
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.10"), reason="This test requires torch>=2.10"
+)
+def test_load_pt2_model_rejects_record_name_normalized_by_zipfile(
+    model_path, data, monkeypatch, tmp_path
+):
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+    marker_path = tmp_path / "payload_executed"
+    pt2_path = Path(model_path) / "data" / "model.pt2"
+    buffer = io.BytesIO()
+    torch.save(_FileCreatingPayload(marker_path), buffer)
+    with zipfile.ZipFile(pt2_path) as archive:
+        records = {info.filename: archive.read(info) for info in archive.infolist()}
+    config_name = next(n for n in records if n.endswith("data/weights/model_weights_config.json"))
+    weights_dir = config_name.rsplit("/", 1)[0]
+    config = json.loads(records[config_name])
+    config["config"]["raw"] = {"path_name": "weight_99", "use_pickle": False}
+    records[config_name] = json.dumps(config).encode()
+    # `zipfile` truncates the name at the null byte (as it converts `\` to `/` on Windows), so
+    # the record it reports differs from the one torch reads.
+    record_name = f"{weights_dir}/weight_99\x00"
+    with zipfile.ZipFile(pt2_path, "w") as archive:
+        for name, content in records.items():
+            archive.writestr(name, content)
+        info = zipfile.ZipInfo("placeholder")
+        info.filename = record_name
+        archive.writestr(info, buffer.getvalue())
+    with zipfile.ZipFile(pt2_path) as archive:
+        assert record_name in [info.orig_filename for info in archive.infolist()]
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match=f"record '{re.escape(record_name)}'"):
+        mlflow.pytorch.load_model(model_path)
+    assert not marker_path.exists()
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.10"), reason="This test requires torch>=2.10"
+)
 def test_load_pt2_model_rejects_non_ascii_record_name_without_utf8_flag(
     model_path, data, monkeypatch, tmp_path
 ):

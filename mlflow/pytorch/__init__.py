@@ -764,7 +764,11 @@ def _pt2_raw_tensor_records(records: dict[str, bytes]) -> set[str]:
         directory = name.rsplit("/", 1)[0]
         for entry in entries.values():
             match entry:
-                case {"path_name": str() as path_name} if "/" not in path_name:
+                case {"path_name": str() as path_name}:
+                    # A nested `path_name` can resolve to a record that a nested config marks
+                    # as raw, so validate every record rather than trusting either config.
+                    if "/" in path_name or "\\" in path_name:
+                        return set()
                     record = f"{directory}/{path_name}"
                 case _:
                     continue
@@ -905,20 +909,24 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
         raise _violation(os.path.basename(model_path)) from e
 
     with archive:
-        infos = [info for info in archive.infolist() if not info.is_dir()]
+        infos = archive.infolist()
         # `torch.export.load` resolves record names case-insensitively, so when names collide
         # it may read a different record (e.g. a payload config) than the one validated here.
         # `torch.export.save` never writes such archives.
         seen_names: set[str] = set()
         for info in infos:
-            # Without the UTF-8 flag, `zipfile` decodes names as CP437 while torch matches the
-            # raw name bytes, so a non-ASCII name would refer to different records in each.
+            # Torch matches the raw name bytes, while `zipfile` truncates names at a null byte,
+            # converts `os.sep` to `/` (e.g. on Windows) and decodes names without the UTF-8
+            # flag as CP437, so such names would refer to different records in each.
+            if info.filename != info.orig_filename:
+                raise _violation(info.orig_filename)
             if not info.filename.isascii() and not info.flag_bits & 0x800:
                 raise _violation(info.filename)
             folded_name = info.filename.casefold()
             if folded_name in seen_names:
                 raise _violation(info.filename)
             seen_names.add(folded_name)
+        infos = [info for info in infos if not info.is_dir()]
         payload_configs = {
             info.filename: archive.read(info)
             for info in infos
