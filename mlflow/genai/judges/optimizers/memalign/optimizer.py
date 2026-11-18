@@ -434,12 +434,15 @@ class MemoryAugmentedJudge(Judge):
         with ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="MemAlignTraceFetch"
         ) as executor:
-            # map yields in input order, so examples stay in trace_ids order. Consuming it lazily
-            # keeps only in-flight traces in memory.
-            traces = map_with_context(
-                executor, lambda tid: mlflow.get_trace(tid, silent=True), trace_ids
-            )
-            for trace_id, trace in zip(trace_ids, traces, strict=True):
+            # map yields in input order, so examples stay in trace_ids order. Keep the iterator
+            # inline so an error while converting closes it and cancels the pending fetches.
+            for trace_id, trace in zip(
+                trace_ids,
+                map_with_context(
+                    executor, lambda tid: mlflow.get_trace(tid, silent=True), trace_ids
+                ),
+                strict=True,
+            ):
                 if trace is not None:
                     examples.extend(trace_to_dspy_example(trace, self._base_judge))
                 else:

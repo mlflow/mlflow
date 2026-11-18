@@ -1519,8 +1519,9 @@ _TO_EXAMPLE_PATH = "mlflow.genai.judges.optimizers.memalign.optimizer.trace_to_d
 
 
 def test_reconstruct_episodic_memory_preserves_order_when_fetches_finish_out_of_order(
-    sample_judge,
+    sample_judge, monkeypatch
 ):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
     trace_ids = ["t0", "t1", "t2"]
     last_fetched = threading.Event()
 
@@ -1591,7 +1592,8 @@ def test_reconstruct_episodic_memory_respects_max_workers(sample_judge, monkeypa
     assert peak == max_workers
 
 
-def test_reconstruct_episodic_memory_propagates_caller_context(sample_judge):
+def test_reconstruct_episodic_memory_propagates_caller_context(sample_judge, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
     var = contextvars.ContextVar("memalign_test_var", default=None)
     var.set("caller-value")
     seen = []
@@ -1610,7 +1612,8 @@ def test_reconstruct_episodic_memory_propagates_caller_context(sample_judge):
     assert seen == ["caller-value"] * 4
 
 
-def test_reconstruct_episodic_memory_reports_missing_traces(sample_judge):
+def test_reconstruct_episodic_memory_reports_missing_traces(sample_judge, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
     trace_ids = [f"t{i}" for i in range(8)]
     found = {"t1", "t4"}
 
