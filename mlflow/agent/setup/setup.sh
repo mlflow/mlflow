@@ -169,7 +169,8 @@ json_array_has() {
 
 # Mirrors mlflow.telemetry: opt-outs, remote config gating, then one POST of the record.
 telemetry_post() {
-	# dash kills errexit subshells forked from an EXIT trap at the first command substitution.
+	# dash 0.5.10 gives `var=$(cmd)` the pending exit status inside EXIT traps, so never test
+	# assignment status here; set +e keeps those bogus failures from killing the child.
 	set +e
 	trap - EXIT INT TERM
 	trap '' HUP
@@ -182,8 +183,8 @@ telemetry_post() {
 	telemetry_duration=$((($(date +%s) - telemetry_start) * 1000))
 	for telemetry_py in python3 python; do
 		telemetry_out=$("$telemetry_py" -c "$telemetry_python" "$1" "$telemetry_duration" \
-			"${agent_choice:-none}" "$telemetry_backend" "$telemetry_flags") && break
-		telemetry_out=""
+			"${agent_choice:-none}" "$telemetry_backend" "$telemetry_flags" 2>/dev/null)
+		[ -z "$telemetry_out" ] || break
 	done
 	[ -n "$telemetry_out" ] || return 0
 	telemetry_version=$(printf '%s\n' "$telemetry_out" | sed -n 1p)
@@ -199,7 +200,7 @@ telemetry_post() {
 	else
 		return 0
 	fi
-	telemetry_config=$(curl -fsS --max-time 2 "$telemetry_config_url" | tr -d '\r\n') || return 0
+	telemetry_config=$(curl -fsS --max-time 2 "$telemetry_config_url" | tr -d '\r\n')
 	[ "$(printf '%s' "$telemetry_config" | json_first_string mlflow_version)" = "$telemetry_version" ] || return 0
 	telemetry_ingestion_url=$(printf '%s' "$telemetry_config" | json_first_string ingestion_url)
 	[ -n "$telemetry_ingestion_url" ] || return 0

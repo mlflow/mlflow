@@ -971,6 +971,7 @@ for arg in "$@"; do
 done
 case "$*" in *"-X POST"*) exit 0 ;; esac
 [ -f "$TELEMETRY_CONFIG" ] || exit 22
+sleep "${TELEMETRY_CURL_DELAY:-0}"
 cat "$TELEMETRY_CONFIG"
 """
         )
@@ -996,7 +997,9 @@ cat "$TELEMETRY_CONFIG"
     def write_config(self, **overrides):
         self.config.write_text(json.dumps(TELEMETRY_CONFIG | overrides, indent=2))
 
-    def run(self, body: str, **env: str) -> subprocess.CompletedProcess[str]:
+    def run(
+        self, body: str, shell: str = "sh", new_session: bool = False, **env: str
+    ) -> subprocess.CompletedProcess[str]:
         command = f"""
 MLFLOW_SETUP_SKIP_MAIN=1
 export MLFLOW_SETUP_SKIP_MAIN
@@ -1008,11 +1011,12 @@ telemetry_flags=" agent profile agent"
 {body}
 """
         return subprocess.run(
-            ["sh", "-c", command, "sh", str(SETUP_SCRIPT)],
+            [shell, "-c", command, shell, str(SETUP_SCRIPT)],
             env=self.env | env,
             capture_output=True,
             text=True,
             check=False,
+            start_new_session=new_session,
         )
 
     def posts(self) -> list[str]:
@@ -1171,8 +1175,9 @@ def test_telemetry_sends_once_and_survives_exec(telemetry):
         ("telemetry_send success\ndie boom", "success"),
     ],
 )
-def test_telemetry_exit_paths_send_once(telemetry, body, status):
-    result = telemetry.run(body)
+@pytest.mark.parametrize("shell", ["sh", "bash"])
+def test_telemetry_exit_paths_send_once(telemetry, body, status, shell):
+    result = telemetry.run(body, shell=shell)
 
     assert result.returncode != 0
     assert len(telemetry.wait_for_posts()) == 1
@@ -1183,3 +1188,15 @@ def test_telemetry_skipped_before_main_starts(telemetry):
     telemetry.run('telemetry_start=""\ndie boom')
 
     assert telemetry.wait_for_posts(timeout=1) == []
+
+
+def test_telemetry_child_survives_sighup(telemetry):
+    # A closed terminal sends SIGHUP to the whole process group, so signal it while curl runs.
+    result = telemetry.run(
+        "telemetry_send success\nsleep 0.5\nkill -HUP 0\nsleep 5",
+        new_session=True,
+        TELEMETRY_CURL_DELAY="1",
+    )
+
+    assert result.returncode != 0
+    assert len(telemetry.wait_for_posts()) == 1
