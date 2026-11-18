@@ -63,7 +63,13 @@ def _get_embedding_batch_size(litellm_model: str) -> int:
 
 
 def _litellm_embed(texts: list[str], embedding_model: str, **kwargs: Any) -> list[list[float]]:
-    import litellm
+    try:
+        import litellm
+    except ImportError as e:
+        raise MlflowException(
+            "MemAlign embeddings require LiteLLM. Please install it using: `pip install litellm`",
+            error_code=INTERNAL_ERROR,
+        ) from e
 
     response = litellm.embedding(model=embedding_model, input=texts, **kwargs)
     return [d["embedding"] for d in response.data]
@@ -77,9 +83,11 @@ def _build_embedder(embedding_model: str, embedding_dim: int) -> "dspy.Embedder"
     AI Gateway, simple names to legacy serving), so gateway-hosted embedding models resolve
     correctly instead of failing with ENDPOINT_NOT_FOUND.
 
-    DSPy >= 3.5 only accepts OpenAI/Azure model strings, so we hand it a LiteLLM-backed
-    callable instead. The model and options are passed as ``Embedder`` default kwargs (not
-    closed over) because DSPy keys its cache on the callable's source plus these kwargs.
+    DSPy >= 3.5 breaks the model-string path for every provider (non-OpenAI providers are
+    rejected, and OpenAI/Azure fail on the ``drop_params`` kwarg), so we hand it a
+    LiteLLM-backed callable instead. The model and options are passed as ``Embedder`` default
+    kwargs (not closed over) because DSPy keys its cache on the callable's source plus these
+    kwargs.
     """
     import dspy
 
