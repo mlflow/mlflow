@@ -156,9 +156,7 @@ class MlflowCallback(BaseCallback):
     def on_lm_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         # Only "text" is a plain completion API. "chat", "responses" and "auto" (the default
         # since DSPy 3.5) are treated as chat models.
-        span_type = (
-            SpanType.LLM if getattr(instance, "model_type", None) == "text" else SpanType.CHAT_MODEL
-        )
+        span_type = SpanType.LLM if instance.model_type == "text" else SpanType.CHAT_MODEL
 
         filtered_kwargs = sanitize_params(instance.kwargs)
         attributes = {

@@ -68,13 +68,6 @@ class NumericalCoT(dspy.Module):
         return self.prog(question=question).answer
 
 
-@pytest.fixture(autouse=True)
-def reset_dspy_settings():
-    yield
-
-    dspy.settings.configure(lm=None, rm=None)
-
-
 use_dspy_model_save_param = pytest.param(
     True,
     marks=pytest.mark.skipif(
