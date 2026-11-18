@@ -128,7 +128,9 @@ class MlflowV3SpanExporter(SpanExporter):
             )
             return
 
-        mlflow_spans_by_experiment_and_workspace = self._collect_mlflow_spans_for_export(spans)
+        mlflow_spans_by_experiment_and_workspace, remote_trace_ids = (
+            self._collect_mlflow_spans_for_export(spans)
+        )
         for (
             (experiment_id, workspace),
             spans_to_log,
@@ -137,16 +139,21 @@ class MlflowV3SpanExporter(SpanExporter):
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_spans,
-                        args=(experiment_id, spans_to_log, workspace),
+                        args=(experiment_id, spans_to_log, workspace, remote_trace_ids),
                         error_msg="Failed to log spans to the trace server.",
                     )
                 )
             else:
-                self._log_spans(experiment_id, spans_to_log, workspace=workspace)
+                self._log_spans(
+                    experiment_id,
+                    spans_to_log,
+                    workspace=workspace,
+                    remote_trace_ids=remote_trace_ids,
+                )
 
     def _collect_mlflow_spans_for_export(
         self, spans: Sequence[ReadableSpan]
-    ) -> dict[tuple[str, str | None], list[Span]]:
+    ) -> tuple[dict[tuple[str, str | None], list[Span]], set[str]]:
         """
         Collect MLflow spans from ReadableSpans for export, grouped by (experiment_id, workspace).
 
@@ -158,10 +165,14 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects.
 
         Returns:
-            Dictionary mapping (experiment_id, workspace) to list of MLflow Span objects.
+            A tuple of a dictionary mapping (experiment_id, workspace) to list of MLflow Span
+            objects, and the set of MLflow trace IDs that are remote (distributed) traces.
         """
         manager = InMemoryTraceManager.get_instance()
         spans_by_experiment_and_workspace = defaultdict(list)
+        # Captured here because the in-memory remote trace may be popped before an async
+        # _log_spans call runs.
+        remote_trace_ids = set()
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
@@ -182,11 +193,13 @@ class MlflowV3SpanExporter(SpanExporter):
                     experiment_id = None
                 if trace is not None:
                     workspace = trace.workspace
+                    if trace.is_remote_trace:
+                        remote_trace_ids.add(mlflow_trace_id)
             if experiment_id is None:
                 experiment_id = get_experiment_id_for_trace(span)
             spans_by_experiment_and_workspace[(experiment_id, workspace)].append(mlflow_span)
 
-        return spans_by_experiment_and_workspace
+        return spans_by_experiment_and_workspace, remote_trace_ids
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -265,7 +278,11 @@ class MlflowV3SpanExporter(SpanExporter):
             self._log_trace(trace, prompts=manager_trace.prompts, workspace=workspace)
 
     def _log_spans(
-        self, experiment_id: str, spans: list[Span], workspace: str | None = None
+        self,
+        experiment_id: str,
+        spans: list[Span],
+        workspace: str | None = None,
+        remote_trace_ids: set[str] | None = None,
     ) -> None:
         """
         Helper method to log spans with error handling.
@@ -277,6 +294,8 @@ class MlflowV3SpanExporter(SpanExporter):
                 When provided, a ServerWorkspaceContext is applied so that HTTP calls
                 on the async worker thread include the correct X-MLFLOW-WORKSPACE header
                 without mutating process-wide environment variables.
+            remote_trace_ids: MLflow trace IDs of remote (distributed) traces. Attachments of
+                spans in these traces are uploaded after the spans are logged.
         """
         with ServerWorkspaceContext(workspace) if workspace else nullcontext():
             try:
@@ -297,6 +316,33 @@ class MlflowV3SpanExporter(SpanExporter):
                     _logger.debug(f"Failed to log span to MLflow backend: {e}")
             except Exception as e:
                 _logger.debug(f"Failed to log span to MLflow backend: {e}")
+            else:
+                if remote_trace_ids:
+                    self._upload_remote_span_attachments(spans, remote_trace_ids)
+
+    def _upload_remote_span_attachments(
+        self, spans: list[Span], remote_trace_ids: set[str]
+    ) -> None:
+        """
+        Upload attachments of spans in remote traces. Spans of a remote trace never reach
+        _log_trace, which uploads the attachments of local traces.
+        """
+        attachments_by_trace_id = defaultdict(dict)
+        for span in spans:
+            if span.trace_id in remote_trace_ids and span._attachments:
+                attachments_by_trace_id[span.trace_id].update(span._attachments)
+
+        for trace_id, attachments in attachments_by_trace_id.items():
+            try:
+                # The in-memory trace info of a remote trace is a placeholder without the
+                # artifact location tag, so fetch the trace info from the backend.
+                trace_info = self._client.store.get_trace_info(trace_id)
+                self._client._upload_attachments(trace_info, attachments)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to upload attachments of remote trace {trace_id}: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
 
     def _log_trace(
         self, trace: Trace, prompts: Sequence[PromptVersion], workspace: str | None = None

@@ -1216,7 +1216,7 @@ def test_skill_registration_retries_deadlock_with_a_fresh_transaction(store, bul
         mock.patch.object(
             store, "_persist_skill_version", side_effect=deadlock_after_insert
         ) as mock_persist,
-        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep") as mock_sleep,
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time") as mock_time,
     ):
         if bulk:
             result = store.bulk_register_skills([_bulk_definition()])[0]
@@ -1224,7 +1224,7 @@ def test_skill_registration_retries_deadlock_with_a_fresh_transaction(store, bul
             result = store.create_skill_version(**_bulk_definition())
         assert result.version == 1
     assert mock_persist.call_count == 2
-    mock_sleep.assert_called_once()
+    mock_time.sleep.assert_called_once()
     assert len(sessions) == 2
     assert sessions[0] is not sessions[1]
 
@@ -1250,7 +1250,7 @@ def test_create_skill_version_failure_retries_are_bounded(store, error_code, mes
         mock.patch.object(
             store, "_persist_skill_version", side_effect=fail_after_insert
         ) as mock_persist,
-        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep") as mock_sleep,
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time") as mock_time,
         pytest.raises(MlflowException, match=message) as exc,
     ):
         store.create_skill_version(**_bulk_definition())
@@ -1258,9 +1258,9 @@ def test_create_skill_version_failure_retries_are_bounded(store, error_code, mes
     assert exc.value.error_code == ErrorCode.Name(error_code)
     assert mock_persist.call_count == attempts
     if attempts == 1:
-        mock_sleep.assert_not_called()
+        mock_time.sleep.assert_not_called()
     else:
-        assert mock_sleep.call_count == attempts - 1
+        assert mock_time.sleep.call_count == attempts - 1
     assert len(sessions) == attempts
     assert len({id(session) for session in sessions}) == attempts
     with store.ManagedSessionMaker() as session:

@@ -2,6 +2,7 @@ import base64
 import datetime
 import importlib
 import json
+import logging
 import os
 from collections import defaultdict
 from copy import deepcopy
@@ -10,6 +11,7 @@ from json import JSONEncoder
 from typing import Any
 
 import pydantic
+from google.protobuf import json_format
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToDict, ParseDict
@@ -27,6 +29,9 @@ _PROTOBUF_INT64_FIELDS = [
 ]
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
+
+_logger = logging.getLogger(__name__)
+_USE_INT64_NUMBER_JSON_PRINTER = True
 
 
 def _mark_int64_fields_for_proto_maps(proto_map, value_field_type):
@@ -109,21 +114,83 @@ def _merge_json_dicts(from_dict, to_dict):
     return to_dict
 
 
+class _Int64NumberJsonPrinter(json_format._Printer):
+    _convert_int64_to_number = True
+
+    def _RegularMessageToJsonObject(self, message, js):
+        js = super()._RegularMessageToJsonObject(message, js)
+        if self._convert_int64_to_number and message.DESCRIPTOR.extension_ranges:
+            for field, _ in message.ListFields():
+                # Older protobuf versions use unbracketed keys for repeated extensions,
+                # allowing the original merge to convert their int64 fields.
+                if field.is_extension and field.name in js:
+                    return _merge_json_dicts(_mark_int64_fields(message), js)
+        return js
+
+    def _FieldToJsonObject(self, field, value):
+        if field.is_extension:
+            # Extension conversion depends on the JSON key used by the protobuf version.
+            convert_int64_to_number = self._convert_int64_to_number
+            self._convert_int64_to_number = False
+            try:
+                return super()._FieldToJsonObject(field, value)
+            finally:
+                self._convert_int64_to_number = convert_int64_to_number
+
+        # Wrappers retained ProtoJSON's string encoding in the previous path.
+        if (
+            self._convert_int64_to_number
+            and field.type in _PROTOBUF_INT64_FIELDS
+            and field.containing_type.file.name != "google/protobuf/wrappers.proto"
+        ):
+            return int(value)
+        return super()._FieldToJsonObject(field, value)
+
+    def _AnyMessageToJsonObject(self, message):
+        # Keep packed Any messages in ProtoJSON's standard int64 representation.
+        convert_int64_to_number = self._convert_int64_to_number
+        self._convert_int64_to_number = False
+        try:
+            return super()._AnyMessageToJsonObject(message)
+        finally:
+            self._convert_int64_to_number = convert_int64_to_number
+
+
+def _message_to_dict_with_int64_numbers(message):
+    global _USE_INT64_NUMBER_JSON_PRINTER
+
+    if _USE_INT64_NUMBER_JSON_PRINTER:
+        try:
+            return _Int64NumberJsonPrinter(preserving_proto_field_name=True)._MessageToJsonObject(
+                message
+            )
+        except Exception:
+            _USE_INT64_NUMBER_JSON_PRINTER = False
+            _logger.exception(
+                "Optimized protobuf JSON serialization failed. Switching to public protobuf "
+                "APIs for subsequent calls."
+            )
+
+    # Retain the original two-pass conversion if protobuf's private printer API changes.
+    json_dict = MessageToDict(message, preserving_proto_field_name=True)
+    return _merge_json_dicts(_mark_int64_fields(message), json_dict)
+
+
 def message_to_json(
     message,
     *,
     pretty: bool = True,
     convert_int64_to_number: bool = True,
 ):
-    """Converts a message to JSON, using snake_case for field names."""
+    """Converts a message to JSON, using snake_case for field names.
 
-    # Google's MessageToDict API converts int64 proto fields to JSON strings.
-    # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
-    json_dict = MessageToDict(message, preserving_proto_field_name=True)
-    if convert_int64_to_number:
-        # Preserve MLflow's existing JSON representation of int64 fields as numbers.
-        # Integer keys in proto maps remain strings because JSON requires string keys.
-        json_dict = _merge_json_dicts(_mark_int64_fields(message), json_dict)
+    If the optimized private protobuf printer fails, subsequent calls use public APIs.
+    """
+    json_dict = (
+        _message_to_dict_with_int64_numbers(message)
+        if convert_int64_to_number
+        else MessageToDict(message, preserving_proto_field_name=True)
+    )
 
     if pretty:
         return json.dumps(json_dict, indent=2)

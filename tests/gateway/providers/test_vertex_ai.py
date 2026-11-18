@@ -355,6 +355,26 @@ async def test_chat_stream_tool_calling_omits_function_call_id():
     assert "id" not in _find_part(contents, "functionResponse")
 
 
+@pytest.mark.asyncio
+async def test_chat_stream_raises_on_in_band_error():
+    provider = _make_provider()
+    stream_resp = [
+        b'data: {"candidates": [{"content": {"parts": [{"text": "a"}]}}]}\n\n',
+        b'data: {"error": {"code": 500, "message": "Internal error", "status": "INTERNAL"}}\n\n',
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(stream_resp))
+    payload = {"messages": [{"role": "user", "content": "Hi"}], "stream": True}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        first = await anext(stream)
+        with pytest.raises(
+            AIGatewayException, match="Vertex AI returned INTERNAL while streaming: Internal error"
+        ):
+            await anext(stream)
+    assert first.choices[0].delta.content == "a"
+
+
 def test_adapter_class_matches_the_active_delegate():
     # adapter_class must follow the delegate: Claude/MaaS models are formatted by their
     # own adapters (get_endpoint_url points at the delegate's endpoint), not the Gemini one.
@@ -464,6 +484,42 @@ def test_anthropic_betas_config(value, expected):
 def test_custom_location():
     config = VertexAIConfig(vertex_project="my-project", vertex_location="europe-west4")
     assert config.vertex_location == "europe-west4"
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "",
+        "global",
+        "us",
+        "eu",
+        "us-central1",
+        "us-east5",
+        "europe-west4",
+        "asia-southeast1",
+    ],
+)
+def test_vertex_location_valid(location):
+    config = VertexAIConfig(vertex_project="my-project", vertex_location=location)
+    assert config.vertex_location == location
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "evil.example",
+        "evil.example/#",
+        "x.evil.example?",
+        "example.com",
+        "https://example.com",
+        "example/path",
+        "location@host",
+        "us-central1\n",
+    ],
+)
+def test_vertex_location_invalid(location):
+    with pytest.raises(ValidationError, match="vertex_location"):
+        VertexAIConfig(vertex_project="my-project", vertex_location=location)
 
 
 def test_global_endpoint_when_no_location():

@@ -586,8 +586,8 @@ def test_load_model_disallows_pickle_deserialization_legacy_pkl(monkeypatch):
             use_dspy_model_save=False,
         )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         mlflow.dspy.load_model(model_info.model_uri)
 
 
@@ -607,7 +607,7 @@ def test_load_model_forwards_allow_pickle_to_dspy(env_value, expected_allow_pick
             use_dspy_model_save=True,
         )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", env_value)
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", env_value)
     with mock.patch("dspy.load") as mock_load:
         try:
             mlflow.dspy.load_model(model_info.model_uri)
@@ -633,7 +633,7 @@ def test_load_model_wraps_dspy_error_when_pickle_disabled(monkeypatch):
             use_dspy_model_save=True,
         )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     with mock.patch("dspy.load", side_effect=ValueError("pickle disallowed by dspy")):
-        with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
             mlflow.dspy.load_model(model_info.model_uri)

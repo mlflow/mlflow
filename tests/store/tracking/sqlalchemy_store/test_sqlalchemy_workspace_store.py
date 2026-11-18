@@ -76,7 +76,12 @@ from mlflow.store.tracking.gateway.config_resolver import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceMetricKey
+from mlflow.tracing.constant import (
+    SpanAttributeKey,
+    TraceMetadataKey,
+    TraceMetricDimensionKey,
+    TraceMetricKey,
+)
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -219,6 +224,33 @@ def test_trace_rollup_invalidation_is_workspace_scoped(workspace_tracking_store,
                     "trace_metric",
                     "assessment",
                 }
+
+
+def test_query_trace_metrics_by_gateway_caller_is_workspace_scoped(workspace_tracking_store):
+    experiment_ids = {}
+    for workspace, caller in (("team-gateway-a", "judge"), ("team-gateway-b", "simulator")):
+        with WorkspaceContext(workspace):
+            experiment_id = workspace_tracking_store.create_experiment(f"{workspace}-experiment")
+            experiment_ids[workspace] = experiment_id
+            _create_trace(
+                workspace_tracking_store,
+                f"trace-{workspace}",
+                experiment_id,
+                trace_metadata={TraceMetadataKey.GATEWAY_CALLER: caller},
+            )
+
+    for workspace, caller in (("team-gateway-a", "judge"), ("team-gateway-b", "simulator")):
+        with WorkspaceContext(workspace):
+            result = workspace_tracking_store.query_trace_metrics(
+                experiment_ids=list(experiment_ids.values()),
+                view_type=MetricViewType.TRACES,
+                metric_name=TraceMetricKey.TRACE_COUNT,
+                aggregations=[MetricAggregation(AggregationType.COUNT)],
+                dimensions=[TraceMetricDimensionKey.GATEWAY_CALLER],
+            )
+            assert [(dp.dimensions, dp.values) for dp in result] == [
+                ({TraceMetricDimensionKey.GATEWAY_CALLER: caller}, {"COUNT": 1})
+            ]
 
 
 def test_query_trace_metrics_serves_rollups_only_for_active_workspace(
@@ -1532,6 +1564,40 @@ def test_logged_model_operations_are_workspace_scoped(workspace_tracking_store):
             workspace_tracking_store.delete_logged_model_tag(model_a.model_id, "key")
 
 
+def test_search_logged_models_latest_metric_filter_is_workspace_scoped(
+    workspace_tracking_store,
+):
+    exp_ids = {}
+    # The two workspaces log the same history in opposite order, so only "team-metric-b"
+    # has a latest loss below the threshold.
+    for workspace, losses in [("team-metric-a", [0.05, 5.0]), ("team-metric-b", [5.0, 0.05])]:
+        exp_id, run = _create_run(workspace_tracking_store, workspace, f"exp-{workspace}", "run")
+        exp_ids[workspace] = exp_id
+        with WorkspaceContext(workspace):
+            model = workspace_tracking_store.create_logged_model(exp_id, f"model-{workspace}")
+            workspace_tracking_store.log_batch(
+                run.info.run_id,
+                metrics=[
+                    Metric("loss", loss, 1000 + step, step, model_id=model.model_id)
+                    for step, loss in enumerate(losses)
+                ],
+                params=[],
+                tags=[],
+            )
+
+    for workspace, expected_names in [
+        ("team-metric-a", []),
+        ("team-metric-b", ["model-team-metric-b"]),
+    ]:
+        with WorkspaceContext(workspace):
+            models = workspace_tracking_store.search_logged_models(
+                experiment_ids=list(exp_ids.values()),
+                filter_string="metrics.loss < 0.1",
+                order_by=[{"field_name": "metrics.loss", "ascending": True}],
+            )
+        assert [m.name for m in models] == expected_names
+
+
 def test_trace_tag_operations_are_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-trace-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-trace-a")
@@ -2338,6 +2404,33 @@ def test_user_budget_policies_are_workspace_scoped_rows(gateway_workspace_store)
         policies = store.list_budget_policies()
         assert [p.budget_policy_id for p in policies] == [policy_a.budget_policy_id]
         assert policies[0].target_value == "alice"
+
+
+def test_list_budget_policies_across_workspaces_ignores_the_active_workspace(
+    gateway_workspace_store,
+):
+    # The budget tracker keeps one set of windows for the whole server, so it needs every
+    # workspace's policies. The REST-facing listing stays workspace-scoped.
+    store = gateway_workspace_store
+    created = {}
+    for workspace in ("team-all-budget-a", "team-all-budget-b"):
+        with WorkspaceContext(workspace):
+            created[workspace] = store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=100.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.WORKSPACE,
+                budget_action=BudgetAction.REJECT,
+            ).budget_policy_id
+
+    with WorkspaceContext("team-all-budget-a"):
+        assert [p.budget_policy_id for p in store.list_budget_policies()] == [
+            created["team-all-budget-a"]
+        ]
+        assert {p.budget_policy_id for p in store.list_budget_policies_across_workspaces()} == set(
+            created.values()
+        )
+        assert {p.workspace for p in store.list_budget_policies_across_workspaces()} == set(created)
 
 
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):

@@ -735,3 +735,14 @@ def test_migrate_to_default_workspace_allows_external_skill_sources(db_uri):
             DEFAULT_WORKSPACE_NAME
         )
     engine.dispose()
+
+
+def test_relationships_do_not_use_deprecated_noload_strategy():
+    # SQLAlchemy 2.1 deprecates ``lazy="noload"`` and warns when mappers are configured.
+    noload_relationships = [
+        f"{mapper.class_.__name__}.{rel.key}"
+        for mapper in Base.registry.mappers
+        for rel in mapper.relationships
+        if rel.lazy == "noload"
+    ]
+    assert noload_relationships == []

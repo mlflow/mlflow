@@ -1,5 +1,5 @@
-import { describe, expect, it } from '@jest/globals';
-import { screen, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { screen, waitFor, within } from '@testing-library/react';
 import { render } from '@databricks/web-shared/test-utils/render';
 
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -12,7 +12,25 @@ import {
   type ModelTraceSpanNode,
 } from './ModelTrace.types';
 import { ModelTraceExplorerIssueEvidence, ModelTraceExplorerIssueIndicator } from './ModelTraceExplorerIssueBanner';
-import { BrowserRouter } from './RoutingUtils';
+import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
+import { ModelTraceExplorerContextProvider } from './ModelTraceExplorerContext';
+import { MemoryRouter } from 'react-router-dom';
+import {
+  SEARCH_ISSUES_QUERY_KEY,
+  searchIssueIdsByStatus,
+} from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
+
+jest.mock('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery', () => ({
+  ...jest.requireActual<
+    typeof import('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery')
+  >('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery'),
+  searchIssueIdsByStatus: jest.fn(),
+}));
+
+const mockSearchIssueIdsByStatus = jest.mocked(searchIssueIdsByStatus);
+
+/** Answers the experiment's dismissed-issue lookup. */
+const givenDismissedIssueIds = (issueIds: string[]) => mockSearchIssueIdsByStatus.mockResolvedValue(issueIds);
 
 const issueReference: IssueReferenceAssessment = {
   assessment_id: 'a-original',
@@ -64,11 +82,22 @@ const makeSpan = (assessments: Assessment[]): ModelTraceSpanNode => ({
   traceId: 'trace-1',
 });
 
-const renderInProviders = (children: React.ReactNode) =>
+/**
+ * The host says which experiment it is showing and which issue the reader selected. The router is
+ * here only for the cards' links to the Issues tab; the dismissed-issue lookup does not read it.
+ */
+const renderInProviders = (
+  children: React.ReactNode,
+  { experimentId = 'experiment-1', selectedIssueId }: { experimentId?: string; selectedIssueId?: string } = {},
+) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <BrowserRouter>{children}</BrowserRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <ModelTraceExplorerContextProvider experimentId={experimentId} selectedIssueId={selectedIssueId}>
+            <MemoryRouter>{children}</MemoryRouter>
+          </ModelTraceExplorerContextProvider>
+        </QueryClientProvider>
       </DesignSystemProvider>
     </IntlProvider>,
   );
@@ -163,5 +192,145 @@ describe('ModelTraceExplorerIssueIndicator', () => {
 
     expect(screen.queryByLabelText('Issue detected: High latency')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('2 issues detected')).not.toBeInTheDocument();
+  });
+});
+
+describe('issues dismissed as not an issue', () => {
+  beforeEach(() => {
+    mockSearchIssueIdsByStatus.mockReset();
+  });
+
+  // Named apart from each other, so every assertion below says which issue it matched.
+  const dismissed: Assessment = {
+    ...issueReference,
+    assessment_name: 'iss-dismissed',
+    issue: { issue_name: 'Not really a bug' },
+  };
+  const kept: Assessment = {
+    ...issueReference,
+    assessment_id: 'a-kept',
+    assessment_name: 'iss-kept',
+    issue: { issue_name: 'Genuinely slow' },
+  };
+
+  const renderEvidence = (assessments: Assessment[], options?: { experimentId?: string; selectedIssueId?: string }) =>
+    renderInProviders(
+      <ModelTraceExplorerIssueEvidence activeSpan={makeSpan(assessments)} experimentId="experiment-1" />,
+      options,
+    );
+
+  it('drops a dismissed issue from the cards and keeps the rest', async () => {
+    givenDismissedIssueIds(['iss-dismissed']);
+    renderEvidence([dismissed, kept]);
+
+    // Both show until the lookup answers, so the dismissed one is waited out.
+    await waitFor(() => expect(screen.queryByText('Not really a bug')).not.toBeInTheDocument());
+    expect(screen.getByText('Genuinely slow')).toBeInTheDocument();
+  });
+
+  it('asks only for the dismissed status, so a resolved issue is left alone', async () => {
+    givenDismissedIssueIds([]);
+    renderEvidence([kept]);
+
+    await waitFor(() =>
+      expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected', expect.any(AbortSignal)),
+    );
+    expect(screen.getByText('Genuinely slow')).toBeInTheDocument();
+  });
+
+  it('filters with no router at all, on the experiment the host named', async () => {
+    // The drawer is embedded outside experiment routes too, and the host still knows its
+    // experiment, so the lookup has to happen there as well. The span tag is asserted on rather
+    // than the cards because the cards link to the Issues tab, and a link is what needs a router.
+    givenDismissedIssueIds(['iss-dismissed']);
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            <ModelTraceExplorerContextProvider experimentId="experiment-1">
+              <ModelTraceExplorerIssueIndicator span={makeSpan([dismissed, kept])} />
+            </ModelTraceExplorerContextProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    expect(await screen.findByLabelText('Issue detected: Genuinely slow')).toHaveTextContent('1');
+    expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected', expect.any(AbortSignal));
+  });
+
+  it('keeps the issue the host selected, dismissed or not', async () => {
+    // Both are dismissed, so the one that was not selected disappearing is what proves the lookup
+    // had already answered.
+    givenDismissedIssueIds(['iss-dismissed', 'iss-kept']);
+    renderEvidence([dismissed, kept], { selectedIssueId: 'iss-dismissed' });
+
+    await waitFor(() => expect(screen.queryByText('Genuinely slow')).not.toBeInTheDocument());
+    expect(screen.getByText('Not really a bug')).toBeInTheDocument();
+  });
+
+  it('keeps every issue when the lookup fails', async () => {
+    mockSearchIssueIdsByStatus.mockRejectedValue(new Error('issues API unavailable'));
+    renderEvidence([dismissed]);
+
+    await waitFor(() => expect(mockSearchIssueIdsByStatus).toHaveBeenCalled());
+    expect(screen.getByText('Not really a bug')).toBeInTheDocument();
+  });
+
+  it('keeps every issue when no host supplied an experiment', async () => {
+    givenDismissedIssueIds(['iss-dismissed']);
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+            {/* No experimentId: nothing to look up, so nothing is hidden. */}
+            <ModelTraceExplorerContextProvider>
+              <MemoryRouter>
+                <ModelTraceExplorerIssueEvidence activeSpan={makeSpan([dismissed])} experimentId="experiment-1" />
+              </MemoryRouter>
+            </ModelTraceExplorerContextProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    expect(await screen.findByText('Not really a bug')).toBeInTheDocument();
+    expect(mockSearchIssueIdsByStatus).not.toHaveBeenCalled();
+  });
+
+  it('stops hiding when a refetch fails, rather than serving the stale set', async () => {
+    // Reopening an issue invalidates the lookup. React Query keeps the last successful set when
+    // the refetch fails, so without the error check the reopened issue would stay hidden.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    mockSearchIssueIdsByStatus.mockResolvedValueOnce(['iss-dismissed']);
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueryClientProvider client={queryClient}>
+            <ModelTraceExplorerContextProvider experimentId="experiment-1">
+              <MemoryRouter>
+                <ModelTraceExplorerIssueEvidence activeSpan={makeSpan([dismissed])} experimentId="experiment-1" />
+              </MemoryRouter>
+            </ModelTraceExplorerContextProvider>
+          </QueryClientProvider>
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+
+    await waitFor(() => expect(screen.queryByText('Not really a bug')).not.toBeInTheDocument());
+
+    mockSearchIssueIdsByStatus.mockRejectedValue(new Error('issues API unavailable'));
+    await queryClient.invalidateQueries([SEARCH_ISSUES_QUERY_KEY]);
+
+    expect(await screen.findByText('Not really a bug')).toBeInTheDocument();
+  });
+
+  it('stops counting a dismissed issue on the span tree', async () => {
+    givenDismissedIssueIds(['iss-dismissed']);
+    renderInProviders(<ModelTraceExplorerIssueIndicator span={makeSpan([dismissed, kept])} />);
+
+    // The tag falls back to naming the one issue left, which is how the survivor is identified.
+    expect(screen.getByLabelText('2 issues detected')).toHaveTextContent('2');
+    expect(await screen.findByLabelText('Issue detected: Genuinely slow')).toHaveTextContent('1');
   });
 });

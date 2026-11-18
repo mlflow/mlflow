@@ -72,6 +72,7 @@ def test_uc_models_artifact_repo_scoped_token_oss(monkeypatch):
             host_creds=ANY,
             endpoint="/api/2.1/unity-catalog/temporary-model-version-credentials",
             method="POST",
+            raise_on_status=False,
             json={
                 "catalog_name": "test-catalog",
                 "schema_name": "test-schema",

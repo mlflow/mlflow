@@ -1,9 +1,8 @@
 import re
+import tomllib
 import typing
 from dataclasses import dataclass, field
-
-import tomli
-from typing_extensions import Self
+from typing import Self
 
 from clint.rules import ALL_RULES
 from clint.utils import get_repo_root
@@ -75,7 +74,7 @@ class Config:
             return cls()
 
         with pyproject.open("rb") as f:
-            data = tomli.load(f)
+            data = tomllib.load(f)
 
         clint = data.get("tool", {}).get("clint", {})
         if not clint:

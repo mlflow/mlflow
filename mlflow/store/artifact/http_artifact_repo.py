@@ -5,7 +5,7 @@ import threading
 import time
 from concurrent.futures import as_completed
 from http import HTTPStatus
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import quote, urlparse, urlunparse
 
 import requests
 from requests import HTTPError
@@ -150,7 +150,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     SERVER_INFO_ENDPOINT,
                     exc_info=True,
                 )
-                self._server_capabilities = {}
+                # Don't cache transient failures (e.g. timeouts) so the next call retries.
+                return {}
 
             return self._server_capabilities
 
@@ -175,7 +176,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         file_name = os.path.basename(local_file)
         mime_type = _guess_mime_type(file_name)
         paths = (artifact_path, file_name) if artifact_path else (file_name,)
-        endpoint = posixpath.join("/", *paths)
+        endpoint = quote(posixpath.join("/", *paths))
         extra_headers = {"Content-Type": mime_type}
         with open(local_file, "rb") as f:
             resp = http_request(
@@ -216,14 +217,18 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             file_infos.append(file_info)
 
         # The list_artifacts API expects us to return an empty list if the
-        # the path references a single file.
+        # the path references a single file. Some artifact stores list a file as itself, which
+        # looks the same as a directory holding one file with the same name (e.g. `0/0`), so
+        # check the parent listing to tell them apart.
         if (
             len(file_infos) == 1
             and not file_infos[0].is_dir
             and path is not None
             and file_infos[0].path == posixpath.join(path, os.path.basename(path))
         ):
-            return []
+            parent = posixpath.dirname(path) or None
+            if not any(f.is_dir and f.path == path for f in self.list_artifacts(parent)):
+                return []
 
         return sorted(file_infos, key=lambda f: f.path)
 
@@ -272,7 +277,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 else:
                     raise
 
-        endpoint = posixpath.join("/", remote_file_path)
+        endpoint = quote(posixpath.join("/", remote_file_path))
         resp = http_request(self._host_creds, endpoint, "GET", stream=True)
         augmented_raise_for_status(resp)
         with open(local_path, "wb") as f:
@@ -402,7 +407,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return PresignedDownloadUrlResponse.from_dict(resp.json())
 
     def delete_artifacts(self, artifact_path=None):
-        endpoint = posixpath.join("/", artifact_path) if artifact_path else "/"
+        endpoint = quote(posixpath.join("/", artifact_path)) if artifact_path else "/"
         resp = http_request(self._host_creds, endpoint, "DELETE", stream=True)
         augmented_raise_for_status(resp)
 
@@ -410,7 +415,7 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         uri, path = self.artifact_uri.split("/mlflow-artifacts/artifacts", maxsplit=1)
         path = path.strip("/")
         endpoint = (
-            posixpath.join(base_endpoint, path, artifact_path)
+            posixpath.join(base_endpoint, path, quote(artifact_path))
             if artifact_path
             else posixpath.join(base_endpoint, path)
         )
@@ -422,6 +427,8 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
         host_creds = get_default_host_creds(uri)
         params = {
+            # The server only needs the file name; it also tolerates the full local path that
+            # clients before 3.18 sent in this field.
             "path": os.path.basename(local_file),
             "num_parts": num_parts,
         }

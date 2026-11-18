@@ -7,6 +7,7 @@ from typing import Any
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 
@@ -607,6 +608,7 @@ improve the prompt's effectiveness."""
                     [{"role": "user", "content": meta_prompt}],
                     json_mode=True,
                     inference_params=self.lm_kwargs or None,
+                    gateway_caller=GatewayCaller.PROMPT_OPTIMIZATION,
                 )
 
                 # Extract and parse response

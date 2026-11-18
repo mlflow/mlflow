@@ -33,13 +33,7 @@ runs:
           python_version=$(cat "$GITHUB_ACTION_PATH/../../../.python-version")
         fi
         if [[ "$PIN_MICRO_VERSION" == "true" ]]; then
-          if [[ "$python_version" == "3.10" ]]; then
-            if [ "$RUNNER_OS" == "Linux" ]; then
-              python_version="3.10.21"
-            else
-              python_version="3.10.11"
-            fi
-          elif [[ "$python_version" == "3.11" ]]; then
+          if [[ "$python_version" == "3.11" ]]; then
             if [ "$RUNNER_OS" == "Linux" ]; then
               python_version="3.11.16"
             else
@@ -52,15 +46,15 @@ runs:
               python_version="3.12.13"
             fi
           else
-            echo "Invalid python version: '$python_version'. Must be '3.10', '3.11', or '3.12'."
+            echo "Invalid python version: '$python_version'. Must be '3.11' or '3.12'."
             exit 1
           fi
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
-    - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+    - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
-    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+    - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       with:
         version-file: ${{ github.action_path }}/../../../pyproject.toml
         resolution-strategy: lowest
@@ -87,6 +81,9 @@ runs:
         # Exclude packages newer than 7 days to guard against supply chain attacks
         # https://docs.astral.sh/uv/reference/environment/#uv_exclude_newer
         echo "UV_EXCLUDE_NEWER=P7D" >> $GITHUB_ENV
+        if [[ -n "${PIP_CONSTRAINT:-}" ]]; then
+          echo "UV_CONSTRAINT=$PIP_CONSTRAINT" >> $GITHUB_ENV
+        fi
         # Disable Hugging Face download progress bars to reduce CI log clutter
         # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
         echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV

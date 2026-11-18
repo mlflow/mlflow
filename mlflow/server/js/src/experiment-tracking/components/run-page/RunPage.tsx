@@ -13,11 +13,10 @@ import React, { useMemo, useState } from 'react';
 import { PageContainer } from '../../../common/components/PageContainer';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Utils from '../../../common/utils/Utils';
-import { MLFLOW_ISSUE_DETECTION_JOB_ID_TAG, RunPageTabName } from '../../constants';
+import { RunPageTabName } from '../../constants';
 import { RenameRunModal } from '../modals/RenameRunModal';
 import { RunViewArtifactTab } from './RunViewArtifactTab';
 import { RunViewHeader, type RunViewHeaderProps } from './RunViewHeader';
-import { RunViewIssuesTab } from './RunViewIssuesTab';
 import { RunViewOverview } from './RunViewOverview';
 import { useRunDetailsPageData } from './hooks/useRunDetailsPageData';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
@@ -208,14 +207,6 @@ export const RunPage = (props: RunPageProps) => {
         );
       case RunPageTabName.TRACES:
         return renderEvaluationTab();
-      case RunPageTabName.ISSUES:
-        return (
-          <RunViewIssuesTab
-            runUuid={safeRunUuid}
-            experimentId={safeExperimentId}
-            jobId={tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value}
-          />
-        );
     }
 
     if (renderCustomOverview) {

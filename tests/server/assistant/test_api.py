@@ -1296,6 +1296,71 @@ def test_stream_gateway_provider_calls_the_server_itself_not_the_client_host(
     assert headers[WORKSPACE_HEADER_NAME] == "team-a"
 
 
+def test_stream_gateway_provider_forwards_caller_credentials_without_gateway_token(monkeypatch):
+    # A third-party auth app (e.g. mlflow-oidc-auth) authenticates the gateway route with its own
+    # middleware and never sees the internal gateway token, so the self-call reuses the caller's
+    # credentials -- and only on the call to the server's own address.
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    app = FastAPI()
+    app.include_router(assistant_router)
+    provider = MlflowGatewayProvider()
+    calls: list[tuple[str, dict[str, str]]] = []
+
+    class _Rejected:
+        status = 500
+
+        async def text(self):
+            return "unreachable"
+
+    class _FakePost:
+        def __init__(self, url, kwargs):
+            calls.append((url, kwargs.get("headers") or {}))
+
+        async def __aenter__(self):
+            return _Rejected()
+
+        async def __aexit__(self, *exc):
+            return False
+
+    with (
+        patch(
+            "mlflow.server.assistant.api._get_selected_provider", return_value=provider
+        ) as get_selected_provider,
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True) as is_localhost,
+        patch(
+            "mlflow.server.assistant.api.resolve_authenticated_username", return_value="alice"
+        ) as resolve_username,
+        patch(
+            "mlflow.server.assistant.api.ensure_assistant_gateway_use_permission"
+        ) as ensure_permission,
+        patch.object(
+            MlflowGatewayProvider, "list_models", return_value=["chat-endpoint"]
+        ) as list_models,
+        patch(
+            "aiohttp.ClientSession.post",
+            new=lambda self, url, **kwargs: _FakePost(url, kwargs),
+        ),
+    ):
+        client = TestClient(app, base_url="http://127.0.0.1:5000")
+        r = client.post("/ajax-api/3.0/mlflow/assistant/message", json={"message": "Hi"})
+        response = client.get(
+            r.json()["stream_url"],
+            headers={"Authorization": "Bearer user-token", "Cookie": "session=abc"},
+        )
+
+    get_selected_provider.assert_called()
+    is_localhost.assert_called()
+    resolve_username.assert_called()
+    ensure_permission.assert_called_once_with("alice")
+    list_models.assert_called_once_with(None, None)
+    assert response.status_code == 200
+    ((url, headers),) = calls
+    assert url == "http://127.0.0.1:5000/gateway/mlflow/v1/chat/completions"
+    assert headers["Authorization"] == "Bearer user-token"
+    assert headers["Cookie"] == "session=abc"
+    assert MLFLOW_GATEWAY_AUTH_HEADER not in headers
+
+
 def test_stream_gateway_provider_reports_old_aiohttp_on_a_tls_listener(monkeypatch):
     monkeypatch.setenv(_MLFLOW_SERVER_TLS_LISTENER.name, "true")
     monkeypatch.setattr(

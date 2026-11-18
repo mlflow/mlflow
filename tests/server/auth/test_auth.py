@@ -16,6 +16,7 @@ import pytest
 import requests
 from cachetools import TTLCache
 from cryptography.fernet import Fernet
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 import mlflow
 from mlflow import MlflowClient
@@ -74,6 +75,7 @@ from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider imp
     ASSISTANT_DELEGATION_HEADER,
 )
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -446,6 +448,15 @@ def test_proxy_artifact_mpu_path_detection():
 
     # Non-artifact paths should not match
     assert not auth_module._is_proxy_artifact_path("/api/2.0/mlflow/experiments/get")
+
+
+@pytest.mark.parametrize("path", ["./42/run-id/artifacts/f", "42/./run-id/artifacts/f"])
+def test_parse_artifact_auth_target_ignores_dot_segments(path):
+    # The artifact store serves these from ``42/run-id/...``, so they must be judged against
+    # experiment 42 rather than falling back to the default permission.
+    target = auth_module._parse_artifact_auth_target(path)
+    assert target.experiment_id == "42"
+    assert target.relative_path == "42/run-id/artifacts/f"
 
 
 def test_extract_experiment_id_from_artifact_proxy_path():
@@ -1396,6 +1407,26 @@ def test_search_experiments(client, monkeypatch):
         assert names == [f"exp{i}" for i in readable]
 
 
+@pytest.mark.parametrize("is_admin", [False, True])
+@pytest.mark.parametrize("tags", [[], [{"key": "mlflow.prompt.is_prompt", "value": "true"}]])
+def test_wildcard_registered_model_name_is_rejected(client, tags, is_admin):
+    auth = (ADMIN_USERNAME, ADMIN_PASSWORD) if is_admin else create_user(client.tracking_uri)
+    base = f"{client.tracking_uri}/api/2.0/mlflow/registered-models"
+
+    response = requests.post(f"{base}/create", json={"name": "*", "tags": tags}, auth=auth)
+    assert response.status_code == 400
+    assert "reserved for wildcard" in response.json()["message"]
+
+    name = f"model-{uuid.uuid4().hex}"
+    response = requests.post(f"{base}/create", json={"name": name, "tags": tags}, auth=auth)
+    assert response.status_code == 200
+    response = requests.post(f"{base}/rename", json={"name": name, "new_name": "*"}, auth=auth)
+    assert response.status_code == 400
+    assert "reserved for wildcard" in response.json()["message"]
+    response = requests.get(f"{base}/get", params={"name": name}, auth=auth)
+    assert response.status_code == 200
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
@@ -1512,11 +1543,6 @@ def test_search_model_versions_run_filter_honors_the_run_tier(client, monkeypatc
 
 
 def test_search_logged_models_source_run_filter_honors_the_run_tier(client, monkeypatch):
-    """`SearchLoggedModels` had no before-request validator at all, so `filter_search_logged_models`
-    was its only authorization -- and that filter drops rows by EXPERIMENT, never inspecting the
-    request's `source_run_id`. Filtering on it therefore confirmed whether a denied run produced any
-    logged model. This asserts the gate is WIRED, which a direct validator call cannot show.
-    """
     owner, owner_pw = create_user(client.tracking_uri)
     with User(owner, owner_pw, monkeypatch):
         experiment_id = client.create_experiment("lm_run_filter_exp")
@@ -1536,6 +1562,43 @@ def test_search_logged_models_source_run_filter_honors_the_run_tier(client, monk
         assert client.search_logged_models(
             experiment_ids=[experiment_id], filter_string="name = 'lm_run_filter_model'"
         )
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_model_searches_accept_readable_multiline_names(client, monkeypatch):
+    owner, owner_password = create_user(client.tracking_uri)
+    reader, reader_password = create_user(client.tracking_uri)
+    readable_names = ["plain-model", "model\nwith-newline", "model\rwith-carriage-return"]
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = client.create_experiment("multiline-model-search")
+        run = client.create_run(experiment_id)
+        for name in [*readable_names, "hidden-model"]:
+            client.create_registered_model(name)
+            client.create_model_version(
+                name, f"runs:/{run.info.run_id}/model", run_id=run.info.run_id
+            )
+    for name in readable_names:
+        grant_role_permission(client.tracking_uri, reader, "registered_model", name, "READ")
+
+    with User(reader, reader_password, monkeypatch):
+        assert sorted(model.name for model in client.search_registered_models()) == sorted(
+            readable_names
+        )
+        assert sorted(version.name for version in client.search_model_versions()) == sorted(
+            readable_names
+        )
+        assert [
+            model.name
+            for model in client.search_registered_models(filter_string="name = 'plain-model'")
+        ] == ["plain-model"]
+        assert [
+            version.name
+            for version in client.search_model_versions(filter_string="name = 'plain-model'")
+        ] == ["plain-model"]
 
 
 @pytest.mark.parametrize(
@@ -2595,6 +2658,34 @@ def test_create_user_ui(client):
         )
 
         assert "Successfully signed up user" in response.text
+
+
+def test_create_user_ui_as_workspace_admin(client):
+    # Workspace admins may create users, so the sign-up form has to work end to end for them
+    # too, not just open; a user without that grant is turned away before the form is read.
+    ws_admin, ws_admin_password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, ws_admin, "workspace", "*", "MANAGE")
+    with requests.Session() as session:
+        page = session.get(client.tracking_uri + "/signup", auth=(ws_admin, ws_admin_password))
+        match = re.search(r"name=\"csrf_token\" value=\"([\S]+)\"", page.text)
+        assert match is not None
+
+        response = session.post(
+            client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+            data={"username": random_str(), "password": random_str(), "csrf_token": match.group(1)},
+            auth=(ws_admin, ws_admin_password),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        assert "Successfully signed up user" in response.text
+
+    member, member_password = create_user(client.tracking_uri)
+    response = requests.post(
+        client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+        data={"username": random_str(), "password": random_str()},
+        auth=(member, member_password),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 403
 
 
 def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
@@ -4106,6 +4197,100 @@ def test_gateway_budget_policy_admin_only(client, monkeypatch):
             auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
         )
         response.raise_for_status()
+
+
+def test_gateway_budget_policy_reads_are_workspace_scoped(fastapi_workspace_client):
+    tracking_uri = fastapi_workspace_client.tracking_uri
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    username, password = create_user(tracking_uri)
+
+    for workspace in ("team-a", "team-b"):
+        requests.post(
+            url=tracking_uri + "/api/3.0/mlflow/workspaces",
+            json={"name": workspace},
+            auth=admin_auth,
+        ).raise_for_status()
+
+    budget_policy_ids = {}
+    for workspace in ("team-a", "team-b"):
+        response = requests.post(
+            url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 5000.0,
+                "duration": {"unit": "DAYS", "value": 30},
+                "target_scope": "WORKSPACE",
+                "budget_action": "REJECT",
+            },
+            headers={"X-MLFLOW-WORKSPACE": workspace},
+            auth=admin_auth,
+        )
+        response.raise_for_status()
+        budget_policy_ids[workspace] = response.json()["budget_policy"]["budget_policy_id"]
+    budget_policy_id = budget_policy_ids["team-b"]
+
+    # Membership of team-a only; the user holds no grant in team-b.
+    grant_role_permission(tracking_uri, username, "experiment", "*", "READ", workspace="team-a")
+
+    # Budget reads are scoped by the request workspace, which the client controls,
+    # so a login alone must not let a caller select another tenant's policies or
+    # spend windows.
+    for path, params in (
+        ("/api/3.0/mlflow/gateway/budgets/list", None),
+        ("/api/3.0/mlflow/gateway/budgets/windows", None),
+        ("/api/3.0/mlflow/gateway/budgets/get", {"budget_policy_id": budget_policy_id}),
+    ):
+        response = requests.get(
+            url=tracking_uri + path,
+            params=params,
+            auth=(username, password),
+            headers={"X-MLFLOW-WORKSPACE": "team-b"},
+        )
+        assert response.status_code == 403
+
+    # No header resolves to the default workspace, where the user also holds no grant.
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
+        auth=(username, password),
+    )
+    assert response.status_code == 403
+
+    # Reads scoped to the caller's own workspace keep working.
+    own_policy_id = budget_policy_ids["team-a"]
+    member_auth = (username, password)
+    member_headers = {"X-MLFLOW-WORKSPACE": "team-a"}
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/get",
+        params={"budget_policy_id": own_policy_id},
+        auth=member_auth,
+        headers=member_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["budget_policy"]["budget_policy_id"] == own_policy_id
+
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
+        auth=member_auth,
+        headers=member_headers,
+    )
+    assert response.status_code == 200
+    assert [p["budget_policy_id"] for p in response.json()["budget_policies"]] == [own_policy_id]
+
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/windows",
+        auth=member_auth,
+        headers=member_headers,
+    )
+    assert response.status_code == 200
+
+    # Admins are unaffected.
+    response = requests.get(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
+        headers={"X-MLFLOW-WORKSPACE": "team-b"},
+        auth=admin_auth,
+    )
+    assert response.status_code == 200
+    assert [p["budget_policy_id"] for p in response.json()["budget_policies"]] == [budget_policy_id]
 
 
 def test_gateway_ajax_routes_permissions(client, monkeypatch):
@@ -5708,6 +5893,41 @@ def test_otel_trace_ingestion_carries_the_trace_veto(fastapi_client, monkeypatch
     assert response.status_code == 403
 
 
+def test_otel_run_link_requires_update_on_run(fastapi_client, monkeypatch):
+    owner, owner_password = create_user(fastapi_client.tracking_uri)
+    writer, writer_password = create_user(fastapi_client.tracking_uri)
+    with User(owner, owner_password, monkeypatch):
+        run_experiment_id = fastapi_client.create_experiment("otel_run_link_target")
+        run_id = fastapi_client.create_run(run_experiment_id).info.run_id
+    with User(writer, writer_password, monkeypatch):
+        trace_experiment_id = fastapi_client.create_experiment("otel_run_link_source")
+
+    request = ExportTraceServiceRequest()
+    span = request.resource_spans.add().scope_spans.add().spans.add()
+    span.trace_id = b"\x01" * 16
+    span.span_id = b"\x02" * 8
+    span.name = "root"
+
+    def post_spans():
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": trace_experiment_id,
+                "X-Mlflow-Run-Id": run_id,
+            },
+            data=request.SerializeToString(),
+            auth=(writer, writer_password),
+        )
+
+    assert post_spans().status_code == 403
+
+    grant_role_permission(
+        fastapi_client.tracking_uri, writer, "experiment", run_experiment_id, EDIT.name
+    )
+    assert post_spans().status_code == 200
+
+
 def test_job_api_unauthenticated_access_denied(fastapi_client, monkeypatch):
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
     monkeypatch.delenv(MLFLOW_TRACKING_PASSWORD.name, raising=False)
@@ -7141,7 +7361,8 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
     trace_id = _create_trace(client.tracking_uri, experiment_id, (user1, password1))
 
-    # user2 has no grant; default_permission=NO_PERMISSIONS denies access
+    # user2 has no experiment grants at all; the validator checks whether the
+    # caller has any readable experiments and denies with 403 if the set is empty.
 
     def batch_get(auth):
         return requests.post(
@@ -7152,6 +7373,15 @@ def test_trace_batch_get_permission(client, monkeypatch):
 
     assert batch_get((user2, password2)).status_code == 403
     assert batch_get((user1, password1)).status_code == 200
+
+    with User(user1, password1, monkeypatch):
+        unrelated_experiment_id = client.create_experiment("unrelated_trace_batch_get_test")
+    _grant_experiment_permission(
+        client.tracking_uri, unrelated_experiment_id, user2, "READ", (user1, password1)
+    )
+    response = batch_get((user2, password2))
+    assert response.status_code == 200
+    assert response.json().get("trace_infos", []) == []
 
     _grant_experiment_permission(
         client.tracking_uri, experiment_id, user2, "READ", (user1, password1)
@@ -7693,20 +7923,9 @@ def test_response_filter_matches_endpoint_functions(endpoint_fn):
     assert _find_fastapi_response_filter(request) is not None
 
 
-def test_response_filter_stamps_allowed_actions_on_single_server_get(monkeypatch):
+def test_server_detail_uses_a_response_filter():
     request = SimpleNamespace(scope={"endpoint": get_mcp_server})
-    handler = _find_fastapi_response_filter(request)
-    assert handler is not None
-    monkeypatch.setattr(
-        auth_module,
-        "_get_mcp_server_permission",
-        lambda name, username: READ,
-    )
-    request = SimpleNamespace()
-    body = json.dumps({"name": "com.test/server"}).encode()
-    result = json.loads(handler("testuser", body, request))
-    assert result["name"] == "com.test/server"
-    assert result["allowed_actions"] == []
+    assert _find_fastapi_response_filter(request) is not None
 
 
 def test_response_filter_skips_sub_resource_endpoints():
@@ -8611,12 +8830,136 @@ def test_mcp_server_endpoint_search_filters_by_parent(fastapi_client, monkeypatc
     indirect=True,
 )
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch, prefix):
+def test_mcp_endpoint_search_honors_server_specific_deny(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    visible = "com.test/wildcard-visible"
+    denied = "com.test/wildcard-denied"
+
+    for name in (visible, denied):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": name},
+            auth=admin_auth,
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+            json=_version_create_body(name),
+            auth=admin_auth,
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+            json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+            auth=admin_auth,
+        ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", denied, "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert {endpoint["server_name"] for endpoint in response.json()["mcp_access_endpoints"]} == {
+        visible
+    }
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_endpoint_search_honors_wildcard_deny(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    name = "com.test/wildcard-denied"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": name},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+        json=_version_create_body(name),
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+        json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+        auth=admin_auth,
+    ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", "*", "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert response.json()["mcp_access_endpoints"] == []
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_endpoint_search_honors_conflicting_exact_grants(fastapi_client, monkeypatch, prefix):
+    reader, reader_pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    name = "com.test/exact-denied"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": name},
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/versions",
+        json=_version_create_body(name),
+        auth=admin_auth,
+    ).raise_for_status()
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
+        json={"server_version": "1.0.0", "url": f"https://example.com/{name}"},
+        auth=admin_auth,
+    ).raise_for_status()
+
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
+    grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "DENY")
+
+    with User(reader, reader_pw, monkeypatch):
+        response = requests.get(
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints", auth=(reader, reader_pw)
+        )
+
+    assert response.status_code == 200
+    assert response.json()["mcp_access_endpoints"] == []
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_search_paginates_over_request_scoped_results(
+    fastapi_client, monkeypatch, prefix
+):
     reader, reader_pw = create_user(fastapi_client.tracking_uri)
     admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
 
-    # 3 readable servers so backfill must break mid-backend-page and still
-    # return z-read3 on the next client request (not skip it).
+    # Hidden servers sort before readable ones. Request-side scoping must remove
+    # them before pagination so the first page is full and the second returns
+    # the remaining readable server.
     readable = ["com.test/z-read1", "com.test/z-read2", "com.test/z-read3"]
     hidden = ["com.test/a-hid1", "com.test/a-hid2"]
     for name in readable + hidden:
@@ -8641,8 +8984,8 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
     for name in readable:
         grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", name, "READ")
 
-    # Request max_results=2. Without backfill the first page might contain a
-    # mix of readable/hidden servers and return fewer than 2 readable rows.
+    # Request max_results=2. The first page must contain two readable servers;
+    # hidden servers must not affect the result count or page token.
     with User(reader, reader_pw, monkeypatch):
         all_readable = []
         page_token = None
@@ -8781,6 +9124,109 @@ def test_evaluation_dataset_and_issue_apis_require_experiment_permission(client)
     )
 
 
+_DATASETS_SEARCH = "/api/3.0/mlflow/datasets/search"
+_DATASETS_CREATE = "/api/3.0/mlflow/datasets/create"
+
+
+def _send_json(base, method, path, auth, data, params=None):
+    return requests.request(
+        method,
+        f"{base}{path}",
+        params=params,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        auth=auth,
+    )
+
+
+def _double_encode(body):
+    return json.dumps(json.dumps(body))
+
+
+def _create_experiment(base, auth, name):
+    body = json.dumps({"name": name})
+    response = _send_json(base, "POST", "/api/2.0/mlflow/experiments/create", auth, body)
+    assert response.status_code == 200
+    return response.json()["experiment_id"]
+
+
+def _create_dataset(base, auth, name, experiment_id):
+    body = json.dumps({"name": name, "experiment_ids": [experiment_id]})
+    response = _send_json(base, "POST", _DATASETS_CREATE, auth, body)
+    assert response.status_code == 200
+    return response.json()["dataset"]["dataset_id"]
+
+
+def _dataset_names(base, auth, experiment_id):
+    params = {"experiment_ids": experiment_id}
+    response = _send_json(base, "GET", _DATASETS_SEARCH, auth, None, params)
+    assert response.status_code == 200
+    return {d["name"] for d in response.json().get("datasets", [])}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_dataset_validators_read_experiment_ids_like_the_handlers(client):
+    base = client.tracking_uri
+    alice = create_user(base)
+    bob = create_user(base)
+    alice_exp = _create_experiment(base, alice, "alice-exp")
+    bob_exp = _create_experiment(base, bob, "bob-exp")
+    _create_dataset(base, alice, "alice-ds", alice_exp)
+    bob_ds = _create_dataset(base, bob, "bob-ds", bob_exp)
+
+    # Requests bob isn't authorized for.
+    bob_query = {"experiment_ids": bob_exp}
+    alice_ids = {"experiment_ids": [alice_exp]}
+    for method, path, data, params in [
+        ("POST", _DATASETS_SEARCH, _double_encode({}), bob_query),
+        ("POST", _DATASETS_SEARCH, _double_encode(alice_ids), bob_query),
+        ("GET", _DATASETS_SEARCH, json.dumps({"experiment_ids": [bob_exp]}), {"max_results": 100}),
+        ("POST", _DATASETS_CREATE, _double_encode({"name": "new-ds", **alice_ids}), bob_query),
+        (
+            "POST",
+            f"/api/3.0/mlflow/datasets/{bob_ds}/add-experiments",
+            _double_encode(alice_ids),
+            bob_query,
+        ),
+    ]:
+        response = _send_json(base, method, path, bob, data, params)
+        assert response.status_code == 403, (method, path, data, params)
+
+    assert _dataset_names(base, alice, alice_exp) == {"alice-ds"}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_dataset_apis_accept_double_encoded_bodies(client):
+    base = client.tracking_uri
+    bob = create_user(base)
+    bob_exp = _create_experiment(base, bob, "bob-exp")
+    second_exp = _create_experiment(base, bob, "bob-exp-2")
+    bob_ids = {"experiment_ids": [bob_exp]}
+
+    response = _send_json(
+        base, "POST", _DATASETS_CREATE, bob, _double_encode({"name": "bob-ds", **bob_ids})
+    )
+    assert response.status_code == 200
+    dataset_id = response.json()["dataset"]["dataset_id"]
+
+    response = _send_json(base, "POST", _DATASETS_SEARCH, bob, _double_encode(bob_ids))
+    assert response.status_code == 200
+    assert {d["name"] for d in response.json()["datasets"]} == {"bob-ds"}
+
+    add_path = f"/api/3.0/mlflow/datasets/{dataset_id}/add-experiments"
+    add_body = _double_encode({"experiment_ids": [second_exp]})
+    assert _send_json(base, "POST", add_path, bob, add_body).status_code == 200
+    assert _dataset_names(base, bob, second_exp) == {"bob-ds"}
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
@@ -8830,6 +9276,31 @@ def test_invoke_endpoints_require_experiment_update_permission(client):
             auth=(owner, owner_pw),
         )
         assert resp.status_code != 403, f"{path} -> {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_issue_detection_schedule_state_requires_experiment_update(client):
+    # The route writes the schedule state onto the experiment as tags.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    other, other_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "schedule-state-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    url = f"{base}/ajax-api/3.0/mlflow/issues/schedule/state"
+
+    resp = requests.post(url, json={"experiment_id": exp_id}, auth=(other, other_pw))
+    assert resp.status_code == 403
+
+    resp = requests.post(url, json={"experiment_id": exp_id}, auth=(owner, owner_pw))
+    assert resp.status_code == 200
+    assert resp.json() == {"next_fire_time_ms": None}
 
 
 @pytest.mark.parametrize(
@@ -8907,6 +9378,116 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
 
 
 @pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_issue_detection_schedule_requires_use_permission_on_secret(client):
+    # The schedule tag names a gateway secret the dispatcher decrypts later, so writing it must
+    # require USE on that secret (same class as GHSA-2m86-c5q7-rxgr).
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    resp = requests.post(
+        f"{base}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "owner-openai-key",
+            "secret_value": {"api_key": "sk-owner"},
+            "provider": "openai",
+        },
+        auth=(owner, owner_pw),
+    )
+    resp.raise_for_status()
+    secret_id = resp.json()["secret"]["secret_id"]
+
+    def create_experiment(name, auth, tags=None):
+        return requests.post(
+            f"{base}/api/2.0/mlflow/experiments/create",
+            json={"name": name} | ({"tags": tags} if tags else {}),
+            auth=auth,
+        )
+
+    def schedule(model, **overrides):
+        return json.dumps(
+            {"version": 1, "cadence": "daily", "timezone": "UTC", "paused": False, "model": model}
+            | overrides
+        )
+
+    def set_tag(value, auth, experiment_id, key=MLFLOW_ISSUE_DETECTION_SCHEDULE):
+        return requests.post(
+            f"{base}/api/2.0/mlflow/experiments/set-experiment-tag",
+            json={"experiment_id": experiment_id, "key": key, "value": value},
+            auth=auth,
+        )
+
+    def stored_tags(experiment_id, auth):
+        resp = requests.get(
+            f"{base}/api/2.0/mlflow/experiments/get",
+            params={"experiment_id": experiment_id},
+            auth=auth,
+        )
+        resp.raise_for_status()
+        return {tag["key"]: tag["value"] for tag in resp.json()["experiment"].get("tags", [])}
+
+    attacker_auth = (attacker, attacker_pw)
+    attacker_exp_id = create_experiment("attacker-exp", attacker_auth).json()["experiment_id"]
+    direct = {"provider": "openai", "model": "gpt-4o"}
+    with_owner_secret = schedule(direct | {"secretId": secret_id})
+
+    # UPDATE on the experiment alone is not enough, and nothing is stored.
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 403
+    assert MLFLOW_ISSUE_DETECTION_SCHEDULE not in stored_tags(attacker_exp_id, attacker_auth)
+
+    # Same for a paused schedule.
+    paused = schedule(direct | {"secretId": secret_id}, paused=True)
+    assert set_tag(paused, attacker_auth, attacker_exp_id).status_code == 403
+
+    # Same when the experiment is created with the tag.
+    resp = create_experiment(
+        "attacker-exp-born-scheduled",
+        attacker_auth,
+        tags=[{"key": MLFLOW_ISSUE_DETECTION_SCHEDULE, "value": with_owner_secret}],
+    )
+    assert resp.status_code == 403
+
+    # READ on the secret is not enough.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "READ")
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 403
+
+    # An unknown secret id fails closed.
+    unknown = schedule(direct | {"secretId": "s-does-not-exist"})
+    assert set_tag(unknown, attacker_auth, attacker_exp_id).status_code == 403
+
+    # No secret named, or another tag key: an ordinary tag write.
+    assert set_tag(schedule(direct), attacker_auth, attacker_exp_id).status_code == 200
+    assert (
+        set_tag(schedule({"endpointName": "ep"}), attacker_auth, attacker_exp_id).status_code == 200
+    )
+    assert (
+        set_tag(with_owner_secret, attacker_auth, attacker_exp_id, key="notes").status_code == 200
+    )
+
+    # USE on the secret allows both routes.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "USE")
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 200
+    assert (
+        stored_tags(attacker_exp_id, attacker_auth)[MLFLOW_ISSUE_DETECTION_SCHEDULE]
+        == with_owner_secret
+    )
+    resp = create_experiment(
+        "attacker-exp-born-scheduled",
+        attacker_auth,
+        tags=[{"key": MLFLOW_ISSUE_DETECTION_SCHEDULE, "value": with_owner_secret}],
+    )
+    assert resp.status_code == 200
+
+    # The secret's owner can schedule on their own experiment.
+    owner_exp_id = create_experiment("owner-exp", (owner, owner_pw)).json()["experiment_id"]
+    assert set_tag(with_owner_secret, (owner, owner_pw), owner_exp_id).status_code == 200
+
+
+@pytest.mark.parametrize(
     "denied",
     [None, ("scorer", "{exp_id}/judge"), ("scorer_version", "*")],
     ids=["no_deny", "scorer_deny", "scorer_version_deny"],
@@ -8972,6 +9553,18 @@ def test_genai_evaluate_invoke_respects_a_deny_on_the_registered_scorer(client, 
 )
 def test_registered_scorer_names_in_evaluate_request(body, expected):
     assert auth_module._registered_scorer_names_in_evaluate_request(body) == expected
+
+
+def test_registered_scorer_names_only_skips_concrete_builtin_scorers():
+    # Must agree with ``optimize.job._load_scorers``: any name that is not a concrete built-in
+    # scorer class is loaded from the registry, so it keeps the registered-scorer checks.
+    names = ["Correctness", "Feedback", "get_default_model", "BuiltInScorer", "custom"]
+    assert auth_module._registered_scorer_names(names) == [
+        "BuiltInScorer",
+        "Feedback",
+        "custom",
+        "get_default_model",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -9226,10 +9819,10 @@ def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, mo
     )
     assert upload.status_code == 200
 
-    def listed(auth):
+    def listed(auth, path=experiment_id):
         resp = requests.get(
             url=f"{base}/api/2.0/mlflow-artifacts/artifacts",
-            params={"path": experiment_id},
+            params={"path": path},
             auth=auth,
         )
         assert resp.status_code == 200
@@ -9241,6 +9834,8 @@ def test_proxy_artifact_root_listing_withholds_denied_run_ids(fastapi_client, mo
     # An explicit run DENY withholds the id itself, not merely its contents.
     grant_role_permission(base, owner, "run", "*", "DENY")
     assert run_id not in listed((owner, owner_pw))
+    # A `.` segment names the same experiment root, so it is filtered the same way.
+    assert run_id not in listed((owner, owner_pw), path=f"./{experiment_id}")
 
     # The point read a caller would attempt with that id is denied too, so the listing and the
     # point check agree rather than one being the softer path.
@@ -9310,7 +9905,7 @@ def test_delete_scorer_version_is_gated_on_the_version_tier(client, monkeypatch)
     assert vetoed.status_code == 403
 
 
-def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
+def test_source_prompt_requirements_resolves_the_name_like_load_prompt(monkeypatch):
     """The gate must name the prompt `load_prompt` will actually load.
 
     `_parse_model_uri` takes the name as everything before the LAST `@`, so splitting at the
@@ -9320,6 +9915,19 @@ def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
     gate delegates to the parser rather than re-deriving the name.
     """
     from mlflow.store.artifact.utils.models import _parse_model_uri
+
+    # No prompt is stored, so each name is required as parsed. Without this the lookup hits the
+    # process-wide registry store, which may point at a database an earlier test removed.
+    class FakeRegistryStore:
+        def __init__(self):
+            self.asked_for = []
+
+        def get_registered_model(self, name):
+            self.asked_for.append(name)
+            raise MlflowException(f"Registered Model {name!r} not found", RESOURCE_DOES_NOT_EXIST)
+
+    fake = FakeRegistryStore()
+    monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: fake)
 
     def gated_names(uri):
         requirements = auth_module._source_prompt_requirements(uri)
@@ -9361,6 +9969,7 @@ def test_source_prompt_requirements_resolves_the_name_like_load_prompt():
 
     # An absent source prompt adds no requirement at all.
     assert gated_names("") == "NO_REQUIREMENT"
+    assert "my@weird" in fake.asked_for
 
 
 def test_optimizer_gateway_endpoint_requirement_is_keyed_by_id(monkeypatch):
@@ -9430,21 +10039,11 @@ def _search_logged_models_pages(tracking_uri, auth, body, max_pages=4):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
-def test_search_logged_models_pagination_survives_filtering(client, monkeypatch):
-    """Filtered logged-model pagination must not serve a bad page, and must stay self-consistent.
-
-    Both defects here predate this branch and need a caller who can read SOME but not all of the
-    searched experiments, or the refill loop never runs and the assertions pass vacuously.
-
-    * The refill loop rebuilt `order_by` without the handler's `or None`, so `dataset_name` and
-      `dataset_digest` were `""` where the page token recorded `None`. The store rejected the
-      token the auth layer had itself issued -- HTTP 400, "Order by in the page token does not
-      match the requested order by".
-    * On the last page the loop issued a token even when every remaining row was unreadable,
-      buying the caller a request that returns nothing. Suppressing it also has to CLEAR the
-      field: the handler sets its own token before filtering, so leaving it in place re-served a
-      page the filter had already consumed.
-    """
+@pytest.mark.parametrize("has_readable_tail", [False, True])
+@pytest.mark.parametrize("max_results", [1, 2])
+def test_search_logged_models_paginates_authorized_experiments(
+    client, monkeypatch, has_readable_tail, max_results
+):
     owner, owner_pw = create_user(client.tracking_uri)
     stranger, stranger_pw = create_user(client.tracking_uri)
 
@@ -9453,20 +10052,26 @@ def test_search_logged_models_pagination_survives_filtering(client, monkeypatch)
     with User(stranger, stranger_pw, monkeypatch):
         hidden = client.create_experiment("lm-pagination-hidden")
 
-    # Interleaved by name, so ordering by name puts an unreadable row last: the loop breaks on
-    # reaching max_results with only a denied row after it, on the final page.
-    for name, experiment_id, as_user in (
+    models = [
         ("a1", readable, (owner, owner_pw)),
         ("a2", hidden, (stranger, stranger_pw)),
         ("a3", readable, (owner, owner_pw)),
         ("a4", hidden, (stranger, stranger_pw)),
-    ):
+        ("a5", hidden, (stranger, stranger_pw)),
+        ("a6", hidden, (stranger, stranger_pw)),
+    ]
+    if has_readable_tail:
+        models.extend([
+            ("a7", readable, (owner, owner_pw)),
+            ("a8", hidden, (stranger, stranger_pw)),
+        ])
+    for name, experiment_id, as_user in models:
         with User(as_user[0], as_user[1], monkeypatch):
             client.create_logged_model(experiment_id=experiment_id, name=name)
 
     body = {
         "experiment_ids": [readable, hidden],
-        "max_results": 2,
+        "max_results": max_results,
         "order_by": [{"field_name": "name", "ascending": True}],
     }
     pages = _search_logged_models_pages(client.tracking_uri, (owner, owner_pw), body)
@@ -9477,7 +10082,11 @@ def test_search_logged_models_pagination_survives_filtering(client, monkeypatch)
     assert all(names for _, names in pages)
     # Only readable rows, each served exactly once.
     served = [name for _, names in pages for name in names]
-    assert served == ["a1", "a3"]
+    expected_names = ["a1", "a3", "a7"] if has_readable_tail else ["a1", "a3"]
+    assert served == expected_names
+    assert [names for _, names in pages] == [
+        expected_names[i : i + max_results] for i in range(0, len(expected_names), max_results)
+    ]
 
 
 def test_a_deny_holds_for_every_spelling_of_the_experiment_id(client, monkeypatch):
@@ -9538,3 +10147,99 @@ def test_a_deny_holds_for_every_spelling_of_the_experiment_id(client, monkeypatc
             auth=(experiment_denied, experiment_denied_pw),
         )
         assert response.status_code == 403, spelling
+
+
+@pytest.mark.parametrize("encode", [json.dumps, lambda body: json.dumps(json.dumps(body))])
+def test_delete_authorizes_body_params_regardless_of_content_type(client, monkeypatch, encode):
+    owner, owner_pw = create_user(client.tracking_uri)
+    other, other_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        client.create_registered_model("victim_model")
+    with User(other, other_pw, monkeypatch):
+        client.create_registered_model("own_model")
+
+    # Handlers read the JSON body whatever the Content-Type, so auth must check the body name.
+    response = requests.delete(
+        url=client.tracking_uri + "/api/2.0/mlflow/registered-models/delete",
+        params={"name": "own_model"},
+        data=encode({"name": "victim_model"}),
+        headers={"Content-Type": "text/plain"},
+        auth=(other, other_pw),
+    )
+
+    assert response.status_code == 403
+    with User(owner, owner_pw, monkeypatch):
+        assert client.get_registered_model("victim_model").name == "victim_model"
+
+
+def test_delete_with_double_encoded_body_cleans_up_permissions(client, monkeypatch):
+    owner, owner_pw = create_user(client.tracking_uri)
+    with User(owner, owner_pw, monkeypatch):
+        client.create_registered_model("own_model")
+
+    response = requests.delete(
+        url=client.tracking_uri + "/api/2.0/mlflow/registered-models/delete",
+        data=json.dumps(json.dumps({"name": "own_model"})),
+        headers={"Content-Type": "text/plain"},
+        auth=(owner, owner_pw),
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_run_permission_checks_camel_case_run_id(client, monkeypatch):
+    victim, victim_password = create_user(client.tracking_uri)
+    attacker, attacker_password = create_user(client.tracking_uri)
+    with User(victim, victim_password, monkeypatch):
+        victim_run = client.create_run(client.create_experiment("victim_exp"))
+    with User(attacker, attacker_password, monkeypatch):
+        own_run = client.create_run(client.create_experiment("attacker_exp"))
+
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/runs/update",
+        json={"runId": victim_run.info.run_id, "run_uuid": own_run.info.run_id, "status": "FAILED"},
+        auth=(attacker, attacker_password),
+    )
+
+    assert response.status_code == 403
+    with User(victim, victim_password, monkeypatch):
+        assert client.get_run(victim_run.info.run_id).info.status == "RUNNING"
+
+    # GET handlers ignore `runId` in the query string, so it must not be authorized either.
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/runs/get",
+        params={"runId": own_run.info.run_id, "run_uuid": victim_run.info.run_id},
+        auth=(attacker, attacker_password),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_finalize_logged_model_acts_on_url_model_id(client, monkeypatch):
+    victim, victim_password = create_user(client.tracking_uri)
+    attacker, attacker_password = create_user(client.tracking_uri)
+    with User(victim, victim_password, monkeypatch):
+        victim_model = client.create_logged_model(client.create_experiment("victim_exp"))
+    with User(attacker, attacker_password, monkeypatch):
+        own_model = client.create_logged_model(client.create_experiment("attacker_exp"))
+
+    response = requests.patch(
+        url=client.tracking_uri + f"/api/2.0/mlflow/logged-models/{own_model.model_id}",
+        json={"model_id": victim_model.model_id, "status": LoggedModelStatus.FAILED.to_int()},
+        auth=(attacker, attacker_password),
+    )
+
+    assert response.status_code == 200
+    with User(victim, victim_password, monkeypatch):
+        assert client.get_logged_model(victim_model.model_id).status == LoggedModelStatus.PENDING
+    with User(attacker, attacker_password, monkeypatch):
+        assert client.get_logged_model(own_model.model_id).status == LoggedModelStatus.FAILED
