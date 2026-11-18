@@ -7051,6 +7051,25 @@
       "deprecation_date": "2028-02-09",
       "last_updated_at": "2026-10-27"
     },
+    "us-gov/gpt-4-turbo": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 12.5,
+        "output_per_million_tokens": 37.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
     "us-gov/gpt-4.1": {
       "mode": "chat",
       "context_window": {
@@ -7110,6 +7129,47 @@
         "response_schema": true
       },
       "last_updated_at": "2026-11-16"
+    },
+    "us-gov/gpt-4o-2024-05-13": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 6.25,
+        "output_per_million_tokens": 18.75
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "deprecation_date": "2027-01-14",
+      "last_updated_at": "2026-11-18"
+    },
+    "us-gov/gpt-4o-2024-11-20": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 128000,
+        "max_output": 16384
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.438,
+        "output_per_million_tokens": 13.75,
+        "cache_read_per_million_tokens": 1.719
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "deprecation_date": "2027-04-14",
+      "last_updated_at": "2026-11-18"
     },
     "us-gov/gpt-5.1": {
       "mode": "chat",
@@ -7240,6 +7300,27 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "us-gov/o3-mini-2025-01-31": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 100000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.513,
+        "output_per_million_tokens": 6.05,
+        "cache_read_per_million_tokens": 0.757
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-11-18"
     },
     "us-gov/text-embedding-3-large": {
       "mode": "embedding",
