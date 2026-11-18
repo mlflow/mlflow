@@ -3895,6 +3895,12 @@ class SqlAlchemyStore(
             offset = 0
 
         max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
+        if max_results < 1:
+            raise MlflowException(
+                f"Invalid value {max_results} for parameter 'max_results' supplied. It must be "
+                "a positive integer",
+                INVALID_PARAMETER_VALUE,
+            )
         with self.ManagedSessionMaker() as session:
             models = self._get_query(session, SqlLoggedModel)
             models = self._apply_filter_string_datasets_search_logged_models(
