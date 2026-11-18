@@ -1,7 +1,10 @@
 import json
 import os
+import platform
+import re
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -908,3 +911,275 @@ authenticate_databricks
     assert calls_path.read_text().strip() == (
         "auth login --host https://workspace.example.com --profile DEFAULT"
     )
+
+
+TELEMETRY_OPT_OUT_VARS = [
+    "MLFLOW_DISABLE_TELEMETRY",
+    "DO_NOT_TRACK",
+    "_MLFLOW_TESTING_TELEMETRY",
+    "DATABRICKS_RUNTIME_VERSION",
+    "IS_IN_DB_MODEL_SERVING_ENV",
+]
+TELEMETRY_CI_VARS = [
+    "PYTEST_CURRENT_TEST",
+    "GITHUB_ACTIONS",
+    "CI",
+    "CIRCLECI",
+    "GITLAB_CI",
+    "JENKINS_URL",
+    "TRAVIS",
+    "TF_BUILD",
+    "BITBUCKET_BUILD_NUMBER",
+    "CODEBUILD_BUILD_ARN",
+    "BUILDKITE",
+    "TEAMCITY_VERSION",
+    "CLOUD_RUN_EXECUTION",
+    "RUNBOT_HOST_URL",
+    "RUNBOT_BUILD_NAME",
+    "RUNBOT_WORKER_ID",
+]
+TELEMETRY_CONFIG = {
+    "mlflow_version": "3.18.0",
+    "disable_telemetry": False,
+    "rollout_percentage": 100,
+    "ingestion_url": "https://ingest.example.com/log",
+    "disable_sdks": [],
+    "disable_os": [],
+    "disable_events": [],
+    "disable_ui_events": ["agent_setup_script"],
+}
+
+
+class TelemetryHarness:
+    def __init__(self, tmp_path: Path):
+        self.bin = tmp_path / "bin"
+        self.bin.mkdir()
+        self.log = tmp_path / "curl.log"
+        self.body = tmp_path / "body.json"
+        self.config = tmp_path / "config.json"
+        site = tmp_path / "site" / "mlflow-3.18.0.dist-info"
+        site.mkdir(parents=True)
+        (site / "METADATA").write_text("Metadata-Version: 2.1\nName: mlflow\nVersion: 3.18.0\n")
+        curl = self.bin / "curl"
+        curl.write_text(
+            """#!/bin/sh
+printf '%s\\n' "$*" >> "$TELEMETRY_LOG"
+prev=""
+for arg in "$@"; do
+    [ "$prev" = "--data-binary" ] && printf '%s' "$arg" > "$TELEMETRY_BODY"
+    prev=$arg
+done
+case "$*" in *"-X POST"*) exit 0 ;; esac
+[ -f "$TELEMETRY_CONFIG" ] || exit 22
+cat "$TELEMETRY_CONFIG"
+"""
+        )
+        curl.chmod(0o755)
+        self.write_config()
+        self.xdg = tmp_path / "xdg"
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in TELEMETRY_OPT_OUT_VARS + TELEMETRY_CI_VARS
+        }
+        self.env = env | {
+            "NO_COLOR": "1",
+            "TERM": "dumb",
+            "PATH": f"{self.bin}:{os.environ['PATH']}",
+            "PYTHONPATH": str(tmp_path / "site"),
+            "XDG_CONFIG_HOME": str(self.xdg),
+            "TELEMETRY_LOG": str(self.log),
+            "TELEMETRY_BODY": str(self.body),
+            "TELEMETRY_CONFIG": str(self.config),
+        }
+
+    def write_config(self, **overrides):
+        self.config.write_text(json.dumps(TELEMETRY_CONFIG | overrides, indent=2))
+
+    def run(self, body: str, **env: str) -> subprocess.CompletedProcess[str]:
+        command = f"""
+MLFLOW_SETUP_SKIP_MAIN=1
+export MLFLOW_SETUP_SKIP_MAIN
+. "$1"
+telemetry_start=$(($(date +%s) - 2))
+agent_choice=claude
+backend=remote
+telemetry_flags=" agent profile agent"
+{body}
+"""
+        return subprocess.run(
+            ["sh", "-c", command, "sh", str(SETUP_SCRIPT)],
+            env=self.env | env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def posts(self) -> list[str]:
+        if not self.log.exists():
+            return []
+        return [line for line in self.log.read_text().splitlines() if "-X POST" in line]
+
+    def wait_for_posts(self, timeout: float = 10) -> list[str]:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline and not self.posts():
+            time.sleep(0.1)
+        time.sleep(0.5)
+        return self.posts()
+
+
+@pytest.fixture
+def telemetry(tmp_path):
+    return TelemetryHarness(tmp_path)
+
+
+def test_telemetry_body_matches_python_client(telemetry):
+    telemetry.xdg.joinpath("mlflow").mkdir(parents=True)
+    installation_id = "123e4567-e89b-42d3-a456-426614174000"
+    telemetry.xdg.joinpath("mlflow", "telemetry.json").write_text(
+        json.dumps({"installation_id": installation_id})
+    )
+
+    result = telemetry.run("telemetry_post success")
+
+    assert result.returncode == 0, result.stderr
+    calls = telemetry.log.read_text().splitlines()
+    assert calls[0] == "-fsS --max-time 2 https://config.mlflow-telemetry.io/3.18.0.json"
+    assert calls[1].endswith("https://ingest.example.com/log")
+    body = json.loads(telemetry.body.read_text())
+    [record] = body["records"]
+    assert re.fullmatch(r"[0-9a-f]{32}", record["partition-key"])
+    data = record["data"]
+    assert re.fullmatch(r"[0-9a-f]{32}", data["session_id"])
+    assert data["duration_ms"] >= 2000
+    assert isinstance(data["timestamp_ns"], int)
+    assert json.loads(data["params"]) == {
+        "agent": "claude",
+        "backend": "oss",
+        "flags": ["agent", "profile"],
+    }
+    assert {
+        key: data[key]
+        for key in data
+        if key not in {"session_id", "timestamp_ns", "duration_ms", "params"}
+    } == {
+        "source_sdk": "mlflow",
+        "mlflow_version": "3.18.0",
+        "schema_version": 2,
+        "python_version": platform.python_version(),
+        "operating_system": platform.platform(),
+        "environment": None,
+        "coding_agent": None,
+        "tracking_uri_scheme": None,
+        "is_localhost": None,
+        "installation_id": installation_id,
+        "ws_enabled": None,
+        "event_name": "agent_setup_script",
+        "status": "success",
+    }
+    assert not telemetry.xdg.joinpath("mlflow", "telemetry.json").read_text().count("created_at")
+
+
+def test_telemetry_does_not_create_installation_id_file(telemetry):
+    telemetry.run("telemetry_post success")
+
+    assert json.loads(telemetry.body.read_text())["records"][0]["data"]["installation_id"] is None
+    assert not telemetry.xdg.exists()
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("MLFLOW_DISABLE_TELEMETRY", "true"),
+        ("MLFLOW_DISABLE_TELEMETRY", "1"),
+        ("DO_NOT_TRACK", "TRUE"),
+        ("DO_NOT_TRACK", "1"),
+        ("DATABRICKS_RUNTIME_VERSION", "15.4"),
+        ("IS_IN_DB_MODEL_SERVING_ENV", "true"),
+        *[(name, "") for name in TELEMETRY_CI_VARS],
+    ],
+)
+def test_telemetry_opt_outs(telemetry, name, value):
+    result = telemetry.run("telemetry_post success", **{name: value})
+
+    assert result.returncode == 0, result.stderr
+    assert not telemetry.log.exists()
+
+
+def test_telemetry_requires_installed_mlflow(telemetry):
+    for name in ("python3", "python"):
+        fake = telemetry.bin / name
+        fake.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{telemetry.log}.py"\nexit 1\n')
+        fake.chmod(0o755)
+
+    telemetry.run("telemetry_post success")
+
+    assert Path(f"{telemetry.log}.py").exists()
+    assert not telemetry.log.exists()
+
+
+def test_telemetry_skips_dev_version(telemetry, tmp_path):
+    dist = tmp_path / "site" / "mlflow-3.18.0.dist-info"
+    dist.rename(tmp_path / "site" / "mlflow-3.19.0.dev0.dist-info")
+    (tmp_path / "site" / "mlflow-3.19.0.dev0.dist-info" / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: mlflow\nVersion: 3.19.0.dev0\n"
+    )
+
+    telemetry.run("telemetry_post success")
+
+    assert not telemetry.log.exists()
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        None,
+        {"disable_telemetry": True},
+        {"ingestion_url": None},
+        {"mlflow_version": "3.17.0"},
+        {"disable_events": ["other", "agent_setup_script"]},
+        {"disable_sdks": ["mlflow"]},
+        {"disable_os": [sys.platform]},
+        {"rollout_percentage": -1},
+    ],
+)
+def test_telemetry_remote_config_gating(telemetry, config):
+    if config is None:
+        telemetry.config.unlink()
+    else:
+        telemetry.write_config(**config)
+
+    telemetry.run("telemetry_post success")
+
+    assert telemetry.posts() == []
+
+
+def test_telemetry_sends_once_and_survives_exec(telemetry):
+    result = telemetry.run("telemetry_send success\ntelemetry_send failure\nexec true")
+
+    assert result.returncode == 0, result.stderr
+    assert len(telemetry.wait_for_posts()) == 1
+    assert json.loads(telemetry.body.read_text())["records"][0]["data"]["status"] == "success"
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        ("die boom", "failure"),
+        ("value=$(die boom)", "failure"),
+        ("kill -INT $$", "canceled"),
+        ("telemetry_send success\ndie boom", "success"),
+    ],
+)
+def test_telemetry_exit_paths_send_once(telemetry, body, status):
+    result = telemetry.run(body)
+
+    assert result.returncode != 0
+    assert len(telemetry.wait_for_posts()) == 1
+    assert json.loads(telemetry.body.read_text())["records"][0]["data"]["status"] == status
+
+
+def test_telemetry_skipped_before_main_starts(telemetry):
+    telemetry.run('telemetry_start=""\ndie boom')
+
+    assert telemetry.wait_for_posts(timeout=1) == []

@@ -204,7 +204,7 @@ telemetry_post() {
 	! printf '%s' "$telemetry_config" | json_array_has disable_sdks "$telemetry_sdk" || return 0
 	! printf '%s' "$telemetry_config" | json_array_has disable_os "$telemetry_platform" || return 0
 	! printf '%s' "$telemetry_config" | json_array_has disable_events agent_setup_script || return 0
-	telemetry_rollout=$(printf '%s' "$telemetry_config" | sed -n 's/.*"rollout_percentage"[[:space:]]*:[[:space:]]*\([0-9.]*\).*/\1/p')
+	telemetry_rollout=$(printf '%s' "$telemetry_config" | sed -n 's/.*"rollout_percentage"[[:space:]]*:[[:space:]]*\(-\{0,1\}[0-9.]*\).*/\1/p')
 	awk -v roll="$telemetry_roll" -v rollout="${telemetry_rollout:-100}" 'BEGIN { exit !(roll <= rollout + 0) }' || return 0
 	curl -fsS --max-time 2 -X POST -H 'Content-Type: application/json' --data-binary "$telemetry_body" "$telemetry_ingestion_url"
 }
