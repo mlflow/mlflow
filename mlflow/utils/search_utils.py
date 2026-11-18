@@ -2157,9 +2157,14 @@ class SearchTraceUtils(SearchUtils):
             elif dialect == MYSQL:
                 decoded = sa.func.json_unquote(column, type_=sa.Text)
             else:
+                # `JSON_VALUE` returns at most 4000 characters (NULL in lax mode beyond that),
+                # so decode with `OPENJSON`, whose default `value` column is nvarchar(max).
                 # Wrapping in an array avoids depending on whether the server version accepts
                 # a scalar as the JSON document root.
-                decoded = sa.func.json_value("[" + column + "]", "$[0]", type_=sa.Text)
+                elements = sa.func.openjson("[" + column + "]").table_valued(
+                    sa.column("value", sa.Text)
+                )
+                decoded = sa.select(elements.c.value).scalar_subquery()
             expression = sa.case(
                 (sa.func.substring(column, 1, 1) == '"', decoded),
                 else_=column,
