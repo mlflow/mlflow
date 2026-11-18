@@ -2077,6 +2077,9 @@ def test_search_traces_numeric_filters_exclude_nan_and_infinity(store: SqlAlchem
         ("feedback.rating LIKE 'true'", {"trace_bool"}),
         ("feedback.rating RLIKE '^true$'", {"trace_bool"}),
         ("feedback.rating LIKE 'NaN'", {"trace_nan"}),
+        # Longer than the 4000 characters MSSQL `JSON_VALUE` can return
+        ("feedback.rating LIKE '%needle'", {"trace_long"}),
+        ("feedback.rating ILIKE '%NEEDLE'", {"trace_long"}),
         ("expectation.label LIKE 'success'", {"trace_string"}),
         ("expectation.label LIKE 'succ%'", {"trace_string"}),
         ("expectation.label ILIKE 'SUCCESS'", {"trace_string"}),
@@ -2100,6 +2103,7 @@ def test_search_traces_assessment_pattern_filters_match_decoded_strings(
         ("trace_numeric", 4, 7),
         ("trace_bool", True, None),
         ("trace_nan", float("nan"), None),
+        ("trace_long", "x" * 5000 + "needle", None),
     ]:
         _create_trace(store, trace_id, exp_id)
         store.create_assessment(
