@@ -1,18 +1,28 @@
 import { uniq } from 'lodash';
-import type { ChatMessage } from './types';
+import type { ChatMessage, PlaygroundTool, ResponseFormat, ResponseFormatType } from './types';
 
 // Mirrors the canonical `PROMPT_TEMPLATE_VARIABLE_PATTERN` in
 // `mlflow/prompt/constants.py`. The flag is `g` so we can `matchAll` across an
 // entire message body and `replaceAll`-style across substitution sites.
 const TEMPLATE_VARIABLE_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}/g;
 
+// Template variables are a feature of the *authored* prompt template — the system/user turns the
+// user writes. Model-generated assistant turns and tool results are replayed verbatim: their
+// content may legitimately contain `{{ ... }}` tokens (code, docs, config fragments) that must
+// never be extracted as variables or rewritten by substitution.
+const isAuthoredMessage = (message: ChatMessage): boolean => message.role === 'system' || message.role === 'user';
+
 /**
- * Returns the unique `{{ var }}` placeholders that appear anywhere in the
- * messages, in order of first appearance.
+ * Returns the unique `{{ var }}` placeholders that appear in the authored
+ * (system/user) messages, in order of first appearance. Model-generated and
+ * tool-result turns are ignored.
  */
 export const extractTemplateVariables = (messages: ChatMessage[]): string[] => {
   const names: string[] = [];
   for (const message of messages) {
+    if (!isAuthoredMessage(message)) {
+      continue;
+    }
     const matches = (message.content ?? '').matchAll(TEMPLATE_VARIABLE_PATTERN);
     for (const match of matches) {
       names.push(match[1]);
@@ -22,16 +32,21 @@ export const extractTemplateVariables = (messages: ChatMessage[]): string[] => {
 };
 
 /**
- * Returns a new messages array where each `{{ var }}` is replaced with
- * `values[var]` (empty string if missing). Roles, order, and any placeholders
- * the strict regex does not match (e.g. malformed `{{ }}`) are preserved
- * literally.
+ * Returns a new messages array where each `{{ var }}` in the authored
+ * (system/user) messages is replaced with `values[var]` (empty string if
+ * missing). Model-generated and tool-result turns are passed through verbatim.
+ * Roles, order, and any placeholders the strict regex does not match (e.g.
+ * malformed `{{ }}`) are preserved literally.
  */
 export const substituteVariables = (messages: ChatMessage[], values: Record<string, string>): ChatMessage[] => {
-  return messages.map((message) => ({
-    ...message,
-    content: (message.content ?? '').replace(TEMPLATE_VARIABLE_PATTERN, (_, name: string) => values[name] ?? ''),
-  }));
+  return messages.map((message) =>
+    isAuthoredMessage(message)
+      ? {
+          ...message,
+          content: (message.content ?? '').replace(TEMPLATE_VARIABLE_PATTERN, (_, name: string) => values[name] ?? ''),
+        }
+      : message,
+  );
 };
 
 /**
@@ -120,4 +135,36 @@ export const getToolParametersError = (text: string): ToolParametersError | null
     return { code: 'missingProperties' };
   }
   return null;
+};
+
+/**
+ * Maps a playground tool into the OpenAI-style `{type:'function', function:{...}}` wire shape sent
+ * to the gateway and recorded on a saved trace. Assumes `tool.params` is valid JSON Schema text
+ * (callers gate on {@link getToolParametersError}), so the parse is safe.
+ */
+export const toWireTool = (tool: PlaygroundTool) => ({
+  type: 'function' as const,
+  function: {
+    name: tool.name.trim(),
+    ...(tool.description.trim() ? { description: tool.description.trim() } : {}),
+    parameters: JSON.parse(tool.params),
+  },
+});
+
+/**
+ * Builds the OpenAI `response_format` envelope from the playground's response-format controls, or
+ * `undefined` for plain text. Assumes the schema text is valid JSON for `json_schema` (callers gate
+ * on the schema validation), so the parse is safe.
+ */
+export const buildResponseFormat = (type: ResponseFormatType, schemaText: string): ResponseFormat | undefined => {
+  if (type === 'json_object') {
+    return { type: 'json_object' };
+  }
+  if (type === 'json_schema') {
+    return {
+      type: 'json_schema',
+      json_schema: { name: 'response_schema', schema: JSON.parse(schemaText), strict: true },
+    };
+  }
+  return undefined;
 };

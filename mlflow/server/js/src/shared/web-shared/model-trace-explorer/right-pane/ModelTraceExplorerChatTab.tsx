@@ -5,6 +5,7 @@ import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
+import { OpenInPlaygroundButton } from '../OpenInPlaygroundButton';
 import { SpanModelCostBadge } from './SpanModelCostBadge';
 
 export function ModelTraceExplorerChatTab({ activeSpan }: { activeSpan: ModelTraceSpanNode }) {
@@ -18,10 +19,20 @@ export function ModelTraceExplorerChatTab({ activeSpan }: { activeSpan: ModelTra
       }}
       data-testid="model-trace-explorer-chat-tab"
     >
-      <SpanModelCostBadge
-        css={{ marginBlock: theme.spacing.sm, marginLeft: theme.spacing.sm }}
-        activeSpan={activeSpan}
-      />
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: theme.spacing.sm,
+          marginBlock: theme.spacing.sm,
+          marginLeft: theme.spacing.sm,
+          marginRight: theme.spacing.sm,
+        }}
+      >
+        <SpanModelCostBadge activeSpan={activeSpan} />
+        <OpenInPlaygroundButton traceId={activeSpan.traceId} spanId={String(activeSpan.key)} size="small" />
+      </div>
       {chatTools && (
         <ModelTraceExplorerCollapsibleSection
           withBorder

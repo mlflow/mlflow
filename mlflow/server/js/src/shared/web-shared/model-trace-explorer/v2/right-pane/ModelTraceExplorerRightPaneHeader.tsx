@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 
 import {
+  BeakerIcon,
   Button,
   HoverCard,
   ListIcon,
@@ -28,6 +29,7 @@ import { createTraceV4LongIdentifier, getSpanExceptionCount, isV3ModelTraceInfo 
 import { getNonIssueAssessmentCount } from '../../IssueAssessmentUtils';
 import { isTraceCostType, type TraceCost } from '../../ModelTraceExplorerCostHoverCard';
 import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
+import { OpenInPlaygroundAction } from '../../OpenInPlaygroundButton';
 import { Link, useParams } from '../../RoutingUtils';
 import { SELECTED_TRACE_ID_QUERY_PARAM, SESSION_ID_METADATA_KEY } from '../../constants';
 import { isUserFacingTag, truncateToFirstLineWithMaxLength } from '../../TagUtils';
@@ -455,6 +457,12 @@ export const ModelTraceExplorerRightPaneHeader = ({
 
   const tokenUsage = useMemo<HeaderTokenUsage | undefined>(() => getSpanTokenUsage(activeSpan), [activeSpan]);
   const cost = activeSpan.cost;
+  // Only chat spans carry the messages that the playground pre-fills from.
+  const showOpenInPlayground = !comparisonRole && Boolean(activeSpan.chatMessages?.length);
+  const openInPlaygroundLabel = intl.formatMessage({
+    defaultMessage: 'Open span in Playground',
+    description: "Accessible label and tooltip for opening the playground pre-filled with the selected span's input",
+  });
 
   const sessionId =
     isRootSpan && isV3ModelTraceInfo(modelTraceInfo)
@@ -673,7 +681,7 @@ export const ModelTraceExplorerRightPaneHeader = ({
             )}
           </div>
         )}
-        {!comparisonRole && (showAssessmentsToggle || rightPaneHeaderActions) && (
+        {!comparisonRole && (showAssessmentsToggle || rightPaneHeaderActions || showOpenInPlayground) && (
           <div
             css={{
               display: 'flex',
@@ -683,6 +691,28 @@ export const ModelTraceExplorerRightPaneHeader = ({
               marginLeft: 'auto',
             }}
           >
+            {showOpenInPlayground && (
+              <OpenInPlaygroundAction
+                experimentId={experimentId}
+                traceId={activeSpan.traceId}
+                spanId={String(activeSpan.key)}
+              >
+                {(openInPlayground) => (
+                  <Tooltip
+                    componentId="shared.model-trace-explorer.right-pane-header.open-in-playground-tooltip"
+                    content={openInPlaygroundLabel}
+                  >
+                    <Button
+                      componentId="shared.model-trace-explorer.right-pane-header.open-in-playground"
+                      size="small"
+                      icon={<BeakerIcon />}
+                      aria-label={openInPlaygroundLabel}
+                      onClick={openInPlayground}
+                    />
+                  </Tooltip>
+                )}
+              </OpenInPlaygroundAction>
+            )}
             {rightPaneHeaderActions}
             {showAssessmentsToggle && (
               <AssessmentPaneToggle assessmentCount={getNonIssueAssessmentCount(activeSpan.assessments)} />

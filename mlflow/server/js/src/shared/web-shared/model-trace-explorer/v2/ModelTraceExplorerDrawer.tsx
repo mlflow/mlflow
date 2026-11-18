@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import {
   ApplyDesignSystemContextOverrides,
   ArrowsUpDownIcon,
+  BeakerIcon,
   Button,
   CheckCircleIcon,
   CheckboxIcon,
@@ -55,6 +56,7 @@ import { getTraceCost, getTraceTokenUsage } from './ModelTraceExplorer.utils';
 import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTraceExplorerRightPaneHeader';
 import { formatExecutionDuration } from './timeline-tree/TimelineTree.utils';
 import { useCopyController } from '../../copy/useCopyController';
+import { OpenInPlaygroundAction } from '../OpenInPlaygroundButton';
 import { useLocation, useNavigate } from '../RoutingUtils';
 import { RunColorCircle } from '../../genai-traces-table/components/RunColorCircle';
 
@@ -670,6 +672,36 @@ export const ModelTraceExplorerDrawer = ({
     defaultMessage: 'Share',
     description: 'Accessible label for sharing a trace',
   });
+  const openInPlaygroundLabel = intl.formatMessage({
+    defaultMessage: 'Open in Playground',
+    description: "Accessible label and tooltip for opening the playground pre-filled with the trace's input",
+  });
+  const openInPlaygroundButton = !traceComparison ? (
+    <OpenInPlaygroundAction experimentId={experimentId} traceId={traceInfo?.trace_id}>
+      {(openInPlayground) => (
+        <Tooltip
+          componentId="mlflow.evaluations_review.modal.open-in-playground-tooltip"
+          content={openInPlaygroundLabel}
+        >
+          <Button
+            componentId="mlflow.evaluations_review.modal.open-in-playground"
+            aria-label={openInPlaygroundLabel}
+            icon={<BeakerIcon css={headerIconCss} />}
+            onClick={openInPlayground}
+            size="small"
+            css={fullscreenActionButtonCss}
+          >
+            {showFullscreenActionLabels ? (
+              <FormattedMessage
+                defaultMessage="Playground"
+                description="Visible label for opening the playground pre-filled with the trace's input"
+              />
+            ) : undefined}
+          </Button>
+        </Tooltip>
+      )}
+    </OpenInPlaygroundAction>
+  ) : null;
   const addToDatasetTrigger = (
     <Button
       componentId="mlflow.evaluations_review.modal.add_to_dataset"
@@ -1525,6 +1557,7 @@ export const ModelTraceExplorerDrawer = ({
               </Tooltip>
               {addToDatasetButton}
               {flagForReviewButton}
+              {openInPlaygroundButton}
               {traceComparison?.onReviewModeChange && (
                 <Tooltip componentId="mlflow.trace-comparison.review-tooltip" content={pairwiseReviewTooltip}>
                   <ToggleButton

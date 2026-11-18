@@ -4,6 +4,7 @@ import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-
 import React from 'react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { GatewayApi } from '../../../gateway/api';
@@ -11,6 +12,20 @@ import { RegisteredPromptsApi } from '../prompts/api';
 import { PlaygroundApi } from './api';
 import PlaygroundPage from './PlaygroundPage';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
+import { buildPlaygroundPrefillFromTrace } from './traceToPlayground';
+import { BLANK_JSON_SCHEMA } from './utils';
+
+// The trace fetch and prefill mapping have their own unit tests (traceToPlayground.test.ts);
+// mock them here so the page-level tests can drive the "opened from a trace" flows directly.
+jest.mock('./traceToPlayground', () => ({
+  buildPlaygroundPrefillFromTrace: jest.fn(),
+}));
+jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
+  ...jest.requireActual<typeof import('@databricks/web-shared/model-trace-explorer')>(
+    '@databricks/web-shared/model-trace-explorer',
+  ),
+  useGetTracesById: jest.fn(() => ({ data: [], isFetching: false, isLoading: false })),
+}));
 
 // Monaco does not render in jsdom; stand the editor in with a labelled textarea.
 jest.mock('../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
@@ -881,7 +896,7 @@ describe('PlaygroundPage', () => {
     expect(findJsonCodeBlock('{"user_name":"a_b"}')).toBeUndefined();
   });
 
-  it('strips tool calls from outbound follow-up conversation history', async () => {
+  it('runs the tool loop: tool-call reply gets result inputs, then the final response arrives', async () => {
     const chatCompletionSpy = jest
       .spyOn(PlaygroundApi, 'chatCompletion')
       .mockResolvedValueOnce({
@@ -904,7 +919,9 @@ describe('PlaygroundPage', () => {
         ],
       })
       .mockResolvedValueOnce({
-        choices: [{ index: 0, message: { role: 'assistant', content: 'Done.' }, finish_reason: 'stop' }],
+        choices: [
+          { index: 0, message: { role: 'assistant', content: 'It is 20C and sunny in SF.' }, finish_reason: 'stop' },
+        ],
       });
 
     renderPlayground();
@@ -919,22 +936,37 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
     });
 
-    const composers = screen.getAllByPlaceholderText('Type a message');
-    await userEvent.type(composers[1], 'Thanks');
+    // The tool-call reply appends an editable tool-result input (not a plain user composer),
+    // labeled with the tool it answers.
+    expect(screen.getByText(/tool result — get_weather/i)).toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText('Type a message')).toHaveLength(1);
+
+    await userEvent.type(screen.getByPlaceholderText('Enter the tool result'), '20C and sunny');
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
       expect(chatCompletionSpy).toHaveBeenCalledTimes(2);
     });
+    // The follow-up forwards the full tool exchange so the model can produce the final response.
     expect(chatCompletionSpy).toHaveBeenLastCalledWith(
       expect.objectContaining({
         messages: [
           { role: 'user', content: 'Weather?' },
-          { role: 'assistant', content: '' },
-          { role: 'user', content: 'Thanks' },
+          {
+            role: 'assistant',
+            content: '',
+            tool_calls: [
+              { id: 'call_1', type: 'function', function: { name: 'get_weather', arguments: '{"city":"SF"}' } },
+            ],
+          },
+          { role: 'tool', content: '20C and sunny', tool_call_id: 'call_1' },
         ],
       }),
     );
+
+    // The final response renders, followed by a fresh user composer for the next turn.
+    expect(await screen.findByText('It is 20C and sunny in SF.')).toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText('Type a message')).toHaveLength(2);
   });
 
   it('renders the empty text fallback when assistant returns no content or tool calls', async () => {
@@ -1104,5 +1136,393 @@ describe('PlaygroundPage', () => {
       messages: [{ role: 'user', content: 'Hello there' }],
     });
     expect(result.current.data?.choices?.[0]?.message?.content).toBe('Hello back!');
+  });
+
+  describe('save as trace', () => {
+    // Save-as-trace needs the experiment id from the route, so mount the page on the
+    // experiment-scoped playground path rather than at '/'.
+    const renderPlaygroundWithExperiment = () => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      return render(<PlaygroundPage />, {
+        wrapper: ({ children }) => (
+          <IntlProvider locale="en">
+            <DesignSystemProvider>
+              <QueryClientProvider client={queryClient}>
+                <TestRouter
+                  routes={[
+                    testRoute(<>{children}</>, '/experiments/:experimentId/playground'),
+                    testRoute(<div />, '*'),
+                  ]}
+                  initialEntries={['/experiments/123/playground']}
+                />
+              </QueryClientProvider>
+            </DesignSystemProvider>
+          </IntlProvider>
+        ),
+      });
+    };
+
+    const runCompletion = async () => {
+      jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Hello!' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+      });
+      const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+      await userEvent.type(endpointInput, 'my-endpoint');
+      await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hi');
+      await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+      await screen.findByText('Hello!');
+    };
+
+    it('saves the run as a new trace with the captured input, reply, and usage', async () => {
+      const logTraceSpy = jest.spyOn(PlaygroundApi, 'logTrace').mockResolvedValue({ trace_id: 'tr-new' });
+      renderPlaygroundWithExperiment();
+
+      // The button only appears once a completion has produced an assistant reply.
+      expect(screen.queryByRole('button', { name: /save as trace/i })).not.toBeInTheDocument();
+      await runCompletion();
+
+      await userEvent.click(screen.getByRole('button', { name: /save as trace/i }));
+
+      expect(await screen.findByText(/saved as a new trace/i)).toBeInTheDocument();
+      expect(logTraceSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          experiment_id: '123',
+          model: 'my-endpoint',
+          messages: [{ role: 'user', content: 'Hi' }],
+          response: { role: 'assistant', content: 'Hello!' },
+          usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+        }),
+      );
+    });
+
+    it('clears the stale success banner and surfaces the error when a re-save fails', async () => {
+      jest
+        .spyOn(PlaygroundApi, 'logTrace')
+        .mockResolvedValueOnce({ trace_id: 'tr-new' })
+        .mockRejectedValueOnce(new Error('boom'));
+      renderPlaygroundWithExperiment();
+      await runCompletion();
+
+      await userEvent.click(screen.getByRole('button', { name: /save as trace/i }));
+      expect(await screen.findByText(/saved as a new trace/i)).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: /save as trace/i }));
+      expect(await screen.findByText(/failed to save as trace/i)).toBeInTheDocument();
+      // The stale success banner from the first save must not mask the failure.
+      expect(screen.queryByText(/saved as a new trace/i)).not.toBeInTheDocument();
+      expect(screen.getByText('boom')).toBeInTheDocument();
+    });
+  });
+
+  describe('trace-driven tool loop', () => {
+    const renderPlaygroundFromTrace = () => {
+      const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      return render(<PlaygroundPage />, {
+        wrapper: ({ children }) => (
+          <IntlProvider locale="en">
+            <DesignSystemProvider>
+              <QueryClientProvider client={queryClient}>
+                <TestRouter
+                  routes={[
+                    testRoute(<>{children}</>, '/experiments/:experimentId/playground'),
+                    testRoute(<div />, '*'),
+                  ]}
+                  initialEntries={['/experiments/123/playground?traceId=tr-src']}
+                />
+              </QueryClientProvider>
+            </DesignSystemProvider>
+          </IntlProvider>
+        ),
+      });
+    };
+
+    it('auto-answers tool calls from the trace and continues to the final response on one submit', async () => {
+      jest.mocked(useGetTracesById).mockReturnValue({
+        data: [{ info: {}, data: { spans: [] } }],
+        isFetching: false,
+        isLoading: false,
+      } as any);
+      jest.mocked(buildPlaygroundPrefillFromTrace).mockReturnValue({
+        messages: [
+          { role: 'system', content: 'Be concise.' },
+          { role: 'user', content: 'Weather in Paris?' },
+        ],
+        endpointName: 'my-endpoint',
+        params: {},
+        tools: [{ name: 'get_weather', description: '', params: BLANK_JSON_SCHEMA }],
+        // The captured result deliberately contains a `{{ ... }}` token: replayed tool output
+        // must be forwarded verbatim, never rewritten by template-variable substitution.
+        toolResults: [{ name: 'get_weather', args: '{"city":"Paris"}', result: '{"temp":"20C {{unit}}"}' }],
+        toolChoice: 'auto',
+        responseFormatType: 'text',
+        responseFormatSchemaText: '',
+        spanName: 'chat',
+      });
+      const chatCompletionSpy = jest
+        .spyOn(PlaygroundApi, 'chatCompletion')
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: null,
+                tool_calls: [
+                  { id: 'call_1', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Paris"}' } },
+                ],
+              },
+              finish_reason: 'tool_calls',
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          choices: [
+            { index: 0, message: { role: 'assistant', content: 'It is 20C in Paris.' }, finish_reason: 'stop' },
+          ],
+        });
+
+      renderPlaygroundFromTrace();
+
+      // Prefill shows only the captured input.
+      expect(await screen.findByText(/loaded from trace/i)).toBeInTheDocument();
+      expect(screen.getByDisplayValue('Weather in Paris?')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+      // One click: the tool call is answered from the trace's captured execution and the loop
+      // continues automatically to the model's final response.
+      expect(await screen.findByText('It is 20C in Paris.')).toBeInTheDocument();
+      expect(chatCompletionSpy).toHaveBeenCalledTimes(2);
+      expect(screen.getByPlaceholderText('Enter the tool result')).toHaveValue('{"temp":"20C {{unit}}"}');
+      expect(chatCompletionSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          messages: [
+            { role: 'system', content: 'Be concise.' },
+            { role: 'user', content: 'Weather in Paris?' },
+            {
+              role: 'assistant',
+              content: '',
+              tool_calls: [
+                { id: 'call_1', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Paris"}' } },
+              ],
+            },
+            // Forwarded verbatim — the {{unit}} token is not substituted or blanked.
+            { role: 'tool', content: '{"temp":"20C {{unit}}"}', tool_call_id: 'call_1' },
+          ],
+        }),
+      );
+
+      // With a final response present, the run is saveable — and the saved trace captures the
+      // full tool exchange plus the source-trace attribution, so the round trip is faithful.
+      const logTraceSpy = jest.spyOn(PlaygroundApi, 'logTrace').mockResolvedValue({ trace_id: 'tr-new' });
+      await userEvent.click(screen.getByRole('button', { name: /save as trace/i }));
+      expect(await screen.findByText(/saved as a new trace/i)).toBeInTheDocument();
+      expect(logTraceSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          experiment_id: '123',
+          source_trace_id: 'tr-src',
+          messages: [
+            { role: 'system', content: 'Be concise.' },
+            { role: 'user', content: 'Weather in Paris?' },
+            {
+              role: 'assistant',
+              content: '',
+              tool_calls: [
+                { id: 'call_1', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Paris"}' } },
+              ],
+            },
+            { role: 'tool', content: '{"temp":"20C {{unit}}"}', tool_call_id: 'call_1' },
+          ],
+          response: { role: 'assistant', content: 'It is 20C in Paris.' },
+        }),
+      );
+    });
+
+    it('caps automatic tool rounds instead of looping forever', async () => {
+      jest.mocked(useGetTracesById).mockReturnValue({
+        data: [{ info: {}, data: { spans: [] } }],
+        isFetching: false,
+        isLoading: false,
+      } as any);
+      jest.mocked(buildPlaygroundPrefillFromTrace).mockReturnValue({
+        messages: [{ role: 'user', content: 'Weather in Paris?' }],
+        endpointName: 'my-endpoint',
+        params: {},
+        tools: [{ name: 'get_weather', description: '', params: BLANK_JSON_SCHEMA }],
+        toolResults: [{ name: 'get_weather', args: '{"city":"Paris"}', result: '{"temp":"20C"}' }],
+        toolChoice: 'auto',
+        responseFormatType: 'text',
+        responseFormatSchemaText: '',
+        spanName: 'chat',
+      });
+      // The model requests the same (exactly answerable) tool call on every round and never
+      // produces a final response.
+      const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                { id: 'call_1', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Paris"}' } },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      });
+
+      renderPlaygroundFromTrace();
+      expect(await screen.findByText(/loaded from trace/i)).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+      // 1 user-initiated request + MAX_AUTO_TOOL_ROUNDS automatic continuations, then the loop
+      // stops (pre-filled inputs remain for manual review) instead of burning tokens forever.
+      await waitFor(() => {
+        expect(chatCompletionSpy).toHaveBeenCalledTimes(7);
+      });
+      expect(chatCompletionSpy).toHaveBeenCalledTimes(7);
+      // Still mid-loop: no final response, so the run is not saveable.
+      expect(screen.queryByRole('button', { name: /save as trace/i })).not.toBeInTheDocument();
+    });
+
+    it('pre-fills a fallback result for changed arguments but stops for user review', async () => {
+      jest.mocked(useGetTracesById).mockReturnValue({
+        data: [{ info: {}, data: { spans: [] } }],
+        isFetching: false,
+        isLoading: false,
+      } as any);
+      jest.mocked(buildPlaygroundPrefillFromTrace).mockReturnValue({
+        messages: [{ role: 'user', content: 'Weather in Berlin?' }],
+        endpointName: 'my-endpoint',
+        params: {},
+        tools: [{ name: 'get_weather', description: '', params: BLANK_JSON_SCHEMA }],
+        // Captured for Paris — the model will call with Berlin, so this is a stale stand-in.
+        toolResults: [{ name: 'get_weather', args: '{"city":"Paris"}', result: '{"temp":"20C"}' }],
+        toolChoice: 'auto',
+        responseFormatType: 'text',
+        responseFormatSchemaText: '',
+        spanName: 'chat',
+      });
+      const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                { id: 'call_1', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Berlin"}' } },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      });
+
+      renderPlaygroundFromTrace();
+      expect(await screen.findByText(/loaded from trace/i)).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+      // The fallback result pre-fills the input, but the loop stops for review instead of
+      // auto-resubmitting stale output captured for different arguments.
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('Enter the tool result')).toHaveValue('{"temp":"20C"}');
+      });
+      expect(chatCompletionSpy).toHaveBeenCalledTimes(1);
+      // Mid-loop there is no final response yet — saving now would persist a broken trace whose
+      // "response" is a contentless tool-call request, so the button is not offered.
+      expect(screen.queryByRole('button', { name: /save as trace/i })).not.toBeInTheDocument();
+    });
+
+    it('disarms the trace context on clear: banner gone and no auto-answers from the old trace', async () => {
+      jest.mocked(useGetTracesById).mockReturnValue({
+        data: [{ info: {}, data: { spans: [] } }],
+        isFetching: false,
+        isLoading: false,
+      } as any);
+      jest.mocked(buildPlaygroundPrefillFromTrace).mockReturnValue({
+        messages: [{ role: 'user', content: 'Weather in Paris?' }],
+        endpointName: 'my-endpoint',
+        params: {},
+        tools: [{ name: 'get_weather', description: '', params: BLANK_JSON_SCHEMA }],
+        toolResults: [{ name: 'get_weather', args: '{"city":"Paris"}', result: '{"temp":"20C"}' }],
+        toolChoice: 'auto',
+        responseFormatType: 'text',
+        responseFormatSchemaText: '',
+        spanName: 'chat',
+      });
+      // The model requests the exact tool call the discarded trace captured. If clearing left the
+      // replay context armed, this would be auto-answered with the old trace's output and the loop
+      // would auto-continue; a truly fresh session must instead stop after a single request with an
+      // empty editable result input.
+      const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                { id: 'call_1', type: 'function', function: { name: 'get_weather', arguments: '{"city":"Paris"}' } },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      });
+
+      renderPlaygroundFromTrace();
+      expect(await screen.findByText(/loaded from trace/i)).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: /clear conversation/i }));
+      expect(screen.queryByText(/loaded from trace/i)).not.toBeInTheDocument();
+
+      await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Something unrelated');
+      await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+      expect(await screen.findByPlaceholderText('Enter the tool result')).toHaveValue('');
+      expect(chatCompletionSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not attribute a save to the discarded trace after clear', async () => {
+      jest.mocked(useGetTracesById).mockReturnValue({
+        data: [{ info: {}, data: { spans: [] } }],
+        isFetching: false,
+        isLoading: false,
+      } as any);
+      jest.mocked(buildPlaygroundPrefillFromTrace).mockReturnValue({
+        messages: [{ role: 'user', content: 'Weather in Paris?' }],
+        endpointName: 'my-endpoint',
+        params: {},
+        tools: [],
+        toolResults: [],
+        toolChoice: 'auto',
+        responseFormatType: 'text',
+        responseFormatSchemaText: '',
+        spanName: 'chat',
+      });
+      jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Hello!' }, finish_reason: 'stop' }],
+      });
+      const logTraceSpy = jest.spyOn(PlaygroundApi, 'logTrace').mockResolvedValue({ trace_id: 'tr-new' });
+
+      renderPlaygroundFromTrace();
+      expect(await screen.findByText(/loaded from trace/i)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: /clear conversation/i }));
+
+      await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Fresh question');
+      await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+      await screen.findByText('Hello!');
+
+      await userEvent.click(screen.getByRole('button', { name: /save as trace/i }));
+      expect(await screen.findByText(/saved as a new trace/i)).toBeInTheDocument();
+      // The save belongs to the fresh session — it must not carry the discarded trace's id.
+      expect(logTraceSpy.mock.calls[0][0]).not.toHaveProperty('source_trace_id');
+    });
   });
 });
