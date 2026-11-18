@@ -3,6 +3,7 @@ import {
   parseTraceResponseBody,
   type TraceResponseMessage,
 } from './traceResponseParsing';
+import { compactTraceSpanPayloadsInSteps } from './compactJsonPayload';
 
 const WORKER_MIN_BYTES = 64 * 1024;
 const WORKER_TIMEOUT_MS = 10_000;
@@ -22,6 +23,29 @@ export const createTraceResponseParser = () => {
     number,
     { resolve: (value: unknown) => void; reject: (error: Error) => void; chunks: Map<number, unknown[]> }
   >();
+
+  const compactNativePayloads = async (value: unknown, signal?: AbortSignal) => {
+    let deadline = performance.now() + 8;
+    for (const { spans } of getTraceResponseSpanContainers(value)) {
+      for (let index = 0; index < spans.length; index++) {
+        const steps = compactTraceSpanPayloadsInSteps(spans[index]);
+        for (;;) {
+          if (disposed || signal?.aborted) throw abortError();
+          const step = steps.next();
+          if (performance.now() >= deadline) {
+            await new Promise<void>((resolve) => setTimeout(resolve, 0));
+            if (disposed || signal?.aborted) throw abortError();
+            deadline = performance.now() + 8;
+          }
+          if (step.done) {
+            spans[index] = step.value;
+            break;
+          }
+        }
+      }
+    }
+    return value;
+  };
 
   const disable = (error: Error) => {
     if (!disposed && !stopped) {
@@ -105,11 +129,13 @@ export const createTraceResponseParser = () => {
       if (!ready) {
         const value = await response.json();
         if (disposed || signal?.aborted) throw abortError();
-        return value;
+        return compactNativePayloads(value, signal);
       }
       const body = await response.arrayBuffer();
       if (disposed || signal?.aborted) throw abortError();
-      if (!ready || body.byteLength < WORKER_MIN_BYTES) return parseTraceResponseBody(body);
+      if (!ready || body.byteLength < WORKER_MIN_BYTES) {
+        return compactNativePayloads(parseTraceResponseBody(body), signal);
+      }
       return new Promise((resolve, reject) => {
         const id = nextId++;
         const onAbort = () => {

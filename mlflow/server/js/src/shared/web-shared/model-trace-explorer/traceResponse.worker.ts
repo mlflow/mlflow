@@ -5,6 +5,7 @@ import {
   type TraceResponseRequest,
   type TraceResponseMessage,
 } from './traceResponseParsing';
+import { compactTraceSpanPayloads } from './compactJsonPayload';
 
 const CHUNK_ATTRIBUTE_CHARS = 2 * 1024 * 1024;
 const CHUNK_SPANS = 256;
@@ -22,6 +23,7 @@ scope.onmessage = ({ data: { id, body } }) => {
       let start = 0;
       let chars = 0;
       for (let end = 0; end < spans.length; end++) {
+        spans[end] = compactTraceSpanPayloads(spans[end]);
         const spanChars = countTraceSpanAttributeChars(spans[end]);
         if (end > start && (chars + spanChars > CHUNK_ATTRIBUTE_CHARS || end - start >= CHUNK_SPANS)) {
           scope.postMessage({ type: 'span-chunk', id, index, spans: spans.slice(start, end) });

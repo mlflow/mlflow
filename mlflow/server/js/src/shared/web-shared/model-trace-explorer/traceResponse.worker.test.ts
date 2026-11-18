@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { TextDecoder, TextEncoder } from 'util';
 
 import { parseTraceResponseBody } from './traceResponseParsing';
 
@@ -8,9 +9,12 @@ jest.mock('./traceResponseParsing', () => ({
 }));
 
 describe('trace response worker protocol', () => {
+  const globals = Object.getOwnPropertyDescriptors(globalThis);
   const originalHandler = globalThis.onmessage;
   const post = jest.spyOn(globalThis, 'postMessage').mockImplementation(() => {});
   beforeAll(async () => {
+    Object.defineProperty(globalThis, 'TextEncoder', { configurable: true, value: TextEncoder });
+    Object.defineProperty(globalThis, 'TextDecoder', { configurable: true, value: TextDecoder });
     await import('./traceResponse.worker');
   });
   beforeEach(() => {
@@ -19,6 +23,10 @@ describe('trace response worker protocol', () => {
   afterAll(() => {
     globalThis.onmessage = originalHandler;
     post.mockRestore();
+    for (const key of ['TextEncoder', 'TextDecoder']) {
+      if (globals[key]) Object.defineProperty(globalThis, key, globals[key]);
+      else Reflect.deleteProperty(globalThis, key);
+    }
   });
 
   it('announces readiness on load', () => {
@@ -61,7 +69,20 @@ describe('trace response worker protocol', () => {
       shape === 'artifact' ? [terminal.value] : shape === 'full' ? [terminal.value.trace] : terminal.value.traces;
     expect(containers[0].spans).toEqual([]);
     containers[0].spans = chunks.flatMap((message) => message.spans);
-    expect(JSON.stringify(terminal.value)).toBe(original);
+    const before = JSON.parse(original);
+    const beforeContainers = shape === 'artifact' ? [before] : shape === 'full' ? [before.trace] : before.traces;
+    for (const [index, container] of containers.entries()) {
+      for (const [spanIndex, span] of container.spans.entries()) {
+        const input = span.attributes?.['mlflow.spanInputs'];
+        if (input === undefined) continue;
+        expect(input).not.toMatch(/[\u0080-\uffff]/);
+        expect(JSON.parse(input)).toEqual(
+          JSON.parse(beforeContainers[index].spans[spanIndex].attributes['mlflow.spanInputs']),
+        );
+        span.attributes['mlflow.spanInputs'] = beforeContainers[index].spans[spanIndex].attributes['mlflow.spanInputs'];
+      }
+    }
+    expect(terminal.value).toEqual(before);
     post.mockImplementation(() => {});
   });
 
