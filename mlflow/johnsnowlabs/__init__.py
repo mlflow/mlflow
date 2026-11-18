@@ -794,14 +794,15 @@ def _get_or_create_sparksession(model_path=None):
     if spark is None:
         spark_conf = {}
         spark_conf["spark.python.worker.reuse"] = "true"
-        os.environ["PYSPARK_PYTHON"] = sys.executable
-        os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
         if model_path:
             # The JARs run in the new JVM and the license keys are copied into the environment.
             _check_model_code_loading_allowed(
                 "a John Snow Labs model that starts a Spark session with the JARs and license "
                 "stored in the model"
             )
+        os.environ["PYSPARK_PYTHON"] = sys.executable
+        os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
+        if model_path:
             jar_paths, license_path = _fetch_deps_from_path(model_path)
             if license_path:
                 with open(license_path) as f:

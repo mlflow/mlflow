@@ -20,9 +20,12 @@ def nlp():
     with (
         mock.patch.dict(sys.modules, {"johnsnowlabs": johnsnowlabs}),
         mock.patch.dict(os.environ, {"JOHNSNOWLABS_LICENSE_JSON": json.dumps({"SECRET": "s"})}),
-        mock.patch("mlflow.utils._spark_utils._get_active_spark_session", return_value=None),
+        mock.patch(
+            "mlflow.utils._spark_utils._get_active_spark_session", return_value=None
+        ) as get_active_spark_session,
     ):
         yield nlp
+        get_active_spark_session.assert_called_once_with()
 
 
 @pytest.fixture
@@ -41,11 +44,13 @@ def test_load_model_refuses_model_jars_and_license_when_model_code_is_disallowed
     monkeypatch, nlp, model_path
 ):
     monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, "false")
+    monkeypatch.setenv("PYSPARK_PYTHON", "/custom/python")
 
     with pytest.raises(MlflowException, match=MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name):
         mlflow.johnsnowlabs.load_model(str(model_path))
 
     assert "MODEL_ENV_VAR" not in os.environ
+    assert os.environ["PYSPARK_PYTHON"] == "/custom/python"
     nlp.start.assert_not_called()
     nlp.load.assert_not_called()
 

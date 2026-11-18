@@ -1123,6 +1123,7 @@ johnsnowlabs:
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
     run: |
+      pytest tests/johnsnowlabs/test_johnsnowlabs_model_code_execution.py
       if [ ! -z "$JOHNSNOWLABS_LICENSE_JSON" ]; then
         pytest tests/johnsnowlabs/test_johnsnowlabs_model_export.py
       else
