@@ -875,6 +875,33 @@ def test_predict_stream_with_type_hints(model, request_data, wrap_in_list):
     assert list(pyfunc_model.predict_stream(data)) == [request_data]
 
 
+def test_predict_stream_with_type_hints_enforces_params_schema():
+    class ParamsStreamModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str], params=None) -> list[str]:
+            return model_input
+
+        def predict_stream(self, model_input, params=None):
+            yield params
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=ParamsStreamModel(),
+            input_example=(["a"], {"temperature": 0.5}),
+        )
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.metadata._is_signature_from_type_hint()
+
+    assert list(pyfunc_model.predict_stream("a")) == [{"temperature": 0.5}]
+    assert list(pyfunc_model.predict_stream("a", params={"temperature": 1})) == [
+        {"temperature": 1.0}
+    ]
+    with pytest.raises(
+        MlflowException, match=r"Failed to validate type and shape for 'temperature'"
+    ):
+        list(pyfunc_model.predict_stream("a", params={"temperature": "hot"}))
+
+
 def test_predict_with_wrong_signature_warns():
     message = r"Model's `predict` method contains invalid parameters"
     with pytest.warns(FutureWarning, match=message):
