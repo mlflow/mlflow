@@ -733,8 +733,11 @@ _PT2_TEXT_RECORD_NAMES = frozenset({
 # and no non-ASCII bytes (needed by the binary STACK_GLOBAL argument opcodes).
 _PT2_TEXT_RECORD_CONTENT = re.compile(r"[A-Za-z0-9._-]{1,64}\n?")
 # Payload configs the PT2 archive loader consults to decide whether a weight / constant record
-# is unpickled (`use_pickle: true`) or read as raw tensor bytes.
-_PT2_PAYLOAD_CONFIG_RECORD = re.compile(r"(?:^|/)data/(?:weights|constants)/[^/]+_config\.json$")
+# is unpickled (`use_pickle: true`) or read as raw tensor bytes. Matched case-insensitively
+# because `torch.export.load` resolves record names case-insensitively.
+_PT2_PAYLOAD_CONFIG_RECORD = re.compile(
+    r"(?:^|/)data/(?:weights|constants)/[^/]+_config\.json$", re.IGNORECASE
+)
 # Records with these prefixes are read as raw tensor bytes when `use_pickle` is false; records
 # with any other prefix (custom / opaque objects) are always unpickled.
 _PT2_RAW_TENSOR_RECORD_PREFIXES = ("weight_", "tensor_")
@@ -908,6 +911,10 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
         # `torch.export.save` never writes such archives.
         seen_names: set[str] = set()
         for info in infos:
+            # Without the UTF-8 flag, `zipfile` decodes names as CP437 while torch matches the
+            # raw name bytes, so a non-ASCII name would refer to different records in each.
+            if not info.filename.isascii() and not info.flag_bits & 0x800:
+                raise _violation(info.filename)
             folded_name = info.filename.casefold()
             if folded_name in seen_names:
                 raise _violation(info.filename)

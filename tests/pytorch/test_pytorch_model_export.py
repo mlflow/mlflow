@@ -1414,6 +1414,89 @@ def test_load_pt2_model_rejects_pickled_weight_listed_as_raw_tensor(
 
 
 @pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.10"), reason="This test requires torch>=2.10"
+)
+def test_load_pt2_model_rejects_pickled_weight_listed_in_upper_cased_weights_config(
+    model_path, data, monkeypatch, tmp_path
+):
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+    marker_path = tmp_path / "payload_executed"
+    pt2_path = Path(model_path) / "data" / "model.pt2"
+    _add_pt2_weight_record(pt2_path, _FileCreatingPayload(marker_path), "weight_99", None)
+    # Torch reads the upper-cased config, which lists `weight_99` as pickled, while an unrelated
+    # config lists it as a raw tensor.
+    with zipfile.ZipFile(pt2_path) as archive:
+        records = {info.filename: archive.read(info) for info in archive.infolist()}
+    config_name = next(n for n in records if n.endswith("data/weights/model_weights_config.json"))
+    weights_dir, config_basename = config_name.rsplit("/", 1)
+    config = records.pop(config_name)
+    records[f"{weights_dir}/{config_basename.upper()}"] = config
+    records[f"{weights_dir}/unused_config.json"] = json.dumps({
+        "config": {"raw": json.loads(config)["config"]["raw"]}
+    }).encode()
+    with zipfile.ZipFile(pt2_path, "w") as archive:
+        for name, content in records.items():
+            archive.writestr(name, content)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match=r"record '[^']*/data/weights/weight_99'"):
+        mlflow.pytorch.load_model(model_path)
+    assert not marker_path.exists()
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.10"), reason="This test requires torch>=2.10"
+)
+def test_load_pt2_model_rejects_non_ascii_record_name_without_utf8_flag(
+    model_path, data, monkeypatch, tmp_path
+):
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+    marker_path = tmp_path / "payload_executed"
+    pt2_path = Path(model_path) / "data" / "model.pt2"
+    buffer = io.BytesIO()
+    torch.save(_FileCreatingPayload(marker_path), buffer)
+    with zipfile.ZipFile(pt2_path) as archive:
+        records = {info.filename: archive.read(info) for info in archive.infolist()}
+    config_name = next(n for n in records if n.endswith("data/weights/model_weights_config.json"))
+    weights_dir = config_name.rsplit("/", 1)[0]
+    # `zipfile` decodes the unflagged UTF-8 name as CP437, so a config entry using the decoded
+    # name would mark a different record as raw than the one torch reads.
+    record_name = f"{weights_dir}/weight_\u00e9"
+    decoded_record_name = record_name.encode("utf-8").decode("cp437")
+    config = json.loads(records[config_name])
+    config["config"]["raw"] = {
+        "path_name": decoded_record_name.rsplit("/", 1)[1],
+        "use_pickle": False,
+    }
+    records[config_name] = json.dumps(config).encode()
+    records[record_name] = buffer.getvalue()
+    with monkeypatch.context() as m:
+        m.setattr(
+            zipfile.ZipInfo,
+            "_encodeFilenameFlags",
+            lambda self: (self.filename.encode("utf-8"), self.flag_bits & ~0x800),
+        )
+        with zipfile.ZipFile(pt2_path, "w") as archive:
+            for name, content in records.items():
+                archive.writestr(name, content)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match=f"record '{re.escape(decoded_record_name)}'"):
+        mlflow.pytorch.load_model(model_path)
+    assert not marker_path.exists()
+
+
+@pytest.mark.skipif(
     Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
 )
 def test_load_pt2_model_rejected_on_unverifiable_torch_when_pickle_deserialization_disallowed(
