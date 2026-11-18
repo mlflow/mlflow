@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useRef, useState } from 'react';
 
-type PayloadCacheKind = 'fields' | 'section-json' | 'input-chat-json' | 'output-chat-json';
+type PayloadCacheKind = 'fields' | 'section-json' | 'input-chat-json' | 'output-chat-json' | 'yaml' | 'yaml-preview';
 type PayloadCache = <T>(kind: PayloadCacheKind, payload: unknown, compute: () => T) => T;
 const PayloadCacheContext = createContext<PayloadCache | undefined>(undefined);
 
@@ -12,6 +12,8 @@ const createPayloadCache = (): PayloadCache => {
     'section-json': [],
     'input-chat-json': [],
     'output-chat-json': [],
+    yaml: [],
+    'yaml-preview': [],
   };
   return <T,>(kind: PayloadCacheKind, payload: unknown, compute: () => T): T => {
     const entries = kinds[kind];
