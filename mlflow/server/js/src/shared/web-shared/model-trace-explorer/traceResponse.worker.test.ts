@@ -113,6 +113,31 @@ describe('trace response worker protocol', () => {
     ]);
   });
 
+  it('chunks actual OSS nested OTLP payloads without rewriting native values', () => {
+    const spans = Array.from({ length: 96 }, (_, index) => ({
+      name: `native-${index}`,
+      attributes: [
+        {
+          key: 'mlflow.spanOutputs',
+          value: {
+            kvlist_value: {
+              values: [{ key: 'content', value: { string_value: 'x'.repeat(32700) + ' café 日本語 🙂' } }],
+            },
+          },
+        },
+      ],
+    }));
+    const original = JSON.stringify(spans);
+    const messages: any[] = [];
+    post.mockImplementation((message: unknown) => messages.push(JSON.parse(JSON.stringify(message))));
+    jest.mocked(parseTraceResponseBody).mockReturnValueOnce({ trace: { spans } });
+    globalThis.onmessage?.call(window, { data: { id: 45, body: new ArrayBuffer(0) } } as MessageEvent);
+    const chunks = messages.filter((message) => message.type === 'span-chunk');
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(JSON.stringify(chunks.flatMap((message) => message.spans))).toBe(original);
+    expect(messages.at(-1)).toEqual({ type: 'parsed', id: 45, value: { trace: { spans: [] } } });
+  });
+
   it.each([SyntaxError, RangeError, TypeError, Error])('sends the actual %p name and message', (ErrorClass) => {
     jest.mocked(parseTraceResponseBody).mockImplementation(() => {
       throw new ErrorClass('parse failed');

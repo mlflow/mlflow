@@ -23,14 +23,17 @@ export const countTraceSpanAttributeChars = (span: unknown): number => {
   if (span === null || typeof span !== 'object' || !('attributes' in span)) return 0;
   const { attributes } = span;
   if (!attributes || typeof attributes !== 'object') return 0;
-  if (Array.isArray(attributes)) {
-    return attributes.reduce((total, attribute) => {
-      const value: unknown = attribute?.value?.string_value;
-      return total + (typeof value === 'string' ? value.length : 0);
-    }, 0);
+  const pending: unknown[] = Array.isArray(attributes)
+    ? attributes.map((attribute) => attribute?.value)
+    : Object.values(attributes);
+  let chars = 0;
+  // OSS OTLP payloads can be native nested objects, not just JSON string attributes.
+  while (pending.length) {
+    const value = pending.pop();
+    if (typeof value === 'string') chars += value.length;
+    else if (value && typeof value === 'object') {
+      for (const child of Object.values(value)) pending.push(child);
+    }
   }
-  return Object.values(attributes).reduce<number>(
-    (total, value) => total + (typeof value === 'string' ? value.length : 0),
-    0,
-  );
+  return chars;
 };

@@ -29,6 +29,36 @@ describe('drawer cache budgets', () => {
     expect(client.getQueryData(key('second'))).toBe(second);
   });
 
+  it.each(['native-map', 'native-OTLP'])('accounts for nested %s strings in the retained budget', (shape) => {
+    const content = 'a'.repeat(64 * 1024 * 1024 + 1);
+    const attributes =
+      shape === 'native-map'
+        ? { payload: { records: [{ content }] } }
+        : [
+            {
+              key: 'mlflow.spanOutputs',
+              value: {
+                kvlist_value: {
+                  values: [
+                    {
+                      key: 'records',
+                      value: {
+                        array_value: {
+                          values: [
+                            { kvlist_value: { values: [{ key: 'content', value: { string_value: content } }] } },
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ];
+    client.setQueryData(key(shape), traceWithAttributes(attributes));
+    expect(client.getQueryData(key(shape))).toBeUndefined();
+  });
+
   it('expires a completed trace at the age limit and leaves other trace query families alone', () => {
     const old = Date.now() - TRACE_CACHE_TIME_MS;
     client.setQueryData(['getTrace', 'shared-table'], MOCK_V3_TRACE, { updatedAt: old });
