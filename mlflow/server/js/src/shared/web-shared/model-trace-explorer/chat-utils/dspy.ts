@@ -65,14 +65,21 @@ const getDspyLm15ImageUrl = (part: any): string | undefined => {
   return undefined;
 };
 
+// Part types that `normalizeDspyLm15Message` renders outside the message content
+const DSPY_LM15_NON_CONTENT_PART_TYPES = ['tool_call', 'tool_result', 'thinking'];
+
 const toDspyLm15ContentParts = (parts: unknown[], formatText: (text: string) => string): ModelTraceContentParts[] =>
   parts.flatMap((part: any): ModelTraceContentParts[] => {
-    if ((part?.type === 'text' || part?.type === 'refusal') && isString(part.text)) {
-      return [{ type: 'text', text: formatText(part.text) }];
+    if (part?.type === 'text' || part?.type === 'refusal') {
+      return isString(part.text) ? [{ type: 'text', text: formatText(part.text) }] : [];
     }
     if (part?.type === 'image') {
       const url = getDspyLm15ImageUrl(part);
-      return url ? [{ type: 'image_url', image_url: { url } }] : [];
+      return [url ? { type: 'image_url', image_url: { url } } : { type: 'text', text: '[image]' }];
+    }
+    // Show a placeholder for parts the chat view can't render, e.g. audio, document or citation
+    if (isString(part?.type) && !DSPY_LM15_NON_CONTENT_PART_TYPES.includes(part.type)) {
+      return [{ type: 'text', text: `[${part.type}]` }];
     }
     return [];
   });
@@ -89,7 +96,9 @@ const normalizeDspyLm15Message = (message: DspyLm15Message): ModelTraceChatMessa
         role: 'tool',
         tool_call_id: part.id,
         name: isString(part.name) ? part.name : undefined,
-        content: toDspyLm15ContentParts(part.content, formatDspyOutputText),
+        // The chat view shows tool responses as plain text, or as a code block when the content
+        // parses as JSON, so keep the text unformatted
+        content: toDspyLm15ContentParts(part.content, (text) => text),
       });
       if (toolMessage) {
         messages.push(toolMessage);

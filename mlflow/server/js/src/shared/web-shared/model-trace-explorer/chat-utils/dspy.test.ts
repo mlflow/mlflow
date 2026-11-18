@@ -304,6 +304,94 @@ describe('normalizeConversation with DSPy 3.5 lm15 payloads', () => {
   it('should not treat messages without parts as an lm15 request', () => {
     expect(normalizeConversation({ prompt: { messages: [{ role: 'user', content: 'hi' }] } }, 'dspy')).toBeNull();
   });
+
+  it('should handle a system prompt given as parts', () => {
+    const conv = normalizeConversation(
+      {
+        prompt: {
+          messages: [{ role: 'user', parts: [{ text: 'Hi', type: 'text' }] }],
+          system: [{ text: 'Be brief.', type: 'text' }],
+        },
+      },
+      'dspy',
+    );
+    expect(conv).toEqual([
+      expect.objectContaining({ role: 'system', content: 'Be brief.' }),
+      expect.objectContaining({ role: 'user', content: 'Hi' }),
+    ]);
+  });
+
+  it.each([
+    [
+      'mlflow-attachment:// data',
+      { media_type: 'image/png', data: 'mlflow-attachment://abc' },
+      '![](mlflow-attachment://abc)',
+    ],
+    ['no url or data', { media_type: 'image/png', file_id: 'file_1' }, '[image]'],
+  ])('should render an image part with %s', (_name, image, expected) => {
+    const conv = normalizeConversation(makeDspyLm15Input([{ ...image, type: 'image' }]), 'dspy');
+    expect(conv).toEqual([expect.objectContaining({ role: 'user', content: expected })]);
+  });
+
+  it.each(['audio', 'video', 'document', 'binary', 'citation', 'data'])(
+    'should render a placeholder for %s parts',
+    (type) => {
+      const conv = normalizeConversation(makeDspyLm15Input([{ type }]), 'dspy');
+      expect(conv).toEqual([expect.objectContaining({ role: 'user', content: `[${type}]` })]);
+    },
+  );
+
+  it.each([
+    ['user', 'text'],
+    ['developer', 'text'],
+    ['assistant', 'refusal'],
+  ])('should render the %s role with a %s part', (role, type) => {
+    const conv = normalizeConversation({ message: { role, parts: [{ text: 'Hello', type }] } }, 'dspy');
+    expect(conv).toEqual([expect.objectContaining({ role, content: 'Hello' })]);
+  });
+
+  it('should handle a response with only reasoning', () => {
+    const conv = normalizeConversation(
+      { message: { role: 'assistant', parts: [{ text: 'Thinking it through.', type: 'thinking' }] } },
+      'dspy',
+    );
+    expect(conv).toEqual([
+      expect.objectContaining({ role: 'assistant', content: undefined, reasoning: 'Thinking it through.' }),
+    ]);
+  });
+
+  it('should handle a response with only a tool call', () => {
+    const conv = normalizeConversation(
+      { message: { role: 'assistant', parts: [{ id: 'call_1', name: 'search', input: {}, type: 'tool_call' }] } },
+      'dspy',
+    );
+    expect(conv).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: undefined,
+        tool_calls: [{ id: 'call_1', function: { name: 'search', arguments: '{}' } }],
+      }),
+    ]);
+  });
+
+  // The chat view parses JSON tool responses itself, and shows other tool responses as plain text
+  it.each(['{"temperature": 20}', 'Sunny\nWarm', '[[ ## result ## ]]\nSunny'])(
+    'should keep the tool result text %j unformatted',
+    (text) => {
+      const conv = normalizeConversation(
+        {
+          message: {
+            role: 'tool',
+            parts: [{ id: 'call_1', name: 'get_weather', content: [{ text, type: 'text' }], type: 'tool_result' }],
+          },
+        },
+        'dspy',
+      );
+      expect(conv).toEqual([
+        expect.objectContaining({ role: 'tool', tool_call_id: 'call_1', name: 'get_weather', content: text }),
+      ]);
+    },
+  );
 });
 
 describe('formatDspySections', () => {
