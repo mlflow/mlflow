@@ -499,6 +499,41 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
 
 
 @pytest.mark.parametrize(
+    ("search_utils", "filter_string"),
+    [
+        (SearchUtils, "params.p IN ('a', 'b')"),
+        (SearchUtils, "params.p NOT IN ('a')"),
+        (SearchUtils, "tags.t IN ('a', 'b')"),
+        (SearchUtils, "metrics.m IN (1, 2)"),
+        (SearchUtils, "params.p in ('a')"),
+        (SearchExperimentsUtils, "tags.t IN ('a', 'b')"),
+        (SearchModelUtils, "tags.t IN ('a', 'b')"),
+        (SearchModelVersionUtils, "tags.t IN ('a', 'b')"),
+    ],
+)
+def test_in_comparator_rejected_for_unsupported_entity_types(search_utils, filter_string):
+    with pytest.raises(
+        MlflowException, match=r"^Invalid comparator '(NOT )?IN' not one of '\{.*\}'$"
+    ):
+        search_utils.parse_search_filter(filter_string)
+
+
+def test_invalid_comparator_message_lists_allowed_comparators():
+    with pytest.raises(
+        MlflowException,
+        match=r"^Invalid comparator 'IN' not one of '\{.*\}'$",
+    ) as exc:
+        SearchUtils.is_numeric_attribute("attribute", "start_time", "IN")
+    assert "LIKE" not in str(exc.value)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"^Invalid comparator '>' not one of '\{.*\}'$",
+    ):
+        SearchUtils.is_dataset("dataset", ">")
+
+
+@pytest.mark.parametrize(
     ("filter_string", "matching_runs"),
     [
         (None, [0, 1, 2]),

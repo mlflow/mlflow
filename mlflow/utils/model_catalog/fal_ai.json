@@ -6693,6 +6693,193 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "fal-ai/veo3": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/extend-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/fast": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/fast/extend-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/fast/first-last-frame-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/fast/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/fast/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/first-last-frame-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/lite": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/lite/first-last-frame-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/lite/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3.1/reference-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3/fast": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3/fast/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "fal-ai/veo3/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
     "fal-ai/vidu/image-to-video": {
       "mode": "video_generation",
       "capabilities": {

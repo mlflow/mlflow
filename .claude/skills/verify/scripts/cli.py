@@ -1,5 +1,4 @@
 import argparse
-import html
 import json
 import os
 import re
@@ -91,7 +90,7 @@ def validate(args: argparse.Namespace) -> int:
     command(
         *media_command(args.media_dir),
         "--check",
-        input="\n\n".join(comment["body"] for comment in payload["comments"]),
+        input="\n\n".join([payload["body"], *(comment["body"] for comment in payload["comments"])]),
     )
     sys.stdout.write("Review payload is valid.\n")
     return 0
@@ -99,16 +98,21 @@ def validate(args: argparse.Namespace) -> int:
 
 def embed(args: argparse.Namespace) -> int:
     payload = json.loads(args.payload_path.read_text())
-    for comment in payload["comments"]:
-        comment["body"] = command(
+
+    def upload(text: str) -> str:
+        return command(
             *media_command(args.media_dir),
             "--repository-id",
             os.environ["REPOSITORY_ID"],
             # A failed upload must fail this step so the publisher posts the
             # incomplete-verification notice instead of a review missing its evidence.
             "--strict",
-            input=comment["body"],
+            input=text,
         )
+
+    payload["body"] = upload(payload["body"])
+    for comment in payload["comments"]:
+        comment["body"] = upload(comment["body"])
     args.payload_path.write_text(json.dumps(payload, indent=2) + "\n")
     return 0
 
@@ -147,12 +151,10 @@ def publish(args: argparse.Namespace) -> int:
         and not pr["requested_reviewers"]
         and not pr["requested_teams"]
     )
+    write_step_summary(f"```json\n{json.dumps(review, indent=2, ensure_ascii=False)}\n```\n")
     if args.dry_run:
-        preview = html.escape(json.dumps(review, indent=2, ensure_ascii=False))
         write_step_summary(
-            "### Verification preview\n"
-            "No review or media was published. Local media paths are not GitHub links.\n"
-            f"<pre>{preview}</pre>\n\n"
+            "Dry run: no review or media was published. Local media paths are not GitHub links.\n\n"
             f"Auto-merge would {'be enabled' if auto_merge else 'not be enabled'}."
         )
     else:

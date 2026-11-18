@@ -8,6 +8,8 @@ description: |
   When they support an issue or verification gap, cite their absolute paths in that inline
   comment, for example:
   ![Observed behavior](/absolute/path/to/out/media/observed.png)
+  When they show verified behavior working as expected (for example, base vs. PR), cite them
+  in the body's evidence section instead.
   Put video citations on their own lines. Do not upload media yourself.
 type: object
 additionalProperties: false
@@ -39,12 +41,28 @@ properties:
       - APPROVE
       - COMMENT
   body:
-    description: >-
-      Brief verification summary. Do not include media or repeat findings here.
-      Put findings and media in inline comments.
+    description: |
+      Brief verification summary. Do not repeat findings here; put findings and their media in
+      inline comments. Keep the summary within a few sentences.
+
+      To show media of verified behavior, end the body with a collapsed section, giving each
+      citation a short caption saying what it shows. Keep the blank lines around the content
+      so GitHub renders it:
+
+      ```markdown
+      <details><summary>Evidence</summary>
+
+      Base: <behavior observed on the base build>
+      ![Base behavior](/absolute/path/to/out/media/base.png)
+
+      PR: <behavior observed on the PR build>
+      ![PR behavior](/absolute/path/to/out/media/pr.png)
+
+      </details>
+      ```
     type: string
     minLength: 1
-    maxLength: 500
+    maxLength: 3000
     pattern: \S
   commit_id:
     description: Optional PR head SHA.
