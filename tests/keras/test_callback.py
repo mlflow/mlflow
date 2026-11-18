@@ -1,8 +1,10 @@
 import math
 import re
+from unittest.mock import Mock
 
 import keras
 import numpy as np
+import pytest
 
 import mlflow
 from mlflow.keras.callback import MlflowCallback
@@ -59,6 +61,7 @@ def test_keras_mlflow_callback_log_every_epoch():
         key="validation_loss",
     )
     assert len(validation_loss_history) == num_epochs
+    assert [metric.step for metric in validation_loss_history] == list(range(num_epochs))
 
 
 def test_keras_mlflow_callback_log_every_n_steps():
@@ -112,7 +115,42 @@ def test_keras_mlflow_callback_log_every_n_steps():
         key="validation_loss",
     )
     assert len(validation_loss_history) == num_epochs
+    assert [metric.step for metric in validation_loss_history] == [5, 10]
 
 
 def test_old_callback_still_exists():
     assert mlflow.keras.MLflowCallback is mlflow.keras.MlflowCallback
+
+
+@pytest.mark.parametrize(
+    ("log_every_epoch", "log_every_n_steps", "epoch", "train_ended", "expected_step"),
+    [
+        pytest.param(True, None, 2, False, 2, id="epoch"),
+        pytest.param(False, 1, 2, False, 7, id="iteration"),
+        pytest.param(True, None, None, False, None, id="standalone-epoch"),
+        pytest.param(False, 1, None, False, None, id="standalone-iteration"),
+        pytest.param(True, None, 2, True, None, id="reused-epoch"),
+        pytest.param(False, 1, 2, True, None, id="reused-iteration"),
+    ],
+)
+def test_validation_metrics_use_training_step(
+    monkeypatch, log_every_epoch, log_every_n_steps, epoch, train_ended, expected_step
+):
+    callback = MlflowCallback(
+        log_every_epoch=log_every_epoch,
+        log_every_n_steps=log_every_n_steps,
+    )
+    if epoch is not None:
+        callback.on_epoch_begin(epoch)
+        callback.set_model(Mock(optimizer=Mock(iterations=Mock(numpy=Mock(return_value=7)))))
+    if train_ended:
+        callback.on_train_end()
+    log_metrics = Mock()
+    monkeypatch.setattr("mlflow.keras.callback.log_metrics", log_metrics)
+
+    callback.on_test_end({"loss": 0.5})
+
+    kwargs = {"synchronous": False, "model_id": None}
+    if expected_step is not None:
+        kwargs["step"] = expected_step
+    log_metrics.assert_called_once_with({"validation_loss": 0.5}, **kwargs)
