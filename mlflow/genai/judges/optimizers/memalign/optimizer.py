@@ -67,8 +67,7 @@ def _litellm_embed(texts: list[str], embedding_model: str, **kwargs: Any) -> lis
         import litellm
     except ImportError as e:
         raise MlflowException(
-            "MemAlign embeddings require LiteLLM. Please install it using: `pip install litellm`",
-            error_code=INTERNAL_ERROR,
+            "MemAlign embeddings require LiteLLM. Please install it using: `pip install litellm`"
         ) from e
 
     response = litellm.embedding(model=embedding_model, input=texts, **kwargs)

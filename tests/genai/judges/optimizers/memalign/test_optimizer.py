@@ -1136,6 +1136,7 @@ def test_build_embedder_calls_litellm(
     monkeypatch, embedding_model, expected_model, expected_api_base
 ):
     monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
 
     response = MagicMock()
