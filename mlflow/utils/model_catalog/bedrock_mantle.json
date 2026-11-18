@@ -11992,7 +11992,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-05"
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-11-18"
     },
     "us-gov-east-1/nvidia.nemotron-nano-3-30b": {
       "mode": "chat",
@@ -12058,7 +12059,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-05"
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-11-18"
     },
     "us-gov-east-1/nvidia.nemotron-super-3-120b": {
       "mode": "chat",
@@ -12634,7 +12636,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-05"
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-11-18"
     },
     "us-gov-west-1/nvidia.nemotron-nano-3-30b": {
       "mode": "chat",
@@ -12700,7 +12703,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-05"
+      "deprecation_date": "2027-03-30",
+      "last_updated_at": "2026-11-18"
     },
     "us-gov-west-1/nvidia.nemotron-super-3-120b": {
       "mode": "chat",
