@@ -26,6 +26,7 @@ from mlflow.entities.gateway_guardrail import (
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 
 
 class GatewayStoreMixin:
@@ -690,5 +691,37 @@ class GatewayStoreMixin:
 
         Returns:
             List of GatewayGuardrailConfig entities ordered by ``execution_order``.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_resource_endpoint_configs(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> list[GatewayEndpointConfig]:
+        """
+        Get complete endpoint configurations for a resource (server-side only).
+
+        Args:
+            resource_type: Type of resource (e.g., "scorer").
+            resource_id: Unique identifier for the resource instance.
+
+        Returns:
+            List of GatewayEndpointConfig entities with decrypted secret_value and auth_config.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_endpoint_config(
+        self,
+        endpoint_name: str,
+    ) -> GatewayEndpointConfig:
+        """
+        Get complete endpoint configuration for a specific endpoint (server-side only).
+
+        Args:
+            endpoint_name: Unique name of the endpoint.
+
+        Returns:
+            GatewayEndpointConfig entity with decrypted secret_value and auth_config.
         """
         raise NotImplementedError(self.__class__.__name__)
