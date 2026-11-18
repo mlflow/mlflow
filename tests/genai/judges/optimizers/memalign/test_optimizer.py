@@ -1570,7 +1570,10 @@ def test_remove_guidelines_does_not_change_instructions_format(sample_judge, sam
     with mock_apis(guidelines=["G0", "G1"]):
         aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
     cleaned = aligned.remove_guidelines([0])
-    assert cleaned.instructions == sample_judge.instructions + "\n\nDistilled Guidelines (1):\n  - G1\n"
+    assert (
+        cleaned.instructions
+        == sample_judge.instructions + "\n\nDistilled Guidelines (1):\n  - G1\n"
+    )
 
 
 def test_remove_guidelines_can_remove_all(sample_judge, sample_traces):
