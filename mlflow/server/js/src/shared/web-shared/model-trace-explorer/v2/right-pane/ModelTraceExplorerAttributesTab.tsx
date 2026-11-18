@@ -1,5 +1,5 @@
-import { isNil, keys } from 'lodash';
-import { useState } from 'react';
+import { isNil, keys, mapValues } from 'lodash';
+import { useMemo, useState } from 'react';
 
 import {
   Button,
@@ -20,8 +20,15 @@ import {
   ModelTraceExplorerFieldRenderer,
 } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useCachedPayloadResult } from './ModelTraceExplorerPayloadCache';
 
 type AttributesRenderMode = 'pretty' | 'json' | 'yaml';
+
+const stringifyAttributes = (attributes: Record<string, unknown> | undefined): Record<string, string> =>
+  Object.assign(
+    Object.create(null),
+    mapValues(attributes, (value) => JSON.stringify(value, null, 2)),
+  );
 
 export const normalizeSpanAttributes = (attributes: ModelTraceSpanNode['attributes']): Record<string, unknown> => {
   if (!attributes) {
@@ -54,12 +61,34 @@ export function ModelTraceExplorerAttributesTab({
     renderMode === 'json' || renderMode === 'yaml' ? renderMode : 'pretty',
   );
   // A comparison flattens array-form attributes so both sides are keyed by attribute name.
-  const attributes = (comparisonRole ? normalizeSpanAttributes(activeSpan.attributes) : activeSpan.attributes) as
-    | Record<string, unknown>
-    | undefined;
-  const comparisonAttributes = normalizeSpanAttributes(selectedComparisonNode?.attributes);
+  const spanAttributes = activeSpan.attributes;
+  const comparisonSpanAttributes = selectedComparisonNode?.attributes;
+  const attributes = useMemo(
+    () =>
+      (comparisonRole ? normalizeSpanAttributes(spanAttributes) : spanAttributes) as
+        | Record<string, unknown>
+        | undefined,
+    [comparisonRole, spanAttributes],
+  );
+  const comparisonAttributes = useMemo(
+    () => normalizeSpanAttributes(comparisonSpanAttributes),
+    [comparisonSpanAttributes],
+  );
   const containsAttributes = keys(attributes).length > 0 || keys(comparisonAttributes).length > 0;
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
+  const effectiveRenderMode = comparisonRole || isActiveMatchSpan ? 'pretty' : attributesRenderMode;
+  const isPretty = effectiveRenderMode === 'pretty';
+  const attributeJsonByKey = useCachedPayloadResult('attribute-json-by-key', isPretty ? attributes : undefined, () =>
+    isPretty ? stringifyAttributes(attributes) : {},
+  );
+  const comparisonAttributeJsonByKey = useCachedPayloadResult(
+    'attribute-json-by-key',
+    comparisonRole ? comparisonAttributes : undefined,
+    () => (comparisonRole ? stringifyAttributes(comparisonAttributes) : {}),
+  );
+  const attributesJson = useCachedPayloadResult('section-json', isPretty ? undefined : attributes, () =>
+    isPretty ? '' : JSON.stringify(attributes, null, 2),
+  );
   if (!containsAttributes || isNil(attributes)) {
     return (
       <div css={{ marginTop: theme.spacing.lg }}>
@@ -75,7 +104,6 @@ export function ModelTraceExplorerAttributesTab({
     );
   }
 
-  const effectiveRenderMode = comparisonRole || isActiveMatchSpan ? 'pretty' : attributesRenderMode;
   const baselineAttributeKeys = comparisonRole === 'candidate' ? keys(comparisonAttributes) : keys(attributes);
   const candidateAttributeKeys = comparisonRole === 'candidate' ? keys(attributes) : keys(comparisonAttributes);
   const attributeKeys = comparisonRole
@@ -85,26 +113,16 @@ export function ModelTraceExplorerAttributesTab({
     ? [...attributeKeys].sort(
         (firstKey, secondKey) =>
           Number(
-            areModelTraceComparisonValuesEqual(
-              JSON.stringify(attributes[firstKey], null, 2),
-              JSON.stringify(comparisonAttributes[firstKey], null, 2),
-            ),
+            areModelTraceComparisonValuesEqual(attributeJsonByKey[firstKey], comparisonAttributeJsonByKey[firstKey]),
           ) -
           Number(
-            areModelTraceComparisonValuesEqual(
-              JSON.stringify(attributes[secondKey], null, 2),
-              JSON.stringify(comparisonAttributes[secondKey], null, 2),
-            ),
+            areModelTraceComparisonValuesEqual(attributeJsonByKey[secondKey], comparisonAttributeJsonByKey[secondKey]),
           ),
       )
     : attributeKeys;
   const attributesHaveDifferences = comparisonRole
     ? sortedAttributeKeys.some(
-        (key) =>
-          !areModelTraceComparisonValuesEqual(
-            JSON.stringify(attributes[key], null, 2),
-            JSON.stringify(comparisonAttributes[key], null, 2),
-          ),
+        (key) => !areModelTraceComparisonValuesEqual(attributeJsonByKey[key], comparisonAttributeJsonByKey[key]),
       )
     : false;
   const renderModeDropdown = (
@@ -216,8 +234,9 @@ export function ModelTraceExplorerAttributesTab({
               <ModelTraceExplorerFieldRenderer
                 key={key}
                 title={key}
-                data={JSON.stringify(attributes[key], null, 2)}
-                comparisonData={JSON.stringify(comparisonAttributes[key], null, 2)}
+                data={attributeJsonByKey[key]}
+                parsedValue={attributes[key]}
+                comparisonData={comparisonAttributeJsonByKey[key]}
                 comparisonRole={comparisonRole}
                 comparisonEnabled={Boolean(comparisonRole)}
                 renderMode="default"
@@ -231,7 +250,7 @@ export function ModelTraceExplorerAttributesTab({
           ) : (
             <ModelTraceExplorerCodeSnippet
               title=""
-              data={JSON.stringify(attributes, null, 2)}
+              data={attributesJson}
               parsedData={attributes}
               searchFilter={searchFilter}
               activeMatch={activeMatch}

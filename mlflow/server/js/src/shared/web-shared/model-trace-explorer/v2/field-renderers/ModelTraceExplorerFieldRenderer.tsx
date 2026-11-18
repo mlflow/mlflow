@@ -184,6 +184,7 @@ export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 export const ModelTraceExplorerFieldRenderer = ({
   title,
   data,
+  parsedValue,
   renderMode,
   chatMessageFormat,
   maxVisibleMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
@@ -197,6 +198,8 @@ export const ModelTraceExplorerFieldRenderer = ({
 }: {
   title: string;
   data?: string;
+  /** The JSON-compatible value represented by data, when already held by the caller. */
+  parsedValue?: unknown;
   renderMode: 'default' | 'json' | 'text' | 'yaml';
   chatMessageFormat?: string;
   maxVisibleMessages?: number;
@@ -211,12 +214,13 @@ export const ModelTraceExplorerFieldRenderer = ({
   const { theme } = useDesignSystemTheme();
   const [messagesExpanded, setMessagesExpanded] = useState(false);
   const jsonValue = useMemo(() => {
+    if (parsedValue !== undefined) return parsedValue;
     try {
       return data === undefined ? undefined : JSON.parse(data);
     } catch (e) {
       return undefined;
     }
-  }, [data]);
+  }, [data, parsedValue]);
   const parsedData = jsonValue === undefined ? data : jsonValue;
 
   useEffect(() => {
