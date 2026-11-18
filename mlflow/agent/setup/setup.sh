@@ -108,7 +108,10 @@ import sys
 if sys.path and sys.path[0] == "":
     sys.path.pop(0)
 
-import importlib.metadata as md
+try:
+    import importlib.metadata as md
+except ImportError:
+    sys.exit(3)
 import json
 import os
 import platform
@@ -143,6 +146,7 @@ elif parsed.base_version == version or (parsed.is_prerelease and parsed.pre[0] =
     base_url = "https://config.mlflow-telemetry.io"
 else:
     sys.exit(0)
+# Test-only override that points the config fetch at a local server.
 base_url = os.environ.get("_MLFLOW_SETUP_TELEMETRY_CONFIG_URL") or base_url
 
 response = requests.get(f"{base_url}/{version}.json", timeout=1)
@@ -172,8 +176,11 @@ except Exception:
     pass
 
 use_databricks = backend == "databricks" and databricks_bin and (profile or workspace_url)
-scheme = "databricks" if use_databricks else urllib.parse.urlparse(tracking_uri).scheme or None
-hostname = urllib.parse.urlparse(tracking_uri).hostname if scheme in ("http", "https") else None
+try:
+    scheme = "databricks" if use_databricks else urllib.parse.urlparse(tracking_uri).scheme or None
+    hostname = urllib.parse.urlparse(tracking_uri).hostname if scheme in ("http", "https") else None
+except ValueError:
+    scheme = hostname = None
 params = {
     "agent": agent or None,
     "backend": {"remote": "oss"}.get(backend, backend) or None,
@@ -281,7 +288,8 @@ telemetry_post() {
 	for telemetry_py in python3 python; do
 		command -v "$telemetry_py" >/dev/null 2>&1 || continue
 		"$telemetry_py" -c "$telemetry_python" "$1" "$telemetry_duration" "$agent_choice" "$backend" \
-			"$telemetry_flags" "$TRACKING_URI" "${DATABRICKS_BIN:-}" "$PROFILE" "$WORKSPACE_URL" && return 0
+			"$telemetry_flags" "$TRACKING_URI" "${DATABRICKS_BIN:-}" "$PROFILE" "$WORKSPACE_URL"
+		[ "$?" -eq 3 ] || return 0
 	done
 }
 

@@ -5,11 +5,13 @@ import os
 import platform
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 import certifi
 import charset_normalizer
@@ -19,6 +21,7 @@ import pytest
 import requests
 import urllib3
 
+import mlflow.telemetry.constant
 import mlflow.telemetry.utils
 
 pytestmark = pytest.mark.skipif(
@@ -955,7 +958,8 @@ class TelemetryServer(http.server.ThreadingHTTPServer):
         self.config_status = 200
         self.config_delay = 0.0
         self.requests: list[str] = []
-        self.posts: list[dict] = []
+        self.posts: list[dict[str, Any]] = []
+        self.post_statuses: list[int] = []
 
     @property
     def url(self) -> str:
@@ -976,7 +980,7 @@ class TelemetryHandler(http.server.BaseHTTPRequestHandler):
         self.server.requests.append(self.path)
         body = self.rfile.read(int(self.headers["Content-Length"]))
         self.server.posts.append(json.loads(body))
-        self.send_response(200)
+        self.send_response(self.server.post_statuses.pop(0) if self.server.post_statuses else 200)
         self.send_header("Content-Length", "0")
         self.end_headers()
 
@@ -1048,7 +1052,7 @@ shift
             stderr=subprocess.PIPE,
             text=True,
             pass_fds=(write_fd,),
-            preexec_fn=lambda: os.dup2(write_fd, 3),
+            preexec_fn=lambda: (os.dup2(write_fd, 3), signal.signal(signal.SIGINT, signal.SIG_DFL)),
             start_new_session=new_session,
         )
         os.close(write_fd)
@@ -1064,7 +1068,7 @@ shift
             **kwargs,
         )
 
-    def data(self) -> dict:
+    def data(self) -> dict[str, Any]:
         [post] = self.server.posts
         [record] = post["records"]
         return record["data"]
@@ -1073,7 +1077,7 @@ shift
 @pytest.fixture
 def telemetry_server():
     server = TelemetryServer()
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True, name="telemetry-server")
     thread.start()
     yield server
     server.shutdown()
@@ -1214,7 +1218,7 @@ def test_telemetry_detects_source_sdk(telemetry, sdk):
 
 
 def test_telemetry_falls_back_to_python(telemetry):
-    telemetry.write_bin("python3", "exit 1")
+    telemetry.write_bin("python3", f'PYTHONPATH= exec "{sys.executable}" -S "$@"')
 
     telemetry.started("telemetry_post success")
 
@@ -1333,6 +1337,14 @@ def test_telemetry_child_survives_sighup(telemetry):
     assert telemetry.data()["status"] == "success"
 
 
+def test_telemetry_does_not_retry_interpreter_after_other_errors(telemetry):
+    telemetry.write_bin("python3", "exit 1")
+
+    telemetry.started("telemetry_post success")
+
+    assert telemetry.server.requests == []
+
+
 def test_telemetry_skipped_before_main_starts(telemetry):
     telemetry.run("die boom")
     telemetry.run("exit 0")
@@ -1405,4 +1417,43 @@ def test_telemetry_exit_choice_is_canceled(telemetry):
     )
 
     assert result.returncode == 1
+    assert telemetry.data()["status"] == "canceled"
+
+
+def test_telemetry_config_urls_match_python_client():
+    urls = set(
+        re.findall(r'"(https://config[a-z-]*\.mlflow-telemetry\.io)"', SETUP_SCRIPT.read_text())
+    )
+
+    assert urls == {
+        mlflow.telemetry.constant.CONFIG_URL,
+        mlflow.telemetry.constant.CONFIG_STAGING_URL,
+    }
+
+
+def test_telemetry_retries_oss_server_errors(telemetry):
+    telemetry.server.post_statuses = [500, 429]
+
+    telemetry.started("telemetry_post success")
+
+    assert len(telemetry.server.posts) == 3
+
+
+def test_telemetry_dirty_repo_exit_is_canceled(telemetry):
+    repo = telemetry.tmp_path / "repo"
+    repo.mkdir()
+    git = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+    subprocess.check_call([*git, "init", "-q"])
+    (repo / "file.txt").write_text("a")
+    subprocess.check_call([*git, "add", "file.txt"])
+    subprocess.check_call([*git, "commit", "-qm", "init"])
+    (repo / "file.txt").write_text("b")
+
+    result = telemetry.run(
+        f'cd "{repo}"\ntelemetry_start=$(date +%s)\n'
+        "select_option() { selected_index=0; }\ninspect_repository"
+    )
+
+    assert result.returncode == 1
+    assert "Commit or stash the changes" in result.stderr
     assert telemetry.data()["status"] == "canceled"

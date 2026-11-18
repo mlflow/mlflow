@@ -434,7 +434,7 @@ MLflow supports opt-out telemetry through either of the following environment va
 
 Setting either of these will **immediately disable telemetry**, no need to re-import MLflow or restart your session.
 
-The `setup.sh` setup wizard honors the same environment variables and CI detection.
+The `setup.sh` setup wizard honors the same environment variables and CI detection. With a Databricks backend, its `agent_setup_script` event is sent to the workspace, like the Python client's events; runs that end before a workspace is chosen use the standard endpoint.
 
 :::note
 MLflow automatically disables telemetry in [**some CI environments**](https://github.com/mlflow/mlflow/blob/de6c11193ce6a68ffec4b33650f75bd163143178/mlflow/telemetry/utils.py#L22).
