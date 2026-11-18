@@ -11,6 +11,14 @@ import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
+import { shouldEnableExperimentSettingsPage } from '../../../../../common/utils/FeatureUtils';
+
+jest.mock('../../../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+    '../../../../../common/utils/FeatureUtils',
+  ),
+  shouldEnableExperimentSettingsPage: jest.fn(() => false),
+}));
 
 describe('ExperimentViewManagementMenu', () => {
   const defaultExperiment: ExperimentEntity = {
@@ -126,5 +134,25 @@ describe('ExperimentViewManagementMenu', () => {
 
     expect(await screen.findByText('Edit experiment')).toBeInTheDocument();
     expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  test('it should not offer Settings without the experiment Settings page', async () => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+    renderTestComponent();
+
+    await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+
+    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+  });
+
+  test('it should open the experiment Settings page from the menu', async () => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+    renderTestComponent();
+
+    await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+    await userEvent.click(screen.getByText('Settings'));
+
+    expect(window.location.pathname).toBe('/experiments/123/settings');
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
 });

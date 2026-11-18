@@ -210,6 +210,14 @@ export const shouldEnableExperimentOverviewTab = (hasV4Location?: boolean) => {
 };
 
 /**
+ * Enables the experiment Settings page (`/experiments/:experimentId/settings`) and its entry
+ * points: the sidebar item, the experiment menu item and the Tags button in the page header.
+ */
+export const shouldEnableExperimentSettingsPage = () => {
+  return false;
+};
+
+/**
  * On by default; the per-server gates live elsewhere -- the side nav requires a SQL backend store,
  * and `shouldEnableIssueDetection` requires AI Gateway.
  */

@@ -13,7 +13,8 @@ import {
   useExperimentBreadcrumbStatus,
   useExperimentBreadcrumbTitle,
 } from './ExperimentPageRevampContext';
-import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentSettingsPage, shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { ExperimentViewManageTagsButton } from '../../components/experiment-page/components/header/ExperimentViewManageTagsButton';
 import { useEvalRunsCompareMode } from '../../components/evaluations/hooks/useEvalRunsCompareMode';
 import { EvalRunComparisonBackButton } from '../eval-run-details/EvalRunComparisonBackButton';
 import { EvalRunComparisonReviewButton } from '../eval-run-details/EvalRunComparisonReviewButton';
@@ -171,6 +172,14 @@ export const ExperimentPageBreadcrumbs = ({ experiment }: ExperimentPageBreadcru
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexShrink: 0 }}>
           <EvalRunComparisonBackButton />
           {pairwiseReviewAction && <EvalRunComparisonReviewButton onReview={pairwiseReviewAction} />}
+        </div>
+      )}
+      {shouldEnableExperimentSettingsPage() && (
+        <div css={{ flexShrink: 0 }}>
+          <ExperimentViewManageTagsButton
+            experimentId={experiment.experimentId}
+            componentId="mlflow.experiment_page.breadcrumb.manage_tags"
+          />
         </div>
       )}
       <div css={{ flexShrink: 0 }}>

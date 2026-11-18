@@ -24,7 +24,11 @@ import type { ExperimentEntity } from '../../../../types';
 import { ExperimentViewInfoPopover } from './ExperimentViewInfoPopover';
 import { useExperimentKind, isGenAIExperimentKind } from '../../../../utils/ExperimentKindUtils';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
-import { shouldEnableWorkflowBasedNavigation } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentSettingsPage,
+  shouldEnableWorkflowBasedNavigation,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { ExperimentViewManageTagsButton } from './ExperimentViewManageTagsButton';
 import { useHeaderVisibility } from '../../../../pages/experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 
 import { ExperimentKind } from '../../../../constants';
@@ -213,6 +217,12 @@ export const ExperimentViewHeader = React.memo(
             {experimentKindSelector}
             <ExperimentViewTraceArchivalBadge experiment={experiment} />
             {getInfoTooltip()}
+            {shouldEnableExperimentSettingsPage() && (
+              <ExperimentViewManageTagsButton
+                experimentId={experiment.experimentId}
+                componentId="mlflow.experiment_view.header.manage_tags_button"
+              />
+            )}
           </div>
           <div />
           <div

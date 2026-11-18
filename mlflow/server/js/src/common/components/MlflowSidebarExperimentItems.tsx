@@ -1,4 +1,11 @@
-import { ArrowLeftIcon, BeakerIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ArrowLeftIcon,
+  BeakerIcon,
+  GearIcon,
+  Spinner,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useGetExperimentQuery } from '../../experiment-tracking/hooks/useExperimentQuery';
 import { matchPath, useLocation } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes, { RoutePaths } from '../../experiment-tracking/routes';
@@ -20,6 +27,7 @@ import {
 } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
 import { useExperimentHasV4Location } from '../../experiment-tracking/hooks/useExperimentHasV4Location';
 import { Fragment } from 'react';
+import { shouldEnableExperimentSettingsPage } from '../utils/FeatureUtils';
 
 // pass a dummy function to avoid highlighting the experiment back link
 const isExperimentsActive = () => false;
@@ -129,6 +137,18 @@ export const MlflowSidebarExperimentItems = ({
           })}
         </Fragment>
       ))}
+      {shouldEnableExperimentSettingsPage() && experimentId && (
+        <MlflowSidebarLink
+          css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
+          to={ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Settings)}
+          componentId="mlflow.experiment_side_nav.settings"
+          isActive={() => activeTabByRoute === ExperimentPageTabName.Settings}
+          collapsed={collapsed}
+          icon={<GearIcon />}
+        >
+          <FormattedMessage defaultMessage="Settings" description="Sidebar link to the experiment settings page" />
+        </MlflowSidebarLink>
+      )}
       <div
         css={{
           borderBottom: `1px solid ${theme.colors.actionDefaultBorderDefault}`,
