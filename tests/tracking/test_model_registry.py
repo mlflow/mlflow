@@ -723,8 +723,16 @@ def test_register_model_from_registered_model_uri_preserves_lineage(client, sour
     assert promoted_version.source == f"models:/{source_name}/{source_version.version}"
 
 
-@pytest.mark.parametrize("key", ["mlflow.prompt.text", "_mlflow_prompt_type"])
-def test_rest_model_version_tag_endpoints_reject_prompt_template_tags(client, key):
+@pytest.mark.parametrize(
+    "key",
+    [
+        "mlflow.prompt.text",
+        "_mlflow_prompt_type",
+        "mlflow.prompt.is_prompt",
+        "_mlflow_prompt_response_format",
+    ],
+)
+def test_rest_model_version_tag_endpoints_reject_prompt_reserved_tags(client, key):
     client.register_prompt(name="rest_prompt", template="Hello, {{name}}!")
     client.create_registered_model("rest_model")
     client.create_model_version("rest_model", "runs:/run-id/model", run_id="run-id")
@@ -744,7 +752,10 @@ def test_rest_model_version_tag_endpoints_reject_prompt_template_tags(client, ke
     for response in [set_tag("rest_prompt", key, "modified"), delete_tag("rest_prompt", key)]:
         assert response.status_code == 400
         assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
-        assert f"Tag '{key}' is part of the prompt template" in response.json()["message"]
+        assert (
+            f"Tag '{key}' is set when the prompt version is registered"
+            in (response.json()["message"])
+        )
     assert client.get_prompt_version("rest_prompt", 1).template == "Hello, {{name}}!"
 
     set_tag("rest_prompt", "env", "prod").raise_for_status()
@@ -760,7 +771,17 @@ def test_rest_model_version_tag_endpoints_reject_prompt_template_tags(client, ke
     assert "env" not in prompt.tags
     assert prompt.model_config is None
 
+    # Read regular model versions over REST too: MlflowClient treats a version carrying
+    # `mlflow.prompt.is_prompt` as a prompt and refuses to return it as a model version
+    def get_tags(name):
+        response = requests.get(
+            f"{client.tracking_uri}/api/2.0/mlflow/model-versions/get",
+            params={"name": name, "version": "1"},
+        )
+        response.raise_for_status()
+        return {t["key"]: t["value"] for t in response.json()["model_version"].get("tags", [])}
+
     set_tag("rest_model", key, "value").raise_for_status()
-    assert client.get_model_version("rest_model", "1").tags[key] == "value"
+    assert get_tags("rest_model")[key] == "value"
     delete_tag("rest_model", key).raise_for_status()
-    assert key not in client.get_model_version("rest_model", "1").tags
+    assert key not in get_tags("rest_model")

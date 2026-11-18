@@ -1,4 +1,5 @@
 import json
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -2146,18 +2147,27 @@ def test_concurrent_prompt_linking_to_run_and_trace():
         [{"role": "user", "content": "Hello, {{name}}!"}],
     ],
 )
-@pytest.mark.parametrize("key", ["mlflow.prompt.text", "_mlflow_prompt_type"])
-def test_prompt_version_template_tags_are_immutable(template, key):
+@pytest.mark.parametrize(
+    "key",
+    [
+        "mlflow.prompt.text",
+        "_mlflow_prompt_type",
+        "mlflow.prompt.is_prompt",
+        "_mlflow_prompt_response_format",
+    ],
+)
+def test_prompt_version_reserved_tags_are_immutable(template, key):
     mlflow.genai.register_prompt(name="immutable_prompt", template=template)
     client = MlflowClient()
+    match = f"Tag '{re.escape(key)}' is set when the prompt version is registered"
 
-    with pytest.raises(MlflowException, match=f"Tag '{key}' is part of the prompt template"):
+    with pytest.raises(MlflowException, match=match):
         mlflow.genai.set_prompt_version_tag("immutable_prompt", 1, key, "modified")
-    with pytest.raises(MlflowException, match=f"Tag '{key}' is part of the prompt template"):
+    with pytest.raises(MlflowException, match=match):
         client.set_prompt_version_tag("immutable_prompt", 1, key, "modified")
-    with pytest.raises(MlflowException, match=f"Tag '{key}' is part of the prompt template"):
+    with pytest.raises(MlflowException, match=match):
         mlflow.genai.delete_prompt_version_tag("immutable_prompt", 1, key)
-    with pytest.raises(MlflowException, match=f"Tag '{key}' is part of the prompt template"):
+    with pytest.raises(MlflowException, match=match):
         client.delete_prompt_version_tag("immutable_prompt", 1, key)
 
     prompt = mlflow.genai.load_prompt("prompts:/immutable_prompt/1", cache_ttl_seconds=0)
