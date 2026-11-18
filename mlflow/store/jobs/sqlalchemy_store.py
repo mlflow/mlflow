@@ -23,8 +23,10 @@ from mlflow.store.db.utils import (
 )
 from mlflow.store.jobs.abstract_store import (
     AbstractJobStore,
+    JobLock,
     JobTerminalStateUpdateException,
     JobUpdateStatus,
+    SchedulerLease,
 )
 from mlflow.store.tracking.dbmodels.models import SqlJob
 from mlflow.utils.time import get_current_time_millis
@@ -886,3 +888,25 @@ class SqlAlchemyJobStore(AbstractJobStore):
             if status != JobUpdateStatus.APPLIED:
                 job = self._get_sql_job(session, job_id, populate_existing=True)
                 raise JobTerminalStateUpdateException(job_id, JobStatus.from_int(job.status))
+
+    def acquire_scheduler_lease(self, lease_key: str, ttl_seconds: int) -> SchedulerLease | None:
+        from mlflow.server.jobs.lock_manager import JobLockManager
+
+        return JobLockManager(self).acquire_scheduler_lease(lease_key, ttl_seconds)
+
+    def renew_scheduler_lease(
+        self, scheduler_lease: SchedulerLease, ttl_seconds: int
+    ) -> SchedulerLease | None:
+        from mlflow.server.jobs.lock_manager import JobLockManager
+
+        return JobLockManager(self).renew_scheduler_lease(scheduler_lease, ttl_seconds)
+
+    def acquire_exclusive_lock(self, lock_key: str, job_id: str) -> JobLock | None:
+        from mlflow.server.jobs.lock_manager import JobLockManager
+
+        return JobLockManager(self).acquire_exclusive_lock(lock_key, job_id)
+
+    def release_exclusive_lock(self, job_lock: JobLock) -> None:
+        from mlflow.server.jobs.lock_manager import JobLockManager
+
+        JobLockManager(self).release_exclusive_lock(job_lock)
