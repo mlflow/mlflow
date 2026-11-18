@@ -60,7 +60,7 @@ cleanup() {
 	cleanup_status=$?
 	case "$cleanup_status" in
 	0) ;;
-	130 | 143) telemetry_send canceled ;;
+	129 | 130 | 143) telemetry_send canceled ;;
 	*) telemetry_send failure ;;
 	esac
 	restore_terminal
@@ -88,6 +88,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 die() {
 	printf '\n%b×  %s%b\n' "$RED" "$*" "$RESET" >&2
@@ -97,120 +98,189 @@ die() {
 telemetry_start=""
 telemetry_sent="false"
 telemetry_flags=""
+agent_choice=""
+backend=""
 telemetry_ci_vars="PYTEST_CURRENT_TEST GITHUB_ACTIONS CI CIRCLECI GITLAB_CI JENKINS_URL TRAVIS TF_BUILD BITBUCKET_BUILD_NUMBER CODEBUILD_BUILD_ARN BUILDKITE TEAMCITY_VERSION CLOUD_RUN_EXECUTION RUNBOT_HOST_URL RUNBOT_BUILD_NAME RUNBOT_WORKER_ID"
-# Prints version, source SDK, sys.platform, rollout roll, and the ingestion body, one per line.
+# Mirrors mlflow.telemetry.client: config fetch, kill switches, then one send. Exits 3 without mlflow.
 telemetry_python='
-import importlib.metadata as md, json, os, platform, random, sys, time, uuid
+import sys
 
-def version(name):
+if sys.path and sys.path[0] == "":
+    sys.path.pop(0)
+
+import importlib.metadata as md
+import json
+import os
+import platform
+import random
+import subprocess
+import time
+import urllib.parse
+import uuid
+
+def installed(name):
     try:
         return md.version(name)
     except md.PackageNotFoundError:
         return None
 
-sdk = next((name for name in ("mlflow", "mlflow-skinny", "mlflow-tracing") if version(name)), None)
+sdk = next((name for name in ("mlflow", "mlflow-skinny", "mlflow-tracing") if installed(name)), None)
 if sdk is None:
-    sys.exit(1)
-status, duration_ms, agent, backend, flags = sys.argv[1:6]
+    sys.exit(3)
+
+import requests
+from packaging.version import Version
+
+status, duration_ms, agent, backend, flags, tracking_uri, databricks_bin, profile, workspace_url = sys.argv[1:10]
+version = installed(sdk)
+parsed = Version(version)
+testing = os.environ.get("_MLFLOW_TESTING_TELEMETRY", "").lower() in ("true", "1")
+if parsed.is_devrelease and not testing:
+    sys.exit(0)
+if parsed.is_devrelease or testing:
+    base_url = "https://config-staging.mlflow-telemetry.io"
+elif parsed.base_version == version or (parsed.is_prerelease and parsed.pre[0] == "rc"):
+    base_url = "https://config.mlflow-telemetry.io"
+else:
+    sys.exit(0)
+base_url = os.environ.get("_MLFLOW_SETUP_TELEMETRY_CONFIG_URL") or base_url
+
+response = requests.get(f"{base_url}/{version}.json", timeout=1)
+if response.status_code != 200:
+    sys.exit(0)
+config = response.json()
+if (
+    config.get("mlflow_version") != version
+    or config.get("disable_telemetry") is True
+    or config.get("ingestion_url") is None
+    or sdk in config.get("disable_sdks", [])
+    or sys.platform in config.get("disable_os", [])
+    or random.randint(0, 100) > config.get("rollout_percentage", 100)
+    or "agent_setup_script" in config.get("disable_events", [])
+):
+    sys.exit(0)
+
 installation_id = None
 try:
     base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
     with open(os.path.join(base, "mlflow", "telemetry.json"), encoding="utf-8") as f:
         raw = json.load(f).get("installation_id")
-    uuid.UUID(raw)
-    installation_id = raw
+    if isinstance(raw, str) and raw:
+        uuid.UUID(raw)
+        installation_id = raw
 except Exception:
     pass
-params = {"agent": agent, "backend": backend or None, "flags": sorted(set(flags.split()))}
-data = {
+
+use_databricks = backend == "databricks" and databricks_bin and (profile or workspace_url)
+scheme = "databricks" if use_databricks else urllib.parse.urlparse(tracking_uri).scheme or None
+hostname = urllib.parse.urlparse(tracking_uri).hostname if scheme in ("http", "https") else None
+params = {
+    "agent": agent or None,
+    "backend": {"remote": "oss"}.get(backend, backend) or None,
+    "flags": sorted(set(flags.split())),
+}
+event = {
     "session_id": uuid.uuid4().hex,
     "source_sdk": sdk,
-    "mlflow_version": version(sdk),
+    "mlflow_version": version,
     "schema_version": 2,
-    "python_version": platform.python_version(),
+    "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
     "operating_system": platform.platform(),
     "environment": None,
     "coding_agent": None,
-    "tracking_uri_scheme": None,
-    "is_localhost": None,
+    "tracking_uri_scheme": scheme,
+    "is_localhost": (
+        hostname in (".", "::1") or hostname.startswith(("localhost", "127.0.0.1"))
+        if hostname
+        else None
+    ),
     "installation_id": installation_id,
-    "ws_enabled": None,
+    "ws_enabled": bool(os.environ.get("MLFLOW_WORKSPACE")),
     "timestamp_ns": time.time_ns(),
     "event_name": "agent_setup_script",
     "params": json.dumps(params),
     "status": status,
-    "duration_ms": int(duration_ms),
+    "duration_ms": max(0, int(duration_ms)),
 }
-print(version(sdk), sdk, sys.platform, random.randint(0, 100), sep="\n")
-print(json.dumps({"records": [{"data": data, "partition-key": uuid.uuid4().hex}]}))
+
+if use_databricks:
+    if parsed.is_devrelease:
+        sys.exit(0)
+    event["params_json"] = event.pop("params")
+    env = dict(os.environ)
+    command = [databricks_bin, "api", "post", "/api/2.0/mlflow/client-telemetry/ingest"]
+    command += ["--json", json.dumps({"events": [event]})]
+    if profile:
+        env["DATABRICKS_HOST"] = ""
+        command += ["--profile", profile]
+    else:
+        env["DATABRICKS_CONFIG_PROFILE"] = ""
+        env["DATABRICKS_HOST"] = workspace_url
+    try:
+        subprocess.run(command, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    except Exception:
+        pass
+    sys.exit(0)
+
+if (
+    "DATABRICKS_RUNTIME_VERSION" in os.environ
+    or os.path.exists("/databricks/DBR_VERSION")
+    or os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() in ("true", "1")
+):
+    sys.exit(0)
+body = {"records": [{"data": event, "partition-key": uuid.uuid4().hex}]}
+for attempt in range(3):
+    try:
+        response = requests.post(config["ingestion_url"], json=body, headers={"Content-Type": "application/json"}, timeout=1)
+        retry = response.status_code in (429, 500)
+    except (ConnectionError, TimeoutError, requests.ConnectionError, requests.Timeout):
+        retry = True
+    if not retry or attempt == 2:
+        break
+    time.sleep(1)
 '
 
-telemetry_env_true() {
-	eval "telemetry_env_value=\${$1:-}"
+# Returns 0 for true/1, 1 when unset or false/0, and 2 for any other value (case-insensitive).
+telemetry_env_bool() {
+	eval "telemetry_env_set=\${$1+x} telemetry_env_value=\${$1:-}"
+	[ -n "$telemetry_env_set" ] || return 1
 	case "$telemetry_env_value" in
 	[Tt][Rr][Uu][Ee] | 1) return 0 ;;
+	[Ff][Aa][Ll][Ss][Ee] | 0) return 1 ;;
 	esac
-	return 1
+	return 2
 }
 
+# Mirrors mlflow.telemetry.utils.is_telemetry_disabled for the env-only checks.
 telemetry_enabled() {
-	[ -z "${DATABRICKS_RUNTIME_VERSION+x}" ] && [ ! -e /databricks/DBR_VERSION ] &&
-		! telemetry_env_true IS_IN_DB_MODEL_SERVING_ENV || return 1
-	telemetry_env_true _MLFLOW_TESTING_TELEMETRY && return 0
-	! telemetry_env_true MLFLOW_DISABLE_TELEMETRY && ! telemetry_env_true DO_NOT_TRACK || return 1
+	telemetry_env_bool _MLFLOW_TESTING_TELEMETRY
+	case $? in
+	0) return 0 ;;
+	2) return 1 ;;
+	esac
+	telemetry_env_bool MLFLOW_DISABLE_TELEMETRY
+	[ "$?" -eq 1 ] || return 1
+	case "${DO_NOT_TRACK:-}" in
+	[Tt][Rr][Uu][Ee] | 1) return 1 ;;
+	esac
 	for telemetry_var in $telemetry_ci_vars; do
 		eval "[ -z \"\${$telemetry_var+x}\" ]" || return 1
 	done
 }
 
-json_array_has() {
-	sed -n 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' | grep -q "\"$2\""
-}
-
-# Mirrors mlflow.telemetry: opt-outs, remote config gating, then one POST of the record.
 telemetry_post() {
 	# dash 0.5.10 gives `var=$(cmd)` the pending exit status inside EXIT traps, so never test
 	# assignment status here; set +e keeps those bogus failures from killing the child.
 	set +e
 	trap - EXIT INT TERM
 	trap '' HUP
-	cd / || return 0
 	telemetry_enabled || return 0
-	case "${backend:-}" in
-	remote) telemetry_backend="oss" ;;
-	*) telemetry_backend=${backend:-} ;;
-	esac
 	telemetry_duration=$((($(date +%s) - telemetry_start) * 1000))
 	for telemetry_py in python3 python; do
-		telemetry_out=$("$telemetry_py" -c "$telemetry_python" "$1" "$telemetry_duration" \
-			"${agent_choice:-none}" "$telemetry_backend" "$telemetry_flags" 2>/dev/null)
-		[ -z "$telemetry_out" ] || break
+		command -v "$telemetry_py" >/dev/null 2>&1 || continue
+		"$telemetry_py" -c "$telemetry_python" "$1" "$telemetry_duration" "$agent_choice" "$backend" \
+			"$telemetry_flags" "$TRACKING_URI" "${DATABRICKS_BIN:-}" "$PROFILE" "$WORKSPACE_URL" && return 0
 	done
-	[ -n "$telemetry_out" ] || return 0
-	telemetry_version=$(printf '%s\n' "$telemetry_out" | sed -n 1p)
-	telemetry_sdk=$(printf '%s\n' "$telemetry_out" | sed -n 2p)
-	telemetry_platform=$(printf '%s\n' "$telemetry_out" | sed -n 3p)
-	telemetry_roll=$(printf '%s\n' "$telemetry_out" | sed -n 4p)
-	telemetry_body=$(printf '%s\n' "$telemetry_out" | sed -n 5p)
-	if telemetry_env_true _MLFLOW_TESTING_TELEMETRY || printf '%s' "$telemetry_version" | grep -q '\.dev'; then
-		telemetry_env_true _MLFLOW_TESTING_TELEMETRY || return 0
-		telemetry_config_url="https://config-staging.mlflow-telemetry.io/$telemetry_version.json"
-	elif printf '%s' "$telemetry_version" | grep -Eq '^[0-9]+(\.[0-9]+)*(rc[0-9]+)?$'; then
-		telemetry_config_url="https://config.mlflow-telemetry.io/$telemetry_version.json"
-	else
-		return 0
-	fi
-	telemetry_config=$(curl -fsS --max-time 2 "$telemetry_config_url" | tr -d '\r\n')
-	[ "$(printf '%s' "$telemetry_config" | json_first_string mlflow_version)" = "$telemetry_version" ] || return 0
-	telemetry_ingestion_url=$(printf '%s' "$telemetry_config" | json_first_string ingestion_url)
-	[ -n "$telemetry_ingestion_url" ] || return 0
-	! printf '%s' "$telemetry_config" | grep -q '"disable_telemetry"[[:space:]]*:[[:space:]]*true' || return 0
-	! printf '%s' "$telemetry_config" | json_array_has disable_sdks "$telemetry_sdk" || return 0
-	! printf '%s' "$telemetry_config" | json_array_has disable_os "$telemetry_platform" || return 0
-	! printf '%s' "$telemetry_config" | json_array_has disable_events agent_setup_script || return 0
-	telemetry_rollout=$(printf '%s' "$telemetry_config" | sed -n 's/.*"rollout_percentage"[[:space:]]*:[[:space:]]*\(-\{0,1\}[0-9.]*\).*/\1/p')
-	awk -v roll="$telemetry_roll" -v rollout="${telemetry_rollout:-100}" 'BEGIN { exit !(roll <= rollout + 0) }' || return 0
-	curl -fsS --max-time 2 -X POST -H 'Content-Type: application/json' --data-binary "$telemetry_body" "$telemetry_ingestion_url"
 }
 
 # Sends at most one event per run, detached so it never blocks setup and survives exec.
@@ -875,6 +945,7 @@ inspect_repository() {
 				"Exit and protect current changes" \
 				"Continue anyway"
 			if [ "$selected_index" -eq 0 ]; then
+				telemetry_send canceled
 				die "Setup cancelled. Commit or stash the changes, then rerun setup."
 			fi
 		fi
@@ -884,7 +955,10 @@ inspect_repository() {
 		repo_name=$(basename "$repo_root")
 		warning "Git repository not found" "The agent's edits cannot be reviewed or reverted with Git."
 		select_option "Continue with setup?" "Exit and initialize Git first" "Continue without Git"
-		[ "$selected_index" -eq 1 ] || die "Setup cancelled."
+		if [ "$selected_index" -ne 1 ]; then
+			telemetry_send canceled
+			die "Setup cancelled."
+		fi
 	fi
 }
 
@@ -944,6 +1018,7 @@ validate_agent_name() {
 	"" | claude | codex | opencode | manual) ;;
 	*) die "Unsupported coding agent: $AGENT_NAME" ;;
 	esac
+	agent_choice=$AGENT_NAME
 }
 
 choose_agent() {
