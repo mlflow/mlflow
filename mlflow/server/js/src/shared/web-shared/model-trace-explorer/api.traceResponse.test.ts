@@ -21,7 +21,8 @@ const factory = jest.mocked(createTraceResponseParser);
 
 describe('trace body response parsing', () => {
   const response = {} as Response;
-  const parse = jest.fn<(response: Response, signal?: AbortSignal) => Promise<unknown>>();
+  const parse =
+    jest.fn<(response: Response, signal?: AbortSignal, options?: { compactPayloads?: boolean }) => Promise<unknown>>();
   const dispose = jest.fn();
   beforeEach(() => {
     factory.mockReset().mockReturnValue({ parse, dispose });
@@ -82,7 +83,18 @@ describe('trace body response parsing', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toContain('/synthetic/batchGet?trace_ids=tr-owned');
     expect(fetchMock.mock.calls[0][3]).toBe(signal);
-    expect(parse).toHaveBeenCalledWith(response, signal);
+    expect(parse).toHaveBeenCalledWith(response, signal, { compactPayloads: undefined });
+  });
+
+  it('requires explicit drawer opt-in before compacting payload strings', async () => {
+    await getExperimentTraceV3({ traceId: 'raw' });
+    await getTraceV3Data('raw');
+    expect(parse.mock.calls.map((call) => call[2])).toEqual([{ compactPayloads: undefined }, undefined]);
+    parse.mockClear();
+    await getExperimentTraceV3({ traceId: 'drawer', compactPayloads: true });
+    await getTraceV3Data('drawer', undefined, { compactPayloads: true });
+    await getBatchTracesV4({ traceIds: ['drawer'], traceLocation: 'synthetic', compactPayloads: true });
+    expect(parse.mock.calls.map((call) => call[2])).toEqual(Array(3).fill({ compactPayloads: true }));
   });
 
   it('does not retry a lost body when its caller has canceled', async () => {

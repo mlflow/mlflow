@@ -1,4 +1,5 @@
-export type TraceResponseRequest = { id: number; body: ArrayBuffer };
+export type TraceResponseParseOptions = { compactPayloads?: boolean };
+export type TraceResponseRequest = { id: number; body: ArrayBuffer } & TraceResponseParseOptions;
 export type TraceResponseMessage =
   | { type: 'ready' }
   | { type: 'span-chunk'; id: number; index: number; spans: unknown[] }

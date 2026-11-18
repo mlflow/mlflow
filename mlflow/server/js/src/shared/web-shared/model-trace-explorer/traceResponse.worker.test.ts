@@ -57,7 +57,9 @@ describe('trace response worker protocol', () => {
     const messages: any[] = [];
     post.mockImplementation((message: unknown) => messages.push(JSON.parse(JSON.stringify(message))));
     jest.mocked(parseTraceResponseBody).mockReturnValueOnce(value);
-    globalThis.onmessage?.call(window, { data: { id: 42, body: new ArrayBuffer(0) } } as MessageEvent);
+    globalThis.onmessage?.call(window, {
+      data: { id: 42, body: new ArrayBuffer(0), compactPayloads: true },
+    } as MessageEvent);
 
     const chunks = messages.filter((message) => message.type === 'span-chunk');
     expect(chunks.length).toBeGreaterThan(1);
@@ -75,7 +77,7 @@ describe('trace response worker protocol', () => {
       for (const [spanIndex, span] of container.spans.entries()) {
         const input = span.attributes?.['mlflow.spanInputs'];
         if (input === undefined) continue;
-        expect(input).not.toMatch(/[\u0080-\uffff]/);
+        expect(input).not.toMatch(/[\u0100-\uffff]/);
         expect(JSON.parse(input)).toEqual(
           JSON.parse(beforeContainers[index].spans[spanIndex].attributes['mlflow.spanInputs']),
         );
@@ -84,6 +86,16 @@ describe('trace response worker protocol', () => {
     }
     expect(terminal.value).toEqual(before);
     post.mockImplementation(() => {});
+  });
+
+  it('preserves raw JSON payload spelling for consumers that do not opt into compaction', () => {
+    const raw = '{ "text": "' + 'a'.repeat(1000) + ' café 日本語 🙂", "number": 9007199254740993 }';
+    const value = { spans: [{ attributes: { 'mlflow.spanInputs': raw, 'mlflow.spanOutputs': raw } }] };
+    jest.mocked(parseTraceResponseBody).mockReturnValueOnce(value);
+    globalThis.onmessage?.call(window, { data: { id: 46, body: new ArrayBuffer(0) } } as MessageEvent);
+    expect(post).toHaveBeenLastCalledWith({ type: 'parsed', id: 46, value });
+    expect(value.spans[0].attributes['mlflow.spanInputs']).toBe(raw);
+    expect(value.spans[0].attributes['mlflow.spanOutputs']).toBe(raw);
   });
 
   it('bounds span counts even when their attributes are empty', () => {

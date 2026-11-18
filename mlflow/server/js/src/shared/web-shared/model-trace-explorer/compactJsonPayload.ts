@@ -22,10 +22,10 @@ export function* compactJsonPayloadInSteps(text: string): Generator<void, string
     yield;
     const escaped = text
       .slice(start, start + SLICE_CHARS)
-      .replace(/[\u0080-\uffff]/g, (unit) => '\\u' + unit.charCodeAt(0).toString(16).padStart(4, '0'));
+      .replace(/[\u0100-\uffff]/g, (unit) => '\\u' + unit.charCodeAt(0).toString(16).padStart(4, '0'));
     length += escaped.length;
     if (length > text.length * 1.5) return text;
-    // Decode ASCII bytes so the result is flat one-byte text, without slices retaining the original.
+    // Flatten Latin-1-compatible text without slices retaining the original.
     chunks.push(decoder.decode(encoder.encode(escaped)));
   }
   return chunks.join('');

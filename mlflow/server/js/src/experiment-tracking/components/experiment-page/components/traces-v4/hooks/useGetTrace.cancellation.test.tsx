@@ -33,13 +33,13 @@ describe('drawer trace request cancellation', () => {
     });
     try {
       await waitFor(() => expect(getTrace).toHaveBeenCalledTimes(1));
-      const first = jest.mocked(getTrace).mock.calls[0][3];
+      const first = jest.mocked(getTrace).mock.calls[0][3]?.signal;
       expect(first).toBeInstanceOf(AbortSignal);
       expect(first?.aborted).toBe(false);
       rerender({ id: 'tr-second' });
       await waitFor(() => expect(getTrace).toHaveBeenCalledTimes(2));
       expect(first?.aborted).toBe(true);
-      const second = jest.mocked(getTrace).mock.calls[1][3];
+      const second = jest.mocked(getTrace).mock.calls[1][3]?.signal;
       expect(second?.aborted).toBe(false);
       unmount();
       expect(second?.aborted).toBe(true);

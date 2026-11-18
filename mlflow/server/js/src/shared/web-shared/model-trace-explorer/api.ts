@@ -14,6 +14,7 @@ import type {
 } from './ModelTrace.types';
 import { fetchAPI, getAjaxUrl } from './ModelTraceExplorer.request.utils';
 import { createTraceResponseParser, TraceResponseWorkerLostError } from './traceResponseParser';
+import type { TraceResponseParseOptions } from './traceResponseParsing';
 import {
   createTraceV4SerializedLocation,
   parseTraceV4SerializedLocation,
@@ -21,7 +22,7 @@ import {
 } from './ModelTraceExplorer.utils';
 
 let traceResponseParser: ReturnType<typeof createTraceResponseParser> | undefined;
-const fetchTraceJSON = (url: string, signal?: AbortSignal) => {
+const fetchTraceJSON = (url: string, signal?: AbortSignal, options?: TraceResponseParseOptions) => {
   if (!traceResponseParser) {
     traceResponseParser = createTraceResponseParser();
     window.addEventListener(
@@ -34,12 +35,14 @@ const fetchTraceJSON = (url: string, signal?: AbortSignal) => {
     );
   }
   const parser = traceResponseParser;
-  return fetchAPI(url, 'GET', undefined, signal, (response) => parser.parse(response, signal)).catch((error) => {
-    if (error instanceof TraceResponseWorkerLostError && !signal?.aborted) {
-      return fetchAPI(url, 'GET', undefined, signal);
-    }
-    throw error;
-  });
+  return fetchAPI(url, 'GET', undefined, signal, (response) => parser.parse(response, signal, options)).catch(
+    (error) => {
+      if (error instanceof TraceResponseWorkerLostError && !signal?.aborted) {
+        return fetchAPI(url, 'GET', undefined, signal);
+      }
+      throw error;
+    },
+  );
 };
 
 export const deleteAssessment = ({ traceId, assessmentId }: { traceId: string; assessmentId: string }) =>
@@ -253,6 +256,7 @@ export const getBatchTracesV4 = async ({
   traceIds,
   traceLocation,
   signal,
+  compactPayloads,
 }: {
   /**
    * List of trace IDs to fetch.
@@ -263,6 +267,7 @@ export const getBatchTracesV4 = async ({
    */
   traceLocation: ModelTraceLocation | string;
   signal?: AbortSignal;
+  compactPayloads?: boolean;
 }) => {
   const locationString = isString(traceLocation) ? traceLocation : createTraceV4SerializedLocation(traceLocation);
 
@@ -280,7 +285,7 @@ export const getBatchTracesV4 = async ({
       trace_info: ModelTraceInfoV3;
       spans: ModelTraceSpanV3[];
     }[];
-  } = await fetchTraceJSON(urlWithParams, signal);
+  } = await fetchTraceJSON(urlWithParams, signal, { compactPayloads });
 
   return data;
 };
@@ -289,7 +294,15 @@ export const getBatchTracesV4 = async ({
  * Traces API: get a single trace (info + spans) with optional partial support. Only supported
  * by OSS SQLAlchemyStore now.
  */
-export const getExperimentTraceV3 = ({ traceId, signal }: { traceId: string; signal?: AbortSignal }) => {
+export const getExperimentTraceV3 = ({
+  traceId,
+  signal,
+  compactPayloads,
+}: {
+  traceId: string;
+  signal?: AbortSignal;
+  compactPayloads?: boolean;
+}) => {
   const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/traces/get`);
 
   const queryParams = new URLSearchParams();
@@ -297,7 +310,7 @@ export const getExperimentTraceV3 = ({ traceId, signal }: { traceId: string; sig
   queryParams.append('allow_partial', 'true');
   const urlWithParams = `${endpointPath}?${queryParams.toString()}`;
 
-  return fetchTraceJSON(urlWithParams, signal);
+  return fetchTraceJSON(urlWithParams, signal, { compactPayloads });
 };
 
 /**
@@ -308,6 +321,7 @@ const getTraceV4 = async (
   traceInput: Partial<ModelTraceInfoV3> | string,
   sqlWarehouseId?: string,
   signal?: AbortSignal,
+  options?: TraceResponseParseOptions,
 ): Promise<{
   info: ModelTraceInfoV3;
   data: {
@@ -335,6 +349,7 @@ const getTraceV4 = async (
     traceIds: [traceId],
     traceLocation: traceLocation,
     signal,
+    compactPayloads: options?.compactPayloads,
   });
 
   const trace = first(
@@ -407,13 +422,13 @@ export const setTraceTagV3 = async ({ tag, traceId }: { tag: { key: string; valu
   return fetchAPI(endpointPath, 'PATCH', tag);
 };
 
-export const getTraceV3Data = (traceId: string, signal?: AbortSignal) => {
+export const getTraceV3Data = (traceId: string, signal?: AbortSignal, options?: TraceResponseParseOptions) => {
   const endpointPath = getAjaxUrl(`ajax-api/3.0/mlflow/get-trace-artifact`);
   const searchParams = new URLSearchParams();
   searchParams.append('request_id', traceId);
   const queryString = searchParams.toString();
   const uri = `${endpointPath}?${queryString}`;
-  return fetchTraceJSON(uri, signal);
+  return fetchTraceJSON(uri, signal, options);
 };
 
 export const getTraceV3Info = (traceId: string, signal?: AbortSignal) => {
@@ -424,10 +439,10 @@ export const getTraceV3Info = (traceId: string, signal?: AbortSignal) => {
 /**
  * Combines two requests (info and data) into a single response to get the full trace.
  */
-export const getTraceV3 = async (traceId: string, signal?: AbortSignal) => {
+export const getTraceV3 = async (traceId: string, signal?: AbortSignal, options?: TraceResponseParseOptions) => {
   const [traceInfoResponse, traceDataResponse] = await Promise.all([
     getTraceV3Info(traceId, signal),
-    getTraceV3Data(traceId, signal),
+    getTraceV3Data(traceId, signal, options),
   ]);
   const traceInfo = traceInfoResponse?.trace?.trace_info;
   return {

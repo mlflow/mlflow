@@ -15,7 +15,7 @@ const scope = globalThis as unknown as {
   postMessage: (message: TraceResponseMessage) => void;
 };
 
-scope.onmessage = ({ data: { id, body } }) => {
+scope.onmessage = ({ data: { id, body, compactPayloads = false } }) => {
   try {
     const value = parseTraceResponseBody(body);
     getTraceResponseSpanContainers(value).forEach((container, index) => {
@@ -23,7 +23,7 @@ scope.onmessage = ({ data: { id, body } }) => {
       let start = 0;
       let chars = 0;
       for (let end = 0; end < spans.length; end++) {
-        spans[end] = compactTraceSpanPayloads(spans[end]);
+        if (compactPayloads) spans[end] = compactTraceSpanPayloads(spans[end]);
         const spanChars = countTraceSpanAttributeChars(spans[end]);
         if (end > start && (chars + spanChars > CHUNK_ATTRIBUTE_CHARS || end - start >= CHUNK_SPANS)) {
           scope.postMessage({ type: 'span-chunk', id, index, spans: spans.slice(start, end) });

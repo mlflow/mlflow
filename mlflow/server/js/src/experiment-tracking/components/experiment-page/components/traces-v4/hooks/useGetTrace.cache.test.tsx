@@ -41,6 +41,10 @@ describe('closed drawer trace retention', () => {
       expect(result.current.data).toEqual(MOCK_V3_TRACE);
       expect(client.getQueryData(['getTrace', 'tr-0', undefined])).toBeUndefined();
       expect(client.getQueryData(['getTrace', 'tr-7', undefined])).toEqual(MOCK_V3_TRACE);
+      expect(getTrace).toHaveBeenCalledWith('tr-7', undefined, undefined, {
+        signal: expect.any(AbortSignal),
+        compactPayloads: true,
+      });
     } finally {
       unmount();
       await act(async () => client.clear());

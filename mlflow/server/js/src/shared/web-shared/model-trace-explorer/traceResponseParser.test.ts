@@ -103,41 +103,36 @@ describe('trace response parsing', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it.each(['complete', 'abort', 'dispose'])('yields native payload compaction and handles %s', async (outcome) => {
-    parser.dispose();
-    delete (globalThis as { Worker?: unknown }).Worker;
-    parser = createTraceResponseParser();
-    let clock = 0;
-    const now = jest.spyOn(performance, 'now').mockImplementation(() => (clock += 9));
-    try {
+  it.each(['complete', 'abort', 'dispose'])(
+    'keeps native payloads unchanged without inner validation and handles %s',
+    async (outcome) => {
+      parser.dispose();
+      delete (globalThis as { Worker?: unknown }).Worker;
+      parser = createTraceResponseParser();
       const payload = JSON.stringify({ text: 'a'.repeat(600000) + ' café 日本語 🙂' });
-      const controller = new AbortController();
-      const result = parser.parse(
-        body({ spans: [{ attributes: { 'mlflow.spanInputs': payload } }] }),
-        controller.signal,
-      );
-      void result.catch(() => {});
-      await Promise.resolve();
-      expect(jest.getTimerCount()).toBe(1);
-      if (outcome === 'abort') controller.abort();
-      if (outcome === 'dispose') parser.dispose();
-      for (let i = 0; i < 8; i++) {
-        jest.runOnlyPendingTimers();
-        await Promise.resolve();
+      const parse = jest.spyOn(JSON, 'parse');
+      try {
+        const controller = new AbortController();
+        const result = parser.parse(
+          body({ spans: [{ attributes: { 'mlflow.spanInputs': payload } }] }),
+          controller.signal,
+          { compactPayloads: true },
+        );
+        if (outcome === 'abort') controller.abort();
+        if (outcome === 'dispose') parser.dispose();
+        if (outcome === 'complete') {
+          const value = (await result) as { spans: { attributes: Record<string, string> }[] };
+          expect(value.spans[0].attributes['mlflow.spanInputs']).toBe(payload);
+        } else {
+          await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+        }
+        expect(parse.mock.calls.filter(([text]) => text === payload)).toHaveLength(0);
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        parse.mockRestore();
       }
-      if (outcome === 'complete') {
-        const value = (await result) as { spans: { attributes: Record<string, string> }[] };
-        const compacted = value.spans[0].attributes['mlflow.spanInputs'];
-        expect(compacted).not.toMatch(/[\u0080-\uffff]/);
-        expect(JSON.parse(compacted)).toEqual(JSON.parse(payload));
-      } else {
-        await expect(result).rejects.toMatchObject({ name: 'AbortError' });
-      }
-      expect(jest.getTimerCount()).toBe(0);
-    } finally {
-      now.mockRestore();
-    }
-  });
+    },
+  );
 
   it('keeps small responses on this thread and posts large buffers with their transfer list', async () => {
     worker.send({ type: 'ready' });

@@ -53,7 +53,8 @@ export function useGetTrace(traceId: string, selectedSqlWarehouseId?: string, ro
 
       // Forward the row's trace info so OSS's `getTrace` can read its spans-location tag and take the
       // tracking-store `get-trace` path (rather than falling through to the artifact route).
-      return getTraceV3(parsedTrace.trace_id, rowTraceInfo, selectedSqlWarehouseId, signal);
+      // Only the drawer consumes payloads as parsed JSON; evaluation callers retain raw strings.
+      return getTraceV3(parsedTrace.trace_id, rowTraceInfo, selectedSqlWarehouseId, { signal, compactPayloads: true });
     },
     [parsedTrace, getTraceV4, selectedSqlWarehouseId, rowTraceInfo],
   );

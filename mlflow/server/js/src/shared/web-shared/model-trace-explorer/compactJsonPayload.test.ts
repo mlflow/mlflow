@@ -35,7 +35,8 @@ describe('compact JSON payload storage', () => {
       String.raw` \" \\ \u1234" }`;
     const result = compact(text);
     expect(result).not.toBe(text);
-    expect(result).not.toMatch(/[\u0080-\uffff]/);
+    expect(result).not.toMatch(/[\u0100-\uffff]/);
+    expect(result).toContain('café');
     expect(result).toContain('9007199254740993');
     expect(result).toContain('"zero": -0, "exp": 1.2300e+09');
     expect(JSON.parse(result)).toEqual(JSON.parse(text));
