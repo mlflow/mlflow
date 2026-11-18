@@ -283,7 +283,16 @@ def test_schema_rejects_malformed_pr_updates(
         ({"title": "After"}, {"title": "Concurrent"}, False, None, "PR title changed", {}),
         ({"title": "After"}, {}, True, "title", "PR title changed", {}),
         ({"title": "After"}, {}, True, "stale", None, {"title": "After"}),
+        (
+            {"title": "After"},
+            {},
+            True,
+            "reverted",
+            "PR head changed before the review request",
+            {"title": "After"},
+        ),
         ({"title": "After"}, {}, True, "head", "PR changed before publishing", {}),
+        ({"title": "After"}, {}, True, "branch", "PR changed before publishing", {}),
         ({"body": "Updated"}, {}, False, None, "GitHub did not apply", {"body": "Updated"}),
     ],
     ids=[
@@ -296,7 +305,9 @@ def test_schema_rejects_malformed_pr_updates(
         "concurrent-edit",
         "concurrent-edit-after-patch",
         "stale-head",
+        "branch-reverted-before-review-request",
         "concurrent-head-change",
+        "concurrent-branch-change",
         "failed-write",
     ],
 )
@@ -323,6 +334,8 @@ def test_publish_pr_update(
     endpoint = f"repos/{repo}/pulls/1"
     review_endpoint = f"{endpoint}/reviews/12"
     reply_endpoint = f"{endpoint}/comments/34/replies"
+    ref_endpoint = f"repos/{repo}/git/ref/heads/{context['head_ref']}"
+    issue_comments = f"repos/{repo}/issues/1/comments"
     pr = {
         **context["pr"],
         **current,
@@ -337,6 +350,7 @@ def test_publish_pr_update(
         },
     }
     review = {"state": "APPROVED", "user": {"login": "maintainer"}}
+    expect_feedback = error is None or after_patch == "reverted"
 
     def github_api(
         endpoint_arg: str,
@@ -345,29 +359,31 @@ def test_publish_pr_update(
         method: str = "POST",
     ) -> Any:
         if endpoint_arg == endpoint:
-            if method == "PATCH" and error is None:
+            if method == "PATCH" and expect_feedback:
                 assert data is not None
-                if after_patch == "stale":
-                    assert pr["head"]["sha"] == context["head_sha"]
-                    pr["head"]["sha"] = "new-sha"
                 pr.update(data)
             return pr
+        if endpoint_arg == ref_endpoint:
+            sha = context["head_sha"] if after_patch == "reverted" else "new-sha"
+            return {"object": {"sha": sha}}
         if endpoint_arg == review_endpoint:
             return review
         if endpoint_arg == "graphql":
             return {"data": {"resolveReviewThread": {"thread": {"isResolved": True}}}}
         if endpoint_arg == "--paginate":
             return [[]]
-        assert endpoint_arg in {reply_endpoint, f"repos/{repo}/issues/1/comments"}
+        assert endpoint_arg in {reply_endpoint, issue_comments}
         return None
 
     def update_branch(
         repo: str, review_id: str, context: dict[str, Any], head: str, tree: str
     ) -> str:
-        if after_patch != "stale":
+        if after_patch not in {"stale", "reverted"}:
             pr["head"]["sha"] = "different-sha" if after_patch == "head" else "new-sha"
         if after_patch == "title":
             pr["title"] = "Concurrent"
+        if after_patch == "branch":
+            pr["head"]["ref"] = "triage/another-branch"
         return "new-sha"
 
     api = Mock(side_effect=github_api)
@@ -399,7 +415,15 @@ def test_publish_pr_update(
     )
     replies = [entry for entry in api.call_args_list if entry.args[0] == reply_endpoint]
     closures = [entry for entry in api.call_args_list if entry.args[0] == "graphql"]
-    if error is None:
+    ref_reads = [entry for entry in api.call_args_list if entry.args[0] == ref_endpoint]
+    assert ref_reads == ([call(ref_endpoint)] if after_patch in {"stale", "reverted"} else [])
+    review_requests = [entry for entry in api.call_args_list if entry.args[0] == issue_comments]
+    if error is None and with_patch:
+        assert len(review_requests) == 1
+        assert review_requests[0].kwargs["data"]["body"].startswith("/review\n")
+    else:
+        assert review_requests == []
+    if expect_feedback:
         timeline.assert_called_once_with(repo, "1", "12")
         assert len(replies) == len(closures) == 1
         assert ("[Fix commit]" in str(replies[0].kwargs["data"]["body"])) == (
