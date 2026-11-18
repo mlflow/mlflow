@@ -164,7 +164,7 @@ export const ModelTraceExplorerViewStateProvider = ({
 
   const nodeMap = useMemo(() => getTimelineTreeNodesMap(topLevelNodes), [topLevelNodes]);
   const selectedSpanOnRender =
-    (selectedSpanIdOnRender && Object.prototype.hasOwnProperty.call(nodeMap, selectedSpanIdOnRender)
+    (selectedSpanIdOnRender && Object.hasOwn(nodeMap, selectedSpanIdOnRender)
       ? nodeMap[selectedSpanIdOnRender]
       : undefined) ??
     (comparisonForest && selectedSpanIdOnRender

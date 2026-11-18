@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react';
 
-import type { ModelTrace, ModelTraceSpanV2 } from './ModelTrace.types';
+import type { ModelTrace, ModelTraceComparisonRole, ModelTraceSpanV2 } from './ModelTrace.types';
 import {
   ModelTraceExplorerViewStateProvider,
   useModelTraceExplorerViewState,
@@ -103,4 +103,49 @@ describe('trace span selection across content updates', () => {
     expect(screen.getByLabelText('selected span')).toHaveTextContent('parent');
     expect(screen.getByLabelText('selected title')).toHaveTextContent('updated parent');
   });
+
+  it('adopts a pending link once even after an interim manual selection', () => {
+    const { rerender } = render(explorer([root, parent]));
+    fireEvent.click(screen.getByRole('button', { name: 'select parent' }));
+    rerender(explorer([root, parent, leaf]));
+    expect(screen.getByLabelText('selected span')).toHaveTextContent('leaf');
+    fireEvent.click(screen.getByRole('button', { name: 'select parent' }));
+    rerender(explorer([root, { ...parent, name: 'updated parent' }, leaf]));
+    expect(screen.getByLabelText('selected span')).toHaveTextContent('parent');
+    expect(screen.getByLabelText('selected title')).toHaveTextContent('updated parent');
+  });
+
+  it.each<ModelTraceComparisonRole>(['baseline', 'candidate'])(
+    'adopts a late comparison source link as its display node (primary: %s)',
+    (comparisonRole) => {
+      const comparison = (spans: ModelTraceSpanV2[]) => {
+        const baseline = trace(spans);
+        const candidate = trace(
+          spans.map((node) => ({
+            ...node,
+            context: { ...node.context, span_id: `candidate-${node.context.span_id}` },
+            parent_id: node.parent_id ? `candidate-${node.parent_id}` : null,
+          })),
+        );
+        return (
+          <ModelTraceExplorerViewStateProvider
+            modelTrace={comparisonRole === 'baseline' ? baseline : candidate}
+            comparisonModelTrace={comparisonRole === 'baseline' ? candidate : baseline}
+            comparisonRole={comparisonRole}
+            selectedSpanIdOnRender="candidate-leaf"
+            assessmentsPaneEnabled={false}
+          >
+            <Selection />
+          </ModelTraceExplorerViewStateProvider>
+        );
+      };
+      const { rerender } = render(comparison([root, parent]));
+      expect(screen.getByLabelText('selected span')).toHaveTextContent(/^root$/);
+      rerender(comparison([root, parent, leaf]));
+      expect(screen.getByLabelText('selected span')).toHaveTextContent(/^leaf$/);
+      fireEvent.click(screen.getByRole('button', { name: 'select parent' }));
+      rerender(comparison([root, parent, leaf]));
+      expect(screen.getByLabelText('selected span')).toHaveTextContent(/^parent$/);
+    },
+  );
 });
