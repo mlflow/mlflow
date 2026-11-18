@@ -18,7 +18,6 @@ export function SnippetCopyAction({ copyText, onClick, ...props }: SnippetCopyAc
 
   return (
     <SnippetActionButton
-      aria-label={ariaLabel}
       tooltipMessage={tooltipMessage}
       aria-label={ariaLabel}
       icon={actionIcon}

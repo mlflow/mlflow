@@ -88,6 +88,39 @@ describe('collapsed YAML serialization', () => {
     matchIndex: 0,
   };
 
+  it('reuses a provider-free full YAML result across Copy, expansion and search', async () => {
+    const data = JSON.stringify(records);
+    const { rerender } = render(
+      <ModelTraceExplorerCodeSnippetBody data={data} renderMode={CodeSnippetRenderMode.YAML} />,
+      { wrapper: Wrapper },
+    );
+    const fullDumps = () =>
+      jest.mocked(dump).mock.calls.filter(([value]: unknown[]) => Array.isArray(value) && value.length === 500);
+    expect(fullDumps()).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(fullDumps()).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'See more' }));
+    expect(screen.getByText(/record499/)).toBeInTheDocument();
+    expect(fullDumps()).toHaveLength(1);
+    await userEvent.click(screen.getByRole('button', { name: 'See less' }));
+    rerender(
+      <ModelTraceExplorerCodeSnippetBody
+        data={data}
+        renderMode={CodeSnippetRenderMode.YAML}
+        searchFilter="record499"
+        activeMatch={activeMatch}
+      />,
+    );
+    expect(screen.getByText('record499')).toBeInTheDocument();
+    expect(fullDumps()).toHaveLength(1);
+    expect(global.navigator.clipboard.writeText).toHaveBeenLastCalledWith(
+      jest
+        .requireActual<typeof import('js-yaml')>('js-yaml')
+        .dump(records, { noRefs: true, lineWidth: 120, sortKeys: false })
+        .trimEnd(),
+    );
+  });
+
   it('shares the full dump across search, expansion and remounts under the pane cache', async () => {
     const data = JSON.stringify(records);
     const CachedWrapper = ({ children }: { children: React.ReactNode }) => (

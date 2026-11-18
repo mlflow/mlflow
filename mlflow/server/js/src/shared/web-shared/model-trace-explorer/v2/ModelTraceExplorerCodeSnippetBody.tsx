@@ -46,26 +46,20 @@ export function ModelTraceExplorerCodeSnippetBody({
   const yamlPreview = useCachedPayloadResult('yaml-preview', needsPreview ? data : undefined, () =>
     needsPreview ? getYamlCollectionPreview(data, YAML_MAX_LINES_FOR_PREVIEW, YAML_MAX_CHARS_FOR_PREVIEW) : undefined,
   );
-  const eagerYaml = useCachedPayloadResult('yaml', isYamlRenderMode && !yamlPreview ? data : undefined, () =>
-    isYamlRenderMode && !yamlPreview ? formatJsonStringAsYaml(data) : data,
-  );
+  const eagerYaml = isYamlRenderMode && !yamlPreview ? getFullYaml() : data;
   const isPartialYaml = yamlPreview?.isComplete === false;
   const isSearching = Boolean(searchFilter) && !isNil(activeMatch);
   const needsSearchYaml = useMemo(
     () => isPartialYaml && isSearching && yamlJsonMayContain(data, searchFilter),
     [isPartialYaml, isSearching, data, searchFilter],
   );
-  const searchedYaml = useCachedPayloadResult('yaml', needsSearchYaml ? data : undefined, () =>
-    needsSearchYaml ? formatJsonStringAsYaml(data) : '',
-  );
+  const searchedYaml = needsSearchYaml ? getFullYaml() : '';
   const searchableData = isYamlRenderMode ? (isPartialYaml ? searchedYaml : (yamlPreview?.text ?? eagerYaml)) : data;
   const containsMatches = isSearching && searchableData.toLowerCase().includes(searchFilter);
   const [isContentLong, setIsContentLong] = useState(false);
   const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
   const needsExpandedYaml = isPartialYaml && expanded && !needsSearchYaml;
-  const expandedYaml = useCachedPayloadResult('yaml', needsExpandedYaml ? data : undefined, () =>
-    needsExpandedYaml ? formatJsonStringAsYaml(data) : '',
-  );
+  const expandedYaml = needsExpandedYaml ? getFullYaml() : '';
   const yamlData = needsSearchYaml ? searchedYaml : needsExpandedYaml ? expandedYaml : (yamlPreview?.text ?? eagerYaml);
   const hasPartialPreview = isPartialYaml && !needsSearchYaml && !needsExpandedYaml;
   const snippetRef = useRef<HTMLPreElement>(null);
