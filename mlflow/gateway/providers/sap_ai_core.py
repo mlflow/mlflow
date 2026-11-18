@@ -38,6 +38,18 @@ _FORWARDED_PARAMS = frozenset({
     "seed",
 })
 
+# Tool-calling keys each role keeps in the template. Orchestration v2 rejects message keys
+# its schema doesn't list, such as ``name`` on tool messages.
+_TEMPLATE_TOOL_CALL_KEYS = {"assistant": ("tool_calls",), "tool": ("tool_call_id",)}
+
+
+def _to_template_message(message: dict[str, Any]) -> dict[str, Any]:
+    template_message = {"role": message["role"], "content": message.get("content") or ""}
+    for key in _TEMPLATE_TOOL_CALL_KEYS.get(message["role"], ()):
+        if message.get(key) is not None:
+            template_message[key] = message[key]
+    return template_message
+
 
 class SapAiCoreConfig(ConfigModel):
     """Configuration for the SAP AI Core Orchestration v2 provider.
@@ -81,11 +93,7 @@ class SapAiCoreAdapter(ProviderAdapter):
                 params[key] = payload[key]
 
         prompt_templating: dict[str, Any] = {
-            "prompt": {
-                "template": [
-                    {"role": m["role"], "content": m.get("content") or ""} for m in messages
-                ]
-            },
+            "prompt": {"template": [_to_template_message(m) for m in messages]},
             "model": {
                 "name": model_name,
                 **({"params": params} if params else {}),

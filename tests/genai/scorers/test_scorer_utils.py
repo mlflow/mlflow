@@ -19,6 +19,7 @@ from mlflow.genai.scorers.scorer_utils import (
     build_gateway_model,
     extract_endpoint_ref,
     extract_model_from_serialized_scorer,
+    find_custom_scorer_without_source,
     get_scorer_definition_digest,
     get_tool_call_signature,
     is_gateway_model,
@@ -1035,3 +1036,28 @@ def test_definition_digest_of_a_user_scorer_subclass_uses_its_class_source():
 )
 def test_definition_digest_is_none_when_the_definition_cannot_be_hashed(unhashable):
     assert get_scorer_definition_digest(unhashable) is None
+
+
+@pytest.mark.parametrize(
+    ("serialized", "expected"),
+    [
+        ({"name": "ok", "call_source": "return 1", "call_signature": "()"}, None),
+        ({"name": "builtin", "builtin_scorer_class": "Safety"}, None),
+        ({"name": "no_source", "call_source": "", "call_signature": "()"}, "no_source"),
+        ({"name": "blank", "call_source": "  \n ", "call_signature": "()"}, "blank"),
+        (
+            {
+                "name": "ensemble",
+                "ensemble_scorer_data": {
+                    "scorers": [
+                        {"name": "ok", "call_source": "return 1"},
+                        {"name": "inner", "call_source": ""},
+                    ]
+                },
+            },
+            "inner",
+        ),
+    ],
+)
+def test_find_custom_scorer_without_source(serialized, expected):
+    assert find_custom_scorer_without_source(serialized) == expected

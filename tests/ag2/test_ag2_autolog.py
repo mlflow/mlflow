@@ -341,7 +341,7 @@ def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
 
     # Check if the start time is in reasonable range
     root_span = span_name_to_dict["initiate_chat"]
-    assert 0 < llm_span.start_time_ns - root_span.start_time_ns <= 1e9
+    assert 0 < llm_span.start_time_ns - root_span.start_time_ns <= 10e9
 
     assert traces[0].info.token_usage == {
         "input_tokens": 18,

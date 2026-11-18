@@ -129,6 +129,23 @@ describe('useEditApiKeyModal', () => {
     expect(result.current.isFormValid).toBe(true);
   });
 
+  test('isFormValid is false when an API key contains non-ASCII characters', () => {
+    const { result } = renderHook(
+      () => useEditApiKeyModal({ secret: mockSecret, onClose: mockOnClose, onSuccess: mockOnSuccess }),
+      { wrapper: createWrapper() },
+    );
+
+    act(() => {
+      result.current.handleFormDataChange({ ...result.current.formData, secretFields: { api_key: '가나다' } });
+    });
+    expect(result.current.isFormValid).toBe(false);
+
+    act(() => {
+      result.current.handleFormDataChange({ ...result.current.formData, secretFields: { api_key: 'rkskek' } });
+    });
+    expect(result.current.isFormValid).toBe(true);
+  });
+
   test('resetForm reverts to initial form data', () => {
     const { result } = renderHook(
       () => useEditApiKeyModal({ secret: mockSecret, onClose: mockOnClose, onSuccess: mockOnSuccess }),

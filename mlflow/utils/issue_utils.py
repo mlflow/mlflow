@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import re
+from dataclasses import dataclass
 
 from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.exceptions import MlflowException
@@ -84,23 +85,51 @@ def issue_query_fingerprint(**query) -> str:
     return hashlib.sha256(json.dumps(query, sort_keys=True).encode()).hexdigest()
 
 
-def issue_page_offset(token: str | None, fingerprint: str, *, allow_legacy: bool) -> int:
+@dataclass
+class IssuePagePosition:
+    offset: int = 0
+    values: list[str | int] | None = None
+
+
+def issue_page_position(
+    token: str | None, fingerprint: str, *, allow_legacy: bool
+) -> IssuePagePosition:
     if not token:
-        return 0
+        return IssuePagePosition()
     try:
         data = json.loads(base64.b64decode(token, validate=True))
         if not isinstance(data, dict):
             raise ValueError()
+        if data.get("query") != fingerprint and not (allow_legacy and "query" not in data):
+            raise ValueError()
+        if "version" in data:
+            values = data.get("after")
+            if (
+                data["version"] != 2
+                or data.get("query") != fingerprint
+                or not isinstance(values, list)
+                or not 2 <= len(values) <= 101
+                or any(
+                    not (type(value) is int and -(2**63) <= value < 2**63)
+                    and not (isinstance(value, str) and len(value) <= 250)
+                    for value in values
+                )
+            ):
+                raise ValueError()
+            return IssuePagePosition(values=values)
         offset = data["offset"]
         if type(offset) is not int or offset < 0:
             raise ValueError()
-        if data.get("query") != fingerprint and not (allow_legacy and "query" not in data):
-            raise ValueError()
-        return offset
+        return IssuePagePosition(offset=offset)
     except (ValueError, TypeError, KeyError):
         raise MlflowException.invalid_parameter_value(
             "Invalid page token or token does not match the issue query"
         )
+
+
+def issue_keyset_token(values: list[str | int], fingerprint: str) -> str:
+    data = {"version": 2, "after": values, "query": fingerprint}
+    return base64.b64encode(json.dumps(data).encode()).decode()
 
 
 def issue_page_token(offset: int, fingerprint: str | None) -> str:

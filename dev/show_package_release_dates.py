@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import json
 import re
@@ -33,9 +34,13 @@ def format_age_past_cooldown(release_date: datetime | None, cooldown_days: int) 
     return f"{delta.total_seconds() / 86400:.1f}d"
 
 
-async def main() -> None:
+async def main(output_json: Path | None = None) -> None:
     cooldown_days = get_cooldown_days()
     distributions = get_distributions()
+    if output_json is not None:
+        output_json.write_text(
+            json.dumps({"packages": dict(distributions)}, indent=2, sort_keys=True) + "\n"
+        )
     raw = await get_packages([name for name, _ in distributions], return_exceptions=True)
     pkgs: list[Package | None] = [r if isinstance(r, Package) else None for r in raw]
     results: list[datetime | None] = [
@@ -68,4 +73,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-json", type=Path)
+    args = parser.parse_args()
+    asyncio.run(main(args.output_json))

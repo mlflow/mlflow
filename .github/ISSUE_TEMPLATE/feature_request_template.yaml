@@ -1,19 +1,17 @@
+# Follow https://github.com/mlflow/mlflow/blob/HEAD/.github/ISSUE_TEMPLATE/feature_request_template.yaml when filing an issue, as your local checkout may have an older template.
+# Please wait for a maintainer to apply the `ready` label before opening a PR for this issue.
 name: Feature Request
 description: Use this template for feature and enhancement proposals.
 labels: "enhancement"
 title: "[FR]"
 
 body:
-  - type: markdown
+  - type: checkboxes
     attributes:
-      value: |
-        > [!WARNING]
-        > Before submitting a PR, please make sure that:
-        > - A maintainer has triaged this issue and applied the `ready` label
-        > - This issue has no assignee
-        > - No duplicate PR exists
-        >
-        > PRs not meeting these requirements may be automatically closed.
+      label: PR policy
+      options:
+        - label: I understand that PRs for this issue are closed automatically unless a maintainer has applied the `ready` label, the issue isn't assigned to someone else, and no open PR already links it.
+          required: true
   - type: markdown
     attributes:
       value: |

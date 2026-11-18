@@ -107,6 +107,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import _UNPROCESSED_REQUEST_RESPONSE_CODES
 
 from tests.helper_functions import mock_http_200
 from tests.resources.data.dataset_source import SampleDatasetSource
@@ -147,15 +148,22 @@ def spark_session(request):
         yield spark
 
 
-def _args(endpoint, method, json_body, host_creds, extra_headers):
+def _args(endpoint, method, json_body, host_creds, extra_headers, retries_unprocessed_only=False):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/2.0/mlflow/unity-catalog/{endpoint}",
         "method": method,
+        "raise_on_status": False,
         "extra_headers": extra_headers,
     }
     if extra_headers is None:
         del res["extra_headers"]
+    if retries_unprocessed_only:
+        res |= {
+            "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+            "retry_read_errors": False,
+            "retry_on_retry_after": False,
+        }
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -170,10 +178,13 @@ def _verify_requests(
     proto_message,
     host_creds=_REGISTRY_HOST_CREDS,
     extra_headers=None,
+    retries_unprocessed_only=False,
 ):
     json_body = message_to_json(proto_message)
-    call_args = _args(endpoint, method, json_body, host_creds, extra_headers)
-    http_request.assert_any_call(**(call_args))
+    call_args = _args(
+        endpoint, method, json_body, host_creds, extra_headers, retries_unprocessed_only
+    )
+    http_request.assert_any_call(**call_args)
 
 
 def _expected_unsupported_method_error_message(method):
@@ -201,6 +212,7 @@ def test_create_registered_model(mock_http, store):
             description=description,
             tags=uc_registered_model_tag_from_mlflow_tags(tags),
         ),
+        retries_unprocessed_only=True,
     )
 
 
@@ -1643,7 +1655,8 @@ def _assert_create_model_version_endpoints_called(
     `request_mock`
     """
     uc_tags = uc_model_version_tag_from_mlflow_tags(tags) if tags is not None else []
-    for endpoint, proto_message in [
+    # Creating and finalizing a version are retried only when the server didn't process the request.
+    for endpoint, proto_message, retries_unprocessed_only in [
         (
             "model-versions/create",
             CreateModelVersionRequest(
@@ -1657,16 +1670,19 @@ def _assert_create_model_version_endpoints_called(
                 model_version_dependencies=model_version_dependencies,
                 model_id=model_id,
             ),
+            True,
         ),
         (
             "model-versions/generate-temporary-credentials",
             GenerateTemporaryModelVersionCredentialsRequest(
                 name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
             ),
+            False,
         ),
         (
             "model-versions/finalize",
             FinalizeModelVersionRequest(name=name, version=version),
+            True,
         ),
     ]:
         if endpoint == "model-versions/create" and extra_headers is not None:
@@ -1676,6 +1692,7 @@ def _assert_create_model_version_endpoints_called(
                 method="POST",
                 proto_message=proto_message,
                 extra_headers=extra_headers,
+                retries_unprocessed_only=retries_unprocessed_only,
             )
         else:
             _verify_requests(
@@ -1683,6 +1700,7 @@ def _assert_create_model_version_endpoints_called(
                 endpoint=endpoint,
                 method="POST",
                 proto_message=proto_message,
+                retries_unprocessed_only=retries_unprocessed_only,
             )
 
 
@@ -1790,6 +1808,172 @@ def test_create_model_version_local_model_path(store, local_model_dir):
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
         )
+
+
+def _set_volume_artifacts_path(model_dir, path):
+    mlmodel_path = model_dir.joinpath(MLMODEL_FILE_NAME)
+    mlmodel = yaml.safe_load(mlmodel_path.read_text())
+    mlmodel["metadata"] = {"volume_artifacts_path": path}
+    mlmodel_path.write_text(yaml.dump(mlmodel))
+
+
+_LOGGED_MODEL_SOURCE = "models:/m-0123456789abcdef0123456789abcdef"
+
+
+def _create_model_version_recording_steps(
+    store, local_model_dir, steps=None, source="s3://model/version/source"
+):
+    """Registers ``local_model_dir`` with REST calls and uploads mocked; returns the steps taken."""
+    model_name = "model_1"
+    version = "1"
+    steps = [] if steps is None else steps
+    request = get_request_mock(
+        name=model_name,
+        version=version,
+        temp_credentials=TemporaryCredentials(
+            aws_temp_credentials=AwsCredentials(
+                access_key_id="fake-key", secret_access_key="secret-key", session_token="token"
+            )
+        ),
+        storage_location="s3://blah",
+        source=source,
+    )
+
+    def recording_request(*args, **kwargs):
+        endpoint = kwargs.get("endpoint", args[1] if len(args) > 1 else "")
+        if endpoint.endswith("/model-versions/create"):
+            steps.append("create")
+        elif endpoint.endswith("/model-versions/finalize"):
+            steps.append("finalize")
+        return request(*args, **kwargs)
+
+    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
+    mock_artifact_repo.log_artifacts.side_effect = lambda **_: steps.append("upload")
+    rest_store = "mlflow.store._unity_catalog.registry.rest_store"
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request", side_effect=recording_request),
+        mock.patch(
+            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
+            return_value=mock_artifact_repo,
+        ),
+        mock.patch(
+            f"{rest_store}.start_model_serving_staging",
+            side_effect=lambda *_: steps.append("stage") or {"state": "IN_PROGRESS"},
+        ) as start_copy,
+        mock.patch(
+            f"{rest_store}.wait_for_model_artifact_staging",
+            side_effect=lambda *_: steps.append("wait"),
+        ) as wait_copy,
+    ):
+        store.create_model_version(name=model_name, source=source, local_model_path=local_model_dir)
+    return steps, start_copy, wait_copy
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        _LOGGED_MODEL_SOURCE,
+        "dbfs:/databricks/mlflow-tracking/1/logged_models/m-0123456789abcdef/artifacts",
+    ],
+)
+def test_create_model_version_with_volume_weights_finalizes_after_the_copy(
+    store, local_model_dir, source
+):
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+
+    steps, start_copy, wait_copy = _create_model_version_recording_steps(
+        store, local_model_dir, source=source
+    )
+
+    assert steps == ["create", "stage", "upload", "wait", "finalize"]
+    start_copy.assert_called_once_with("model_1", "1", ANY)
+    wait_copy.assert_called_once_with("model_1", "1", {"state": "IN_PROGRESS"}, ANY, 7200)
+
+
+def test_create_model_version_without_volume_weights_does_not_stage(store, local_model_dir):
+    steps, start_copy, wait_copy = _create_model_version_recording_steps(store, local_model_dir)
+
+    assert steps == ["create", "upload", "finalize"]
+    start_copy.assert_not_called()
+    wait_copy.assert_not_called()
+
+
+def test_create_model_version_rejects_a_malformed_volume_path_before_creating(
+    store, local_model_dir
+):
+    _set_volume_artifacts_path(local_model_dir, "/dbfs/weights/qwen")
+    steps = []
+
+    with pytest.raises(MlflowException, match="must be a Unity Catalog volume path"):
+        _create_model_version_recording_steps(store, local_model_dir, steps)
+
+    assert steps == []
+
+
+def test_create_model_version_rejects_a_bad_staging_timeout_before_creating(
+    store, local_model_dir, monkeypatch
+):
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", "2h")
+    steps = []
+
+    with pytest.raises(MlflowException, match="must be a positive whole number of seconds"):
+        _create_model_version_recording_steps(
+            store, local_model_dir, steps, source=_LOGGED_MODEL_SOURCE
+        )
+
+    assert steps == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    ["s3://model/version/source", "runs:/abc123/model", "/local/model", "models:/c.s.m"],
+)
+def test_create_model_version_rejects_a_volume_model_without_a_logged_model_before_creating(
+    store, local_model_dir, source
+):
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+    steps = []
+
+    with pytest.raises(MlflowException, match="must be registered from its logged model"):
+        _create_model_version_recording_steps(store, local_model_dir, steps, source=source)
+
+    assert steps == []
+
+
+@pytest.mark.parametrize("source", ["models:/c.s.m/3", "models:/c.s.m@champion"])
+def test_create_model_version_copies_a_volume_model_version_without_staging(
+    store, local_model_dir, source, monkeypatch
+):
+    # A copied version's files already hold the weights staged into the source version.
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+    local_model_dir.joinpath("artifacts", "qwen").mkdir(parents=True)
+    local_model_dir.joinpath("artifacts", "qwen", "model.safetensors").write_text("weights")
+    # A deliberately invalid timeout: nothing is staged, so it isn't checked.
+    monkeypatch.setenv("MLFLOW_DATABRICKS_VOLUME_WEIGHTS_STAGING_TIMEOUT", "2h")
+
+    steps, start_copy, wait_copy = _create_model_version_recording_steps(
+        store, local_model_dir, source=source
+    )
+
+    assert steps == ["create", "upload", "finalize"]
+    start_copy.assert_not_called()
+    wait_copy.assert_not_called()
+
+
+def test_create_model_version_rejects_a_copy_without_the_weights_before_creating(
+    store, local_model_dir
+):
+    # For example a version copied from a registry that doesn't stage the weights.
+    _set_volume_artifacts_path(local_model_dir, "/Volumes/main/default/weights/qwen")
+    steps = []
+
+    with pytest.raises(MlflowException, match="doesn't contain the weights"):
+        _create_model_version_recording_steps(
+            store, local_model_dir, steps, source="models:/c.s.m/3"
+        )
+
+    assert steps == []
 
 
 def test_create_model_version_doesnt_redownload_model_from_local_dir(store, local_model_dir):

@@ -437,6 +437,17 @@ def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
     assert otel_proto.events[0].time_unix_nano == 1500000000
 
 
+@pytest.mark.parametrize("output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]"])
+def test_span_otel_proto_roundtrip_keeps_string_outputs_and_span_type(output):
+    with mlflow.start_span("span", span_type=SpanType.CHAIN) as span:
+        span.set_outputs(output)
+
+    restored = Span.from_otel_proto(span.to_otel_proto())
+
+    assert restored.outputs == output
+    assert restored.span_type == SpanType.CHAIN
+
+
 def test_span_from_otel_proto_conversion():
     # Create OTel proto span
     otel_proto = OTelProtoSpan()
@@ -855,6 +866,67 @@ def test_span_from_dict_supports_both_status_code_formats():
     span_dict["status"]["code"] = "ERROR"
     recovered = Span.from_dict(span_dict)
     assert recovered.status.status_code == SpanStatusCode.ERROR
+
+
+@pytest.mark.parametrize(
+    ("proto_kind", "sdk_kind"),
+    [
+        (OTelProtoSpan.SPAN_KIND_INTERNAL, trace_api.SpanKind.INTERNAL),
+        (OTelProtoSpan.SPAN_KIND_SERVER, trace_api.SpanKind.SERVER),
+        (OTelProtoSpan.SPAN_KIND_CLIENT, trace_api.SpanKind.CLIENT),
+        (OTelProtoSpan.SPAN_KIND_PRODUCER, trace_api.SpanKind.PRODUCER),
+        (OTelProtoSpan.SPAN_KIND_CONSUMER, trace_api.SpanKind.CONSUMER),
+    ],
+)
+def test_span_kind_round_trip(proto_kind, sdk_kind):
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "span"
+    otel_proto.kind = proto_kind
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    span = Span.from_otel_proto(otel_proto)
+    assert span._span.kind == sdk_kind
+
+    span_dict = span.to_dict()
+    assert span_dict["kind"] == OTelProtoSpan.SpanKind.Name(proto_kind)
+
+    recovered = Span.from_dict(span_dict)
+    assert recovered._span.kind == sdk_kind
+    assert recovered.to_otel_proto().kind == proto_kind
+
+    lazy_span = LazySpan.from_stored_content(json.dumps(span_dict))
+    assert lazy_span.to_otel_proto().kind == proto_kind
+
+
+def test_span_from_otel_proto_maps_unspecified_kind_to_internal():
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.name = "span"
+    otel_proto.kind = OTelProtoSpan.SPAN_KIND_UNSPECIFIED
+
+    span = Span.from_otel_proto(otel_proto)
+    assert span._span.kind == trace_api.SpanKind.INTERNAL
+    assert span.to_dict()["kind"] == "SPAN_KIND_INTERNAL"
+    assert span.to_otel_proto().kind == OTelProtoSpan.SPAN_KIND_INTERNAL
+
+
+def test_span_from_dict_without_kind_defaults_to_internal():
+    with mlflow.start_span("span") as span:
+        pass
+
+    span_dict = span.to_dict()
+    assert span_dict["kind"] == "SPAN_KIND_INTERNAL"
+
+    # Spans stored before the kind was serialized, and spans logged by the TypeScript SDK,
+    # have no "kind" key.
+    del span_dict["kind"]
+    recovered = Span.from_dict(span_dict)
+    assert recovered._span.kind == trace_api.SpanKind.INTERNAL
+    assert recovered.to_otel_proto().kind == OTelProtoSpan.SPAN_KIND_INTERNAL
 
 
 def test_load_from_old_span_dict():

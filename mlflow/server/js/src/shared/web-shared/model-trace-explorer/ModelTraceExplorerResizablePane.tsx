@@ -1,10 +1,11 @@
 import { Global } from '@emotion/react';
-import { clamp } from 'lodash';
+import { clamp, uniqueId } from 'lodash';
 import React, { forwardRef, useCallback, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { ResizableBox } from 'react-resizable';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
+import { useIntl } from 'react-intl';
 
 import { useResizeObserver } from '../hooks/useResizeObserver';
 
@@ -16,6 +17,7 @@ interface ModelTraceExplorerResizablePaneProps {
   leftMinWidth: number;
   rightChild: React.ReactNode;
   rightMinWidth: number;
+  resizeLabel?: string;
   onRatioChange?: (ratio: number) => void;
 }
 
@@ -39,11 +41,13 @@ const ModelTraceExplorerResizablePane = forwardRef<
 >((props, ref) => {
   const { initialRatio, paneWidth, setPaneWidth, leftChild, leftMinWidth, rightChild, rightMinWidth, onRatioChange } =
     props;
+  const intl = useIntl();
+  const [paneId] = useState(() => uniqueId('resizable-pane-'));
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const containerWidth = useResizeObserver({ ref: containerRef })?.width;
   // if container width is not available, don't set a max width
-  const maxWidth = (containerWidth ?? Infinity) - rightMinWidth;
+  const maxWidth = Math.max(leftMinWidth, (containerWidth ?? Infinity) - rightMinWidth);
 
   const ratio = useRef(initialRatio);
   const { theme } = useDesignSystemTheme();
@@ -60,6 +64,15 @@ const ModelTraceExplorerResizablePane = forwardRef<
   );
 
   const onRatioChangeDebounced = useDebouncedCallback(onRatioChange ?? (() => {}), 200);
+
+  const resizePane = (width: number) => {
+    const clampedSize = clamp(width, leftMinWidth, maxWidth);
+    setPaneWidth(clampedSize);
+    if (containerWidth) {
+      ratio.current = clampedSize / containerWidth;
+      onRatioChangeDebounced(ratio.current);
+    }
+  };
 
   const getContainerWidth = useCallback(() => containerWidth, [containerWidth]);
 
@@ -101,6 +114,34 @@ const ModelTraceExplorerResizablePane = forwardRef<
         handle={
           <div css={{ width: 0, position: 'relative' }}>
             <div
+              role="separator"
+              // A focusable separator is the WAI-ARIA window splitter pattern.
+              // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+              tabIndex={0}
+              aria-label={
+                props.resizeLabel ??
+                intl.formatMessage({
+                  defaultMessage: 'Resize panes',
+                  description: 'Accessible label for the trace explorer pane divider',
+                })
+              }
+              aria-controls={paneId}
+              aria-orientation="vertical"
+              aria-valuemin={leftMinWidth}
+              aria-valuemax={Number.isFinite(maxWidth) ? maxWidth : undefined}
+              aria-valuenow={Math.round(paneWidth)}
+              onKeyDown={(event) => {
+                const width = {
+                  ArrowLeft: paneWidth - 20,
+                  ArrowRight: paneWidth + 20,
+                  Home: leftMinWidth,
+                  End: maxWidth,
+                }[event.key];
+                if (width !== undefined && Number.isFinite(width)) {
+                  event.preventDefault();
+                  resizePane(width);
+                }
+              }}
               css={{
                 position: 'relative',
                 width: theme.spacing.sm,
@@ -109,6 +150,7 @@ const ModelTraceExplorerResizablePane = forwardRef<
                 cursor: 'ew-resize',
                 backgroundColor: `rgba(0,0,0,0)`,
                 zIndex: 1,
+                ':focus-visible': { outline: `2px solid ${theme.colors.actionDefaultBorderFocus}`, outlineOffset: -2 },
                 ':hover': {
                   backgroundColor: `rgba(0,0,0,0.1)`,
                 },
@@ -116,20 +158,15 @@ const ModelTraceExplorerResizablePane = forwardRef<
             />
           </div>
         }
-        onResize={(e, { size }) => {
-          const clampedSize = clamp(size.width, leftMinWidth, maxWidth);
-          setPaneWidth(clampedSize);
-          if (containerWidth) {
-            ratio.current = clampedSize / containerWidth;
-            onRatioChangeDebounced(ratio.current);
-          }
-        }}
+        onResize={(_event, { size }) => resizePane(size.width)}
         onResizeStart={() => setIsResizing(true)}
         onResizeStop={() => setIsResizing(false)}
         minConstraints={[leftMinWidth, Infinity]}
         maxConstraints={[maxWidth, Infinity]}
       >
-        {leftChild}
+        <div id={paneId} css={{ display: 'contents' }}>
+          {leftChild}
+        </div>
       </ResizableBox>
       {rightChild}
     </div>

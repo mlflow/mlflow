@@ -38,6 +38,14 @@ import {
   type SearchCall,
 } from '../test-utils/tracesV4PageContentTestBed';
 
+// These tests cover the Traces tab with the new eval runs UI off; the unified search has its own tests in TracesV4PageContent.unifiedSearch.test.tsx.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+
 // The saved-views hook (mounted via the toolbar's Views button) reads experiment tags through the
 // Apollo experiment query. These page tests exercise the table/filter/pagination flows, not saved
 // views, so stub it with a stable empty-tags result — leaving it unmocked fires a real Apollo query

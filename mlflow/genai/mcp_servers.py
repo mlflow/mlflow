@@ -555,10 +555,16 @@ def refresh_mcp_server_version_tools(
     """
     Re-discover tools for an MCP server version and store the new snapshot.
 
-    This fetches the version's stored ``server_json``, scrapes the first usable
-    remote in ``server_json.remotes[]``, and updates ``tools`` on the version
-    with the discovered definitions. When ``dry_run=True``, the discovered tools
-    are only applied to the returned object and are not persisted.
+    This prefers access endpoints that resolve to the requested version through
+    a version pin or alias, using the selected endpoint's URL and transport. If
+    no access endpoints are configured, it uses the first remote in
+    ``server_json.remotes[]`` with a non-empty URL and supported transport. If
+    discovery from that remote fails, later remotes are not tried. If access
+    endpoints are configured but none resolves to the requested version, an
+    error is raised and ``server_json.remotes`` are not contacted. The supplied
+    headers are used for discovery in either case. When ``dry_run=True``, the
+    discovered tools are only applied to the returned object and are not
+    persisted.
 
     Args:
         name: Server name.

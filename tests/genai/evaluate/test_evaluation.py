@@ -1,6 +1,8 @@
 import hashlib
 import inspect
 import json
+import logging
+import queue
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -46,7 +48,7 @@ from mlflow.genai.simulators import ConversationSimulator
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey, TraceTagKey
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_AGENT_DIGEST,
     MLFLOW_GENAI_EVALUATE_AGENT_FUNCTION,
@@ -54,6 +56,10 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY,
     MLFLOW_GENAI_EVALUATE_SCORERS_DIGEST,
 )
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_QUALITY_CRITERIA as QUALITY_CRITERIA_TAG,
+)
+from mlflow.utils.validation import MAX_ENTITY_KEY_LENGTH
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import (
@@ -429,6 +435,131 @@ def test_evaluate_passed_respects_scorer_pass_if(server_config):
     assert "confidence" in failing.reason
 
 
+@pytest.mark.parametrize(
+    ("quality_criteria", "expected_reason"),
+    [
+        ("`latency/p90` <= 5", ""),
+        ("`latency/p90` <= 2", "quality criteria latency/p90 <= 2: got 4.35"),
+    ],
+)
+def test_evaluate_passed_checks_quality_criteria(quality_criteria, expected_reason):
+    @scorer(pass_if=lambda v: v <= 5)
+    def latency(inputs) -> float:
+        return [1.0, 1.0, 4.0, 4.5][int(inputs["q"])]
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": str(i)}, "outputs": "x"} for i in range(4)],
+        scorers=[latency],
+        quality_criteria=quality_criteria,
+    )
+
+    assert result.metrics["latency/p90"] == pytest.approx(4.35)
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+
+
+def test_evaluate_logs_quality_criteria_run_tag(server_config):
+    @scorer
+    def is_good(outputs) -> bool:
+        return outputs == "good"
+
+    @scorer
+    def length(outputs) -> int:
+        return len(outputs)
+
+    @scorer
+    def not_in_criteria(outputs) -> bool:
+        return True
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}, {"inputs": {"q": "y"}, "outputs": "bad"}],
+        scorers=[is_good, length, not_in_criteria],
+        quality_criteria="is_good >= 0.5 AND `length/max` <= 10",
+    )
+
+    payload = json.loads(mlflow.get_run(result.run_id).data.tags[QUALITY_CRITERIA_TAG])
+    assert [(r["metricKey"], r["comparator"], r["threshold"]) for r in payload["rules"]] == [
+        ("is_good/mean", "GTE", 0.5),
+        ("length/max", "LTE", 10.0),
+    ]
+    assert result.metrics["is_good/mean"] == 0.5
+    assert result.metrics["length/max"] == 4
+
+
+def test_evaluate_warns_when_quality_criteria_metric_is_missing():
+    @scorer
+    def label(outputs) -> str:
+        return "great"
+
+    with mock.patch("mlflow.genai.evaluation.quality_criteria._logger.warning") as mock_warning:
+        mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+            scorers=[label],
+            quality_criteria="label >= 0.5",
+        )
+
+    mock_warning.assert_called_once()
+    assert "this evaluation produced no 'label/mean' metric" in mock_warning.call_args[0][0]
+
+
+def test_evaluate_clears_quality_criteria_tag_on_reused_run(server_config):
+    @scorer
+    def is_good(outputs) -> bool:
+        return outputs == "good"
+
+    with mlflow.start_run() as run:
+        first = mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+            scorers=[is_good],
+            quality_criteria="is_good >= 0.9",
+        )
+        assert QUALITY_CRITERIA_TAG in mlflow.get_run(run.info.run_id).data.tags
+
+        second = mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}], scorers=[is_good]
+        )
+
+    assert first.run_id == second.run_id == run.info.run_id
+    # The second evaluation sets no quality criteria, so the tag from the first is gone
+    # rather than judging the new metrics against a stale bar.
+    assert QUALITY_CRITERIA_TAG not in mlflow.get_run(run.info.run_id).data.tags
+
+
+def test_evaluate_without_quality_criteria_logs_no_tag(server_config):
+    @scorer
+    def is_good(outputs) -> bool:
+        return True
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}], scorers=[is_good]
+    )
+
+    assert QUALITY_CRITERIA_TAG not in mlflow.get_run(result.run_id).data.tags
+
+
+@pytest.mark.parametrize(
+    ("scorer_name", "match"),
+    [("dup", "matches more than one scorer"), ("typo", "doesn't match any scorer")],
+)
+def test_evaluate_rejects_invalid_quality_criteria_before_starting_run(scorer_name, match):
+    @scorer(name="dup")
+    def first(outputs) -> bool:
+        return True
+
+    @scorer(name="dup")
+    def second(outputs) -> bool:
+        return True
+
+    with pytest.raises(MlflowException, match=match):
+        mlflow.genai.evaluate(
+            data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+            scorers=[first, second],
+            quality_criteria=f"{scorer_name} >= 0.5",
+        )
+
+    assert mlflow.search_runs(output_format="list") == []
+
+
 def test_evaluate_numeric_value_without_pass_if_fails_loudly(server_config):
     @scorer
     def confidence(outputs):
@@ -535,6 +666,77 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
 
     _validate_assessments(traces)
     _validate_eval_result_df(result)
+
+
+def test_evaluate_warns_when_eval_request_id_tag_is_missing(server_config, caplog):
+    caplog.set_level(logging.WARNING, logger="mlflow.genai.evaluation.harness")
+    question = "What is MLflow?"
+
+    @mlflow.trace
+    def predict(question: str) -> str:
+        return f"answer: {question}"
+
+    jobs = queue.Queue()
+    outputs = queue.Queue()
+
+    def worker():
+        while True:
+            item = jobs.get()
+            if item is None:
+                break
+            outputs.put(predict(item))
+
+    thread = threading.Thread(target=worker, name="prestarted-eval-worker")
+    thread.start()
+    try:
+
+        def predict_fn(question: str) -> str:
+            jobs.put(question)
+            return outputs.get(timeout=10)
+
+        mlflow.genai.evaluate(
+            predict_fn=predict_fn,
+            data=[{"inputs": {"question": question}}],
+            scorers=[has_trace],
+        )
+    finally:
+        jobs.put(None)
+        thread.join(timeout=10)
+
+    assert "no trace tagged with mlflow.eval.requestId was found for this item" in caplog.text
+    assert f"inputs={{'question': '{question}'}}" in caplog.text
+    assert "NoneType" not in caplog.text
+
+
+def test_evaluate_keeps_untagged_run_traces_when_eval_request_id_is_missing(server_config):
+    questions = ["What is MLflow?", "What is Spark?"]
+
+    @mlflow.trace
+    def predict(question: str) -> str:
+        return f"answer: {question}"
+
+    def predict_fn(question: str) -> str:
+        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="eval-off-thread") as ex:
+            return ex.submit(predict, question).result()
+
+    result = mlflow.genai.evaluate(
+        predict_fn=predict_fn,
+        data=[{"inputs": {"question": q}} for q in questions],
+        scorers=[has_trace],
+    )
+    mlflow.flush_trace_async_logging()
+
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    # The traced scorer also leaves untagged traces on the run, so identify the agent
+    # traces by their root span and check that every row's trace survived cleanup.
+    agent_questions = {
+        trace.data.spans[0].inputs["question"]
+        for trace in traces
+        if trace.data.spans[0].name == "predict"
+    }
+    assert agent_questions == set(questions)
+    assert all(trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID) is None for trace in traces)
+    assert all(not trace.info.assessments for trace in traces)
 
 
 @pytest.mark.parametrize("return_type", ["pandas", "list"])
@@ -2156,6 +2358,8 @@ def test_evaluate_logs_scorer_failure_summary():
 
         # Evaluation should complete without raising an exception
         assert "working_scorer/mean" in result.metrics
+        assert result.metrics["failing_scorer/error_count"] == 2
+        assert "working_scorer/error_count" not in result.metrics
 
         # Verify warning was logged with failure summary
         warning_calls = [call.args[0] for call in mock_warning.call_args_list]
@@ -2167,6 +2371,70 @@ def test_evaluate_logs_scorer_failure_summary():
         warning_message = failure_warnings[0]
         assert "'failing_scorer': 2/2 failed" in warning_message
         assert "Check individual trace assessments for detailed error messages" in warning_message
+
+
+def test_evaluate_counts_multi_feedback_scorer_errors_under_scorer_name():
+    @scorer
+    def multi(inputs, outputs):
+        if inputs["question"] == "fail":
+            raise ValueError("judge timeout")
+        return [Feedback(name="clarity", value=True), Feedback(name="safety", value=True)]
+
+    data = [
+        {"inputs": {"question": question}, "outputs": "answer"}
+        for question in ["What is MLflow?", "What is Python?", "fail"]
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[multi])
+
+    # The failed row is one error for the scorer, not a count per feedback name.
+    assert {
+        name: value for name, value in result.metrics.items() if name.endswith("/error_count")
+    } == {"multi/error_count": 1}
+
+
+@pytest.mark.parametrize(
+    ("name", "feedback_name", "expect_count"),
+    [
+        pytest.param(
+            "s" * (MAX_ENTITY_KEY_LENGTH - len("/error_count")),
+            None,
+            True,
+            id="max-length",
+        ),
+        pytest.param(
+            "s" * (MAX_ENTITY_KEY_LENGTH - len("/mean")),
+            None,
+            False,
+            id="count-too-long",
+        ),
+        pytest.param("judge?", "clarity", False, id="invalid-character"),
+        pytest.param("team//judge", "clarity", False, id="noncanonical-path"),
+    ],
+)
+def test_evaluate_preserves_valid_metrics_when_scorer_error_count_key_is_invalid(
+    name, feedback_name, expect_count
+):
+    @scorer(name=name)
+    def flaky(outputs):
+        if outputs == "bad":
+            raise ValueError("judge timeout")
+        return Feedback(name=feedback_name, value=True) if feedback_name else True
+
+    @scorer
+    def healthy(outputs):
+        return True
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"x": output}, "outputs": output} for output in ("good", "bad")],
+        scorers=[flaky, healthy],
+    )
+
+    expected = {f"{feedback_name or name}/mean": 1.0, "healthy/mean": 1.0}
+    if expect_count:
+        expected[f"{name}/error_count"] = 1
+    assert result.metrics == expected
+    assert mlflow.get_run(result.run_id).data.metrics == expected
 
 
 def test_evaluate_no_warning_when_all_scorers_succeed():
@@ -2277,6 +2545,12 @@ def test_evaluate_logs_scorer_failure_summary_with_mixed_scorers():
 
         assert "always_pass/mean" in result.metrics
         assert "working_session_scorer/mean" in result.metrics
+        # The error count matches the failure summary: rows for single-turn scorers,
+        # sessions for session-level ones.
+        assert result.metrics["failing_single_turn/error_count"] == 4
+        assert result.metrics["failing_session_scorer/error_count"] == 2
+        assert "always_pass/error_count" not in result.metrics
+        assert "working_session_scorer/error_count" not in result.metrics
 
         warning_calls = [call.args[0] for call in mock_warning.call_args_list]
         failure_warnings = [

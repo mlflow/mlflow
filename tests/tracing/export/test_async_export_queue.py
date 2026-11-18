@@ -49,9 +49,16 @@ def test_async_queue_complete_task_process_finished():
     counter = multiprocessing.Value("i", 0)
     process = multiprocessing.Process(target=exporter_process, args=(counter,))
     process.start()
-    process.join(timeout=15)
-
-    assert counter.value == 10
+    # At interpreter shutdown, the queue handles the remaining tasks serially in the consumer
+    # thread (~1s each), so allow headroom for slow process startup on CI.
+    process.join(timeout=60)
+    try:
+        assert process.exitcode == 0
+        assert counter.value == 10
+    finally:
+        if process.is_alive():
+            process.terminate()
+            process.join()
 
 
 def test_async_queue_activate_thread_safe():

@@ -120,7 +120,8 @@ jobs:
       - uses: ./.github/actions/setup-node
 
       - name: Install build tools
-        run: uv pip install --system build setuptools
+        run: |
+          uv pip install --system build setuptools
 
       - name: Build wheel
         # Build the wheel before `yarn build` so it excludes UI assets
@@ -327,7 +328,8 @@ jobs:
         if: github.event_name == 'push'
         env:
           APP_URL: ${{ steps.app.outputs.url }}
-        run: echo "Deployed to $APP_URL" >> $GITHUB_STEP_SUMMARY
+        run: |
+          echo "Deployed to $APP_URL" >> $GITHUB_STEP_SUMMARY
 
   finalize:
     needs:

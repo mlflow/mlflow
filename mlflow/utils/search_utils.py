@@ -256,14 +256,14 @@ class SearchUtils:
         }[comparator]
 
     @staticmethod
-    def get_sql_comparison_func(comparator, dialect):
+    def get_sql_comparison_func(comparator, dialect, *, ilike_escape=None):
         import sqlalchemy as sa
 
         def comparison_func(column, value):
             if comparator == "LIKE":
                 return column.like(value)
             elif comparator == "ILIKE":
-                return column.ilike(value)
+                return column.ilike(value, escape=ilike_escape)
             elif comparator == "IN":
                 return column.in_(value)
             elif comparator == "NOT IN":
@@ -569,6 +569,18 @@ class SearchUtils:
             )
 
     @classmethod
+    def _validate_list_comparator(cls, identifier_type, comparator):
+        # Reject `IN` / `NOT IN` for entity types that don't support it before parsing the
+        # value, so users get an "Invalid comparator" error instead of a value-type error.
+        comparator = comparator.upper()
+        if comparator in ("IN", "NOT IN"):
+            # The `is_*` helpers raise on an unsupported comparator; their return values
+            # are intentionally ignored.
+            cls.is_metric(identifier_type, comparator)
+            cls.is_param(identifier_type, comparator)
+            cls.is_tag(identifier_type, comparator)
+
+    @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
@@ -591,6 +603,7 @@ class SearchUtils:
 
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
 
@@ -645,7 +658,8 @@ class SearchUtils:
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_METRIC_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_METRIC_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -667,7 +681,7 @@ class SearchUtils:
         if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -697,7 +711,7 @@ class SearchUtils:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}",
+                    f"'{cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -709,7 +723,7 @@ class SearchUtils:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_DATASET_COMPARATORS}",
+                    f"not one of '{cls.VALID_DATASET_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1124,7 +1138,7 @@ class SearchExperimentsUtils(SearchUtils):
             identifier = cls._ATTRIBUTE_IDENTIFIER
         else:
             entity_type, key = tokens
-            valid_entity_types = ("attribute", "tag", "tags")
+            valid_entity_types = ("attribute", "attributes", "tag", "tags")
             if entity_type not in valid_entity_types:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid entity type '{entity_type}'. "
@@ -1176,6 +1190,7 @@ class SearchExperimentsUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1311,6 +1326,19 @@ class SearchModelUtils(SearchUtils):
     LIST_SUPPORTED_KEYS = frozenset({"name"})
 
     @classmethod
+    def is_querying_prompt(cls, parsed_filters: list[dict[str, Any]]) -> bool:
+        for f in parsed_filters:
+            if f["type"] != "tag" or f["key"] != IS_PROMPT_TAG_KEY:
+                continue
+
+            return (f["comparator"] == "=" and f["value"].lower() == "true") or (
+                f["comparator"] == "!=" and f["value"].lower() == "false"
+            )
+
+        # Query should return only normal models by default
+        return False
+
+    @classmethod
     def _does_registered_model_match_clauses(cls, model, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -1443,6 +1471,7 @@ class SearchModelUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_model_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1634,6 +1663,7 @@ class SearchModelVersionUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_model_version_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -2202,8 +2232,20 @@ class SearchTraceUtils(SearchUtils):
                 )
         elif identifier_type == cls._SPAN_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                if key in {"name", "type"}:
+                    return cls._parse_span_filter_literal(token.value)
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
+                if key in {"name", "type"}:
+                    # Normalize SQL literals before the existing Python-literal list validator.
+                    value = "".join(
+                        repr(cls._parse_span_filter_literal(item.value))
+                        if item.ttype
+                        in (TokenType.Literal.String.Single, TokenType.Literal.String.Symbol)
+                        else item.value
+                        for item in token.flatten()
+                    )
+                    token = Token(token.ttype, value)
                 return cls._parse_attribute_lists(token)
             else:
                 raise MlflowException(
@@ -2244,6 +2286,11 @@ class SearchTraceUtils(SearchUtils):
                 f"Expected one of {cls._VALID_IDENTIFIERS}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    @classmethod
+    def _parse_span_filter_literal(cls, literal):
+        value = cls._strip_quotes(literal, expect_quoted_value=True)
+        return value.replace("''", "'") if literal.startswith("'") else value
 
     @classmethod
     def _parse_attribute_lists(cls, token):

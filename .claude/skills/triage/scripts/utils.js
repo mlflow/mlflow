@@ -1,5 +1,5 @@
 const { execFileSync } = require("node:child_process");
-const { readFileSync } = require("node:fs");
+const { appendFileSync, readFileSync } = require("node:fs");
 const { sanitizeInput } = require("./sanitize.js");
 
 function ghApi(endpoint, ...args) {
@@ -17,10 +17,72 @@ function parseCommand(body) {
   return match[1]?.trim() ?? "";
 }
 
-function escapeMarkup(text) {
-  return text.replace(/[&<>"']/g, (character) => {
-    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[character];
-  });
+const TRIAGE_MARKER = /^[ \t]*<!-- triage(?:[ \t]|\r?\n|$)/m;
+// Nightly (.github/workflows/nightly.yml) files issues as this app with `type: nightly`.
+const TRUSTED_BOT = "mlflow-app[bot]";
+
+function parseIssueFrontmatter(body) {
+  const text = body.replace(/\r\n/g, "\n");
+  const starts = [...text.matchAll(/^[ \t]*<!-- triage(?:[ \t]|\n|$)/gm)];
+  if (!starts.length) return {};
+  const blocks = [...text.matchAll(/^[ \t]*<!-- triage[ \t]*\n([\s\S]*?)^[ \t]*-->[ \t]*$/gm)];
+  if (starts.length !== 1 || blocks.length !== 1) {
+    throw new Error("Expected one complete triage frontmatter comment.");
+  }
+
+  const fields = new Map();
+  for (const rawLine of blocks[0][1].split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const match = /^([a-z][a-z0-9_]*):[ \t]*(\S+)$/.exec(line);
+    if (!match) throw new Error("Invalid triage frontmatter field.");
+    const [, key, value] = match;
+    if (fields.has(key)) throw new Error(`Duplicate triage field: ${key}`);
+    fields.set(key, value);
+  }
+
+  const options = Object.fromEntries(fields);
+  if (Object.keys(options).some((key) => !["skip", "type"].includes(key))) {
+    throw new Error("Only skip and type are supported in triage frontmatter.");
+  }
+  const result = {};
+  if (options.skip !== undefined) {
+    if (!["true", "false"].includes(options.skip)) {
+      throw new Error("Triage skip must be true or false.");
+    }
+    result.skip = options.skip === "true";
+  }
+  if (options.type !== undefined) {
+    if (options.type !== "nightly") throw new Error("Triage type must be nightly.");
+    result.type = options.type;
+  }
+  return result;
+}
+
+function isTrustedActor({ repo, actor, api = ghApi }) {
+  if (!actor?.login) return false;
+  if (actor.type === "Bot" && actor.login === TRUSTED_BOT) return true;
+  let permission;
+  try {
+    permission = api(`repos/${repo}/collaborators/${encodeURIComponent(actor.login)}/permission`);
+  } catch (error) {
+    const detail = `${error.message}\n${error.stderr ?? ""}`;
+    if (/HTTP 404\b|404 Not Found/.test(detail)) return false;
+    throw error;
+  }
+  return ["admin", "maintain", "write"].includes(permission.role_name);
+}
+
+function resolveIssueOptions({ repo, eventName, event, issue, api = ghApi }) {
+  const body = issue?.body ?? "";
+  if (!isTrustedActor({ repo, actor: issue.user, api })) return {};
+  const { skip, type } = TRIAGE_MARKER.test(body) ? parseIssueFrontmatter(body) : {};
+  // `type` applies to follow-ups too. Trusted bots (only Nightly) never skip triage.
+  const options = type === undefined ? {} : { type };
+  const opened = eventName === "issues" && event?.action === "opened";
+  if (!opened || issue.user?.type === "Bot") return options;
+  // These authors usually file issues they plan to handle themselves; opt in with `skip: false`.
+  return { skip: skip ?? true, ...options };
 }
 
 function findOpenPr(repo, issueNumber, api = ghApi) {
@@ -30,43 +92,50 @@ function findOpenPr(repo, issueNumber, api = ghApi) {
   return pulls.find((pr) => pr.head.repo?.full_name === repo);
 }
 
-function prepareFollowup({ repo, issue, comment, api = ghApi }) {
+// In a dry run, an existing triage PR is reported instead of failing the run, since nothing
+// would be posted or opened.
+function checkExistingPr({ repo, issueNumber, dryRun = false, api = ghApi }) {
+  const existing = findOpenPr(repo, issueNumber, api);
+  if (!existing) return;
+  const message = `A triage PR already exists: ${existing.html_url}`;
+  if (!dryRun) throw new Error(message);
+  console.error(`Dry run: ${message}`);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Dry run: ${message}\n`);
+  }
+}
+
+function prepareFollowup({ repo, issue, comment, dryRun = false, api = ghApi }) {
   if (issue.pull_request || issue.state !== "open")
     throw new Error("Triage requires an open issue.");
-  if (comment.issue_url !== issue.url || comment.user.type !== "User") {
-    throw new Error("The command must be a user comment on this issue.");
+  if (comment.issue_url !== issue.url) {
+    throw new Error("The command must be a comment on this issue.");
   }
   const instructions = parseCommand(comment.body);
-  const permission = api(
-    `repos/${repo}/collaborators/${encodeURIComponent(comment.user.login)}/permission`
-  );
-  if (!["admin", "maintain"].includes(permission.role_name)) {
-    throw new Error("Only repository admins and maintainers can request follow-up triage.");
+  if (!isTrustedActor({ repo, actor: comment.user, api })) {
+    throw new Error(
+      "Only repository admins, maintainers, and collaborators can request follow-up triage."
+    );
   }
-  const existing = findOpenPr(repo, issue.number, api);
-  if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
+  checkExistingPr({ repo, issueNumber: issue.number, dryRun, api });
 
   const comments = api(
     `repos/${repo}/issues/${issue.number}/comments?per_page=100`,
     "--paginate",
     "--slurp"
   ).flat();
-  const discussion = comments
+  const precedingComments = comments
     .filter((candidate) => comment.id === undefined || candidate.id < comment.id)
     .sort((a, b) => a.id - b.id)
-    .map(
-      (candidate) =>
-        `<comment author="${escapeMarkup(candidate.user?.login ?? "deleted user")}" ` +
-        `created_at="${escapeMarkup(candidate.created_at)}" url="${escapeMarkup(
-          candidate.html_url
-        )}">\n` +
-        `${escapeMarkup(sanitizeInput(candidate.body ?? ""))}\n</comment>`
-    );
+    .map((candidate) => ({
+      author: candidate.user?.login ?? "deleted user",
+      created_at: candidate.created_at,
+      url: candidate.html_url,
+      body: sanitizeInput(candidate.body ?? ""),
+    }));
   return {
-    body: [
-      `<issue>\n${escapeMarkup(sanitizeInput(issue.body ?? ""))}\n</issue>`,
-      ...discussion,
-    ].join("\n\n"),
+    body: issue.body ?? "",
+    comments: precedingComments,
     followup: {
       instructions: sanitizeInput(instructions),
       author: comment.user.login,
@@ -74,7 +143,15 @@ function prepareFollowup({ repo, issue, comment, api = ghApi }) {
   };
 }
 
-function prepareContext({ repo, issue, event, comment, api = ghApi }) {
+function prepareContext({
+  repo,
+  issue,
+  event,
+  eventName = process.env.GITHUB_EVENT_NAME,
+  comment,
+  dryRun = false,
+  api = ghApi,
+}) {
   let request = event.comment;
   if (!request && comment?.trim()) {
     const text = comment.trim();
@@ -85,16 +162,32 @@ function prepareContext({ repo, issue, event, comment, api = ghApi }) {
     };
   }
   const context = request
-    ? prepareFollowup({ repo, issue, comment: request, api })
-    : { body: issue.body ?? "", followup: null };
-  return { title: issue.title, repository: repo, issue_number: issue.number, ...context };
+    ? prepareFollowup({ repo, issue, comment: request, dryRun, api })
+    : { body: issue.body ?? "", comments: [], followup: null };
+  const triage_options = resolveIssueOptions({ repo, eventName, event, issue, api });
+  return {
+    title: issue.title,
+    repository: repo,
+    issue_number: issue.number,
+    triage_options,
+    ...context,
+  };
 }
 
-module.exports = { parseCommand, findOpenPr, prepareContext };
+module.exports = {
+  parseCommand,
+  parseIssueFrontmatter,
+  isTrustedActor,
+  resolveIssueOptions,
+  findOpenPr,
+  checkExistingPr,
+  prepareContext,
+};
 
 if (require.main === module) {
   try {
     const mode = process.argv[2];
+    const dryRun = process.env.DRY_RUN === "true";
     if (mode === "prepare") {
       const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
       const issue = JSON.parse(readFileSync(process.argv[3], "utf8"));
@@ -103,11 +196,15 @@ if (require.main === module) {
         issue,
         event,
         comment: process.env.COMMENT,
+        dryRun,
       });
       process.stdout.write(JSON.stringify(context));
     } else if (mode === "check-pr") {
-      const existing = findOpenPr(process.env.REPO, process.env.ISSUE_NUMBER);
-      if (existing) throw new Error(`A triage PR already exists: ${existing.html_url}`);
+      checkExistingPr({
+        repo: process.env.REPO,
+        issueNumber: process.env.ISSUE_NUMBER,
+        dryRun,
+      });
     } else {
       throw new Error(
         "Usage: node .claude/skills/triage/scripts/utils.js <prepare|check-pr> [path]"

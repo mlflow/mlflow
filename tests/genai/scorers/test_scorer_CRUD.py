@@ -1,4 +1,6 @@
+import importlib
 import json
+import linecache
 from unittest.mock import Mock, patch
 
 import pytest
@@ -15,6 +17,7 @@ from mlflow.genai.scorers.base import (
     SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
     ScorerSamplingConfig,
     ScorerStatus,
+    make_scorer_ensemble,
 )
 from mlflow.genai.scorers.registry import (
     DatabricksStore,
@@ -1116,3 +1119,91 @@ def test_delete_scorer_removes_endpoint_binding(monkeypatch):
     assert len(bindings_after_delete) == 0
 
     mlflow.delete_experiment(experiment_id)
+
+
+def _docstring_only_scorer():
+    @scorer
+    def docstring_only(outputs):
+        """Checks nothing."""
+
+    return docstring_only
+
+
+def _exec_scorer():
+    # Like a function defined with `exec` or in a REPL, its code names no file `inspect` can read.
+    def from_exec(outputs):
+        return 1
+
+    from_exec.__code__ = from_exec.__code__.replace(co_filename="<exec>")
+    return scorer(from_exec)
+
+
+@pytest.mark.parametrize(
+    ("make_scorer", "name"),
+    [
+        (_docstring_only_scorer, "docstring_only"),
+        (lambda: scorer(lambda outputs: True, name="from_lambda"), "from_lambda"),
+        (_exec_scorer, "from_exec"),
+        (
+            lambda: make_scorer_ensemble(
+                name="ensemble", scorers=[_docstring_only_scorer()], ensemble_fn="maximum"
+            ),
+            "docstring_only",
+        ),
+    ],
+    ids=["docstring_only", "lambda", "exec", "ensemble"],
+)
+def test_register_and_start_reject_custom_scorer_without_source(monkeypatch, make_scorer, name):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    experiment_id = mlflow.create_experiment(f"test_without_source_{name}")
+    scorer_obj = make_scorer()
+
+    with pytest.raises(MlflowException, match=f"Scorer '{name}' has no source code") as e:
+        scorer_obj.register(experiment_id=experiment_id)
+    assert "a lambda (use `def` instead)" in str(e.value)
+    with pytest.raises(MlflowException, match=f"Scorer '{name}' has no source code"):
+        scorer_obj.start(
+            experiment_id=experiment_id, sampling_config=ScorerSamplingConfig(sample_rate=1.0)
+        )
+    assert list_scorers(experiment_id=experiment_id) == []
+
+
+def test_register_rejects_custom_scorer_whose_file_changed_after_import(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    module_file = tmp_path / "changed_scorer_module.py"
+    module_file.write_text(
+        "from mlflow.genai import scorer\n\n\n@scorer\ndef changed(outputs):\n    return True\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    module = importlib.import_module("changed_scorer_module")
+    # The same lines, but the body no longer parses.
+    module_file.write_text(module_file.read_text().replace("return True", "return (True"))
+    linecache.clearcache()
+    experiment_id = mlflow.create_experiment("test_without_source_changed_file")
+
+    with pytest.raises(MlflowException, match="Scorer 'changed' has no source code"):
+        module.changed.register(experiment_id=experiment_id)
+
+
+def test_register_reports_disabled_custom_scorers_before_missing_source(monkeypatch):
+    monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    experiment_id = mlflow.create_experiment("test_without_source_flag_off")
+
+    with pytest.raises(MlflowException, match="Custom scorer registration"):
+        _exec_scorer().register(experiment_id=experiment_id)
+
+
+def test_register_keeps_changes_made_to_a_scorer_after_registering_it(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    experiment_id = mlflow.create_experiment("test_register_after_change")
+
+    @scorer
+    def length(outputs) -> int:
+        return len(str(outputs))
+
+    length.register(name="first", experiment_id=experiment_id)
+    length.description = "Counts characters"
+    length.register(name="second", experiment_id=experiment_id)
+
+    stored = json.loads(_get_store().get_scorer(experiment_id, "second")._serialized_scorer)
+    assert stored["description"] == "Counts characters"

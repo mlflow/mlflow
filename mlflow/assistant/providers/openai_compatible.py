@@ -321,6 +321,13 @@ class OpenAICompatibleProvider(AssistantProvider):
             return {"Authorization": f"Bearer {api_key}"}
         return {}
 
+    def _request_kwargs(self, chat_url: str) -> dict[str, Any]:
+        """Extra keyword arguments for the chat-completions request to ``chat_url``.
+
+        Raise ``ProviderNotConfiguredError`` to end the turn with that message instead.
+        """
+        return {}
+
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         if self._list_models_fn is None:
             # Presets without a backend listing strategy (e.g. the in-server
@@ -466,6 +473,11 @@ class OpenAICompatibleProvider(AssistantProvider):
         tools = build_tools_schema()
 
         headers = self._auth_headers(api_key)
+        try:
+            request_kwargs = self._request_kwargs(chat_url)
+        except ProviderNotConfiguredError as e:
+            yield Event.from_error(f"Cannot connect to {self._display_name}: {e}")
+            return
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -502,20 +514,21 @@ class OpenAICompatibleProvider(AssistantProvider):
                         # The gateway commits a 200 before proxying upstream, so an upstream
                         # failure (e.g. a bad API key → 401) surfaces as a truncated body
                         # rather than a non-200 status. We can't rely on a positive completion
-                        # signal to detect this: `[DONE]` is stripped by the gateway and not
-                        # every OpenAI-compatible server emits it or a `finish_reason`. So key
-                        # on whether the stream yielded anything meaningful — content, tool
-                        # calls, or a normal terminal. If it stays false the stream was empty
-                        # and unterminated (the common case: auth failure before any token
-                        # streams) and we surface an error instead of a silent `done`. Any
-                        # signal at all counts as success, so no productive turn is ever
-                        # falsely flagged whatever the server's terminator conventions.
+                        # signal to detect this: not every OpenAI-compatible server emits
+                        # `[DONE]` or a `finish_reason`. So key on whether the stream yielded
+                        # anything meaningful — content, tool calls, or a normal terminal. If it
+                        # stays false the stream was empty and unterminated (the common case:
+                        # auth failure before any token streams) and we surface an error
+                        # instead of a silent `done`. Any signal at all counts as success, so
+                        # no productive turn is ever falsely flagged whatever the server's
+                        # terminator conventions.
                         stream_had_signal = False
                         async with session.post(
                             chat_url,
                             json=payload,
                             headers=headers,
                             timeout=aiohttp.ClientTimeout(total=300),
+                            **request_kwargs,
                         ) as resp:
                             if resp.status != 200:
                                 body = await resp.text()
@@ -565,8 +578,8 @@ class OpenAICompatibleProvider(AssistantProvider):
                                 # can track token consumption and cost, then move on. A usage
                                 # summary means the server processed the request and reported
                                 # real work, so it counts as a signal — a stream whose only
-                                # payload is usage (some backends send it after a [DONE] the
-                                # gateway strips) must not be flagged as truncated.
+                                # payload is usage (some backends send it as a separate final
+                                # chunk) must not be flagged as truncated.
                                 if usage := chunk.get("usage"):
                                     stream_had_signal = True
                                     yield _build_usage_event(usage, model)

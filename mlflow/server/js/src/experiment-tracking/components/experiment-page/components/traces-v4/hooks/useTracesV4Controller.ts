@@ -26,6 +26,7 @@ import { useTracesV4CustomColumns } from './useTracesV4CustomColumns';
 import { useTracesV4ColumnOrder } from './useTracesV4ColumnOrder';
 import { buildFilter, buildOrderBy, isExactTraceIdSearch } from '../utils/buildTracesV4SearchParams';
 import { compileFilterModel, compileTagFilters } from '../utils/filterModel';
+import { useNumericAssessmentKeys } from './useNumericAssessmentKeys';
 import { assessmentColumnId } from '../utils/assessmentColumns';
 import { SEARCH_DEBOUNCE_MS } from '../utils/constants';
 
@@ -117,6 +118,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     [experimentId],
   );
 
+  const { numericAssessmentKeys, recordTraces } = useNumericAssessmentKeys(experimentId);
   const filter = useMemo(
     () =>
       buildFilter({
@@ -124,9 +126,9 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
         timeRange,
         // Popover clauses and URL-backed tag clauses are ANDed together (tag filters are their own
         // URL-persisted concept, kept out of the in-memory popover model).
-        extraClauses: [...compileFilterModel(filterModel), ...compileTagFilters(url.tagFilters)],
+        extraClauses: [...compileFilterModel(filterModel, numericAssessmentKeys), ...compileTagFilters(url.tagFilters)],
       }),
-    [url.search, timeRange, filterModel, url.tagFilters],
+    [url.search, timeRange, filterModel, url.tagFilters, numericAssessmentKeys],
   );
 
   const orderBy = useMemo(() => buildOrderBy(url.sort, url.dir), [url.sort, url.dir]);
@@ -148,6 +150,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     enabled: true,
     onPageIndexChange: rawSetPageIndex,
   });
+  useEffect(() => recordTraces(page.traces), [page.traces, recordTraces]);
 
   // Reload button → `monitoringConfig.refresh()` bumps `lastRefreshTime`. For a *relative* range that
   // also moves the time bounds (so the query key changes and refetches on its own), but a *custom*

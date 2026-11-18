@@ -14,6 +14,7 @@ from mlflow.gateway.providers.base import (
     _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    _error_detail,
     parse_base64_data_url,
     proxy_root_url,
     rename_payload_keys,
@@ -54,6 +55,15 @@ GENERATION_CONFIGS = [
     "frequencyPenalty",
     "presencePenalty",
 ]
+
+
+def _get_prompt_tokens(usage_metadata: dict[str, Any]) -> int | None:
+    prompt_tokens = usage_metadata.get("promptTokenCount")
+    # Content fetched by built-in tools (Google Search, URL context) is part of the input but
+    # reported separately from the prompt tokens.
+    if (tool_use_tokens := usage_metadata.get("toolUsePromptTokenCount")) is not None:
+        prompt_tokens = (prompt_tokens or 0) + tool_use_tokens
+    return prompt_tokens
 
 
 def _get_completion_tokens(usage_metadata: dict[str, Any]) -> int | None:
@@ -106,6 +116,21 @@ def _tool_result_to_response(content: Any) -> dict[str, Any]:
     return parsed if isinstance(parsed, dict) else {"result": parsed}
 
 
+# Gemini finish reasons that mean the output was withheld by a safety or policy filter.
+# https://ai.google.dev/api/generate-content#FinishReason
+_CONTENT_FILTER_FINISH_REASONS = frozenset({
+    "SAFETY",
+    "RECITATION",
+    "BLOCKLIST",
+    "PROHIBITED_CONTENT",
+    "SPII",
+    "IMAGE_SAFETY",
+    "IMAGE_PROHIBITED_CONTENT",
+    "IMAGE_RECITATION",
+    "ESCALATION",
+})
+
+
 class GeminiAdapter(ProviderAdapter):
     @staticmethod
     def _join_text_parts(parts):
@@ -119,7 +144,16 @@ class GeminiAdapter(ProviderAdapter):
             return finish_reason
         if finish_reason == "MAX_TOKENS":
             return "length"
+        if finish_reason in _CONTENT_FILTER_FINISH_REASONS:
+            return "content_filter"
         return finish_reason.lower()
+
+    @staticmethod
+    def _is_prompt_blocked(resp) -> bool:
+        """A blocked prompt comes back with ``promptFeedback.blockReason`` and no candidates."""
+        return not resp.get("candidates") and bool(
+            resp.get("promptFeedback", {}).get("blockReason")
+        )
 
     @classmethod
     def chat_to_model(cls, payload, config):
@@ -278,11 +312,14 @@ class GeminiAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                function_declarations.append({
-                    "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "parametersJsonSchema": tool_function["parameters"],
-                })
+                # `description` and `parameters` are optional in both OpenAI tool
+                # definitions and Gemini function declarations.
+                function_declaration = {"name": tool_function["name"]}
+                if description := tool_function.get("description"):
+                    function_declaration["description"] = description
+                if parameters := tool_function.get("parameters"):
+                    function_declaration["parametersJsonSchema"] = parameters
+                function_declarations.append(function_declaration)
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
@@ -413,7 +450,7 @@ class GeminiAdapter(ProviderAdapter):
             )
         return chat_schema.ChatUsage(
             **extra,
-            prompt_tokens=usage_metadata.get("promptTokenCount"),
+            prompt_tokens=_get_prompt_tokens(usage_metadata),
             completion_tokens=_get_completion_tokens(usage_metadata),
             total_tokens=usage_metadata.get("totalTokenCount"),
             prompt_tokens_details=prompt_tokens_details,
@@ -447,25 +484,37 @@ class GeminiAdapter(ProviderAdapter):
         for idx, candidate in enumerate(resp.get("candidates", [])):
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
 
-            if parts := candidate.get("content", {}).get("parts", None):
-                if any(part.get("functionCall") for part in parts):
-                    choices.append(
-                        GeminiAdapter._convert_function_call_to_openai_choice(
-                            parts, finish_reason, idx, False
-                        )
+            parts = candidate.get("content", {}).get("parts")
+            if parts and any(part.get("functionCall") for part in parts):
+                choices.append(
+                    GeminiAdapter._convert_function_call_to_openai_choice(
+                        parts, finish_reason, idx, False
                     )
+                )
+            elif (
+                content := GeminiAdapter._join_text_parts(parts)
+            ) or finish_reason == "content_filter":
+                # A filtered candidate may have no parts or only empty-text parts; keep it so
+                # clients see why it ended.
+                choices.append(
+                    chat_schema.Choice(
+                        index=idx,
+                        message=chat_schema.ResponseMessage(
+                            role="assistant",
+                            content=content or None,
+                        ),
+                        finish_reason=finish_reason,
+                    )
+                )
 
-                elif content := GeminiAdapter._join_text_parts(parts):
-                    choices.append(
-                        chat_schema.Choice(
-                            index=idx,
-                            message=chat_schema.ResponseMessage(
-                                role="assistant",
-                                content=content,
-                            ),
-                            finish_reason=finish_reason,
-                        )
-                    )
+        if cls._is_prompt_blocked(resp):
+            choices.append(
+                chat_schema.Choice(
+                    index=0,
+                    message=chat_schema.ResponseMessage(role="assistant", content=None),
+                    finish_reason="content_filter",
+                )
+            )
 
         usage_metadata = resp.get("usageMetadata", {})
 
@@ -537,6 +586,14 @@ class GeminiAdapter(ProviderAdapter):
                     ),
                 )
             )
+        if cls._is_prompt_blocked(resp):
+            choices.append(
+                chat_schema.StreamChoice(
+                    index=0,
+                    finish_reason="content_filter",
+                    delta=chat_schema.StreamDelta(role="assistant", content=""),
+                )
+            )
         current_time = int(time.time())
 
         # Extract usage from usageMetadata (available in final chunk)
@@ -603,10 +660,9 @@ class GeminiAdapter(ProviderAdapter):
             text = ""
             if parts := candidate.get("content", {}).get("parts", None):
                 text = cls._join_text_parts(parts)
-            if not text:
-                continue
-
             finish_reason = cls._normalize_finish_reason(candidate.get("finishReason", "stop"))
+            if not text and finish_reason != "content_filter":
+                continue
 
             choices.append(
                 completions_schema.Choice(
@@ -614,6 +670,11 @@ class GeminiAdapter(ProviderAdapter):
                     text=text,
                     finish_reason=finish_reason,
                 )
+            )
+
+        if cls._is_prompt_blocked(resp):
+            choices.append(
+                completions_schema.Choice(index=0, text="", finish_reason="content_filter")
             )
 
         usage_metadata = resp.get("usageMetadata", {})
@@ -624,7 +685,7 @@ class GeminiAdapter(ProviderAdapter):
             model=config.model.name,
             choices=choices,
             usage=completions_schema.CompletionsUsage(
-                prompt_tokens=usage_metadata.get("promptTokenCount", None),
+                prompt_tokens=_get_prompt_tokens(usage_metadata),
                 completion_tokens=_get_completion_tokens(usage_metadata),
                 total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
@@ -663,6 +724,10 @@ class GeminiAdapter(ProviderAdapter):
                     finish_reason=cls._normalize_finish_reason(cand.get("finishReason")),
                     text=delta_text,
                 )
+            )
+        if cls._is_prompt_blocked(resp):
+            choices.append(
+                completions_schema.StreamChoice(index=0, finish_reason="content_filter", text="")
             )
         current_time = int(time.time())
 
@@ -888,6 +953,16 @@ class GeminiProvider(BaseProvider):
 
         return self.adapter_class.model_to_completions(resp, self.config)
 
+    def _raise_for_stream_error(self, resp: dict[str, Any]) -> None:
+        # Gemini can report an error inside a stream that already returned 200. Raise it so the
+        # stream ends with an error instead of looking complete.
+        if error := resp.get("error"):
+            raise AIGatewayException(
+                status_code=502,
+                detail=f"{self.DISPLAY_NAME} returned {error.get('status')} while streaming: "
+                f"{_error_detail(resp)}",
+            )
+
     async def _completions_stream(
         self, payload: completions_schema.RequestPayload
     ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
@@ -915,6 +990,7 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
+            self._raise_for_stream_error(resp)
             yield self.adapter_class.model_to_completions_streaming(resp, self.config)
 
     async def _chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
@@ -962,6 +1038,7 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
+            self._raise_for_stream_error(resp)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
             for pos, cand in enumerate(resp.get("candidates", [])):
                 idx = cand.get("index", pos)
@@ -993,6 +1070,7 @@ class GeminiProvider(BaseProvider):
         if usage_metadata:
             usage_metadata = {
                 **usage_metadata,
+                "promptTokenCount": _get_prompt_tokens(usage_metadata),
                 "candidatesTokenCount": _get_completion_tokens(usage_metadata),
             }
         return self._extract_token_usage_from_dict(

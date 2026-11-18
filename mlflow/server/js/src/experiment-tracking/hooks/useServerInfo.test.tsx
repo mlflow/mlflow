@@ -14,6 +14,8 @@ import {
   getFeatureEnabledSync,
   getWorkspacesEnabledSync,
   getMultipartDownloadsEnabledSync,
+  getModelArtifactPresignedDownloadsSupportedSync,
+  getLoggedModelArtifactReadCredentialsSupportedSync,
   resetServerInfoCache,
   SERVER_FEATURE_KEYS,
   ServerInfoProvider,
@@ -316,6 +318,41 @@ const renderWithProviders = (ui: React.ReactElement, queryClient: QueryClient) =
     </QueryClientProvider>,
   );
 };
+
+describe('model artifact download capability discovery', () => {
+  let queryClient: QueryClient;
+  let capabilities: Record<string, boolean>;
+
+  setupServer(
+    rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
+      res(ctx.json({ store_type: 'SqlStore', ...capabilities })),
+    ),
+  );
+
+  beforeEach(() => {
+    queryClient = createTestQueryClient();
+    capabilities = {};
+  });
+
+  afterEach(() => {
+    resetServerInfoCache();
+    queryClient.clear();
+  });
+
+  test.each<{ fields: Record<string, boolean>; signing: boolean; credentials: boolean }>([
+    { fields: {}, signing: false, credentials: false },
+    { fields: { model_artifact_presigned_downloads_supported: true }, signing: true, credentials: false },
+    { fields: { logged_model_artifact_read_credentials_supported: true }, signing: false, credentials: true },
+  ])('uses only the advertised model artifact APIs: $fields', async ({ fields, signing, credentials }) => {
+    capabilities = fields;
+    renderWithProviders(<span />, queryClient);
+    await waitFor(() => {
+      expect(queryClient.getQueryData<{ store_type: string }>(['serverInfo'])?.store_type).toBe('SqlStore');
+    });
+    expect(getModelArtifactPresignedDownloadsSupportedSync()).toBe(signing);
+    expect(getLoggedModelArtifactReadCredentialsSupportedSync()).toBe(credentials);
+  });
+});
 
 describe('useWorkspacesEnabled and getWorkspacesEnabledSync', () => {
   let queryClient: QueryClient;

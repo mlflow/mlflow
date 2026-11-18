@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 import uuid
 from unittest.mock import MagicMock, patch
 
@@ -197,6 +199,64 @@ def test_process_sessions_updates_checkpoint_when_no_sessions(
     assert checkpoint.session_id is None
 
 
+@pytest.mark.parametrize("max_last_trace_timestamp_ms", [1500, 2000])
+def test_process_sessions_waits_when_window_end_is_not_after_checkpoint(
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_score_session,
+    max_last_trace_timestamp_ms,
+):
+    # e.g. the completion buffer was increased after the checkpoint was written
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineSessionScoringTimeWindow(
+        min_last_trace_timestamp_ms=2000,
+        max_last_trace_timestamp_ms=max_last_trace_timestamp_ms,
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineSessionScoringCheckpoint(
+        timestamp_ms=2000, session_id="sess-001"
+    )
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
+    )
+    processor.process_sessions()
+
+    mock_tracking_store.find_completed_sessions.assert_not_called()
+    mock_score_session.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_not_called()
+
+
+def test_process_sessions_repairs_future_checkpoint(
+    mock_trace_loader,
+    mock_checkpoint_manager,
+    mock_tracking_store,
+    sampler_with_scorers,
+    mock_score_session,
+):
+    current_time_ms = 1_000_000
+    future_timestamp_ms = current_time_ms + 86_400_000
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineSessionScoringTimeWindow(
+        min_last_trace_timestamp_ms=future_timestamp_ms,
+        max_last_trace_timestamp_ms=current_time_ms - 60_000,
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineSessionScoringCheckpoint(
+        timestamp_ms=future_timestamp_ms, session_id="sess-001"
+    )
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
+    )
+
+    with patch("mlflow.genai.scorers.online.session_processor.time.time", return_value=1000):
+        processor.process_sessions()
+
+    mock_tracking_store.find_completed_sessions.assert_not_called()
+    mock_score_session.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == current_time_ms - 60_000
+    assert checkpoint.session_id is None
+
+
 def test_process_sessions_filters_checkpoint_boundary(
     mock_trace_loader,
     mock_checkpoint_manager,
@@ -374,6 +434,40 @@ def test_execute_session_scoring_handles_failures(
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 1500
     assert checkpoint.session_id == "sess-002"
+
+
+def test_host_session_scoring_imports_the_evaluation_harness_before_starting_workers():
+    # Fresh process: the harness eagerly imports optional dependencies such as litellm, which
+    # can deadlock if first imported concurrently from worker threads.
+    code = """
+import sys
+from unittest.mock import MagicMock, patch
+
+from mlflow.genai.scorers.online.session_processor import (
+    OnlineSessionScoringProcessor,
+    SessionScoringTask,
+)
+
+assert "mlflow.genai.evaluation.harness" not in sys.modules
+loaded_in_worker = []
+processor = OnlineSessionScoringProcessor(
+    trace_loader=MagicMock(),
+    checkpoint_manager=MagicMock(),
+    sampler=MagicMock(),
+    experiment_id="exp1",
+    tracking_store=MagicMock(),
+)
+with patch.object(
+    OnlineSessionScoringProcessor,
+    "_score_session",
+    side_effect=lambda task: loaded_in_worker.append(
+        "mlflow.genai.evaluation.harness" in sys.modules
+    ),
+):
+    processor._execute_session_scoring_on_host([SessionScoringTask(MagicMock(), [])])
+assert loaded_in_worker == [True]
+"""
+    subprocess.check_call([sys.executable, "-c", code])
 
 
 def test_score_session_logs_assessments_to_first_trace(

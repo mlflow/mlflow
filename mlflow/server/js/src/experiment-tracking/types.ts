@@ -449,8 +449,10 @@ export interface ArtifactLogTableImageObject {
 }
 
 export interface EvaluateCellImage {
-  url: string;
-  compressed_url: string;
+  /** Run-scoped paths used by the presigned image loader. */
+  runUuid: string;
+  filepath: string;
+  compressedFilepath: string;
 }
 
 export interface GetRunApiResponse {
@@ -459,6 +461,7 @@ export interface GetRunApiResponse {
 
 export interface SearchRunsApiResponse {
   runs?: RunEntity[];
+  runsMatchingFilter?: RunEntity[];
   next_page_token?: string;
 }
 

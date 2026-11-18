@@ -1,6 +1,7 @@
 import type { IntlShape } from '@databricks/i18n';
 import { getTimeAgoStrings } from '../browse/TimeAgo';
-import { formatCostUSD } from '../model-trace-explorer/CostUtils';
+import { formatCostUSD, formatEstimatedCostUSD } from '../model-trace-explorer/CostUtils';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 import { getTraceCost, getTraceTokenUsage } from '../model-trace-explorer/ModelTraceExplorer.utils';
 import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
@@ -55,7 +56,11 @@ export const getContentColumnMaxSizes = (traces: ModelTraceInfoV3[], intl: IntlS
     tokens: traces.map((trace) => String(getTraceTokenUsage(trace)?.total_tokens || '-')),
     cost: traces.map((trace) => {
       const total = getTraceCost(trace)?.total_cost;
-      return total === undefined || total === null ? '-' : formatCostUSD(total);
+      if (total === undefined || total === null) {
+        return '-';
+      }
+      // Size the column for the ≈-prefixed value the new eval runs UI renders.
+      return shouldEnableNewEvalRunsUi() ? formatEstimatedCostUSD(total) : formatCostUSD(total);
     }),
   };
 

@@ -46,19 +46,16 @@ const getClausesAndStartIndex = (str: string) => {
   return results;
 };
 
-/**
- * Filters out internal tag names and wrap names that include control characters in backticks.
- */
+/** Filters out internal tag names. */
 export const cleanEntitySearchTagNames = (tagNames: string[]) =>
-  tagNames
-    .filter((tag: string) => !tag.startsWith(MLFLOW_INTERNAL_PREFIX))
-    .map((tag: string) => {
-      if (tag.includes('"') || tag.includes(' ') || tag.includes('.')) {
-        return `\`${tag}\``;
-      } else if (tag.includes('`')) {
-        return `"${tag}"`;
-      } else return tag;
-    });
+  tagNames.filter((tag: string) => !tag.startsWith(MLFLOW_INTERNAL_PREFIX));
+
+const formatEntitySearchIdentifier = (name: string) => {
+  if (name.includes('`')) {
+    return `"${name}"`;
+  }
+  return `\`${name}\``;
+};
 
 export const getEntitySearchOptionsFromEntityNames = (
   entityNames: EntitySearchAutoCompleteEntityNameGroup,
@@ -66,15 +63,24 @@ export const getEntitySearchOptionsFromEntityNames = (
 ): EntitySearchAutoCompleteOptionGroup[] => [
   {
     label: 'Metrics',
-    options: entityNames.metricNames.map((m) => ({ value: `metrics.${m}` })),
+    options: entityNames.metricNames.map((m) => ({
+      label: `metrics.${m}`,
+      value: `metrics.${formatEntitySearchIdentifier(m)}`,
+    })),
   },
   {
     label: 'Parameters',
-    options: entityNames.paramNames.map((p) => ({ value: `params.${p}` })),
+    options: entityNames.paramNames.map((p) => ({
+      label: `params.${p}`,
+      value: `params.${formatEntitySearchIdentifier(p)}`,
+    })),
   },
   {
     label: 'Tags',
-    options: entityNames.tagNames.map((t) => ({ value: `tags.${t}` })),
+    options: entityNames.tagNames.map((t) => ({
+      label: `tags.${t}`,
+      value: `tags.${formatEntitySearchIdentifier(t)}`,
+    })),
   },
   {
     label: 'Attributes',
@@ -134,10 +140,14 @@ export const getFilteredOptionsFromEntityName = (
   return baseOptions
     .map((group) => {
       const newOptions = group.options
-        .filter((option) => option.value.toLowerCase().includes(entityBeingEdited.name.toLowerCase().trim()))
+        .filter((option) => {
+          const optionText = typeof option.label === 'string' ? option.label : option.value;
+          const searchText = entityBeingEdited.name.toLowerCase().trim();
+          return optionText.toLowerCase().includes(searchText) || option.value.toLowerCase().includes(searchText);
+        })
         .map((match) => ({
           value: match.value,
-          label: boldedText(match.value, entityBeingEdited.name.trim()),
+          label: boldedText(typeof match.label === 'string' ? match.label : match.value, entityBeingEdited.name.trim()),
         }));
       const limitForGroup = suggestionLimits[group.label];
       const ellipsized = [

@@ -1,0 +1,81 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Pull request review payload
+description: >-
+  Stage 1 of review validation: everything that can be checked without the diff.
+  validate_review.py applies it, then checks comment positions against the diff.
+type: object
+additionalProperties: false
+required:
+  - event
+  - body
+  - comments
+properties:
+  event:
+    type: string
+    enum:
+      - APPROVE
+      - REQUEST_CHANGES
+      - COMMENT
+  body:
+    type: string
+    maxLength: 65536
+    pattern: \S
+  commit_id:
+    type: string
+    pattern: ^[0-9a-f]{40}$
+  comments:
+    type: array
+    items:
+      $ref: "#/$defs/comment"
+$defs:
+  side:
+    type: string
+    enum:
+      - LEFT
+      - RIGHT
+  line:
+    type: integer
+    minimum: 1
+  comment:
+    type: object
+    additionalProperties: false
+    required:
+      - path
+      - body
+      - line
+      - side
+    properties:
+      path:
+        type: string
+        pattern: \S
+      body:
+        type: string
+        maxLength: 65536
+        pattern: \S
+      line:
+        description: Last line of the comment.
+        $ref: "#/$defs/line"
+      side:
+        description: RIGHT for added or unchanged lines; LEFT for deleted or unchanged lines.
+        $ref: "#/$defs/side"
+      start_line:
+        description: First line of a multi-line comment.
+        $ref: "#/$defs/line"
+      start_side:
+        $ref: "#/$defs/side"
+    dependentRequired:
+      start_line:
+        - start_side
+      start_side:
+        - start_line
+    # A range cannot start on the new side and end on the old side.
+    if:
+      required:
+        - start_side
+      properties:
+        start_side:
+          const: RIGHT
+    then:
+      properties:
+        side:
+          const: RIGHT

@@ -31,7 +31,7 @@ MLflow complies with GDPR in the following ways:
 - **No Personal Data Collected**: The telemetry data collected is fully anonymized and does not include any personal or sensitive information (e.g., usernames, IP addresses, file names, parameters, or model content). MLflow generates a random UUID for each session for aggregating usage events, which cannot be used to identify or track individual users.
 - **Purpose Limitation**: Data is only used to improve the MLflow project based on aggregate feature usage patterns.
 - **Data Minimization**: Only the minimum necessary metadata is collected to inform project priorities (e.g., feature toggle state, SDK/platform used, version info).
-- **User Control**: Users can opt out of telemetry at any time by setting the environment variable **MLFLOW_DISABLE_TELEMETRY=true** or **DO_NOT_TRACK=true**. MLflow respects these settings immediately without requiring a restart.
+- **User Control**: Users can opt out of telemetry at any time by setting the environment variable **MLFLOW_DISABLE_TELEMETRY=true** or **DO_NOT_TRACK=true** (`1` is also accepted for either). MLflow respects these settings immediately without requiring a restart.
 - **Transparency**: Telemetry endpoints and behavior are documented publicly, and MLflow users can inspect or block the relevant network calls.
 
 For further inquiries or data protection questions, users can file an issue on the [MLflow GitHub repository](https://github.com/mlflow/mlflow/issues).
@@ -334,6 +334,31 @@ For a comprehensive list of tracked events, please refer to the [source code](ht
       <td>`{"is_streaming": true, "invocation_type": "mlflow_chat_completions"}`</td>
     </tr>
     <tr>
+      <td>skill_registry_create_skill_version</td>
+      <td>Source type and version status</td>
+      <td>`{"source_type": "git", "status": "active"}`</td>
+    </tr>
+    <tr>
+      <td>skill_registry_bulk_register_skills</td>
+      <td>Number of requested skills</td>
+      <td>`{"num_skills": 3}`</td>
+    </tr>
+    <tr>
+      <td>skill_registry_register_skill</td>
+      <td>Source type</td>
+      <td>`{"source_type": "local"}`</td>
+    </tr>
+    <tr>
+      <td>skill_registry_import_skills</td>
+      <td>Whether filtering by skill names and number of returned versions on success</td>
+      <td>`{"filters_by_name": true, "num_returned": 3}`</td>
+    </tr>
+    <tr>
+      <td>skill_registry_pull</td>
+      <td>Skill reference type</td>
+      <td>`{"reference_type": "alias"}`</td>
+    </tr>
+    <tr>
       <td>ui_event</td>
       <td>A UI interaction event. See the [below table](#ui-interaction-metadata) for a description of the various metadata elements</td>
       <td>`{ "eventType": "onClick", "componentViewId": "88fc9edd-5e9e-4a17-abd2-c543f505b8eb", "componentId": "mlflow.prompts.list.create", "componentType": "button", timestamp_ns: 1765784028467000000 }`</td>
@@ -400,7 +425,7 @@ This approach helps us make MLflow better for everyone, while giving you full co
 MLflow supports opt-out telemetry through either of the following environment variables:
 
 - **MLFLOW_DISABLE_TELEMETRY=true**
-- **DO_NOT_TRACK=true**
+- **DO_NOT_TRACK=true** (or `DO_NOT_TRACK=1`, following the [Console Do Not Track](https://donottrack.sh/) convention)
 
 Setting either of these will **immediately disable telemetry**, no need to re-import MLflow or restart your session.
 

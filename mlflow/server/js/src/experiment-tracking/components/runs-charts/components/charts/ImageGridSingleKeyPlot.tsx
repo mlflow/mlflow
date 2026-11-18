@@ -60,6 +60,7 @@ export const ImageGridSingleKeyPlot = ({
               step={cardConfig.step}
               metadataByStep={imageMetadataByStep}
               runUuid={run.uuid}
+              artifactRootUri={run.runInfo?.artifactUri ?? undefined}
             />
           </div>
         );

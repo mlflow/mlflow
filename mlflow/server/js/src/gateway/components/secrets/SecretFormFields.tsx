@@ -5,6 +5,7 @@ import { useMemo, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../utils/providerUtils';
+import { isApiKeySecretField } from '../../utils/secretUtils';
 import { SecretInput } from './SecretInput';
 import type { AuthMode } from '../../types';
 import type { SecretFormData } from './types';
@@ -193,6 +194,7 @@ export const SecretFormFields = ({
               placeholder={secretPlaceholders?.[field.name] ?? field.description}
               validationState={errors?.secretFields?.[field.name] ? 'error' : undefined}
               disabled={disabled}
+              asciiOnly={isApiKeySecretField(field.name)}
             />
           ) : (
             <GatewayInput

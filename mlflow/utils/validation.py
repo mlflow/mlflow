@@ -93,6 +93,9 @@ MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
 MAX_TRACE_ARCHIVAL_RETENTION_LENGTH = 32
+MAX_USERNAME_LENGTH = 255
+MAX_ROLE_NAME_LENGTH = 255
+MAX_ROLE_DESCRIPTION_LENGTH = 1024
 _TRACE_ARCHIVAL_RETENTION_REGEX = re.compile(r"^[1-9][0-9]*[mhd]$")
 
 PARAM_VALIDATION_MSG = """
@@ -559,6 +562,17 @@ def _validate_length_limit(entity_name, limit, value, *, truncate=False):
         exceeds_maximum_length(entity_name, limit),
         error_code=INVALID_PARAMETER_VALUE,
     )
+
+
+def _validate_text_field(field: str, value: str | None, limit: int) -> None:
+    """Reject values the database would refuse, so callers get a 400 instead of a DB error."""
+    if value is None:
+        return
+    if "\x00" in value:
+        raise MlflowException.invalid_parameter_value(
+            f"'{field}' cannot contain NUL (0x00) characters"
+        )
+    _validate_length_limit(field, limit, value)
 
 
 def _validate_run_id(run_id, path="run_id"):
@@ -1168,20 +1182,57 @@ def _validate_gateway_api_base(url: str) -> None:
 # LiteLLM keyword arguments that choose where a request is sent. The LiteLLM provider spreads
 # a secret's ``auth_config`` into litellm kwargs, so each of these is as sensitive as
 # ``api_base``: ``base_url`` is litellm's alias for ``api_base``, ``model_list`` and
-# ``fallbacks`` carry per-deployment ``api_base`` values, and ``custom_llm_provider`` swaps
-# the provider and with it the default endpoint.
+# ``fallbacks`` carry per-deployment ``api_base`` values, ``custom_llm_provider`` swaps
+# the provider and with it the default endpoint, and the ``aws_*_endpoint`` options override
+# the AWS endpoints litellm would otherwise derive from the region. ``sagemaker_base_url``
+# replaces the whole SageMaker runtime URL, which litellm then SigV4-signs with the stored AWS
+# credentials. OAuth destinations such as ``gigachat_auth_url`` receive provider credentials and
+# must follow the same policy.
 GATEWAY_DESTINATION_KEYS = frozenset({
     "api_base",
     "base_url",
     "model_list",
     "fallbacks",
     "custom_llm_provider",
+    "aws_bedrock_runtime_endpoint",
+    "aws_sts_endpoint",
+    "sagemaker_base_url",
+    "gigachat_auth_url",
 })
 # ``api_base`` is the one validated way to choose the upstream, so the aliases are rejected in
 # ``auth_config`` and nothing egress-controlling may hide in the encrypted, unvalidated
 # ``secret_value`` map.
 _GATEWAY_AUTH_CONFIG_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS - {"api_base"}
 _GATEWAY_SECRET_VALUE_RESERVED_KEYS = GATEWAY_DESTINATION_KEYS
+
+
+# Keys whose value becomes part of a provider's request host, such as
+# ``bedrock-runtime.{aws_region_name}.amazonaws.com``. The native providers and LiteLLM both build
+# hosts this way, so each value must be a bare region name.
+# ``vertex_ai_location`` is litellm's alias for ``vertex_location``.
+GATEWAY_REGION_KEYS = frozenset({"aws_region_name", "vertex_location", "vertex_ai_location"})
+
+
+def _validate_region_name(value: Any, field_name: str, *, show_value: bool = True) -> Any:
+    """Raise ``ValueError`` unless ``value`` is unset or a bare region name like ``us-east-1``."""
+    if value is None or value == "":
+        return value
+    if not (isinstance(value, str) and re.fullmatch(r"[a-z0-9-]+", value)):
+        got = f"; got {value!r}" if show_value else ""
+        raise ValueError(
+            f"{field_name} must contain only lowercase letters, digits, and hyphens{got}"
+        )
+    return value
+
+
+def _validate_gateway_region_keys(
+    config: dict[str, Any] | None, source: str, *, show_value: bool = True
+) -> None:
+    for key in sorted(GATEWAY_REGION_KEYS & set(config or {})):
+        try:
+            _validate_region_name(config[key], f"{source} {key!r}", show_value=show_value)
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(str(e)) from None
 
 
 def _validate_gateway_secret_auth_config(
@@ -1201,6 +1252,9 @@ def _validate_gateway_secret_auth_config(
             "options choose where the gateway sends requests. Set the upstream with "
             "'api_base', which is validated."
         )
+    _validate_gateway_region_keys(normalized, "auth_config")
+    if auth_url := normalized.get("auth_url"):
+        _validate_gateway_api_base(auth_url)
     api_base = normalized.get("api_base")
     if isinstance(api_base, str):
         api_base = api_base.strip()
@@ -1222,6 +1276,9 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
             "choose where the gateway sends requests. Set the upstream with 'api_base' in "
             "auth_config, where it is validated."
         )
+    # The LiteLLM provider merges secret_value into its kwargs too. Values aren't echoed, since
+    # they sit next to secrets.
+    _validate_gateway_region_keys(secret_value, "secret_value", show_value=False)
 
 
 def _find_destination_keys(value: Any) -> set[str]:
@@ -1240,6 +1297,28 @@ def _find_destination_keys(value: Any) -> set[str]:
             found |= _find_destination_keys(nested)
         return found
     return set()
+
+
+def _iter_region_key_values(value: Any) -> Iterator[tuple[str, Any]]:
+    """Yield ``(key, value)`` for every region key nested anywhere in ``value``.
+
+    Like ``_find_destination_keys``, this also reads the two-item pairs ``dict()`` accepts.
+    """
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in GATEWAY_REGION_KEYS:
+                yield key, nested
+            yield from _iter_region_key_values(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            if (
+                isinstance(nested, list)
+                and len(nested) == 2
+                and isinstance(nested[0], str)
+                and nested[0] in GATEWAY_REGION_KEYS
+            ):
+                yield nested[0], nested[1]
+            yield from _iter_region_key_values(nested)
 
 
 def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
@@ -1268,7 +1347,8 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
     every ``litellm.completion()`` call, so ``api_base`` and its aliases let a caller pick the
     host the server connects to. The server is the trust boundary for these payloads, so the
     gateway destination keys are rejected here at any nesting depth (``completion_kwargs``,
-    ``model_kwargs``, ...) and inside any wrapping scorer.
+    ``model_kwargs``, ...) and inside any wrapping scorer. Providers build request hosts from
+    the region keys, so those must be bare region names at any nesting depth too.
     """
     for data in _iter_third_party_scorer_data(serialized_scorer):
         kwargs = data.get("kwargs")
@@ -1285,6 +1365,61 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
                 "the judge endpoint on the server instead, for example through a gateway "
                 "endpoint ('gateway:/<name>') or the provider's environment variables."
             )
+        for key, value in _iter_region_key_values(kwargs):
+            try:
+                _validate_region_name(value, f"third_party_scorer_data.kwargs {key!r}")
+            except ValueError as e:
+                raise MlflowException.invalid_parameter_value(str(e)) from None
+
+
+# Serialized judges whose data carries ``inference_params``: ``InstructionsJudge`` (``make_judge``)
+# and the built-in scorers.
+_JUDGE_PYDANTIC_DATA_FIELDS = ("instructions_judge_pydantic_data", "builtin_scorer_pydantic_data")
+
+
+def _iter_judge_pydantic_data(value: Any) -> Iterator[tuple[str, dict[str, Any]]]:
+    """Yield ``(field, data)`` for every judge's data nested anywhere in a serialized scorer.
+
+    Like ``_iter_third_party_scorer_data``, this reaches judges wrapped by ensembles and MemAlign.
+    """
+    if isinstance(value, dict):
+        for field in _JUDGE_PYDANTIC_DATA_FIELDS:
+            data = value.get(field)
+            if isinstance(data, dict):
+                yield field, data
+        for nested in value.values():
+            yield from _iter_judge_pydantic_data(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _iter_judge_pydantic_data(nested)
+
+
+def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
+    """Reject judge ``inference_params`` that set where the judge's requests are sent.
+
+    The LiteLLM judge adapter merges ``inference_params`` into the ``litellm.completion()``
+    kwargs last, so they would take precedence over the endpoint the server configured. The
+    judge endpoint is configured on the server, so the gateway destination keys rejected for
+    third-party scorer kwargs are rejected here too, at any nesting depth and inside any
+    wrapping scorer. Providers build request hosts from the region keys, so those must be bare
+    region names.
+    """
+    for field, data in _iter_judge_pydantic_data(serialized_scorer):
+        params = data.get("inference_params")
+        # The adapter applies these with `dict.update`, which also accepts a list of key/value
+        # pairs, so only a mapping (or null) is a valid shape.
+        if params is not None and not isinstance(params, dict):
+            raise MlflowException.invalid_parameter_value(
+                f"{field}.inference_params must be a JSON object, got {type(params).__name__}."
+            )
+        if found := sorted(_find_destination_keys(params)):
+            raise MlflowException.invalid_parameter_value(
+                f"{field}.inference_params must not contain {', '.join(map(repr, found))}: "
+                "these options choose where the judge's LLM client sends requests. Configure "
+                "the judge endpoint on the server instead, for example through a gateway "
+                "endpoint ('gateway:/<name>') or the provider's environment variables."
+            )
+        _validate_gateway_region_keys(params, f"{field}.inference_params")
 
 
 def _validate_icon_url(url: str) -> None:

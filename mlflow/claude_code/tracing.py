@@ -115,6 +115,12 @@ def _build_usage_dict(usage: dict[str, Any]) -> dict[str, int]:
         usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
     if (created := usage.get("cache_creation_input_tokens")) is not None:
         usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+    # cache_creation carries a per-TTL breakdown; capture the 1-hour portion (a subset of
+    # cache_creation_input_tokens) so cost can price it at the 1-hour rate, matching
+    # mlflow.anthropic.autolog.
+    if isinstance(cache_creation_details := usage.get("cache_creation"), dict):
+        if (above_1hr := cache_creation_details.get("ephemeral_1h_input_tokens")) is not None:
+            usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
     # Anthropic reports input_tokens excluding cache tokens.
     if cache_total := (cached or 0) + (created or 0):
         usage_dict[TokenUsageKey.INPUT_TOKENS] += cache_total
