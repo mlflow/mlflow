@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 import mlflow
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
@@ -422,28 +422,28 @@ class MemoryAugmentedJudge(Judge):
         return judge_copy
 
     def _reconstruct_episodic_memory(self) -> list["dspy.Example"]:
+        trace_ids = self._episodic_trace_ids
+        if not trace_ids:
+            return []
+
         examples = []
         missing_ids = []
         # Sequential fetches dominate load time for large memories (one REST round trip each).
-        max_workers = max(
-            1, min(len(self._episodic_trace_ids), MLFLOW_SEARCH_TRACES_MAX_THREADS.get())
-        )
+        # Same knob and default as the parallel get_trace refresh in the genai evaluation harness.
+        max_workers = max(1, min(len(trace_ids), MLFLOW_GENAI_EVAL_MAX_WORKERS.get()))
         with ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="MemAlignTraceFetch"
         ) as executor:
-            # map preserves input order, so examples stay in _episodic_trace_ids order.
-            traces = list(
-                map_with_context(
-                    executor,
-                    lambda tid: mlflow.get_trace(tid, silent=True),
-                    self._episodic_trace_ids,
-                )
+            # map yields in input order, so examples stay in trace_ids order. Consuming it lazily
+            # keeps only in-flight traces in memory.
+            traces = map_with_context(
+                executor, lambda tid: mlflow.get_trace(tid, silent=True), trace_ids
             )
-        for trace_id, trace in zip(self._episodic_trace_ids, traces, strict=True):
-            if trace is not None:
-                examples.extend(trace_to_dspy_example(trace, self._base_judge))
-            else:
-                missing_ids.append(trace_id)
+            for trace_id, trace in zip(trace_ids, traces, strict=True):
+                if trace is not None:
+                    examples.extend(trace_to_dspy_example(trace, self._base_judge))
+                else:
+                    missing_ids.append(trace_id)
 
         if missing_ids:
             _logger.warning(
@@ -451,7 +451,7 @@ class MemoryAugmentedJudge(Judge):
                 f"Missing trace IDs: {missing_ids[:5]}"
                 f"{'...' if len(missing_ids) > 5 else ''}. "
                 f"Judge will operate with partial memory "
-                f"({len(examples)}/{len(self._episodic_trace_ids)} traces)."
+                f"({len(examples)}/{len(trace_ids)} traces)."
             )
 
         return examples

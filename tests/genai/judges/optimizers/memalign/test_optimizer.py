@@ -1,3 +1,4 @@
+import contextvars
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -1543,8 +1544,9 @@ def test_reconstruct_episodic_memory_preserves_order_when_fetches_finish_out_of_
     assert all(c.kwargs == {"silent": True} for c in mock_get_trace.call_args_list)
 
 
-def test_reconstruct_episodic_memory_fetches_concurrently(sample_judge):
+def test_reconstruct_episodic_memory_fetches_concurrently(sample_judge, monkeypatch):
     n = 4
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(n))
     # Every fetch blocks until all n are in flight; a sequential loop would time out.
     barrier = threading.Barrier(n, timeout=10)
 
@@ -1558,6 +1560,54 @@ def test_reconstruct_episodic_memory_fetches_concurrently(sample_judge):
         patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
     ):
         assert judge._reconstruct_episodic_memory() == [f"t{i}" for i in range(n)]
+
+
+def test_reconstruct_episodic_memory_respects_max_workers(sample_judge, monkeypatch):
+    max_workers = 2
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(max_workers))
+    lock = threading.Lock()
+    in_flight = 0
+    peak = 0
+    # Forces pairs of fetches to overlap, so a pool larger than max_workers would be observable.
+    barrier = threading.Barrier(max_workers, timeout=10)
+
+    def fake_get_trace(tid, **kwargs):
+        nonlocal in_flight, peak
+        with lock:
+            in_flight += 1
+            peak = max(peak, in_flight)
+        barrier.wait()
+        with lock:
+            in_flight -= 1
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(8)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == [f"t{i}" for i in range(8)]
+
+    assert peak == max_workers
+
+
+def test_reconstruct_episodic_memory_propagates_caller_context(sample_judge):
+    var = contextvars.ContextVar("memalign_test_var", default=None)
+    var.set("caller-value")
+    seen = []
+
+    def fake_get_trace(tid, **kwargs):
+        seen.append(var.get())
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(4)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        judge._reconstruct_episodic_memory()
+
+    assert seen == ["caller-value"] * 4
 
 
 def test_reconstruct_episodic_memory_reports_missing_traces(sample_judge):
