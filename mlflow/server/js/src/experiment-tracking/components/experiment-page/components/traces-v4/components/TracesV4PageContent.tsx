@@ -5,7 +5,6 @@ import {
   ApplyDesignSystemContextOverrides,
   Drawer,
   type InputRef,
-  ColumnSplitIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl, FormattedMessage } from 'react-intl';
@@ -50,6 +49,7 @@ import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
 import { useTracesV4Notifications } from '../hooks/useTracesV4Notifications';
 import { useTracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
+import { useTracesV4CustomColumnHeaderActions } from '../hooks/useTracesV4CustomColumns';
 import { useTracesV4UnifiedSearch } from '../hooks/useTracesV4UnifiedSearch';
 import { useTracesV4DrawerSessionUrlState } from '../hooks/useTracesV4DrawerSessionUrlState';
 import { TracesV4TableSurface } from './TracesV4TableSurface';
@@ -63,7 +63,6 @@ import { useLatestIssueDetection } from '@mlflow/mlflow/src/experiment-tracking/
 import { useCancelJob } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useCancelJob';
 import { isJobComplete } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useFetchJobStatus';
 import { TracesV4SavedViewsButton, useTracesV4SavedViews } from './TracesV4SavedViews';
-import { type TraceColumnHeaderAction } from '@databricks/web-shared/traces-table';
 import { useExperimentPageRevampContext } from '../../../../../pages/experiment-page-tabs/ExperimentPageRevampContext';
 
 interface TracesV4PageContentProps {
@@ -402,30 +401,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     [customColumns, assessments, columns],
   );
 
-  const columnHeaderActions = useMemo<Readonly<Partial<Record<string, TraceColumnHeaderAction>>>>(() => {
-    const actions: Partial<Record<string, TraceColumnHeaderAction>> = {};
-    if (customColumns.tags.selectorOptions.length > 0) {
-      actions['tags'] = {
-        label: intl.formatMessage({
-          defaultMessage: 'Expand tag columns',
-          description: 'Column header action for expanding tag columns',
-        }),
-        icon: <ColumnSplitIcon />,
-        onClick: () => customColumns.tags.setAllVisible(true),
-      };
-    }
-    if (customColumns.metadata.selectorOptions.length > 0) {
-      actions['metadata'] = {
-        label: intl.formatMessage({
-          defaultMessage: 'Expand metadata columns',
-          description: 'Column header action for expanding metadata columns',
-        }),
-        icon: <ColumnSplitIcon />,
-        onClick: () => customColumns.metadata.setAllVisible(true),
-      };
-    }
-    return actions;
-  }, [customColumns.tags, customColumns.metadata, intl]);
+  const columnHeaderActions = useTracesV4CustomColumnHeaderActions(customColumns);
 
   const actions = useTracesV4TraceActions(experimentId, page.traces, page.refetch, notify);
   // With the new eval runs UI, the drawer opens fullscreen within the experiment page (falling back

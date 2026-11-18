@@ -1,10 +1,11 @@
 import { useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { useIntl } from 'react-intl';
-import { CodeIcon, TagIcon } from '@databricks/design-system';
+import { CodeIcon, ColumnSplitIcon, TagIcon } from '@databricks/design-system';
 import { type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import {
   getTextColumnMaxSize,
   type GenericColumnOption,
+  type TraceColumnHeaderAction,
   type TraceTableColumn,
 } from '@databricks/web-shared/traces-table';
 import { isCustomTraceColumnId, METADATA_COLUMN_PREFIX, TAG_COLUMN_PREFIX } from '../utils/customColumns';
@@ -89,6 +90,37 @@ export interface TracesV4CustomColumns {
   toggle: (id: string) => void;
   reset: () => void;
 }
+
+/** Builds the shared header actions for expanding discovered tag and metadata columns. */
+export const useTracesV4CustomColumnHeaderActions = (
+  customColumns: TracesV4CustomColumns,
+): Readonly<Partial<Record<string, TraceColumnHeaderAction>>> => {
+  const intl = useIntl();
+  return useMemo(() => {
+    const actions: Partial<Record<string, TraceColumnHeaderAction>> = {};
+    if (customColumns.tags.selectorOptions.length > 0) {
+      actions['tags'] = {
+        label: intl.formatMessage({
+          defaultMessage: 'Expand tag columns',
+          description: 'Column header action for expanding tag columns',
+        }),
+        icon: <ColumnSplitIcon />,
+        onClick: () => customColumns.tags.setAllVisible(true),
+      };
+    }
+    if (customColumns.metadata.selectorOptions.length > 0) {
+      actions['metadata'] = {
+        label: intl.formatMessage({
+          defaultMessage: 'Expand metadata columns',
+          description: 'Column header action for expanding metadata columns',
+        }),
+        icon: <ColumnSplitIcon />,
+        onClick: () => customColumns.metadata.setAllVisible(true),
+      };
+    }
+    return actions;
+  }, [customColumns.tags, customColumns.metadata, intl]);
+};
 
 /** Discovers user-authored tags and metadata on the current page and exposes them as opt-in columns. */
 export const useTracesV4CustomColumns = (

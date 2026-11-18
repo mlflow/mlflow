@@ -589,6 +589,19 @@ def _validate_windows_path_aliases(path: str) -> None:
             )
 
 
+def _strip_extended_length_prefix(path: pathlib.PurePath) -> pathlib.PurePath:
+    # On Windows, non-strict ntpath.realpath (used by Path.resolve()) keeps the `\\?\`
+    # extended-length prefix when the path doesn't fully exist and a concurrent mkdir changes
+    # the error code of its re-check (see `realpath` in CPython's Lib/ntpath.py). The prefixed
+    # and plain forms name the same location, but `is_relative_to` compares them lexically.
+    s = str(path)
+    if s.startswith("\\\\?\\UNC\\"):
+        return type(path)("\\\\" + s[len("\\\\?\\UNC\\") :])
+    if s.startswith("\\\\?\\"):
+        return type(path)(s[len("\\\\?\\") :])
+    return path
+
+
 def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
     """
     Validates that the constructed path (after resolving symlinks) is within the base directory.
@@ -623,6 +636,8 @@ def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
     else:
         real_constructed_path = target.parent.resolve() / target.name
 
+    real_base_dir = _strip_extended_length_prefix(real_base_dir)
+    real_constructed_path = _strip_extended_length_prefix(real_constructed_path)
     if not real_constructed_path.is_relative_to(real_base_dir):
         raise MlflowException(
             "Invalid path: resolved path is outside the artifact directory",
