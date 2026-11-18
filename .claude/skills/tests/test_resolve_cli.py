@@ -255,18 +255,18 @@ def test_schema_rejects_malformed_pr_updates(
         "proposed",
         "current",
         "with_patch",
-        "concurrent_after_patch",
+        "after_patch",
         "error",
         "expected_update",
     ),
     [
-        ({"title": "After"}, {}, False, False, None, {"title": "After"}),
-        ({"body": "Updated"}, {}, False, False, None, {"body": "Updated"}),
+        ({"title": "After"}, {}, False, None, None, {"title": "After"}),
+        ({"body": "Updated"}, {}, False, None, None, {"body": "Updated"}),
         (
             {"title": "After", "body": "Updated"},
             {},
             True,
-            False,
+            None,
             None,
             {"title": "After", "body": "Updated"},
         ),
@@ -274,15 +274,17 @@ def test_schema_rejects_malformed_pr_updates(
             {"title": "After", "body": "Updated"},
             {"title": "After"},
             False,
-            False,
+            None,
             None,
             {"body": "Updated"},
         ),
-        ({}, {}, True, False, None, {}),
-        ({"title": "After"}, {"title": "After"}, False, False, None, {}),
-        ({"title": "After"}, {"title": "Concurrent"}, False, False, "PR title changed", {}),
-        ({"title": "After"}, {}, True, True, "PR title changed", {}),
-        ({"body": "Updated"}, {}, False, False, "GitHub did not apply", {"body": "Updated"}),
+        ({}, {}, True, None, None, {}),
+        ({"title": "After"}, {"title": "After"}, False, None, None, {}),
+        ({"title": "After"}, {"title": "Concurrent"}, False, None, "PR title changed", {}),
+        ({"title": "After"}, {}, True, "title", "PR title changed", {}),
+        ({"title": "After"}, {}, True, "stale", None, {"title": "After"}),
+        ({"title": "After"}, {}, True, "head", "PR changed before publishing", {}),
+        ({"body": "Updated"}, {}, False, None, "GitHub did not apply", {"body": "Updated"}),
     ],
     ids=[
         "title",
@@ -293,6 +295,8 @@ def test_schema_rejects_malformed_pr_updates(
         "retry",
         "concurrent-edit",
         "concurrent-edit-after-patch",
+        "stale-head",
+        "concurrent-head-change",
         "failed-write",
     ],
 )
@@ -303,7 +307,7 @@ def test_publish_pr_update(
     proposed: dict[str, str],
     current: dict[str, str],
     with_patch: bool,
-    concurrent_after_patch: bool,
+    after_patch: str | None,
     error: str | None,
     expected_update: dict[str, str],
 ) -> None:
@@ -343,6 +347,9 @@ def test_publish_pr_update(
         if endpoint_arg == endpoint:
             if method == "PATCH" and error is None:
                 assert data is not None
+                if after_patch == "stale":
+                    assert pr["head"]["sha"] == context["head_sha"]
+                    pr["head"]["sha"] = "new-sha"
                 pr.update(data)
             return pr
         if endpoint_arg == review_endpoint:
@@ -357,8 +364,9 @@ def test_publish_pr_update(
     def update_branch(
         repo: str, review_id: str, context: dict[str, Any], head: str, tree: str
     ) -> str:
-        pr["head"]["sha"] = "new-sha"
-        if concurrent_after_patch:
+        if after_patch != "stale":
+            pr["head"]["sha"] = "different-sha" if after_patch == "head" else "new-sha"
+        if after_patch == "title":
             pr["title"] = "Concurrent"
         return "new-sha"
 
