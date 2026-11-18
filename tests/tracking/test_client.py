@@ -1693,6 +1693,21 @@ def test_update_registered_model(mock_registry_store):
     mock_registry_store.rename_registered_model.assert_not_called()
 
 
+def test_rename_registered_model(mock_registry_store):
+    """
+    Rename returns the updated RegisteredModel, as annotated and documented.
+    """
+    expected_return_value = "some expected return value."
+    mock_registry_store.rename_registered_model.return_value = expected_return_value
+    res = MlflowClient(registry_uri="sqlite:///somedb.db").rename_registered_model(
+        name="orig name", new_name="new name"
+    )
+    assert expected_return_value == res
+    mock_registry_store.rename_registered_model.assert_called_once_with(
+        name="orig name", new_name="new name"
+    )
+
+
 def test_create_model_version(mock_registry_store):
     """
     Basic test for create model version.
