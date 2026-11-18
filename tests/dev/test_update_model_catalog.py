@@ -17,6 +17,7 @@ from update_model_catalog import (
     _normalize_provider,
     _transform_entry,
     convert,
+    find_price_mismatches,
 )
 
 
@@ -835,3 +836,56 @@ def test_convert_migrates_legacy_pricing_in_preserved_models(tmp_path):
     assert "input_per_token" not in batch
     assert batch["input_per_million_tokens"] == pytest.approx(1.5)
     assert batch["output_per_million_tokens"] == pytest.approx(7.5)
+
+
+def test_find_price_mismatches(tmp_path):
+    catalog = {
+        "schema_version": "1.0",
+        "models": {
+            "gpt-6-rosalind": {
+                "mode": "chat",
+                "pricing": {
+                    "input_per_million_tokens": 15.0,
+                    "output_per_million_tokens": 75.0,
+                    "cache_read_per_million_tokens": 1.5,
+                },
+            },
+            "gpt-6-sol": {
+                "mode": "chat",
+                "pricing": {"input_per_million_tokens": 2.0, "output_per_million_tokens": 10.0},
+            },
+        },
+    }
+    (tmp_path / "openai.json").write_text(json.dumps(catalog))
+    reference = {
+        "gpt-6-rosalind": {
+            "litellm_provider": "openai",
+            "input_cost_per_token": 1e-5,
+            "output_cost_per_token": 5e-5,
+            "cache_read_input_token_cost": 1e-6,
+        },
+        "gpt-6-sol": {
+            "litellm_provider": "openai",
+            "input_cost_per_token": 2e-6,
+            "output_cost_per_token": 1e-5,
+            "cache_read_input_token_cost": 2e-7,
+        },
+        # Not in the catalog
+        "gpt-6.9": {"litellm_provider": "openai", "input_cost_per_token": 1e-6},
+        # Provider not cross-checked
+        "openrouter/openai/gpt-6-sol": {
+            "litellm_provider": "openrouter",
+            "input_cost_per_token": 9e-6,
+        },
+    }
+
+    assert find_price_mismatches(reference, tmp_path) == [
+        "openai/gpt-6-rosalind input_per_million_tokens: catalog 15, llm-prices 10",
+        "openai/gpt-6-rosalind output_per_million_tokens: catalog 75, llm-prices 50",
+        "openai/gpt-6-rosalind cache_read_per_million_tokens: catalog 1.5, llm-prices 1",
+    ]
+
+
+def test_find_price_mismatches_ignores_missing_provider_file(tmp_path):
+    reference = {"claude-x": {"litellm_provider": "anthropic", "input_cost_per_token": 1e-6}}
+    assert find_price_mismatches(reference, tmp_path) == []

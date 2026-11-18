@@ -55,7 +55,7 @@ jobs:
 
       - name: Fetch and transform model catalog
         run: |
-          uv run python dev/update_model_catalog.py
+          uv run python dev/update_model_catalog.py --cross-check
 
       - name: Regenerate claude-code pricing snapshot
         working-directory: libs/typescript

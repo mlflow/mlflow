@@ -11,10 +11,16 @@ Models present in the upstream source always take precedence over existing entri
 (upstream wins). Models not present in the upstream source are preserved, allowing
 community additions to coexist with automated upstream syncs.
 Models with a deprecation_date in the past are dropped during conversion.
+
+With --cross-check, the converted catalog is also compared against llm-prices
+(https://github.com/Mattbusel/llm-prices), which reads prices from the providers' own
+pricing pages, and any base price that disagrees is reported. The catalog is not changed.
 """
 
 import argparse
 import json
+import math
+import os
 import re
 import urllib.request
 from datetime import date, datetime
@@ -368,6 +374,63 @@ def _fetch_litellm_catalog() -> dict[str, Any]:
         return data
 
 
+# llm-prices publishes its table in the same format as the LiteLLM JSON above
+_LLM_PRICES_URL = "https://raw.githubusercontent.com/Mattbusel/llm-prices/main/litellm.json"
+
+# Providers whose llm-prices rows are read from the provider's own pricing page
+_CROSS_CHECK_PROVIDERS = {"openai", "anthropic", "gemini", "xai", "deepseek", "mistral"}
+
+_CROSS_CHECK_FIELDS = {
+    "input_cost_per_token": "input_per_million_tokens",
+    "output_cost_per_token": "output_per_million_tokens",
+    "cache_read_input_token_cost": "cache_read_per_million_tokens",
+}
+
+
+def _fetch_llm_prices_catalog() -> dict[str, Any]:
+    print(f"Fetching {_LLM_PRICES_URL} ...")
+    with urllib.request.urlopen(_LLM_PRICES_URL, timeout=30) as resp:
+        data: dict[str, Any] = json.loads(resp.read().decode("utf-8"))
+        return data
+
+
+def find_price_mismatches(reference: dict[str, Any], output_dir: Path) -> list[str]:
+    """Compare catalog base prices with a reference in LiteLLM format.
+
+    Only models present in both, for providers in _CROSS_CHECK_PROVIDERS, are compared.
+    Returns one line per differing price.
+    """
+    catalogs: dict[str, dict[str, Any]] = {}
+    mismatches = []
+    for key, info in reference.items():
+        if not isinstance(info, dict) or not info.get("litellm_provider"):
+            continue
+        provider = _normalize_provider(info["litellm_provider"])
+        if provider not in _CROSS_CHECK_PROVIDERS:
+            continue
+        if provider not in catalogs:
+            path = output_dir / f"{provider}.json"
+            catalogs[provider] = (
+                json.loads(path.read_text(encoding="utf-8")).get("models", {})
+                if path.exists()
+                else {}
+            )
+        model_name = key.split("/", 1)[-1]
+        pricing = catalogs[provider].get(model_name, {}).get("pricing", {})
+        for ref_field, catalog_field in _CROSS_CHECK_FIELDS.items():
+            ref_value = info.get(ref_field)
+            catalog_value = pricing.get(catalog_field)
+            if ref_value is None or catalog_value is None:
+                continue
+            ref_value = _to_per_million(ref_value)
+            if not math.isclose(ref_value, catalog_value, rel_tol=1e-6):
+                mismatches.append(
+                    f"{provider}/{model_name} {catalog_field}: "
+                    f"catalog {catalog_value:g}, llm-prices {ref_value:g}"
+                )
+    return mismatches
+
+
 def convert(raw: dict[str, Any], output_dir: Path) -> dict[str, int]:
     """Convert upstream catalog dict to per-provider MLflow catalog files.
 
@@ -465,6 +528,11 @@ def main() -> None:
         default=Path("mlflow/utils/model_catalog"),
         help="Output directory for per-provider JSON files",
     )
+    parser.add_argument(
+        "--cross-check",
+        action="store_true",
+        help="Report catalog prices that disagree with llm-prices (does not modify the catalog)",
+    )
     args = parser.parse_args()
 
     raw = _fetch_litellm_catalog()
@@ -473,6 +541,25 @@ def main() -> None:
     print(f"Converted {total} models across {len(stats)} providers:")
     for provider, count in sorted(stats.items(), key=lambda x: -x[1]):
         print(f"  {provider}: {count}")
+
+    if args.cross_check:
+        _report_price_mismatches(args.output_dir)
+
+
+def _report_price_mismatches(output_dir: Path) -> None:
+    try:
+        reference = _fetch_llm_prices_catalog()
+    except Exception as e:
+        print(f"Warning: skipping cross-check, could not fetch llm-prices: {e}")
+        return
+    mismatches = find_price_mismatches(reference, output_dir)
+    print(f"Cross-check against llm-prices: {len(mismatches)} price(s) differ")
+    for line in mismatches:
+        print(f"  {line}")
+    if mismatches and (summary := os.environ.get("GITHUB_STEP_SUMMARY")):
+        with open(summary, "a", encoding="utf-8") as f:
+            f.write("### Catalog prices that differ from llm-prices\n\n")
+            f.writelines(f"- `{line}`\n" for line in mismatches)
 
 
 if __name__ == "__main__":
