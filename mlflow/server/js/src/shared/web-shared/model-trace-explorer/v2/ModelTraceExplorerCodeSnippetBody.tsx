@@ -9,7 +9,7 @@ import { CodeSnippetRenderMode } from './ModelTrace.types';
 import { CollapsibleJsonViewer, getJsonColors } from './CollapsibleJsonViewer';
 import { ModelTraceExplorerHighlightedCodeSnippet } from '../ModelTraceExplorerHighlightedCodeSnippet';
 import { formatJsonStringAsYaml, getYamlCollectionPreview, yamlJsonMayContain } from './ModelTraceExplorerYaml.utils';
-import { useCachedPayloadResult } from './right-pane/ModelTraceExplorerPayloadCache';
+import { useCachedPayloadGetter, useCachedPayloadResult } from './right-pane/ModelTraceExplorerPayloadCache';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import { CodeSnippet } from '../../snippet/CodeSnippet';
 import { SnippetCopyAction } from '../../snippet/actions/SnippetCopyAction';
@@ -38,6 +38,7 @@ export function ModelTraceExplorerCodeSnippetBody({
   initialExpanded?: boolean;
 }): JSX.Element {
   const { theme } = useDesignSystemTheme();
+  const getFullYaml = useCachedPayloadGetter('yaml', data, () => formatJsonStringAsYaml(data));
   const isYamlRenderMode = renderMode === CodeSnippetRenderMode.YAML;
   const needsPreview = isYamlRenderMode && data.length > YAML_MAX_CHARS_FOR_PREVIEW * 2;
   const yamlPreview = useCachedPayloadResult('yaml-preview', needsPreview ? data : undefined, () =>
@@ -250,7 +251,7 @@ export function ModelTraceExplorerCodeSnippetBody({
           <SnippetCopyAction
             key="copy-snippet"
             componentId="shared.model-trace-explorer.copy-snippet"
-            copyText={hasPartialPreview ? () => formatJsonStringAsYaml(data) : isYamlRenderMode ? dataToTruncate : data}
+            copyText={hasPartialPreview ? getFullYaml : isYamlRenderMode ? dataToTruncate : data}
             size="small"
             css={{
               position: 'absolute',

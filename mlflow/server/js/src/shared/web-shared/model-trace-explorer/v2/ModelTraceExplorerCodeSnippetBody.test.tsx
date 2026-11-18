@@ -114,6 +114,9 @@ describe('collapsed YAML serialization', () => {
       jest.mocked(dump).mock.calls.filter(([value]: unknown[]) => Array.isArray(value) && value.length === 500);
     expect(fullDumps()).toHaveLength(1);
     rerender(<ModelTraceExplorerCodeSnippetBody data={data} renderMode={CodeSnippetRenderMode.YAML} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(fullDumps()).toHaveLength(1);
     await userEvent.click(screen.getByRole('button', { name: 'See more' }));
     expect(screen.getByText(/record499/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'See less' }));
@@ -122,6 +125,17 @@ describe('collapsed YAML serialization', () => {
     rerender(<></>);
     rerender(<ModelTraceExplorerCodeSnippetBody data={data} renderMode={CodeSnippetRenderMode.YAML} />);
     expect(screen.getByRole('button', { name: 'See more' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(global.navigator.clipboard.writeText).toHaveBeenLastCalledWith(
+      jest
+        .requireActual<typeof import('js-yaml')>('js-yaml')
+        .dump(records, {
+          noRefs: true,
+          lineWidth: 120,
+          sortKeys: false,
+        })
+        .trimEnd(),
+    );
     expect(fullDumps()).toHaveLength(1);
     expect(jest.mocked(dump)).toHaveBeenCalledTimes(previewDumps + 1);
   });
