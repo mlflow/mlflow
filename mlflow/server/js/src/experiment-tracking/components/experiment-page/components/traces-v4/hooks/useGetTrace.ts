@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from 'react';
-import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import {
   shouldUseTracesV4API,
@@ -12,6 +12,7 @@ import {
   type ModelTrace,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
+import { installTraceCacheBudget, TRACE_CACHE_TIME_MS } from './traceCacheBudget';
 
 /**
  * Fetches a single trace's body for the V4 drawer. Parses the `trace:/…` long id itself, so it also
@@ -23,6 +24,8 @@ import {
  * consumer here.
  */
 export function useGetTrace(traceId: string, selectedSqlWarehouseId?: string, rowTraceInfo?: ModelTraceInfoV3) {
+  const client = useQueryClient();
+  useEffect(() => installTraceCacheBudget(client), [client]);
   // V4 format is "trace:/catalog.schema/trace_id"; V3 is the bare id.
   const parsedTrace = useMemo(() => {
     if (!traceId) return null;
@@ -61,7 +64,7 @@ export function useGetTrace(traceId: string, selectedSqlWarehouseId?: string, ro
     queryFn: fetchTrace,
     enabled,
     staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
+    cacheTime: TRACE_CACHE_TIME_MS,
     retry: 3,
     refetchOnWindowFocus: false,
   });
