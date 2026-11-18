@@ -1326,6 +1326,93 @@ def test_load_pt2_model_validation_does_not_disturb_concurrent_weights_only_load
     assert errors == []
 
 
+def _add_pt2_weight_record(
+    pt2_path: Path, payload: object, pickled_name: str, config_twin_name: str | None
+) -> None:
+    # Adds `weight_99` holding a pickled `payload`, listed as a raw tensor in the weights config.
+    # The config also lists it as pickled under `pickled_name`; when `config_twin_name` is set,
+    # that pickled entry lives in a second weights config record of this name instead.
+    buffer = io.BytesIO()
+    torch.save(payload, buffer)
+    payload_bytes = buffer.getvalue()
+    with zipfile.ZipFile(pt2_path) as archive:
+        records = {info.filename: archive.read(info) for info in archive.infolist()}
+    config_name = next(n for n in records if n.endswith("data/weights/model_weights_config.json"))
+    weights_dir = config_name.rsplit("/", 1)[0]
+    config = json.loads(records[config_name])
+    raw_entry = {
+        "path_name": "weight_99",
+        "is_param": False,
+        "use_pickle": False,
+        "tensor_meta": {
+            "dtype": 1,
+            "sizes": [{"as_int": len(payload_bytes)}],
+            "strides": [{"as_int": 1}],
+            "storage_offset": {"as_int": 0},
+            "requires_grad": False,
+            "device": {"type": "cpu", "index": None},
+            "layout": 7,
+        },
+    }
+    pickled_entry = {
+        "path_name": pickled_name,
+        "is_param": False,
+        "use_pickle": True,
+        "tensor_meta": None,
+    }
+    if config_twin_name is None:
+        records[config_name] = json.dumps({
+            "config": {"pickled": pickled_entry, "raw": raw_entry, **config["config"]}
+        }).encode()
+    else:
+        records[config_name] = json.dumps({
+            "config": {"extra": raw_entry, **config["config"]}
+        }).encode()
+        records[f"{weights_dir}/{config_twin_name}"] = json.dumps({
+            "config": {"extra": pickled_entry, **config["config"]}
+        }).encode()
+    records[f"{weights_dir}/weight_99"] = payload_bytes
+    with zipfile.ZipFile(pt2_path, "w") as archive:
+        for name, content in records.items():
+            archive.writestr(name, content)
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.10"), reason="This test requires torch>=2.10"
+)
+@pytest.mark.parametrize(
+    ("pickled_name", "config_twin_name", "rejected_record"),
+    [
+        ("weight_99", None, "weight_99"),
+        ("WEIGHT_99", None, "weight_99"),
+        ("weight_99", "MODEL_WEIGHTS_CONFIG.json", "MODEL_WEIGHTS_CONFIG.json"),
+    ],
+)
+def test_load_pt2_model_rejects_pickled_weight_listed_as_raw_tensor(
+    model_path, data, monkeypatch, tmp_path, pickled_name, config_twin_name, rejected_record
+):
+    mlflow.pytorch.save_model(
+        get_sequential_model(),
+        model_path,
+        serialization_format="pt2",
+        input_example=data[0].to_numpy(dtype=np.float32),
+    )
+    marker_path = tmp_path / "payload_executed"
+    _add_pt2_weight_record(
+        Path(model_path) / "data" / "model.pt2",
+        _FileCreatingPayload(marker_path),
+        pickled_name,
+        config_twin_name,
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(
+        MlflowException, match=rf"record '[^']*/data/weights/{re.escape(rejected_record)}'"
+    ):
+        mlflow.pytorch.load_model(model_path)
+    assert not marker_path.exists()
+
+
 @pytest.mark.skipif(
     Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
 )

@@ -771,7 +771,10 @@ def _pt2_raw_tensor_records(records: dict[str, bytes]) -> set[str]:
                 raw_records.add(record)
             else:
                 pickled_records.add(record)
-    return raw_records - pickled_records
+    # `torch.export.load` resolves record names case-insensitively, so a record listed as
+    # pickled under any casing must not be skipped as raw tensor bytes.
+    pickled_folded = {record.casefold() for record in pickled_records}
+    return {record for record in raw_records if record.casefold() not in pickled_folded}
 
 
 _PICKLE_STRING_OPCODES = frozenset({
@@ -900,6 +903,15 @@ def _validate_pt2_archive_is_pickle_free(model_path: str) -> None:
 
     with archive:
         infos = [info for info in archive.infolist() if not info.is_dir()]
+        # `torch.export.load` resolves record names case-insensitively, so when names collide
+        # it may read a different record (e.g. a payload config) than the one validated here.
+        # `torch.export.save` never writes such archives.
+        seen_names: set[str] = set()
+        for info in infos:
+            folded_name = info.filename.casefold()
+            if folded_name in seen_names:
+                raise _violation(info.filename)
+            seen_names.add(folded_name)
         payload_configs = {
             info.filename: archive.read(info)
             for info in infos
