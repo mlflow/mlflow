@@ -39,7 +39,7 @@ _logger = logging.getLogger(__name__)
 # quotes JSON from the trace), while the result is a fixed enum, number, or boolean. These
 # patterns recover both fields from such malformed output, in either key order. The greedy
 # rationale capture can swallow field or object boundaries, so recovery is skipped when the
-# captured rationale looks like it spans more than the rationale value (see
+# decoded rationale looks like it spans more than the rationale value (see
 # `_is_unambiguous_rationale`).
 _RESULT_VALUE_PATTERN = r'"[^"\\]*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null'
 _RATIONALE_THEN_RESULT_PATTERN = re.compile(
@@ -151,9 +151,9 @@ def call_chat_completions(
     return _call_chat_completions(user_prompt, system_prompt, tools, model, use_case)
 
 
-def _is_unambiguous_rationale(raw_rationale: str) -> bool:
+def _is_unambiguous_rationale(rationale: str) -> bool:
     """
-    Return False if the captured rationale may span outer object boundaries, i.e. its braces or
+    Return False if the decoded rationale may span outer object boundaries, i.e. its braces or
     brackets are unbalanced (truncated output or concatenated objects) or it contains a field
     boundary outside any nested braces or brackets (extra fields). Inside nested braces or
     brackets, string literals are skipped so braces within embedded JSON strings are not
@@ -163,7 +163,7 @@ def _is_unambiguous_rationale(raw_rationale: str) -> bool:
     in_string = False
     escaped = False
     top_level_chars = []
-    for char in raw_rationale:
+    for char in rationale:
         if in_string:
             if escaped:
                 escaped = False
@@ -204,13 +204,15 @@ def _lenient_parse_judge_output(llm_output: str) -> dict[str, Any] | None:
     except json.JSONDecodeError:
         return None
     raw_rationale = match.group("rationale")
-    if not _is_unambiguous_rationale(raw_rationale):
-        return None
     escaped_rationale = _UNESCAPED_QUOTE_PATTERN.sub(r'\1\\"', raw_rationale)
     try:
         rationale = json.loads(f'"{escaped_rationale}"', strict=False)
     except json.JSONDecodeError:
         rationale = raw_rationale
+    # Check after decoding so that quotes the model did escape (e.g. `{\"a\": 1}` next to an
+    # unescaped quote) are scanned as plain quotes rather than as an extra escape layer.
+    if not _is_unambiguous_rationale(rationale):
+        return None
     return {"result": result, "rationale": rationale}
 
 

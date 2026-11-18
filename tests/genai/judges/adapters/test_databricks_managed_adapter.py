@@ -721,6 +721,17 @@ def test_databricks_managed_adapter_rejects_base_url_and_extra_headers(base_url,
             "yes",
             'Args {"old_string": "}", "new_string": "{"}',
         ),
+        # Embedded JSON the model escaped correctly, next to a quote it didn't escape.
+        (
+            '{"rationale": "Args {\\"a\\": 1} are "correct".", "result": "yes"}',
+            "yes",
+            'Args {"a": 1} are "correct".',
+        ),
+        (
+            '{"result": "yes", "rationale": "Args {\\"a\\": 1} are "correct"."}',
+            "yes",
+            'Args {"a": 1} are "correct".',
+        ),
     ],
 )
 def test_parse_databricks_judge_response_recovers_verdict(
@@ -754,6 +765,9 @@ def test_parse_databricks_judge_response_recovers_verdict(
         '{"rationale": "Says "hi"", "extra": "x", "result": "yes"}',
         '{"result": "yes", "rationale": "Says "hi"", "extra": "x"}',
         '{"result": "yes", "extra": "x", "rationale": "Says "hi""}',
+        # Known limitation: the ambiguity check runs on the decoded rationale, where the
+        # embedded value `"C:\\"` becomes `"C:\"`, so its string looks unterminated.
+        '{"rationale": "Path {"p": "C:\\\\"} is "ok".", "result": "yes"}',
     ],
 )
 def test_parse_databricks_judge_response_invalid_json_error(llm_output):
