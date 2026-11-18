@@ -30,7 +30,7 @@ We welcome community contributions to MLflow. This page provides useful informat
     - [Writing Python Tests](#writing-python-tests)
     - [Running Python Tests](#running-python-tests)
     - [Python Client](#python-client)
-      - [Python Model Flavors](python-model-flavors)
+      - [Python Model Flavors](#python-model-flavors)
     - [Python Server](#python-server)
       - [Building Protobuf Files](#building-protobuf-files)
       - [Database Schema Changes](#database-schema-changes)
@@ -110,7 +110,7 @@ features and patches for MLflow.
 For significant changes to MLflow, we recommend outlining a design for
 the feature or patch and discussing it with an MLflow committer before
 investing heavily in implementation. During issue triage, we try to
-proactively identify issues require design by labeling them with `needs design`. This is particularly important if your proposed implementation:
+proactively identify issues that require design by labeling them with `needs design`. This is particularly important if your proposed implementation:
 
 - Introduces changes or additions to the [MLflow REST
   API](https://mlflow.org/docs/latest/rest-api.html)
@@ -603,9 +603,6 @@ disable this behavior, decorate your test function with
 
 #### Running Python Tests
 
-Verify that the unit tests & linter pass before submitting a pull
-request by running:
-
 We use [ruff](https://docs.astral.sh/ruff/) to ensure a
 consistent code format. You can auto-format your code by running:
 
@@ -717,7 +714,7 @@ steps below.
 
 If you are contributing a new model flavor, follow these steps:
 
-1.  Follow instructions in [Python Model Flavors](#python-model-flavors)
+1.  Follow instructions in [Python Model Flavors](###python-model-flavors)
 2.  Create a corresponding directory in
     `mlflow/examples/new-model-flavor`
 3.  Implement your Python training `new-model-flavor` code in this
