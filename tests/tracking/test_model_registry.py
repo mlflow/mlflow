@@ -2,11 +2,13 @@ import time
 from pathlib import Path
 
 import pytest
+import requests
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import PROMPT_MODEL_CONFIG_TAG_KEY
 from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
@@ -719,3 +721,46 @@ def test_register_model_from_registered_model_uri_preserves_lineage(client, sour
 
     assert promoted_version.run_id == run_id
     assert promoted_version.source == f"models:/{source_name}/{source_version.version}"
+
+
+@pytest.mark.parametrize("key", ["mlflow.prompt.text", "_mlflow_prompt_type"])
+def test_rest_model_version_tag_endpoints_reject_prompt_template_tags(client, key):
+    client.register_prompt(name="rest_prompt", template="Hello, {{name}}!")
+    client.create_registered_model("rest_model")
+    client.create_model_version("rest_model", "runs:/run-id/model", run_id="run-id")
+
+    # MlflowClient refuses model-version tag calls on prompts, so call the REST endpoints directly
+    set_tag_url = f"{client.tracking_uri}/api/2.0/mlflow/model-versions/set-tag"
+    delete_tag_url = f"{client.tracking_uri}/api/2.0/mlflow/model-versions/delete-tag"
+
+    def set_tag(name, key, value):
+        return requests.post(
+            set_tag_url, json={"name": name, "version": "1", "key": key, "value": value}
+        )
+
+    def delete_tag(name, key):
+        return requests.delete(delete_tag_url, json={"name": name, "version": "1", "key": key})
+
+    for response in [set_tag("rest_prompt", key, "modified"), delete_tag("rest_prompt", key)]:
+        assert response.status_code == 400
+        assert response.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+        assert f"Tag '{key}' is part of the prompt template" in response.json()["message"]
+    assert client.get_prompt_version("rest_prompt", 1).template == "Hello, {{name}}!"
+
+    set_tag("rest_prompt", "env", "prod").raise_for_status()
+    set_tag(
+        "rest_prompt", PROMPT_MODEL_CONFIG_TAG_KEY, '{"model_name": "gpt-5"}'
+    ).raise_for_status()
+    prompt = client.get_prompt_version("rest_prompt", 1)
+    assert prompt.tags["env"] == "prod"
+    assert prompt.model_config == {"model_name": "gpt-5"}
+    delete_tag("rest_prompt", "env").raise_for_status()
+    delete_tag("rest_prompt", PROMPT_MODEL_CONFIG_TAG_KEY).raise_for_status()
+    prompt = client.get_prompt_version("rest_prompt", 1)
+    assert "env" not in prompt.tags
+    assert prompt.model_config is None
+
+    set_tag("rest_model", key, "value").raise_for_status()
+    assert client.get_model_version("rest_model", "1").tags[key] == "value"
+    delete_tag("rest_model", key).raise_for_status()
+    assert key not in client.get_model_version("rest_model", "1").tags
