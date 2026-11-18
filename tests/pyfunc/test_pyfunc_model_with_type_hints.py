@@ -841,6 +841,40 @@ def test_predict_model_with_type_hints():
     )
 
 
+class MessageStreamModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: list[Message], params=None) -> list[str]:
+        return [m.content for m in model_input]
+
+    def predict_stream(self, model_input, params=None):
+        yield model_input
+
+
+class DictStreamModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: list[dict[str, Any]], params=None) -> list[str]:
+        return [repr(r) for r in model_input]
+
+    def predict_stream(self, model_input, params=None):
+        yield model_input
+
+
+@pytest.mark.parametrize(
+    ("model", "request_data"),
+    [
+        (MessageStreamModel(), {"role": "user", "content": "Hi"}),
+        (DictStreamModel(), {"a": {"k": "v"}, "b": 1}),
+    ],
+)
+@pytest.mark.parametrize("wrap_in_list", [False, True])
+def test_predict_stream_with_type_hints(model, request_data, wrap_in_list):
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=model)
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert pyfunc_model.metadata._is_signature_from_type_hint()
+
+    data = [request_data] if wrap_in_list else request_data
+    assert list(pyfunc_model.predict_stream(data)) == [request_data]
+
+
 def test_predict_with_wrong_signature_warns():
     message = r"Model's `predict` method contains invalid parameters"
     with pytest.warns(FutureWarning, match=message):
