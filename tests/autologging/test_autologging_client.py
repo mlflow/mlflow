@@ -134,6 +134,83 @@ def test_client_run_creation_and_termination_are_successful():
     assert {"a": "b"}.items() <= run.data.tags.items()
 
 
+@pytest.mark.parametrize("flush_mode", ["synchronous", "asynchronous", "context"])
+def test_client_preserves_queued_run_names(flush_mode):
+    tracking_client = MlflowClient()
+    experiment_id = tracking_client.create_experiment("named_queued_runs")
+    client = MlflowAutologgingQueueingClient()
+    run_names = ["training epoch 3", "模型 validation"]
+
+    def enqueue_runs():
+        for index, run_name in enumerate(run_names):
+            run_id = client.create_run(
+                experiment_id=experiment_id,
+                run_name=run_name,
+                tags={"phase": "training"},
+                start_time=5,
+            )
+            client.log_params(run_id, {"index": index})
+            client.log_metrics(run_id, {"loss": index + 0.25})
+            client.set_tags(run_id, {"queued": "yes"})
+            client.set_terminated(run_id, status="FINISHED", end_time=6)
+
+    if flush_mode == "context":
+        with client:
+            enqueue_runs()
+    else:
+        enqueue_runs()
+        client.flush(synchronous=flush_mode == "synchronous").await_completion()
+
+    runs = tracking_client.search_runs([experiment_id])
+    assert len(runs) == 2
+    runs_by_name = {run.info.run_name: run for run in runs}
+    assert set(runs_by_name) == set(run_names)
+    for index, run_name in enumerate(run_names):
+        run = runs_by_name[run_name]
+        assert run.data.tags["mlflow.runName"] == run_name
+        assert run.data.tags["phase"] == "training"
+        assert run.data.tags["queued"] == "yes"
+        assert run.data.params == {"index": str(index)}
+        assert run.data.metrics == {"loss": index + 0.25}
+        assert run.info.status == "FINISHED"
+        assert run.info.start_time == 5
+        assert run.info.end_time == 6
+
+
+@pytest.mark.parametrize(
+    ("run_name", "tags", "expected_name"),
+    [
+        (None, {}, None),
+        ("", {}, None),
+        (None, {"mlflow.runName": "tag name"}, "tag name"),
+        ("matching name", {"mlflow.runName": "matching name"}, "matching name"),
+    ],
+)
+def test_queued_run_names_keep_tracking_client_defaults(run_name, tags, expected_name):
+    tracking_client = MlflowClient()
+    experiment_id = tracking_client.create_experiment("queued_run_name_defaults")
+    with MlflowAutologgingQueueingClient() as client:
+        client.create_run(experiment_id, run_name=run_name, tags=tags)
+
+    (run,) = tracking_client.search_runs([experiment_id])
+    assert run.info.run_name
+    assert run.data.tags["mlflow.runName"] == run.info.run_name
+    if expected_name is not None:
+        assert run.info.run_name == expected_name
+
+
+def test_queued_conflicting_run_names_keep_tracking_client_validation():
+    tracking_client = MlflowClient()
+    experiment_id = tracking_client.create_experiment("conflicting_queued_run_names")
+    client = MlflowAutologgingQueueingClient()
+    client.create_run(experiment_id, run_name="argument", tags={"mlflow.runName": "tag"})
+
+    with pytest.raises(MlflowException, match="different values"):
+        client.flush()
+
+    assert tracking_client.search_runs([experiment_id]) == []
+
+
 def test_client_asynchronous_flush_operates_correctly():
     original_log_batch = MlflowClient().log_batch
 
