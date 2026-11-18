@@ -118,6 +118,8 @@ Write `$tmp_dir/out/payload.json` per the schema, which says when to approve and
 on. Omit findings existing threads already cover, even if reproduced, and skip speculation and
 minor code-level issues.
 
+Put captured media of expected behavior, including base/PR evidence for approvals, in the body's evidence section.
+
 Take each comment's `side` and `line` from the diff's line labels, not by counting:
 
 ```bash
