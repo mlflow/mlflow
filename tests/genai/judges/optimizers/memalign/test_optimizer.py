@@ -1553,17 +1553,24 @@ def test_remove_guidelines_on_initialized_judge(sample_judge, sample_traces):
         assert cleaned._episodic_memory is not aligned._episodic_memory
         assert cleaned._episodic_trace_ids == aligned._episodic_trace_ids
         assert cleaned._retriever is aligned._retriever
+        assert cleaned._embedder is aligned._embedder
         assert cleaned._reflection_lm == aligned._reflection_lm
         assert cleaned._retrieval_k == aligned._retrieval_k
         assert cleaned._embedding_model == aligned._embedding_model
         assert cleaned._embedding_dim == aligned._embedding_dim
         assert cleaned.name == aligned.name
 
-        # Nothing was fetched or re-embedded
+        # Scoring the copy reuses the shared state: no trace fetch, no new embedder or
+        # retriever, and no corpus re-embedding.
+        patcher, captured = _mock_scoring_call(sample_judge.name, sample_judge.model)
+        with patch("mlflow.get_trace") as mock_get_trace, patcher:
+            cleaned(inputs="test input", outputs="test output")
+
+        assert len(captured) == 1
         mock_get_trace.assert_not_called()
-        assert mocks["embedder"].call_count == embedder_calls
         assert mocks["embedder_class"].call_count == embedder_class_calls
         assert mocks["embeddings_class"].call_count == embeddings_class_calls
+        assert mocks["embedder"].call_count == embedder_calls
 
 
 def test_remove_guidelines_does_not_change_instructions_format(sample_judge, sample_traces):
@@ -1618,12 +1625,46 @@ def test_remove_guidelines_round_trip_serialization(sample_judge, sample_traces)
 
 
 def test_remove_guidelines_judge_still_scores(sample_judge, sample_traces):
-    with mock_apis(guidelines=["G0", "G1"]):
+    with mock_apis(guidelines=["G0", "G1"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
         aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
-    cleaned = aligned.remove_guidelines([0])
-    feedback = Feedback(name=sample_judge.name, value="yes", source=_HUMAN_SOURCE)
-    with patch.object(InstructionsJudge, "__call__", return_value=feedback):
-        assert cleaned(inputs="in", outputs="out") is feedback
+        cleaned = aligned.remove_guidelines([0])
+        patcher, captured = _mock_scoring_call(sample_judge.name, sample_judge.model)
+        with patcher:
+            result = cleaned(inputs="in", outputs="out")
+
+    assert result.value == "yes"
+    assert len(captured) == 1
+    assert "G0" not in captured[0]
+    assert "G1" in captured[0]
+    assert "Example Judgements" in captured[0]
+
+
+def test_remove_guidelines_then_register_then_load(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+        cleaned = aligned.remove_guidelines([0, 3])
+
+        cleaned.register()
+        loaded = get_scorer(name=sample_judge.name, experiment_id=_get_experiment_id())
+
+    assert isinstance(loaded, MemoryAugmentedJudge)
+    assert loaded.guidelines == ["G1", "G2", "G4"]
+
+
+def test_remove_guidelines_while_lazy_init_in_progress_stays_deferred(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    restored = Scorer.model_validate(aligned.model_dump())
+    # Mimic another thread inside _lazy_init: embedder set, memory and retriever not yet built
+    restored._embedder = MagicMock()
+    assert restored._retriever is None
+
+    cleaned = restored.remove_guidelines([0])
+
+    assert cleaned._embedder is None
+    assert cleaned._retriever is None
+    assert cleaned.guidelines == ["G1", "G2", "G3", "G4"]
 
 
 @pytest.mark.parametrize(
@@ -1652,5 +1693,5 @@ def test_remove_guidelines_rejects_invalid_indices(sample_judge, sample_traces, 
 def test_remove_guidelines_on_judge_without_guidelines(sample_judge, sample_traces):
     with mock_apis(guidelines=[]):
         aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
-    with pytest.raises(MlflowException, match="has no guidelines"):
+    with pytest.raises(MlflowException, match="no guidelines to remove"):
         aligned.remove_guidelines([0])

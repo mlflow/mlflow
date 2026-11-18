@@ -554,7 +554,8 @@ class MemoryAugmentedJudge(Judge):
 
         Unlike :py:meth:`unalign`, which drops a guideline only when all of its source traces
         are removed, this drops exactly the guidelines you select. Episodic memory (examples
-        and trace IDs) and configuration are unchanged, and this judge is not modified.
+        and trace IDs) and the MemAlign settings (reflection model, retrieval size, embedding
+        model and dimension) are kept, and this judge is not modified.
 
         Args:
             indices: 0-based positions in :py:attr:`guidelines` of the guidelines to remove.
@@ -571,7 +572,12 @@ class MemoryAugmentedJudge(Judge):
                 cleaned.register(name="my_judge")
         """
         count = len(self._semantic_memory)
-        valid_range = f"0 to {count - 1}" if count else "none (this judge has no guidelines)"
+        if count == 0:
+            raise MlflowException(
+                "This judge has no guidelines to remove.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        valid_range = f"0 to {count - 1}"
         if not isinstance(indices, list) or not indices:
             raise MlflowException(
                 f"indices must be a non-empty list of integers in the range {valid_range}, "
@@ -587,14 +593,16 @@ class MemoryAugmentedJudge(Judge):
                 )
         if len(set(indices)) != len(indices):
             raise MlflowException(
-                f"indices must not contain duplicates, got {indices}",
+                f"indices must not contain duplicates, got {indices!r}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        # Deferred judges stay deferred (no trace fetch or embedding). Initialized judges share
-        # the embedder and retriever, which __call__ only reads, so nothing is re-embedded.
+        # Deferred judges stay deferred (no trace fetch or embedding). Fully initialized judges
+        # share the embedder and retriever, which __call__ only reads, so nothing is re-embedded.
+        # Gate on _retriever, which _lazy_init sets last, so a judge that is mid-initialization
+        # on another thread stays deferred and initializes itself later.
         new_judge = self._create_copy()
-        if self._embedder is not None:
+        if self._retriever is not None:
             new_judge._base_signature = self._base_signature
             new_judge._embedder = self._embedder
             new_judge._retriever = self._retriever

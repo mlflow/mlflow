@@ -126,7 +126,7 @@ print(aligned_judge.instructions)
 
 ## Removing Specific Guidelines
 
-To list the learned guidelines, use `guidelines`. To drop specific ones (for example, contradictory guidelines), pass their 0-based positions to `remove_guidelines`. It returns a new judge and leaves the original unchanged. Examples and other settings are kept.
+To list the learned guidelines, use `guidelines`. To drop specific ones (for example, contradictory guidelines), pass their 0-based positions to `remove_guidelines`. It returns a new judge and leaves the original unchanged. Examples and MemAlign settings (reflection model, retrieval size, and embedding model) are kept.
 
 ```python
 for i, guideline in enumerate(aligned_judge.guidelines):
