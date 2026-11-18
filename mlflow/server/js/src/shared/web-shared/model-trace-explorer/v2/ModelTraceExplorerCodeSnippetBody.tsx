@@ -8,6 +8,7 @@ import type { SearchMatch } from './ModelTrace.types';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
 import { CollapsibleJsonViewer } from './CollapsibleJsonViewer';
 import { getJsonColors } from './ModelTraceExplorerJsonRendering.utils';
+import { getTextPreview, hasMoreLinesThan } from './ModelTraceExplorerCodeSnippet.utils';
 import { ModelTraceExplorerHighlightedCodeSnippet } from '../ModelTraceExplorerHighlightedCodeSnippet';
 import { formatJsonStringAsYaml, getYamlCollectionPreview, yamlJsonMayContain } from './ModelTraceExplorerYaml.utils';
 import { useCachedPayloadGetter, useCachedPayloadResult } from './right-pane/ModelTraceExplorerPayloadCache';
@@ -98,14 +99,13 @@ export function ModelTraceExplorerCodeSnippetBody({
   const expandable =
     hasPartialPreview ||
     isContentLong ||
-    dataToTruncate.split('\n').length > maxLinesForPreview ||
-    dataToTruncate.length > maxCharsForPreview;
+    dataToTruncate.length > maxCharsForPreview ||
+    hasMoreLinesThan(dataToTruncate, maxLinesForPreview);
 
   // Truncate after first 3 lines if not expanded
   const displayedData = useMemo(() => {
     if (expandable && !expanded) {
-      const split = dataToTruncate.split('\n').slice(0, maxLinesForPreview).join('\n');
-      return split.length > maxCharsForPreview ? split.slice(0, maxCharsForPreview) : split;
+      return getTextPreview(dataToTruncate, maxLinesForPreview, maxCharsForPreview);
     }
 
     return dataToTruncate;

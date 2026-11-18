@@ -36,6 +36,16 @@ describe('collapsed YAML serialization', () => {
     });
   });
 
+  it('does not split an entire multiline payload to render its collapsed text preview', () => {
+    const value = 'bounded preview line\n'.repeat(20000);
+    const split = jest.spyOn(String.prototype, 'split');
+    render(<ModelTraceExplorerCodeSnippetBody data={JSON.stringify(value)} renderMode={CodeSnippetRenderMode.TEXT} />, {
+      wrapper: Wrapper,
+    });
+    expect(screen.getByRole('button', { name: 'See more' })).toBeInTheDocument();
+    expect(split.mock.instances.filter((text) => String(text) === value)).toHaveLength(0);
+  });
+
   it.each([null, false, 0, 'café 日本語 🙂'])(
     'reuses the supplied JSON scalar %p without losing Copy fidelity',
     async (value) => {
