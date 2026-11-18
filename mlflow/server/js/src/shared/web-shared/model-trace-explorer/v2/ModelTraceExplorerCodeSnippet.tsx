@@ -41,6 +41,7 @@ export function ModelTraceExplorerCodeSnippet({
   title,
   tokens,
   data,
+  parsedData: suppliedParsedData,
   searchFilter = '',
   activeMatch = null,
   containsActiveMatch = false,
@@ -51,6 +52,8 @@ export function ModelTraceExplorerCodeSnippet({
   title: string;
   tokens?: number;
   data: string;
+  /** The JSON-compatible value represented by data, when the caller already holds it. */
+  parsedData?: unknown;
   searchFilter?: string;
   // the current active search match
   activeMatch?: SearchMatch | null;
@@ -62,7 +65,10 @@ export function ModelTraceExplorerCodeSnippet({
   /** When true, the per-snippet render mode dropdown is hidden (e.g. for aggregated table view). */
   hideRenderModeDropdown?: boolean;
 }): React.ReactElement | null {
-  const parsedData = useMemo(() => JSON.parse(data), [data]);
+  const parsedData = useMemo(
+    () => (suppliedParsedData === undefined ? JSON.parse(data) : suppliedParsedData),
+    [data, suppliedParsedData],
+  );
   const dataIsString = isString(parsedData);
   const { theme } = useDesignSystemTheme();
   // string data can be rendered in multiple formats
@@ -171,6 +177,7 @@ export function ModelTraceExplorerCodeSnippet({
         >
           <ModelTraceExplorerCodeSnippetBody
             data={data}
+            parsedData={parsedData}
             searchFilter={searchFilter}
             activeMatch={activeMatch}
             containsActiveMatch={containsActiveMatch}

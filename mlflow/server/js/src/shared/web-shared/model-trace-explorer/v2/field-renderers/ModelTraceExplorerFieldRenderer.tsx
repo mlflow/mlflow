@@ -210,13 +210,14 @@ export const ModelTraceExplorerFieldRenderer = ({
 }): React.ReactElement | null => {
   const { theme } = useDesignSystemTheme();
   const [messagesExpanded, setMessagesExpanded] = useState(false);
-  const parsedData = useMemo(() => {
+  const jsonValue = useMemo(() => {
     try {
       return data === undefined ? undefined : JSON.parse(data);
     } catch (e) {
-      return data;
+      return undefined;
     }
   }, [data]);
+  const parsedData = jsonValue === undefined ? data : jsonValue;
 
   useEffect(() => {
     setMessagesExpanded(false);
@@ -373,6 +374,7 @@ export const ModelTraceExplorerFieldRenderer = ({
       <ModelTraceExplorerCodeSnippet
         title={title}
         data={data ?? ''}
+        parsedData={jsonValue}
         initialRenderMode={CodeSnippetRenderMode.JSON}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -386,6 +388,7 @@ export const ModelTraceExplorerFieldRenderer = ({
       <ModelTraceExplorerCodeSnippet
         title={title}
         data={data ?? ''}
+        parsedData={jsonValue}
         initialRenderMode={CodeSnippetRenderMode.TEXT}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -399,6 +402,7 @@ export const ModelTraceExplorerFieldRenderer = ({
       <ModelTraceExplorerCodeSnippet
         title={title}
         data={data ?? ''}
+        parsedData={jsonValue}
         initialRenderMode={CodeSnippetRenderMode.YAML}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -452,6 +456,7 @@ export const ModelTraceExplorerFieldRenderer = ({
           <ModelTraceExplorerCodeSnippet
             title={title}
             data={data ?? ''}
+            parsedData={jsonValue}
             initialRenderMode={CodeSnippetRenderMode.YAML}
           />
         </div>
@@ -460,6 +465,11 @@ export const ModelTraceExplorerFieldRenderer = ({
   }
 
   return (
-    <ModelTraceExplorerCodeSnippet title={title} data={data ?? ''} initialRenderMode={CodeSnippetRenderMode.YAML} />
+    <ModelTraceExplorerCodeSnippet
+      title={title}
+      data={data ?? ''}
+      parsedData={jsonValue}
+      initialRenderMode={CodeSnippetRenderMode.YAML}
+    />
   );
 };

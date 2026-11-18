@@ -23,6 +23,8 @@ export { getJsonColors } from './ModelTraceExplorerJsonRendering.utils';
 const LARGE_JSON_MIN_ROWS = 200;
 interface CollapsibleJsonViewerProps {
   data: string;
+  /** The JSON-compatible value represented by data, when already parsed by the caller. */
+  parsedData?: unknown;
   initialExpanded?: boolean;
   /** Applies only to the large-payload row renderer; smaller values keep the legacy view. */
   rowLimit?: number;
@@ -341,6 +343,7 @@ function IdeJsonViewer({ parsedData, initialExpanded, colors, theme }: IdeJsonVi
 
 export function CollapsibleJsonViewer({
   data,
+  parsedData,
   initialExpanded = false,
   rowLimit,
 }: CollapsibleJsonViewerProps): JSX.Element {
@@ -348,11 +351,11 @@ export function CollapsibleJsonViewer({
 
   const parseResult = useMemo(() => {
     try {
-      return { success: true, data: JSON.parse(data) };
+      return { success: true, data: parsedData === undefined ? JSON.parse(data) : parsedData };
     } catch (error) {
       return { success: false, data: undefined };
     }
-  }, [data]);
+  }, [data, parsedData]);
 
   const colors = useMemo(
     () => getJsonColors(theme.isDarkMode, theme.colors.textPrimary, theme.colors.textSecondary),

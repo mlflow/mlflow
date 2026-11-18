@@ -2,9 +2,9 @@ import { dump, YAMLException } from 'js-yaml';
 
 const OPTIONS = { noRefs: true, lineWidth: 120, sortKeys: false };
 
-export function formatJsonStringAsYaml(data: string): string {
+export function formatJsonStringAsYaml(data: string, parsedData?: unknown): string {
   try {
-    return dump(JSON.parse(data), OPTIONS).trimEnd();
+    return dump(parsedData === undefined ? JSON.parse(data) : parsedData, OPTIONS).trimEnd();
   } catch {
     return data;
   }
@@ -15,10 +15,11 @@ export function getYamlCollectionPreview(
   data: string,
   maxLines: number,
   maxChars: number,
+  parsedData?: unknown,
 ): { text: string; isComplete: boolean } | undefined {
   let value: unknown;
   try {
-    value = JSON.parse(data);
+    value = parsedData === undefined ? JSON.parse(data) : parsedData;
   } catch {
     return undefined;
   }
@@ -67,7 +68,7 @@ export function getYamlCollectionPreview(
       const containsMarker = (candidate: string) => strings.some((text) => text.includes(candidate));
       for (let attempt = 0; containsMarker(marker); attempt++) {
         // Repeated marker-like scalar content must not make collision checks grow without a bound.
-        if (attempt === 16) return { text: formatJsonStringAsYaml(data), isComplete: true };
+        if (attempt === 16) return { text: formatJsonStringAsYaml(data, value), isComplete: true };
         marker += '_';
       }
       for (const entries of objectCuts) entries[marker] = null;
@@ -87,7 +88,7 @@ export function getYamlCollectionPreview(
       break;
     }
   }
-  return { text: formatJsonStringAsYaml(data), isComplete: true };
+  return { text: formatJsonStringAsYaml(data, value), isComplete: true };
 }
 
 const YAML_ESCAPES = new Map(
@@ -126,13 +127,13 @@ const mayContainYamlString = (value: string, filter: string): boolean => {
 };
 
 /** Reject impossible word searches without dumping the collection; uncertain YAML syntax stays searchable. */
-export const yamlJsonMayContain = (data: string, filter: string): boolean => {
+export const yamlJsonMayContain = (data: string, filter: string, parsedData?: unknown): boolean => {
   if (!filter) return false;
   // Non-word filters may span formatting tokens; 2 may be a block scalar's indentation indicator.
   if (/[^a-z0-9_]/i.test(filter) || filter === '2') return true;
   let value: unknown;
   try {
-    value = JSON.parse(data);
+    value = parsedData === undefined ? JSON.parse(data) : parsedData;
   } catch {
     return true;
   }

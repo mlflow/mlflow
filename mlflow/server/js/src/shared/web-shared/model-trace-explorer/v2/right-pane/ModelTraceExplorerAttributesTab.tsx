@@ -232,6 +232,7 @@ export function ModelTraceExplorerAttributesTab({
             <ModelTraceExplorerCodeSnippet
               title=""
               data={JSON.stringify(attributes, null, 2)}
+              parsedData={attributes}
               searchFilter={searchFilter}
               activeMatch={activeMatch}
               containsActiveMatch={isActiveMatchSpan && activeMatch.section === 'attributes'}

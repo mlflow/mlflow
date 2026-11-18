@@ -35,6 +35,21 @@ const spanView = (span: ModelTraceSpanNode) => (
 );
 
 describe('selected payload reuse', () => {
+  it('does not reparse the JSON value already held by an ordinary selected span', () => {
+    const parse = jest.spyOn(JSON, 'parse');
+    render(
+      <ModelTraceExplorerDefaultSpanView
+        activeSpan={buildSpan()}
+        searchFilter=""
+        activeMatch={null}
+        defaultRenderMode="json"
+      />,
+      { wrapper: Providers },
+    );
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent(payload.document.body);
+    expect(parse.mock.calls.filter(([value]) => String(value).includes(payload.document.body))).toHaveLength(0);
+  });
+
   it('does not build fallback comparison fields in an ordinary trace', () => {
     const message = { role: 'user' as const, content: 'ordinary fallback café' };
     const span = { ...buildSpan(), inputs: undefined, chatMessages: [message] };

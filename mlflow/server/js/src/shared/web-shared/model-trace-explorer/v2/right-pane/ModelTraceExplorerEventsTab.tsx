@@ -90,6 +90,7 @@ export function ModelTraceExplorerEventsTab({
                     key={key}
                     title={attribute}
                     data={JSON.stringify(attributes[attribute], null, 2)}
+                    parsedData={attributes[attribute]}
                     searchFilter={searchFilter}
                     activeMatch={activeMatch}
                     containsActiveMatch={

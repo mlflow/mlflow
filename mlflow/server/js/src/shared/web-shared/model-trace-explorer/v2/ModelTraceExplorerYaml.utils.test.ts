@@ -11,6 +11,25 @@ jest.mock('js-yaml', () => {
 const prefix = (text: string) => text.split('\n').slice(0, 10).join('\n').slice(0, 300);
 
 describe('YAML collection previews', () => {
+  it.each([null, false, 0, '', 'café 日本語 🙂', { z: [false, null, 0], a: 'line\nnext' }])(
+    'keeps exact formatter and search semantics when the parsed value is supplied: %p',
+    (value) => {
+      const data = JSON.stringify(value);
+      const full = formatJsonStringAsYaml(data);
+      const preview = getYamlCollectionPreview(data, 10, 300);
+      const match = yamlJsonMayContain(data, 'next');
+      const parse = jest.spyOn(JSON, 'parse');
+      try {
+        expect(formatJsonStringAsYaml(data, value)).toBe(full);
+        expect(getYamlCollectionPreview(data, 10, 300, value)).toEqual(preview);
+        expect(yamlJsonMayContain(data, 'next', value)).toBe(match);
+        expect(parse).not.toHaveBeenCalled();
+      } finally {
+        parse.mockRestore();
+      }
+    },
+  );
+
   it.each([
     Array.from({ length: 500 }, (_, index) => ({ index, message: 'café 日本語 🙂' })),
     Object.fromEntries(Array.from({ length: 500 }, (_, index) => [`key_${index}`, { value: index }])),

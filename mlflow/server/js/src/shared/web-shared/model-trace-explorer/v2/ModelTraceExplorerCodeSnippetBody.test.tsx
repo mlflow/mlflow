@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { dump } from 'js-yaml';
 import userEvent from '@testing-library/user-event';
@@ -23,6 +23,10 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('collapsed YAML serialization', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     HTMLElement.prototype.scrollIntoView = jest.fn();
@@ -30,6 +34,39 @@ describe('collapsed YAML serialization', () => {
       value: { writeText: jest.fn(async () => {}) },
       writable: true,
     });
+  });
+
+  it.each([null, false, 0, 'café 日本語 🙂'])(
+    'reuses the supplied JSON scalar %p without losing Copy fidelity',
+    async (value) => {
+      const data = JSON.stringify(value);
+      const parse = jest.spyOn(JSON, 'parse');
+      render(<ModelTraceExplorerCodeSnippetBody data={data} parsedData={value} />, { wrapper: Wrapper });
+      await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(data);
+      expect(parse.mock.calls.filter(([input]) => input === data)).toHaveLength(0);
+      expect(screen.queryByText('[Invalid JSON]')).not.toBeInTheDocument();
+    },
+  );
+
+  it('reuses the parsed collection for YAML preview, full Copy, and expansion', async () => {
+    const records = Array.from({ length: 500 }, (_, index) => ({ index, message: `record ${index}: café 日本語 🙂` }));
+    const data = JSON.stringify(records);
+    const fullYaml = jest
+      .requireActual<typeof import('js-yaml')>('js-yaml')
+      .dump(records, { noRefs: true, lineWidth: 120, sortKeys: false })
+      .trimEnd();
+    const parse = jest.spyOn(JSON, 'parse');
+    render(
+      <ModelTraceExplorerCodeSnippetBody data={data} parsedData={records} renderMode={CodeSnippetRenderMode.YAML} />,
+      { wrapper: Wrapper },
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(fullYaml);
+    await userEvent.click(screen.getByRole('button', { name: 'See more' }));
+    expect(parse.mock.calls.filter(([input]) => input === data)).toHaveLength(0);
+    expect(jest.mocked(dump).mock.calls.filter(([value]: unknown[]) => value === records)).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'See less' })).toBeInTheDocument();
   });
 
   it('does not dump the complete collection just to display its collapsed preview', () => {

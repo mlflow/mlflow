@@ -26,6 +26,7 @@ export const JSON_PREVIEW_ROW_LIMIT = 8;
 
 export function ModelTraceExplorerCodeSnippetBody({
   data,
+  parsedData,
   searchFilter = '',
   activeMatch = null,
   containsActiveMatch = false,
@@ -33,6 +34,8 @@ export function ModelTraceExplorerCodeSnippetBody({
   initialExpanded = false,
 }: {
   data: string;
+  /** The JSON-compatible value represented by data, when already parsed by the caller. */
+  parsedData?: unknown;
   searchFilter?: string;
   activeMatch?: SearchMatch | null;
   containsActiveMatch?: boolean;
@@ -40,18 +43,20 @@ export function ModelTraceExplorerCodeSnippetBody({
   initialExpanded?: boolean;
 }): JSX.Element {
   const { theme } = useDesignSystemTheme();
-  const getFullYaml = useCachedPayloadGetter('yaml', data, () => formatJsonStringAsYaml(data));
+  const getFullYaml = useCachedPayloadGetter('yaml', data, () => formatJsonStringAsYaml(data, parsedData));
   const isYamlRenderMode = renderMode === CodeSnippetRenderMode.YAML;
   const needsPreview = isYamlRenderMode && data.length > YAML_MAX_CHARS_FOR_PREVIEW * 2;
   const yamlPreview = useCachedPayloadResult('yaml-preview', needsPreview ? data : undefined, () =>
-    needsPreview ? getYamlCollectionPreview(data, YAML_MAX_LINES_FOR_PREVIEW, YAML_MAX_CHARS_FOR_PREVIEW) : undefined,
+    needsPreview
+      ? getYamlCollectionPreview(data, YAML_MAX_LINES_FOR_PREVIEW, YAML_MAX_CHARS_FOR_PREVIEW, parsedData)
+      : undefined,
   );
   const eagerYaml = isYamlRenderMode && !yamlPreview ? getFullYaml() : data;
   const isPartialYaml = yamlPreview?.isComplete === false;
   const isSearching = Boolean(searchFilter) && !isNil(activeMatch);
   const needsSearchYaml = useMemo(
-    () => isPartialYaml && isSearching && yamlJsonMayContain(data, searchFilter),
-    [isPartialYaml, isSearching, data, searchFilter],
+    () => isPartialYaml && isSearching && yamlJsonMayContain(data, searchFilter, parsedData),
+    [isPartialYaml, isSearching, data, searchFilter, parsedData],
   );
   const searchedYaml = needsSearchYaml ? getFullYaml() : '';
   const searchableData = isYamlRenderMode ? (isPartialYaml ? searchedYaml : (yamlPreview?.text ?? eagerYaml)) : data;
@@ -75,13 +80,13 @@ export function ModelTraceExplorerCodeSnippetBody({
       return yamlData;
     }
 
-    const parsedData = JSON.parse(data);
-    if (isString(parsedData)) {
-      return parsedData;
+    const value = parsedData === undefined ? JSON.parse(data) : parsedData;
+    if (isString(value)) {
+      return value;
     }
 
     return data;
-  }, [data, renderMode, yamlData, isYamlRenderMode]);
+  }, [data, parsedData, renderMode, yamlData, isYamlRenderMode]);
 
   const maxLinesForPreview = isYamlRenderMode ? YAML_MAX_LINES_FOR_PREVIEW : MAX_LINES_FOR_PREVIEW;
   const maxCharsForPreview = isYamlRenderMode ? YAML_MAX_CHARS_FOR_PREVIEW : MAX_CHARS_FOR_PREVIEW;
@@ -151,7 +156,12 @@ export function ModelTraceExplorerCodeSnippetBody({
             position: 'relative',
           }}
         >
-          <CollapsibleJsonViewer data={data} initialExpanded rowLimit={expanded ? undefined : JSON_PREVIEW_ROW_LIMIT} />
+          <CollapsibleJsonViewer
+            data={data}
+            parsedData={parsedData}
+            initialExpanded
+            rowLimit={expanded ? undefined : JSON_PREVIEW_ROW_LIMIT}
+          />
           {expandable && !expanded && (
             <div
               css={{

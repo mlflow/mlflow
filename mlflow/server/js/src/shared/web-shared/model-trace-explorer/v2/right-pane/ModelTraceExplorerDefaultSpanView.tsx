@@ -57,9 +57,9 @@ const stringifySectionData = (data: unknown) => JSON.stringify(data ?? null, nul
 function ModelTraceExplorerSectionSnippet({
   data,
   ...props
-}: Omit<ComponentProps<typeof ModelTraceExplorerCodeSnippet>, 'data'> & { data: unknown }) {
+}: Omit<ComponentProps<typeof ModelTraceExplorerCodeSnippet>, 'data' | 'parsedData'> & { data: unknown }) {
   const json = useCachedPayloadResult('section-json', data, () => stringifySectionData(data));
-  return <ModelTraceExplorerCodeSnippet {...props} data={json} />;
+  return <ModelTraceExplorerCodeSnippet {...props} data={json} parsedData={data ?? null} />;
 }
 
 const getInputChatMessages = (
