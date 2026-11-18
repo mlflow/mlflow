@@ -355,7 +355,7 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
         or (review["user"] or {}).get("login") != current_review(context)["author"]
     ):
         raise ValueError("PR or review changed before publication")
-    head = pr["head"]["sha"]
+    previous_head = head = pr["head"]["sha"]
     pending = pending_pr_update(pr, context["pr"], pr_update) if pr_update else {}
     if tree:
         head = update_branch(repo, review_id, context, head, tree)
@@ -364,7 +364,12 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
 
     if pr_update and tree:
         pr = api(endpoint)
-        if not eligible(pr, repo) or pr["head"]["sha"] != head:
+        # GitHub may briefly return the previous PR head after a successful push.
+        if (
+            not eligible(pr, repo)
+            or pr["head"]["ref"] != context["head_ref"]
+            or pr["head"]["sha"] not in {previous_head, head}
+        ):
             raise ValueError("PR changed before publishing its title or description")
         pending = pending_pr_update(pr, context["pr"], pr_update)
     if pending:
@@ -412,7 +417,14 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     if blocked:
         return
     pr = api(endpoint)
-    if not eligible(pr, repo) or pr["head"]["sha"] != head:
+    if not eligible(pr, repo) or pr["head"]["ref"] != context["head_ref"]:
+        raise ValueError("PR head changed before the review request")
+    review_head = pr["head"]["sha"]
+    if review_head == previous_head and previous_head != head:
+        # Read the branch directly when the PR API still reports the pre-push SHA.
+        ref = api(f"repos/{repo}/git/ref/heads/{context['head_ref']}")
+        review_head = ref["object"]["sha"]
+    if review_head != head:
         raise ValueError("PR head changed before the review request")
     reviewer = current["author"]
     # NaiLaOpus reviews every pushed fix, whoever asked for it. After a NaiLaOpus round
