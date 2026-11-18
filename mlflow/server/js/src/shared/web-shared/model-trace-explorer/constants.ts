@@ -41,6 +41,7 @@ export const INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE = '_issue_discovery_judge
 export const MLFLOW_SPAN_OUTPUT_KEY = 'span_output_key';
 export const CHUNK_INDEX_KEY = 'chunk_index';
 
-// Threshold (in characters) above which markdown rendering is skipped to prevent
-// browser freezes from extremely large strings (e.g., un-extracted base64 data).
+// Markdown safety cap prevents browser freezes on huge strings such as un-extracted base64.
 export const MARKDOWN_RENDER_SIZE_LIMIT = 1_000_000;
+// Trace text payloads above this UTF-16 code-unit count use a bounded plain-text window.
+export const LARGE_TRACE_TEXT_LIMIT = 100_000;

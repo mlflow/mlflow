@@ -12,6 +12,8 @@ import { formatJsonStringAsYaml } from './ModelTraceExplorerYaml.utils';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import { CodeSnippet } from '../../snippet/CodeSnippet';
 import { SnippetCopyAction } from '../../snippet/actions/SnippetCopyAction';
+import { ModelTraceExplorerLargeText } from './ModelTraceExplorerLargeText';
+import { LARGE_TRACE_TEXT_LIMIT } from '../constants';
 
 const MAX_LINES_FOR_PREVIEW = 10;
 // the `isContentLong` check does not work for
@@ -40,8 +42,11 @@ export function ModelTraceExplorerCodeSnippetBody({
   const isYamlRenderMode = renderMode === CodeSnippetRenderMode.YAML;
   const yamlData = useMemo(() => (isYamlRenderMode ? formatJsonStringAsYaml(data) : data), [data, isYamlRenderMode]);
   const searchableData = isYamlRenderMode ? yamlData : data;
-  const containsMatches =
-    Boolean(searchFilter) && !isNil(activeMatch) && searchableData.toLowerCase().includes(searchFilter);
+  const hasActiveMatch = !isNil(activeMatch);
+  const containsMatches = useMemo(
+    () => Boolean(searchFilter) && hasActiveMatch && searchableData.toLowerCase().includes(searchFilter),
+    [searchFilter, hasActiveMatch, searchableData],
+  );
   const [isContentLong, setIsContentLong] = useState(false);
   const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
   const snippetRef = useRef<HTMLPreElement>(null);
@@ -74,14 +79,13 @@ export function ModelTraceExplorerCodeSnippetBody({
 
   const expandable =
     isContentLong ||
-    dataToTruncate.split('\n').length > maxLinesForPreview ||
-    dataToTruncate.length > maxCharsForPreview;
+    dataToTruncate.length > maxCharsForPreview ||
+    dataToTruncate.split('\n', maxLinesForPreview + 1).length > maxLinesForPreview;
 
   // Truncate after first 3 lines if not expanded
   const displayedData = useMemo(() => {
     if (expandable && !expanded) {
-      const split = dataToTruncate.split('\n').slice(0, maxLinesForPreview).join('\n');
-      return split.length > maxCharsForPreview ? split.slice(0, maxCharsForPreview) : split;
+      return dataToTruncate.slice(0, maxCharsForPreview).split('\n', maxLinesForPreview).join('\n');
     }
 
     return dataToTruncate;
@@ -102,7 +106,17 @@ export function ModelTraceExplorerCodeSnippetBody({
   // we use the ref to check whether the <pre>'s content is overflowing
   const PreWithRef = useCallback((preProps: any) => <pre {...preProps} ref={snippetRef} />, []);
 
-  if (containsMatches) {
+  if (containsMatches && activeMatch) {
+    if (searchableData.length > LARGE_TRACE_TEXT_LIMIT) {
+      return (
+        <ModelTraceExplorerLargeText
+          text={searchableData}
+          copyText={searchableData}
+          searchFilter={searchFilter}
+          activeMatchIndex={containsActiveMatch && !activeMatch.isKeyMatch ? activeMatch.matchIndex : undefined}
+        />
+      );
+    }
     return (
       // if the snippet contains matches, render the search-highlighted version
       <ModelTraceExplorerHighlightedCodeSnippet
@@ -213,7 +227,12 @@ export function ModelTraceExplorerCodeSnippetBody({
           : {}),
       }}
     >
-      {renderMode === 'markdown' ? (
+      {displayedData.length > LARGE_TRACE_TEXT_LIMIT ? (
+        <ModelTraceExplorerLargeText
+          text={displayedData}
+          copyText={isYamlRenderMode || renderMode === CodeSnippetRenderMode.MARKDOWN ? dataToTruncate : data}
+        />
+      ) : renderMode === CodeSnippetRenderMode.MARKDOWN ? (
         <div
           css={{
             padding: theme.spacing.md,

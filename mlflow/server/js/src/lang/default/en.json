@@ -635,6 +635,10 @@
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
   },
+  "03RJAt": {
+    "defaultMessage": "Trace text",
+    "description": "Scrollable large trace text region"
+  },
   "050N3C": {
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
@@ -5823,6 +5827,10 @@
     "defaultMessage": "URL",
     "description": "Webhook URL field label"
   },
+  "GiRXF7": {
+    "defaultMessage": "Search highlights are limited for dense results. Use Next/Previous to reveal every match.",
+    "description": "Explains how to navigate all search results when dense trace text limits visible highlights"
+  },
   "GifD0J": {
     "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
     "description": "Demo banner description"
@@ -9474,6 +9482,10 @@
   "SBRP1X": {
     "defaultMessage": "Review real traces to surface failure modes and quality issues worth fixing.",
     "description": "Analyze step description"
+  },
+  "SC0G7i": {
+    "defaultMessage": "Large content is displayed as plain text. Browser find and text selection cover only part of the value. Use Copy for the full text.",
+    "description": "Explains large trace text display and how to access the complete value for finding or selecting text"
   },
   "SCYMXw": {
     "defaultMessage": "Cancel",

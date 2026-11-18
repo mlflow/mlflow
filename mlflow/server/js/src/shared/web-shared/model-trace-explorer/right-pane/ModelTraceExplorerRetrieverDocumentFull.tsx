@@ -15,6 +15,8 @@ import type { FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { AssessmentDisplayValue } from '../assessments-pane/AssessmentDisplayValue';
 import { getAssessmentDisplayName } from '../assessments-pane/AssessmentsPane.utils';
+import { LARGE_TRACE_TEXT_LIMIT } from '../constants';
+import { ModelTraceExplorerLargeText } from '../v2/ModelTraceExplorerLargeText';
 import { KeyValueTag } from '../key-value-tag/KeyValueTag';
 
 export function ModelTraceExplorerRetrieverDocumentFull({
@@ -104,7 +106,11 @@ export function ModelTraceExplorerRetrieverDocumentFull({
         )}
       </div>
       <div css={{ padding: theme.spacing.md, paddingBottom: 0 }}>
-        <GenAIMarkdownRenderer>{text}</GenAIMarkdownRenderer>
+        {typeof text === 'string' && text.length > LARGE_TRACE_TEXT_LIMIT ? (
+          <ModelTraceExplorerLargeText text={text} copyText={text} />
+        ) : (
+          <GenAIMarkdownRenderer>{text}</GenAIMarkdownRenderer>
+        )}
       </div>
       <div css={{ padding: theme.spacing.md, paddingTop: 0 }}>
         {metadataTags.map(({ key, value }) => (

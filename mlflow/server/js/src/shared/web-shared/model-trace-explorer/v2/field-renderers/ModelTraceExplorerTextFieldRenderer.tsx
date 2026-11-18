@@ -5,6 +5,9 @@ import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '../../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import { CopyActionButton } from '../../../copy/CopyActionButton';
 
+import { ModelTraceExplorerLargeText } from '../ModelTraceExplorerLargeText';
+import { LARGE_TRACE_TEXT_LIMIT } from '../../constants';
+
 const STRING_TRUNCATION_LIMIT = 400;
 
 export const ModelTraceExplorerTextFieldRenderer = ({
@@ -61,7 +64,11 @@ export const ModelTraceExplorerTextFieldRenderer = ({
           },
         }}
       >
-        <GenAIMarkdownRenderer>{displayValue}</GenAIMarkdownRenderer>
+        {displayValue.length > LARGE_TRACE_TEXT_LIMIT ? (
+          <ModelTraceExplorerLargeText text={displayValue} />
+        ) : (
+          <GenAIMarkdownRenderer>{displayValue}</GenAIMarkdownRenderer>
+        )}
         {isExpandable && (
           <Typography.Link
             onClick={() => setExpanded(!expanded)}
