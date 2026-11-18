@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { BrowserRouter, MemoryRouter, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import userEvent from '@testing-library/user-event';
@@ -153,6 +153,37 @@ describe('ExperimentViewManagementMenu', () => {
     await userEvent.click(screen.getByText('Settings'));
 
     expect(window.location.pathname).toBe('/experiments/123/settings');
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+  });
+
+  test('it should keep the workflow type and workspace when opening Settings', async () => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+    const LocationDisplay = () => {
+      const { pathname, search } = useLocation();
+      return <div data-testid="location">{`${pathname}${search}`}</div>;
+    };
+    const mockStore = configureStore([thunk, promiseMiddleware()]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={['/experiments/123/runs?workflowType=machine_learning&workspace=team-a&x=1']}>
+          <Provider store={mockStore({ entities: { experimentsById: {} } })}>
+            <IntlProvider locale="en">
+              <DesignSystemProvider>
+                <ExperimentViewManagementMenu experiment={defaultExperiment} />
+                <LocationDisplay />
+              </DesignSystemProvider>
+            </IntlProvider>
+          </Provider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+    await userEvent.click(screen.getByText('Settings'));
+
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/experiments/123/settings?workflowType=machine_learning&workspace=team-a',
+    );
     jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
 });

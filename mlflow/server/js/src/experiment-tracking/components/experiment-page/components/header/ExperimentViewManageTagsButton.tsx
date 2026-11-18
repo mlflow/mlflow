@@ -1,6 +1,7 @@
 import { Button, TagIcon, Tooltip } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
-import { useNavigate } from '../../../../../common/utils/RoutingUtils';
+import { useLocation, useNavigate } from '../../../../../common/utils/RoutingUtils';
+import { getPreservedQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import Routes from '../../../../routes';
 import { ExperimentPageTabName } from '../../../../constants';
 
@@ -17,6 +18,8 @@ export interface ExperimentViewManageTagsButtonProps {
 export const ExperimentViewManageTagsButton = ({ experimentId, componentId }: ExperimentViewManageTagsButtonProps) => {
   const intl = useIntl();
   const navigate = useNavigate();
+  // Keep the workflow type and workspace, like the experiment sidebar links do.
+  const preservedQuery = getPreservedQueryString(useLocation().search) ?? '';
   const label = intl.formatMessage({
     defaultMessage: 'Manage experiment tags',
     description: 'Label for the experiment header button that opens Settings to edit experiment tags',
@@ -32,7 +35,7 @@ export const ExperimentViewManageTagsButton = ({ experimentId, componentId }: Ex
         aria-label={label}
         onClick={() =>
           navigate(
-            `${Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Settings)}${EXPERIMENT_SETTINGS_TAGS_HASH}`,
+            `${Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Settings)}${preservedQuery}${EXPERIMENT_SETTINGS_TAGS_HASH}`,
           )
         }
       />

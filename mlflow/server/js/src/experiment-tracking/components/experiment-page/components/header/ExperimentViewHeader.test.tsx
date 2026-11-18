@@ -296,5 +296,18 @@ describe('ExperimentViewHeader', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/settings#tags');
       jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
     });
+
+    it('keeps the workflow type and workspace when opening Settings from the Tags button', async () => {
+      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+      await act(async () => {
+        renderComponent(defaultExperiment, '/experiments/123/runs?workflowType=machine_learning&workspace=team-a&x=1');
+      });
+
+      await userEvent.click(screen.getByRole('button', { name: 'Manage experiment tags' }));
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/experiments/123/settings?workflowType=machine_learning&workspace=team-a#tags',
+      );
+      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+    });
   });
 });

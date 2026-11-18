@@ -3,7 +3,8 @@ import { Typography } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { OverflowMenu } from '../../../../../shared/building_blocks/PageHeader';
 import type { ExperimentEntity } from '../../../../types';
-import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useLocation, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { getPreservedQueryString } from '../../../../pages/experiment-page-tabs/side-nav/utils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
 import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery';
@@ -27,6 +28,7 @@ export const ExperimentViewManagementMenu = ({
   const [showDeleteExperimentModal, setShowDeleteExperimentModal] = useState(false);
   const invalidateExperimentList = useInvalidateExperimentList();
   const navigate = useNavigate();
+  const { search } = useLocation();
   const canEditExperiment = Boolean(setEditing) && (canRenameExperiment(experiment) || canModifyExperiment(experiment));
   const canDelete = canDeleteExperiment(experiment);
   const menu = [
@@ -40,7 +42,11 @@ export const ExperimentViewManagementMenu = ({
               </Typography.Text>
             ),
             onClick: () =>
-              navigate(Routes.getExperimentPageTabRoute(experiment.experimentId, ExperimentPageTabName.Settings)),
+              navigate(
+                `${Routes.getExperimentPageTabRoute(experiment.experimentId, ExperimentPageTabName.Settings)}${
+                  getPreservedQueryString(search) ?? ''
+                }`,
+              ),
           },
         ]
       : []),
