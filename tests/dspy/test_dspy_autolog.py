@@ -20,6 +20,7 @@ from mlflow.entities import Feedback, LoggedModelOutput, SpanLogLevel, SpanType,
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
+from tests.dspy.helper import REASONING_LM_FIELD
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
 
 if not IS_TRACING_SDK_ONLY:
@@ -37,10 +38,6 @@ _DSPY_3_2_0_OR_NEWER = _DSPY_VERSION >= Version("3.2.0")
 _DSPY_3_3_0_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
 
 _DSPY_3_5_0_OR_NEWER = _DSPY_VERSION >= Version("3.5.0")
-
-# DSPy 3.5 asks the LM for `ChainOfThought` reasoning under a `plan` field (when the LM has no
-# native reasoning) and still exposes it as `reasoning` on the prediction.
-_REASONING_FIELD = "plan" if _DSPY_3_5_0_OR_NEWER else "reasoning"
 
 
 # Test module
@@ -164,7 +161,7 @@ def test_autolog_cot():
 
     dspy.settings.configure(
         lm=DummyLMWithUsage({
-            "How are you?": {"answer": "test output", _REASONING_FIELD: "No more responses"}
+            "How are you?": {"answer": "test output", REASONING_LM_FIELD: "No more responses"}
         })
     )
 
@@ -254,7 +251,7 @@ def test_autolog_cot():
         parse_span = spans[3 + num_lm_calls + i]
         assert parse_span.name == "ChatAdapter.parse"
         assert parse_span.span_type == SpanType.PARSER
-        assert f"question -> {_REASONING_FIELD}, answer" in parse_span.inputs["signature"]
+        assert f"question -> {REASONING_LM_FIELD}, answer" in parse_span.inputs["signature"]
 
 
 def test_mlflow_callback_exception():
@@ -473,7 +470,7 @@ def test_autolog_custom_module():
         lm=DummyLMWithUsage([
             {
                 "answer": "test output",
-                _REASONING_FIELD: "No more responses",
+                REASONING_LM_FIELD: "No more responses",
             },
         ])
     )
@@ -627,7 +624,7 @@ def test_autolog_set_retriever_schema():
     mlflow.dspy.autolog()
     dspy.settings.configure(
         lm=DummyLM([
-            {"answer": answer, _REASONING_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
+            {"answer": answer, REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
         ])
     )
 
@@ -666,7 +663,7 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
             [
                 {
                     "answer": "test output",
-                    _REASONING_FIELD: "No more responses",
+                    REASONING_LM_FIELD: "No more responses",
                 },
             ]
             * 2
@@ -731,7 +728,7 @@ def test_autolog_log_compile(log_compiles):
             return program
 
     mlflow.dspy.autolog(log_compiles=log_compiles)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", _REASONING_FIELD: "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
@@ -773,7 +770,7 @@ def test_autolog_log_compile_log_model_output_when_failure(log_compiles):
             raise Exception("test error")
 
     mlflow.dspy.autolog(log_compiles=log_compiles)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", _REASONING_FIELD: "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
@@ -801,7 +798,7 @@ def test_autolog_log_compile_disable():
             return program
 
     mlflow.dspy.autolog(log_compiles=True)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", _REASONING_FIELD: "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
@@ -839,7 +836,7 @@ def test_autolog_log_nested_compile():
             return program
 
     mlflow.dspy.autolog(log_compiles=True)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", _REASONING_FIELD: "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
@@ -1022,7 +1019,7 @@ def test_autolog_nested_evals():
 @pytest.mark.parametrize("call_args", ["args", "kwargs", "mixed"])
 def test_autolog_log_traces_from_evals(call_args):
     mlflow.dspy.autolog(log_evals=True, log_traces_from_eval=True)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", _REASONING_FIELD: "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     class DummyProgram(dspy.Module):
         def forward(self, question):
@@ -1075,7 +1072,7 @@ def test_autolog_log_traces_from_evals(call_args):
 @skip_if_evaluate_callback_unavailable
 def test_autolog_log_traces_from_evals_log_error_assessment():
     mlflow.dspy.autolog(log_evals=True, log_traces_from_eval=True)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", _REASONING_FIELD: "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     class DummyProgram(dspy.Module):
         def forward(self, question):
@@ -1186,7 +1183,7 @@ def test_autolog_log_compile_with_evals():
 def test_autolog_link_traces_loaded_model_custom_module():
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", _REASONING_FIELD: "No more responses"}] * 5)
+        lm=DummyLM([{"answer": "test output", REASONING_LM_FIELD: "No more responses"}] * 5)
     )
     dspy_model = CoT()
 
@@ -1210,7 +1207,7 @@ def test_autolog_link_traces_loaded_model_custom_module():
 def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", _REASONING_FIELD: "No more responses"}] * 5)
+        lm=DummyLM([{"answer": "test output", REASONING_LM_FIELD: "No more responses"}] * 5)
     )
     dspy_model = CoT()
 
@@ -1236,7 +1233,7 @@ def test_autolog_link_traces_active_model():
     mlflow.set_active_model(model_id=model.model_id)
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", _REASONING_FIELD: "No more responses"}] * 5)
+        lm=DummyLM([{"answer": "test output", REASONING_LM_FIELD: "No more responses"}] * 5)
     )
     dspy_model = CoT()
 
@@ -1261,7 +1258,7 @@ def test_autolog_link_traces_active_model():
 def test_model_loading_set_active_model_id_without_fetching_logged_model():
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", _REASONING_FIELD: "No more responses"}])
+        lm=DummyLM([{"answer": "test output", REASONING_LM_FIELD: "No more responses"}])
     )
     dspy_model = CoT()
 

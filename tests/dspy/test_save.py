@@ -13,6 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.types.schema import ColSpec, Schema
 
+from tests.dspy.helper import REASONING_LM_FIELD
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
@@ -38,15 +39,11 @@ _DSPY_3_3_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
 
 _DSPY_3_5_0_OR_NEWER = _DSPY_VERSION >= Version("3.5.0")
 
-# DSPy 3.5 asks the LM for `ChainOfThought` reasoning under a `plan` field (when the LM has no
-# native reasoning) and still exposes it as `reasoning` on the prediction.
-_REASONING_LM_FIELD = "plan" if _DSPY_3_5_0_OR_NEWER else _REASONING_KEYWORD
-
 
 @pytest.fixture
 def dummy_model():
     return DummyLM([
-        {"answer": answer, _REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
+        {"answer": answer, REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
     ])
 
 
@@ -165,7 +162,7 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
         return 1.0
 
     model = DummyLM([
-        {"answer": answer, _REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
+        {"answer": answer, REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
     ])
     rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=model, rm=rm)
@@ -194,8 +191,8 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     original_settings = dict(dspy.settings.config)
     original_settings["traces"] = None
 
-    # Clear the lm setting to test the loading logic.
-    dspy.settings.configure(lm=None)
+    # Clear the lm and adapter settings to test the loading logic.
+    dspy.settings.configure(lm=None, adapter=None)
 
     model_url = model_info.model_uri
 

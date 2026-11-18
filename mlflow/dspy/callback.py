@@ -219,7 +219,9 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_tool_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
-        # DSPy uses the special "finish" tool to signal the end of the agent.
+        # DSPy < 3.5 uses the special "finish" tool only to signal the end of the agent. DSPy 3.5+
+        # replaced it with a "submit" tool, which is traced because it validates and returns the
+        # final outputs, and its errors are fed back to the LM.
         if instance.name == "finish":
             return
 
