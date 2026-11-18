@@ -104,6 +104,19 @@ export interface StopHookInput {
   transcript_path: string;
 }
 
+/**
+ * SubagentStop hook input, as defined by the Claude Code hooks reference
+ * (https://code.claude.com/docs/en/hooks#subagentstop): the common hook fields
+ * plus `agent_id` (the stopping sub-agent), `agent_type` (its agent type) and
+ * `agent_transcript_path` (the sub-agent's own transcript). `transcript_path`
+ * is the MAIN session transcript. Only the fields used here are typed.
+ */
+export interface SubagentStopHookInput extends StopHookInput {
+  agent_id: string;
+  agent_type?: string;
+  agent_transcript_path: string;
+}
+
 // ============================================================================
 // Internal types
 // ============================================================================
@@ -112,6 +125,7 @@ export interface ToolResultInfo {
   content: string;
   isError: boolean;
   agentId?: string;
+  status?: string;
 }
 
 export interface SubagentGroup {
