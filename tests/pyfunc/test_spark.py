@@ -629,8 +629,9 @@ def test_spark_udf_autofills_no_arguments(spark):
         with pytest.raises(
             MlflowException,
             match=r"Cannot apply udf because no column names specified",
-        ):
+        ) as exc_info:
             good_data.withColumn("res", udf())
+        assert "{input_schema.inputs}" not in exc_info.value.message
 
     with mlflow.start_run() as run:
         # model without signature
