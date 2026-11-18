@@ -1117,6 +1117,38 @@ def test_build_embedder_non_databricks_has_no_api_base(monkeypatch):
     assert "api_key" not in kwargs
 
 
+@pytest.mark.parametrize(
+    ("embedding_model", "expected_model", "expected_api_base"),
+    [
+        (
+            "databricks:/databricks-gte-large-en",
+            "databricks/databricks-gte-large-en",
+            "https://my-workspace.databricks.com/serving-endpoints",
+        ),
+        ("openai:/text-embedding-3-small", "openai/text-embedding-3-small", None),
+    ],
+)
+def test_build_embedder_calls_litellm(monkeypatch, embedding_model, expected_model, expected_api_base):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+    response = MagicMock()
+    response.data = [{"embedding": [0.1, 0.2, 0.3]}, {"embedding": [0.4, 0.5, 0.6]}]
+    with patch("litellm.embedding", return_value=response) as mock_embedding:
+        # Real dspy.Embedder: dspy>=3.5 rejects non-OpenAI model strings, so this must not raise.
+        embedder = _build_embedder(embedding_model, 3)
+        result = embedder(["a", "b"], caching=False)
+
+    assert result.shape == (2, 3)
+    kwargs = mock_embedding.call_args.kwargs
+    assert kwargs["model"] == expected_model
+    assert kwargs["input"] == ["a", "b"]
+    assert kwargs["dimensions"] == 3
+    assert kwargs["drop_params"] is True
+    assert kwargs.get("api_base") == expected_api_base
+    assert kwargs.get("api_key") == ("dapi-test-token" if expected_api_base else None)
+
+
 # =============================================================================
 # Re-alignment / deduplication tests
 # =============================================================================
