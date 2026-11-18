@@ -273,6 +273,8 @@ semantic_kernel:
       # semantic-kernel>=1.36.1 depends on azure-ai-agents>=1.2.0b3 (pre-release).
       # Explicitly specifying the prerelease requirement allows uv to resolve it without --prerelease=allow.
       ">= 1.36.1": ["azure-ai-agents>=1.2.0b3"]
+      # semantic-kernel<1.40.0 requires openai<2, which litellm>=1.109 cannot import.
+      "< 1.40.0": ["litellm<1.109"]
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
 
@@ -616,6 +618,9 @@ openai:
         ]
       # minimum version supported by openai-agents>=0.2.0
       ">= 1.93.1": ["openai-agents"]
+      # litellm>=1.109 imports `openai.types.responses.response_compaction_item`, which was added
+      # in openai 2.9.0. Without this pin, `import litellm` fails and cost tests use real prices.
+      "< 2.9.0": ["litellm<1.109"]
     run: |
       pytest tests/openai/*_autolog.py
     test_every_n_versions: 10
