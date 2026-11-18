@@ -337,6 +337,86 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
 
 
+@pytest.mark.parametrize(
+    ("search_utils", "filter_string", "parsed_filter"),
+    [
+        (
+            SearchUtils,
+            "tags.user = 'O''Connor'",
+            [{"type": "tag", "comparator": "=", "key": "user", "value": "O'Connor"}],
+        ),
+        (
+            SearchUtils,
+            "params.p = 'O''Connor'",
+            [{"type": "parameter", "comparator": "=", "key": "p", "value": "O'Connor"}],
+        ),
+        (
+            SearchUtils,
+            "tags.user LIKE 'O''%'",
+            [{"type": "tag", "comparator": "LIKE", "key": "user", "value": "O'%"}],
+        ),
+        (
+            SearchUtils,
+            "tags.user = \"O''Connor\"",
+            [{"type": "tag", "comparator": "=", "key": "user", "value": "O''Connor"}],
+        ),
+        (
+            SearchUtils,
+            "datasets.name IN ('data''1', 'data''2')",
+            [
+                {
+                    "type": "dataset",
+                    "comparator": "IN",
+                    "key": "name",
+                    "value": ("data'1", "data'2"),
+                }
+            ],
+        ),
+        (
+            SearchUtils,
+            "attributes.run_id IN ('a''b', 'c')",
+            [
+                {
+                    "type": "attribute",
+                    "comparator": "IN",
+                    "key": "run_id",
+                    "value": ("a'b", "c"),
+                }
+            ],
+        ),
+        (
+            SearchExperimentsUtils,
+            "name = 'O''Connor'",
+            [{"type": "attribute", "comparator": "=", "key": "name", "value": "O'Connor"}],
+        ),
+        (
+            SearchModelUtils,
+            "name = 'O''Connor'",
+            [{"type": "attribute", "comparator": "=", "key": "name", "value": "O'Connor"}],
+        ),
+        (
+            SearchTraceUtils,
+            "span.attributes.k = 'O''Connor'",
+            [{"type": "span", "comparator": "=", "key": "attributes.k", "value": "O'Connor"}],
+        ),
+        (
+            SearchTraceUtils,
+            "span.attributes.k IN ('O''Connor', 'x')",
+            [
+                {
+                    "type": "span",
+                    "comparator": "IN",
+                    "key": "attributes.k",
+                    "value": ("O'Connor", "x"),
+                }
+            ],
+        ),
+    ],
+)
+def test_sql_escaped_apostrophe(search_utils, filter_string, parsed_filter):
+    assert search_utils.parse_search_filter(filter_string) == parsed_filter
+
+
 @pytest.mark.parametrize("field", ["name", "type"])
 @pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
 @pytest.mark.parametrize(

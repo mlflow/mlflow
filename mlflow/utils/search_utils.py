@@ -395,7 +395,9 @@ class SearchUtils:
         Values of type strings are expected to have quotes.
         Keys containing special characters are also expected to be enclose in quotes.
         """
-        if cls._is_quoted(value, "'") or cls._is_quoted(value, '"'):
+        if cls._is_quoted(value, "'"):
+            return cls._trim_ends(value).replace("''", "'")
+        elif cls._is_quoted(value, '"'):
             return cls._trim_ends(value)
         elif expect_quoted_value:
             raise MlflowException(
@@ -1074,8 +1076,15 @@ class SearchUtils:
 
     @classmethod
     def _parse_list_from_sql_token(cls, token):
+        value = "".join(
+            repr(cls._strip_quotes(item.value, expect_quoted_value=True))
+            if item.ttype in (TokenType.Literal.String.Single, TokenType.Literal.String.Symbol)
+            and (cls._is_quoted(item.value, "'") or cls._is_quoted(item.value, '"'))
+            else item.value
+            for item in token.flatten()
+        )
         try:
-            parsed = ast.literal_eval(token.value)
+            parsed = ast.literal_eval(value)
         except SyntaxError as e:
             raise MlflowException(
                 "While parsing a list in the query,"
@@ -2219,16 +2228,6 @@ class SearchTraceUtils(SearchUtils):
                     return cls._parse_span_filter_literal(token.value)
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                if key in {"name", "type"}:
-                    # Normalize SQL literals before the existing Python-literal list validator.
-                    value = "".join(
-                        repr(cls._parse_span_filter_literal(item.value))
-                        if item.ttype
-                        in (TokenType.Literal.String.Single, TokenType.Literal.String.Symbol)
-                        else item.value
-                        for item in token.flatten()
-                    )
-                    token = Token(token.ttype, value)
                 return cls._parse_attribute_lists(token)
             else:
                 raise MlflowException(
@@ -2272,8 +2271,7 @@ class SearchTraceUtils(SearchUtils):
 
     @classmethod
     def _parse_span_filter_literal(cls, literal):
-        value = cls._strip_quotes(literal, expect_quoted_value=True)
-        return value.replace("''", "'") if literal.startswith("'") else value
+        return cls._strip_quotes(literal, expect_quoted_value=True)
 
     @classmethod
     def _parse_attribute_lists(cls, token):
