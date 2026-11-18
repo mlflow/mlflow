@@ -1442,7 +1442,17 @@ def test_telemetry_retries_oss_server_errors(telemetry):
 def test_telemetry_dirty_repo_exit_is_canceled(telemetry):
     repo = telemetry.tmp_path / "repo"
     repo.mkdir()
-    git = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@example.com"]
+    git = [
+        "git",
+        "-C",
+        str(repo),
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "-c",
+        "commit.gpgsign=false",
+    ]
     subprocess.check_call([*git, "init", "-q"])
     (repo / "file.txt").write_text("a")
     subprocess.check_call([*git, "add", "file.txt"])
