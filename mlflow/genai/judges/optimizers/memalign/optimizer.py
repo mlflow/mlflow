@@ -569,7 +569,7 @@ class MemoryAugmentedJudge(Judge):
                 aligned_judge = judge.align(traces=traces, optimizer=MemAlignOptimizer())
                 print(aligned_judge.guidelines)
                 cleaned = aligned_judge.remove_guidelines([3, 17])
-                cleaned.register(name="my_judge")
+                cleaned.register()
         """
         count = len(self._semantic_memory)
         if count == 0:
@@ -599,8 +599,8 @@ class MemoryAugmentedJudge(Judge):
 
         # Deferred judges stay deferred (no trace fetch or embedding). Fully initialized judges
         # share the embedder and retriever, which __call__ only reads, so nothing is re-embedded.
-        # Gate on _retriever, which _lazy_init sets last, so a judge that is mid-initialization
-        # on another thread stays deferred and initializes itself later.
+        # Gate on _retriever, which _lazy_init sets last, so a copy taken while another thread is
+        # initializing this judge usually stays deferred and initializes itself later.
         new_judge = self._create_copy()
         if self._retriever is not None:
             new_judge._base_signature = self._base_signature

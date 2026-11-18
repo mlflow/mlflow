@@ -1541,6 +1541,7 @@ def test_remove_guidelines_on_initialized_judge(sample_judge, sample_traces):
         with patch("mlflow.get_trace") as mock_get_trace:
             cleaned = aligned.remove_guidelines([3, 1])
 
+        mock_get_trace.assert_not_called()
         assert cleaned is not aligned
         assert cleaned.guidelines == ["G0", "G2", "G4"]
         # The original judge is unchanged

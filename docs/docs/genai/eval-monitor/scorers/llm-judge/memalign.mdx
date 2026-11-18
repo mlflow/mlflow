@@ -133,7 +133,7 @@ for i, guideline in enumerate(aligned_judge.guidelines):
     print(i, guideline)
 
 cleaned_judge = aligned_judge.remove_guidelines([3, 17])
-cleaned_judge.register(name="my_judge")
+cleaned_judge.register()
 ```
 
 Indices refer to the current list, so call `guidelines` again on the new judge before removing more.
