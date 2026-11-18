@@ -386,29 +386,6 @@ export function searchTree(
   };
 }
 
-export function searchTreeBySpanId(
-  rootNode: ModelTraceSpanNode | null,
-  selectedSpanId?: string,
-): ModelTraceSpanNode | undefined {
-  if (isNil(selectedSpanId) || isNil(rootNode)) {
-    return undefined;
-  }
-
-  if (rootNode.key === selectedSpanId) {
-    return rootNode;
-  }
-
-  const children = rootNode.children ?? [];
-  for (const child of children) {
-    const matchedNode = searchTreeBySpanId(child, selectedSpanId);
-    if (matchedNode) {
-      return matchedNode;
-    }
-  }
-
-  return undefined;
-}
-
 /**
  * Drops the leading output messages that repeat the trailing input messages. This covers
  * frameworks that echo the whole input as a prefix of the output (e.g. LangGraph state) as

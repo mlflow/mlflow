@@ -1729,6 +1729,48 @@ def test_anthropic_extract_passthrough_token_usage_with_cached_tokens():
     }
 
 
+def test_anthropic_extract_passthrough_token_usage_with_1h_cache_creation():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 11,
+            "output_tokens": 4,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 5411,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 5411},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 5422,
+        "output_tokens": 4,
+        "total_tokens": 5426,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
+def test_anthropic_extract_streaming_token_usage_with_1h_cache_creation():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":11,"cache_read_input_tokens":0,'
+        b'"cache_creation_input_tokens":5411,"cache_creation":'
+        b'{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":5411}}}}\n'
+    )
+    assert provider._extract_streaming_token_usage(chunk) == {
+        "input_tokens": 11,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
 def test_anthropic_extract_streaming_token_usage_message_start_with_cached_tokens():
     provider = AnthropicProvider(EndpointConfig(**chat_config()))
     chunk = (
@@ -1801,6 +1843,60 @@ def test_anthropic_extract_streaming_token_usage_message_delta_final_counts():
         "cache_read_input_tokens": 100,
         "cache_creation_input_tokens": 20,
     }
+
+
+def test_anthropic_extract_streaming_token_usage_message_delta_1h_cache_creation():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    accumulated_usage = {}
+    chunk1 = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":10,"cache_read_input_tokens":0,'
+        b'"cache_creation_input_tokens":30,"cache_creation":'
+        b'{"ephemeral_5m_input_tokens":10,"ephemeral_1h_input_tokens":20}}}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
+
+    # The cumulative message_delta breakdown replaces the one from message_start
+    chunk2 = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"input_tokens":120,"cache_read_input_tokens":100,'
+        b'"cache_creation_input_tokens":50,"cache_creation":'
+        b'{"ephemeral_5m_input_tokens":10,"ephemeral_1h_input_tokens":40},"output_tokens":50}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
+
+    assert accumulated_usage == {
+        "input_tokens": 120,
+        "output_tokens": 50,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 50,
+        "cache_creation_input_tokens_above_1hr": 40,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_usage_omits_1h_cache_creation():
+    resp = chat_stream_response()
+    delta_index = next(
+        i for i, line in enumerate(resp) if line.startswith(b'data: {"type": "message_delta"')
+    )
+    resp[delta_index] = (
+        b'data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", '
+        b'"stop_sequence":null}, "usage":{"input_tokens": 10, "cache_creation_input_tokens": 20, '
+        b'"cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 20}, '
+        b'"output_tokens": 15}}\n'
+    )
+
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)):
+        provider = AnthropicProvider(EndpointConfig(**chat_config()))
+        response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+
+    usage = chunks[-1]["usage"]
+    assert usage["cache_creation_input_tokens"] == 20
+    assert "cache_creation_input_tokens_above_1hr" not in usage
 
 
 @pytest.mark.asyncio
