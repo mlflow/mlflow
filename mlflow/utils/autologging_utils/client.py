@@ -334,8 +334,13 @@ class MlflowAutologgingQueueingClient:
 
         operation_results = []
 
+        # Multiple hooks may enqueue the same parameter value. Keep conflicting
+        # values so that the store still rejects attempts to change a parameter.
+        unique_params = {
+            (param.key, param.value): param for param in pending_operations.params_queue
+        }
         param_batches_to_log = chunk_list(
-            pending_operations.params_queue,
+            list(unique_params.values()),
             chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         )
         tag_batches_to_log = chunk_list(
