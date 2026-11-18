@@ -35,7 +35,13 @@ import { useCachedPayloadResult } from './ModelTraceExplorerPayloadCache';
 import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
-type ModelTraceExplorerField = { key: string; value: string };
+type ModelTraceExplorerField = { key: string; value: string; parsedValue?: unknown };
+
+const createFieldsFromObject = (data: Parameters<typeof createListFromObject>[0]): ModelTraceExplorerField[] =>
+  createListFromObject(data).map((field) => ({
+    ...field,
+    parsedValue: data && typeof data === 'object' && !Array.isArray(data) ? data[field.key] : data,
+  }));
 
 const CHAT_FIELD_KEYS: Record<'inputs' | 'outputs', Set<string>> = {
   inputs: new Set(['messages', 'input', 'inputs', 'prompt', 'prompts', 'tools']),
@@ -113,8 +119,8 @@ const getOutputChatMessages = (
 
 // Fallback conversations share the payload cache across badge and pane consumers.
 export const useSpanComparisonFields = (span: ModelTraceSpanNode | undefined, comparison = true) => {
-  const rawInputs = useCachedPayloadResult('fields', span?.inputs, () => createListFromObject(span?.inputs));
-  const rawOutputs = useCachedPayloadResult('fields', span?.outputs, () => createListFromObject(span?.outputs));
+  const rawInputs = useCachedPayloadResult('fields', span?.inputs, () => createFieldsFromObject(span?.inputs));
+  const rawOutputs = useCachedPayloadResult('fields', span?.outputs, () => createFieldsFromObject(span?.outputs));
   const inputChat = useMemo(() => getInputChatMessages(span), [span]);
   const outputChat = useMemo(() => getOutputChatMessages(span, inputChat.messages), [span, inputChat]);
   const needsInputFallback = comparison && !inputChat.hasTopLevelChatPayload && inputChat.messages.length > 0;
@@ -135,9 +141,9 @@ export const useSpanComparisonFields = (span: ModelTraceSpanNode | undefined, co
         ? rawInputs
         : [
             ...rawInputs.filter(({ key }) => key !== 'mlflow.chat.messages'),
-            { key: 'mlflow.chat.messages', value: inputFallback },
+            { key: 'mlflow.chat.messages', value: inputFallback, parsedValue: inputChat.messages },
           ],
-    [rawInputs, inputFallback],
+    [rawInputs, inputFallback, inputChat.messages],
   );
   const outputs = useMemo(
     () =>
@@ -145,9 +151,9 @@ export const useSpanComparisonFields = (span: ModelTraceSpanNode | undefined, co
         ? rawOutputs
         : [
             ...rawOutputs.filter(({ key }) => key !== 'mlflow.chat.messages'),
-            { key: 'mlflow.chat.messages', value: outputFallback },
+            { key: 'mlflow.chat.messages', value: outputFallback, parsedValue: outputChat.messages },
           ],
-    [rawOutputs, outputFallback],
+    [rawOutputs, outputFallback, outputChat.messages],
   );
   return { inputs, outputs, rawInputs, rawOutputs, inputChat, outputChat };
 };
@@ -297,7 +303,7 @@ export function ModelTraceExplorerDefaultSpanView({
     }
 
     // In a comparison, fields are the union of both sides, with changed fields first.
-    const activeFields = new Map(fields.map(({ key, value }) => [key, value]));
+    const activeFields = new Map(fields.map((field) => [field.key, field]));
     const counterpartFields = new Map(comparisonFields.map(({ key, value }) => [key, value]));
     const baselineFields = comparisonRole === 'candidate' ? comparisonFields : fields;
     const candidateFields = comparisonRole === 'candidate' ? fields : comparisonFields;
@@ -308,20 +314,25 @@ export function ModelTraceExplorerDefaultSpanView({
     const sortedFieldKeys = comparisonRole
       ? [...fieldKeys].sort(
           (firstKey, secondKey) =>
-            Number(areModelTraceComparisonValuesEqual(activeFields.get(firstKey), counterpartFields.get(firstKey))) -
-            Number(areModelTraceComparisonValuesEqual(activeFields.get(secondKey), counterpartFields.get(secondKey))),
+            Number(
+              areModelTraceComparisonValuesEqual(activeFields.get(firstKey)?.value, counterpartFields.get(firstKey)),
+            ) -
+            Number(
+              areModelTraceComparisonValuesEqual(activeFields.get(secondKey)?.value, counterpartFields.get(secondKey)),
+            ),
         )
       : fieldKeys;
     const displayedFields = comparisonRole
-      ? sortedFieldKeys.map((key) => ({ key, value: activeFields.get(key) }))
+      ? sortedFieldKeys.map((key) => ({ key, value: undefined, ...activeFields.get(key) }))
       : fields;
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-        {displayedFields.map(({ key, value }, index) => (
+        {displayedFields.map(({ key, value, parsedValue }, index) => (
           <ModelTraceExplorerFieldRenderer
             key={key || index}
             title={key}
             data={value}
+            parsedValue={parsedValue}
             comparisonData={counterpartFields.get(key)}
             comparisonRole={comparisonRole}
             comparisonEnabled={Boolean(comparisonRole)}
