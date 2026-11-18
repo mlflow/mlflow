@@ -242,6 +242,8 @@ for attempt in range(3):
 
 # Returns 0 for true/1, 1 when unset or false/0, and 2 for any other value (case-insensitive).
 telemetry_env_bool() {
+	telemetry_env_set=""
+	telemetry_env_value=""
 	eval "telemetry_env_set=\${$1+x} telemetry_env_value=\${$1:-}"
 	[ -n "$telemetry_env_set" ] || return 1
 	case "$telemetry_env_value" in
