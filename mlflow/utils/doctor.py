@@ -53,7 +53,6 @@ def doctor(mask_envs=False):
           entrypoints: 0.4
           gitpython: 3.1.29
           gunicorn: 20.1.0
-          importlib-metadata: 5.0.0
           markdown: 3.4.1
           matplotlib: 3.6.1
           numpy: 1.23.4
