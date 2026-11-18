@@ -1,10 +1,14 @@
 import importlib.util
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Any
+from unittest.mock import Mock, call
 
+import jsonschema  # type: ignore[import-untyped]
 import pytest
 import yaml
 
@@ -127,3 +131,504 @@ def test_patch_scope_parsing_matches_triage(
         path.write_text("updated\n")
     cli.git("add", "--", "mlflow/existing.py", "docs/x.md")
     cli.apply_patch(patch_from_index(cli, tmp_path))
+
+
+@pytest.fixture
+def metadata_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.setenv("DEFAULT_BRANCH", "master")
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(tmp_path / "summary.md"))
+    monkeypatch.setenv("DRY_RUN", "false")
+    path = tmp_path / "context.json"
+    path.write_text(
+        json.dumps({
+            "head_ref": "triage/issue-1",
+            "head_sha": "original-sha",
+            "pr": {"title": "Before", "body": "Original description"},
+            "review_id": 12,
+            "timeline": [
+                {
+                    "id": 12,
+                    "author": "maintainer",
+                    "body": "",
+                    "url": "https://github.com/mlflow/mlflow/pull/1#pullrequestreview-12",
+                    "threads": [
+                        {
+                            "id": "PRRT_1",
+                            "resolved": False,
+                            "comments": [{"id": 34, "review_id": 12}],
+                        }
+                    ],
+                }
+            ],
+        })
+    )
+    return path
+
+
+@pytest.fixture
+def resolve_schema() -> jsonschema.Draft202012Validator:
+    return jsonschema.Draft202012Validator(
+        yaml.safe_load((ROOT / ".claude/skills/resolve/payload.schema.yml").read_text())
+    )
+
+
+def test_collect_includes_current_pr_metadata(
+    cli: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pr = {
+        "title": "Current title",
+        "body": "Current **Markdown** body",
+        "head": {
+            "sha": "head-sha",
+            "ref": "triage/issue-1",
+            "repo": {"full_name": "mlflow/mlflow"},
+        },
+        "state": "open",
+        "draft": False,
+        "user": {"id": cli.APP_ID, "login": cli.APP, "type": "Bot"},
+        "base": {"ref": "master"},
+    }
+    review = {
+        "state": "CHANGES_REQUESTED",
+        "user": {"login": cli.COPILOT, "type": "Bot"},
+        "body": "",
+    }
+
+    def github_api(endpoint: str, *args: str) -> Any:
+        if endpoint == "repos/mlflow/mlflow/pulls/1":
+            return pr
+        if endpoint == "repos/mlflow/mlflow/pulls/1/reviews/12":
+            return review
+        assert endpoint == "--paginate"
+        return [[]]
+
+    api = Mock(side_effect=github_api)
+    timeline = [
+        {
+            "id": 12,
+            "author": cli.COPILOT,
+            "body": "",
+            "threads": [{"id": "PRRT_1", "comments": [{"review_id": 12}]}],
+        }
+    ]
+    fetch_timeline = Mock(return_value=timeline)
+    monkeypatch.setattr(cli, "api", api)
+    monkeypatch.setattr(cli, "fetch_timeline", fetch_timeline)
+    monkeypatch.setenv("GITHUB_OUTPUT", str(tmp_path / "github-output"))
+    monkeypatch.setenv("DEFAULT_BRANCH", "master")
+    context_path = tmp_path / "context.json"
+
+    cli.collect("mlflow/mlflow", "1", "12", context_path)
+
+    assert json.loads(context_path.read_text())["pr"] == {
+        "title": "Current title",
+        "body": "Current **Markdown** body",
+    }
+    assert api.call_count == 4
+    fetch_timeline.assert_called_once_with("mlflow/mlflow", "1", "12")
+
+
+@pytest.mark.parametrize(
+    "pr_update",
+    [
+        {},
+        {"title": ""},
+        {"title": " \n "},
+        {"title": "Line one\nLine two"},
+        {"title": "a" * 257},
+        {"unknown": "value"},
+    ],
+)
+def test_schema_rejects_malformed_pr_updates(
+    resolve_schema: jsonschema.Draft202012Validator, pr_update: dict[str, str]
+) -> None:
+    payload = {
+        "responses": {"PRRT_1": {"status": "resolved", "body": "Updated the PR."}},
+        "pr_update": pr_update,
+    }
+
+    assert list(resolve_schema.iter_errors(payload))
+
+
+@pytest.mark.parametrize(
+    (
+        "proposed",
+        "current",
+        "with_patch",
+        "concurrent_after_patch",
+        "error",
+        "expected_update",
+    ),
+    [
+        ({"title": "After"}, {}, False, False, None, {"title": "After"}),
+        ({"body": "Updated"}, {}, False, False, None, {"body": "Updated"}),
+        (
+            {"title": "After", "body": "Updated"},
+            {},
+            True,
+            False,
+            None,
+            {"title": "After", "body": "Updated"},
+        ),
+        (
+            {"title": "After", "body": "Updated"},
+            {"title": "After"},
+            False,
+            False,
+            None,
+            {"body": "Updated"},
+        ),
+        ({}, {}, True, False, None, {}),
+        ({"title": "After"}, {"title": "After"}, False, False, None, {}),
+        ({"title": "After"}, {"title": "Concurrent"}, False, False, "PR title changed", {}),
+        ({"title": "After"}, {}, True, True, "PR title changed", {}),
+        ({"body": "Updated"}, {}, False, False, "GitHub did not apply", {"body": "Updated"}),
+    ],
+    ids=[
+        "title",
+        "body",
+        "mixed",
+        "partially-applied",
+        "patch-only",
+        "retry",
+        "concurrent-edit",
+        "concurrent-edit-after-patch",
+        "failed-write",
+    ],
+)
+def test_publish_pr_update(
+    cli: ModuleType,
+    metadata_context: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    proposed: dict[str, str],
+    current: dict[str, str],
+    with_patch: bool,
+    concurrent_after_patch: bool,
+    error: str | None,
+    expected_update: dict[str, str],
+) -> None:
+    out_dir = metadata_context.parent
+    result: dict[str, Any] = {
+        "responses": {"PRRT_1": {"status": "resolved", "body": "Addressed the feedback."}}
+    }
+    if proposed:
+        result["pr_update"] = proposed
+    (out_dir / "publish.json").write_text(json.dumps(result))
+    context = json.loads(metadata_context.read_text())
+    repo = "mlflow/mlflow"
+    endpoint = f"repos/{repo}/pulls/1"
+    review_endpoint = f"{endpoint}/reviews/12"
+    reply_endpoint = f"{endpoint}/comments/34/replies"
+    pr = {
+        **context["pr"],
+        **current,
+        "state": "open",
+        "draft": False,
+        "user": {"id": cli.APP_ID, "login": cli.APP, "type": "Bot"},
+        "base": {"ref": "master"},
+        "head": {
+            "ref": context["head_ref"],
+            "sha": context["head_sha"],
+            "repo": {"full_name": repo},
+        },
+    }
+    review = {"state": "APPROVED", "user": {"login": "maintainer"}}
+
+    def github_api(
+        endpoint_arg: str,
+        *args: str,
+        data: dict[str, Any] | None = None,
+        method: str = "POST",
+    ) -> Any:
+        if endpoint_arg == endpoint:
+            if method == "PATCH" and error is None:
+                assert data is not None
+                pr.update(data)
+            return pr
+        if endpoint_arg == review_endpoint:
+            return review
+        if endpoint_arg == "graphql":
+            return {"data": {"resolveReviewThread": {"thread": {"isResolved": True}}}}
+        if endpoint_arg == "--paginate":
+            return [[]]
+        assert endpoint_arg in {reply_endpoint, f"repos/{repo}/issues/1/comments"}
+        return None
+
+    def update_branch(
+        repo: str, review_id: str, context: dict[str, Any], head: str, tree: str
+    ) -> str:
+        pr["head"]["sha"] = "new-sha"
+        if concurrent_after_patch:
+            pr["title"] = "Concurrent"
+        return "new-sha"
+
+    api = Mock(side_effect=github_api)
+    branch = Mock(side_effect=update_branch)
+    git = Mock(return_value="staged-tree")
+    timeline = Mock(return_value=context["timeline"])
+    monkeypatch.setattr(cli, "api", api)
+    monkeypatch.setattr(cli, "update_branch", branch)
+    monkeypatch.setattr(cli, "git", git)
+    monkeypatch.setattr(cli, "fetch_timeline", timeline)
+    if with_patch:
+        (out_dir / "fix.patch").touch()
+        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
+    if error:
+        with pytest.raises(ValueError, match=error):
+            cli.publish(repo, "1", "12", metadata_context, out_dir)
+    else:
+        cli.publish(repo, "1", "12", metadata_context, out_dir)
+
+    if with_patch:
+        git.assert_called_once_with("write-tree")
+        branch.assert_called_once_with(repo, "12", context, "original-sha", "staged-tree")
+    else:
+        git.assert_not_called()
+        branch.assert_not_called()
+    writes = [entry for entry in api.call_args_list if entry.kwargs.get("method") == "PATCH"]
+    assert writes == (
+        [call(endpoint, data=expected_update, method="PATCH")] if expected_update else []
+    )
+    replies = [entry for entry in api.call_args_list if entry.args[0] == reply_endpoint]
+    closures = [entry for entry in api.call_args_list if entry.args[0] == "graphql"]
+    if error is None:
+        timeline.assert_called_once_with(repo, "1", "12")
+        assert len(replies) == len(closures) == 1
+        assert ("[Fix commit]" in str(replies[0].kwargs["data"]["body"])) == (
+            with_patch and not proposed
+        )
+        if writes:
+            assert api.call_args_list.index(writes[0]) < api.call_args_list.index(replies[0])
+    else:
+        timeline.assert_not_called()
+        assert replies == closures == []
+
+
+def test_publish_retries_with_embedded_description_after_update(
+    cli: ModuleType, metadata_context: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out_dir = metadata_context.parent
+    description = "![Screenshot](https://github.com/user-attachments/assets/id)"
+    (out_dir / "publish.json").write_text(
+        json.dumps({
+            "responses": {"PRRT_1": {"status": "resolved", "body": "Addressed."}},
+            "pr_update": {"body": description},
+        })
+    )
+    context = json.loads(metadata_context.read_text())
+    repo = "mlflow/mlflow"
+    endpoint = f"repos/{repo}/pulls/1"
+    reply_endpoint = f"{endpoint}/comments/34/replies"
+    pr = {
+        **context["pr"],
+        "state": "open",
+        "draft": False,
+        "user": {"id": cli.APP_ID, "login": cli.APP, "type": "Bot"},
+        "base": {"ref": "master"},
+        "head": {
+            "ref": context["head_ref"],
+            "sha": context["head_sha"],
+            "repo": {"full_name": repo},
+        },
+    }
+    review = {"state": "APPROVED", "user": {"login": "maintainer"}}
+    fail_reply = True
+
+    def github_api(
+        endpoint_arg: str,
+        *args: str,
+        data: dict[str, Any] | None = None,
+        method: str = "POST",
+    ) -> Any:
+        nonlocal fail_reply
+        if endpoint_arg == endpoint:
+            if method == "PATCH":
+                assert data is not None
+                pr.update(data)
+            return pr
+        if endpoint_arg == f"{endpoint}/reviews/12":
+            return review
+        if endpoint_arg == "--paginate":
+            return [[]]
+        if endpoint_arg == reply_endpoint:
+            if fail_reply:
+                fail_reply = False
+                raise RuntimeError("temporary publication failure")
+            return None
+        if endpoint_arg == "graphql":
+            return {"data": {"resolveReviewThread": {"thread": {"isResolved": True}}}}
+        raise AssertionError(endpoint_arg)
+
+    api = Mock(side_effect=github_api)
+    timeline = Mock(return_value=context["timeline"])
+    monkeypatch.setattr(cli, "api", api)
+    monkeypatch.setattr(cli, "fetch_timeline", timeline)
+
+    with pytest.raises(RuntimeError, match="temporary publication failure"):
+        cli.publish(repo, "1", "12", metadata_context, out_dir)
+
+    assert pr["body"] == description
+    cli.publish(repo, "1", "12", metadata_context, out_dir)
+
+    patches = [entry for entry in api.call_args_list if entry.kwargs.get("method") == "PATCH"]
+    assert patches == [call(endpoint, data={"body": description}, method="PATCH")]
+    assert len([entry for entry in api.call_args_list if entry.args[0] == reply_endpoint]) == 2
+    timeline.assert_has_calls([call(repo, "1", "12"), call(repo, "1", "12")])
+
+
+def test_preview_pr_update(
+    cli: ModuleType, metadata_context: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out_dir = metadata_context.parent
+    (out_dir / "payload.json").write_text(
+        json.dumps({
+            "responses": {"PRRT_1": {"status": "resolved", "body": "Updated description."}},
+            "pr_update": {"body": "<new description>"},
+        })
+    )
+    monkeypatch.setenv("DRY_RUN", "true")
+    api = Mock()
+    git = Mock(return_value="staged-tree")
+    monkeypatch.setattr(cli, "api", api)
+    monkeypatch.setattr(cli, "git", git)
+
+    cli.publish("mlflow/mlflow", "1", "12", metadata_context, out_dir)
+
+    api.assert_not_called()
+    git.assert_not_called()
+    result = (out_dir / "summary.md").read_text()
+    assert "Original description" in result
+    assert "&lt;new description&gt;" in result
+    assert "Threads to close**\n\nPRRT_1" in result
+
+
+@pytest.mark.parametrize("media_in_description", [False, True], ids=["reply", "description"])
+def test_validate_and_embed_media(
+    cli: ModuleType,
+    metadata_context: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    media_in_description: bool,
+) -> None:
+    out_dir = metadata_context.parent
+    media = out_dir / "media"
+    media.mkdir()
+    local_reference = f"![Screenshot]({media / 'screenshot.png'})"
+    attachment = "![Screenshot](https://github.com/user-attachments/id)"
+    reply = "Updated the description." if media_in_description else local_reference
+    description = local_reference if media_in_description else "Description"
+    payload = out_dir / "payload.json"
+    payload.write_text(
+        json.dumps({
+            "responses": {"PRRT_1": {"status": "resolved", "body": reply}},
+            "pr_update": {"title": "After", "body": description},
+        })
+    )
+    command = Mock(side_effect=["", "", attachment])
+    monkeypatch.setattr(cli, "command", command)
+    monkeypatch.setenv("REPOSITORY_ID", "123")
+
+    cli.validate(metadata_context, out_dir)
+    cli.embed(out_dir)
+
+    assert command.call_args_list == [
+        call(
+            "uvx",
+            "check-jsonschema@0.37.4",
+            "--schemafile",
+            ".claude/skills/resolve/payload.schema.yml",
+            payload,
+        ),
+        call(*cli.media_command(media), "--check", input=f"{reply}\n\n{description}"),
+        call(
+            *cli.media_command(media, strict=media_in_description),
+            "--repository-id",
+            "123",
+            input=local_reference,
+        ),
+    ]
+    assert json.loads((out_dir / "publish.json").read_text()) == {
+        "responses": {
+            "PRRT_1": {"status": "resolved", "body": reply.replace(local_reference, attachment)}
+        },
+        "pr_update": {"title": "After", "body": description.replace(local_reference, attachment)},
+    }
+
+
+def test_embed_stops_when_description_media_upload_fails(
+    cli: ModuleType, metadata_context: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out_dir = metadata_context.parent
+    media = out_dir / "media"
+    media.mkdir()
+    local_reference = f"![Screenshot]({media / 'screenshot.png'})"
+    (out_dir / "payload.json").write_text(
+        json.dumps({
+            "responses": {"PRRT_1": {"status": "resolved", "body": "Updated."}},
+            "pr_update": {"body": local_reference},
+        })
+    )
+    command = Mock(
+        side_effect=[
+            "",
+            "",
+            subprocess.CalledProcessError(1, ["embed-media"]),
+        ]
+    )
+    monkeypatch.setattr(cli, "command", command)
+    monkeypatch.setenv("REPOSITORY_ID", "123")
+
+    cli.validate(metadata_context, out_dir)
+    with pytest.raises(subprocess.CalledProcessError, match="returned non-zero exit status 1"):
+        cli.embed(out_dir)
+
+    assert command.call_args_list[-1] == call(
+        *cli.media_command(media, strict=True),
+        "--repository-id",
+        "123",
+        input=local_reference,
+    )
+    assert not (out_dir / "publish.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("status", "update", "with_patch", "error"),
+    [
+        ("resolved", {}, False, "must accompany a patch or a PR update"),
+        ("resolved", {"pr_update": {"title": "Before"}}, False, "must change each proposed field"),
+        (
+            "answered",
+            {"pr_update": {"title": "After"}},
+            False,
+            "must accompany a patch or a PR update",
+        ),
+    ],
+)
+def test_validate_pr_update(
+    cli: ModuleType,
+    metadata_context: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    status: str,
+    update: dict[str, dict[str, str]],
+    with_patch: bool,
+    error: str,
+) -> None:
+    out_dir = metadata_context.parent
+    payload = out_dir / "payload.json"
+    payload.write_text(
+        json.dumps({"responses": {"PRRT_1": {"status": status, "body": "Reply."}}, **update})
+    )
+    command = Mock()
+    monkeypatch.setattr(cli, "command", command)
+    if with_patch:
+        (out_dir / "fix.patch").touch()
+
+    with pytest.raises(ValueError, match=error):
+        cli.validate(metadata_context, out_dir)
+
+    command.assert_called_once_with(
+        "uvx",
+        "check-jsonschema@0.37.4",
+        "--schemafile",
+        ".claude/skills/resolve/payload.schema.yml",
+        payload,
+    )

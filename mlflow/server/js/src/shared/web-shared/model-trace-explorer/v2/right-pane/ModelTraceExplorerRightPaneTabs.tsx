@@ -7,10 +7,11 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { ModelTraceExplorerAttributesTab, normalizeSpanAttributes } from './ModelTraceExplorerAttributesTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
-import { getSpanComparisonFields } from './ModelTraceExplorerDefaultSpanView';
+import { useSpanComparisonFields } from './ModelTraceExplorerDefaultSpanView';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
 import { ModelTraceExplorerLinksTab } from './ModelTraceExplorerLinksTab';
 import { ModelTraceExplorerRightPaneHeader } from './ModelTraceExplorerRightPaneHeader';
+import { ModelTraceExplorerPayloadCacheProvider } from './ModelTraceExplorerPayloadCache';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { getDefaultActiveTab, getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
@@ -117,6 +118,11 @@ function ModelTraceExplorerRightPaneTabsImpl({
     [updatePaneSizeRatios],
   );
 
+  const baselineSpan = selectedNodeComparisonRole === 'candidate' ? selectedComparisonNode : activeSpan;
+  const candidateSpan = selectedNodeComparisonRole === 'candidate' ? activeSpan : selectedComparisonNode;
+  const baselineFields = useSpanComparisonFields(selectedNodeComparisonRole ? baselineSpan : undefined);
+  const candidateFields = useSpanComparisonFields(selectedNodeComparisonRole ? candidateSpan : undefined);
+
   if (isNil(activeSpan)) {
     return <Empty description="Please select a span to view more information" />;
   }
@@ -133,17 +139,12 @@ function ModelTraceExplorerRightPaneTabsImpl({
     ? getDefaultActiveTab({ ...selectedComparisonNode, events: [] }) === 'content'
     : false;
   const hasContent = getDefaultActiveTab({ ...activeSpan, events: [] }) === 'content' || hasComparisonContent;
-  const baselineSpan = selectedNodeComparisonRole === 'candidate' ? selectedComparisonNode : activeSpan;
-  const candidateSpan = selectedNodeComparisonRole === 'candidate' ? activeSpan : selectedComparisonNode;
-  const baselineFields = selectedNodeComparisonRole ? getSpanComparisonFields(baselineSpan) : undefined;
-  const candidateFields = selectedNodeComparisonRole ? getSpanComparisonFields(candidateSpan) : undefined;
-  const contentLineCounts =
-    baselineFields && candidateFields
-      ? sumLineCounts([
-          getFieldLineCounts(baselineFields.inputs, candidateFields.inputs),
-          getFieldLineCounts(baselineFields.outputs, candidateFields.outputs),
-        ])
-      : undefined;
+  const contentLineCounts = selectedNodeComparisonRole
+    ? sumLineCounts([
+        getFieldLineCounts(baselineFields.inputs, candidateFields.inputs),
+        getFieldLineCounts(baselineFields.outputs, candidateFields.outputs),
+      ])
+    : undefined;
   const attributeLineCounts = selectedNodeComparisonRole
     ? getFieldLineCounts(getAttributeFields(baselineSpan?.attributes), getAttributeFields(candidateSpan?.attributes))
     : undefined;
@@ -324,4 +325,10 @@ function ModelTraceExplorerRightPaneTabsImpl({
 
 export const ModelTraceExplorerRightPaneTabs: React.NamedExoticComponent<
   React.ComponentProps<typeof ModelTraceExplorerRightPaneTabsImpl>
-> = React.memo(ModelTraceExplorerRightPaneTabsImpl);
+> = React.memo(function ModelTraceExplorerRightPaneTabs(props) {
+  return (
+    <ModelTraceExplorerPayloadCacheProvider>
+      <ModelTraceExplorerRightPaneTabsImpl {...props} />
+    </ModelTraceExplorerPayloadCacheProvider>
+  );
+});

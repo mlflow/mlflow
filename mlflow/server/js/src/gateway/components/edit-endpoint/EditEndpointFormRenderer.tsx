@@ -31,6 +31,7 @@ import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
 import { hasMixedTypeSafeProviders } from '../../utils/gatewayUtils';
+import { getGatewayFeatureFilterOption } from '../../utils/gatewayFeatures';
 import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
@@ -171,6 +172,7 @@ export const EditEndpointFormRenderer = ({
           label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
         })),
       },
+      getGatewayFeatureFilterOption(intl),
     ],
     [intl],
   );

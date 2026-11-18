@@ -84,7 +84,8 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
             "input_tokens": int,
             "output_tokens": int,
             "cache_read_input_tokens": int,
-            "cache_creation_input_tokens": int
+            "cache_creation_input_tokens": int,
+            "cache_creation": {"ephemeral_1h_input_tokens": int, ...}
         }
     }
     """
@@ -95,7 +96,19 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
         cache_read_key="cache_read_input_tokens",
         cache_creation_key="cache_creation_input_tokens",
     )
+    if token_usage:
+        _collect_anthropic_1h_cache_creation(result["usage"], token_usage)
     return _normalize_anthropic_input_tokens(token_usage)
+
+
+def _get_anthropic_1h_cache_creation(usage: dict[str, Any]) -> int | None:
+    """Return the 1-hour TTL part of the cache-write tokens, a subset of
+    ``cache_creation_input_tokens`` that is priced higher than 5-minute writes.
+    """
+    match usage.get("cache_creation"):
+        case {"ephemeral_1h_input_tokens": int(above_1hr)}:
+            return above_1hr
+    return None
 
 
 def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]) -> None:
@@ -108,12 +121,20 @@ def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]
         usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
 
 
+def _collect_anthropic_1h_cache_creation(source: dict[str, Any], usage: dict[str, int]) -> None:
+    # Kept out of `_collect_anthropic_input_usage`, which the chat stream also uses, so the chat
+    # usage does not gain a key that its non-streaming counterpart lacks.
+    if (above_1hr := _get_anthropic_1h_cache_creation(source)) is not None:
+        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
+
+
 def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
     """
     Extract token usage from an Anthropic Messages streaming chunk.
 
     Anthropic streaming format:
-    - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
+    - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}; the usage may
+      include {"cache_creation": {"ephemeral_1h_input_tokens": Z, ...}}
     - message_delta event: {"usage": {"output_tokens": Y}}; the usage is cumulative, and with
       server tools it also carries the final input and cache token counts
 
@@ -129,10 +150,12 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
                 "message": {"usage": dict(msg_usage)},
             }:
                 _collect_anthropic_input_usage(msg_usage, usage)
+                _collect_anthropic_1h_cache_creation(msg_usage, usage)
             case {"type": "message_delta", "usage": dict(delta_usage)}:
                 # The usage of message_delta is cumulative and replaces the one from
                 # message_start: with server tools it holds the final input and cache counts.
                 _collect_anthropic_input_usage(delta_usage, usage)
+                _collect_anthropic_1h_cache_creation(delta_usage, usage)
                 if isinstance(output_tokens := delta_usage.get("output_tokens"), int):
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
     return usage

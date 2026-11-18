@@ -17,7 +17,7 @@ on:
         type: number
         required: true
       dry_run:
-        description: Preview the patch, replies, and thread closures
+        description: Preview the patch, PR title and description edits, replies, and thread closures
         type: boolean
         default: true
       # Supported models: https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/supported-models
@@ -293,7 +293,16 @@ jobs:
             --print \
             --verbose \
             --output-format stream-json \
-            "$prompt" | .claude/scripts/stream.sh
+            "$prompt" | .claude/scripts/stream.sh "$RUNNER_TEMP/stream.jsonl"
+      - name: Upload agent stream
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: resolve-stream-${{ github.run_id }}
+          path: ${{ runner.temp }}/stream.jsonl
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
       - name: Stop proxies
         if: always()
         run: |
@@ -353,8 +362,9 @@ jobs:
           overwrite: true
           retention-days: 3
 
-  publish:
+  prepare:
     needs: [gate, resolve]
+    if: needs.gate.outputs.head_sha != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -396,6 +406,49 @@ jobs:
           REPOSITORY_ID: ${{ github.repository_id }}
         run: |
           python "$SCRIPT" embed
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: resolve-publish-${{ github.run_id }}
+          path: ${{ env.OUT_DIR }}
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 3
+
+  publish:
+    needs: [gate, resolve, prepare]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - parallel:
+          - name: Checkout trusted workflow files
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ needs.gate.outputs.trusted_ref }}
+              path: trusted
+              persist-credentials: false
+          - name: Checkout PR head
+            uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            with:
+              ref: ${{ needs.gate.outputs.head_sha }}
+              path: pr
+              persist-credentials: false
+          - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+            with:
+              name: resolve-context-${{ github.run_id }}
+              path: /tmp/resolve-context
+          - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+            with:
+              name: resolve-publish-${{ github.run_id }}
+              path: ${{ env.OUT_DIR }}
+      - uses: ./trusted/.github/actions/setup-python
+      - name: Validate resolution
+        working-directory: trusted
+        env:
+          PR_CHECKOUT: ${{ github.workspace }}/pr
+        run: |
+          python "$SCRIPT" validate
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         if: env.DRY_RUN == 'false'
         id: app-token
