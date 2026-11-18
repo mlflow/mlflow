@@ -1209,12 +1209,6 @@ wheels = [
 name = "clint"
 version = "0.1.0"
 source = { editable = "dev/clint" }
-dependencies = [
-    { name = "typing-extensions" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "typing-extensions" }]
 
 [[package]]
 name = "cloudpickle"
