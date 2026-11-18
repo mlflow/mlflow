@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794972194597,
+  "lastUpdate": 1794973432975,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "54176945+AbdulAliMamnun@users.noreply.github.com",
-            "name": "AbdulAliMamnun",
-            "username": "AbdulAliMamnun"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ab5e7d837859867fff11bd6729ae599c8cc2066",
-          "message": "Do not add MlflowLangchainTracer to LangGraph's graph lifecycle callb… (#26136)\n\nSigned-off-by: Abdul Ali Mamnun <aamamnun@gmail.com>",
-          "timestamp": "2026-09-24T05:38:32Z",
-          "tree_id": "8f1f9fbd79b6607f06cf6fbd26058c449b414b55",
-          "url": "https://github.com/mlflow/mlflow/commit/2ab5e7d837859867fff11bd6729ae599c8cc2066"
-        },
-        "date": 1790228524404,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 54.44897299999951,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 11.150784081634384,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 7.129488517859122,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 7.027204754388293,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 7.176575390000153,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 9.811170199998287,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.746672142858334,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "57414987+prawalpokharel@users.noreply.github.com",
+            "name": "Prawal Pokharel",
+            "username": "prawalpokharel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "47cabf1a0e49d47d6c6fbc4ca571f1f7d2f4b0f0",
+          "message": "Fix stale docstrings of `MLFLOW_TRACING_DESTINATION` and the span batching env vars (#27878)\n\nSigned-off-by: Prawal Pokharel <57414987+prawalpokharel@users.noreply.github.com>",
+          "timestamp": "2026-11-18T03:40:09Z",
+          "tree_id": "52c2e97280f60fce414d78182ab410a60804bc76",
+          "url": "https://github.com/mlflow/mlflow/commit/47cabf1a0e49d47d6c6fbc4ca571f1f7d2f4b0f0"
+        },
+        "date": 1794973427851,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 37.4098864000004,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 5.693798092308209,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.9424124294872644,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.9248104697984,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.385794170213458,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.486550000003376,
             "unit": "ms"
           }
         ]
