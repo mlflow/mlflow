@@ -1687,6 +1687,31 @@ def test_schema_inference_on_dictionaries(data, data_type):
 
 
 @pytest.mark.parametrize(
+    ("value", "data_type"),
+    [
+        (np.int8(1), DataType.integer),
+        (np.int16(1), DataType.integer),
+        (np.uint8(1), DataType.integer),
+        (np.uint16(1), DataType.integer),
+        (np.uint32(1), DataType.long),
+        (np.float16(0.5), DataType.float),
+    ],
+)
+def test_schema_inference_on_small_numpy_scalars(value, data_type):
+    assert _infer_schema(value) == Schema([ColSpec(data_type)])
+    assert _infer_schema({"x": [value]}) == Schema([ColSpec(Array(data_type), name="x")])
+    df = pd.DataFrame({"x": [np.array([value, value])]})
+    assert _infer_schema(df) == Schema([ColSpec(Array(data_type), name="x")])
+    # Matches the type inferred for a column of the same dtype
+    assert _infer_schema(pd.DataFrame({"x": [value]})) == Schema([ColSpec(data_type, name="x")])
+
+
+def test_schema_inference_on_unsupported_numpy_scalars():
+    with pytest.raises(MlflowException, match="Unsupported numpy data type 'uint64'"):
+        _infer_schema({"x": np.uint64(1)})
+
+
+@pytest.mark.parametrize(
     ("data", "data_type"),
     [
         (["a", "b", "c"], DataType.string),

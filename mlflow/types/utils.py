@@ -234,6 +234,8 @@ SCALAR_TO_DATATYPE_MAPPING = {
 def _infer_scalar_datatype(data) -> DataType:
     if data_type := SCALAR_TO_DATATYPE_MAPPING.get(type(data)):
         return data_type
+    if isinstance(data, np.number):
+        return _infer_numpy_dtype(data.dtype)
     if DataType.check_type(DataType.datetime, data):
         return DataType.datetime
     if HAS_PYSPARK:
