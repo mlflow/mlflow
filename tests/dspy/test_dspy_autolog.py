@@ -1,4 +1,3 @@
-import importlib
 import json
 import time
 from unittest import mock
@@ -20,24 +19,20 @@ from mlflow.entities import Feedback, LoggedModelOutput, SpanLogLevel, SpanType,
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.dspy.helper import REASONING_LM_FIELD
+from tests.dspy.helper import DSPY_3_5_0_OR_NEWER, DSPY_VERSION, REASONING_LM_FIELD
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
 
 if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking import MlflowClient
 
 
-_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+_DSPY_UNDER_2_6 = DSPY_VERSION < Version("2.6.0rc1")
 
-_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
+_DSPY_3_0_4_OR_NEWER = DSPY_VERSION >= Version("3.0.4")
 
-_DSPY_3_0_4_OR_NEWER = _DSPY_VERSION >= Version("3.0.4")
+_DSPY_3_2_0_OR_NEWER = DSPY_VERSION >= Version("3.2.0")
 
-_DSPY_3_2_0_OR_NEWER = _DSPY_VERSION >= Version("3.2.0")
-
-_DSPY_3_3_0_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
-
-_DSPY_3_5_0_OR_NEWER = _DSPY_VERSION >= Version("3.5.0")
+_DSPY_3_3_0_OR_NEWER = DSPY_VERSION >= Version("3.3.0")
 
 
 # Test module
@@ -126,7 +121,7 @@ def test_autolog_lm_span_type(model_type, expected_span_type):
 
 
 @pytest.mark.skipif(
-    not _DSPY_3_5_0_OR_NEWER, reason="XMLAdapter is the default adapter in DSPy 3.5+"
+    not DSPY_3_5_0_OR_NEWER, reason="XMLAdapter is the default adapter in DSPy 3.5+"
 )
 def test_autolog_cot_default_adapter():
     mlflow.dspy.autolog()
@@ -172,7 +167,7 @@ def test_autolog_cot():
     assert result["reasoning"] == "No more responses"
 
     # DSPy 3.5 calls the LM once per candidate instead of once with `n=3`
-    num_lm_calls = 3 if _DSPY_3_5_0_OR_NEWER else 1
+    num_lm_calls = 3 if DSPY_3_5_0_OR_NEWER else 1
     expected_usage = {
         TokenUsageKey.INPUT_TOKENS: 5 * num_lm_calls,
         TokenUsageKey.OUTPUT_TOKENS: 7 * num_lm_calls,
@@ -196,10 +191,8 @@ def test_autolog_cot():
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
-    assert (
-        spans[0].attributes["signature"] == "question -> answer"
-        if _DSPY_UNDER_2_6
-        else "question -> reasoning, answer"
+    assert spans[0].attributes["signature"] == (
+        "question -> answer" if _DSPY_UNDER_2_6 else "question -> reasoning, answer"
     )
     if _DSPY_3_0_4_OR_NEWER:
         assert spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == expected_usage
@@ -215,7 +208,7 @@ def test_autolog_cot():
         "demos": mock.ANY,
         "signature": mock.ANY,
     }
-    if _DSPY_3_5_0_OR_NEWER:
+    if DSPY_3_5_0_OR_NEWER:
         # DSPy 3.5 passes an lm15 `Request` as `prompt`; generation options live inside it.
         expected_lm_inputs = {
             "prompt": mock.ANY,
@@ -230,7 +223,7 @@ def test_autolog_cot():
             "n": 3,
             "temperature": 0.7,
         }
-    if _DSPY_3_3_0_OR_NEWER and _DSPY_VERSION < Version("3.4.0"):
+    if _DSPY_3_3_0_OR_NEWER and DSPY_VERSION < Version("3.4.0"):
         # DSPy 3.3.x added `*items` and `request` to `BaseLM.__call__`; 3.4.0 removed them.
         # The span records every bound argument. `items` is empty because
         # `DummyLMWithUsage.__call__` forwards to `super()` entirely by keyword.
@@ -240,7 +233,7 @@ def test_autolog_cot():
         assert lm_span.name == "DummyLMWithUsage.__call__"
         assert lm_span.span_type == SpanType.CHAT_MODEL
         assert lm_span.inputs == expected_lm_inputs
-        if _DSPY_3_5_0_OR_NEWER:
+        if DSPY_3_5_0_OR_NEWER:
             # A single lm15 `Response`
             assert lm_span.outputs["message"]["role"] == "assistant"
         else:
@@ -307,13 +300,13 @@ def test_mlflow_callback_exception():
 
 
 @pytest.mark.skipif(
-    _DSPY_VERSION < Version("2.5.42"),
+    DSPY_VERSION < Version("2.5.42"),
     reason="DSPy callback does not handle Tool in versions < 2.5.42",
 )
 def test_autolog_react():
     mlflow.dspy.autolog()
 
-    if _DSPY_3_5_0_OR_NEWER:
+    if DSPY_3_5_0_OR_NEWER:
         # DSPy 3.5 rewrote ReAct around native tool calls and a `submit` tool, without the
         # trailing ChainOfThought extraction step.
         answers = [
@@ -376,7 +369,7 @@ def test_autolog_react():
         "DummyLMWithUsage.__call__",
         "ChatAdapter.parse",
     ]
-    if _DSPY_3_5_0_OR_NEWER:
+    if DSPY_3_5_0_OR_NEWER:
         expected_span_names = [
             "ReAct.forward",
             *predict_spans,
@@ -852,13 +845,13 @@ def test_autolog_log_nested_compile():
 
 
 skip_if_evaluate_callback_unavailable = pytest.mark.skipif(
-    Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
+    DSPY_VERSION < Version("2.6.12"),
     reason="evaluate callback is available since 2.6.12",
 )
 
 
 # Evaluate.call starts to return dspy.Prediction since 2.7.0
-is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0")
+is_2_7_or_newer = DSPY_VERSION >= Version("2.7.0")
 
 
 @skip_when_testing_trace_sdk
@@ -1040,7 +1033,7 @@ def test_autolog_log_traces_from_evals(call_args):
     else:
         result = evaluator(program, answer_exact_match, devset=examples)
 
-    if _DSPY_VERSION >= Version("3.0.0"):
+    if DSPY_VERSION >= Version("3.0.0"):
         from dspy.evaluate.evaluate import EvaluationResult
 
         assert isinstance(result, EvaluationResult)

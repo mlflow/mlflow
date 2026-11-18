@@ -1,5 +1,3 @@
-import importlib.metadata
-
 import dspy
 import pandas as pd
 import pytest
@@ -9,13 +7,11 @@ from packaging.version import Version
 import mlflow
 from mlflow.tracing.constant import TraceMetadataKey
 
-from tests.dspy.helper import REASONING_LM_FIELD
+from tests.dspy.helper import DSPY_VERSION, REASONING_LM_FIELD
 from tests.openai.test_openai_evaluate import purge_traces
 from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 
-_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
-
-if _DSPY_VERSION < Version("2.5.17"):
+if DSPY_VERSION < Version("2.5.17"):
     pytest.skip("Evaluation test requires dspy>=2.5.17", allow_module_level=True)
 
 _EVAL_DATA = pd.DataFrame({

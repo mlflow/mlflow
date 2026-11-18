@@ -1,4 +1,3 @@
-import importlib
 import json
 from unittest import mock
 
@@ -13,7 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.types.schema import ColSpec, Schema
 
-from tests.dspy.helper import REASONING_LM_FIELD
+from tests.dspy.helper import DSPY_3_5_0_OR_NEWER, DSPY_VERSION, REASONING_LM_FIELD
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
@@ -22,11 +21,9 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 
-_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+_DSPY_UNDER_2_6 = DSPY_VERSION < Version("2.6.0")
 
-_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0")
-
-_DSPY_2_6_23_OR_OLDER = _DSPY_VERSION <= Version("2.6.23")
+_DSPY_2_6_23_OR_OLDER = DSPY_VERSION <= Version("2.6.23")
 skip_if_2_6_23_or_older = pytest.mark.skipif(
     _DSPY_2_6_23_OR_OLDER,
     reason="Streaming API is only supported in dspy 2.6.24 or later.",
@@ -35,9 +32,7 @@ skip_if_2_6_23_or_older = pytest.mark.skipif(
 _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
 # dspy 3.3.0 changed CoT's output field order: reasoning now precedes answer
-_DSPY_3_3_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
-
-_DSPY_3_5_0_OR_NEWER = _DSPY_VERSION >= Version("3.5.0")
+_DSPY_3_3_OR_NEWER = DSPY_VERSION >= Version("3.3.0")
 
 
 @pytest.fixture
@@ -76,7 +71,7 @@ use_dspy_model_save_param = pytest.param(
 
 @pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
 def test_basic_save(use_dspy_model_save):
-    if use_dspy_model_save and _DSPY_VERSION <= Version("2.6.0"):
+    if use_dspy_model_save and DSPY_VERSION <= Version("2.6.0"):
         pytest.skip("'use_dspy_model_save' = True does not support dspy <= 2.6.0")
 
     dspy_model = CoT()
@@ -302,7 +297,7 @@ def test_serving_logged_model(dummy_model):
 
 
 @pytest.mark.skipif(
-    not _DSPY_3_5_0_OR_NEWER, reason="XMLAdapter is the default adapter in DSPy 3.5+"
+    not DSPY_3_5_0_OR_NEWER, reason="XMLAdapter is the default adapter in DSPy 3.5+"
 )
 def test_save_load_and_serve_with_default_adapter(dummy_model):
     dspy.settings.configure(lm=dummy_model, adapter=None)
@@ -532,14 +527,14 @@ def test_predict_stream_success(dummy_model):
     def dummy_streamify(*args, **kwargs):
         # In dspy>=3, `StreamResponse` requires `is_last_chunk` argument.
         # https://github.com/stanfordnlp/dspy/pull/8587
-        extra_kwargs = {"is_last_chunk": False} if _DSPY_VERSION.major >= 3 else {}
+        extra_kwargs = {"is_last_chunk": False} if DSPY_VERSION.major >= 3 else {}
         yield dspy.streaming.StreamResponse(
             predict_name="prog.predict",
             signature_field_name="answer",
             chunk="2",
             **extra_kwargs,
         )
-        extra_kwargs = {"is_last_chunk": True} if _DSPY_VERSION.major >= 3 else {}
+        extra_kwargs = {"is_last_chunk": True} if DSPY_VERSION.major >= 3 else {}
         yield dspy.streaming.StreamResponse(
             predict_name="prog.predict",
             signature_field_name=_REASONING_KEYWORD,
@@ -553,14 +548,14 @@ def test_predict_stream_success(dummy_model):
             results.append(o)
 
     assert len(results) == 2
-    extra_kwargs = {"is_last_chunk": False} if _DSPY_VERSION.major >= 3 else {}
+    extra_kwargs = {"is_last_chunk": False} if DSPY_VERSION.major >= 3 else {}
     assert results[0] == {
         "predict_name": "prog.predict",
         "signature_field_name": "answer",
         "chunk": "2",
         **extra_kwargs,
     }
-    extra_kwargs = {"is_last_chunk": True} if _DSPY_VERSION.major >= 3 else {}
+    extra_kwargs = {"is_last_chunk": True} if DSPY_VERSION.major >= 3 else {}
     assert results[1] == {
         "predict_name": "prog.predict",
         "signature_field_name": _REASONING_KEYWORD,
@@ -619,7 +614,7 @@ def test_load_model_disallows_pickle_deserialization_legacy_pkl(monkeypatch):
 
 
 @pytest.mark.skipif(
-    _DSPY_VERSION <= Version("3.1.0"),
+    DSPY_VERSION <= Version("3.1.0"),
     reason="'use_dspy_model_save' = True does not support dspy <= 3.1.0",
 )
 @pytest.mark.parametrize(("env_value", "expected_allow_pickle"), [("false", False), ("true", True)])
@@ -646,7 +641,7 @@ def test_load_model_forwards_allow_pickle_to_dspy(env_value, expected_allow_pick
 
 
 @pytest.mark.skipif(
-    _DSPY_VERSION <= Version("3.1.0"),
+    DSPY_VERSION <= Version("3.1.0"),
     reason="'use_dspy_model_save' = True does not support dspy <= 3.1.0",
 )
 def test_load_model_wraps_dspy_error_when_pickle_disabled(monkeypatch):

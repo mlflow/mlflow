@@ -1,4 +1,3 @@
-import importlib.metadata
 import json
 
 import dspy
@@ -15,11 +14,11 @@ from mlflow.dspy.util import (
 )
 from mlflow.tracking import MlflowClient
 
-_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+from tests.dspy.helper import DSPY_3_5_0_OR_NEWER, DSPY_VERSION
 
 
 @pytest.mark.skipif(
-    Version(importlib.metadata.version("dspy")) < Version("2.5.43"),
+    DSPY_VERSION < Version("2.5.43"),
     reason="dump_state works differently in older versions",
 )
 def test_save_dspy_module_state(tmp_path):
@@ -122,7 +121,7 @@ def test_log_dspy_lm_state():
             "model": "openai/gpt-4o-mini",
             "cache": True,
             # DSPy 3.5 changed the default `model_type` from "chat" to "auto".
-            "model_type": "auto" if _DSPY_VERSION >= Version("3.5.0") else "chat",
+            "model_type": "auto" if DSPY_3_5_0_OR_NEWER else "chat",
             "temperature": 0.7,
             "max_tokens": 1000,
             "top_p": 0.9,
