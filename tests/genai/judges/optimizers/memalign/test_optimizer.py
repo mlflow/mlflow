@@ -1514,8 +1514,4 @@ def test_default_inputs_corpus_embeds_only_the_inputs_value(sample_judge, sample
         MemAlignOptimizer().align(sample_judge, sample_traces[:2])
 
     corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
-    assert len(corpus) == 2
-    for i, text in enumerate(corpus):
-        assert f"input_{i}" in text
-        assert "bound method" not in text
-        assert "Reason" not in text
+    assert corpus == ["{'inputs': 'input_0'}", "{'inputs': 'input_1'}"]
