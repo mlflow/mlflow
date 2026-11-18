@@ -2831,7 +2831,7 @@ e.g., struct<a:int, b:array<int>>.
                     raise MlflowException(
                         message="Cannot apply udf because no column names specified. The udf "
                         f"expects {len(input_schema.inputs)} columns with types: "
-                        "{input_schema.inputs}. Input column names could not be inferred from the"
+                        f"{input_schema.inputs}. Input column names could not be inferred from the"
                         " model signature (column names not found).",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
