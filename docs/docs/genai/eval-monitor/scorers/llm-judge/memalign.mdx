@@ -136,7 +136,7 @@ cleaned_judge = aligned_judge.remove_guidelines([3, 17])
 cleaned_judge.register()
 ```
 
-Indices refer to the current list, so call `guidelines` again on the new judge before removing more.
+Indices refer to the current list, so call `guidelines` again on the new judge before removing more. A later `align` can distill a removed guideline again (for example, after feedback on one of its source traces changes), so check `guidelines` after each alignment.
 
 ## Removing Feedback (Unalignment)
 
