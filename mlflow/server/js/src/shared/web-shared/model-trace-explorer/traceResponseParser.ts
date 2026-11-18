@@ -1,4 +1,8 @@
-import { parseTraceResponseBody, type TraceResponseMessage } from './traceResponseParsing';
+import {
+  getTraceResponseSpanContainers,
+  parseTraceResponseBody,
+  type TraceResponseMessage,
+} from './traceResponseParsing';
 
 const WORKER_MIN_BYTES = 64 * 1024;
 const WORKER_TIMEOUT_MS = 10_000;
@@ -14,7 +18,10 @@ export const createTraceResponseParser = () => {
   let stopped = false;
   let nextId = 0;
   let startTimer: ReturnType<typeof setTimeout> | undefined;
-  const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
+  const pending = new Map<
+    number,
+    { resolve: (value: unknown) => void; reject: (error: Error) => void; chunks: Map<number, unknown[]> }
+  >();
 
   const disable = (error: Error) => {
     if (!disposed && !stopped) {
@@ -54,9 +61,25 @@ export const createTraceResponseParser = () => {
             clearTimeout(startTimer);
           } else {
             const request = pending.get(data.id);
+            if (!request) return;
+            if (data.type === 'span-chunk') {
+              const spans = request.chunks.get(data.index) ?? [];
+              for (const span of data.spans) spans.push(span);
+              request.chunks.set(data.index, spans);
+              return;
+            }
             pending.delete(data.id);
-            if (data.type === 'parsed') request?.resolve(data.value);
-            else {
+            if (data.type === 'parsed') {
+              const containers = getTraceResponseSpanContainers(data.value);
+              if ([...request.chunks.keys()].some((index) => !containers[index])) {
+                const error = new TraceResponseWorkerLostError('Worker returned inconsistent span chunks');
+                disable(error);
+                request.reject(error);
+                return;
+              }
+              for (const [index, spans] of request.chunks) containers[index].spans = spans;
+              request.resolve(data.value);
+            } else {
               const ErrorClass =
                 data.name === 'SyntaxError'
                   ? SyntaxError
@@ -67,7 +90,7 @@ export const createTraceResponseParser = () => {
                       : Error;
               const error = new ErrorClass(data.message);
               error.name = data.name;
-              request?.reject(error);
+              request.reject(error);
             }
           }
         };
@@ -112,6 +135,7 @@ export const createTraceResponseParser = () => {
         };
         signal?.addEventListener('abort', onAbort, { once: true });
         pending.set(id, {
+          chunks: new Map(),
           resolve: (value) => finish(() => resolve(value)),
           reject: (error) => finish(() => reject(error)),
         });

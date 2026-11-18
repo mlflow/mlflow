@@ -164,6 +164,74 @@ describe('trace response parsing', () => {
     expect(worker.terminate).not.toHaveBeenCalled();
   });
 
+  it('keeps chunked requests pending until their terminal reply and reconstructs overlapping batches', async () => {
+    worker.send({ type: 'ready' });
+    const first = parser.parse(body(large));
+    const second = parser.parse(body(large));
+    const resolved = jest.fn();
+    void first.then(resolved, () => {});
+    void second.catch(() => {});
+    await Promise.resolve();
+    const [a, b] = worker.postMessage.mock.calls.map(([request]) => request);
+    const span = { name: 'café 日本語 🙂', attributes: [{ key: 'input', value: { string_value: 'payload' } }] };
+    worker.send({ type: 'span-chunk', id: a.id, index: 1, spans: [span] });
+    worker.send({ type: 'span-chunk', id: b.id, index: 0, spans: [{ name: 'other request' }] });
+    worker.send({ type: 'span-chunk', id: a.id, index: 0, spans: [{ name: 'first' }] });
+    await Promise.resolve();
+    expect(resolved).not.toHaveBeenCalled();
+    expect(jest.getTimerCount()).toBe(2);
+    worker.send({ type: 'parsed', id: b.id, value: { trace: { spans: [] } } });
+    await expect(second).resolves.toEqual({ trace: { spans: [{ name: 'other request' }] } });
+    worker.send({ type: 'span-chunk', id: a.id, index: 0, spans: [{ name: 'last' }] });
+    worker.send({ type: 'parsed', id: a.id, value: { traces: [{ spans: [] }, { spans: [] }] } });
+    await expect(first).resolves.toEqual({
+      traces: [{ spans: [{ name: 'first' }, { name: 'last' }] }, { spans: [span] }],
+    });
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it.each(['abort', 'dispose', 'failure', 'timeout', 'error', 'messageerror'])(
+    'discards partial chunks after %s',
+    async (reason) => {
+      worker.send({ type: 'ready' });
+      const controller = new AbortController();
+      const result = parser.parse(body(large), controller.signal);
+      void result.catch(() => {});
+      await Promise.resolve();
+      const [{ id }] = worker.postMessage.mock.calls[0];
+      worker.send({ type: 'span-chunk', id, index: 0, spans: [{ name: 'partial' }] });
+      if (reason === 'abort') controller.abort();
+      if (reason === 'dispose') parser.dispose();
+      if (reason === 'failure') worker.send({ type: 'failed', id, name: 'RangeError', message: 'failed after chunks' });
+      if (reason === 'timeout') jest.advanceTimersByTime(10_000);
+      if (reason === 'error') worker.onerror?.();
+      if (reason === 'messageerror') worker.onmessageerror?.();
+      await expect(result).rejects.toBeInstanceOf(
+        ['timeout', 'error', 'messageerror'].includes(reason)
+          ? TraceResponseWorkerLostError
+          : reason === 'failure'
+            ? RangeError
+            : DOMException,
+      );
+      worker.send({ type: 'span-chunk', id, index: 0, spans: [{ name: 'late' }] });
+      worker.send({ type: 'parsed', id, value: { spans: [] } });
+      expect(jest.getTimerCount()).toBe(0);
+    },
+  );
+
+  it('rejects inconsistent terminal envelopes so GET callers can refetch a lost response', async () => {
+    worker.send({ type: 'ready' });
+    const result = parser.parse(body(large));
+    await Promise.resolve();
+    const [{ id }] = worker.postMessage.mock.calls[0];
+    worker.send({ type: 'span-chunk', id, index: 1, spans: [{ name: 'orphaned' }] });
+    worker.send({ type: 'parsed', id, value: { spans: [] } });
+    await expect(result).rejects.toBeInstanceOf(TraceResponseWorkerLostError);
+    expect(jest.getTimerCount()).toBe(0);
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+    await expect(parser.parse(body(large))).resolves.toEqual(large);
+  });
+
   it.each([RangeError, TypeError, Error])(
     'preserves a worker %p without labeling it a syntax error',
     async (ErrorClass) => {
