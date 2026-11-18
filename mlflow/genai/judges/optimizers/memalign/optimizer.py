@@ -1,12 +1,14 @@
 import copy
 import logging
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 import mlflow
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
@@ -42,6 +44,7 @@ from mlflow.genai.utils.trace_utils import (
 from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.docstring_utils import format_docstring
+from mlflow.utils.thread_utils import map_with_context
 
 if TYPE_CHECKING:
     import dspy
@@ -421,8 +424,22 @@ class MemoryAugmentedJudge(Judge):
     def _reconstruct_episodic_memory(self) -> list["dspy.Example"]:
         examples = []
         missing_ids = []
-        for trace_id in self._episodic_trace_ids:
-            trace = mlflow.get_trace(trace_id, silent=True)
+        # Sequential fetches dominate load time for large memories (one REST round trip each).
+        max_workers = max(
+            1, min(len(self._episodic_trace_ids), MLFLOW_SEARCH_TRACES_MAX_THREADS.get())
+        )
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="MemAlignTraceFetch"
+        ) as executor:
+            # map preserves input order, so examples stay in _episodic_trace_ids order.
+            traces = list(
+                map_with_context(
+                    executor,
+                    lambda tid: mlflow.get_trace(tid, silent=True),
+                    self._episodic_trace_ids,
+                )
+            )
+        for trace_id, trace in zip(self._episodic_trace_ids, traces, strict=True):
             if trace is not None:
                 examples.extend(trace_to_dspy_example(trace, self._base_judge))
             else:

@@ -1505,3 +1505,83 @@ def test_memory_augmented_judge_round_trip_preserves_base_judge_session_level():
     restored = Scorer.model_validate(dumped)
     assert isinstance(restored, MemoryAugmentedJudge)
     assert restored._base_judge.session_level == "episode"
+
+
+def _deferred_judge(sample_judge, trace_ids):
+    judge = MemoryAugmentedJudge(sample_judge, _defer_init=True)
+    judge._episodic_trace_ids = list(trace_ids)
+    return judge
+
+
+_GET_TRACE_PATH = "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace"
+_TO_EXAMPLE_PATH = "mlflow.genai.judges.optimizers.memalign.optimizer.trace_to_dspy_example"
+
+
+def test_reconstruct_episodic_memory_preserves_order_when_fetches_finish_out_of_order(
+    sample_judge,
+):
+    trace_ids = ["t0", "t1", "t2"]
+    last_fetched = threading.Event()
+
+    def fake_get_trace(tid, **kwargs):
+        # t0 returns only after t2 has returned, so completion order differs from input order.
+        if tid == "t0":
+            assert last_fetched.wait(timeout=10)
+        elif tid == "t2":
+            last_fetched.set()
+        return tid
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [f"{trace}-a", f"{trace}-b"]),
+    ):
+        examples = judge._reconstruct_episodic_memory()
+
+    assert examples == ["t0-a", "t0-b", "t1-a", "t1-b", "t2-a", "t2-b"]
+    assert sorted(c.args[0] for c in mock_get_trace.call_args_list) == trace_ids
+    assert all(c.kwargs == {"silent": True} for c in mock_get_trace.call_args_list)
+
+
+def test_reconstruct_episodic_memory_fetches_concurrently(sample_judge):
+    n = 4
+    # Every fetch blocks until all n are in flight; a sequential loop would time out.
+    barrier = threading.Barrier(n, timeout=10)
+
+    def fake_get_trace(tid, **kwargs):
+        barrier.wait()
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(n)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == [f"t{i}" for i in range(n)]
+
+
+def test_reconstruct_episodic_memory_reports_missing_traces(sample_judge):
+    trace_ids = [f"t{i}" for i in range(8)]
+    found = {"t1", "t4"}
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: tid if tid in found else None),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
+    ):
+        examples = judge._reconstruct_episodic_memory()
+
+    assert examples == ["t1", "t4"]
+    mock_logger.warning.assert_called_once_with(
+        "Could not find 6 traces for episodic memory reconstruction. "
+        "Missing trace IDs: ['t0', 't2', 't3', 't5', 't6'].... "
+        "Judge will operate with partial memory (2/8 traces)."
+    )
+
+
+def test_reconstruct_episodic_memory_with_no_trace_ids(sample_judge):
+    judge = _deferred_judge(sample_judge, [])
+    with patch(_GET_TRACE_PATH) as mock_get_trace:
+        assert judge._reconstruct_episodic_memory() == []
+    mock_get_trace.assert_not_called()
