@@ -57,6 +57,12 @@ restore_terminal() {
 }
 
 cleanup() {
+	cleanup_status=$?
+	case "$cleanup_status" in
+	0) ;;
+	130 | 143) telemetry_send canceled ;;
+	*) telemetry_send failure ;;
+	esac
 	restore_terminal
 	if [ -n "$spinner_pid" ]; then
 		kill "$spinner_pid" 2>/dev/null || true
@@ -86,6 +92,128 @@ trap 'exit 143' TERM
 die() {
 	printf '\n%b×  %s%b\n' "$RED" "$*" "$RESET" >&2
 	exit 1
+}
+
+telemetry_start=""
+telemetry_sent="false"
+telemetry_flags=""
+telemetry_ci_vars="PYTEST_CURRENT_TEST GITHUB_ACTIONS CI CIRCLECI GITLAB_CI JENKINS_URL TRAVIS TF_BUILD BITBUCKET_BUILD_NUMBER CODEBUILD_BUILD_ARN BUILDKITE TEAMCITY_VERSION CLOUD_RUN_EXECUTION RUNBOT_HOST_URL RUNBOT_BUILD_NAME RUNBOT_WORKER_ID"
+# Prints version, source SDK, sys.platform, rollout roll, and the ingestion body, one per line.
+telemetry_python='
+import importlib.metadata as md, json, os, platform, random, sys, time, uuid
+
+def version(name):
+    try:
+        return md.version(name)
+    except md.PackageNotFoundError:
+        return None
+
+sdk = next((name for name in ("mlflow", "mlflow-skinny", "mlflow-tracing") if version(name)), None)
+if sdk is None:
+    sys.exit(1)
+status, duration_ms, agent, backend, flags = sys.argv[1:6]
+installation_id = None
+try:
+    base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
+    with open(os.path.join(base, "mlflow", "telemetry.json"), encoding="utf-8") as f:
+        raw = json.load(f).get("installation_id")
+    uuid.UUID(raw)
+    installation_id = raw
+except Exception:
+    pass
+params = {"agent": agent, "backend": backend or None, "flags": sorted(set(flags.split()))}
+data = {
+    "session_id": uuid.uuid4().hex,
+    "source_sdk": sdk,
+    "mlflow_version": version(sdk),
+    "schema_version": 2,
+    "python_version": platform.python_version(),
+    "operating_system": platform.platform(),
+    "environment": None,
+    "coding_agent": None,
+    "tracking_uri_scheme": None,
+    "is_localhost": None,
+    "installation_id": installation_id,
+    "ws_enabled": None,
+    "timestamp_ns": time.time_ns(),
+    "event_name": "agent_setup_script",
+    "params": json.dumps(params),
+    "status": status,
+    "duration_ms": int(duration_ms),
+}
+print(version(sdk), sdk, sys.platform, random.randint(0, 100), sep="\n")
+print(json.dumps({"records": [{"data": data, "partition-key": uuid.uuid4().hex}]}))
+'
+
+telemetry_env_true() {
+	eval "telemetry_env_value=\${$1:-}"
+	case "$telemetry_env_value" in
+	[Tt][Rr][Uu][Ee] | 1) return 0 ;;
+	esac
+	return 1
+}
+
+telemetry_enabled() {
+	[ -z "${DATABRICKS_RUNTIME_VERSION+x}" ] && [ ! -e /databricks/DBR_VERSION ] &&
+		! telemetry_env_true IS_IN_DB_MODEL_SERVING_ENV || return 1
+	telemetry_env_true _MLFLOW_TESTING_TELEMETRY && return 0
+	! telemetry_env_true MLFLOW_DISABLE_TELEMETRY && ! telemetry_env_true DO_NOT_TRACK || return 1
+	for telemetry_var in $telemetry_ci_vars; do
+		eval "[ -z \"\${$telemetry_var+x}\" ]" || return 1
+	done
+}
+
+json_array_has() {
+	sed -n 's/.*"'"$1"'"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' | grep -q "\"$2\""
+}
+
+# Mirrors mlflow.telemetry: opt-outs, remote config gating, then one POST of the record.
+telemetry_post() {
+	trap - EXIT INT TERM
+	cd / || return 0
+	telemetry_enabled || return 0
+	case "${backend:-}" in
+	remote) telemetry_backend="oss" ;;
+	*) telemetry_backend=${backend:-} ;;
+	esac
+	telemetry_duration=$((($(date +%s) - telemetry_start) * 1000))
+	for telemetry_py in python3 python; do
+		telemetry_out=$("$telemetry_py" -c "$telemetry_python" "$1" "$telemetry_duration" \
+			"${agent_choice:-none}" "$telemetry_backend" "$telemetry_flags") && break
+		telemetry_out=""
+	done
+	[ -n "$telemetry_out" ] || return 0
+	telemetry_version=$(printf '%s\n' "$telemetry_out" | sed -n 1p)
+	telemetry_sdk=$(printf '%s\n' "$telemetry_out" | sed -n 2p)
+	telemetry_platform=$(printf '%s\n' "$telemetry_out" | sed -n 3p)
+	telemetry_roll=$(printf '%s\n' "$telemetry_out" | sed -n 4p)
+	telemetry_body=$(printf '%s\n' "$telemetry_out" | sed -n 5p)
+	if telemetry_env_true _MLFLOW_TESTING_TELEMETRY || printf '%s' "$telemetry_version" | grep -q '\.dev'; then
+		telemetry_env_true _MLFLOW_TESTING_TELEMETRY || return 0
+		telemetry_config_url="https://config-staging.mlflow-telemetry.io/$telemetry_version.json"
+	elif printf '%s' "$telemetry_version" | grep -Eq '^[0-9]+(\.[0-9]+)*(rc[0-9]+)?$'; then
+		telemetry_config_url="https://config.mlflow-telemetry.io/$telemetry_version.json"
+	else
+		return 0
+	fi
+	telemetry_config=$(curl -fsS --max-time 2 "$telemetry_config_url" | tr -d '\r\n') || return 0
+	[ "$(printf '%s' "$telemetry_config" | json_first_string mlflow_version)" = "$telemetry_version" ] || return 0
+	telemetry_ingestion_url=$(printf '%s' "$telemetry_config" | json_first_string ingestion_url)
+	[ -n "$telemetry_ingestion_url" ] || return 0
+	! printf '%s' "$telemetry_config" | grep -q '"disable_telemetry"[[:space:]]*:[[:space:]]*true' || return 0
+	! printf '%s' "$telemetry_config" | json_array_has disable_sdks "$telemetry_sdk" || return 0
+	! printf '%s' "$telemetry_config" | json_array_has disable_os "$telemetry_platform" || return 0
+	! printf '%s' "$telemetry_config" | json_array_has disable_events agent_setup_script || return 0
+	telemetry_rollout=$(printf '%s' "$telemetry_config" | sed -n 's/.*"rollout_percentage"[[:space:]]*:[[:space:]]*\([0-9.]*\).*/\1/p')
+	awk -v roll="$telemetry_roll" -v rollout="${telemetry_rollout:-100}" 'BEGIN { exit !(roll <= rollout + 0) }' || return 0
+	curl -fsS --max-time 2 -X POST -H 'Content-Type: application/json' --data-binary "$telemetry_body" "$telemetry_ingestion_url"
+}
+
+# Sends at most one event per run, detached so it never blocks setup and survives exec.
+telemetry_send() {
+	[ -n "$telemetry_start" ] && [ "$telemetry_sent" = "false" ] || return 0
+	telemetry_sent="true"
+	(telemetry_post "$1") </dev/null >/dev/null 2>&1 &
 }
 
 header() {
@@ -477,6 +605,7 @@ select_option() {
 		case "$key_code" in
 		3)
 			restore_terminal
+			telemetry_send canceled
 			die "Setup cancelled."
 			;;
 		10 | 13)
@@ -659,6 +788,8 @@ usage() {
 		"  --agent <name>                claude, codex, opencode, or manual" \
 		"  -h, --help                    Show this help" \
 		"" \
+		"Sends anonymous usage telemetry; disable with MLFLOW_DISABLE_TELEMETRY=true or DO_NOT_TRACK=true." \
+		"" \
 		"Without an experiment flag, create a new experiment with a unique project-based name." \
 		"Without a backend setting, default to Databricks when a local profile exists." \
 		"Choose the first installed coding agent: claude, codex, then opencode; otherwise configure manually."
@@ -666,6 +797,11 @@ usage() {
 
 parse_args() {
 	while [ "$#" -gt 0 ]; do
+		case "$1" in
+		--workspace-url | --profile | --tracking-uri | --experiment-id | --experiment-name | --uc-schema | --warehouse-id | --agent)
+			telemetry_flags="$telemetry_flags ${1#--}"
+			;;
+		esac
 		case "$1" in
 		--workspace-url)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
@@ -821,7 +957,9 @@ choose_agent() {
 		done
 	fi
 	if [ -z "$agent_choice" ] || [ "$agent_choice" = "manual" ]; then
+		agent_choice="manual"
 		show_manual_setup
+		telemetry_send success
 		exit 0
 	fi
 	case "$agent_choice" in
@@ -1627,6 +1765,7 @@ build_agent_prompt() {
 launch_agent() {
 	agent_prompt=$(build_agent_prompt)
 	footer "Launching ${agent_display}…"
+	telemetry_send success
 	if [ "${MLFLOW_SETUP_DRY_RUN:-}" = "1" ]; then
 		printf '%s\n' "$agent_prompt"
 		return
@@ -1639,6 +1778,7 @@ launch_agent() {
 }
 
 main() {
+	telemetry_start=$(date +%s)
 	parse_args "$@"
 	validate_agent_name
 	header
