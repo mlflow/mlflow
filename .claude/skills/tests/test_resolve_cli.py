@@ -404,6 +404,78 @@ def test_publish_pr_update(
         assert replies == closures == []
 
 
+def test_publish_retries_with_embedded_description_after_update(
+    cli: ModuleType, metadata_context: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out_dir = metadata_context.parent
+    description = "![Screenshot](https://github.com/user-attachments/assets/id)"
+    (out_dir / "publish.json").write_text(
+        json.dumps({
+            "responses": {"PRRT_1": {"status": "resolved", "body": "Addressed."}},
+            "pr_update": {"body": description},
+        })
+    )
+    context = json.loads(metadata_context.read_text())
+    repo = "mlflow/mlflow"
+    endpoint = f"repos/{repo}/pulls/1"
+    reply_endpoint = f"{endpoint}/comments/34/replies"
+    pr = {
+        **context["pr"],
+        "state": "open",
+        "draft": False,
+        "user": {"id": cli.APP_ID, "login": cli.APP, "type": "Bot"},
+        "base": {"ref": "master"},
+        "head": {
+            "ref": context["head_ref"],
+            "sha": context["head_sha"],
+            "repo": {"full_name": repo},
+        },
+    }
+    review = {"state": "APPROVED", "user": {"login": "maintainer"}}
+    fail_reply = True
+
+    def github_api(
+        endpoint_arg: str,
+        *args: str,
+        data: dict[str, Any] | None = None,
+        method: str = "POST",
+    ) -> Any:
+        nonlocal fail_reply
+        if endpoint_arg == endpoint:
+            if method == "PATCH":
+                assert data is not None
+                pr.update(data)
+            return pr
+        if endpoint_arg == f"{endpoint}/reviews/12":
+            return review
+        if endpoint_arg == "--paginate":
+            return [[]]
+        if endpoint_arg == reply_endpoint:
+            if fail_reply:
+                fail_reply = False
+                raise RuntimeError("temporary publication failure")
+            return None
+        if endpoint_arg == "graphql":
+            return {"data": {"resolveReviewThread": {"thread": {"isResolved": True}}}}
+        raise AssertionError(endpoint_arg)
+
+    api = Mock(side_effect=github_api)
+    timeline = Mock(return_value=context["timeline"])
+    monkeypatch.setattr(cli, "api", api)
+    monkeypatch.setattr(cli, "fetch_timeline", timeline)
+
+    with pytest.raises(RuntimeError, match="temporary publication failure"):
+        cli.publish(repo, "1", "12", metadata_context, out_dir)
+
+    assert pr["body"] == description
+    cli.publish(repo, "1", "12", metadata_context, out_dir)
+
+    patches = [entry for entry in api.call_args_list if entry.kwargs.get("method") == "PATCH"]
+    assert patches == [call(endpoint, data={"body": description}, method="PATCH")]
+    assert len([entry for entry in api.call_args_list if entry.args[0] == reply_endpoint]) == 2
+    timeline.assert_has_calls([call(repo, "1", "12"), call(repo, "1", "12")])
+
+
 def test_preview_pr_update(
     cli: ModuleType, metadata_context: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -467,7 +539,12 @@ def test_validate_and_embed_media(
             payload,
         ),
         call(*cli.media_command(media), "--check", input=f"{reply}\n\n{description}"),
-        call(*cli.media_command(media), "--repository-id", "123", input=local_reference),
+        call(
+            *cli.media_command(media, strict=media_in_description),
+            "--repository-id",
+            "123",
+            input=local_reference,
+        ),
     ]
     assert json.loads((out_dir / "publish.json").read_text()) == {
         "responses": {
@@ -475,6 +552,42 @@ def test_validate_and_embed_media(
         },
         "pr_update": {"title": "After", "body": description.replace(local_reference, attachment)},
     }
+
+
+def test_embed_stops_when_description_media_upload_fails(
+    cli: ModuleType, metadata_context: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out_dir = metadata_context.parent
+    media = out_dir / "media"
+    media.mkdir()
+    local_reference = f"![Screenshot]({media / 'screenshot.png'})"
+    (out_dir / "payload.json").write_text(
+        json.dumps({
+            "responses": {"PRRT_1": {"status": "resolved", "body": "Updated."}},
+            "pr_update": {"body": local_reference},
+        })
+    )
+    command = Mock(
+        side_effect=[
+            "",
+            "",
+            subprocess.CalledProcessError(1, ["embed-media"]),
+        ]
+    )
+    monkeypatch.setattr(cli, "command", command)
+    monkeypatch.setenv("REPOSITORY_ID", "123")
+
+    cli.validate(metadata_context, out_dir)
+    with pytest.raises(subprocess.CalledProcessError, match="returned non-zero exit status 1"):
+        cli.embed(out_dir)
+
+    assert command.call_args_list[-1] == call(
+        *cli.media_command(media, strict=True),
+        "--repository-id",
+        "123",
+        input=local_reference,
+    )
+    assert not (out_dir / "publish.json").exists()
 
 
 @pytest.mark.parametrize(

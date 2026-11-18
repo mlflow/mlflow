@@ -208,8 +208,8 @@ def validate(context_path: Path, out_dir: Path) -> None:
     )
 
 
-def media_command(media: Path) -> tuple[str | Path, ...]:
-    return (
+def media_command(media: Path, *, strict: bool = False) -> tuple[str | Path, ...]:
+    command = (
         "uv",
         "run",
         "--locked",
@@ -221,15 +221,17 @@ def media_command(media: Path) -> tuple[str | Path, ...]:
         "--dir",
         media,
     )
+    return command + (("--strict",) if strict else ())
 
 
 def embed(out_dir: Path) -> None:
     payload = out_dir / "payload.json"
     result = json.loads(payload.read_text())
+    pr_update = result.get("pr_update")
     for section in markdown_sections(result):
         if str(out_dir / "media") in section["body"]:
             section["body"] = command(
-                *media_command(out_dir / "media"),
+                *media_command(out_dir / "media", strict=section is pr_update),
                 "--repository-id",
                 os.environ["REPOSITORY_ID"],
                 input=section["body"],
