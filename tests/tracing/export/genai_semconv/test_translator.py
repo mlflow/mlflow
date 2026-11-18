@@ -311,6 +311,39 @@ def test_non_mlflow_attributes_preserved():
     assert result.attributes["http.url"] == "https://api.openai.com/v1/chat/completions"
 
 
+@pytest.mark.parametrize("span_type", [None, "TOOL"])
+@pytest.mark.parametrize("native_otel", [False, True])
+@pytest.mark.parametrize("version", [None, "1", "true", "null"])
+def test_mcp_attributes_preserved(span_type, native_otel, version):
+    mcp_attributes = {
+        SpanAttributeKey.MCP_SERVER_NAME: "com.example/weather",
+        SpanAttributeKey.MCP_TOOL_NAME: "forecast",
+    }
+    if not native_otel:
+        mcp_attributes = {key: json.dumps(value) for key, value in mcp_attributes.items()}
+    if version is not None:
+        mcp_attributes[SpanAttributeKey.MCP_SERVER_VERSION] = version
+    attributes = {
+        **mcp_attributes,
+        SpanAttributeKey.REQUEST_ID: json.dumps("tr-test"),
+        SpanAttributeKey.TRACE_TAG_PREFIX + "env": "production",
+        "mlflow.mcp.internal": "private",
+        "custom.attribute": "preserved",
+    }
+    if span_type is not None:
+        attributes[SpanAttributeKey.SPAN_TYPE] = json.dumps(span_type)
+    span = _make_span(attributes=attributes)
+
+    result = translate_span_to_genai(span)
+
+    assert {key: result.attributes[key] for key in mcp_attributes} == mcp_attributes
+    assert result.attributes[SpanAttributeKey.TRACE_TAG_PREFIX + "env"] == "production"
+    assert result.attributes["custom.attribute"] == "preserved"
+    assert SpanAttributeKey.REQUEST_ID not in result.attributes
+    assert "mlflow.mcp.internal" not in result.attributes
+    assert dict(span.attributes) == attributes
+
+
 def test_span_context_preserved():
     attrs = {SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL")}
     span = _make_span(attributes=attrs)

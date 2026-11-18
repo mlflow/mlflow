@@ -751,6 +751,12 @@ MLFLOW_ENABLE_MCP_TOOL_DISCOVERY = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_MCP_TOOL_DISCOVERY", True
 )
 
+#: Cache lifetime in seconds for MCP server alias and access endpoint resolution when
+#: linking spans. Set to ``0`` to bypass the process-local cache. Defaults to 60 seconds.
+MLFLOW_MCP_SERVER_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_MCP_SERVER_CACHE_TTL_SECONDS", float, 60
+)
+
 #: Timeout for a SINGLE HTTP request to a deployment endpoint (in seconds).
 #: This controls how long ONE individual predict/predict_stream request can take before timing out.
 #: If your model inference takes longer than this (e.g., long-running agent queries that take

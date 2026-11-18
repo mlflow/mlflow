@@ -21,6 +21,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.store.db.workspace_utils import move_trace_mcp_server_links
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlWebhook
 from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDataset,
@@ -251,6 +252,13 @@ class SqlAlchemyStore(AbstractStore):
                             INVALID_STATE,
                         )
                     self._check_set_default_conflicts(session, workspace_name)
+                    move_trace_mcp_server_links(
+                        conn=session.connection(),
+                        experiment_ids=sa.select(SqlExperiment.experiment_id).where(
+                            SqlExperiment.workspace == workspace_name
+                        ),
+                        target_workspace=DEFAULT_WORKSPACE_NAME,
+                    )
                     for model in _WORKSPACE_ROOT_MODELS:
                         session.query(model).filter(model.workspace == workspace_name).update(
                             {model.workspace: DEFAULT_WORKSPACE_NAME},

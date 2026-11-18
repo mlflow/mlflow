@@ -327,7 +327,11 @@ from mlflow.utils.server_info import (
     SERVER_INFO_WORKSPACES_ENABLED,
 )
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE, MAX_CUSTOM_VIEWS_PER_EXPERIMENT
-from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
+from mlflow.utils.workspace_context import (
+    ServerWorkspaceContext,
+    WorkspaceContext,
+    get_request_workspace,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
@@ -9448,7 +9452,7 @@ def test_list_budget_windows_workspace_scoped_filters_workspace_policies():
         app.test_client() as c,
         mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
         mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
-        WorkspaceContext("team-a"),
+        ServerWorkspaceContext("team-a"),
     ):
         response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
 
@@ -9775,7 +9779,7 @@ def test_list_budget_windows_workspace_scoped_filters_endpoint_policies():
         app.test_client() as c,
         mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
         mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
-        WorkspaceContext("team-a"),
+        ServerWorkspaceContext("team-a"),
     ):
         response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
 
@@ -10017,7 +10021,7 @@ def test_list_budget_windows_workspace_scoped_filters_user_policies():
         app.test_client() as c,
         mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
         mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
-        WorkspaceContext("team-a"),
+        ServerWorkspaceContext("team-a"),
     ):
         response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
 

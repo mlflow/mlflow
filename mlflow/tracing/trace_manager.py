@@ -4,6 +4,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Generator, Sequence
 
+import mlflow
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
@@ -25,6 +26,7 @@ class _Trace:
     prompts: list[PromptVersion] = field(default_factory=list)
     is_remote_trace: bool = False
     workspace: str | None = None
+    tracking_uri: str | None = None
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -96,6 +98,7 @@ class InMemoryTraceManager:
                 trace_info,
                 is_remote_trace=is_remote_trace,
                 workspace=get_request_workspace(),
+                tracking_uri=mlflow.get_tracking_uri(),
             )
             self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
 

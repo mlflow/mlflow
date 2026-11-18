@@ -1,7 +1,9 @@
 import copy
 import json
 import pickle
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from threading import Event
 from unittest import mock
 
 import opentelemetry.trace as trace_api
@@ -12,11 +14,20 @@ from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as OTelResource
 from opentelemetry.sdk.trace import Event as OTelEvent
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.trace import Status as OTelStatus
 from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
-from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities import (
+    LiveSpan,
+    MCPServerRef,
+    Span,
+    SpanEvent,
+    SpanStatus,
+    SpanStatusCode,
+    SpanType,
+)
 from mlflow.entities.span import (
     LazySpan,
     NoOpSpan,
@@ -24,7 +35,7 @@ from mlflow.entities.span import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.attachments import Attachment
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX, SpanAttributeKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
 from mlflow.tracing.utils.otlp import (
@@ -32,6 +43,8 @@ from mlflow.tracing.utils.otlp import (
     _set_otel_proto_anyvalue,
     resource_to_otel_proto,
 )
+
+from tests.tracing.helper import create_mock_otel_span
 
 
 def test_create_live_span():
@@ -90,6 +103,252 @@ def test_create_live_span():
             assert span.parent_id == encode_span_id(parent_span.context.span_id)
 
 
+@pytest.mark.parametrize("key", [[], {}, None, 123])
+def test_set_attribute_with_invalid_key(key, caplog):
+    with mlflow.start_span("test") as span:
+        before = span.attributes.copy()
+        span.set_attribute(key, "value")
+        assert span.attributes == before
+        assert f"Attribute key must be a string, but got {type(key)}. Skipping." in caplog.text
+
+
+@pytest.mark.parametrize("native_otel", [False, True])
+@pytest.mark.parametrize(
+    "version", ["1", "true", "null", "[]", "{}", '"quoted"', "1.0.0", 1, True, 1.5]
+)
+def test_mcp_version_preserves_original_type(version, native_otel):
+    with mlflow.start_span("mcp") as span:
+        target = span._span if native_otel else span
+        target.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, version)
+        assert span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+        assert type(span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION)) is type(version)
+        serialized = span.to_dict()
+        immutable = span.to_immutable_span()
+
+    for restored in [
+        immutable,
+        Span.from_dict(serialized),
+        Span.from_dict(immutable.to_dict()),
+        Span.from_otel_proto(immutable.to_otel_proto()),
+    ]:
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+        assert type(restored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION)) is type(version)
+
+
+@pytest.mark.parametrize("native_first", [False, True])
+@pytest.mark.parametrize("versions", [("1", '"1"'), ("true", "null"), ("[]", "{}")])
+def test_mcp_version_preserves_mixed_otel_and_mlflow_writes(native_first, versions):
+    key = SpanAttributeKey.MCP_SERVER_VERSION
+    with mlflow.start_span("mcp") as span:
+        targets = (span._span, span) if native_first else (span, span._span)
+        snapshots = []
+        for target, version in zip(targets, versions):
+            target.set_attribute(key, version)
+            assert span.get_attribute(key) == version
+            snapshots.append(span.to_immutable_span())
+
+    for snapshot, version in zip(snapshots, versions):
+        assert snapshot.get_attribute(key) == version
+        serialized = snapshot.to_dict()
+        assert serialized["attributes"][key] == json.dumps(version)
+        assert Span.from_dict(serialized).get_attribute(key) == version
+        assert Span.from_otel_proto(snapshot.to_otel_proto()).get_attribute(key) == version
+
+
+@pytest.mark.parametrize("version", ["1", "true", "null", '"1"'])
+def test_immutable_span_before_mcp_link_does_not_acquire_live_attributes(version):
+    name_key = SpanAttributeKey.MCP_SERVER_NAME
+    version_key = SpanAttributeKey.MCP_SERVER_VERSION
+    with mlflow.start_span("mcp") as span:
+        before = span.to_immutable_span()
+        span.link_mcp_server(MCPServerRef("com.example/weather", version=version))
+        after = span.to_immutable_span()
+
+    assert before.get_attribute(name_key) is None
+    assert before.get_attribute(version_key) is None
+    assert name_key not in before.to_dict()["attributes"]
+    assert version_key not in before.to_dict()["attributes"]
+    assert after.get_attribute(name_key) == "com.example/weather"
+    assert after.get_attribute(version_key) == version
+    assert after.to_dict()["attributes"][version_key] == json.dumps(version)
+
+
+def test_mcp_version_can_be_cleared():
+    with mlflow.start_span("mcp") as span:
+        span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, "1")
+        span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, None)
+        assert span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) is None
+    assert span.to_immutable_span().get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) is None
+
+
+@pytest.mark.parametrize(
+    "key", [SpanAttributeKey.MCP_SERVER_NAME, SpanAttributeKey.MCP_SERVER_VERSION]
+)
+def test_clear_mcp_attribute_on_otel_api_span(key):
+    otel_span = create_mock_otel_span(trace_id=123, span_id=456)
+    span = create_mlflow_span(otel_span, trace_id="tr-api-span")
+    span.set_attribute(
+        key, "com.example/weather" if key == SpanAttributeKey.MCP_SERVER_NAME else "1"
+    )
+    span.set_attribute(key, None)
+    assert span.get_attribute(key) is None
+    assert key not in otel_span.attributes
+
+
+@pytest.mark.parametrize("native_otel", [False, True])
+@pytest.mark.parametrize("version", ["1.0.0", "1", "null", '"quoted"', "[]"])
+def test_mcp_attributes_use_raw_otel_strings(native_otel, version):
+    name = "com.example/weather"
+    tool = '"forecast"'
+    with mlflow.start_span("mcp") as span:
+        target = span._span if native_otel else span
+        target.set_attribute(SpanAttributeKey.MCP_SERVER_NAME, name)
+        target.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, version)
+        target.set_attribute(SpanAttributeKey.MCP_TOOL_NAME, tool)
+        assert span._span.attributes[SpanAttributeKey.MCP_SERVER_NAME] == name
+        assert span._span.attributes[SpanAttributeKey.MCP_SERVER_VERSION] == version
+        assert span._span.attributes[SpanAttributeKey.MCP_TOOL_NAME] == tool
+        serialized = span.to_dict()
+    assert serialized["attributes"][SpanAttributeKey.MCP_SERVER_NAME] == json.dumps(name)
+    assert serialized["attributes"][SpanAttributeKey.MCP_SERVER_VERSION] == json.dumps(version)
+    assert serialized["attributes"][SpanAttributeKey.MCP_TOOL_NAME] == json.dumps(tool)
+    for restored in [span.to_immutable_span(), Span.from_dict(serialized)]:
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == name
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+        assert restored.get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == tool
+
+
+@pytest.mark.parametrize("initial_version", [None, "1.0.0"])
+@pytest.mark.parametrize(
+    "value", [{"invalid": True}, [1, "invalid"], ["1.0.0"], ("1.0.0",), object(), b"1.0.0", b"\xff"]
+)
+def test_malformed_mcp_version_is_cleared(initial_version, value, caplog):
+    with mlflow.start_span("mcp") as span:
+        span.set_attribute(SpanAttributeKey.MCP_SERVER_NAME, "com.example/weather")
+        if initial_version is not None:
+            span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, initial_version)
+        span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, value)
+        assert span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) is None
+        assert SpanAttributeKey.MCP_SERVER_VERSION not in span._span.attributes
+        serialized = span.to_dict()
+        immutable = span.to_immutable_span()
+
+    assert "Clearing malformed MCP server version" in caplog.text
+    for restored in [
+        immutable,
+        Span.from_dict(serialized),
+        Span.from_dict(immutable.to_dict()),
+        Span.from_otel_proto(immutable.to_otel_proto()),
+    ]:
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) is None
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == "com.example/weather"
+
+
+@pytest.mark.parametrize("value", [None, {"invalid": True}, [1, "invalid"], b"1.0.0"])
+def test_malformed_mcp_version_does_not_modify_ended_span(value):
+    with mlflow.start_span("mcp") as span:
+        span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, "1.0.0")
+    span.set_attribute(SpanAttributeKey.MCP_SERVER_VERSION, value)
+    assert span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == "1.0.0"
+
+
+@pytest.mark.parametrize(
+    "key", [SpanAttributeKey.MCP_SERVER_NAME, SpanAttributeKey.MCP_SERVER_VERSION]
+)
+@pytest.mark.parametrize("value", [None, {"invalid": True}])
+def test_clear_mcp_attribute_concurrent_with_end(key, value):
+    ended_attributes = []
+
+    class EndRecorder(SpanProcessor):
+        def on_end(self, span):
+            ended_attributes.append(dict(span.attributes))
+
+    provider = TracerProvider()
+    provider.add_span_processor(EndRecorder())
+    otel_span = provider.get_tracer(__name__).start_span("mcp")
+    span = LiveSpan(otel_span, trace_id=f"tr-{otel_span.context.trace_id:032x}")
+    span.set_attribute(
+        key, "com.example/weather" if key == SpanAttributeKey.MCP_SERVER_NAME else "1"
+    )
+    checked_recording = Event()
+    continue_clear = Event()
+    ending = Event()
+    ended = Event()
+    is_recording = otel_span.is_recording
+
+    def pause_recording_check():
+        result = is_recording()
+        checked_recording.set()
+        assert continue_clear.wait(5)
+        return result
+
+    def end_span():
+        ending.set()
+        otel_span.end()
+        ended.set()
+
+    try:
+        with (
+            mock.patch.object(
+                otel_span, "is_recording", side_effect=pause_recording_check
+            ) as check,
+            ThreadPoolExecutor(max_workers=2, thread_name_prefix="mcp-clear-end") as executor,
+        ):
+            try:
+                clear = executor.submit(span.set_attribute, key, value)
+                assert checked_recording.wait(5)
+                end = executor.submit(end_span)
+                assert ending.wait(5)
+                # Let end finish if it can. An atomic clear keeps it waiting until released.
+                ended.wait(1)
+            finally:
+                continue_clear.set()
+            clear.result(timeout=5)
+            end.result(timeout=5)
+            check.assert_called_once()
+        assert ended_attributes == [dict(otel_span.attributes)]
+        assert key not in otel_span.attributes
+    finally:
+        provider.shutdown()
+
+
+@pytest.mark.parametrize("version", [b"1.0.0", b"\xff", b""])
+@pytest.mark.parametrize("source", ["otel", "proto"])
+def test_native_bytes_mcp_version_is_unknown(version, source):
+    if source == "otel":
+        otel_span = OTelReadableSpan(
+            name="mcp",
+            context=build_otel_context(12345, 1),
+            start_time=1,
+            end_time=2,
+            status=OTelStatus(OTelStatusCode.OK),
+            attributes={
+                SpanAttributeKey.REQUEST_ID: json.dumps("tr-native-bytes"),
+                SpanAttributeKey.MCP_SERVER_NAME: "com.example/weather",
+                SpanAttributeKey.MCP_SERVER_VERSION: version,
+            },
+        )
+        span = Span._from_otel_span(otel_span)
+        assert otel_span.attributes[SpanAttributeKey.MCP_SERVER_VERSION] == version
+    else:
+        proto = OTelProtoSpan(trace_id=(12345).to_bytes(16, "big"), span_id=(1).to_bytes(8, "big"))
+        proto.attributes.add(
+            key=SpanAttributeKey.MCP_SERVER_NAME
+        ).value.string_value = "com.example/weather"
+        proto.attributes.add(key=SpanAttributeKey.MCP_SERVER_VERSION).value.bytes_value = version
+        proto.attributes.add(key="custom.bytes").value.bytes_value = version
+        span = Span.from_otel_proto(proto)
+        assert span.get_attribute("custom.bytes") == str(version)
+
+    for restored in [
+        span,
+        Span.from_dict(span.to_dict()),
+        Span.from_otel_proto(span.to_otel_proto()),
+    ]:
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == "com.example/weather"
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) is None
+
+
 def test_create_non_live_span():
     trace_id = "tr-12345"
     parent_span_context = trace_api.SpanContext(
@@ -130,6 +389,45 @@ def test_create_non_live_span():
     # Non-live span should not implement setter methods
     with pytest.raises(AttributeError, match="set_inputs"):
         span.set_inputs({"input": 1})
+
+
+@pytest.mark.parametrize("version", ["1", "true", "null", '"quoted"', "1.0.0"])
+def test_create_non_live_span_preserves_raw_mcp_attributes(version):
+    trace_id = "tr-mcp-version"
+    tool = '"forecast"'
+    attributes = {
+        SpanAttributeKey.REQUEST_ID: json.dumps(trace_id),
+        SpanAttributeKey.MCP_SERVER_NAME: "com.example/weather",
+        SpanAttributeKey.MCP_SERVER_VERSION: version,
+        SpanAttributeKey.MCP_TOOL_NAME: tool,
+    }
+    readable_span = OTelReadableSpan(
+        name="mcp",
+        context=build_otel_context(12345, 222),
+        attributes=attributes,
+        start_time=99999,
+        end_time=100000,
+        status=OTelStatus(OTelStatusCode.OK),
+    )
+    original_attributes = dict(readable_span.attributes)
+
+    span = create_mlflow_span(readable_span, trace_id)
+
+    assert isinstance(span, Span)
+    assert span.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == "com.example/weather"
+    assert span.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+    assert span.get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == tool
+    assert dict(readable_span.attributes) == original_attributes
+
+    restored_spans = [
+        span,
+        Span.from_dict(span.to_dict()),
+        Span.from_otel_proto(span.to_otel_proto()),
+    ]
+    for restored in restored_spans:
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_NAME) == "com.example/weather"
+        assert restored.get_attribute(SpanAttributeKey.MCP_SERVER_VERSION) == version
+        assert restored.get_attribute(SpanAttributeKey.MCP_TOOL_NAME) == tool
 
 
 def test_create_noop_span():

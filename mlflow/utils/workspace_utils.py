@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mlflow.environment_variables import MLFLOW_WORKSPACE, MLFLOW_WORKSPACE_STORE_URI
+from mlflow.environment_variables import MLFLOW_WORKSPACE_STORE_URI
 
 _workspace_store_uri: str | None = None
 
@@ -46,9 +46,6 @@ def resolve_entity_workspace_name(workspace: str | None) -> str:
     from mlflow.utils.workspace_context import get_request_workspace
 
     if candidate := _normalize_workspace(get_request_workspace()):
-        return candidate
-
-    if candidate := _normalize_workspace(MLFLOW_WORKSPACE.get()):
         return candidate
 
     return DEFAULT_WORKSPACE_NAME

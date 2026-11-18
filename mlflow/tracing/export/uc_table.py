@@ -47,7 +47,7 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
             return
 
         # Wrapping with MLflow span interface for easier downstream handling
-        spans = [Span(span) for span in spans]
+        spans = [Span._from_otel_span(span) for span in spans]
         if self._should_log_async():
             for span in spans:
                 self._span_batcher.add_span(location=location, span=span)

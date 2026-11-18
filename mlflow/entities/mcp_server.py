@@ -44,6 +44,10 @@ _MCP_SERVER_RESERVED_SLUGS = {"aliases", "endpoints", "tags", "versions"}
 
 
 def validate_mcp_server_name(name: str) -> None:
+    if not isinstance(name, str) or len(name) > 256:
+        raise MlflowException.invalid_parameter_value(
+            "MCP server name must be a string of at most 256 characters."
+        )
     if not name:
         raise MlflowException.invalid_parameter_value("MCP server name must not be empty")
 

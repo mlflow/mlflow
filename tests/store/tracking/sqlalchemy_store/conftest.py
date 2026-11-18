@@ -11,8 +11,9 @@ from opentelemetry.sdk.resources import Resource as _OTelResource
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 from mlflow.entities import ViewType, trace_location
-from mlflow.entities.span import Span, create_mlflow_span
+from mlflow.entities.span import Span
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_mcp_server_link import MCPServerSpanObservation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.workspace import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
@@ -332,7 +333,9 @@ def create_test_span(
         status=trace_api.Status(status, status_desc),
         resource=_OTelResource.get_empty(),
     )
-    span = create_mlflow_span(otel_span, trace_id, span_type)
+    # This helper builds stored-format spans with JSON-encoded attributes, so wrap this fixture
+    # directly without passing through the OTel ingestion path.
+    span = Span(otel_span)
     if links:
         span._links = list(links)
     return span
@@ -389,3 +392,14 @@ def _create_trace(
         client_request_id=client_request_id,
     )
     return store.start_trace(trace_info)
+
+
+def upsert_mcp_server_links_for_test(
+    store: SqlAlchemyStore, trace_id: str, links: list[MCPServerSpanObservation]
+) -> None:
+    with store.ManagedSessionMaker(read_only=False) as session:
+        trace = store._get_sql_trace_info(session=session, trace_id=trace_id)
+        if links:
+            store._upsert_span_mcp_server_links(
+                session, trace.experiment.workspace, {trace.request_id: links}
+            )

@@ -2,7 +2,6 @@ import logging
 import os
 import threading
 from collections import defaultdict
-from contextlib import nullcontext
 from typing import Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -273,12 +272,11 @@ class MlflowV3SpanExporter(SpanExporter):
         Args:
             experiment_id: The experiment ID to log spans to.
             spans: List of spans to log.
-            workspace: Optional workspace name captured on the originating thread.
-                When provided, a ServerWorkspaceContext is applied so that HTTP calls
-                on the async worker thread include the correct X-MLFLOW-WORKSPACE header
-                without mutating process-wide environment variables.
+            workspace: Workspace captured on the originating thread. An explicit absence
+                also overrides the worker's context and environment, so HTTP calls use
+                the original workspace without mutating process-wide environment variables.
         """
-        with ServerWorkspaceContext(workspace) if workspace else nullcontext():
+        with ServerWorkspaceContext(workspace):
             try:
                 self._client.log_spans(experiment_id, spans)
             except NotImplementedError:
@@ -310,12 +308,11 @@ class MlflowV3SpanExporter(SpanExporter):
         Args:
             trace: The trace to export.
             prompts: Prompt versions to link to the trace.
-            workspace: Optional workspace name captured on the originating thread.
-                When provided, a ServerWorkspaceContext is applied so that HTTP calls
-                on the async worker thread include the correct X-MLFLOW-WORKSPACE header
-                without mutating process-wide environment variables.
+            workspace: Workspace captured on the originating thread. An explicit absence
+                also overrides the worker's context and environment, so HTTP calls use
+                the original workspace without mutating process-wide environment variables.
         """
-        with ServerWorkspaceContext(workspace) if workspace else nullcontext():
+        with ServerWorkspaceContext(workspace):
             returned_trace_info = None
             try:
                 if trace:

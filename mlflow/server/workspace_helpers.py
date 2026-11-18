@@ -141,8 +141,7 @@ def workspace_before_request_handler():
 
 
 def workspace_teardown_request_handler(_exc):
-    if MLFLOW_ENABLE_WORKSPACES.get():
-        workspace_context.clear_server_request_workspace()
+    workspace_context.clear_server_request_workspace()
 
 
 __all__ = [

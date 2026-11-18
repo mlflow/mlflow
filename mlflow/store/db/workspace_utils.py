@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 
+from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlSpanMCPServerLink, SqlTraceInfo
+
 # Child tables of registered_models that carry their own workspace column.
 # These must be updated explicitly because not all backends honour
 # ON UPDATE CASCADE at the SQL level (e.g. SQLite without foreign_keys pragma).
@@ -51,6 +53,24 @@ def get_workspace_table(conn, table_name: str) -> sa.Table:
     if "workspace" not in table.c:
         raise RuntimeError(_NOT_ENABLED_MSG)
     return table
+
+
+def move_trace_mcp_server_links(conn, experiment_ids: sa.Select, target_workspace: str) -> None:
+    # Resolve the source workspace before the experiments themselves are moved.
+    # Leave inconsistent links untouched rather than promoting them into the target workspace.
+    links = SqlSpanMCPServerLink.__table__
+    trace_ids = (
+        sa
+        .select(SqlTraceInfo.request_id)
+        .join(SqlExperiment, SqlExperiment.experiment_id == SqlTraceInfo.experiment_id)
+        .where(
+            SqlTraceInfo.experiment_id.in_(experiment_ids),
+            SqlExperiment.workspace == links.c.mcp_workspace,
+        )
+    )
+    conn.execute(
+        links.update().where(links.c.trace_id.in_(trace_ids)).values(mcp_workspace=target_workspace)
+    )
 
 
 def format_truncated_list(

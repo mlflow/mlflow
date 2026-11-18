@@ -97,6 +97,87 @@ mlflow.genai.delete_mcp_access_endpoint(
 )
 ```
 
+## Link Traces to MCP Servers
+
+Call `span.link_mcp_server()` to record which registered MCP server an operation uses. Pass an
+`MCPServerRef`, an `MCPServerVersion`, or an `MCPAccessEndpoint`:
+
+```python
+import mlflow
+from mlflow.entities import MCPServerRef
+
+with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
+    span.link_mcp_server(MCPServerRef("com.example/weather", version="1.0.0"), tool="forecast")
+    # Invoke the MCP tool here.
+
+# Resolve an alias to a concrete version when the span is annotated.
+with mlflow.start_span("weather.discover") as span:
+    span.link_mcp_server(MCPServerRef("com.example/weather", alias="production"))
+
+# A name-only reference leaves the version unknown; it does not resolve "latest".
+with mlflow.start_span("weather.resources") as span:
+    span.link_mcp_server(MCPServerRef("com.example/weather"))
+```
+
+`version` and `alias` are mutually exclusive. Version strings are preserved exactly, including
+surrounding whitespace.
+For a version object returned by
+`mlflow.genai.get_mcp_server_version()`, pass the object directly; no lookup is needed:
+
+```python
+version = mlflow.genai.get_mcp_server_version("com.example/weather", "1.0.0")
+with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
+    span.link_mcp_server(version, tool="forecast")
+```
+
+You can also pass an access endpoint obtained from the registry:
+
+```python
+endpoint = mlflow.genai.get_mcp_access_endpoint(
+    server_name="com.example/weather", endpoint_id="ae-weather"
+)
+with mlflow.start_span("weather.forecast", span_type="TOOL") as span:
+    span.link_mcp_server(endpoint, tool="forecast")
+```
+
+Pass an `MCPServerRef`, `MCPServerVersion`, or `MCPAccessEndpoint`; raw URLs are not accepted.
+If an endpoint resolves without a version, linking records only the server name. If its URL or
+transport changes, reload the endpoint before linking.
+
+Supply `tool` when tracing a tool invocation; omit it for discovery, resource, and prompt
+operations. A span can link to only one server name/version pair. Attempts to change that
+identity—including adding a version to a name-only link—raise an error.
+
+Linking records the registry's intended server identity; it does not verify which version the
+remote server serves.
+
+Resolution uses the tracking server and workspace captured when the trace started. Version
+and endpoint objects from another workspace are rejected. Alias lookup failures also raise an error, and failed
+calls leave the span attributes unchanged. Stored traces retain the concrete version observed
+when linked, even if an alias is later retargeted.
+
+Manually linking a span does not require an MCP client framework or the `mcp` extra.
+
+### Link spans exported through OTLP
+
+When exporting OpenTelemetry spans directly to MLflow through OTLP, set the MCP attributes
+on the span as literal strings, without JSON encoding:
+
+```python
+from opentelemetry import trace
+
+tracer = trace.get_tracer(__name__)
+with tracer.start_as_current_span("weather.forecast") as span:
+    span.set_attribute("mlflow.mcp.server.name", "com.example/weather")
+    span.set_attribute("mlflow.mcp.server.version", "1.0.0")
+    span.set_attribute("mlflow.mcp.tool.name", "forecast")
+```
+
+The server name is required to create a link. Omit the version when it is unknown, and omit
+the tool name for discovery, resource, and prompt operations. OTLP ingestion does not resolve
+aliases. The workspace comes from the `X-MLFLOW-WORKSPACE` request header or the server's
+configured default workspace.
+
 ## Connection Instructions
 
 The MLflow UI generates ready-to-use connection instructions for registered MCP servers. Click the **Connect** button on any server card to see instructions for:

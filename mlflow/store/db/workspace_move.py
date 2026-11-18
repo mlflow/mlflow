@@ -9,6 +9,7 @@ from mlflow.store.db.workspace_utils import (
     MODEL_CHILD_TABLES,
     format_truncated_list,
     get_workspace_table,
+    move_trace_mcp_server_links,
 )
 from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
@@ -364,6 +365,17 @@ def move_resources(
         ).scalar()
 
         if not dry_run:
+            if resource_type == "experiments":
+                move_trace_mcp_server_links(
+                    conn=conn,
+                    experiment_ids=_filtered(
+                        sa.select(table.c.experiment_id).where(
+                            table.c.workspace == source_workspace
+                        ),
+                        name_col,
+                    ),
+                    target_workspace=target_workspace,
+                )
             if retarget_root is not None:
                 # Resolved before the flip because the tag-filter subquery in
                 # name_filter is scoped to the source workspace. Locations are

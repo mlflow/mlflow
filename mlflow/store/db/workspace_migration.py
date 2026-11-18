@@ -6,7 +6,9 @@ from mlflow.store.db.workspace_utils import (
     OTHER_WORKSPACE_CHILD_TABLES,
     format_truncated_list,
     get_workspace_table,
+    move_trace_mcp_server_links,
 )
+from mlflow.store.tracking.dbmodels.models import SqlExperiment
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -132,6 +134,15 @@ def migrate_to_default_workspace(
                 columns,
                 description,
                 verbose=verbose,
+            )
+
+        if not dry_run:
+            move_trace_mcp_server_links(
+                conn=conn,
+                experiment_ids=sa.select(SqlExperiment.experiment_id).where(
+                    SqlExperiment.workspace != DEFAULT_WORKSPACE_NAME
+                ),
+                target_workspace=DEFAULT_WORKSPACE_NAME,
             )
 
         counts = {}
