@@ -1128,7 +1128,9 @@ def test_build_embedder_non_databricks_has_no_api_base(monkeypatch):
         ("openai:/text-embedding-3-small", "openai/text-embedding-3-small", None),
     ],
 )
-def test_build_embedder_calls_litellm(monkeypatch, embedding_model, expected_model, expected_api_base):
+def test_build_embedder_calls_litellm(
+    monkeypatch, embedding_model, expected_model, expected_api_base
+):
     monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
 
