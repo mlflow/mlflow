@@ -96,6 +96,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _check_model_code_loading_allowed,
     _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
 )
@@ -796,6 +797,11 @@ def _get_or_create_sparksession(model_path=None):
         os.environ["PYSPARK_PYTHON"] = sys.executable
         os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
         if model_path:
+            # The JARs run in the new JVM and the license keys are copied into the environment.
+            _check_model_code_loading_allowed(
+                "a John Snow Labs model that starts a Spark session with the JARs and license "
+                "stored in the model"
+            )
             jar_paths, license_path = _fetch_deps_from_path(model_path)
             if license_path:
                 with open(license_path) as f:
