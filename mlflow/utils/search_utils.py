@@ -569,6 +569,18 @@ class SearchUtils:
             )
 
     @classmethod
+    def _validate_list_comparator(cls, identifier_type, comparator):
+        # Reject `IN` / `NOT IN` for entity types that don't support it before parsing the
+        # value, so users get an "Invalid comparator" error instead of a value-type error.
+        comparator = comparator.upper()
+        if comparator in ("IN", "NOT IN"):
+            # The `is_*` helpers raise on an unsupported comparator; their return values
+            # are intentionally ignored.
+            cls.is_metric(identifier_type, comparator)
+            cls.is_param(identifier_type, comparator)
+            cls.is_tag(identifier_type, comparator)
+
+    @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
@@ -591,6 +603,7 @@ class SearchUtils:
 
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
 
@@ -645,7 +658,8 @@ class SearchUtils:
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_METRIC_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_METRIC_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -667,7 +681,7 @@ class SearchUtils:
         if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -697,7 +711,7 @@ class SearchUtils:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}",
+                    f"'{cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -709,7 +723,7 @@ class SearchUtils:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_DATASET_COMPARATORS}",
+                    f"not one of '{cls.VALID_DATASET_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1176,6 +1190,7 @@ class SearchExperimentsUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1456,6 +1471,7 @@ class SearchModelUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_model_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1647,6 +1663,7 @@ class SearchModelVersionUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_model_version_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
