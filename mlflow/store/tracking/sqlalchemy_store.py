@@ -128,7 +128,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.db.db_types import MSSQL, MYSQL, SQLITE
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -1424,6 +1424,26 @@ class SqlAlchemyStore(
             value = metric_value
         return is_nan, value
 
+    def _insert_many(
+        self, session: Session, model: type, instances: Iterable[Any], fields: tuple[str, ...]
+    ) -> None:
+        instances = list(instances)
+        if not instances:
+            return
+        if (
+            self.db_type == POSTGRES
+            and self.engine.dialect.driver == "psycopg"
+            and self.engine.dialect.insert_executemany_returning
+        ):
+            # RETURNING enables multi-row inserts; Core preserves explicit NULL values.
+            table = model.__table__
+            session.execute(
+                table.insert().returning(next(iter(table.primary_key.columns))),
+                [{field: getattr(instance, field) for field in fields} for instance in instances],
+            ).close()
+        else:
+            session.add_all(instances)
+
     def _log_metrics(self, run_id, metrics):
         # Retry on DB deadlock: each attempt opens a fresh session in _log_metrics_once, so the
         # victim is redriven instead of surfacing an HTTP 503.
@@ -1462,7 +1482,12 @@ class SqlAlchemyStore(
             self._check_run_is_active(run)
 
             def _insert_metrics(metric_instances):
-                session.add_all(metric_instances)
+                self._insert_many(
+                    session,
+                    SqlMetric,
+                    metric_instances,
+                    ("key", "value", "timestamp", "step", "is_nan", "run_uuid"),
+                )
                 self._update_latest_metrics_if_necessary(metric_instances, session)
                 session.commit()
 
@@ -1614,7 +1639,23 @@ class SqlAlchemyStore(
             # so the dedup is retried a bounded number of times.
             for attempt in range(_LOGGED_MODEL_METRIC_MAX_INSERT_ATTEMPTS):
                 try:
-                    session.add_all(metric_instances)
+                    self._insert_many(
+                        session,
+                        SqlLoggedModelMetric,
+                        metric_instances,
+                        (
+                            "model_id",
+                            "metric_name",
+                            "metric_timestamp_ms",
+                            "metric_step",
+                            "metric_value",
+                            "experiment_id",
+                            "run_id",
+                            "dataset_uuid",
+                            "dataset_name",
+                            "dataset_digest",
+                        ),
+                    )
                     session.commit()
                     return
                 except sqlalchemy.exc.IntegrityError:
@@ -2179,7 +2220,7 @@ class SqlAlchemyStore(
             if not new_params:
                 return
 
-            session.add_all(new_params)
+            self._insert_many(session, SqlParam, new_params, ("run_uuid", "key", "value"))
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -2310,8 +2351,10 @@ class SqlAlchemyStore(
 
                             new_tag_dict[tag.key] = new_tag
 
-                    # finally, save new entries to DB.
-                    session.add_all(new_tag_dict.values())
+                    session.flush()
+                    self._insert_many(
+                        session, SqlTag, new_tag_dict.values(), ("run_uuid", "key", "value")
+                    )
                     session.commit()
                 except sqlalchemy.exc.IntegrityError:
                     session.rollback()
@@ -2804,14 +2847,19 @@ class SqlAlchemyStore(
     def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
         with self.ManagedSessionMaker(read_only=False) as session:
             logged_model = self._get_logged_model_record(session, model_id)
-            session.add_all(
-                SqlLoggedModelParam(
-                    model_id=model_id,
-                    experiment_id=logged_model.experiment_id,
-                    param_key=param.key,
-                    param_value=param.value,
-                )
-                for param in params
+            self._insert_many(
+                session,
+                SqlLoggedModelParam,
+                (
+                    SqlLoggedModelParam(
+                        model_id=model_id,
+                        experiment_id=logged_model.experiment_id,
+                        param_key=param.key,
+                        param_value=param.value,
+                    )
+                    for param in params
+                ),
+                ("model_id", "experiment_id", "param_key", "param_value"),
             )
 
     def _get_logged_model_record(self, session, model_id: str) -> SqlLoggedModel:
