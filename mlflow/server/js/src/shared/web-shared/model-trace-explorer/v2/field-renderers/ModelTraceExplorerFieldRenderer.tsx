@@ -184,6 +184,7 @@ export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 export const ModelTraceExplorerFieldRenderer = ({
   title,
   data,
+  parsedValue,
   renderMode,
   chatMessageFormat,
   maxVisibleMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
@@ -197,6 +198,8 @@ export const ModelTraceExplorerFieldRenderer = ({
 }: {
   title: string;
   data?: string;
+  /** The JSON-compatible value represented by data, when already held by the caller. */
+  parsedValue?: unknown;
   renderMode: 'default' | 'json' | 'text' | 'yaml';
   chatMessageFormat?: string;
   maxVisibleMessages?: number;
@@ -210,108 +213,118 @@ export const ModelTraceExplorerFieldRenderer = ({
 }): React.ReactElement | null => {
   const { theme } = useDesignSystemTheme();
   const [messagesExpanded, setMessagesExpanded] = useState(false);
-  const parsedData = useMemo(() => {
+  const jsonValue = useMemo(() => {
+    if (parsedValue !== undefined) return parsedValue;
     try {
       return data === undefined ? undefined : JSON.parse(data);
     } catch (e) {
-      return data;
+      return undefined;
     }
-  }, [data]);
+  }, [data, parsedValue]);
+  const parsedData = jsonValue === undefined ? data : jsonValue;
 
   useEffect(() => {
     setMessagesExpanded(false);
   }, [data]);
 
-  if (comparisonEnabled && comparisonRole) {
+  const comparison = useMemo(() => {
+    if (!comparisonEnabled || !comparisonRole) return undefined;
     const baseline = normalizeComparisonValue(comparisonRole === 'baseline' ? data : comparisonData);
     const candidate = normalizeComparisonValue(comparisonRole === 'candidate' ? data : comparisonData);
-    if (!areModelTraceComparisonValuesEqual(baseline, candidate)) {
-      const lines = getUnifiedComparisonLines(baseline, candidate);
-      return (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          {title && (
-            <Typography.Text bold color="secondary" size="sm">
-              {title}
-            </Typography.Text>
-          )}
-          <div
-            css={{
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: theme.borders.borderRadiusSm,
-              overflow: 'auto',
-              fontFamily: 'monospace',
-              fontSize: theme.typography.fontSizeSm,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            {baseline === undefined && (
-              <div
-                css={{
-                  padding: theme.spacing.xs,
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  color: theme.colors.textSecondary,
-                }}
-              >
-                <FormattedMessage
-                  defaultMessage="Baseline: missing"
-                  description="Label for an absent baseline value in a trace comparison diff"
-                />
-              </div>
-            )}
-            {candidate === undefined && (
-              <div
-                css={{
-                  padding: theme.spacing.xs,
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  color: theme.colors.textSecondary,
-                }}
-              >
-                <FormattedMessage
-                  defaultMessage="Candidate: missing"
-                  description="Label for an absent candidate value in a trace comparison diff"
-                />
-              </div>
-            )}
-            {lines.map((line, index) => (
-              <div
-                key={`${line.kind}-${index}`}
-                css={{
-                  paddingInline: theme.spacing.xs,
-                  backgroundColor:
-                    line.kind === 'removed'
-                      ? theme.colors.backgroundValidationDanger
-                      : line.kind === 'added'
-                        ? theme.colors.backgroundValidationSuccess
-                        : 'transparent',
-                  color:
-                    line.kind === 'removed'
-                      ? theme.colors.textValidationDanger
-                      : line.kind === 'added'
-                        ? theme.colors.textValidationSuccess
-                        : theme.colors.textPrimary,
-                }}
-              >
-                {line.kind === 'removed' ? '− ' : line.kind === 'added' ? '+ ' : '  '}
-                {line.text || ' '}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
+    return baseline === candidate
+      ? undefined
+      : { baseline, candidate, lines: getUnifiedComparisonLines(baseline, candidate) };
+  }, [comparisonEnabled, comparisonRole, data, comparisonData]);
+  const { chatMessages, isChatTools, isRetrieverDocuments, embeddedAttachments } = useMemo(() => {
+    if (comparison) {
+      return { chatMessages: undefined, isChatTools: false, isRetrieverDocuments: false, embeddedAttachments: [] };
     }
+    return {
+      chatMessages: normalizeConversation(title ? { [title]: parsedData } : parsedData, chatMessageFormat),
+      isChatTools: Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isModelTraceChatTool),
+      isRetrieverDocuments:
+        Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument),
+      embeddedAttachments: containsAttachmentUri(data ?? '') ? findAttachmentUris(parsedData) : [],
+    };
+  }, [comparison, title, parsedData, chatMessageFormat, data]);
+
+  if (comparison) {
+    const { baseline, candidate, lines } = comparison;
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        {title && (
+          <Typography.Text bold color="secondary" size="sm">
+            {title}
+          </Typography.Text>
+        )}
+        <div
+          css={{
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusSm,
+            overflow: 'auto',
+            fontFamily: 'monospace',
+            fontSize: theme.typography.fontSizeSm,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {baseline === undefined && (
+            <div
+              css={{
+                padding: theme.spacing.xs,
+                backgroundColor: theme.colors.backgroundSecondary,
+                color: theme.colors.textSecondary,
+              }}
+            >
+              <FormattedMessage
+                defaultMessage="Baseline: missing"
+                description="Label for an absent baseline value in a trace comparison diff"
+              />
+            </div>
+          )}
+          {candidate === undefined && (
+            <div
+              css={{
+                padding: theme.spacing.xs,
+                backgroundColor: theme.colors.backgroundSecondary,
+                color: theme.colors.textSecondary,
+              }}
+            >
+              <FormattedMessage
+                defaultMessage="Candidate: missing"
+                description="Label for an absent candidate value in a trace comparison diff"
+              />
+            </div>
+          )}
+          {lines.map((line, index) => (
+            <div
+              key={`${line.kind}-${index}`}
+              css={{
+                paddingInline: theme.spacing.xs,
+                backgroundColor:
+                  line.kind === 'removed'
+                    ? theme.colors.backgroundValidationDanger
+                    : line.kind === 'added'
+                      ? theme.colors.backgroundValidationSuccess
+                      : 'transparent',
+                color:
+                  line.kind === 'removed'
+                    ? theme.colors.textValidationDanger
+                    : line.kind === 'added'
+                      ? theme.colors.textValidationSuccess
+                      : theme.colors.textPrimary,
+              }}
+            >
+              {line.kind === 'removed' ? '− ' : line.kind === 'added' ? '+ ' : '  '}
+              {line.text || ' '}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const dataIsScalar = isString(parsedData) || isNumber(parsedData) || isBoolean(parsedData);
-  // wrap the value in an object with the title as key. this helps normalizeConversation
-  // recognize the format, as this util function was designed to receive the whole input
-  // object rather than value by value. it does not work for complex cases where we need
-  // to check multiple keys in the object (e.g. anthropic), but works for cases where we're
-  // basically just looking for the field that contains chat messages.
-  const chatMessages = normalizeConversation(title ? { [title]: parsedData } : parsedData, chatMessageFormat);
-  const isChatTools = Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isModelTraceChatTool);
-  const isRetrieverDocuments =
-    Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
   if (chatMessages && chatMessages.length > 0 && renderMode === 'default') {
     const shouldTruncateMessages = chatMessages.length > maxVisibleMessages;
@@ -373,6 +386,7 @@ export const ModelTraceExplorerFieldRenderer = ({
       <ModelTraceExplorerCodeSnippet
         title={title}
         data={data ?? ''}
+        parsedData={jsonValue}
         initialRenderMode={CodeSnippetRenderMode.JSON}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -386,6 +400,7 @@ export const ModelTraceExplorerFieldRenderer = ({
       <ModelTraceExplorerCodeSnippet
         title={title}
         data={data ?? ''}
+        parsedData={jsonValue}
         initialRenderMode={CodeSnippetRenderMode.TEXT}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -399,6 +414,7 @@ export const ModelTraceExplorerFieldRenderer = ({
       <ModelTraceExplorerCodeSnippet
         title={title}
         data={data ?? ''}
+        parsedData={jsonValue}
         initialRenderMode={CodeSnippetRenderMode.YAML}
         searchFilter={searchFilter}
         activeMatch={activeMatch}
@@ -434,32 +450,35 @@ export const ModelTraceExplorerFieldRenderer = ({
   }
 
   // Check for attachment URIs embedded in complex JSON structures
-  if (containsAttachmentUri(data ?? '')) {
-    const attachments = findAttachmentUris(parsedData);
-    if (attachments.length > 0) {
-      return (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          {attachments.map((att) => (
-            <ModelTraceExplorerAttachmentRenderer
-              key={att.attachmentId}
-              title=""
-              attachmentId={att.attachmentId}
-              traceId={att.traceId}
-              contentType={att.contentType}
-              size={att.size}
-            />
-          ))}
-          <ModelTraceExplorerCodeSnippet
-            title={title}
-            data={data ?? ''}
-            initialRenderMode={CodeSnippetRenderMode.YAML}
+  if (embeddedAttachments.length > 0) {
+    return (
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+        {embeddedAttachments.map((att) => (
+          <ModelTraceExplorerAttachmentRenderer
+            key={att.attachmentId}
+            title=""
+            attachmentId={att.attachmentId}
+            traceId={att.traceId}
+            contentType={att.contentType}
+            size={att.size}
           />
-        </div>
-      );
-    }
+        ))}
+        <ModelTraceExplorerCodeSnippet
+          title={title}
+          data={data ?? ''}
+          parsedData={jsonValue}
+          initialRenderMode={CodeSnippetRenderMode.YAML}
+        />
+      </div>
+    );
   }
 
   return (
-    <ModelTraceExplorerCodeSnippet title={title} data={data ?? ''} initialRenderMode={CodeSnippetRenderMode.YAML} />
+    <ModelTraceExplorerCodeSnippet
+      title={title}
+      data={data ?? ''}
+      parsedData={jsonValue}
+      initialRenderMode={CodeSnippetRenderMode.YAML}
+    />
   );
 };

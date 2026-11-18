@@ -35,6 +35,35 @@ const spanView = (span: ModelTraceSpanNode) => (
 );
 
 describe('selected payload reuse', () => {
+  it.each(['json', 'default'] as const)('does not reparse an ordinary selected span in %s mode', (mode) => {
+    const parse = jest.spyOn(JSON, 'parse');
+    render(
+      <ModelTraceExplorerDefaultSpanView
+        activeSpan={buildSpan()}
+        searchFilter=""
+        activeMatch={null}
+        defaultRenderMode={mode}
+      />,
+      { wrapper: Providers },
+    );
+    expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent(
+      'unchanged synthetic payload café 日本語',
+    );
+    expect(parse.mock.calls.filter(([value]) => String(value).includes(payload.document.body))).toHaveLength(0);
+  });
+
+  it.each([{ '': payload.document }, [payload.document]])(
+    'reuses Pretty values for empty keys and arrays: %j',
+    (inputs) => {
+      const parse = jest.spyOn(JSON, 'parse');
+      render(spanView({ ...buildSpan(), inputs }), { wrapper: Providers });
+      expect(screen.getByTestId('model-trace-explorer-default-span-view')).toHaveTextContent(
+        'unchanged synthetic payload café 日本語',
+      );
+      expect(parse.mock.calls.filter(([value]) => String(value).includes(payload.document.body))).toHaveLength(0);
+    },
+  );
+
   it('does not build fallback comparison fields in an ordinary trace', () => {
     const message = { role: 'user' as const, content: 'ordinary fallback café' };
     const span = { ...buildSpan(), inputs: undefined, chatMessages: [message] };

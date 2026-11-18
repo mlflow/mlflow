@@ -1,63 +1,33 @@
 /* eslint-disable @databricks/no-hardcoded-colors */
 import { ChevronDownIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
 import type { CSSObject } from '@emotion/react';
-import { isObject, truncate } from 'lodash';
+import { isObject } from 'lodash';
 import { Fragment, useMemo, useState } from 'react';
 
-const MAX_DEPTH = 100;
-const INITIAL_EXPAND_DEPTH = 5;
-const MAX_STRING_LENGTH = 1000;
+import { ModelTraceExplorerJsonRowsViewer } from './ModelTraceExplorerJsonRowsViewer';
+import {
+  DEFAULT_JSON_ROWS_EXPAND_DEPTH as INITIAL_EXPAND_DEPTH,
+  getJsonRows,
+  getJsonRowsExpandDepth,
+  JSON_ROWS_MAX_DEPTH as MAX_DEPTH,
+} from './ModelTraceExplorerJsonRows.utils';
+import {
+  getJsonColors,
+  getJsonContainerPreview,
+  renderPrimitiveValue,
+  type JsonColors,
+} from './ModelTraceExplorerJsonRendering.utils';
+
+export { getJsonColors } from './ModelTraceExplorerJsonRendering.utils';
+
+const LARGE_JSON_MIN_ROWS = 200;
 interface CollapsibleJsonViewerProps {
   data: string;
+  /** The JSON-compatible value represented by data, when already parsed by the caller. */
+  parsedData?: unknown;
   initialExpanded?: boolean;
-}
-
-type JsonColors = {
-  key: string;
-  string: string;
-  number: string;
-  boolean: string;
-  null: string;
-  punctuation: string;
-};
-
-export function getJsonColors(isDarkMode: boolean, textPrimary: string, textSecondary: string): JsonColors {
-  // colors that match Prism's JSON syntax highlighting, this is what users are used to
-  // + combination of theme/databricks-duotone-dark.ts and theme/databricks-light.ts
-  return {
-    key: isDarkMode ? '#5DFAFC' : '#39adb5',
-    string: isDarkMode ? '#ffffff' : textPrimary,
-    number: isDarkMode ? '#3AACE2' : '#f5871f',
-    boolean: isDarkMode ? '#ffffff' : textPrimary,
-    null: isDarkMode ? '#ffffff' : textPrimary,
-    punctuation: textSecondary,
-  };
-}
-
-function renderPrimitiveValue(val: unknown, colors: JsonColors): React.ReactNode {
-  if (val === null) {
-    return <span css={{ color: colors.null }}>null</span>;
-  }
-  if (val === undefined) {
-    return <span css={{ color: colors.null }}>undefined</span>;
-  }
-  if (typeof val === 'string') {
-    const truncated = truncate(val, { length: MAX_STRING_LENGTH });
-    return <span css={{ color: colors.string }}>"{truncated}"</span>;
-  }
-  if (typeof val === 'number') {
-    if (Number.isNaN(val)) {
-      return <span css={{ color: colors.null }}>NaN</span>;
-    }
-    if (!Number.isFinite(val)) {
-      return <span css={{ color: colors.null }}>{val > 0 ? 'Infinity' : '-Infinity'}</span>;
-    }
-    return <span css={{ color: colors.number }}>{val}</span>;
-  }
-  if (typeof val === 'boolean') {
-    return <span css={{ color: colors.boolean }}>{String(val)}</span>;
-  }
-  return <span css={{ color: colors.null }}>{String(val)}</span>;
+  /** Applies only to the large-payload row renderer; smaller values keep the legacy view. */
+  rowLimit?: number;
 }
 
 interface LineInfo {
@@ -185,15 +155,8 @@ function JsonNode({
   }
 
   const getPreview = () => {
-    if (isArrayValue) {
-      const length = value.length;
-      return length === 0 ? '' : ` // ${length} ${length === 1 ? 'item' : 'items'}`;
-    }
-    if (isObjectValue) {
-      const keys = Object.keys(value);
-      const count = keys.length;
-      return count === 0 ? '' : ` // ${count} ${count === 1 ? 'property' : 'properties'}`;
-    }
+    if (isArrayValue) return getJsonContainerPreview(true, value.length);
+    if (isObjectValue) return getJsonContainerPreview(false, Object.keys(value).length);
     return '';
   };
 
@@ -378,16 +341,21 @@ function IdeJsonViewer({ parsedData, initialExpanded, colors, theme }: IdeJsonVi
   );
 }
 
-export function CollapsibleJsonViewer({ data, initialExpanded = false }: CollapsibleJsonViewerProps): JSX.Element {
+export function CollapsibleJsonViewer({
+  data,
+  parsedData,
+  initialExpanded = false,
+  rowLimit,
+}: CollapsibleJsonViewerProps): JSX.Element {
   const { theme } = useDesignSystemTheme();
 
   const parseResult = useMemo(() => {
     try {
-      return { success: true, data: JSON.parse(data) };
+      return { success: true, data: parsedData === undefined ? JSON.parse(data) : parsedData };
     } catch (error) {
       return { success: false, data: undefined };
     }
-  }, [data]);
+  }, [data, parsedData]);
 
   const colors = useMemo(
     () => getJsonColors(theme.isDarkMode, theme.colors.textPrimary, theme.colors.textSecondary),
@@ -404,6 +372,11 @@ export function CollapsibleJsonViewer({ data, initialExpanded = false }: Collaps
       typeof data === 'boolean'
     );
   }, [parseResult.data]);
+
+  const isLargeJson = useMemo(
+    () => getJsonRows(parseResult.data, () => true, LARGE_JSON_MIN_ROWS + 1).length > LARGE_JSON_MIN_ROWS,
+    [parseResult.data],
+  );
 
   if (!parseResult.success) {
     return (
@@ -434,6 +407,16 @@ export function CollapsibleJsonViewer({ data, initialExpanded = false }: Collaps
       >
         {renderPrimitiveValue(parseResult.data, colors)}
       </div>
+    );
+  }
+
+  if (isLargeJson) {
+    return (
+      <ModelTraceExplorerJsonRowsViewer
+        value={parseResult.data}
+        expandDepth={getJsonRowsExpandDepth(data.length)}
+        rowLimit={rowLimit}
+      />
     );
   }
 

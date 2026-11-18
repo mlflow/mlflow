@@ -6,9 +6,12 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import type { SearchMatch } from './ModelTrace.types';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
-import { CollapsibleJsonViewer, getJsonColors } from './CollapsibleJsonViewer';
+import { CollapsibleJsonViewer } from './CollapsibleJsonViewer';
+import { getJsonColors } from './ModelTraceExplorerJsonRendering.utils';
+import { getTextPreview, hasMoreLinesThan } from './ModelTraceExplorerCodeSnippet.utils';
 import { ModelTraceExplorerHighlightedCodeSnippet } from '../ModelTraceExplorerHighlightedCodeSnippet';
-import { formatJsonStringAsYaml } from './ModelTraceExplorerYaml.utils';
+import { formatJsonStringAsYaml, getYamlCollectionPreview, yamlJsonMayContain } from './ModelTraceExplorerYaml.utils';
+import { useCachedPayloadGetter, useCachedPayloadResult } from './right-pane/ModelTraceExplorerPayloadCache';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import { CodeSnippet } from '../../snippet/CodeSnippet';
 import { SnippetCopyAction } from '../../snippet/actions/SnippetCopyAction';
@@ -20,9 +23,11 @@ const MAX_CHARS_FOR_PREVIEW = 300;
 const YAML_MAX_LINES_FOR_PREVIEW = 100;
 const YAML_MAX_CHARS_FOR_PREVIEW = 12000;
 const JSON_PREVIEW_HEIGHT = 110;
+export const JSON_PREVIEW_ROW_LIMIT = 8;
 
 export function ModelTraceExplorerCodeSnippetBody({
   data,
+  parsedData,
   searchFilter = '',
   activeMatch = null,
   containsActiveMatch = false,
@@ -30,6 +35,8 @@ export function ModelTraceExplorerCodeSnippetBody({
   initialExpanded = false,
 }: {
   data: string;
+  /** The JSON-compatible value represented by data, when already parsed by the caller. */
+  parsedData?: unknown;
   searchFilter?: string;
   activeMatch?: SearchMatch | null;
   containsActiveMatch?: boolean;
@@ -37,13 +44,30 @@ export function ModelTraceExplorerCodeSnippetBody({
   initialExpanded?: boolean;
 }): JSX.Element {
   const { theme } = useDesignSystemTheme();
+  const getFullYaml = useCachedPayloadGetter('yaml', data, () => formatJsonStringAsYaml(data, parsedData));
   const isYamlRenderMode = renderMode === CodeSnippetRenderMode.YAML;
-  const yamlData = useMemo(() => (isYamlRenderMode ? formatJsonStringAsYaml(data) : data), [data, isYamlRenderMode]);
-  const searchableData = isYamlRenderMode ? yamlData : data;
-  const containsMatches =
-    Boolean(searchFilter) && !isNil(activeMatch) && searchableData.toLowerCase().includes(searchFilter);
+  const needsPreview = isYamlRenderMode && data.length > YAML_MAX_CHARS_FOR_PREVIEW * 2;
+  const yamlPreview = useCachedPayloadResult('yaml-preview', needsPreview ? data : undefined, () =>
+    needsPreview
+      ? getYamlCollectionPreview(data, YAML_MAX_LINES_FOR_PREVIEW, YAML_MAX_CHARS_FOR_PREVIEW, parsedData)
+      : undefined,
+  );
+  const eagerYaml = isYamlRenderMode && !yamlPreview ? getFullYaml() : data;
+  const isPartialYaml = yamlPreview?.isComplete === false;
+  const isSearching = Boolean(searchFilter) && !isNil(activeMatch);
+  const needsSearchYaml = useMemo(
+    () => isPartialYaml && isSearching && yamlJsonMayContain(data, searchFilter, parsedData),
+    [isPartialYaml, isSearching, data, searchFilter, parsedData],
+  );
+  const searchedYaml = needsSearchYaml ? getFullYaml() : '';
+  const searchableData = isYamlRenderMode ? (isPartialYaml ? searchedYaml : (yamlPreview?.text ?? eagerYaml)) : data;
+  const containsMatches = isSearching && searchableData.toLowerCase().includes(searchFilter);
   const [isContentLong, setIsContentLong] = useState(false);
   const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
+  const needsExpandedYaml = isPartialYaml && expanded && !needsSearchYaml;
+  const expandedYaml = needsExpandedYaml ? getFullYaml() : '';
+  const yamlData = needsSearchYaml ? searchedYaml : needsExpandedYaml ? expandedYaml : (yamlPreview?.text ?? eagerYaml);
+  const hasPartialPreview = isPartialYaml && !needsSearchYaml && !needsExpandedYaml;
   const snippetRef = useRef<HTMLPreElement>(null);
   const jsonViewerRef = useRef<HTMLDivElement>(null);
   // if the data is rendered in text / markdown mode, then
@@ -57,13 +81,13 @@ export function ModelTraceExplorerCodeSnippetBody({
       return yamlData;
     }
 
-    const parsedData = JSON.parse(data);
-    if (isString(parsedData)) {
-      return parsedData;
+    const value = parsedData === undefined ? JSON.parse(data) : parsedData;
+    if (isString(value)) {
+      return value;
     }
 
     return data;
-  }, [data, renderMode, yamlData, isYamlRenderMode]);
+  }, [data, parsedData, renderMode, yamlData, isYamlRenderMode]);
 
   const maxLinesForPreview = isYamlRenderMode ? YAML_MAX_LINES_FOR_PREVIEW : MAX_LINES_FOR_PREVIEW;
   const maxCharsForPreview = isYamlRenderMode ? YAML_MAX_CHARS_FOR_PREVIEW : MAX_CHARS_FOR_PREVIEW;
@@ -73,15 +97,15 @@ export function ModelTraceExplorerCodeSnippetBody({
   );
 
   const expandable =
+    hasPartialPreview ||
     isContentLong ||
-    dataToTruncate.split('\n').length > maxLinesForPreview ||
-    dataToTruncate.length > maxCharsForPreview;
+    dataToTruncate.length > maxCharsForPreview ||
+    hasMoreLinesThan(dataToTruncate, maxLinesForPreview);
 
   // Truncate after first 3 lines if not expanded
   const displayedData = useMemo(() => {
     if (expandable && !expanded) {
-      const split = dataToTruncate.split('\n').slice(0, maxLinesForPreview).join('\n');
-      return split.length > maxCharsForPreview ? split.slice(0, maxCharsForPreview) : split;
+      return getTextPreview(dataToTruncate, maxLinesForPreview, maxCharsForPreview);
     }
 
     return dataToTruncate;
@@ -132,7 +156,12 @@ export function ModelTraceExplorerCodeSnippetBody({
             position: 'relative',
           }}
         >
-          <CollapsibleJsonViewer data={data} initialExpanded />
+          <CollapsibleJsonViewer
+            data={data}
+            parsedData={parsedData}
+            initialExpanded
+            rowLimit={expanded ? undefined : JSON_PREVIEW_ROW_LIMIT}
+          />
           {expandable && !expanded && (
             <div
               css={{
@@ -228,7 +257,7 @@ export function ModelTraceExplorerCodeSnippetBody({
           <SnippetCopyAction
             key="copy-snippet"
             componentId="shared.model-trace-explorer.copy-snippet"
-            copyText={isYamlRenderMode ? dataToTruncate : data}
+            copyText={hasPartialPreview ? getFullYaml : isYamlRenderMode ? dataToTruncate : data}
             size="small"
             css={{
               position: 'absolute',
