@@ -12,8 +12,14 @@ from mlflow.tracing.constant import TraceMetadataKey
 from tests.openai.test_openai_evaluate import purge_traces
 from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 
-if Version(importlib.metadata.version("dspy")) < Version("2.5.17"):
+_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+
+if _DSPY_VERSION < Version("2.5.17"):
     pytest.skip("Evaluation test requires dspy>=2.5.17", allow_module_level=True)
+
+# DSPy 3.5 asks the LM for `ChainOfThought` reasoning under a `plan` field (when the LM has no
+# native reasoning) and still exposes it as `reasoning` on the prediction.
+_REASONING_FIELD = "plan" if _DSPY_VERSION >= Version("3.5.0") else "reasoning"
 
 _EVAL_DATA = pd.DataFrame({
     "inputs": [
@@ -32,11 +38,11 @@ def get_fake_model():
         lm=DummyLM({
             "What is MLflow?": {
                 "answer": "MLflow is an open-source platform to manage the ML lifecycle.",
-                "reasoning": "No reasoning provided.",
+                _REASONING_FIELD: "No reasoning provided.",
             },
             "What is Spark?": {
                 "answer": "Spark is a unified analytics engine for big data processing.",
-                "reasoning": "No reasoning provided.",
+                _REASONING_FIELD: "No reasoning provided.",
             },
         })
     )

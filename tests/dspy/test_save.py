@@ -36,11 +36,17 @@ _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 # dspy 3.3.0 changed CoT's output field order: reasoning now precedes answer
 _DSPY_3_3_OR_NEWER = _DSPY_VERSION >= Version("3.3.0")
 
+_DSPY_3_5_0_OR_NEWER = _DSPY_VERSION >= Version("3.5.0")
+
+# DSPy 3.5 asks the LM for `ChainOfThought` reasoning under a `plan` field (when the LM has no
+# native reasoning) and still exposes it as `reasoning` on the prediction.
+_REASONING_LM_FIELD = "plan" if _DSPY_3_5_0_OR_NEWER else _REASONING_KEYWORD
+
 
 @pytest.fixture
 def dummy_model():
     return DummyLM([
-        {"answer": answer, _REASONING_KEYWORD: "reason"} for answer in ["4", "6", "8", "10"]
+        {"answer": answer, _REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
     ])
 
 
@@ -165,7 +171,9 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     def dummy_metric(*args, **kwargs):
         return 1.0
 
-    model = DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
+    model = DummyLM([
+        {"answer": answer, _REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
+    ])
     rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=model, rm=rm)
 
@@ -222,12 +230,16 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     assert loaded_settings["lm"].model == original_settings["lm"].model
     assert loaded_settings["lm"].model_type == original_settings["lm"].model_type
     assert loaded_settings["rm"].__dict__ == original_settings["rm"].__dict__
+    # Adapters don't define `__eq__`, and the loaded one is a new (unpickled) instance
+    assert type(loaded_settings["adapter"]) is type(original_settings["adapter"])
 
     del (
         loaded_settings["lm"],
         original_settings["lm"],
         loaded_settings["rm"],
         original_settings["rm"],
+        loaded_settings["adapter"],
+        original_settings["adapter"],
     )
 
     assert original_settings == loaded_settings
@@ -297,6 +309,31 @@ def test_serving_logged_model(dummy_model):
 
     assert _REASONING_KEYWORD in json_response["predictions"]
     assert "answer" in json_response["predictions"]
+
+
+@pytest.mark.skipif(
+    not _DSPY_3_5_0_OR_NEWER, reason="XMLAdapter is the default adapter in DSPy 3.5+"
+)
+def test_save_load_and_serve_with_default_adapter(dummy_model):
+    dspy.settings.configure(lm=dummy_model, adapter=None)
+
+    input_example = {"question": "What is 2 + 2?"}
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(CoT(), name="model", input_example=input_example)
+    dspy.settings.configure(lm=None)
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(input_example) == {"reasoning": "reason", "answer": "6"}
+
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=json.dumps({"inputs": [input_example]}),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["predictions"] == {"reasoning": "reason", "answer": "6"}
 
 
 def test_log_model_multi_inputs(dummy_model):

@@ -15,6 +15,8 @@ from mlflow.dspy.util import (
 )
 from mlflow.tracking import MlflowClient
 
+_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+
 
 @pytest.mark.skipif(
     Version(importlib.metadata.version("dspy")) < Version("2.5.43"),
@@ -119,7 +121,8 @@ def test_log_dspy_lm_state():
         assert lm_params == {
             "model": "openai/gpt-4o-mini",
             "cache": True,
-            "model_type": "chat",
+            # DSPy 3.5 changed the default `model_type` from "chat" to "auto".
+            "model_type": "auto" if _DSPY_VERSION >= Version("3.5.0") else "chat",
             "temperature": 0.7,
             "max_tokens": 1000,
             "top_p": 0.9,
