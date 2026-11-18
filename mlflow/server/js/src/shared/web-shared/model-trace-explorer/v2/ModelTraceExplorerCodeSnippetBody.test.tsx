@@ -7,6 +7,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
 import { CodeSnippetRenderMode } from './ModelTrace.types';
+import type { SearchMatch } from './ModelTrace.types';
 import { ModelTraceExplorerCodeSnippetBody } from './ModelTraceExplorerCodeSnippetBody';
 
 jest.mock('js-yaml', () => {
@@ -23,6 +24,7 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
 describe('collapsed YAML serialization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    HTMLElement.prototype.scrollIntoView = jest.fn();
     Object.defineProperty(global.navigator, 'clipboard', {
       value: { writeText: jest.fn(async () => {}) },
       writable: true,
@@ -72,5 +74,65 @@ describe('collapsed YAML serialization', () => {
     expect(screen.getByText(/record 499/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'See less' }));
     expect(screen.queryByText(/record 499/)).not.toBeInTheDocument();
+  });
+
+  const records = Array.from({ length: 500 }, (_, index) => ({
+    index,
+    message: `record${index} content café 日本語 🙂`,
+  }));
+  const activeMatch: SearchMatch = {
+    span: { key: 'span' } as SearchMatch['span'],
+    section: 'inputs',
+    key: 'data',
+    isKeyMatch: false,
+    matchIndex: 0,
+  };
+
+  it.each([true, false])('keeps a tail search match visible when the snippet is active=%s', (containsActiveMatch) => {
+    render(
+      <ModelTraceExplorerCodeSnippetBody
+        data={JSON.stringify(records)}
+        renderMode={CodeSnippetRenderMode.YAML}
+        searchFilter="record499"
+        activeMatch={activeMatch}
+        containsActiveMatch={containsActiveMatch}
+      />,
+      { wrapper: Wrapper },
+    );
+    expect(screen.getByText('record499')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'See more' })).not.toBeInTheDocument();
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledTimes(containsActiveMatch ? 1 : 0);
+  });
+
+  it('keeps unrelated search snippets deferred', () => {
+    expect(JSON.stringify(records).length).toBeGreaterThan(24000);
+    render(
+      <ModelTraceExplorerCodeSnippetBody
+        data={JSON.stringify(records)}
+        renderMode={CodeSnippetRenderMode.YAML}
+        searchFilter="missingpayload"
+        activeMatch={activeMatch}
+      />,
+      { wrapper: Wrapper },
+    );
+    expect(screen.getByRole('button', { name: 'See more' })).toBeInTheDocument();
+    expect(
+      jest.mocked(dump).mock.calls.some(([value]: unknown[]) => Array.isArray(value) && value.length === 500),
+    ).toBe(false);
+  });
+
+  it.each(['', 'missingpayload'])('honors initialExpanded with search %j', (searchFilter) => {
+    render(
+      <ModelTraceExplorerCodeSnippetBody
+        data={JSON.stringify(records)}
+        renderMode={CodeSnippetRenderMode.YAML}
+        initialExpanded
+        searchFilter={searchFilter}
+        activeMatch={activeMatch}
+      />,
+      { wrapper: Wrapper },
+    );
+    expect(screen.getByText(/record499/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'See less' })).toBeInTheDocument();
   });
 });

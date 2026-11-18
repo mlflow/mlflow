@@ -1,6 +1,12 @@
 import { describe, expect, it, jest } from '@jest/globals';
+import { dump } from 'js-yaml';
 
-import { formatJsonStringAsYaml, getYamlCollectionPreview } from './ModelTraceExplorerYaml.utils';
+import { formatJsonStringAsYaml, getYamlCollectionPreview, yamlJsonMayContain } from './ModelTraceExplorerYaml.utils';
+
+jest.mock('js-yaml', () => {
+  const actual = jest.requireActual<typeof import('js-yaml')>('js-yaml');
+  return { ...actual, dump: jest.fn(actual.dump) };
+});
 
 const prefix = (text: string) => text.split('\n').slice(0, 10).join('\n').slice(0, 300);
 
@@ -49,5 +55,52 @@ describe('YAML collection previews', () => {
     } finally {
       includes.mockRestore();
     }
+  });
+
+  it('preserves the formatter fallback for native limits but exposes unexpected errors', () => {
+    const data = JSON.stringify(Array(500).fill('value'));
+    jest.mocked(dump).mockImplementationOnce(() => {
+      throw new RangeError('native limit');
+    });
+    expect(getYamlCollectionPreview(data, 10, 300)).toEqual({ text: formatJsonStringAsYaml(data), isComplete: true });
+    jest.mocked(dump).mockImplementationOnce(() => {
+      throw new Error('unexpected');
+    });
+    expect(() => getYamlCollectionPreview(data, 10, 300)).toThrow('unexpected');
+  });
+});
+
+describe('YAML search precheck', () => {
+  it.each([
+    {
+      messages: ['café 日本語 🙂', 'multi\nline', '  leading\nspace', 'bell\x07\t\x1b\x85\xa0'],
+      tiny: 1e-7,
+      huge: 1e21,
+      zero: -0,
+    },
+    {
+      'key\nname': 'value',
+      separators: 'one\u2028two\u2029\ufeff',
+      surrogate: '\ud800',
+      punctuation: ["it's", 'a"b', 'back\\slash', {}, []],
+    },
+    { null: null, bool: false, list: [1, true, { nested: 'tail' }] },
+  ])('never rejects any substring of the real dump of %#', (value) => {
+    const data = JSON.stringify(value);
+    const yaml = formatJsonStringAsYaml(data).toLowerCase();
+    for (let length = 1; length <= 8; length++) {
+      for (let start = 0; start + length <= yaml.length; start++) {
+        const filter = yaml.slice(start, start + length);
+        expect({ filter, possible: yamlJsonMayContain(data, filter) }).toEqual({ filter, possible: true });
+      }
+    }
+    expect(yamlJsonMayContain(data, 'missingpayload')).toBe(false);
+  });
+
+  it('keeps uncertain syntax, malformed JSON and nonfinite numeric values searchable', () => {
+    expect(yamlJsonMayContain('{invalid', 'missing')).toBe(true);
+    expect(yamlJsonMayContain('1e400', 'inf')).toBe(true);
+    expect(yamlJsonMayContain('{}', ': ')).toBe(true);
+    expect(yamlJsonMayContain('{}', '')).toBe(false);
   });
 });

@@ -8,7 +8,7 @@ import type { SearchMatch } from './ModelTrace.types';
 import { CodeSnippetRenderMode } from './ModelTrace.types';
 import { CollapsibleJsonViewer, getJsonColors } from './CollapsibleJsonViewer';
 import { ModelTraceExplorerHighlightedCodeSnippet } from '../ModelTraceExplorerHighlightedCodeSnippet';
-import { formatJsonStringAsYaml, getYamlCollectionPreview } from './ModelTraceExplorerYaml.utils';
+import { formatJsonStringAsYaml, getYamlCollectionPreview, yamlJsonMayContain } from './ModelTraceExplorerYaml.utils';
 import { useCachedPayloadResult } from './right-pane/ModelTraceExplorerPayloadCache';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import { CodeSnippet } from '../../snippet/CodeSnippet';
@@ -48,7 +48,10 @@ export function ModelTraceExplorerCodeSnippetBody({
   );
   const isPartialYaml = yamlPreview?.isComplete === false;
   const isSearching = Boolean(searchFilter) && !isNil(activeMatch);
-  const needsSearchYaml = isPartialYaml && isSearching;
+  const needsSearchYaml = useMemo(
+    () => isPartialYaml && isSearching && yamlJsonMayContain(data, searchFilter),
+    [isPartialYaml, isSearching, data, searchFilter],
+  );
   const searchedYaml = useCachedPayloadResult('yaml', needsSearchYaml ? data : undefined, () =>
     needsSearchYaml ? formatJsonStringAsYaml(data) : '',
   );
@@ -57,7 +60,7 @@ export function ModelTraceExplorerCodeSnippetBody({
     Boolean(searchFilter) && !isNil(activeMatch) && searchableData.toLowerCase().includes(searchFilter);
   const [isContentLong, setIsContentLong] = useState(false);
   const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
-  const needsExpandedYaml = isPartialYaml && expanded && !isSearching;
+  const needsExpandedYaml = isPartialYaml && expanded && !needsSearchYaml;
   const expandedYaml = useCachedPayloadResult('yaml', needsExpandedYaml ? data : undefined, () =>
     needsExpandedYaml ? formatJsonStringAsYaml(data) : '',
   );

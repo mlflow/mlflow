@@ -1,4 +1,4 @@
-import { dump } from 'js-yaml';
+import { dump, YAMLException } from 'js-yaml';
 
 const OPTIONS = { noRefs: true, lineWidth: 120, sortKeys: false };
 
@@ -81,9 +81,77 @@ export function getYamlCollectionPreview(
         if (prefix[index] === '\n') lines++;
       }
       if (prefix.length >= maxChars || lines >= maxLines) return { text: prefix, isComplete: false };
-    } catch {
+    } catch (error) {
+      // Preserve the formatter fallback for unsupported YAML or native nesting/string limits.
+      if (!(error instanceof YAMLException) && !(error instanceof RangeError)) throw error;
       break;
     }
   }
   return { text: formatJsonStringAsYaml(data), isComplete: true };
 }
+
+const YAML_ESCAPES = new Map(
+  Object.entries({
+    '\0': '\\0',
+    '\x07': '\\a',
+    '\b': '\\b',
+    '\t': '\\t',
+    '\n': '\\n',
+    '\v': '\\v',
+    '\f': '\\f',
+    '\r': '\\r',
+    '\x1b': '\\e',
+    '\x85': '\\N',
+    '\xa0': '\\_',
+    '\u2028': '\\L',
+    '\u2029': '\\P',
+  }),
+);
+
+const mayContainYamlString = (value: string, filter: string): boolean => {
+  if (value.toLowerCase().includes(filter)) return true;
+  // js-yaml 3 also escapes astral characters; search their displayed form, including lone surrogates.
+  const escaped = value.replace(
+    // eslint-disable-next-line no-control-regex -- YAML escapes non-printable code points.
+    /[\x00-\x1f\x7f-\xa0\u2028\u2029\ud800-\udfff\ufeff\ufffe\uffff\u{10000}-\u{10ffff}]/gu,
+    (character) => {
+      const simple = YAML_ESCAPES.get(character);
+      if (simple) return simple;
+      const code = character.codePointAt(0) ?? 0;
+      const [prefix, width] = code <= 0xff ? ['x', 2] : code <= 0xffff ? ['u', 4] : ['U', 8];
+      return '\\' + prefix + code.toString(16).toUpperCase().padStart(width, '0');
+    },
+  );
+  return escaped.toLowerCase().includes(filter);
+};
+
+/** Reject impossible word searches without dumping the collection; uncertain YAML syntax stays searchable. */
+export const yamlJsonMayContain = (data: string, filter: string): boolean => {
+  if (!filter) return false;
+  // Non-word filters may span formatting tokens; 2 may be a block scalar's indentation indicator.
+  if (/[^a-z0-9_]/i.test(filter) || filter === '2') return true;
+  let value: unknown;
+  try {
+    value = JSON.parse(data);
+  } catch {
+    return true;
+  }
+  const pending = [value];
+  while (pending.length) {
+    const node = pending.pop();
+    if (typeof node === 'string') {
+      if (mayContainYamlString(node, filter)) return true;
+    } else if (node !== null && typeof node === 'object') {
+      for (const key in node) {
+        if (!Object.hasOwn(node, key)) continue;
+        if (!Array.isArray(node) && mayContainYamlString(key, filter)) return true;
+        pending.push((node as Record<string, unknown>)[key]);
+      }
+    } else if (typeof node === 'number' && !Number.isFinite(node)) {
+      return true;
+    } else if (String(node).toLowerCase().includes(filter)) {
+      return true;
+    }
+  }
+  return false;
+};
