@@ -1,6 +1,6 @@
 ---
 name: resolve
-description: Address a submitted pull request review and prepare a patch, replies, and supporting media.
+description: Address a submitted pull request review and prepare a patch, PR edits, replies, and supporting media.
 argument-hint: "<pr_checkout> <review_context> <out_dir>"
 arguments: [pr_checkout, review_context, out_dir]
 disable-model-invocation: true
@@ -26,8 +26,8 @@ $GITHUB_WORKSPACE/
 $review_context                 # review_context; head_sha and the review
 
 $out_dir/
-├── payload.json                # Replies to produce
-├── fix.patch                   # Patch to produce when an item is resolved
+├── payload.json                # Replies and optional PR edits
+├── fix.patch                   # Patch to produce when a resolution changes code
 └── media/                      # Screenshots and recordings
 ```
 
@@ -44,6 +44,7 @@ context.
   "head_sha": "<sha>",
   "head_ref": "<branch>",
   "review_id": 123,
+  "pr": { "title": "<current title>", "body": "<current Markdown description>" },
   "timeline": [
     {
       "type": "review",
@@ -115,10 +116,18 @@ Write `$out_dir/payload.json` using the [payload schema](payload.schema.yml). Ke
 thread ID, with one entry per thread. Add a `review` entry when the review's body has feedback
 that needs a response.
 
-Write `$out_dir/fix.patch` only when at least one item is `resolved`. Keep the patch limited
-to the resolved items and their tests. Use `git add -N` for new files before generating the patch against `head_sha` with `git diff HEAD`.
+If feedback calls for a change to the PR title or description, add a top-level
+`pr_update` object with the complete replacement for each field you are changing (`title`
+or `body`). Use the smallest edits that address the review. Preserve relevant links,
+media, template sections, and unrelated text. Use `resolved` once a patch, a PR edit, or
+both address the feedback. The publisher applies PR edits before reporting them as resolved.
 
-Save supporting screenshots and recordings in `$out_dir/media`.
+Write `$out_dir/fix.patch` when a resolution changes code. Keep the patch limited to the
+resolved items and their tests. Use `git add -N` for new files before generating the patch
+against `head_sha` with `git diff HEAD`.
+
+Save supporting screenshots and recordings in `$out_dir/media`. Cite them in a reply
+or proposed PR description using their absolute paths in Markdown image links.
 
 Validate the payload from the trusted checkout before finishing.
 
@@ -129,7 +138,7 @@ jq -e --slurpfile context "$review_context" \
   '(.responses | keys - ["review"]) == ([$context[0] | .review_id as $id
     | .timeline[].threads[]? | select(any(.comments[]; .review_id == $id)) | .id] | sort)' \
   "$out_dir/payload.json"
-jq -r '.responses[].body' "$out_dir/payload.json" |
+jq -r '.responses[].body, (.pr_update.body // empty)' "$out_dir/payload.json" |
   uv run --directory .claude/skills --package skills skills embed-media \
     --check --dir "$out_dir/media"
 ```
