@@ -65,7 +65,11 @@ export function getYamlCollectionPreview(
       // The cut marker must not be mistaken for an original key or scalar, even in escaped JSON.
       let marker = 'mlflow_yaml_preview_cut';
       const containsMarker = (candidate: string) => strings.some((text) => text.includes(candidate));
-      while (containsMarker(marker)) marker += '_';
+      for (let attempt = 0; containsMarker(marker); attempt++) {
+        // Repeated marker-like scalar content must not make collision checks grow without a bound.
+        if (attempt === 16) return { text: formatJsonStringAsYaml(data), isComplete: true };
+        marker += '_';
+      }
       for (const entries of objectCuts) entries[marker] = null;
       for (const items of arrayCuts) items[items.length - 1] = marker;
       const text = dump(pruned, OPTIONS).trimEnd();

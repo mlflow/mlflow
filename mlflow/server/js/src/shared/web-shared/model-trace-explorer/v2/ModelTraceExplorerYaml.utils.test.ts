@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import { formatJsonStringAsYaml, getYamlCollectionPreview } from './ModelTraceExplorerYaml.utils';
 
@@ -34,5 +34,20 @@ describe('YAML collection previews', () => {
   it('keeps the existing invalid-JSON fallback', () => {
     expect(getYamlCollectionPreview('{invalid', 10, 300)).toBeUndefined();
     expect(formatJsonStringAsYaml('{invalid')).toBe('{invalid');
+  });
+
+  it('bounds collision checks for repeated marker-like scalar content', () => {
+    const data = JSON.stringify(['mlflow_yaml_preview_cut' + '_'.repeat(200), ...Array(500).fill('value')]);
+    const includes = jest.spyOn(String.prototype, 'includes');
+    try {
+      const preview = getYamlCollectionPreview(data, 10, 300);
+      const markerChecks = includes.mock.calls.filter(([search]) =>
+        search.startsWith('mlflow_yaml_preview_cut'),
+      ).length;
+      expect(markerChecks).toBeLessThan(100);
+      expect(formatJsonStringAsYaml(data).startsWith(preview!.text)).toBe(true);
+    } finally {
+      includes.mockRestore();
+    }
   });
 });
