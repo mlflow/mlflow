@@ -4,6 +4,19 @@ type: object
 additionalProperties: false
 required: [responses]
 properties:
+  pr_update:
+    type: object
+    additionalProperties: false
+    minProperties: 1
+    properties:
+      title:
+        type: string
+        maxLength: 256
+        pattern: '\S'
+        not:
+          pattern: '[\r\n]'
+      body:
+        type: string
   responses:
     type: object
     minProperties: 1
@@ -16,8 +29,8 @@ properties:
       properties:
         status:
           description: >
-            Use resolved when the patch addresses the feedback, answered when a substantive
-            reply suffices, or blocked when the item needs human input.
+            Use resolved when a patch or PR title or description edit addresses the feedback,
+            answered when a substantive reply suffices, or blocked when the item needs human input.
           enum: [resolved, answered, blocked]
         body:
           description: >

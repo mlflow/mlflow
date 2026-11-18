@@ -7544,6 +7544,72 @@
       },
       "last_updated_at": "2026-08-25"
     },
+    "heygen/avatar-6/identity-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "heygen/avatar-6/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "heygen/avatar-6/ref-video-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "heygen/avatar-6/turbo/identity-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "heygen/avatar-6/turbo/image-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "heygen/avatar-6/turbo/ref-video-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
     "heygen/heygen-video/image-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -8138,6 +8204,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "kling/v4/image-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
     "kling/v4/image-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -8149,6 +8226,17 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "kling/v4/long-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
     "kling/v4/reference-to-video": {
       "mode": "video_generation",
       "capabilities": {
@@ -8159,6 +8247,17 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-12"
+    },
+    "kling/v4/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
     },
     "kling/v4/text-to-video": {
       "mode": "video_generation",
@@ -9545,6 +9644,50 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-11"
+    },
+    "microsoft/mai-image-2.7/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "microsoft/mai-image-2.7/flash/edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "microsoft/mai-image-2.7/flash/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "microsoft/mai-image-2.7/text-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-17"
     },
     "minimax/h3-max-turbo/extend-video": {
       "mode": "video_generation",
