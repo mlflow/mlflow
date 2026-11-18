@@ -2056,6 +2056,64 @@ def test_search_traces_numeric_filters_exclude_nan_and_infinity(store: SqlAlchem
     assert search("feedback.score <= 3") == {"trace_finite"}
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "expected_trace_ids"),
+    [
+        ("feedback.rating LIKE 'good'", {"trace_string"}),
+        ("feedback.rating LIKE 'go%'", {"trace_string"}),
+        ("feedback.rating LIKE '%good%'", {"trace_string"}),
+        ("feedback.rating LIKE 'GOOD'", set()),
+        ("feedback.rating LIKE '\"good\"'", set()),
+        ("feedback.rating ILIKE 'GOOD'", {"trace_string"}),
+        ("feedback.rating ILIKE 'GO%'", {"trace_string"}),
+        ("feedback.rating RLIKE '^good$'", {"trace_string"}),
+        ("feedback.rating LIKE '%café%'", {"trace_non_ascii"}),
+        ("feedback.rating ILIKE 'CAFé'", {"trace_non_ascii"}),
+        ("feedback.rating RLIKE '^café$'", {"trace_non_ascii"}),
+        ("""feedback.rating LIKE 'say "hi"'""", {"trace_quoted"}),
+        ("""feedback.rating LIKE '%"hi"%'""", {"trace_quoted"}),
+        ("feedback.rating LIKE '4'", {"trace_numeric"}),
+        ("feedback.rating RLIKE '^4$'", {"trace_numeric"}),
+        ("feedback.rating LIKE 'true'", {"trace_bool"}),
+        ("feedback.rating RLIKE '^true$'", {"trace_bool"}),
+        ("feedback.rating LIKE 'NaN'", {"trace_nan"}),
+        ("expectation.label LIKE 'success'", {"trace_string"}),
+        ("expectation.label LIKE 'succ%'", {"trace_string"}),
+        ("expectation.label ILIKE 'SUCCESS'", {"trace_string"}),
+        ("expectation.label RLIKE '^success$'", {"trace_string"}),
+        ("expectation.label LIKE '%ü%'", {"trace_non_ascii"}),
+        ("expectation.label LIKE '7'", {"trace_numeric"}),
+    ],
+)
+def test_search_traces_assessment_pattern_filters_match_decoded_strings(
+    store: SqlAlchemyStore, filter_string: str, expected_trace_ids: set[str]
+):
+    if IS_MSSQL and "RLIKE" in filter_string:
+        pytest.skip("RLIKE is not supported for MSSQL database dialect.")
+
+    exp_id = store.create_experiment("test_assessment_pattern_filters")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, feedback_value, expectation_value in [
+        ("trace_string", "good", "success"),
+        ("trace_non_ascii", "café", "über"),
+        ("trace_quoted", 'say "hi"', None),
+        ("trace_numeric", 4, 7),
+        ("trace_bool", True, None),
+        ("trace_nan", float("nan"), None),
+    ]:
+        _create_trace(store, trace_id, exp_id)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="rating", value=feedback_value, source=source)
+        )
+        if expectation_value is not None:
+            store.create_assessment(
+                Expectation(trace_id=trace_id, name="label", value=expectation_value, source=source)
+            )
+
+    traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+    assert {trace.request_id for trace in traces} == expected_trace_ids
+
+
 def test_search_traces_with_run_id(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_run_id")
     run1_id = "run1"

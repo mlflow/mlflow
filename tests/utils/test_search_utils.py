@@ -1201,6 +1201,11 @@ def test_sql_expression_comparison_func_binds_lists_on_mysql(comparator):
     assert "binary(" in _mysql_sql(comparator, _collated_column(), ["active", "draft"])
 
 
+def test_sql_expression_comparison_func_supports_rlike_on_mysql():
+    sql = _mysql_sql("RLIKE", _collated_column(), "^Act")
+    assert "AS BINARY) REGEXP binary(" in sql
+
+
 @pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mssql"])
 @pytest.mark.parametrize("comparator", ["=", "LIKE", "ILIKE"])
 def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, comparator):
