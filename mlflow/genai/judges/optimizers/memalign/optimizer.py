@@ -333,6 +333,22 @@ class MemoryAugmentedJudge(Judge):
         return instructions
 
     @property
+    def guidelines(self) -> list[str]:
+        """
+        The distilled guidelines in this judge's semantic memory, in order.
+
+        Use the positions in this list as the ``indices`` for :py:meth:`remove_guidelines`.
+
+        Example:
+            .. code-block:: python
+
+                aligned_judge = judge.align(traces=traces, optimizer=MemAlignOptimizer())
+                for i, guideline in enumerate(aligned_judge.guidelines):
+                    print(i, guideline)
+        """
+        return [g.guideline_text for g in self._semantic_memory]
+
+    @property
     def model(self) -> str:
         return self._base_judge.model
 
@@ -530,6 +546,63 @@ class MemoryAugmentedJudge(Judge):
             f"Episodic memory size: {len(new_judge._episodic_memory)} examples, "
             f"Semantic memory size: {len(new_judge._semantic_memory)} guidelines."
         )
+        return new_judge
+
+    def remove_guidelines(self, indices: list[int]) -> "MemoryAugmentedJudge":
+        """
+        Remove specific distilled guidelines and return an updated judge.
+
+        Unlike :py:meth:`unalign`, which drops a guideline only when all of its source traces
+        are removed, this drops exactly the guidelines you select. Episodic memory (examples
+        and trace IDs) and configuration are unchanged, and this judge is not modified.
+
+        Args:
+            indices: 0-based positions in :py:attr:`guidelines` of the guidelines to remove.
+
+        Returns:
+            A new MemoryAugmentedJudge without the selected guidelines.
+
+        Example:
+            .. code-block:: python
+
+                aligned_judge = judge.align(traces=traces, optimizer=MemAlignOptimizer())
+                print(aligned_judge.guidelines)
+                cleaned = aligned_judge.remove_guidelines([3, 17])
+                cleaned.register(name="my_judge")
+        """
+        count = len(self._semantic_memory)
+        valid_range = f"0 to {count - 1}" if count else "none (this judge has no guidelines)"
+        if not isinstance(indices, list) or not indices:
+            raise MlflowException(
+                f"indices must be a non-empty list of integers in the range {valid_range}, "
+                f"got {indices!r}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        for i in indices:
+            if isinstance(i, bool) or not isinstance(i, int) or not 0 <= i < count:
+                raise MlflowException(
+                    f"Invalid guideline index {i!r}. Indices must be integers in the range "
+                    f"{valid_range}.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        if len(set(indices)) != len(indices):
+            raise MlflowException(
+                f"indices must not contain duplicates, got {indices}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # Deferred judges stay deferred (no trace fetch or embedding). Initialized judges share
+        # the embedder and retriever, which __call__ only reads, so nothing is re-embedded.
+        new_judge = self._create_copy()
+        if self._embedder is not None:
+            new_judge._base_signature = self._base_signature
+            new_judge._embedder = self._embedder
+            new_judge._retriever = self._retriever
+            new_judge._episodic_memory = list(self._episodic_memory)
+        to_remove = set(indices)
+        new_judge._semantic_memory = [
+            g for i, g in enumerate(new_judge._semantic_memory) if i not in to_remove
+        ]
         return new_judge
 
     def _in_memory_fingerprint(self, trace_id: str) -> frozenset[tuple[str | None, int | None]]:
