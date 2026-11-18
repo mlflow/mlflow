@@ -108,7 +108,14 @@ def test_autolog_lm():
 def test_autolog_lm_span_type(model_type, expected_span_type):
     mlflow.dspy.autolog()
 
-    lm = DummyLM([{"output": "test output"}])
+    # Some DSPy versions parse the response based on `model_type` (e.g. as a Responses API
+    # response for "responses"), which `DummyLM`'s output doesn't match, so skip parsing.
+    class StaticLM(DummyLM):
+        @with_callbacks
+        def __call__(self, prompt=None, **kwargs):
+            return ["test output"]
+
+    lm = StaticLM([{"output": "test output"}])
     # `DummyLM` always passes `model_type="chat"` to `BaseLM.__init__`
     lm.model_type = model_type
     lm("test input")
