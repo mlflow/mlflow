@@ -691,8 +691,10 @@ def _infer_type_and_shape(value):
             raise MlflowException.invalid_parameter_value(
                 f"Expected parameters to be 1D array or scalar, got {ndim}D array",
             )
-        if all(DataType.check_type(DataType.datetime, v) for v in value):
+        if len(value) > 0 and all(DataType.check_type(DataType.datetime, v) for v in value):
             return DataType.datetime, (-1,)
+        if len(value) == 0 and (isinstance(value, list) or np.array(value).dtype.kind == "O"):
+            return DataType.string, (-1,)
         value_type = _infer_numpy_dtype(np.array(value).dtype)
         return value_type, (-1,)
     elif DataType.check_type(DataType.datetime, value):
