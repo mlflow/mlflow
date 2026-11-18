@@ -169,7 +169,10 @@ json_array_has() {
 
 # Mirrors mlflow.telemetry: opt-outs, remote config gating, then one POST of the record.
 telemetry_post() {
+	# dash kills errexit subshells forked from an EXIT trap at the first command substitution.
+	set +e
 	trap - EXIT INT TERM
+	trap '' HUP
 	cd / || return 0
 	telemetry_enabled || return 0
 	case "${backend:-}" in
