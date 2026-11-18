@@ -56,8 +56,7 @@ export function ModelTraceExplorerCodeSnippetBody({
     needsSearchYaml ? formatJsonStringAsYaml(data) : '',
   );
   const searchableData = isYamlRenderMode ? (isPartialYaml ? searchedYaml : (yamlPreview?.text ?? eagerYaml)) : data;
-  const containsMatches =
-    Boolean(searchFilter) && !isNil(activeMatch) && searchableData.toLowerCase().includes(searchFilter);
+  const containsMatches = isSearching && searchableData.toLowerCase().includes(searchFilter);
   const [isContentLong, setIsContentLong] = useState(false);
   const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
   const needsExpandedYaml = isPartialYaml && expanded && !needsSearchYaml;

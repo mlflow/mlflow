@@ -14,6 +14,13 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('deferred snippet copy text', () => {
+  it('preserves a caller-provided accessible name', () => {
+    render(<SnippetCopyAction componentId="test.copy" copyText="text" aria-label="Copy complete YAML" />, {
+      wrapper: Wrapper,
+    });
+    expect(screen.getByRole('button', { name: 'Copy complete YAML' })).toBeInTheDocument();
+  });
+
   beforeEach(() => {
     Object.defineProperty(global.navigator, 'clipboard', {
       value: { writeText: jest.fn(async () => {}) },
@@ -28,7 +35,7 @@ describe('deferred snippet copy text', () => {
     rerender(<SnippetCopyAction componentId="test.copy" copyText={current} />);
     expect(first).not.toHaveBeenCalled();
     expect(current).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('button', { name: 'Copy' }));
     expect(first).not.toHaveBeenCalled();
     expect(current).toHaveBeenCalledTimes(1);
     expect(global.navigator.clipboard.writeText).toHaveBeenCalledWith('café 日本語 🙂');
