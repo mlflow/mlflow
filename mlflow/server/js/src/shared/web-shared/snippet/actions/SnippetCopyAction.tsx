@@ -9,7 +9,7 @@ export interface SnippetCopyActionProps extends ButtonProps {
   /**
    * The text to be copied into clipboard when action button is clicked.
    */
-  copyText: string;
+  copyText: string | (() => string);
   onClick?: (e: React.MouseEvent) => void;
 }
 
@@ -20,6 +20,7 @@ export function SnippetCopyAction({ copyText, onClick, ...props }: SnippetCopyAc
     <SnippetActionButton
       aria-label={ariaLabel}
       tooltipMessage={tooltipMessage}
+      aria-label={ariaLabel}
       icon={actionIcon}
       onClick={(e) => {
         copy();

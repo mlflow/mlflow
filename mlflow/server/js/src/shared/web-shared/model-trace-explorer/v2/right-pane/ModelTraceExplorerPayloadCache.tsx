@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, useRef, useState } from 'react';
 
-type PayloadCacheKind = 'fields' | 'section-json' | 'input-chat-json' | 'output-chat-json';
+type PayloadCacheKind = 'fields' | 'section-json' | 'input-chat-json' | 'output-chat-json' | 'yaml' | 'yaml-preview';
 type PayloadCache = <T>(kind: PayloadCacheKind, payload: unknown, compute: () => T) => T;
 const PayloadCacheContext = createContext<PayloadCache | undefined>(undefined);
 
@@ -12,6 +12,8 @@ const createPayloadCache = (): PayloadCache => {
     'section-json': [],
     'input-chat-json': [],
     'output-chat-json': [],
+    yaml: [],
+    'yaml-preview': [],
   };
   return <T,>(kind: PayloadCacheKind, payload: unknown, compute: () => T): T => {
     const entries = kinds[kind];
@@ -35,12 +37,20 @@ export const ModelTraceExplorerPayloadCacheProvider = ({ children }: { children:
 };
 
 // Payloads are immutable trace values; each kind computes a result using only that payload.
-export const useCachedPayloadResult = <T,>(kind: PayloadCacheKind, payload: unknown, compute: () => T): T => {
+export const useCachedPayloadGetter = <T,>(kind: PayloadCacheKind, payload: unknown, compute: () => T): (() => T) => {
   const cache = useContext(PayloadCacheContext);
   const computeRef = useRef(compute);
   computeRef.current = compute;
-  return useMemo(
-    () => (cache && payload !== undefined ? cache(kind, payload, computeRef.current) : computeRef.current()),
-    [cache, kind, payload],
-  );
+  return useMemo(() => {
+    let result: { value: T } | undefined;
+    return () => {
+      result ??= {
+        value: cache && payload !== undefined ? cache(kind, payload, computeRef.current) : computeRef.current(),
+      };
+      return result.value;
+    };
+  }, [cache, kind, payload]);
 };
+
+export const useCachedPayloadResult = <T,>(kind: PayloadCacheKind, payload: unknown, compute: () => T): T =>
+  useCachedPayloadGetter(kind, payload, compute)();
