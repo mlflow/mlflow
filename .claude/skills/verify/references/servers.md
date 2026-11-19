@@ -53,7 +53,7 @@ For a backend on another port, set `MLFLOW_PROXY=http://localhost:<port>/`. Unle
 
 ## Switch checkouts
 
-Before starting the other checkout, stop the servers you started using the outgoing run's
-`frontend.pid` and `backend.pid`. Confirm their ports are free (3000 and 5000 by default).
-If a worker is still listening, confirm it belongs to the outgoing checkout and stop it by PID.
-This keeps readiness probes for the next run from reaching the previous server.
+Stop the outgoing servers using their recorded PIDs. A worker can outlive `yarn start`
+or the backend reloader. Check the default ports with `lsof -nP -iTCP:3000 -iTCP:5000 -sTCP:LISTEN`.
+For any remaining listener, check its working directory with `lsof -a -p "$pid" -d cwd`
+and stop it if it belongs to the outgoing checkout. Start the next checkout once both ports are free.
