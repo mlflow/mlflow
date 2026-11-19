@@ -9,13 +9,8 @@ import { getSpanExceptionCount } from '../../spanExceptionEvents';
 
 // expand all nodes by default
 export const DEFAULT_EXPAND_DEPTH: number = Infinity;
-export const SPAN_INDENT_WIDTH = 16;
 export const SPAN_ROW_HEIGHT = 32;
-export const TimelineTreeZIndex = {
-  HIGH: 5,
-  NORMAL: 3,
-  LOW: 1,
-};
+export { SPAN_INDENT_WIDTH, TimelineTreeZIndex } from '../../hierarchyLineStyles';
 
 interface TimelineTreeSpanConstraints {
   min: number;
