@@ -141,6 +141,45 @@ def client():
         yield TestClient(app)
 
 
+@pytest.mark.parametrize("workspace", ["team-a", "default", None])
+def test_stream_restores_message_workspace(client, workspace):
+    from mlflow.assistant.providers.tool_executor import _assistant_workspace_env
+    from mlflow.utils.workspace_context import ServerWorkspaceContext, get_request_workspace
+
+    @client.app.middleware("http")
+    async def workspace_context(request, call_next):
+        with ServerWorkspaceContext(request.headers.get("X-MLFLOW-WORKSPACE", "default")):
+            return await call_next(request)
+
+    headers = {"X-MLFLOW-WORKSPACE": workspace} if workspace else {}
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Read a trace"},
+        headers=headers,
+    )
+    session_id = response.json()["session_id"]
+    expected = workspace or "default"
+    assert SessionManager.load(session_id).workspace == expected
+    observed = []
+
+    class WorkspaceProvider(MockGatewayProvider):
+        async def astream(self, **kwargs):
+            observed.append((get_request_workspace(), _assistant_workspace_env()))
+            yield Event.from_result(result=None, session_id="workspace-test")
+
+    with (
+        patch(
+            "mlflow.server.assistant.api._get_selected_provider", return_value=WorkspaceProvider()
+        ),
+        patch("mlflow.server.assistant.api.set_server_url") as set_url,
+        patch("mlflow.server.assistant.api.ensure_assistant_gateway_use_permission"),
+    ):
+        response = client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+    assert response.status_code == 200
+    assert observed == [(expected, {"MLFLOW_WORKSPACE": expected})]
+    assert set_url.call_args.kwargs["workspace_header"] == expected
+
+
 def test_message(client):
     response = client.post(
         "/ajax-api/3.0/mlflow/assistant/message",

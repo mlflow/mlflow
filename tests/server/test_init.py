@@ -207,6 +207,33 @@ def test_uvicorn_opts_enable_tls(uvicorn_opts, expected):
     assert server._uvicorn_opts_enable_tls(uvicorn_opts) is expected
 
 
+@pytest.mark.parametrize("app_name", [None, "basic-auth", "custom-auth"])
+@pytest.mark.parametrize("enabled", [False, True])
+def test_run_server_assistant_delegation(mock_exec_cmd, monkeypatch, app_name, enabled):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_DELEGATION", str(enabled).lower())
+    monkeypatch.setenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, "test-secret")
+    with (
+        mock.patch("mlflow.server.auth.bootstrap_admin_user"),
+        mock.patch("mlflow.server._find_app", return_value="mlflow.server:app"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+            app_name=app_name,
+        )
+    env = mock_exec_cmd.call_args.kwargs["extra_env"]
+    assert ("_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY" in env) is bool(
+        app_name and (app_name == "basic-auth" or enabled)
+    )
+
+
 def test_run_server(mock_exec_cmd, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
@@ -407,16 +434,19 @@ def test_run_server_allows_disabled_rollups_for_a_new_sql_database(
 
 
 @pytest.mark.parametrize("static_prefix", [None, "", "/mlflow", "/nested/mlflow"])
+@pytest.mark.parametrize("app_name", [None, "custom-auth"])
 @pytest.mark.parametrize("host", ["localhost", "0.0.0.0"])
 def test_run_server_passes_public_store_config_to_job_runner(
-    mock_exec_cmd, monkeypatch, static_prefix, host
+    mock_exec_cmd, monkeypatch, static_prefix, host, app_name
 ):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASSISTANT_DELEGATION", "true")
     monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
     mock_exec_cmd.return_value.pid = 123
 
     with (
+        mock.patch("mlflow.server._find_app", return_value="mlflow.server:app"),
         mock.patch(
             "mlflow.server.jobs.local_executor.LocalJobExecutor.check_requirements"
         ) as check_executor_requirements,
@@ -436,6 +466,7 @@ def test_run_server_passes_public_store_config_to_job_runner(
             host=host,
             port="5000",
             static_prefix=static_prefix,
+            app_name=app_name,
         )
 
     mock_exec_cmd.assert_called_once()
@@ -444,6 +475,9 @@ def test_run_server_passes_public_store_config_to_job_runner(
     validate_rollup_startup.assert_called_once_with("sqlite:///primary.db")
     launch_job_runner.assert_called_once()
     job_env = launch_job_runner.call_args.args[0]
+    assert "_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY" not in job_env
+    server_env = mock_exec_cmd.call_args.kwargs["extra_env"]
+    assert ("_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY" in server_env) is bool(app_name)
     assert job_env["MLFLOW_BACKEND_STORE_URI"] == "sqlite:///primary.db"
     assert job_env["MLFLOW_DEFAULT_ARTIFACT_ROOT"] == "file:///artifacts"
     assert job_env["MLFLOW_TRACKING_URI"] == f"http://{host}:5000{static_prefix or ''}"

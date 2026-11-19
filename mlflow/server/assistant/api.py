@@ -61,6 +61,7 @@ from mlflow.server.assistant.session import (
     terminate_session_process,
 )
 from mlflow.server.handlers import _add_static_prefix
+from mlflow.utils.workspace_context import ServerWorkspaceContext, get_request_workspace
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
@@ -586,6 +587,7 @@ async def send_message(request: MessageRequest, http_request: Request) -> Messag
             session.working_dir = Path(project_path)
 
     # Store the pending message with role
+    session.workspace = get_request_workspace()
     session.set_pending_message(role="user", content=request.message)
     session.add_message(role="user", content=request.message)
     SessionManager.save(session_id, session)
@@ -648,7 +650,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     tracking_uri = get_server_base_url(request)
     is_remote = is_remote_caller()
 
-    async def event_generator() -> AsyncGenerator[str, None]:
+    async def generate_events() -> AsyncGenerator[str, None]:
         nonlocal session
         provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
         if provider is None:
@@ -668,7 +670,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             set_server_url(
                 get_server_self_url(request),
                 host_header=request.headers.get("host"),
-                workspace_header=request.headers.get(WORKSPACE_HEADER_NAME),
+                workspace_header=session.workspace or request.headers.get(WORKSPACE_HEADER_NAME),
                 credential_headers={
                     name: value
                     for name in CALLER_CREDENTIAL_HEADERS
@@ -696,6 +698,11 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
                 SessionManager.save(session_id, session)
 
             yield event.to_sse_event()
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        with ServerWorkspaceContext(session.workspace or get_request_workspace()):
+            async for event in generate_events():
+                yield event
 
     return StreamingResponse(
         event_generator(),

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -28,6 +29,33 @@ def workspace(tmp_path):
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+@pytest.mark.parametrize("sandbox", [False, True])
+@pytest.mark.parametrize("workspace_name", ["team-a", "default"])
+def test_bash_forwards_request_workspace(monkeypatch, sandbox, workspace_name):
+    from mlflow.utils.workspace_context import ServerWorkspaceContext
+
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "other-team")
+    target = (
+        "mlflow.server.sandbox.run_in_sandbox"
+        if sandbox
+        else "mlflow.assistant.providers.tool_executor.subprocess.run"
+    )
+    result = (
+        SandboxResult(output="ok", exit_code=0)
+        if sandbox
+        else subprocess.CompletedProcess([], 0, b"ok", b"")
+    )
+    with ServerWorkspaceContext(workspace_name), mock.patch(target, return_value=result) as run:
+        if sandbox:
+            _run(_execute_bash_in_sandbox("mlflow --help", None, "http://localhost:5000"))
+            env = run.call_args.kwargs["environment"]
+        else:
+            _run(_execute_bash_on_host("mlflow --help", None, "http://localhost:5000", False))
+            env = run.call_args.kwargs["env"]
+    assert env["MLFLOW_WORKSPACE"] == workspace_name
+    assert os.environ["MLFLOW_WORKSPACE"] == "other-team"
 
 
 def test_read_resolves_relative_path_against_cwd(workspace):

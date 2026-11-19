@@ -74,7 +74,7 @@ def verify_delegation_credential(credential: str | None) -> str | None:
         return None
     if version != _VERSION:
         return None
-    if not hmac.compare_digest(sig, _sign(username, expiry_ms, key)):
+    if not sig.isascii() or not hmac.compare_digest(sig, _sign(username, expiry_ms, key)):
         return None
     if int(time.time() * 1000) >= expiry_ms:
         return None
