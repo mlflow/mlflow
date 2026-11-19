@@ -93,7 +93,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-11-19"
     },
     "apac/gpt-6.2-astra": {
       "mode": "chat",
@@ -1870,7 +1871,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-11-19"
     },
     "eu/gpt-6.2-astra": {
       "mode": "chat",
@@ -5616,7 +5618,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-11-19"
     },
     "gpt-6.2-astra": {
       "mode": "chat",
@@ -9115,7 +9118,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-10-26",
+      "last_updated_at": "2026-11-19"
     },
     "us/gpt-6.2-astra": {
       "mode": "chat",
