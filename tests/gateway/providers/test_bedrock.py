@@ -1631,6 +1631,46 @@ async def test_bedrock_converse_cache_point_ttl(cache_control, expected_cache_po
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content",
+    [
+        # Marker on a part that is not the last text part: the cachePoint would land after it.
+        [
+            {"type": "text", "text": "static", "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": "dynamic"},
+        ],
+        # Two markers in one tool result: only one cachePoint can follow the result.
+        [
+            {"type": "text", "text": "a", "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": "b", "cache_control": {"type": "ephemeral", "ttl": "1h"}},
+        ],
+    ],
+)
+async def test_bedrock_converse_rejects_tool_result_markers_it_cannot_place(content):
+    payload = {
+        "messages": [
+            {"role": "user", "content": "add 17 and 25"},
+            {
+                "role": "assistant",
+                "content": "Calling add",
+                "tool_calls": [
+                    {
+                        "id": "tool_abc123",
+                        "type": "function",
+                        "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "tool_abc123", "content": content},
+        ]
+    }
+
+    with pytest.raises(AIGatewayException, match="single cache_control marker") as e:
+        await _converse_kwargs(payload)
+    assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_bedrock_converse_adds_cache_point_after_marked_tool_result():
     payload = {
         "messages": [

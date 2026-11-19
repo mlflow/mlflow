@@ -479,11 +479,25 @@ class AmazonBedrockProvider(BaseProvider):
                             ],
                         }
                     })
-                    # A tool result is sent as one text, so a marker on any of its parts
-                    # puts one cachePoint after the whole result.
+                    # A tool result is sent as one text, so a cachePoint can only go after the
+                    # whole result. Accept a single marker on its last text part, and reject
+                    # any other placement instead of moving or dropping markers silently.
                     if cache_controls := self._cache_controls(tool_msg.get("content")):
+                        text_parts = [
+                            part
+                            for part in tool_msg["content"]
+                            if isinstance(part, dict) and part.get("type") == "text"
+                        ]
+                        if len(cache_controls) != 1 or not text_parts[-1].get("cache_control"):
+                            raise AIGatewayException(
+                                status_code=422,
+                                detail=(
+                                    "Amazon Bedrock tool results support a single cache_control "
+                                    "marker on the last text part only."
+                                ),
+                            )
                         tool_result_content.append({
-                            "cachePoint": self._to_cache_point(cache_controls[-1])
+                            "cachePoint": self._to_cache_point(cache_controls[0])
                         })
                     index += 1
                 converse_messages.append({
