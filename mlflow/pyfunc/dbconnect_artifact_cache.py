@@ -138,8 +138,12 @@ def archive_directory(input_dir, archive_file_path):
     #  the file symlink pointing to, which is not the expected behavior in our usage.
     #  We need to pack the python and virtualenv environment, which contains a bunch of
     #  symlink files.
+    # Pass "--" so that entry names beginning with "-" are always treated as file
+    # operands rather than as command-line options to `tar`. Without it, an artifact
+    # whose filename looks like a `tar` option (for example "--checkpoint-action=...")
+    # would be interpreted as an option, allowing argument injection.
     subprocess.check_call(
-        ["tar", "-czf", archive_file_path, *os.listdir(input_dir)],
+        ["tar", "-czf", archive_file_path, "--", *os.listdir(input_dir)],
         cwd=input_dir,
     )
     return archive_file_path
