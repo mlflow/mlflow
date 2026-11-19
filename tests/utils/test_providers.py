@@ -290,6 +290,16 @@ def test_get_provider_config_bedrock_has_default_chain():
     assert all(not f["required"] for f in default_chain["config_fields"])
 
 
+@pytest.mark.parametrize("mode", ["api_key", "access_keys", "iam_role", "default_chain"])
+def test_get_provider_config_bedrock_offers_api_base_in_every_auth_mode(mode):
+    config = get_provider_config_response("bedrock")
+    auth_mode = next(m for m in config["auth_modes"] if m["mode"] == mode)
+    config_fields = {f["name"]: f for f in auth_mode["config_fields"]}
+
+    assert not config_fields["api_base"]["required"]
+    assert "api_base" not in {f["name"] for f in auth_mode["secret_fields"]}
+
+
 def test_get_provider_config_portkey_has_routing_fields():
     config = get_provider_config_response("portkey")
     assert config["default_mode"] == "api_key"
