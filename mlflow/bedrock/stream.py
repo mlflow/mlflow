@@ -83,7 +83,8 @@ def _extract_token_usage_from_chunk(chunk: dict[str, Any]) -> dict[str, int] | N
         )
         if isinstance(usage, dict):
             return parse_partial_token_usage_from_response(usage)
-        return None
+        # Meta Llama chunks report token counts at the root of the chunk
+        return parse_partial_token_usage_from_response(chunk)
     except (KeyError, TypeError, AttributeError) as e:
         _logger.debug(f"Failed to extract token usage from chunk: {e}")
         return None
