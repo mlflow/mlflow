@@ -5626,6 +5626,26 @@
       },
       "last_updated_at": "2026-11-11"
     },
+    "accounts/fireworks/routers/deepseek-v4p1-flash-1017-flex": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 393216
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.003
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-19"
+    },
     "accounts/fireworks/routers/deepseek-v4p1-flash-1017-spot": {
       "mode": "chat",
       "context_window": {
@@ -5653,9 +5673,9 @@
         "max_output": 393216
       },
       "pricing": {
-        "input_per_million_tokens": 2.4,
-        "output_per_million_tokens": 9.6,
-        "cache_read_per_million_tokens": 0.048
+        "input_per_million_tokens": 1.2,
+        "output_per_million_tokens": 4.8,
+        "cache_read_per_million_tokens": 0.024
       },
       "capabilities": {
         "function_calling": true,
@@ -5664,7 +5684,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-05"
+      "last_updated_at": "2026-11-19"
     },
     "accounts/fireworks/routers/deepseek-v4p1-flash-spot": {
       "mode": "chat",
