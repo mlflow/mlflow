@@ -1,4 +1,5 @@
 import pytest
+from opentelemetry import context as otel_context
 from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -12,8 +13,10 @@ from mlflow.environment_variables import (
     MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT,
     MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.provider import get_bridged_tracer_provider, provider, set_destination
+from mlflow.tracing.utils.suppression import suppress_export_tracing
 from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import get_traces
@@ -453,3 +456,66 @@ def test_get_bridged_tracer_provider_returns_global_provider_unified(monkeypatch
 
     bridged = get_bridged_tracer_provider()
     assert bridged is otel_trace.get_tracer_provider()
+
+
+def test_otel_spans_started_in_trace_export_are_not_traced(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    set_destination(MlflowExperimentLocation(experiment_id))
+    otel_tracer = otel_trace.get_tracer(__name__)
+
+    with suppress_export_tracing():
+        with otel_tracer.start_as_current_span("export_io"):
+            with otel_tracer.start_as_current_span("export_io_child"):
+                pass
+    with otel_tracer.start_as_current_span("app"):
+        pass
+
+    assert [trace.data.spans[0].name for trace in get_traces()] == ["app"]
+
+
+def test_mlflow_trace_under_otel_suppress_instrumentation_is_traced(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+    mlflow.set_experiment("test_experiment")
+
+    @mlflow.trace
+    def predict():
+        pass
+
+    # What `opentelemetry.instrumentation.utils.suppress_instrumentation()` does.
+    token = otel_context.attach(
+        otel_context.set_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY, True)
+    )
+    try:
+        predict()
+    finally:
+        otel_context.detach(token)
+
+    assert [trace.data.spans[0].name for trace in get_traces()] == ["predict"]
+
+
+def test_spans_started_by_trace_export_are_not_traced(monkeypatch, async_logging_enabled):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+    mlflow.set_experiment("test_experiment")
+    otel_tracer = otel_trace.get_tracer(__name__)
+    start_trace = TracingClient.start_trace
+    sdk_spans = []
+
+    # Like a storage SDK's own tracing, which ignores OpenTelemetry's suppression key. Only once,
+    # so a regression records one extra trace instead of looping.
+    def start_trace_with_sdk_span(self, *args, **kwargs):
+        if sdk_spans:
+            return start_trace(self, *args, **kwargs)
+        with otel_tracer.start_as_current_span("sdk_span") as span:
+            sdk_spans.append(span)
+            return start_trace(self, *args, **kwargs)
+
+    monkeypatch.setattr(TracingClient, "start_trace", start_trace_with_sdk_span)
+
+    with mlflow.start_span("app"):
+        pass
+    # In async mode, a span started during export is only exported by the next flush.
+    mlflow.flush_trace_async_logging()
+
+    assert [trace.data.spans[0].name for trace in get_traces()] == ["app"]
+    assert len(sdk_spans) == 1

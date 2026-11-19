@@ -38,6 +38,7 @@ from mlflow.store.artifact.artifact_repo import (
     PresignedUploadMixin,
     _is_object_key_within_path,
 )
+from mlflow.tracing.utils.suppression import _IN_TRACE_EXPORT
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 _logger = logging.getLogger(__name__)
@@ -376,7 +377,16 @@ class S3ArtifactRepository(
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = self._get_upload_extra_args(local_file)
-        s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
+        config = {}
+        if _IN_TRACE_EXPORT.get():
+            from boto3.s3.transfer import TransferConfig
+
+            # s3transfer's worker threads don't inherit the suppressed-instrumentation context
+            # that trace export runs in. Without threads, large files still use multipart.
+            config["Config"] = TransferConfig(use_threads=False)
+        s3_client.upload_file(
+            Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args, **config
+        )
 
     def _get_upload_extra_args(self, local_file):
         extra_args = {}

@@ -7,6 +7,7 @@ import posixpath
 import tarfile
 import threading
 import urllib.parse
+import uuid
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
@@ -15,6 +16,7 @@ from unittest.mock import ANY
 import botocore.exceptions
 import pytest
 import requests
+from opentelemetry import context as otel_context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 from mlflow.entities import TraceData
@@ -31,6 +33,7 @@ from mlflow.store.artifact.s3_artifact_repo import (
     _attachment_content_disposition,
     _cached_get_s3_client,
 )
+from mlflow.tracing.export.async_export_queue import Task
 from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
 from mlflow.tracing.utils import build_otel_context
 
@@ -692,6 +695,140 @@ def test_trace_data(s3_artifact_root):
     mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
     repo.upload_trace_data(json.dumps(mock_trace_data))
     assert repo.download_trace_data() == mock_trace_data
+
+
+def _put_object_calls_in_export_task(repo, upload, *args):
+    # Trace export runs uploads in a Task that suppresses instrumentation through a contextvar.
+    # Record whether each PutObject still sees it, and the bucket owner it sends.
+    s3_client = repo._get_s3_client()
+    calls = []
+    s3_client.meta.events.register(
+        "before-call.s3.PutObject",
+        lambda params, **kwargs: calls.append((
+            otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY),
+            params["headers"].get("x-amz-expected-bucket-owner"),
+        )),
+    )
+    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client) as mock_get_s3_client:
+        Task(handler=upload, args=args).handle()
+
+    mock_get_s3_client.assert_called()
+    return calls
+
+
+def test_upload_trace_data_puts_object_with_instrumentation_suppressed(
+    s3_artifact_root, mock_s3_bucket, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", '{"Metadata": {"origin": "mlflow"}}')
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    calls = _put_object_calls_in_export_task(repo, repo.upload_trace_data, '{"spans": []}')
+
+    assert calls == [(True, "123456789012")]
+    obj = repo._get_s3_client().get_object(Bucket=mock_s3_bucket, Key="some/path/traces.json")
+    assert obj["Body"].read() == b'{"spans": []}'
+    assert obj["ContentType"] == "application/json"
+    assert obj["Metadata"] == {"origin": "mlflow"}
+    assert repo.download_trace_data() == {"spans": []}
+
+
+def test_upload_attachment_puts_object_with_instrumentation_suppressed(
+    s3_artifact_root, mock_s3_bucket, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", '{"Metadata": {"origin": "mlflow"}}')
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    attachment_id = str(uuid.uuid4())
+
+    calls = _put_object_calls_in_export_task(
+        repo, repo.upload_attachment, attachment_id, b"\x89PNG data"
+    )
+
+    assert calls == [(True, "123456789012")]
+    obj = repo._get_s3_client().get_object(
+        Bucket=mock_s3_bucket, Key=f"some/path/attachments/{attachment_id}"
+    )
+    assert obj["Body"].read() == b"\x89PNG data"
+    # Attachment IDs have no extension, so no type is guessed and S3 applies its default.
+    assert obj["ContentType"] == "binary/octet-stream"
+    assert obj["Metadata"] == {"origin": "mlflow"}
+    assert repo.download_trace_attachment(attachment_id) == b"\x89PNG data"
+
+
+def _record_multipart_calls(s3_client):
+    calls = {}
+    for op in ("CreateMultipartUpload", "UploadPart", "CompleteMultipartUpload"):
+        s3_client.meta.events.register(
+            f"before-call.s3.{op}",
+            lambda params, op=op, **kwargs: calls.setdefault(op, []).append((
+                threading.current_thread() is threading.main_thread(),
+                otel_context.get_value(otel_context._SUPPRESS_INSTRUMENTATION_KEY),
+            )),
+        )
+    return calls
+
+
+def test_upload_attachment_uses_multipart_on_calling_thread(
+    s3_artifact_root, mock_s3_bucket, monkeypatch
+):
+    # moto stores multipart bodies with aws-chunked checksum framing unless this is set.
+    monkeypatch.setenv("AWS_REQUEST_CHECKSUM_CALCULATION", "when_required")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+    s3_client = repo._get_s3_client()
+    calls = _record_multipart_calls(s3_client)
+    attachment_id = str(uuid.uuid4())
+    body = os.urandom(8 * 1024 * 1024 + 1024)
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=s3_client):
+        Task(handler=repo.upload_attachment, args=(attachment_id, body)).handle()
+
+    assert calls == {
+        "CreateMultipartUpload": [(True, True)],
+        "UploadPart": [(True, True)] * 2,
+        "CompleteMultipartUpload": [(True, True)],
+    }
+    assert repo.download_trace_attachment(attachment_id) == body
+
+
+def test_trace_uploads_go_through_log_artifact(s3_artifact_root):
+    # Plugins on the `s3` scheme, such as presigned-upload repositories, override `log_artifact`
+    # and expect trace data and attachments to go through it.
+    class PluginRepo(S3ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            logged.append((os.path.basename(local_file), artifact_path))
+
+    logged = []
+    repo = PluginRepo(s3_artifact_root)
+    attachment_id = str(uuid.uuid4())
+
+    repo.upload_trace_data("{}")
+    repo.upload_attachment(attachment_id, b"x")
+
+    assert logged == [("traces.json", None), (attachment_id, "attachments")]
+
+
+def test_upload_file_disables_transfer_threads_only_during_trace_export(s3_artifact_root, tmp_path):
+    repo = S3ArtifactRepository(s3_artifact_root)
+    local_file = tmp_path / "model.pkl"
+    local_file.write_bytes(b"x")
+
+    with mock.patch.object(repo, "_get_s3_client") as mock_get_s3_client:
+        repo.log_artifact(local_file)
+        Task(handler=repo.log_artifact, args=(local_file,)).handle()
+
+    ordinary, trace_export = mock_get_s3_client.return_value.upload_file.call_args_list
+    assert "Config" not in ordinary.kwargs
+    assert trace_export.kwargs["Config"].use_threads is False
+
+
+def test_upload_attachment_rejects_invalid_id(s3_artifact_root, mock_s3_bucket):
+    repo = S3ArtifactRepository(s3_artifact_root)
+
+    with pytest.raises(MlflowException, match=r"Attachment path must be a valid UUID"):
+        repo.upload_attachment("../traces.json", b"x")
+
+    assert "Contents" not in repo._get_s3_client().list_objects_v2(Bucket=mock_s3_bucket)
 
 
 def _make_span() -> Span:
