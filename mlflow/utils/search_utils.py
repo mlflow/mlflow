@@ -44,6 +44,14 @@ if TYPE_CHECKING:
 # MSSQL collation for case-sensitive string comparisons
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
+# Escapes that `json.dumps` can write but PostgreSQL's jsonb rejects: `\u0000`, and surrogate
+# escapes that aren't part of a high-low pair. `json.dumps` writes lowercase hex.
+_POSTGRES_UNDECODABLE_JSON_ESCAPES = (
+    r"\\u0000"
+    r"|\\ud[89ab][0-9a-f]{2}(?!\\ud[c-f][0-9a-f]{2})"
+    r"|(?<!\\ud[89ab][0-9a-f]{2})\\ud[c-f][0-9a-f]{2}"
+)
+
 
 def _convert_like_pattern_to_regex(pattern: str, flags: int = 0):
     regex = re.escape(pattern)
@@ -2147,15 +2155,24 @@ class SearchTraceUtils(SearchUtils):
         def json_pattern_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
             # Match pattern comparators against the decoded string for JSON strings, and
             # against the raw text for other values (e.g. `4` or `true`). The CASE keeps
-            # non-string values, such as `NaN` (invalid JSON), from being parsed.
+            # non-string values, such as `NaN` (invalid JSON), from being parsed. Strings the
+            # database can't decode are also matched against their raw text, so that a single
+            # such value doesn't make every search on the assessment name fail.
+            decodable = sa.func.substring(column, 1, 1) == '"'
             if dialect == SQLITE:
                 decoded = sa.func.json_extract(column, "$", type_=sa.Text)
             elif dialect == POSTGRES:
                 decoded = sa.cast(column, JSONB).op("#>>", return_type=sa.Text)(
                     sa.literal_column("'{}'")
                 )
+                decodable = sa.and_(
+                    decodable,
+                    sa.not_(column.bool_op("~")(_POSTGRES_UNDECODABLE_JSON_ESCAPES)),
+                )
             elif dialect == MYSQL:
                 decoded = sa.func.json_unquote(column, type_=sa.Text)
+                # `JSON_UNQUOTE` raises on unpaired surrogate escapes, `JSON_VALID` doesn't
+                decodable = sa.and_(decodable, sa.func.json_valid(column) == 1)
             else:
                 # `JSON_VALUE` returns at most 4000 characters (NULL in lax mode beyond that),
                 # so decode with `OPENJSON`, whose default `value` column is nvarchar(max).
@@ -2165,10 +2182,7 @@ class SearchTraceUtils(SearchUtils):
                     sa.column("value", sa.Text)
                 )
                 decoded = sa.select(elements.c.value).scalar_subquery()
-            expression = sa.case(
-                (sa.func.substring(column, 1, 1) == '"', decoded),
-                else_=column,
-            )
+            expression = sa.case((decodable, decoded), else_=column)
             # Explicit string type so the MySQL BINARY and MSSQL collation handling applies
             expression = sa.type_coerce(expression, sa.Text)
             return SearchTraceUtils.get_sql_expression_comparison_func(comparator, dialect)(
