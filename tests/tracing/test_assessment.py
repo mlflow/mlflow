@@ -925,6 +925,31 @@ def test_log_assessment_on_in_progress_trace(trace_id, legacy_api):
     assert trace.info.assessments[0].feedback.value == 2.0
 
 
+def test_log_assessment_on_finished_trace_not_yet_exported():
+    @mlflow.trace
+    def func(x: int, y: int) -> int:
+        return x + y
+
+    assert func(1, 2) == 3
+    trace_id = mlflow.get_last_active_trace_id()
+
+    feedback = mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
+    expectation = mlflow.log_expectation(trace_id=trace_id, name="expectation", value="MLflow")
+    assert feedback.assessment_id is not None
+    assert expectation.assessment_id is not None
+
+    trace = mlflow.get_trace(trace_id)
+    assessments = {a.name: a for a in trace.info.assessments}
+    assert assessments.keys() == {"feedback", "expectation"}
+    assert assessments["feedback"].value == 1.0
+    assert assessments["expectation"].value == "MLflow"
+
+
+def test_log_assessment_on_nonexistent_trace_raises():
+    with pytest.raises(MlflowException, match=r"Trace with ID 'tr-nonexistent' not found"):
+        mlflow.log_feedback(trace_id="tr-nonexistent", name="feedback", value=1.0)
+
+
 @pytest.mark.asyncio
 async def test_log_assessment_on_in_progress_trace_async():
     @mlflow.trace
