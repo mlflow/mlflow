@@ -15907,6 +15907,10 @@
     "defaultMessage": "Metrics ({length})",
     "description": "Run page > Overview > Metrics table > Section title"
   },
+  "m48+Yy": {
+    "defaultMessage": "AI Gateway is disabled on this server, so the selected judges cannot be run.",
+    "description": "Warning when selected judges require the disabled AI Gateway"
+  },
   "m5GIsD": {
     "defaultMessage": "Open Settings",
     "description": "Button on the assistant error callout that opens the settings flow"
@@ -17754,6 +17758,10 @@
   "rstugP": {
     "defaultMessage": "Max Tokens",
     "description": "Label for max tokens input"
+  },
+  "rsybQK": {
+    "defaultMessage": "AI Gateway is disabled on this server, so this judge model cannot be run.",
+    "description": "Tooltip when the selected judge model requires the disabled AI Gateway"
   },
   "rt9clc": {
     "defaultMessage": "Return a 400 error with the guardrail name and reason. The original request or response is not passed through.",

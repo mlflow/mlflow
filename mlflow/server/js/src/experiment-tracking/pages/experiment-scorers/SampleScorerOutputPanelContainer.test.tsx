@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { render, waitFor } from '@testing-library/react';
 import { IntlProvider } from '@databricks/i18n';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -9,12 +10,8 @@ import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { LLM_TEMPLATE, type EvaluateTracesParams } from './types';
-import { jest } from '@jest/globals';
-import { describe } from '@jest/globals';
-import { beforeEach } from '@jest/globals';
-import { it } from '@jest/globals';
-import { expect } from '@jest/globals';
 import { ScorerEvaluationScope } from './constants';
+import { useFeatureEnabled } from '../../hooks/useServerInfo';
 import {
   createTraceLocationForExperiment,
   createTraceLocationForDestinationPath,
@@ -22,6 +19,7 @@ import {
 import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 
 jest.mock('./useEvaluateTraces');
+jest.mock('../../hooks/useServerInfo');
 jest.mock('./SampleScorerOutputPanelRenderer');
 jest.mock('./SampleScorerTracesToEvaluatePicker', () => ({
   SampleScorerTracesToEvaluatePicker: () => null,
@@ -34,6 +32,7 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldSupportRunningDatabricksProviderJudgesFromUI: () => true,
 }));
 jest.mock('../../../gateway/utils/gatewayUtils', () => ({
+  ...jest.requireActual<typeof import('../../../gateway/utils/gatewayUtils')>('../../../gateway/utils/gatewayUtils'),
   ModelProvider: { GATEWAY: 'gateway', DATABRICKS: 'databricks', OTHER: 'other' },
   getModelProvider: (model: string | undefined) => {
     if (!model || model.startsWith('gateway:/')) return 'gateway';
@@ -119,6 +118,7 @@ describe('SampleScorerOutputPanelContainer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(useFeatureEnabled).mockReturnValue(true);
 
     mockedUseEvaluateTraces.mockReturnValue([
       mockEvaluateTraces,
@@ -353,6 +353,34 @@ describe('SampleScorerOutputPanelContainer', () => {
       rendererProps.handleRunScorer();
 
       expect(onScorerFinished).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Gateway availability', () => {
+    it.each([undefined, ''])('preserves default model execution without model selection (%s)', (model) => {
+      jest.mocked(useFeatureEnabled).mockReturnValue(false);
+      renderComponent({ defaultValues: { model }, selectedItemIds: ['trace-1'] });
+
+      const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+      expect(props.isRunScorerDisabled).toBe(false);
+    });
+
+    it('disables sample execution when Gateway is disabled', () => {
+      jest.mocked(useFeatureEnabled).mockReturnValue(false);
+      renderComponent({ defaultValues: { model: 'gateway:/some-model' }, selectedItemIds: ['trace-1'] });
+
+      const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+      expect(props.isRunScorerDisabled).toBe(true);
+      expect(props.runScorerDisabledTooltip).toMatch(/AI Gateway is disabled/i);
+    });
+
+    it('preserves provider validation when Gateway is disabled', () => {
+      jest.mocked(useFeatureEnabled).mockReturnValue(false);
+      renderComponent({ defaultValues: { model: 'openai:/gpt-4.1-mini' }, selectedItemIds: ['trace-1'] });
+
+      const props = mockedRenderer.mock.calls[mockedRenderer.mock.calls.length - 1][0];
+      expect(props.isRunScorerDisabled).toBe(true);
+      expect(props.runScorerDisabledTooltip).toMatch(/only supported with databricks endpoints/i);
     });
   });
 

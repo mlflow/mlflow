@@ -24,7 +24,12 @@ import { SELECTED_RUN_UUID_QUERY_PARAM } from '../../components/evaluations/hook
 import { EndpointSelector } from '../../components/EndpointSelector';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
 import { useMonitoringFiltersTimeRange } from '../../hooks/useMonitoringFilters';
-import { formatGatewayModelFromEndpoint, getEndpointNameFromGatewayModel } from '../../../gateway/utils/gatewayUtils';
+import {
+  isExplicitGatewayModel,
+  formatGatewayModelFromEndpoint,
+  getEndpointNameFromGatewayModel,
+} from '../../../gateway/utils/gatewayUtils';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../hooks/useServerInfo';
 import { ScorerEvaluationScope } from '../experiment-scorers/constants';
 import { useGetScheduledScorers } from '../experiment-scorers/hooks/useGetScheduledScorers';
 import { useTemplateOptions } from '../experiment-scorers/llmScorerUtils';
@@ -50,6 +55,7 @@ export const RunEvaluationButton = ({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { displayMap, templateOptions } = useTemplateOptions(ScorerEvaluationScope.TRACES);
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>([]);
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
@@ -58,8 +64,13 @@ export const RunEvaluationButton = ({
   const [currentEndpointModel, setCurrentEndpointModel] = useState<string | undefined>(undefined);
   const hasSelectedTemplates = selectedTemplates.length > 0;
   const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
+  const isGatewayBlocked =
+    !gatewayEnabled && (hasSelectedTemplates || selectedScorers.some((scorer) => isExplicitGatewayModel(scorer.model)));
   const runJudgeDisabled =
-    selectedTraceIds.length === 0 || selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointModel);
+    selectedTraceIds.length === 0 ||
+    selectedJudgeCount === 0 ||
+    (hasSelectedTemplates && !currentEndpointModel) ||
+    isGatewayBlocked;
 
   const {
     mutate: invokeGenAIEvaluation,
@@ -77,6 +88,7 @@ export const RunEvaluationButton = ({
   };
 
   const toggleScorer = (scorer: LLMScorer) => {
+    if (submissionError) clearSubmissionError();
     setSelectedScorers((prev) => {
       const isSelected = prev.some((s) => s.name === scorer.name);
       return isSelected ? prev.filter((s) => s.name !== scorer.name) : [...prev, scorer];
@@ -84,6 +96,7 @@ export const RunEvaluationButton = ({
   };
 
   const toggleTemplate = (template: LLM_TEMPLATE) => {
+    if (submissionError) clearSubmissionError();
     setSelectedTemplates((prev) => {
       const isSelected = prev.includes(template);
       return isSelected ? prev.filter((t) => t !== template) : [...prev, template];
@@ -150,6 +163,7 @@ export const RunEvaluationButton = ({
   };
 
   const handleSubmit = () => {
+    if (isGatewayBlocked) return;
     let serializedScorers: string[];
     try {
       serializedScorers = buildSerializedScorers();
@@ -226,12 +240,21 @@ export const RunEvaluationButton = ({
         onCancel={isSubmitting ? undefined : closeAndResetSelections}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-          {submissionError && (
+          {(submissionError || isGatewayBlocked) && (
             <Alert
               componentId="mlflow.eval-runs.start-run-modal.error"
-              type="error"
-              message={submissionError.message}
-              closable
+              type={submissionError ? 'error' : 'warning'}
+              message={
+                submissionError ? (
+                  submissionError.message
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="AI Gateway is disabled on this server, so the selected judges cannot be run."
+                    description="Warning when selected judges require the disabled AI Gateway"
+                  />
+                )
+              }
+              closable={Boolean(submissionError)}
               onClose={clearSubmissionError}
             />
           )}
