@@ -16,7 +16,10 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.spark
 from mlflow import pyfunc
-from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_MODEL_CODE_EXECUTION,
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.pyfunc import spark_udf
@@ -179,20 +182,27 @@ def _write_spark_connect_flavor_model(model_dir):
     model.save(os.path.join(model_dir, "MLmodel"))
 
 
+@pytest.mark.parametrize(
+    ("env_var", "expected_message"),
+    [
+        (MLFLOW_ALLOW_MODEL_CODE_EXECUTION, MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name),
+        (MLFLOW_ALLOW_PICKLE_DESERIALIZATION, MLFLOW_ALLOW_PICKLE_DESERIALIZATION.name),
+    ],
+)
 def test_load_spark_connect_model_refused_when_model_code_execution_disallowed(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, env_var, expected_message
 ):
     model_dir = os.path.join(tmp_path, "model")
     _write_spark_connect_flavor_model(model_dir)
 
-    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, "false")
+    monkeypatch.setenv(env_var.name, "false")
     # Fail loudly if the gate is bypassed and the artifact-named class is actually resolved.
     monkeypatch.setattr(
         mlflow.spark,
         "_get_class_from_string",
         lambda _: pytest.fail("Spark Connect model loaded despite disallowed model-code execution"),
     )
-    with pytest.raises(MlflowException, match=MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name):
+    with pytest.raises(MlflowException, match=expected_message):
         mlflow.spark.load_model(model_dir)
 
 
@@ -209,7 +219,11 @@ def test_load_spark_connect_model_allowed_when_model_code_execution_allowed(tmp_
             return cls()
 
     monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, "true")
-    monkeypatch.setattr(mlflow.spark, "_get_class_from_string", lambda _: _FakeConnectModel)
+    with mock.patch(
+        "mlflow.spark._get_class_from_string", return_value=_FakeConnectModel
+    ) as mock_get_class:
+        loaded_model = mlflow.spark.load_model(model_dir)
 
-    mlflow.spark.load_model(model_dir)
+    mock_get_class.assert_called_once_with("pyspark.ml.connect.feature.MaxAbsScalerModel")
+    assert isinstance(loaded_model, _FakeConnectModel)
     assert loaded["path"].endswith("sparkml")
