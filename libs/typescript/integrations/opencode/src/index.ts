@@ -32,7 +32,6 @@ import {
   isUserMessage,
   type AssistantMessage,
   type Location,
-  type ModelCost,
   type PluginDefinition,
   type SessionMessage,
   type TextPart,
@@ -53,6 +52,10 @@ const EVENT_SUCCEEDED = 'session.execution.succeeded';
 const EVENT_FAILED = 'session.execution.failed';
 const EVENT_INTERRUPTED = 'session.execution.interrupted';
 const COMPLETION_EVENTS = [EVENT_SUCCEEDED, EVENT_FAILED, EVENT_INTERRUPTED];
+const EVENT_COMPACTION_STARTED = 'session.compaction.started';
+const SUBSCRIBED_EVENTS = [...COMPLETION_EVENTS, EVENT_COMPACTION_STARTED];
+const IDLE_MESSAGE = 'idle';
+const COMPACTION_MESSAGE = 'compaction';
 
 // Well-known trace metadata keys. We pass these through updateCurrentTrace's
 // generic `metadata` option rather than its `sessionId`/`user` convenience
@@ -79,8 +82,6 @@ interface TracingOptions {
 }
 
 interface LlmCost {
-  input_cost?: number;
-  output_cost?: number;
   total_cost: number;
 }
 
@@ -89,8 +90,17 @@ type Outcome =
   | { status: 'interrupted' }
   | { status: 'failed'; error: string };
 
+interface Destination {
+  trackingUri: string;
+  experimentId: string;
+}
+
 // SDK initialization state
-let initialized = false;
+// OpenCode imports the plugin module once per project, but all copies share
+// one @mlflow/core, so the destination must be shared across module copies.
+const DESTINATION_KEY = Symbol.for('mlflow.opencode.destination');
+const processState = globalThis as { [DESTINATION_KEY]?: Destination };
+const conflictWarnings = new Set<string>();
 let lastInitializationWarning: string | null = null;
 let inactiveTracerWarned = false;
 
@@ -108,11 +118,7 @@ function stringOption(value: unknown): string | undefined {
  * optional and resolved by the core SDK. If init() fails, a later event
  * retries it; repeated warnings are suppressed.
  */
-function ensureInitialized(options: TracingOptions): boolean {
-  if (initialized) {
-    return true;
-  }
-
+function ensureInitialized(options: TracingOptions, directory: string): boolean {
   const trackingUri = options.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
   const experimentId = options.experimentId ?? process.env.MLFLOW_EXPERIMENT_ID;
 
@@ -130,9 +136,30 @@ function ensureInitialized(options: TracingOptions): boolean {
     return false;
   }
 
+  const activeDestination = processState[DESTINATION_KEY];
+  if (activeDestination) {
+    if (
+      activeDestination.trackingUri === trackingUri &&
+      activeDestination.experimentId === experimentId
+    ) {
+      return true;
+    }
+    const key = `${directory}\n${trackingUri}\n${experimentId}`;
+    if (!conflictWarnings.has(key)) {
+      console.error(
+        `[mlflow] OpenCode tracing is disabled for ${directory}: this OpenCode server already ` +
+          `traces to ${activeDestination.trackingUri} (experiment ${activeDestination.experimentId}), ` +
+          'and MLflow supports one tracing destination per process. Configure the same ' +
+          'trackingUri and experimentId for every project, or run a separate OpenCode server.',
+      );
+      conflictWarnings.add(key);
+    }
+    return false;
+  }
+
   try {
     init({ trackingUri, experimentId });
-    initialized = true;
+    processState[DESTINATION_KEY] = { trackingUri, experimentId };
     lastInitializationWarning = null;
     if (debug) {
       console.error('[mlflow] SDK initialized successfully');
@@ -146,6 +173,17 @@ function ensureInitialized(options: TracingOptions): boolean {
     }
     return false;
   }
+}
+
+function abortable<T>(request: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(signal.reason);
+  }
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener('abort', abort, { once: true });
+    request.then(resolve, reject).finally(() => signal.removeEventListener('abort', abort));
+  });
 }
 
 /**
@@ -199,16 +237,34 @@ function extractAssistantResponse(messages: SessionMessage[]): string {
   return '';
 }
 
-/**
- * Find the index of the last user message
- */
-function findLastUserMessageIndex(messages: SessionMessage[]): number | null {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (isUserMessage(messages[i])) {
-      return i;
+function findFirstUserMessageIndex(messages: SessionMessage[]): number | null {
+  const index = messages.findIndex(isUserMessage);
+  return index === -1 ? null : index;
+}
+
+function executionStart(
+  messages: SessionMessage[],
+  cursor: string | undefined,
+  completed: boolean,
+): number {
+  let end = messages.length;
+  while (completed && end > 0 && messages[end - 1].type === IDLE_MESSAGE) {
+    end--;
+  }
+  let start = 0;
+  for (let i = end - 1; i >= 0; i--) {
+    if (messages[i].type === IDLE_MESSAGE) {
+      start = i + 1;
+      break;
     }
   }
-  return null;
+  const captured = cursor ? messages.findIndex((message) => message.id === cursor) : -1;
+  return Math.max(start, captured + 1);
+}
+
+function mergeMessages(base: SessionMessage[], next: SessionMessage[]): SessionMessage[] {
+  const seen = new Set(base.map((message) => message.id));
+  return [...base, ...next.filter((message) => !seen.has(message.id))];
 }
 
 /**
@@ -281,45 +337,15 @@ function buildTokenUsage(tokens: TokenUsage | undefined): Record<string, number>
   return usage;
 }
 
-/**
- * Build the cost object for LLM spans from the cost that OpenCode reports.
- *
- * OpenCode reports only the total cost of a model call. The MLflow UI shows
- * cost only with an input/output breakdown, so split the total by the model's
- * base token prices. Without prices, record only the total.
- */
-function buildCost(msg: AssistantMessage, price: ModelCost | undefined): LlmCost | null {
-  if (typeof msg.cost !== 'number') {
-    return null;
-  }
-
-  const tokens = msg.tokens ?? {};
-  const inputPart = price
-    ? (tokens.input || 0) * price.input +
-      (tokens.cache?.read || 0) * (price.cache?.read ?? price.input) +
-      (tokens.cache?.write || 0) * (price.cache?.write ?? price.input)
-    : 0;
-  const outputPart = price ? ((tokens.output || 0) + (tokens.reasoning || 0)) * price.output : 0;
-  if (inputPart + outputPart <= 0) {
-    return msg.cost === 0
-      ? { input_cost: 0, output_cost: 0, total_cost: 0 }
-      : { total_cost: msg.cost };
-  }
-
-  const inputCost = (msg.cost * inputPart) / (inputPart + outputPart);
-  return { input_cost: inputCost, output_cost: msg.cost - inputCost, total_cost: msg.cost };
+function buildCost(msg: AssistantMessage): LlmCost | null {
+  return typeof msg.cost === 'number' ? { total_cost: msg.cost } : null;
 }
 
 function sumCosts(costs: LlmCost[]): LlmCost | null {
   if (costs.length === 0) {
     return null;
   }
-  const total: LlmCost = { total_cost: costs.reduce((sum, cost) => sum + cost.total_cost, 0) };
-  if (costs.every((cost) => cost.input_cost != null && cost.output_cost != null)) {
-    total.input_cost = costs.reduce((sum, cost) => sum + (cost.input_cost ?? 0), 0);
-    total.output_cost = costs.reduce((sum, cost) => sum + (cost.output_cost ?? 0), 0);
-  }
-  return total;
+  return { total_cost: costs.reduce((sum, cost) => sum + cost.total_cost, 0) };
 }
 
 /**
@@ -329,12 +355,10 @@ function sumCosts(costs: LlmCost[]): LlmCost | null {
 function createLlmAndToolSpans(
   parentSpan: ReturnType<typeof startSpan>,
   messages: SessionMessage[],
-  startIdx: number,
-  prices: ReadonlyMap<string, ModelCost>,
 ): LlmCost | null {
   const costs: LlmCost[] = [];
 
-  for (let i = startIdx; i < messages.length; i++) {
+  for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     if (!isAssistantMessage(msg)) {
       continue;
@@ -370,7 +394,7 @@ function createLlmAndToolSpans(
       if (tokenUsage) {
         llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, tokenUsage);
       }
-      const cost = buildCost(msg, prices.get(`${providerId}/${modelId}`));
+      const cost = buildCost(msg);
       if (cost) {
         llmSpan.setAttribute(LLM_COST_ATTRIBUTE_KEY, cost);
         costs.push(cost);
@@ -457,7 +481,6 @@ async function processSession(
   sessionId: string,
   messages: SessionMessage[],
   outcome: Outcome,
-  prices: ReadonlyMap<string, ModelCost> = new Map(),
 ): Promise<void> {
   if (!messages || messages.length === 0) {
     if (debug) {
@@ -466,15 +489,15 @@ async function processSession(
     return;
   }
 
-  const lastUserIdx = findLastUserMessageIndex(messages);
-  if (lastUserIdx == null) {
+  const firstUserIdx = findFirstUserMessageIndex(messages);
+  if (firstUserIdx == null) {
     if (debug) {
       console.error('[mlflow] No user message found in session');
     }
     return;
   }
 
-  const userPrompt = (messages[lastUserIdx] as { text?: string }).text ?? '';
+  const userPrompt = (messages[firstUserIdx] as { text?: string }).text ?? '';
   if (!userPrompt) {
     if (debug) {
       console.error('[mlflow] No user prompt text found');
@@ -487,7 +510,7 @@ async function processSession(
   }
 
   // Get timing from the FIRST message in this batch
-  const firstMsg = messages[0] as { time?: { created?: number } };
+  const firstMsg = messages[firstUserIdx] as { time?: { created?: number } };
   const createdNs = timestampToNs(firstMsg.time?.created);
 
   // Get end time from the LAST message
@@ -506,7 +529,7 @@ async function processSession(
   const traceId = await withSpan(
     (parentSpan) => {
       // Create child spans for LLM calls and tools
-      const totalCost = createLlmAndToolSpans(parentSpan, messages, lastUserIdx + 1, prices);
+      const totalCost = createLlmAndToolSpans(parentSpan, messages.slice(firstUserIdx));
 
       // Attach session/user, cost, and request/response previews to the trace.
       updateCurrentTrace({
@@ -595,99 +618,121 @@ export const MLflowTracingPlugin: PluginDefinition & { server: typeof warnOpenCo
     const { signal } = controller;
     // Last traced message ID per session. IDs survive context compaction,
     // unlike message counts.
-    const processedMessages = new Map<string, string>();
-    const pending = new Map<string, Promise<void>>();
-    // Base token prices per "provider/model", and models without known prices.
-    const prices = new Map<string, ModelCost>();
-    const unpriced = new Set<string>();
+    const cursors = new Map<string, string>();
+    const carried = new Map<string, SessionMessage[]>();
+    const captures = new Map<string, Promise<void>>();
+    const exports = new Map<string, Promise<void>>();
 
-    const loadPrices = async (messages: SessionMessage[]): Promise<void> => {
-      const missing = new Set(
-        messages
-          .filter(isAssistantMessage)
-          .filter((msg) => (msg.cost ?? 0) > 0)
-          .map((msg) => `${msg.model?.providerID}/${msg.model?.id}`)
-          .filter((key) => !prices.has(key) && !unpriced.has(key)),
-      );
-      if (missing.size === 0 || !ctx.model) {
-        return;
+    const enqueue = (
+      queues: Map<string, Promise<void>>,
+      sessionID: string,
+      work: () => Promise<void>,
+    ): void => {
+      const task = (queues.get(sessionID) ?? Promise.resolve()).then(work);
+      queues.set(sessionID, task);
+      void task.finally(() => {
+        if (queues.get(sessionID) === task) {
+          queues.delete(sessionID);
+        }
+      });
+    };
+
+    const owns = async (sessionID: string, location: Location | undefined): Promise<boolean> => {
+      // Execution events can omit location. Resolve ownership from the
+      // session instead of exporting other projects' conversations through
+      // this plugin instance.
+      const sessionLocation =
+        location ?? (await abortable(ctx.session.get({ sessionID }, { signal }), signal)).location;
+      if (sessionLocation.directory !== ctx.location.directory) {
+        return false;
       }
+      if (location && location.workspaceID !== ctx.location.workspaceID) {
+        return false;
+      }
+      return !signal.aborted && ensureInitialized(tracingOptions, ctx.location.directory);
+    };
+
+    const readContext = (sessionID: string): Promise<SessionMessage[]> =>
+      abortable(ctx.session.context({ sessionID }, { signal }), signal);
+
+    const snapshotBeforeCompaction = async (
+      sessionID: string,
+      location: Location | undefined,
+    ): Promise<void> => {
       try {
-        const { data } = await ctx.model.list(
-          { location: { directory: ctx.location.directory } },
-          { signal },
-        );
-        for (const model of data) {
-          const price = model.cost?.find((cost) => !cost.tier) ?? model.cost?.[0];
-          if (price) {
-            prices.set(`${model.providerID}/${model.id}`, price);
-          }
+        if (signal.aborted || !(await owns(sessionID, location))) {
+          return;
+        }
+        const messages = await readContext(sessionID);
+        const running = messages
+          .slice(executionStart(messages, cursors.get(sessionID), false))
+          .filter((message) => message.type !== COMPACTION_MESSAGE);
+        if (running.length > 0) {
+          carried.set(sessionID, mergeMessages(carried.get(sessionID) ?? [], running));
         }
       } catch {
-        // Without prices the trace still records each call's total cost.
-      }
-      for (const key of missing) {
-        if (!prices.has(key)) {
-          unpriced.add(key);
+        if (debug && !signal.aborted) {
+          console.error('[mlflow] Could not read the session before compaction');
         }
       }
     };
 
-    const processCompletion = async (
+    const exportExecution = async (
+      sessionID: string,
+      messages: SessionMessage[],
+      outcome: Outcome,
+    ): Promise<void> => {
+      try {
+        await processSession(sessionID, messages, outcome);
+      } catch {
+        if (debug) {
+          console.error('[mlflow] Could not trace the completed session execution');
+        }
+      }
+    };
+
+    const captureCompletion = async (
       sessionID: string,
       location: Location | undefined,
       outcome: Outcome,
     ): Promise<void> => {
-      if (signal.aborted) {
-        return;
-      }
-
       try {
-        // Execution events can omit location. Resolve ownership from the
-        // session instead of exporting other projects' conversations through
-        // this plugin instance.
-        const sessionLocation =
-          location ?? (await ctx.session.get({ sessionID }, { signal })).location;
-        if (sessionLocation.directory !== ctx.location.directory) {
+        if (signal.aborted || !(await owns(sessionID, location))) {
           return;
         }
-        if (location && location.workspaceID !== ctx.location.workspaceID) {
-          return;
-        }
-        if (signal.aborted || !ensureInitialized(tracingOptions)) {
-          return;
-        }
-        const messages = await ctx.session.context({ sessionID }, { signal });
+        const messages = await readContext(sessionID);
         if (signal.aborted || messages.length === 0) {
           return;
         }
         const lastID = messages[messages.length - 1].id;
-        const previousID = processedMessages.get(sessionID);
-        if (previousID) {
+        const cursor = cursors.get(sessionID);
+        if (cursor) {
           // Refresh the LRU position so active sessions are not evicted.
-          processedMessages.delete(sessionID);
-          processedMessages.set(sessionID, previousID);
+          cursors.delete(sessionID);
+          cursors.set(sessionID, cursor);
         }
-        if (lastID === previousID) {
+        if (lastID === cursor) {
           return;
         }
 
-        // Only commit after processing completes so thrown errors allow a later retry.
-        const start = messages.findIndex((message) => message.id === previousID) + 1;
-        const turn = messages.slice(start);
-        await loadPrices(turn);
-        await processSession(sessionID, turn, outcome, prices);
-        processedMessages.set(sessionID, lastID);
-        while (processedMessages.size > MAX_TRACKED_SESSIONS) {
-          const oldest = processedMessages.keys().next().value;
+        const execution = mergeMessages(
+          carried.get(sessionID) ?? [],
+          messages.slice(executionStart(messages, cursor, true)),
+        );
+        carried.delete(sessionID);
+        cursors.set(sessionID, lastID);
+        while (cursors.size > MAX_TRACKED_SESSIONS) {
+          const oldest = cursors.keys().next().value;
           if (oldest !== undefined) {
-            processedMessages.delete(oldest);
+            cursors.delete(oldest);
+            carried.delete(oldest);
           }
         }
+        enqueue(exports, sessionID, () => exportExecution(sessionID, execution, outcome));
       } catch {
         if (debug && !signal.aborted) {
           console.error(
-            '[mlflow] Could not trace the completed session; a later completion event will retry',
+            '[mlflow] Could not read the completed session; the next completion will include it',
           );
         }
       }
@@ -696,13 +741,13 @@ export const MLflowTracingPlugin: PluginDefinition & { server: typeof warnOpenCo
     const listen = async (): Promise<void> => {
       while (!signal.aborted) {
         try {
-          const events = ctx.event.subscribe({ signal, types: COMPLETION_EVENTS });
+          const events = ctx.event.subscribe({ signal, types: SUBSCRIBED_EVENTS });
           for await (const event of events) {
             if (signal.aborted) {
               break;
             }
             const sessionID = event.data?.sessionID;
-            if (!COMPLETION_EVENTS.includes(event.type) || !sessionID) {
+            if (!SUBSCRIBED_EVENTS.includes(event.type) || !sessionID) {
               continue;
             }
             // The event stream includes other plugin locations too.
@@ -716,16 +761,16 @@ export const MLflowTracingPlugin: PluginDefinition & { server: typeof warnOpenCo
 
             // Do not hold up the event stream during an MLflow export.
             // Serialize work for each session to avoid concurrent duplicates.
-            const outcome = outcomeOf(event);
-            const task = (pending.get(sessionID) ?? Promise.resolve()).then(() =>
-              processCompletion(sessionID, event.location, outcome),
-            );
-            pending.set(sessionID, task);
-            void task.finally(() => {
-              if (pending.get(sessionID) === task) {
-                pending.delete(sessionID);
-              }
-            });
+            if (event.type === EVENT_COMPACTION_STARTED) {
+              enqueue(captures, sessionID, () =>
+                snapshotBeforeCompaction(sessionID, event.location),
+              );
+            } else {
+              const outcome = outcomeOf(event);
+              enqueue(captures, sessionID, () =>
+                captureCompletion(sessionID, event.location, outcome),
+              );
+            }
           }
         } catch {
           if (debug && !signal.aborted) {
@@ -743,8 +788,10 @@ export const MLflowTracingPlugin: PluginDefinition & { server: typeof warnOpenCo
     return async () => {
       controller.abort();
       await listener;
-      await Promise.all(pending.values());
-      processedMessages.clear();
+      await Promise.all(captures.values());
+      await Promise.all(exports.values());
+      cursors.clear();
+      carried.clear();
     };
   },
 };

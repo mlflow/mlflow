@@ -1,7 +1,6 @@
 import type {
   AssistantMessage,
   Cleanup,
-  ModelInfo,
   PluginContext,
   PluginDefinition,
   PluginEvent,
@@ -17,6 +16,25 @@ export const idle = (type = 'session.execution.succeeded'): PluginEvent => ({
   location: { directory: '/project' },
   data: { sessionID: 'ses_test' },
 });
+
+export const compactionStarted = (): PluginEvent => ({
+  type: 'session.compaction.started',
+  location: { directory: '/project' },
+  data: { sessionID: 'ses_test' },
+});
+
+export const ended = (created: number, outcome = 'succeeded'): SessionMessage =>
+  ({ id: `msg_idle_${created}`, type: 'idle', time: { created }, outcome }) as SessionMessage;
+
+export const compaction = (created: number): SessionMessage =>
+  ({
+    id: `msg_compaction_${created}`,
+    type: 'compaction',
+    status: 'completed',
+    reason: 'auto',
+    summary: 'Summary',
+    time: { created },
+  }) as SessionMessage;
 
 export const user = (text: string, created = 1000): UserMessage => ({
   id: `msg_user_${created}`,
@@ -52,18 +70,13 @@ export const tool = (): ToolPart => ({
 
 export function createHarness(
   messages: SessionMessage[] = [],
-  {
-    workspaceID,
-    options,
-    models = [],
-  }: { workspaceID?: string; options?: Record<string, unknown>; models?: ModelInfo[] } = {},
+  { workspaceID, options }: { workspaceID?: string; options?: Record<string, unknown> } = {},
 ) {
   let wake: (() => void) | undefined;
   const events: PluginEvent[] = [];
   let cleanup: Cleanup | void;
   const context = jest.fn().mockResolvedValue(messages);
   const get = jest.fn().mockResolvedValue({ location: { directory: '/project' } });
-  const list = jest.fn().mockResolvedValue({ data: models });
   const subscribe = jest.fn(async function* ({ signal }: { signal: AbortSignal }) {
     while (!signal.aborted) {
       const next = events.shift();
@@ -86,7 +99,6 @@ export function createHarness(
   return {
     context,
     get,
-    list,
     subscribe,
     settle,
     async start(plugin: PluginDefinition) {
@@ -94,7 +106,6 @@ export function createHarness(
         location: { directory: '/project', workspaceID },
         options,
         session: { context, get },
-        model: { list },
         event: { subscribe },
       } as unknown as PluginContext);
     },

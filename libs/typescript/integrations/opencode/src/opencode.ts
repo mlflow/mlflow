@@ -77,29 +77,9 @@ export interface PluginEvent {
   data?: { sessionID?: string; error?: { message?: string } };
 }
 
-/** Prices in USD per million tokens. Context-size tiers come after the base price. */
-export interface ModelCost {
-  tier?: { type: string; size: number };
-  input: number;
-  output: number;
-  cache?: { read?: number; write?: number };
-}
-
-export interface ModelInfo {
-  id: string;
-  providerID: string;
-  cost?: ModelCost[];
-}
-
 export interface PluginContext {
   readonly location: Location;
   readonly options?: Readonly<Record<string, unknown>>;
-  readonly model?: {
-    list(
-      input?: { location?: { directory?: string } },
-      options?: RequestOptions,
-    ): Promise<{ data: readonly ModelInfo[] }>;
-  };
   readonly event: {
     subscribe(options: { signal: AbortSignal; types?: string[] }): AsyncIterable<PluginEvent>;
   };

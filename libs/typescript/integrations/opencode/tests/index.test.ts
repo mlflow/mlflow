@@ -1,6 +1,9 @@
 import type { PluginDefinition } from '../src/opencode';
 import {
   createHarness,
+  compaction,
+  compactionStarted,
+  ended,
   idle,
   user,
   assistant,
@@ -37,10 +40,11 @@ jest.mock('@mlflow/core', () => {
   };
 });
 
-const COMPLETION_EVENTS = [
+const SUBSCRIBED_EVENTS = [
   'session.execution.succeeded',
   'session.execution.failed',
   'session.execution.interrupted',
+  'session.compaction.started',
 ];
 
 describe('MLflow OpenCode V2 plugin', () => {
@@ -58,6 +62,7 @@ describe('MLflow OpenCode V2 plugin', () => {
       USER: 'test-user',
     };
     delete process.env.MLFLOW_OPENCODE_DEBUG;
+    delete (globalThis as Record<symbol, unknown>)[Symbol.for('mlflow.opencode.destination')];
     mlflow = await import('@mlflow/core');
     plugin = (await import('../src')).default;
     harness = createHarness([user('Hello'), assistant('Hi')]);
@@ -101,7 +106,7 @@ describe('MLflow OpenCode V2 plugin', () => {
     await harness.start(plugin);
     expect(harness.subscribe).toHaveBeenCalledWith({
       signal: expect.any(AbortSignal),
-      types: COMPLETION_EVENTS,
+      types: SUBSCRIBED_EVENTS,
     });
     expect(mlflow.init).not.toHaveBeenCalled();
   });
@@ -275,24 +280,23 @@ describe('MLflow OpenCode V2 plugin', () => {
     );
   });
 
-  it('traces the latest turn and its history on the first export', async () => {
+  it('traces only the latest execution on the first export', async () => {
     harness.context.mockResolvedValue([
       user('Turn one', 1000),
       assistant('One', 1100, 1500),
+      ended(1600),
       user('Turn two', 2000),
       assistant('Two', 2100, 2500),
+      ended(2600),
     ]);
     await harness.start(plugin);
     await harness.send(idle());
     expect(spans('llm_call')).toHaveLength(1);
     expect(spans('llm_call')[0]?.startTimeNs).toBe(2100e6);
-    expect(spans('llm_call')[0]?.inputs?.messages).toContainEqual({
-      role: 'assistant',
-      content: 'One',
-    });
     expect(mlflow.updateCurrentTrace).toHaveBeenCalledWith(
       expect.objectContaining({ requestPreview: 'Turn two' }),
     );
+    expect(span().end).toHaveBeenCalledWith(expect.objectContaining({ endTimeNs: 2600e6 }));
   });
 
   it('records provider and model attributes per assistant message', async () => {
@@ -454,27 +458,6 @@ describe('MLflow OpenCode V2 plugin', () => {
     expect(span().end).toHaveBeenCalledWith({ endTimeNs: 1400e6, status: 'STATUS_CODE_ERROR' });
   });
 
-  const pricedMessages = (): SessionMessage[] => [
-    user('Run'),
-    {
-      ...assistant('', 1100, 1500),
-      content: [tool()],
-      // Base prices: 600 * 1 + 200 * 0.5 + 100 * 2 = 900 input, 100 * 3 = 300 output.
-      tokens: { input: 600, output: 60, reasoning: 40, cache: { read: 200, write: 100 } },
-      cost: 0.0012,
-    },
-    { ...assistant('Done', 1600, 1900), tokens: { input: 100, output: 100 }, cost: 0.0004 },
-  ];
-  const haikuPrices = [
-    {
-      id: 'claude',
-      providerID: 'anthropic',
-      cost: [
-        { tier: { type: 'context', size: 200000 }, input: 10, output: 10 },
-        { input: 1, output: 3, cache: { read: 0.5, write: 2 } },
-      ],
-    },
-  ];
   const costCalls = () =>
     span()
       .setAttribute.mock.calls.filter(([key]) => key === 'mlflow.llm.cost')
@@ -484,63 +467,24 @@ describe('MLflow OpenCode V2 plugin', () => {
       (mlflow.updateCurrentTrace as jest.Mock).mock.calls[0][0].metadata['mlflow.trace.cost'],
     ) as Record<string, number>;
 
-  it('splits the cost of each model call by the model base prices', async () => {
-    harness = createHarness(pricedMessages(), { models: haikuPrices });
-    await harness.start(plugin);
-    await harness.send(idle());
-    expect(harness.list).toHaveBeenCalledWith(
-      { location: { directory: '/project' } },
-      { signal: expect.any(AbortSignal) },
-    );
-    const [first, second] = costCalls();
-    expect(first.input_cost).toBeCloseTo(0.0009);
-    expect(first.output_cost).toBeCloseTo(0.0003);
-    expect(first.total_cost).toBe(0.0012);
-    expect(second.input_cost).toBeCloseTo(0.0001);
-    expect(second.output_cost).toBeCloseTo(0.0003);
-    expect(traceCost().input_cost).toBeCloseTo(0.001);
-    expect(traceCost().output_cost).toBeCloseTo(0.0006);
-    expect(traceCost().total_cost).toBeCloseTo(0.0016);
-  });
-
-  it('records only the total cost when model prices are unknown', async () => {
-    harness = createHarness(pricedMessages());
+  it('records the total cost that OpenCode reports for each call and the trace', async () => {
+    harness.context.mockResolvedValue([
+      user('Run'),
+      { ...assistant('', 1100, 1500), content: [tool()], cost: 0.0012 },
+      { ...assistant('Done', 1600, 1900), cost: 0.0004 },
+    ]);
     await harness.start(plugin);
     await harness.send(idle());
     expect(costCalls()).toEqual([{ total_cost: 0.0012 }, { total_cost: 0.0004 }]);
     expect(traceCost()).toEqual({ total_cost: expect.closeTo(0.0016) });
   });
 
-  it('records zero cost for free models without looking up prices', async () => {
+  it('records zero cost for free models', async () => {
     harness.context.mockResolvedValue([user('Hello'), { ...assistant('Hi'), cost: 0 }]);
     await harness.start(plugin);
     await harness.send(idle());
-    expect(harness.list).not.toHaveBeenCalled();
-    expect(costCalls()).toEqual([{ input_cost: 0, output_cost: 0, total_cost: 0 }]);
-  });
-
-  it('looks up model prices once per model', async () => {
-    harness = createHarness(pricedMessages(), { models: haikuPrices });
-    await harness.start(plugin);
-    await harness.send(idle());
-    harness.context.mockResolvedValue([
-      ...pricedMessages(),
-      user('Again', 3000),
-      { ...assistant('Again', 3100, 3500), cost: 0.1 },
-      { ...assistant('Other', 3600, 3900), model: { id: 'gpt', providerID: 'openai' }, cost: 0.1 },
-    ]);
-    await harness.send(idle());
-    await harness.send({ ...idle(), data: { sessionID: 'ses_other' } });
-    expect(harness.list).toHaveBeenCalledTimes(2);
-  });
-
-  it('still traces when the model price lookup fails', async () => {
-    harness = createHarness(pricedMessages(), { models: haikuPrices });
-    harness.list.mockRejectedValue(new Error('Unavailable'));
-    await harness.start(plugin);
-    await harness.send(idle());
-    expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
-    expect(costCalls()[0]).toEqual({ total_cost: 0.0012 });
+    expect(costCalls()).toEqual([{ total_cost: 0 }]);
+    expect(traceCost()).toEqual({ total_cost: 0 });
   });
 
   it('omits cost when OpenCode does not report it', async () => {
@@ -599,7 +543,7 @@ describe('MLflow OpenCode V2 plugin', () => {
     expect(spans('tool_read')[0].inputs).toEqual({ arguments: '{"path":' });
   });
 
-  it('preserves previous text, reasoning, and tool history in the current turn', async () => {
+  it('includes earlier calls and later prompts of the execution in call history', async () => {
     harness.context.mockResolvedValue([
       user('First'),
       {
@@ -615,7 +559,8 @@ describe('MLflow OpenCode V2 plugin', () => {
     ]);
     await harness.start(plugin);
     await harness.send(idle());
-    const history = spans('llm_call')[0]?.inputs?.messages;
+    const history = spans('llm_call')[1]?.inputs?.messages;
+    expect(history).toContainEqual({ role: 'user', content: 'First' });
     expect(history).toContainEqual({
       role: 'assistant',
       content: 'First answer',
@@ -725,14 +670,135 @@ describe('MLflow OpenCode V2 plugin', () => {
     expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
   });
 
-  it('does not advance the checkpoint after an export failure', async () => {
+  it('moves on to the next execution after an export failure', async () => {
     (mlflow.flushTraces as jest.Mock).mockRejectedValueOnce(new Error('Unavailable'));
     await harness.start(plugin);
     await harness.send(idle());
     await harness.send(idle());
-    expect(mlflow.flushTraces).toHaveBeenCalledTimes(2);
+    expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
+    harness.context.mockResolvedValue([
+      user('Hello'),
+      assistant('Hi'),
+      user('Next', 3000),
+      assistant('Next answer', 3100, 4000),
+    ]);
     await harness.send(idle());
-    expect(mlflow.flushTraces).toHaveBeenCalledTimes(2);
+    expect(mlflow.withSpan).toHaveBeenCalledTimes(2);
+    expect(mlflow.withSpan).toHaveBeenLastCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ inputs: { prompt: 'Next' } }),
+    );
+  });
+
+  it('captures each execution while an earlier export is still pending', async () => {
+    let release!: () => void;
+    (mlflow.flushTraces as jest.Mock).mockImplementationOnce(
+      () =>
+        new Promise<void>((done) => {
+          release = done;
+        }),
+    );
+    const turn = (n: number): SessionMessage[] => [
+      user(`Turn ${n}`, n * 1000),
+      assistant(`Answer ${n}`, n * 1000 + 100, n * 1000 + 500),
+      ended(n * 1000 + 600),
+    ];
+    harness.context.mockResolvedValue(turn(1));
+    await harness.start(plugin);
+    await harness.send(idle());
+    harness.context.mockResolvedValue([...turn(1), ...turn(2)]);
+    await harness.send(idle());
+    harness.context.mockResolvedValue([...turn(1), ...turn(2), ...turn(3)]);
+    await harness.send(idle());
+    expect(harness.context).toHaveBeenCalledTimes(3);
+    expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
+    release();
+    await harness.settle();
+    const prompts = (mlflow.withSpan as jest.Mock).mock.calls.map(
+      ([, options]) => (options as StubSpanOptions).inputs?.prompt,
+    );
+    expect(prompts).toEqual(['Turn 1', 'Turn 2', 'Turn 3']);
+    expect(spans('llm_call').map((options) => options.startTimeNs)).toEqual([
+      1100e6, 2100e6, 3100e6,
+    ]);
+  });
+
+  it('keeps the prompt and earlier calls of an execution across automatic compaction', async () => {
+    harness.context.mockResolvedValue([
+      user('Old', 100),
+      assistant('Old answer', 200, 300),
+      ended(400),
+      user('Long task', 1000),
+      assistant('Step one', 1100, 1500),
+    ]);
+    await harness.start(plugin);
+    await harness.send(compactionStarted());
+    expect(mlflow.withSpan).not.toHaveBeenCalled();
+    harness.context.mockResolvedValue([
+      compaction(1600),
+      assistant('Step two', 1700, 2000),
+      ended(2100),
+    ]);
+    await harness.send(idle());
+    expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
+    expect(mlflow.withSpan).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ inputs: { prompt: 'Long task' }, startTimeNs: 1000e6 }),
+    );
+    expect(spans('llm_call').map((options) => options.startTimeNs)).toEqual([1100e6, 1700e6]);
+    harness.context.mockResolvedValue([
+      compaction(1600),
+      assistant('Step two', 1700, 2000),
+      ended(2100),
+      user('Next', 3000),
+      assistant('Next answer', 3100, 3500),
+      ended(3600),
+    ]);
+    await harness.send(idle());
+    expect(mlflow.withSpan).toHaveBeenLastCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ inputs: { prompt: 'Next' } }),
+    );
+    expect(spans('llm_call')).toHaveLength(3);
+  });
+
+  it('does not carry an already traced execution into the next one after manual compaction', async () => {
+    harness.context.mockResolvedValue([user('Done', 1000), assistant('Answer'), ended(1600)]);
+    await harness.start(plugin);
+    await harness.send(compactionStarted());
+    harness.context.mockResolvedValue([
+      compaction(2000),
+      user('Fresh', 3000),
+      assistant('Fresh answer', 3100, 3500),
+      ended(3600),
+    ]);
+    await harness.send(idle());
+    expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
+    expect(mlflow.withSpan).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ inputs: { prompt: 'Fresh' } }),
+    );
+  });
+
+  it('traces every model call of an execution that received a steering prompt', async () => {
+    harness.context.mockResolvedValue([
+      user('Start', 1000),
+      assistant('Working', 1100, 1500),
+      user('Also update the docs', 1300),
+      assistant('Done', 1600, 2000),
+      ended(2100),
+    ]);
+    await harness.start(plugin);
+    await harness.send(idle());
+    expect(spans('llm_call')).toHaveLength(2);
+    expect(mlflow.withSpan).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ inputs: { prompt: 'Start' }, startTimeNs: 1000e6 }),
+    );
+    expect(spans('llm_call')[1]?.inputs?.messages).toContainEqual({
+      role: 'user',
+      content: 'Also update the docs',
+    });
   });
 
   it('serializes duplicate idle work without blocking event consumption', async () => {
@@ -751,6 +817,42 @@ describe('MLflow OpenCode V2 plugin', () => {
     await harness.settle();
     expect(harness.context).toHaveBeenCalledTimes(2);
     expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
+  });
+
+  it('shares one destination between plugin instances that agree on it', async () => {
+    await harness.start(plugin);
+    const other = createHarness([user('Hello'), assistant('Hi')]);
+    await other.start(plugin);
+    await harness.send(idle());
+    await other.send(idle());
+    await other.stop();
+    expect(mlflow.init).toHaveBeenCalledTimes(1);
+    expect(mlflow.withSpan).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not trace a project configured with another destination', async () => {
+    const warning = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await harness.start(plugin);
+    let otherPlugin!: PluginDefinition;
+    jest.isolateModules(() => {
+      otherPlugin = require('../src').default;
+    });
+    expect(otherPlugin).not.toBe(plugin);
+    const other = createHarness([user('Hello'), assistant('Hi')], {
+      options: { trackingUri: 'https://other.example.com', experimentId: '456' },
+    });
+    await other.start(otherPlugin);
+    await harness.send(idle());
+    await other.send(idle());
+    await other.send(idle());
+    await other.stop();
+    expect(mlflow.init).toHaveBeenCalledTimes(1);
+    expect(other.context).not.toHaveBeenCalled();
+    expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
+    expect(warning).toHaveBeenCalledTimes(1);
+    expect(warning).toHaveBeenCalledWith(
+      expect.stringContaining('one tracing destination per process'),
+    );
   });
 
   it('uses separate checkpoints for each plugin instance', async () => {
@@ -776,18 +878,34 @@ describe('MLflow OpenCode V2 plugin', () => {
     expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
   });
 
-  it('cancels an in-flight context request during unload', async () => {
-    harness.context.mockImplementationOnce(
-      (_input: unknown, { signal }: { signal: AbortSignal }) =>
-        new Promise((_resolve, reject) => {
-          signal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true });
-        }),
-    );
+  it('unloads without waiting for a context request that ignores cancellation', async () => {
+    harness.context.mockImplementationOnce(() => new Promise(() => {}));
     await harness.start(plugin);
     await harness.send(idle());
     expect(harness.context).toHaveBeenCalledTimes(1);
     await harness.stop();
     expect(mlflow.withSpan).not.toHaveBeenCalled();
+  });
+
+  it('still exports captured executions during unload', async () => {
+    let release!: () => void;
+    (mlflow.flushTraces as jest.Mock).mockImplementationOnce(
+      () =>
+        new Promise<void>((done) => {
+          release = done;
+        }),
+    );
+    await harness.start(plugin);
+    await harness.send(idle());
+    let stopped = false;
+    const stopping = harness.stop().then(() => {
+      stopped = true;
+    });
+    await harness.settle();
+    expect(stopped).toBe(false);
+    release();
+    await stopping;
+    expect(mlflow.withSpan).toHaveBeenCalledTimes(1);
   });
 
   it('aborts the event subscription on unload and ignores later events', async () => {

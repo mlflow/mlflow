@@ -97,7 +97,7 @@ mlflow server
 opencode
 ```
 
-A trace is created when each session run ends, also when the run fails or is interrupted. Failed runs have an error status.
+A trace is created when each session run ends, also when the run fails or is interrupted. Failed runs have an error status. Prompts that you send while a run is busy join that run's trace.
 
 ## Configuration Reference
 
@@ -108,6 +108,10 @@ The plugin is configured via plugin options or environment variables. Plugin opt
 | `trackingUri`  | `MLFLOW_TRACKING_URI`   | Yes      | MLflow tracking server URI (e.g., `http://localhost:5000`) |
 | `experimentId` | `MLFLOW_EXPERIMENT_ID`  | Yes      | Experiment ID to log traces to                             |
 | `debug`        | `MLFLOW_OPENCODE_DEBUG` | No       | Set to `true` to enable debug logging to stderr            |
+
+:::note One destination per OpenCode server
+The MLflow SDK sends traces to one tracking server and experiment per process. When one OpenCode server runs several projects, the first project that traces sets the destination for all of them. A project configured with a different `trackingUri` or `experimentId` is not traced, and the plugin prints a warning. To trace projects to different experiments, run a separate OpenCode server for each destination.
+:::
 
 ### Configuration Examples
 
@@ -127,7 +131,7 @@ export MLFLOW_EXPERIMENT_ID=123456789
 
 ## Token Usage
 
-MLflow automatically tracks the token usage for each LLM call within OpenCode conversations. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` attribute, including cache read and cache write tokens. The cost that OpenCode reports for each LLM call is logged in the `mlflow.llm.cost` attribute, split into input and output cost with the model's prices. The token usage and cost will be displayed in the Overview dashboard and the trace detail page.
+MLflow automatically tracks the token usage for each LLM call within OpenCode conversations. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` attribute, including cache read and cache write tokens. The total cost that OpenCode reports for each LLM call is logged in the `mlflow.llm.cost` attribute. The token usage and cost will be displayed in the Overview dashboard and the trace detail page.
 
 <ImageBox src="/images/llms/opencode/opencode-overview.png" alt="OpenCode Trace Overview" />
 

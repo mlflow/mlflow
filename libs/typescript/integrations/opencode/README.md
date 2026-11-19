@@ -43,7 +43,8 @@ OpenCode background service is already running, restart it
 (`opencode service restart`) from a shell that has them.
 
 2. Run OpenCode normally - a trace is created when each session run ends, also
-   when it fails or is interrupted.
+   when it fails or is interrupted. Prompts that you send while a run is busy
+   join that run's trace.
 
 ## Configuration
 
@@ -72,12 +73,20 @@ value), the SDK uses the experiment-backed path, and traces will not appear in
 the UC table. A non-empty invalid location stops tracing and prints a warning
 instead of silently falling back.
 
+## One destination per OpenCode server
+
+The MLflow SDK sends traces to one tracking server and experiment per process.
+When one OpenCode server runs several projects, the first project that traces
+sets the destination for all of them. A project configured with a different
+`trackingUri` or `experimentId` is not traced, and the plugin prints a warning.
+To trace projects to different experiments, run a separate OpenCode server for
+each destination.
+
 ## Token Usage and Cost
 
 Token usage includes cache reads and writes in `input_tokens`, and reasoning
-tokens in `output_tokens`. Cost comes from the cost that OpenCode reports for
-each model call. The plugin splits it into input and output cost with the
-model's prices from OpenCode.
+tokens in `output_tokens`. Cost is the total cost that OpenCode reports for
+each model call.
 
 ## Viewing Traces
 
