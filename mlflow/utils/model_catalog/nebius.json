@@ -481,7 +481,7 @@
     "Qwen/Qwen3.8-27B": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144
+        "max_input": 1000000
       },
       "pricing": {
         "input_per_million_tokens": 0.45,
@@ -495,7 +495,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-19"
     },
     "deepseek-ai/DeepSeek-R1": {
       "mode": "chat",

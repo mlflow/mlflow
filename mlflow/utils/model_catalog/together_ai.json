@@ -82,13 +82,13 @@
         "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": {
       "mode": "chat",
@@ -120,13 +120,13 @@
         "output_per_million_tokens": 0.0
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/QwQ-32B": {
       "mode": "chat",
@@ -557,13 +557,13 @@
         "output_per_million_tokens": 3.0
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/Qwen3.7-Max": {
       "mode": "chat",
@@ -577,13 +577,13 @@
         "cache_read_per_million_tokens": 0.5
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-11-09"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/Qwen3.7-Plus": {
       "mode": "chat",
@@ -596,13 +596,13 @@
         "output_per_million_tokens": 1.28
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/Qwen3.8-2.4T-A95B": {
       "mode": "chat",
@@ -636,13 +636,13 @@
         "output_per_million_tokens": 0.47
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/Qwen4-Max": {
       "mode": "chat",
@@ -1491,13 +1491,13 @@
         "cache_read_per_million_tokens": 0.04
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "meta-models/Muse-Spark-Open-816B-A42B": {
       "mode": "chat",
@@ -1930,13 +1930,13 @@
         "cache_read_per_million_tokens": 0.02
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-11-05"
+      "last_updated_at": "2026-11-19"
     },
     "thinkingmachines/Inkling": {
       "mode": "chat",
