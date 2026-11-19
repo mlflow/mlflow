@@ -14,7 +14,10 @@ from sklearn import datasets
 
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflow.spark
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.pyfunc import spark_udf
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -159,3 +162,53 @@ def test_databricks_serverless_model_save_load(spark_model):
                     )
 
                 mlflow.spark.load_model(model_info.model_uri)
+
+
+def _write_spark_connect_flavor_model(model_dir):
+    # A minimal `spark`-flavor model whose `model_class` selects the Spark Connect load path.
+    # Loading resolves and instantiates this class from the model's own metadata and then
+    # deserializes model-controlled core data, so it must honor the model-code execution control.
+    os.makedirs(os.path.join(model_dir, "sparkml"))
+    model = Model(artifact_path="model", run_id="abc123")
+    model.add_flavor(
+        mlflow.spark.FLAVOR_NAME,
+        model_class="pyspark.ml.connect.feature.MaxAbsScalerModel",
+        model_data="sparkml",
+    )
+    model.save(os.path.join(model_dir, "MLmodel"))
+
+
+def test_load_spark_connect_model_refused_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch
+):
+    model_dir = os.path.join(tmp_path, "model")
+    _write_spark_connect_flavor_model(model_dir)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    # Fail loudly if the gate is bypassed and the artifact-named class is actually resolved.
+    monkeypatch.setattr(
+        mlflow.spark,
+        "_get_class_from_string",
+        lambda _: pytest.fail("Spark Connect model loaded despite disallowed model-code execution"),
+    )
+    with pytest.raises(MlflowException, match="disallowed because it runs code supplied"):
+        mlflow.spark.load_model(model_dir)
+
+
+def test_load_spark_connect_model_allowed_when_model_code_execution_allowed(tmp_path, monkeypatch):
+    model_dir = os.path.join(tmp_path, "model")
+    _write_spark_connect_flavor_model(model_dir)
+
+    loaded = {}
+
+    class _FakeConnectModel:
+        @classmethod
+        def loadFromLocal(cls, path):
+            loaded["path"] = path
+            return cls()
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "true")
+    monkeypatch.setattr(mlflow.spark, "_get_class_from_string", lambda _: _FakeConnectModel)
+
+    mlflow.spark.load_model(model_dir)
+    assert loaded["path"].endswith("sparkml")

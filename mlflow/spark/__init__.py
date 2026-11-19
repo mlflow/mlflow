@@ -63,6 +63,7 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _check_model_code_loading_allowed,
     _validate_and_copy_code_paths,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -889,6 +890,12 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
 
 
 def _load_spark_connect_model(model_class, local_path):
+    # Loading a Spark Connect ML model resolves and instantiates the class named by the
+    # model's own metadata and deserializes model-controlled core data (e.g. pickle or
+    # `torch.load`), both of which can execute code supplied by the model. Gate it behind the
+    # same control the other code/pickle flavors use so an untrusted model cannot run code when
+    # model-code execution is disabled.
+    _check_model_code_loading_allowed("a Spark Connect ML model")
     return _get_class_from_string(model_class).loadFromLocal(local_path)
 
 
