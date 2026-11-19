@@ -26,7 +26,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import environment_variables, pyfunc
-from mlflow.environment_variables import MLFLOW_DFS_TMP
+from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION, MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -63,6 +63,8 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _deprecated_pickle_variable_hint,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -889,6 +891,19 @@ def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
 
 
 def _load_spark_connect_model(model_class, local_path):
+    # Loading a Spark Connect ML model resolves and instantiates the class named by the
+    # model's own metadata and deserializes model-controlled core data (e.g. pickle or
+    # `torch.load`), both of which can execute code supplied by the model. Gate it behind the
+    # same pickle control the other pickle-based flavors use, so both
+    # `MLFLOW_ALLOW_MODEL_CODE_EXECUTION` and the deprecated `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`
+    # can refuse it.
+    if not _is_pickle_loading_allowed():
+        raise MlflowException(
+            "Loading a Spark Connect ML model is disallowed because it runs code supplied by the "
+            "model. If you trust this model, set environment variable "
+            f"'{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to load it."
+            + _deprecated_pickle_variable_hint()
+        )
     return _get_class_from_string(model_class).loadFromLocal(local_path)
 
 
