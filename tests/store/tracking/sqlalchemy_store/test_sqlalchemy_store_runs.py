@@ -2676,6 +2676,109 @@ def test_log_batch_metrics(store: SqlAlchemyStore):
         assert run.data.metrics["NegInf"] == -1.7976931348623157e308
 
 
+@pytest.mark.parametrize("count", [1000, 1001])
+def test_log_batch_metric_history_uses_multirow_inserts(store: SqlAlchemyStore, count):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL history batching with psycopg 3")
+
+    run_id = _run_factory(store).info.run_id
+    statements = []
+    batches = []
+
+    def execute(_cursor, statement, *_args):
+        if statement.startswith("INSERT INTO metrics "):
+            statements.append(statement)
+
+    def executemany(_cursor, statement, *_args):
+        if statement.startswith("INSERT INTO metrics "):
+            batches.append(statement)
+
+    dialect = store.engine.dialect
+    sqlalchemy.event.listen(dialect, "do_execute", execute)
+    sqlalchemy.event.listen(dialect, "do_executemany", executemany)
+    try:
+        store._log_metrics(run_id, [Metric(f"metric-{i}", float(i), i, i) for i in range(count)])
+    finally:
+        sqlalchemy.event.remove(dialect, "do_execute", execute)
+        sqlalchemy.event.remove(dialect, "do_executemany", executemany)
+
+    assert batches == []
+    assert len(statements) == math.ceil(count / dialect.insertmanyvalues_page_size)
+    with store.ManagedSessionMaker() as session:
+        history = (
+            session
+            .query(
+                SqlMetric.key,
+                SqlMetric.value,
+                SqlMetric.timestamp,
+                SqlMetric.step,
+                SqlMetric.is_nan,
+            )
+            .filter(SqlMetric.run_uuid == run_id)
+            .all()
+        )
+    assert set(history) == {(f"metric-{i}", float(i), i, i, False) for i in range(count)}
+
+
+def test_log_batch_latest_metrics_use_batched_writes(store: SqlAlchemyStore):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL latest metric batching with psycopg 3")
+
+    run_id = _run_factory(store).info.run_id
+    dialect = store.engine.dialect
+    with (
+        mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute,
+        mock.patch.object(dialect, "do_executemany", wraps=dialect.do_executemany) as executemany,
+    ):
+        store._log_metrics(run_id, [Metric(f"metric-{i}", 0.0, 0, 0) for i in range(8)])
+    prefix = "INSERT INTO latest_metrics "
+    assert not [call for call in executemany.call_args_list if call.args[1].startswith(prefix)]
+    assert len([call for call in execute.call_args_list if call.args[1].startswith(prefix)]) == 1
+
+    metrics = [Metric(f"metric-{i}", float(i % 2), i % 3, 1) for i in range(7)]
+    metrics.append(Metric("metric-7", float("nan"), 1, 1))
+    with (
+        mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute,
+        mock.patch.object(dialect, "do_executemany", wraps=dialect.do_executemany) as executemany,
+    ):
+        store._log_metrics(run_id, metrics)
+    prefix = "UPDATE latest_metrics SET "
+    assert not [call for call in execute.call_args_list if call.args[1].startswith(prefix)]
+    batches = [call for call in executemany.call_args_list if call.args[1].startswith(prefix)]
+    assert len(batches) == 1
+    assert len(batches[0].args[2]) == len(metrics)
+
+    store._log_metrics(run_id, [Metric(f"metric-{i}", 9.0, 99, 0) for i in range(8)])
+    with mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute:
+        store._log_metrics(run_id, [Metric("metric-0", 0.0, 0, 2)])
+    updates = [call.args[1] for call in execute.call_args_list if call.args[1].startswith(prefix)]
+    assert len(updates) == 1
+    assert "value=" not in updates[0]
+    assert "is_nan=" not in updates[0]
+    with store.ManagedSessionMaker() as session:
+        rows = session.query(SqlLatestMetric).filter_by(run_uuid=run_id).all()
+        assert {(r.key, r.value, r.timestamp, r.step, r.is_nan) for r in rows} == {
+            (f"metric-{i}", float(i % 2), i % 3, 1, False) for i in range(1, 7)
+        } | {("metric-0", 0.0, 0, 2, False), ("metric-7", 0.0, 1, 1, True)}
+
+
+def test_log_batch_metric_history_without_bulk_returning(store: SqlAlchemyStore):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL bulk RETURNING fallback with psycopg 3")
+
+    run_id = _run_factory(store).info.run_id
+    metrics = [Metric("metric", float(i), i, i) for i in range(3)]
+    with mock.patch.object(
+        type(store.engine.dialect),
+        "insert_executemany_returning",
+        new_callable=mock.PropertyMock,
+        return_value=False,
+    ):
+        store.log_batch(run_id, metrics=metrics, params=[], tags=[])
+    assert set(store.get_metric_history(run_id, "metric")) == set(metrics)
+    assert store.get_run(run_id).data.metrics == {"metric": 2.0}
+
+
 def test_log_batch_same_metric_repeated_single_req(store: SqlAlchemyStore):
     run = _run_factory(store)
     metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
@@ -4446,6 +4549,65 @@ def test_search_logged_models_nan_latest_metric(store: SqlAlchemyStore):
     assert search("metrics.loss < 0.1") == ["nan_first"]
     assert search("metrics.loss < 0") == []
     assert search("metrics.loss != 0.05") == ["nan_last", "tie"]
+
+
+@pytest.mark.parametrize("count", [1000, 1001])
+def test_logged_model_metrics_use_multirow_inserts(store: SqlAlchemyStore, count):
+    if store.db_type != POSTGRES or store.engine.dialect.driver != "psycopg":
+        pytest.skip("PostgreSQL model metric batching with psycopg 3")
+
+    run = _run_factory(store)
+    model_id = store.create_logged_model(experiment_id=run.info.experiment_id).model_id
+    metrics = [
+        Metric(
+            f"metric-{i}",
+            float("nan") if i % 2 else float(i),
+            i,
+            i,
+            model_id=model_id,
+            dataset_name="dataset" if i % 3 else None,
+            dataset_digest="digest" if i % 3 else None,
+        )
+        for i in range(count)
+    ]
+    dialect = store.engine.dialect
+    with (
+        mock.patch.object(dialect, "do_execute", wraps=dialect.do_execute) as execute,
+        mock.patch.object(dialect, "do_executemany", wraps=dialect.do_executemany) as executemany,
+    ):
+        store._log_model_metrics(run.info.run_id, metrics, run.info.experiment_id)
+    prefix = "INSERT INTO logged_model_metrics "
+    assert not [call for call in executemany.call_args_list if call.args[1].startswith(prefix)]
+    assert len([
+        call for call in execute.call_args_list if call.args[1].startswith(prefix)
+    ]) == math.ceil(count / dialect.insertmanyvalues_page_size)
+    with store.ManagedSessionMaker() as session:
+        rows = session.query(models.SqlLoggedModelMetric).filter_by(model_id=model_id).all()
+        assert {
+            (
+                r.metric_name,
+                r.metric_value,
+                r.metric_timestamp_ms,
+                r.metric_step,
+                r.run_id,
+                r.dataset_name,
+                r.dataset_digest,
+                r.dataset_uuid,
+            )
+            for r in rows
+        } == {
+            (
+                f"metric-{i}",
+                None if i % 2 else float(i),
+                i,
+                i,
+                run.info.run_id,
+                "dataset" if i % 3 else None,
+                "digest" if i % 3 else None,
+                None,
+            )
+            for i in range(count)
+        }
 
 
 def test_log_batch_nan_logged_model_metric_duplicates(store: SqlAlchemyStore):
