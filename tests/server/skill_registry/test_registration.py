@@ -273,6 +273,7 @@ def test_malformed_content_is_rejected_without_a_version(store, artifact_root, c
         register_skill_version(_UPLOAD, content=content, multipart=True)
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
     assert version_rows(store) == 0
+    assert list(store.search_skills()) == []
     assert stored_files(artifact_root) == []
 
 
@@ -359,6 +360,7 @@ def test_oversize_content_is_rejected_without_a_version(store, artifact_root, mo
     with pytest.raises(MlflowException, match="exceeds the skill content size limit"):
         register_skill_version(_UPLOAD, content=big, multipart=True)
     assert version_rows(store) == 0
+    assert list(store.search_skills()) == []
     assert stored_files(artifact_root) == []
 
 
@@ -644,6 +646,7 @@ def test_invalid_remote_registration_is_rejected_without_a_version(store, fields
     with pytest.raises(MlflowException, match=message):
         register_skill_version(SkillVersionRegistration(name="reviewer", **fields))
     assert version_rows(store) == 0
+    assert list(store.search_skills()) == []
 
 
 # --- bulk remote registration -----------------------------------------------------------------

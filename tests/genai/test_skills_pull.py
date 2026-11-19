@@ -1,5 +1,5 @@
+import shutil
 import subprocess
-import uuid
 from pathlib import Path
 
 import pytest
@@ -11,11 +11,14 @@ from mlflow.entities.skill import SkillStatus
 from mlflow.entities.skill_source import GitSource, SkillSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.skill_content.digest import compute_tree_digest
-from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 from mlflow.tracking import MlflowClient
 
 from tests.genai.skill_content.conftest import serve_git_repositories
-from tests.tracking.integration_test_utils import _init_server
+from tests.server.skill_registry.live_server import serve_tracking_app
+
+# tests/genai/conftest.py fakes `requests.get` in every test, for telemetry. The live server's
+# readiness check calls `requests.get`, so without the real one it reports ready too early.
+pytestmark = pytest.mark.no_mock_requests_get
 
 SKILL_MD = "---\nname: review\ndescription: Reviews code\n---\n# Review\n"
 
@@ -26,17 +29,15 @@ def _git(*args, cwd):
     )
 
 
-@pytest.fixture(scope="module")
-def tracking_server(tmp_path_factory):
-    root = tmp_path_factory.mktemp("server")
-    with _init_server(
-        backend_uri=f"sqlite:///{root / 'mlflow.db'}",
-        root_artifact_uri="mlflow-artifacts:/",
-        extra_env={
-            SERVE_ARTIFACTS_ENV_VAR: "true",
-            ARTIFACTS_DESTINATION_ENV_VAR: str(root / "artifacts"),
-        },
-    ) as url:
+@pytest.fixture
+def server_artifacts(tmp_path):
+    # Where the server stores uploaded skill content, so a test can change it behind the server.
+    return tmp_path / "server-artifacts"
+
+
+@pytest.fixture
+def tracking_server(db_uri, server_artifacts, monkeypatch):
+    with serve_tracking_app(db_uri, server_artifacts, monkeypatch) as url:
         yield url
 
 
@@ -63,13 +64,8 @@ def _write_skill(root: Path, body: str) -> Path:
     return root
 
 
-def _unique(name: str) -> str:
-    # The module-scoped server keeps every registration, so each test uses its own skill name.
-    return f"{name}-{uuid.uuid4().hex[:8]}"
-
-
 def test_pull_uploaded_skill_by_version_alias_and_latest(client, tmp_path, request):
-    name = _unique("review")
+    name = "review"
     first = _write_skill(tmp_path / "v1", "first\n")
     second = _write_skill(tmp_path / "v2", "second\n")
     v1 = mlflow.genai.register_skill(source=str(first), name=name, organization="acme")
@@ -95,7 +91,7 @@ def test_pull_uploaded_skill_by_version_alias_and_latest(client, tmp_path, reque
 
 
 def test_pull_registered_git_skill_and_detect_changed_source(client, tmp_path, git_server):
-    name = _unique("review")
+    name = "review"
     repo = tmp_path / "repo"
     _write_skill(repo / "skills" / name, "v1\n")
     (repo / "README.md").write_text("not part of the skill\n")
@@ -121,7 +117,7 @@ def test_pull_registered_git_skill_and_detect_changed_source(client, tmp_path, g
 
 
 def test_deprecated_version_still_pulls(client, tmp_path, request):
-    name = _unique("review")
+    name = "review"
     skill = _write_skill(tmp_path / "skill", "deprecated\n")
     version = mlflow.genai.register_skill(source=str(skill), name=name)
     client.update_skill_version(name=name, version=version.version, status="deprecated")
@@ -139,8 +135,51 @@ def test_pull_unknown_skill_writes_nothing(client, tmp_path):
     assert not destination.exists()
 
 
+@pytest.mark.parametrize(
+    ("change", "match"),
+    [
+        ("modified", "does not match its recorded digest"),
+        ("removed", "Failed to fetch skill content"),
+    ],
+)
+def test_uploaded_content_changed_on_the_server_fails_the_pull(
+    change, match, client, server_artifacts, tmp_path
+):
+    skill = _write_skill(tmp_path / "skill", "uploaded\n")
+    version = mlflow.genai.register_skill(source=str(skill), name="review")
+    stored = server_artifacts / version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+    assert (stored / "SKILL.md").is_file()
+    if change == "modified":
+        (stored / "SKILL.md").write_text("changed after registration\n")
+    else:
+        shutil.rmtree(stored)
+    destination = tmp_path / "out"
+
+    with pytest.raises(MlflowException, match=match) as exc:
+        mlflow.genai.pull(f"skills:/review/{version.version}", destination=destination)
+
+    assert not destination.exists()
+    if change == "modified":
+        assert exc.value.error_code == "INVALID_STATE"
+
+
+# If a version's uploaded files go missing from artifact storage outside MLflow (for example,
+# deleted by hand) while its record remains, pull fails with INTERNAL_ERROR, unlike a missing
+# source of any other type. No MLflow command does this; the test deletes the files itself.
+@pytest.mark.xfail(strict=True, raises=AssertionError)
+def test_removed_uploaded_content_is_reported_as_missing(client, server_artifacts, tmp_path):
+    skill = _write_skill(tmp_path / "skill", "uploaded\n")
+    version = mlflow.genai.register_skill(source=str(skill), name="review")
+    shutil.rmtree(
+        server_artifacts / version.source.artifact_path.removeprefix("mlflow-artifacts:/")
+    )
+    with pytest.raises(MlflowException, match="Failed to fetch skill content") as exc:
+        mlflow.genai.pull(f"skills:/review/{version.version}", destination=tmp_path / "out")
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
 def test_cli_pull(client, tmp_path, request, monkeypatch):
-    name = _unique("review")
+    name = "review"
     skill = _write_skill(tmp_path / "skill", "cli\n")
     mlflow.genai.register_skill(source=str(skill), name=name)
     runner = CliRunner()
@@ -175,3 +214,12 @@ def test_cli_pull_usage_errors(args, message, tmp_path):
     assert result.exit_code != 0
     assert message in result.output
     assert not (tmp_path / "out").exists()
+
+
+def test_cli_pull_refuses_a_file_destination(tmp_path):
+    destination = tmp_path / "out"
+    destination.write_text("keep")
+    result = CliRunner().invoke(cli, ["skills", "pull", "skills:/a/1", "-d", str(destination)])
+    assert result.exit_code == 2
+    assert "is a file" in result.output
+    assert destination.read_text() == "keep"
