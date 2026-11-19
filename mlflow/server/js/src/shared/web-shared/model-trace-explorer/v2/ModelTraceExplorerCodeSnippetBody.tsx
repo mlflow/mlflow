@@ -9,7 +9,8 @@ import { CodeSnippetRenderMode } from './ModelTrace.types';
 import { getTextPreview } from '../ModelTraceExplorerCodeSnippet.utils';
 import { CollapsibleJsonViewer, getJsonColors } from './CollapsibleJsonViewer';
 import { ModelTraceExplorerHighlightedCodeSnippet } from '../ModelTraceExplorerHighlightedCodeSnippet';
-import { formatJsonStringAsYaml } from './ModelTraceExplorerYaml.utils';
+import { formatJsonStringAsYaml, getYamlCollectionPreview, yamlJsonMayContain } from './ModelTraceExplorerYaml.utils';
+import { useCachedPayloadGetter, useCachedPayloadResult } from './right-pane/ModelTraceExplorerPayloadCache';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
 import { CodeSnippet } from '../../snippet/CodeSnippet';
 import { SnippetCopyAction } from '../../snippet/actions/SnippetCopyAction';
@@ -38,13 +39,34 @@ export function ModelTraceExplorerCodeSnippetBody({
   initialExpanded?: boolean;
 }): JSX.Element {
   const { theme } = useDesignSystemTheme();
+  const getFullYaml = useCachedPayloadGetter('yaml', data, () => formatJsonStringAsYaml(data));
   const isYamlRenderMode = renderMode === CodeSnippetRenderMode.YAML;
-  const yamlData = useMemo(() => (isYamlRenderMode ? formatJsonStringAsYaml(data) : data), [data, isYamlRenderMode]);
-  const searchableData = isYamlRenderMode ? yamlData : data;
-  const containsMatches =
-    Boolean(searchFilter) && !isNil(activeMatch) && searchableData.toLowerCase().includes(searchFilter);
+  const needsPreview = isYamlRenderMode && data.length > YAML_MAX_CHARS_FOR_PREVIEW * 2;
+  const yamlPreview = useCachedPayloadResult('yaml-preview', needsPreview ? data : undefined, () =>
+    needsPreview ? getYamlCollectionPreview(data, YAML_MAX_LINES_FOR_PREVIEW, YAML_MAX_CHARS_FOR_PREVIEW) : undefined,
+  );
+  const eagerYaml = useCachedPayloadResult('yaml', isYamlRenderMode && !yamlPreview ? data : undefined, () =>
+    isYamlRenderMode && !yamlPreview ? formatJsonStringAsYaml(data) : data,
+  );
+  const isPartialYaml = yamlPreview?.isComplete === false;
+  const isSearching = Boolean(searchFilter) && !isNil(activeMatch);
+  const needsSearchYaml = useMemo(
+    () => isPartialYaml && isSearching && yamlJsonMayContain(data, searchFilter),
+    [isPartialYaml, isSearching, data, searchFilter],
+  );
+  const searchedYaml = useCachedPayloadResult('yaml', needsSearchYaml ? data : undefined, () =>
+    needsSearchYaml ? formatJsonStringAsYaml(data) : '',
+  );
+  const searchableData = isYamlRenderMode ? (isPartialYaml ? searchedYaml : (yamlPreview?.text ?? eagerYaml)) : data;
+  const containsMatches = isSearching && searchableData.toLowerCase().includes(searchFilter);
   const [isContentLong, setIsContentLong] = useState(false);
   const [expanded, setExpanded] = useState(initialExpanded || containsMatches);
+  const needsExpandedYaml = isPartialYaml && expanded && !needsSearchYaml;
+  const expandedYaml = useCachedPayloadResult('yaml', needsExpandedYaml ? data : undefined, () =>
+    needsExpandedYaml ? formatJsonStringAsYaml(data) : '',
+  );
+  const yamlData = needsSearchYaml ? searchedYaml : needsExpandedYaml ? expandedYaml : (yamlPreview?.text ?? eagerYaml);
+  const hasPartialPreview = isPartialYaml && !needsSearchYaml && !needsExpandedYaml;
   const snippetRef = useRef<HTMLPreElement>(null);
   const jsonViewerRef = useRef<HTMLDivElement>(null);
   // if the data is rendered in text / markdown mode, then
@@ -74,6 +96,7 @@ export function ModelTraceExplorerCodeSnippetBody({
   );
 
   const expandable =
+    hasPartialPreview ||
     isContentLong ||
     dataToTruncate.length > maxCharsForPreview ||
     dataToTruncate.split('\n').length > maxLinesForPreview;
@@ -228,7 +251,7 @@ export function ModelTraceExplorerCodeSnippetBody({
           <SnippetCopyAction
             key="copy-snippet"
             componentId="shared.model-trace-explorer.copy-snippet"
-            copyText={isYamlRenderMode ? dataToTruncate : data}
+            copyText={hasPartialPreview ? getFullYaml : isYamlRenderMode ? dataToTruncate : data}
             size="small"
             css={{
               position: 'absolute',

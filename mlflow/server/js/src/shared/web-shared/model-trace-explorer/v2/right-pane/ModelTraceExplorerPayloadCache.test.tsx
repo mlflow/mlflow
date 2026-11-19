@@ -1,11 +1,33 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 
-import { ModelTraceExplorerPayloadCacheProvider, useCachedPayloadResult } from './ModelTraceExplorerPayloadCache';
+import {
+  ModelTraceExplorerPayloadCacheProvider,
+  useCachedPayloadGetter,
+  useCachedPayloadResult,
+} from './ModelTraceExplorerPayloadCache';
 
 const wrapper = ModelTraceExplorerPayloadCacheProvider;
 
 describe('selected payload cache', () => {
+  it('defers computation and retains repeated reads without a provider until the payload changes', () => {
+    const compute = jest.fn((payload: string) => payload);
+    const { result, rerender } = renderHook(
+      ({ payload }) => useCachedPayloadGetter('yaml', payload, () => compute(payload)),
+      { initialProps: { payload: 'first' } },
+    );
+    expect(compute).not.toHaveBeenCalled();
+    expect(result.current()).toBe('first');
+    expect(result.current()).toBe('first');
+    rerender({ payload: 'first' });
+    expect(result.current()).toBe('first');
+    expect(compute).toHaveBeenCalledTimes(1);
+    rerender({ payload: 'second' });
+    expect(compute).toHaveBeenCalledTimes(1);
+    expect(result.current()).toBe('second');
+    expect(compute).toHaveBeenCalledTimes(2);
+  });
+
   it('supports consumers outside a pane provider and updates replacement payloads', () => {
     const firstPayload = { text: 'session turn one' };
     const nextPayload = { text: 'session turn two' };
