@@ -58,7 +58,7 @@ Read both input files and `$trusted_checkout/.claude/skills/verify/payload.schem
 
 Review the diff for correctness and maintainability. For each finding, explain the problem
 and why it matters. Code inspection alone can establish a finding. Use the
-[code review angles](references/code-review.md) where they apply.
+[review angles](references/review-angles.md) where they apply.
 
 ## 2. Verify the PR's claims
 
