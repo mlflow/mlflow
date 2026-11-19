@@ -315,11 +315,15 @@ export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: strin
 
   map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links') => {
     if (label === 'events') {
-      matches.push(...getMatchesFromEvent(span, searchFilter));
+      for (const match of getMatchesFromEvent(span, searchFilter)) {
+        matches.push(match);
+      }
       return;
     }
     if (label === 'links') {
-      matches.push(...getMatchesFromLinks(span, searchFilter));
+      for (const match of getMatchesFromLinks(span, searchFilter)) {
+        matches.push(match);
+      }
       return;
     }
 
