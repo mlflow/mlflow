@@ -201,9 +201,16 @@ export const getModelTraceSpanNodeDepth = (node: ModelTraceSpanNode): number => 
     return 0;
   }
 
-  const childDepths = node.children.map(getModelTraceSpanNodeDepth);
-  return Math.max(...childDepths) + 1;
+  return getMaxModelTraceSpanNodeDepth(node.children) + 1;
 };
+
+export function getMaxModelTraceSpanNodeDepth(nodes: ModelTraceSpanNode[]): number {
+  let depth = -Infinity;
+  for (const node of nodes) {
+    depth = Math.max(depth, getModelTraceSpanNodeDepth(node));
+  }
+  return depth;
+}
 
 export const getSpanNodeParentIds = (
   node: ModelTraceSpanNode,
