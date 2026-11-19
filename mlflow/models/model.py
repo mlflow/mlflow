@@ -58,7 +58,7 @@ from mlflow.utils.environment import (
     _remove_requirements,
     _write_requirements_to_file,
 )
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, local_file_uri_to_path
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
 from mlflow.utils.uri import (
@@ -805,9 +805,10 @@ class Model:
 
         # Check if the path is a local directory and not remote
         sep = os.path.sep
-        path = str(path).rstrip(sep)
+        path = str(path).rstrip("/").rstrip(sep)
         path_scheme = urlparse(path).scheme
-        if (not path_scheme or path_scheme == "file") and not os.path.exists(path):
+        local_path = local_file_uri_to_path(path) if path_scheme == "file" else path
+        if (not path_scheme or path_scheme == "file") and not os.path.exists(local_path):
             raise MlflowException(
                 f'Could not find an "{MLMODEL_FILE_NAME}" configuration file at "{path}"',
                 RESOURCE_DOES_NOT_EXIST,
@@ -816,7 +817,7 @@ class Model:
         if ModelsArtifactRepository._is_logged_model_uri(path):
             path = ModelsArtifactRepository.get_underlying_uri(path)
 
-        is_model_dir = path.rsplit(sep, maxsplit=1)[-1] != MLMODEL_FILE_NAME
+        is_model_dir = path.replace("\\", "/").rsplit("/", maxsplit=1)[-1] != MLMODEL_FILE_NAME
         mlmodel_file_path = f"{path}/{MLMODEL_FILE_NAME}" if is_model_dir else path
         mlmodel_local_path = _download_artifact_from_uri(artifact_uri=mlmodel_file_path)
         with open(mlmodel_local_path) as f:
