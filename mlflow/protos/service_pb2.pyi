@@ -333,6 +333,10 @@ class _BudgetTargetScopeEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_Bud
     """Applies only to requests routed to a specific gateway endpoint"""
     USER: _BudgetTargetScope.ValueType  # 4
     """Applies only to requests made by a specific authenticated user"""
+    ROLE: _BudgetTargetScope.ValueType  # 5
+    """Applies to requests made by any member of a specific auth role; members share
+    one budget
+    """
 
 class BudgetTargetScope(_BudgetTargetScope, metaclass=_BudgetTargetScopeEnumTypeWrapper):
     """Target scope for a budget policy"""
@@ -344,6 +348,10 @@ ENDPOINT: BudgetTargetScope.ValueType  # 3
 """Applies only to requests routed to a specific gateway endpoint"""
 USER: BudgetTargetScope.ValueType  # 4
 """Applies only to requests made by a specific authenticated user"""
+ROLE: BudgetTargetScope.ValueType  # 5
+"""Applies to requests made by any member of a specific auth role; members share
+one budget
+"""
 Global___BudgetTargetScope: _TypeAlias = BudgetTargetScope  # noqa: Y015
 
 class _BudgetAction:
@@ -7663,7 +7671,7 @@ class GatewayBudgetPolicy(_message.Message):
     budget_amount: _builtins.float
     """Budget limit amount"""
     target_scope: Global___BudgetTargetScope.ValueType
-    """Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)"""
+    """Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)"""
     budget_action: Global___BudgetAction.ValueType
     """Action when budget is exceeded"""
     created_by: _builtins.str
@@ -7676,8 +7684,8 @@ class GatewayBudgetPolicy(_message.Message):
     """Last update timestamp in milliseconds"""
     target_value: _builtins.str
     """Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-    for ENDPOINT scope, a username for USER scope. Required for those
-    scopes; unset for GLOBAL and WORKSPACE.
+    for ENDPOINT scope, a username for USER scope, a role ID for ROLE scope. Required
+    for those scopes; unset for GLOBAL and WORKSPACE.
     """
     @_builtins.property
     def duration(self) -> Global___BudgetDuration:
@@ -7742,7 +7750,7 @@ class CreateGatewayBudgetPolicy(_message.Message):
     created_by: _builtins.str
     target_value: _builtins.str
     """Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-    scope). Required for those scopes.
+    scope, role ID for ROLE scope). Required for those scopes.
     """
     @_builtins.property
     def duration(self) -> Global___BudgetDuration: ...
@@ -7840,7 +7848,7 @@ class UpdateGatewayBudgetPolicy(_message.Message):
     updated_by: _builtins.str
     target_value: _builtins.str
     """Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
-    scope). Required for those scopes.
+    scope, role ID for ROLE scope). Required for those scopes.
     """
     @_builtins.property
     def duration(self) -> Global___BudgetDuration: ...

@@ -26,6 +26,37 @@ Click **Create budget policy** to open the creation dialog. Specify the budget a
 
 <img src={useBaseUrl("/images/budget-policies-create.png")} alt="Create budget policy dialog" style={{ maxWidth: "100%" }} />
 
+## Policy Scopes
+
+A policy's `target_scope` controls which requests count toward its budget. Targeted scopes take the target in `target_value`.
+
+| Scope       | Applies to                                   | `target_value` |
+| ----------- | -------------------------------------------- | -------------- |
+| `GLOBAL`    | All requests                                 | —              |
+| `WORKSPACE` | Requests made in the policy's workspace      | —              |
+| `ENDPOINT`  | Requests routed to one gateway endpoint      | Endpoint ID    |
+| `USER`      | Requests made by one authenticated user      | Username       |
+| `ROLE`      | Requests made by any member of one auth role | Role ID        |
+
+A `ROLE` policy is a shared team budget: spend from all of the role's members accumulates in one window, and once it is exceeded every member is affected. Users who are not assigned the role are unaffected. `USER` and `ROLE` policies require [authentication](/self-hosting/security/basic-http-auth) to be enabled, since the gateway can only attribute requests to a user when it knows who is calling.
+
+For example, to cap a role's combined spend at $200 per month:
+
+```bash
+curl -u admin:<password> -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "budget_unit": "USD",
+    "budget_amount": 200,
+    "duration": {"unit": "MONTHS", "value": 1},
+    "target_scope": "ROLE",
+    "target_value": "<role_id>",
+    "budget_action": "REJECT"
+  }'
+```
+
+When spend is restored from trace history after a restart, a `ROLE` window counts the spend of the role's current members.
+
 ## Alert Webhooks
 
 When an `ALERT` policy's threshold is exceeded, the gateway fires a webhook with details about the breach. The alert fires once per window, subsequent requests within the same window do not trigger additional webhooks.
