@@ -24,7 +24,7 @@ def _alter_experiment_fk(ondelete=None):
     fk_kwargs = {"ondelete": ondelete} if ondelete else {}
     if op.get_bind().dialect.name == "sqlite":
         with op.batch_alter_table(SqlTraceInfo.__tablename__, schema=None) as batch_op:
-            batch_op.drop_constraint(_TRACE_INFO_EXPERIMENT_FK, type_="foreignkey")
+            batch_op.drop_constraint(_TRACE_INFO_EXPERIMENT_FK, type_="foreignkey", if_exists=True)
             batch_op.create_foreign_key(
                 _TRACE_INFO_EXPERIMENT_FK,
                 SqlExperiment.__tablename__,

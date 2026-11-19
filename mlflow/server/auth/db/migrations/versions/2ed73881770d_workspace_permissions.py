@@ -55,7 +55,7 @@ def upgrade() -> None:
 
     with op.batch_alter_table("registered_model_permissions", recreate="auto") as batch_op:
         if has_unique_name_user:
-            batch_op.drop_constraint("unique_name_user", type_="unique")
+            batch_op.drop_constraint("unique_name_user", type_="unique", if_exists=True)
         batch_op.create_unique_constraint(
             "unique_workspace_name_user", ["workspace", "name", "user_id"]
         )
@@ -85,6 +85,6 @@ def downgrade() -> None:
     op.drop_index("idx_workspace_permissions_user_id", table_name="workspace_permissions")
     op.drop_table("workspace_permissions")
     with op.batch_alter_table("registered_model_permissions", recreate="auto") as batch_op:
-        batch_op.drop_constraint("unique_workspace_name_user", type_="unique")
+        batch_op.drop_constraint("unique_workspace_name_user", type_="unique", if_exists=True)
         batch_op.create_unique_constraint("unique_name_user", ["name", "user_id"])
         batch_op.drop_column("workspace")
