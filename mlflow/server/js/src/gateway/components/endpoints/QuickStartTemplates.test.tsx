@@ -42,16 +42,16 @@ describe('QuickStartTemplates', () => {
     renderComponent();
 
     // OpenAI models
-    expect(screen.getByText('gpt-5')).toBeInTheDocument();
-    expect(screen.getByText('gpt-5-mini')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5.6')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
     expect(screen.getByText('gpt-5.4')).toBeInTheDocument();
-    expect(screen.getByText('o4-mini')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5.4-mini')).toBeInTheDocument();
 
     // Anthropic models
-    expect(screen.getByText('claude-opus-4-6')).toBeInTheDocument();
+    expect(screen.getByText('claude-opus-5-5')).toBeInTheDocument();
+    expect(screen.getByText('claude-sonnet-5-5')).toBeInTheDocument();
     expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument();
-    expect(screen.getByText('claude-sonnet-4-5')).toBeInTheDocument();
-    expect(screen.getByText('claude-haiku-4-5')).toBeInTheDocument();
+    expect(screen.getByText('claude-haiku-5-5')).toBeInTheDocument();
 
     // Gemini models
     expect(screen.getByText('gemini-3.0-pro')).toBeInTheDocument();

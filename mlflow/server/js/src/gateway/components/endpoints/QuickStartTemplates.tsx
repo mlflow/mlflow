@@ -231,7 +231,7 @@ const ProviderCard = ({ template, componentId, compact }: ProviderCardProps) => 
  * popular models for each provider. Check the model catalog JSON
  * (mlflow/utils/model_prices_and_context_window.json) for available models.
  *
- * Last reviewed: 2026-04-02
+ * Last reviewed: 2026-11-19
  */
 const PROVIDER_TEMPLATES: ProviderTemplate[] = [
   {
@@ -241,10 +241,10 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     logoDark: OpenAiLogoDark,
     componentId: 'mlflow.gateway.quick_start.openai',
     models: [
+      { model: 'gpt-5.6', endpointName: 'openai-gpt-5.6-endpoint' },
+      { model: 'gpt-5.5', endpointName: 'openai-gpt-5.5-endpoint' },
       { model: 'gpt-5.4', endpointName: 'openai-gpt-5.4-endpoint' },
-      { model: 'gpt-5', endpointName: 'openai-gpt-5-endpoint' },
-      { model: 'gpt-5-mini', endpointName: 'openai-gpt-5-mini-endpoint' },
-      { model: 'o4-mini', endpointName: 'openai-o4-mini-endpoint' },
+      { model: 'gpt-5.4-mini', endpointName: 'openai-gpt-5.4-mini-endpoint' },
     ],
   },
   {
@@ -254,10 +254,10 @@ const PROVIDER_TEMPLATES: ProviderTemplate[] = [
     logoDark: AnthropicLogoDark,
     componentId: 'mlflow.gateway.quick_start.anthropic',
     models: [
-      { model: 'claude-opus-4-6', endpointName: 'anthropic-claude-opus-endpoint' },
-      { model: 'claude-sonnet-4-6', endpointName: 'anthropic-claude-sonnet-endpoint' },
-      { model: 'claude-sonnet-4-5', endpointName: 'anthropic-claude-sonnet-4-5-endpoint' },
-      { model: 'claude-haiku-4-5', endpointName: 'anthropic-claude-haiku-endpoint' },
+      { model: 'claude-opus-5-5', endpointName: 'anthropic-claude-opus-endpoint' },
+      { model: 'claude-sonnet-5-5', endpointName: 'anthropic-claude-sonnet-endpoint' },
+      { model: 'claude-sonnet-4-6', endpointName: 'anthropic-claude-sonnet-4-6-endpoint' },
+      { model: 'claude-haiku-5-5', endpointName: 'anthropic-claude-haiku-endpoint' },
     ],
   },
   {

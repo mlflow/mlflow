@@ -459,7 +459,7 @@ bedrock = boto3.client(
     region_name="<REPLACE_WITH_YOUR_AWS_REGION>",
 )
 
-model = "anthropic.claude-sonnet-4-5-20250929-v1:0"
+model = "anthropic.claude-sonnet-5-5"
 messages = [{ "role": "user", "content": [{"text": "Hello!"}]}]
 
 # All intermediate executions within the chat session will be logged
