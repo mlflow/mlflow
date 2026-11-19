@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795050897959,
+  "lastUpdate": 1795051813381,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "117518034+Zuhef@users.noreply.github.com",
-            "name": "Zuhef Ahmed",
-            "username": "Zuhef"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a80faaee6a39313a3ad0bcc1c2f5a76040147508",
-          "message": "Report the underlying type hint error in the signature message (#24761)\n\nSigned-off-by: Juhef <117518034+juheff@users.noreply.github.com>\nSigned-off-by: Harutaka Kawamura <hkawamura0130@gmail.com>\nCo-authored-by: Juhef <117518034+juheff@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Harutaka Kawamura <hkawamura0130@gmail.com>",
-          "timestamp": "2026-09-25T10:51:13Z",
-          "tree_id": "3dd25d3c87b1d48e36687af569de34eb06ca58d4",
-          "url": "https://github.com/mlflow/mlflow/commit/a80faaee6a39313a3ad0bcc1c2f5a76040147508"
-        },
-        "date": 1790333693076,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 46.59438355000063,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 11.593479020000075,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 7.059408387388057,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 7.282240028572081,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 7.600447670102643,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 13.090802999997209,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.503914800003031,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40bebfc91e6235fb9d3f3e6b05a383d99b04f87b",
+          "message": "Skip type-hint signature enforcement in `PyFuncModel.predict_stream` (#27936)\n\nSigned-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-19T01:25:47Z",
+          "tree_id": "f0df8dc22b31169c35b278c66a02c763d189443a",
+          "url": "https://github.com/mlflow/mlflow/commit/40bebfc91e6235fb9d3f3e6b05a383d99b04f87b"
+        },
+        "date": 1795051810253,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 281.260637200009,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.471219247059654,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.8545414060936056,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.85884296842571,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.216784687499339,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.9030937999882553,
             "unit": "ms"
           }
         ]
