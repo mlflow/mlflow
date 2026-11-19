@@ -740,7 +740,11 @@ class TracingClient:
         try:
             return self.store.create_assessment(assessment)
         except MlflowException as e:
-            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            # The store also raises RESOURCE_DOES_NOT_EXIST when the `overrides` target is
+            # missing; flushing pending trace writes cannot fix that, so re-raise it as is.
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST) or (
+                assessment.overrides and assessment.overrides in e.message
+            ):
                 raise
         # A trace that just ended in this process may not have been exported yet when async
         # trace logging is enabled, so flush pending trace writes and retry once.

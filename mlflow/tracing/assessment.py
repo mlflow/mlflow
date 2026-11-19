@@ -1,5 +1,6 @@
 from typing import Any
 
+import mlflow
 from mlflow.entities.assessment import (
     DEFAULT_FEEDBACK_NAME,
     Assessment,
@@ -348,7 +349,15 @@ def _get_trace_span_ids(trace_id: str) -> list[str]:
     with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
         if trace is not None:
             return list(trace.span_dict)
-    return [span.span_id for span in TracingClient().get_trace(trace_id).data.spans]
+    client = TracingClient()
+    try:
+        trace = client.get_trace(trace_id)
+    except MlflowException:
+        # A trace that just ended in this process may not have been exported yet when async
+        # trace logging is enabled, so flush pending trace writes and retry once.
+        mlflow.flush_trace_async_logging()
+        trace = client.get_trace(trace_id)
+    return [span.span_id for span in trace.data.spans]
 
 
 def log_issue(
