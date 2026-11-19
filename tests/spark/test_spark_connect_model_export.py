@@ -16,6 +16,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.spark
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.pyfunc import spark_udf
@@ -184,14 +185,14 @@ def test_load_spark_connect_model_refused_when_model_code_execution_disallowed(
     model_dir = os.path.join(tmp_path, "model")
     _write_spark_connect_flavor_model(model_dir)
 
-    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, "false")
     # Fail loudly if the gate is bypassed and the artifact-named class is actually resolved.
     monkeypatch.setattr(
         mlflow.spark,
         "_get_class_from_string",
         lambda _: pytest.fail("Spark Connect model loaded despite disallowed model-code execution"),
     )
-    with pytest.raises(MlflowException, match="disallowed because it runs code supplied"):
+    with pytest.raises(MlflowException, match=MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name):
         mlflow.spark.load_model(model_dir)
 
 
@@ -207,7 +208,7 @@ def test_load_spark_connect_model_allowed_when_model_code_execution_allowed(tmp_
             loaded["path"] = path
             return cls()
 
-    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "true")
+    monkeypatch.setenv(MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name, "true")
     monkeypatch.setattr(mlflow.spark, "_get_class_from_string", lambda _: _FakeConnectModel)
 
     mlflow.spark.load_model(model_dir)
