@@ -25,11 +25,19 @@ allOf:
           maxItems: 0
 properties:
   event:
-    description: >-
-      Choose APPROVE when you exercised changed behavior through the user's interface, all
-      locally exercisable flows behaved as expected, and no important finding remains open.
-      For bug fixes, approval also requires observing the original failure on the base with
-      the same input. Choose COMMENT otherwise. A flow seen only in tests is unverified.
+    description: |
+      Choose APPROVE only when both conditions hold.
+
+      1. Code review is complete and no material finding remains open. A finding is material
+         when its consequence warrants a fix or investigation before merge. Any evidence label
+         can apply. For a Plausible finding, identify the specific unresolved condition that
+         could cause that consequence. Include findings already raised in review threads.
+      2. Runtime verification is complete for all locally exercisable changed flows. You
+         observed changed behavior through the user's interface and the results matched
+         expectations. For bug fixes, reproduce the failure on the base with the same input.
+         A flow seen only in tests is unverified.
+
+      Choose COMMENT if either condition is unmet.
     type: string
     enum:
       - APPROVE

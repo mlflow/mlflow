@@ -117,11 +117,10 @@ Close browser sessions and stop the servers and children you started using their
 PIDs. Stop server parents so workers cannot respawn. Broad process-name matches can kill the
 review shell.
 
-Write `$tmp_dir/out/payload.json` using the schema. Summarize what you observed, what the code
-establishes, and what remains uncertain. Approve only when the runtime checks succeed and no
-important finding remains open.
-An important issue already raised in a thread still counts toward the decision. Add an inline
-comment only for a new finding or verification gap.
+Write `$tmp_dir/out/payload.json` using the schema's two approval criteria. State the code
+review conclusion and the runtime verification result. A material finding established by
+inspection blocks approval even when all runtime checks pass. Count existing open findings
+in the decision and add inline comments only for new findings or verification gaps.
 
 Use the numbered diff to select each inline comment's `side` and `line`.
 
