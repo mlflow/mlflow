@@ -394,6 +394,18 @@ MLFLOW_SQLALCHEMYSTORE_POOLCLASS = _EnvironmentVariable(
     "MLFLOW_SQLALCHEMYSTORE_POOLCLASS", str, None
 )
 
+#: Specifies the maximum time, in seconds, that a trace search in the SQLAlchemy tracking store
+#: may spend in the database before it is cancelled and fails. On PostgreSQL, the limit is applied
+#: to the search transaction with ``SET LOCAL statement_timeout``, so each statement the search
+#: runs is bounded. On MySQL, it is applied to the search query with the ``MAX_EXECUTION_TIME``
+#: optimizer hint. Other databases (SQLite, MSSQL, and MariaDB, which does not support that hint)
+#: ignore it, and their searches stay unbounded. Zero, negative, and non-finite values mean no
+#: limit.
+#: (default: ``None``, no limit)
+MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS", float, None
+)
+
 #: Specifies the ``timeout_seconds`` for MLflow Model dependency inference operations.
 #: (default: ``120``)
 MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT = _EnvironmentVariable(
