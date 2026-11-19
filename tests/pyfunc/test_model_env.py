@@ -184,3 +184,17 @@ def test_archive_directory_treats_option_like_filenames_as_data(tmp_path):
     assert "regular.txt" in names
     assert "--checkpoint=1" in names
     assert injection in names
+
+
+def test_archive_directory_does_not_decode_escaped_filenames(tmp_path):
+    (tmp_path / "secret.txt").write_text("secret")
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    escaped = r"\056\056\057secret.txt"
+    (input_dir / escaped).write_text("artifact")
+
+    archive_path = archive_directory(input_dir, tmp_path / "archive.tar.gz")
+
+    with tarfile.open(archive_path) as archive:
+        assert archive.getnames() == [escaped]
+        assert archive.extractfile(escaped).read() == b"artifact"
