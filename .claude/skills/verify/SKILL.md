@@ -18,8 +18,8 @@ hooks:
 
 # Review the PR and verify its behavior
 
-Use code inspection to choose runtime checks, then use the results to revisit the diff.
-Write one review payload for the workflow to publish.
+Review the code and verify the PR's claims. Use evidence from both to write one review
+payload for the workflow to publish.
 
 ## Trust boundary
 
@@ -54,12 +54,11 @@ Read both input files and `$trusted_checkout/.claude/skills/verify/payload.schem
 - `pr.diff` omits the hunks of generated files. Read those in `$pr_checkout` if you need them.
 - `gh` is available with a read-only token for linked issues, pull requests, and Actions logs.
 
-## 1. Identify what could change for a user
+## 1. Review the diff
 
-Read the whole diff, including callers and surrounding code as needed. Identify the flows the
-PR claims to change, the behavior it promises to preserve, and any other path it could affect.
-For each scenario, name the entry point, the input or state that triggers it, and the expected
-result. Group concerns that the same run can settle.
+Review the diff for correctness and maintainability. For each finding, explain the problem
+and why it matters. Read the surrounding code and callers to check assumptions. Code alone
+can establish a finding, such as two implementations of a rule that must be kept in sync.
 
 Use these prompts where they help explain a change.
 
@@ -69,12 +68,13 @@ Use these prompts where they help explain a change.
 - Compare with existing implementations. Could reuse or simpler branching prevent inconsistent behavior?
 - Consider cost at realistic scale. For a bug fix, does it address the root cause at each entry point?
 
-## 2. Exercise the scenarios
+## 2. Verify the PR's claims
 
-Run each materially changed flow, including those where inspection found no defect. Use the
-interface a user would reach, such as a browser for a UI change or a running server for an
-endpoint. Mock external providers. Record the actual result and which prediction it answers.
-Use focused tests to diagnose failures or check regressions alongside those runs.
+Identify the behavior the PR claims to change or preserve. For each materially changed flow,
+choose an input and expected result, then exercise it through its public interface. Use a
+browser for a UI change or a running server for an endpoint. Mock external providers.
+Probe code findings when a run can resolve an open question. Record which paths you exercised
+and what you observed. Use focused tests to diagnose failures or check regressions.
 
 For a bug fix, reproduce the failure on the base and the expected result on the PR with the
 same input. Use a separate base checkout for comparisons.
@@ -95,10 +95,10 @@ the error, and the recovery attempt.
 
 ## 3. Reconcile the evidence and decide
 
-Revisit the diff with the results for each scenario. Check which suspected triggers the runs
-actually reached. Trace unexpected results and missed branches, run any newly identified
-scenarios you can, and drop findings the evidence contradicts. Merge findings with the same
-cause and fix, and prioritize them by impact.
+Revisit the diff in light of the results. Trace unexpected behavior, exercise newly identified
+scenarios you can, and drop findings the evidence contradicts. Credit a runtime check only
+for the path it reached. Keep findings established by inspection even when the exercised flows
+pass. Merge findings with the same cause and fix, and prioritize them by impact.
 
 Close browser sessions and stop the servers and children you started using their recorded
 PIDs. Stop server parents so workers cannot respawn. Broad process-name matches can kill the

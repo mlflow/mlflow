@@ -97,13 +97,13 @@ $defs:
       body:
         description: |
           Label each finding Runtime-confirmed when observed through the affected interface,
-          Code-supported when a specific code path establishes the failure, or Plausible when
-          a concrete failure depends on an unverified condition. For a Plausible finding,
+          Code-supported when the code establishes a correctness or maintainability issue,
+          or Plausible when a concrete failure depends on an unverified condition. For a Plausible finding,
           identify that condition and what would settle it. Omit unsupported speculation.
           For fixable findings, use the following format and include a `suggestion` block when possible.
 
           ````markdown
-          **🐛 Issue:** <Evidence label>. <Trigger, expected behavior, consequence, and supporting evidence.>
+          **🐛 Issue:** <Evidence label>. <What is wrong, why it matters, and the evidence.>
 
           **🔧 Fix:** <Recommended change.>
 
