@@ -947,6 +947,36 @@ def test_log_assessment_on_finished_trace_not_yet_exported():
     assert assessments["expectation"].value == "MLflow"
 
 
+def test_log_assessment_flushes_and_retries_when_trace_not_yet_exported(trace_id):
+    store_cls = type(TracingClient().store)
+    original_create_assessment = store_cls.create_assessment
+    calls = []
+
+    # Simulate the window where the trace has left the in-memory buffer but is not yet in the
+    # store: the first write misses and the write after the flush succeeds.
+    def create_assessment(self, assessment):
+        calls.append(assessment.trace_id)
+        if len(calls) == 1:
+            raise MlflowException(
+                f"Trace with ID '{assessment.trace_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return original_create_assessment(self, assessment)
+
+    with (
+        mock.patch.object(store_cls, "create_assessment", create_assessment),
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+    ):
+        feedback = mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
+
+    mock_flush.assert_called_once()
+    assert calls == [trace_id, trace_id]
+    assert feedback.assessment_id is not None
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert assessment.name == "feedback"
+    assert assessment.value == 1.0
+
+
 def test_log_assessment_on_nonexistent_trace_raises():
     with pytest.raises(MlflowException, match=r"Trace with ID 'tr-nonexistent' not found"):
         mlflow.log_feedback(trace_id="tr-nonexistent", name="feedback", value=1.0)
