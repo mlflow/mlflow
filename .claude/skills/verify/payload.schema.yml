@@ -1,16 +1,13 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-title: PR Behavior Verification Review
+title: PR Code Review and Behavior Verification
 description: |
-  Write the review payload as a JSON object matching this schema. Do not request changes,
-  create a review, or approve the PR yourself. Avoid @-mentions.
+  Write the review payload as JSON for the workflow to publish. Avoid @-mentions.
 
   Save screenshots or recordings in the supplied temporary directory's out/media folder.
-  When they support an issue or verification gap, cite their absolute paths in that inline
-  comment, for example:
+  Cite evidence of a finding or verification gap in its inline comment using an absolute path.
   ![Observed behavior](/absolute/path/to/out/media/observed.png)
-  When they show verified behavior working as expected (for example, base vs. PR), cite them
-  in the body's evidence section instead.
-  Put video citations on their own lines. Do not upload media yourself.
+  Cite media showing expected behavior in the body's evidence section, including base/PR
+  comparisons. Put each video citation on its own line. The workflow handles uploads.
 type: object
 additionalProperties: false
 required:
@@ -29,21 +26,19 @@ allOf:
 properties:
   event:
     description: >-
-      Choose APPROVE when every flow you could exercise behaves as expected. Behavior that cannot
-      be exercised here by nature (it needs a real external service, credentials, hardware, or
-      scale) does not block approval; state in the body what was not exercised and what it needs.
-      Choose COMMENT if you find behavioral problems, a check that should work here still fails,
-      or you could not exercise any behavior.
-      Behavior covered only by unit or integration tests remains unverified.
-      Choosing COMMENT does not waive required runtime checks or recovery attempts.
+      Choose APPROVE when you exercised changed behavior through the user's interface, all
+      locally exercisable flows behaved as expected, and no important finding remains open.
+      For bug fixes, approval also requires observing the original failure on the base with
+      the same input. Choose COMMENT otherwise. A flow seen only in tests is unverified.
     type: string
     enum:
       - APPROVE
       - COMMENT
   body:
     description: |
-      Brief verification summary. Do not repeat findings here; put findings and their media in
-      inline comments. Keep the summary within a few sentences.
+      Summarize the runtime checks, observed results, and any unverified flows in a few
+      sentences. For flows that inherently require a real service, credentials, hardware, or
+      scale, say what verification would require. Give the code-review conclusion separately.
 
       To show media of verified behavior, end the body with a collapsed section, giving each
       citation a short caption saying what it shows. Keep the blank lines around the content
@@ -70,11 +65,10 @@ properties:
     pattern: ^[0-9a-f]{40}$
   comments:
     description: >-
-      Comment only on behavioral issues or verification gaps, with supporting evidence, on the most
-      relevant diff line. Do not add evidence-only comments; use an empty array when there are no
-      issues or gaps.
-      For issues outside the diff, use the most relevant diff line and identify the affected
-      location.
+      Report material findings and checks that should work locally but remain blocked after
+      recovery attempts. Anchor each distinct issue or gap to the most relevant diff line.
+      Use an empty array when there is nothing new to report.
+      If the failure surfaces outside the diff, name that location in the comment.
     type: array
     maxItems: 10
     items:
@@ -102,10 +96,14 @@ $defs:
         pattern: \S
       body:
         description: |
-          For fixable findings, use this format, including a `suggestion` block when possible:
+          Label each finding Runtime-confirmed when observed through the affected interface,
+          Code-supported when a specific code path establishes the failure, or Plausible when
+          a concrete failure depends on an unverified condition. For a Plausible finding,
+          identify that condition and what would settle it. Omit unsupported speculation.
+          For fixable findings, use the following format and include a `suggestion` block when possible.
 
           ````markdown
-          **🐛 Issue:** <Trigger, expected vs. actual behavior, and concrete consequence.>
+          **🐛 Issue:** <Evidence label>. <Trigger, expected behavior, consequence, and supporting evidence.>
 
           **🔧 Fix:** <Recommended change.>
 
