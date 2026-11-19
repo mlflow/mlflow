@@ -28,6 +28,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_
 from mlflow.types.schema import AnyType, ColSpec, ParamSchema, Schema, convert_dataclass_to_schema
 from mlflow.types.type_hints import (
     InvalidTypeHintException,
+    _convert_dataframe_to_example_format,
     _get_data_validation_result,
     _infer_schema_from_list_type_hint,
     _infer_schema_from_type_hint,
@@ -528,6 +529,10 @@ def _infer_signature_from_input_example(
         input_data, params = _validate_prediction_input(
             input_data, params, input_schema, params_schema
         )
+        if isinstance(input_data, pd.DataFrame):
+            input_data = _convert_dataframe_to_example_format(
+                input_data, input_example.inference_data
+            )
         prediction = wrapped_model.predict(input_data, params=params)
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
