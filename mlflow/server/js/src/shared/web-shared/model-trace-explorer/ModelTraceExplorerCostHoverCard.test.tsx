@@ -58,12 +58,12 @@ describe('isTraceCostType', () => {
     expect(isTraceCostType({})).toBe(false);
   });
 
-  it('should return false for object missing input_cost', () => {
-    expect(isTraceCostType({ output_cost: 0.002, total_cost: 0.003 })).toBe(false);
+  it('should return true for a total cost without a breakdown', () => {
+    expect(isTraceCostType({ total_cost: 0.003 })).toBe(true);
   });
 
-  it('should return false for object missing output_cost', () => {
-    expect(isTraceCostType({ input_cost: 0.001, total_cost: 0.003 })).toBe(false);
+  it('should return false for a non-numeric total_cost', () => {
+    expect(isTraceCostType({ input_cost: 0.001, output_cost: 0.002, total_cost: '0.003' })).toBe(false);
   });
 
   it('should return false for object missing total_cost', () => {
@@ -78,6 +78,16 @@ describe('isTraceCostType', () => {
 });
 
 describe('ModelTraceExplorerCostHoverCard', () => {
+  it('shows only the total on hover when there is no breakdown', async () => {
+    render(<ModelTraceExplorerCostHoverCard cost={{ total_cost: 0.003579 }} />, { wrapper: Wrapper });
+
+    await userEvent.hover(screen.getByText('$0.003579'));
+
+    expect(await screen.findByText('Total')).toBeInTheDocument();
+    expect(screen.queryByText('Input cost')).not.toBeInTheDocument();
+    expect(screen.queryByText('Output cost')).not.toBeInTheDocument();
+  });
+
   it('marks the cost as estimated with the new eval runs UI', () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     render(<ModelTraceExplorerCostHoverCard cost={{ input_cost: 0.001, output_cost: 0.002, total_cost: 0.003 }} />, {

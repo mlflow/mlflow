@@ -867,6 +867,19 @@ describe('normalizeNewSpanData', () => {
     });
   });
 
+  it('should extract a total cost without a breakdown', () => {
+    const spanWithCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({ total_cost: 0.003 }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({ total_cost: 0.003 });
+  });
+
   it('should return undefined cost when mlflow.llm.cost is malformed', () => {
     const spanWithMalformedCost: ModelTraceSpanV3 = {
       ...MOCK_V3_SPANS[0],

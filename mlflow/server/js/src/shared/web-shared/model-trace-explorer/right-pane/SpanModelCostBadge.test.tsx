@@ -121,6 +121,17 @@ describe('SpanModelCostBadge', () => {
     expect(screen.getByText('$0.003')).toBeInTheDocument();
   });
 
+  it('shows only the total on hover when there is no breakdown', async () => {
+    const span = createMockSpanNode({ cost: { total_cost: 0.003579 } });
+    render(<SpanModelCostBadge activeSpan={span} />, { wrapper: Wrapper });
+
+    await userEvent.hover(screen.getByText('$0.003579'));
+
+    expect(await screen.findByText('Total')).toBeInTheDocument();
+    expect(screen.queryByText('Input cost')).not.toBeInTheDocument();
+    expect(screen.queryByText('Output cost')).not.toBeInTheDocument();
+  });
+
   it('shows cost breakdown on hover', async () => {
     const span = createMockSpanNode({
       cost: {

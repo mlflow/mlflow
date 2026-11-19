@@ -336,14 +336,18 @@ export const CostMetadataItem = ({
           <Typography.Title level={3} withoutMargins>
             <FormattedMessage defaultMessage="Cost breakdown" description="Header for cost breakdown" />
           </Typography.Title>
-          <BreakdownRow
-            label={<FormattedMessage defaultMessage="Input cost" description="Label for input cost" />}
-            value={formatCostUSD(cost.input_cost)}
-          />
-          <BreakdownRow
-            label={<FormattedMessage defaultMessage="Output cost" description="Label for output cost" />}
-            value={formatCostUSD(cost.output_cost)}
-          />
+          {cost.input_cost !== undefined && (
+            <BreakdownRow
+              label={<FormattedMessage defaultMessage="Input cost" description="Label for input cost" />}
+              value={formatCostUSD(cost.input_cost)}
+            />
+          )}
+          {cost.output_cost !== undefined && (
+            <BreakdownRow
+              label={<FormattedMessage defaultMessage="Output cost" description="Label for output cost" />}
+              value={formatCostUSD(cost.output_cost)}
+            />
+          )}
           <div
             css={{
               borderTop: `1px solid ${theme.colors.borderDecorative}`,
