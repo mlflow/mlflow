@@ -54,25 +54,27 @@ Read both input files and `$trusted_checkout/.claude/skills/verify/payload.schem
 - `pr.diff` omits the hunks of generated files. Read those in `$pr_checkout` if you need them.
 - `gh` is available with a read-only token for linked issues, pull requests, and Actions logs.
 
-## Review the diff
+## 1. Identify what could change for a user
 
-Work through these angles in order in the same context. For each potential defect, identify
-the input or caller that reaches the changed code and predict what the user would observe.
+Read the whole diff, including callers and surrounding code as needed. Identify the flows the
+PR claims to change, the behavior it promises to preserve, and any other path it could affect.
+For each scenario, name the entry point, the input or state that triggers it, and the expected
+result. Group concerns that the same run can settle.
 
-1. **Line by line.** Read each hunk with its enclosing function. Which results can change?
-2. **Removed behavior.** Where do deleted guards, defaults, side effects, and cleanup live now?
-3. **Callers and callees.** Trace real callers and existing data through the changed contract.
-4. **Language pitfalls.** Check assumptions about empty values, exceptions, and async ordering.
-5. **Wrappers and proxies.** Follow arguments, defaults, return values, and errors across layers.
-6. **Reuse.** Does an existing implementation handle a case the new path misses?
-7. **Simplification.** Can duplicate state or branching produce inconsistent results?
-8. **Efficiency.** How do queries, memory use, or resource lifetimes scale with realistic input?
-9. **Root cause.** Does the fix address the cause at each affected entry point?
-10. **Repository conventions.** Check applicable guidance and invariants such as workspace scoping.
+Use these prompts where they help explain a change.
 
-Merge findings with the same cause and fix. Prioritize by impact and group checks by user flow.
+- Read each hunk in context. Where did a removed guard, default, or side effect move?
+- Trace callers and callees through wrappers and proxies. What happens to existing inputs and errors?
+- Check language semantics and repository invariants, such as empty values and workspace scoping.
+- Compare with existing implementations. Could reuse or simpler branching prevent inconsistent behavior?
+- Consider cost at realistic scale. For a bug fix, does it address the root cause at each entry point?
 
-## Compare against the base
+## 2. Exercise the scenarios
+
+Run each materially changed flow, including those where inspection found no defect. Use the
+interface a user would reach, such as a browser for a UI change or a running server for an
+endpoint. Mock external providers. Record the actual result and which prediction it answers.
+Use focused tests to diagnose failures or check regressions alongside those runs.
 
 For a bug fix, reproduce the failure on the base and the expected result on the PR with the
 same input. Use a separate base checkout for comparisons.
@@ -85,31 +87,26 @@ Install dependencies independently in each checkout, including `node_modules`. G
 its own data and log paths and confirm which source or build each process loaded. Keep checkout
 contents intact when resetting test data.
 
-## Run the checks
-
-Exercise every materially changed flow, even if inspection found no defect. For refactors and
-dependency updates, check the behavior they promise to preserve. Use the interface a user would
-reach, such as the browser for a UI change or a running server for an endpoint. Mock external
-providers. Compare the actual result with the expected result. Use focused tests to diagnose
-failures or check regressions alongside those runs.
-
 For server startup and readiness, use [servers.md](references/servers.md). For browser sessions
 and visual evidence, use [browser.md](references/browser.md).
 
 If setup or a mock fails, fix it and retry. If the check stays blocked, record the command,
 the error, and the recovery attempt.
 
-Revisit the diff after execution. Did the checks reach each suspected trigger? Which branches
-did they miss? Trace unexpected results, exercise newly identified scenarios where feasible,
-and drop findings the evidence contradicts.
+## 3. Reconcile the evidence and decide
 
-## Write the review
+Revisit the diff with the results for each scenario. Check which suspected triggers the runs
+actually reached. Trace unexpected results and missed branches, run any newly identified
+scenarios you can, and drop findings the evidence contradicts. Merge findings with the same
+cause and fix, and prioritize them by impact.
 
 Close browser sessions and stop the servers and children you started using their recorded
 PIDs. Stop server parents so workers cannot respawn. Broad process-name matches can kill the
 review shell.
 
-Write `$tmp_dir/out/payload.json` using the schema's decision, evidence, and comment guidance.
+Write `$tmp_dir/out/payload.json` using the schema. Summarize what you observed, what the code
+establishes, and what remains uncertain. Approve only when the runtime checks succeed and no
+important finding remains open.
 An important issue already raised in a thread still counts toward the decision. Add an inline
 comment only for a new finding or verification gap.
 
