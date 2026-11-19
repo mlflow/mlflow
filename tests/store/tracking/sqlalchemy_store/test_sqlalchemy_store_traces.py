@@ -41,6 +41,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace
 from mlflow.environment_variables import (
     MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
+    MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_TRACE_DELETE_MAX_WORKERS,
 )
@@ -564,6 +565,28 @@ def test_search_traces_order_by_null_handling(store, order_by, needs_null_orderi
     if order_by.startswith("timestamp"):
         direction = " DESC" if order_by.endswith("DESC") else ""
         assert f"ORDER BY trace_info.timestamp_ms{direction}, trace_info.request_id" in statement
+
+
+def test_search_traces_timeout_is_ignored_on_sqlite(store, monkeypatch):
+    if store.db_type != SQLITE:
+        pytest.skip("Other databases are covered by tests/db/test_search_traces_timeout.py")
+
+    exp_id = _create_experiments(store, "test_search_traces_timeout")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "0.001")
+    statements = []
+
+    def capture(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture)
+    try:
+        traces, _ = store.search_traces(locations=[exp_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture)
+
+    assert [t.trace_id for t in traces] == ["tr-0"]
+    assert not any("statement_timeout" in s or "MAX_EXECUTION_TIME" in s for s in statements)
 
 
 @pytest.mark.parametrize("direction", ["ASC", "DESC"])
