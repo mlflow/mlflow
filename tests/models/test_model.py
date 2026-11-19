@@ -111,6 +111,35 @@ def test_model_load_remote(tmp_path, mock_s3_bucket):
     assert model_reloaded_2 == model
 
 
+def test_model_load_file_uri(tmp_path):
+    model = Model(
+        artifact_path="model",
+        run_id="123",
+        flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
+        signature=ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        ),
+        saved_input_example_info={"x": 1, "y": 2},
+    )
+    model_path = tmp_path / "MLmodel"
+    model.save(model_path)
+
+    loaded_from_file_uri = Model.load(model_path.as_uri())
+    assert loaded_from_file_uri == model
+
+    dir_uri = tmp_path.as_uri()
+    loaded_from_dir_uri = Model.load(dir_uri)
+    assert loaded_from_dir_uri == model
+
+    loaded_from_dir_uri_slash = Model.load(f"{dir_uri}/")
+    assert loaded_from_dir_uri_slash == model
+
+    non_existent_uri = (tmp_path / "non_existent").as_uri()
+    with pytest.raises(MlflowException, match='Could not find an "MLmodel" configuration file'):
+        Model.load(non_existent_uri)
+
+
 class TestFlavor:
     @classmethod
     def save_model(cls, path, mlflow_model, signature=None, input_example=None):
