@@ -52,6 +52,7 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
     DEADLINE_EXCEEDED,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -696,10 +697,11 @@ def test_search_traces_reraises_other_database_errors(store, monkeypatch):
         sqlalchemy_store_module, "_build_trace_infos_from_rows", mock.Mock(side_effect=error)
     )
 
-    with pytest.raises(sqlalchemy.exc.DBAPIError, match="deadlock detected") as exc_info:
+    with pytest.raises(MlflowException, match="deadlock detected") as exc_info:
         store.search_traces(locations=[exp_id])
 
-    assert exc_info.value is error
+    assert exc_info.value.error_code == ErrorCode.Name(BAD_REQUEST)
+    assert exc_info.value.__cause__ is error
 
 
 @pytest.mark.parametrize("direction", ["ASC", "DESC"])
