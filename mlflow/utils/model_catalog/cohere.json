@@ -199,7 +199,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.08,
-        "output_per_million_tokens": 0.0
+        "output_per_million_tokens": 0.0,
+        "modality": {
+          "image": {
+            "input_per_million_tokens": 0.4
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -208,7 +213,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "embed-v5.0-pro": {
       "mode": "embedding",
@@ -217,7 +222,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.12,
-        "output_per_million_tokens": 0.0
+        "output_per_million_tokens": 0.0,
+        "modality": {
+          "image": {
+            "input_per_million_tokens": 0.4
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -226,7 +236,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     }
   }
 }
