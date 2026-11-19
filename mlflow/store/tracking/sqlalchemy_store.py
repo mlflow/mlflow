@@ -375,6 +375,17 @@ class DatasetFilter(TypedDict, total=False):
     dataset_digest: str
 
 
+def _get_search_traces_timeout_seconds() -> float | None:
+    """
+    Returns the configured trace search timeout, or None when no limit applies. Zero, negative,
+    and non-finite values (``inf``, ``nan``) all mean no limit.
+    """
+    timeout_seconds = MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.get()
+    if timeout_seconds is None or not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        return None
+    return timeout_seconds
+
+
 class SqlAlchemyStore(
     SqlAlchemySkillRegistryMixin,
     SqlAlchemyMCPServerRegistryMixin,
@@ -4459,7 +4470,7 @@ class SqlAlchemyStore(
                 if self._is_search_traces_timeout_error(e):
                     raise MlflowException(
                         "The trace search was cancelled because it ran longer than the "
-                        f"{MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.get()} second "
+                        f"{_get_search_traces_timeout_seconds()} second "
                         f"limit set by {MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS}. "
                         "Narrow the search, for example with a shorter time range or a more "
                         "selective filter, or increase the limit.",
@@ -4478,8 +4489,8 @@ class SqlAlchemyStore(
             return trace_infos, next_token
 
     def _apply_search_traces_timeout(self, session: Session, stmt: Query) -> Query:
-        timeout_seconds = MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.get()
-        if timeout_seconds is None or timeout_seconds <= 0:
+        timeout_seconds = _get_search_traces_timeout_seconds()
+        if timeout_seconds is None:
             return stmt
         # Both databases treat 0 as "no limit", so never round a positive timeout down to it.
         timeout_ms = max(1, int(timeout_seconds * 1000))
@@ -4495,7 +4506,7 @@ class SqlAlchemyStore(
         return stmt
 
     def _is_search_traces_timeout_error(self, error: sqlalchemy.exc.DBAPIError) -> bool:
-        if MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.get() is None:
+        if _get_search_traces_timeout_seconds() is None:
             return False
         orig = error.orig
         if self.db_type == POSTGRES:
