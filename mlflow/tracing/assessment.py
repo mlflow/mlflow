@@ -13,6 +13,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.issue_evidence import IssueEvidence
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import NOT_FOUND, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
@@ -352,7 +353,12 @@ def _get_trace_span_ids(trace_id: str) -> list[str]:
     client = TracingClient()
     try:
         trace = client.get_trace(trace_id)
-    except MlflowException:
+    except MlflowException as e:
+        if e.error_code not in (
+            ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+            ErrorCode.Name(NOT_FOUND),
+        ):
+            raise
         # A trace that just ended in this process may not have been exported yet when async
         # trace logging is enabled, so flush pending trace writes and retry once.
         mlflow.flush_trace_async_logging()

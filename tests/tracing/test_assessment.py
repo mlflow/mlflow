@@ -18,6 +18,7 @@ from mlflow.entities.issue_evidence import (
     IssueEvidenceStep,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, RESOURCE_DOES_NOT_EXIST
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
@@ -980,7 +981,9 @@ def test_log_issue_with_evidence_flushes_when_trace_not_yet_exported(trace_id, t
     def get_trace(self, trace_id):
         calls.append(trace_id)
         if len(calls) == 1:
-            raise MlflowException(f"Trace with ID '{trace_id}' not found.")
+            raise MlflowException(
+                f"Trace with ID '{trace_id}' not found.", error_code=RESOURCE_DOES_NOT_EXIST
+            )
         return original_get_trace(self, trace_id)
 
     with (
@@ -1002,6 +1005,34 @@ def test_log_issue_with_evidence_flushes_when_trace_not_yet_exported(trace_id, t
     assessment = mlflow.get_trace(trace_id).info.assessments[0]
     assert isinstance(assessment, IssueReference)
     assert assessment.span_id == span_id
+
+
+def test_log_issue_with_evidence_raises_without_flush_on_non_not_found_error(trace_id):
+    issue = mlflow.MlflowClient()._tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    with (
+        mock.patch.object(
+            TracingClient,
+            "get_trace",
+            side_effect=MlflowException("Span data is corrupted.", error_code=BAD_REQUEST),
+        ) as mock_get_trace,
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+        pytest.raises(MlflowException, match=r"Span data is corrupted"),
+    ):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            evidence=IssueEvidence(
+                summary="The agent answered from an empty context",
+                steps=[IssueEvidenceStep(span_id="span-1", text="No documents", highlights=["No"])],
+            ),
+        )
+    mock_get_trace.assert_called_once()
+    mock_flush.assert_not_called()
 
 
 @pytest.mark.asyncio
