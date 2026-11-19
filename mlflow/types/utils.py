@@ -39,6 +39,16 @@ class TensorsNotSupportedException(MlflowException):
         super().__init__(f"Multidimensional arrays (aka tensors) are not supported. {msg}")
 
 
+def _is_scipy_sparse_matrix(data: Any) -> bool:
+    try:
+        from scipy.sparse import csc_matrix, csr_matrix
+    except ImportError:
+        # scipy is an optional dependency (e.g. it's not installed with mlflow-skinny).
+        # Without it, `data` can't be a scipy sparse matrix.
+        return False
+    return isinstance(data, (csc_matrix, csr_matrix))
+
+
 def _get_tensor_shape(data, variable_dimension: int | None = 0) -> tuple[int, ...]:
     """Infer the shape of the inputted data.
 
@@ -54,9 +64,7 @@ def _get_tensor_shape(data, variable_dimension: int | None = 0) -> tuple[int, ..
     Returns:
         tuple: Shape of the inputted data (including a variable dimension)
     """
-    from scipy.sparse import csc_matrix, csr_matrix
-
-    if not isinstance(data, (np.ndarray, csr_matrix, csc_matrix)):
+    if not (isinstance(data, np.ndarray) or _is_scipy_sparse_matrix(data)):
         raise TypeError(f"Expected numpy.ndarray or csc/csr matrix, got '{type(data)}'.")
     variable_input_data_shape = data.shape
     if variable_dimension is not None:
@@ -317,8 +325,6 @@ def _infer_schema(data: Any) -> Schema:
     Returns:
         Schema
     """
-    from scipy.sparse import csc_matrix, csr_matrix
-
     # To keep backward compatibility with < 2.9.0, an empty list is inferred as string.
     #   ref: https://github.com/mlflow/mlflow/pull/10125#discussion_r1372751487
     if isinstance(data, list) and data == []:
@@ -388,7 +394,7 @@ def _infer_schema(data: Any) -> Schema:
             TensorSpec(type=clean_tensor_type(data.dtype), shape=_get_tensor_shape(data))
         ])
     # scipy.sparse.csr_matrix/csc_matrix
-    elif isinstance(data, (csc_matrix, csr_matrix)):
+    elif _is_scipy_sparse_matrix(data):
         schema = Schema([
             TensorSpec(type=clean_tensor_type(data.data.dtype), shape=_get_tensor_shape(data))
         ])
