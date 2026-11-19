@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 import type { TranscriptEntry } from '../src/types';
@@ -653,6 +653,87 @@ describe('processTranscript', () => {
   // --------------------------------------------------------------------------
   // Steer messages
   // --------------------------------------------------------------------------
+
+  describe('stopped turn from the Stop hook input', () => {
+    const prompt = (text: string, promptId: string, second: number): TranscriptEntry => ({
+      type: 'user',
+      promptId,
+      message: { role: 'user', content: text },
+      timestamp: `2025-01-15T10:00:0${second}.000Z`,
+    });
+    const reply = (text: string, second: number): TranscriptEntry => ({
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text }],
+        stop_reason: 'end_turn',
+        model: 'claude-sonnet-4-20250514',
+        usage: { input_tokens: 10, output_tokens: 5 },
+      },
+      timestamp: `2025-01-15T10:00:0${second}.000Z`,
+    });
+    const write = (entries: TranscriptEntry[]) => {
+      const path = resolve(mkdtempSync(resolve(tmpdir(), 'cc-stop-')), 'turn.jsonl');
+      writeFileSync(path, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+      return path;
+    };
+
+    it('traces the stopped turn, not a queued message appended at the Stop', async () => {
+      const path = write([
+        prompt('Fix the test', 'p1', 0),
+        reply('Done.', 1),
+        prompt('Another Claude session sent a message: hello', 'p1', 2),
+        reply('Answered the other session.', 3),
+      ]);
+
+      await processTranscript(path, 'stop-session', {
+        lastAssistantMessage: 'Done.',
+        promptId: 'p1',
+        waitMs: 0,
+      });
+
+      const root = getSpansByType('AGENT')[0];
+      expect(root.inputs.prompt).toBe('Fix the test');
+      expect(root.outputs.response).toBe('Done.');
+      const llms = getSpansByType('LLM');
+      expect(llms).toHaveLength(1);
+      expect(mockTraceInfo.responsePreview).toBe('Done.');
+    });
+
+    it('logs the response without usage when the final message never arrives', async () => {
+      const path = write([
+        prompt('Fix the test', 'p1', 0),
+        prompt('Another Claude session sent a message: hello', 'p2', 2),
+      ]);
+
+      await processTranscript(path, 'stop-session', {
+        lastAssistantMessage: 'Done.',
+        promptId: 'p1',
+        waitMs: 50,
+        pollMs: 10,
+      });
+
+      const root = getSpansByType('AGENT')[0];
+      expect(root.inputs.prompt).toBe('Fix the test');
+      expect(root.outputs.response).toBe('Done.');
+      expect(getSpansByType('LLM')).toHaveLength(0);
+    });
+
+    it('waits for a final message written after the hook started', async () => {
+      const path = write([prompt('Fix the test', 'p1', 0)]);
+      setTimeout(() => appendFileSync(path, JSON.stringify(reply('Done.', 1)) + '\n'), 50);
+
+      await processTranscript(path, 'stop-session', {
+        lastAssistantMessage: 'Done.',
+        promptId: 'p1',
+        waitMs: 2000,
+        pollMs: 10,
+      });
+
+      expect(getSpansByType('LLM')).toHaveLength(1);
+      expect(getSpansByType('AGENT')[0].outputs.response).toBe('Done.');
+    });
+  });
 
   describe('steer messages', () => {
     it('includes queue-operation enqueue as user messages in LLM inputs', async () => {
