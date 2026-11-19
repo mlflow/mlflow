@@ -92,20 +92,24 @@ describe('QuickStartTemplates', () => {
   });
 
   it.each([
-    ['claude-opus-5-5', 'anthropic-claude-opus-endpoint'],
-    ['claude-sonnet-5-5', 'anthropic-claude-sonnet-endpoint'],
-    ['claude-sonnet-4-6', 'anthropic-claude-sonnet-4-6-endpoint'],
-    ['claude-haiku-5-5', 'anthropic-claude-haiku-endpoint'],
-  ])('passes model %s and endpoint name %s in the link state', async (model, endpointName) => {
+    ['openai', 'gpt-5.6', 'openai-gpt-5.6-endpoint', 'openai-api-key'],
+    ['openai', 'gpt-5.5', 'openai-gpt-5.5-endpoint', 'openai-api-key'],
+    ['openai', 'gpt-5.4', 'openai-gpt-5.4-endpoint', 'openai-api-key'],
+    ['openai', 'gpt-5.4-mini', 'openai-gpt-5.4-mini-endpoint', 'openai-api-key'],
+    ['anthropic', 'claude-opus-5-5', 'anthropic-claude-opus-endpoint', 'anthropic-api-key'],
+    ['anthropic', 'claude-sonnet-5-5', 'anthropic-claude-sonnet-endpoint', 'anthropic-api-key'],
+    ['anthropic', 'claude-sonnet-4-6', 'anthropic-claude-sonnet-4-6-endpoint', 'anthropic-api-key'],
+    ['anthropic', 'claude-haiku-5-5', 'anthropic-claude-haiku-endpoint', 'anthropic-api-key'],
+  ])('passes %s model %s and endpoint name %s in the link state', async (provider, model, endpointName, secretName) => {
     renderComponentWithCreateRoute();
 
     await userEvent.click(screen.getByText(model));
 
     expect(JSON.parse(screen.getByTestId('location-state').textContent ?? 'null')).toEqual({
-      provider: 'anthropic',
+      provider,
       model,
       endpointName,
-      secretName: 'anthropic-api-key',
+      secretName,
     });
   });
 
