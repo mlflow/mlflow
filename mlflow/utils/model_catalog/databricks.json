@@ -2540,24 +2540,24 @@
         "max_output": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 8.0,
-        "output_per_million_tokens": 40.0,
-        "cache_read_per_million_tokens": 0.4,
-        "cache_write_per_million_tokens": 10.0,
+        "input_per_million_tokens": 8.00002,
+        "output_per_million_tokens": 40.00003,
+        "cache_read_per_million_tokens": 0.39998,
+        "cache_write_per_million_tokens": 9.99999,
         "service_tiers": {
           "priority": {
-            "input_per_million_tokens": 16.0,
-            "output_per_million_tokens": 80.0,
-            "cache_read_per_million_tokens": 0.8
+            "input_per_million_tokens": 15.99997,
+            "output_per_million_tokens": 80.0002,
+            "cache_read_per_million_tokens": 0.80003
           }
         },
         "long_context": [
           {
             "threshold_tokens": 272000,
-            "cache_write_per_million_tokens": 20.0,
-            "cache_read_per_million_tokens": 0.8,
-            "input_per_million_tokens": 16.0,
-            "output_per_million_tokens": 60.0
+            "cache_write_per_million_tokens": 19.99998,
+            "cache_read_per_million_tokens": 0.80003,
+            "input_per_million_tokens": 15.99997,
+            "output_per_million_tokens": 59.9998
           }
         ]
       },
@@ -2577,24 +2577,24 @@
         "max_output": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 10.0,
-        "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 2.5,
+        "input_per_million_tokens": 1.99997,
+        "output_per_million_tokens": 9.99999,
+        "cache_read_per_million_tokens": 0.10003,
+        "cache_write_per_million_tokens": 2.49998,
         "service_tiers": {
           "priority": {
-            "input_per_million_tokens": 4.0,
-            "output_per_million_tokens": 20.0,
-            "cache_read_per_million_tokens": 0.2
+            "input_per_million_tokens": 4.00001,
+            "output_per_million_tokens": 19.9997,
+            "cache_read_per_million_tokens": 0.19999
           }
         },
         "long_context": [
           {
             "threshold_tokens": 272000,
-            "cache_write_per_million_tokens": 5.0,
-            "cache_read_per_million_tokens": 0.2,
-            "input_per_million_tokens": 4.0,
-            "output_per_million_tokens": 15.0
+            "cache_write_per_million_tokens": 5.00003,
+            "cache_read_per_million_tokens": 0.19999,
+            "input_per_million_tokens": 4.00001,
+            "output_per_million_tokens": 15.00002
           }
         ]
       },
