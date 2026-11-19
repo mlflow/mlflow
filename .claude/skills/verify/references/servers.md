@@ -1,7 +1,8 @@
 # Servers
 
-When comparing against the base, run the base and PR servers one after the other, and stop one
-before starting the next.
+Run one checkout's servers at a time. The commands below use `$pr_checkout` for the source
+and `$tmp_dir/work/pr` for its data, logs, and PID files. For the base run, use
+`$tmp_dir/checkouts/base` and `$tmp_dir/work/base` in their place throughout.
 
 ## Backend server
 
@@ -9,18 +10,19 @@ REST API and UI checks need a backend. Use one worker, so a request always reach
 you are watching:
 
 ```bash
-cd "$pr_checkout"
+mkdir -p "$tmp_dir/work/pr"
+cd "$pr_checkout" || exit 1
 uv run mlflow server --dev --workers 1 --host localhost --port 5000 \
-  --backend-store-uri "sqlite:///$tmp_dir/work/mlflow.db" \
-  --artifacts-destination "$tmp_dir/work/artifacts" \
-  > "$tmp_dir/work/backend.log" 2>&1 &
-echo $! > "$tmp_dir/work/backend.pid"
+  --backend-store-uri "sqlite:///$tmp_dir/work/pr/mlflow.db" \
+  --artifacts-destination "$tmp_dir/work/pr/artifacts" \
+  > "$tmp_dir/work/pr/backend.log" 2>&1 &
+echo $! > "$tmp_dir/work/pr/backend.pid"
 ```
 
 Poll until it is ready, checking that the process is alive on every attempt:
 
 ```bash
-kill -0 "$(cat "$tmp_dir/work/backend.pid")" &&
+kill -0 "$(cat "$tmp_dir/work/pr/backend.pid")" &&
   curl -fsS --max-time 2 http://localhost:5000/health >/dev/null
 ```
 
@@ -32,14 +34,15 @@ the process has exited, read its log, fix the cause, and retry right away.
 UI checks also need the frontend. Use `localhost` for readiness checks and browser URLs:
 
 ```bash
-cd "$pr_checkout/mlflow/server/js"
+mkdir -p "$tmp_dir/work/pr"
+cd "$pr_checkout/mlflow/server/js" || exit 1
 yarn install --immutable
-PORT=3000 BROWSER=none CI=false yarn start > "$tmp_dir/work/frontend.log" 2>&1 &
-echo $! > "$tmp_dir/work/frontend.pid"
+PORT=3000 BROWSER=none CI=false yarn start > "$tmp_dir/work/pr/frontend.log" 2>&1 &
+echo $! > "$tmp_dir/work/pr/frontend.pid"
 ```
 
 ```bash
-kill -0 "$(cat "$tmp_dir/work/frontend.pid")" &&
+kill -0 "$(cat "$tmp_dir/work/pr/frontend.pid")" &&
   curl -fsS --max-time 2 http://localhost:3000/ >/dev/null
 ```
 
@@ -47,3 +50,10 @@ For a backend on another port, set `MLFLOW_PROXY=http://localhost:<port>/`. Unle
 `MLFLOW_DEV_PROXY_MODE` is set, that switches the frontend to HTTPS: use `curl -k` with
 `https://localhost:<frontend_port>/`, and pass `--ignore-https-errors` on the browser's first
 `open`.
+
+## Switch checkouts
+
+Before starting the other checkout, stop the servers you started using the outgoing run's
+`frontend.pid` and `backend.pid`. Confirm their ports are free (3000 and 5000 by default).
+If a worker is still listening, confirm it belongs to the outgoing checkout and stop it by PID.
+This keeps readiness probes for the next run from reaching the previous server.
