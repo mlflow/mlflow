@@ -6093,14 +6093,14 @@
         "max_output": 131072
       },
       "pricing": {
-        "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3,
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.2,
         "service_tiers": {
           "priority": {
-            "input_per_million_tokens": 3.75,
-            "output_per_million_tokens": 18.75,
-            "cache_read_per_million_tokens": 0.375
+            "input_per_million_tokens": 3.0,
+            "output_per_million_tokens": 15.0,
+            "cache_read_per_million_tokens": 0.3
           }
         }
       },
@@ -6108,10 +6108,10 @@
         "function_calling": true,
         "vision": true,
         "reasoning": true,
-        "prompt_caching": false,
+        "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-11"
+      "last_updated_at": "2026-11-19"
     },
     "accounts/fireworks/routers/minimax-latest": {
       "mode": "chat",
