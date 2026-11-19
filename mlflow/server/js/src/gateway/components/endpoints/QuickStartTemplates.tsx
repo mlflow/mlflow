@@ -229,7 +229,7 @@ const ProviderCard = ({ template, componentId, compact }: ProviderCardProps) => 
  * UPDATE WHEN STALE: These models are hardcoded and should be reviewed
  * periodically (e.g. each release) to ensure they still represent current,
  * popular models for each provider. Check the model catalog JSON
- * (mlflow/utils/model_prices_and_context_window.json) for available models.
+ * files (mlflow/utils/model_catalog/*.json) for available models.
  *
  * Last reviewed: 2026-11-19
  */
