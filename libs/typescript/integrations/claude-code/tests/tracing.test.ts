@@ -131,7 +131,7 @@ jest.mock('@mlflow/core', () => {
 
 // Import after mock
 import { processTranscript } from '../src/tracing';
-import { startSpan, flushTraces } from '@mlflow/core';
+import { startSpan, flushTraces, InMemoryTraceManager } from '@mlflow/core';
 
 const FIXTURES_DIR = resolve(__dirname, 'fixtures');
 
@@ -708,6 +708,191 @@ describe('processTranscript', () => {
       const steerMessages = inputMessages.filter((m) => m.content === 'also tell me about Java');
       expect(steerMessages).toHaveLength(1);
       expect(steerMessages[0].role).toBe('user');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Plan mode
+  // --------------------------------------------------------------------------
+
+  describe('plan mode', () => {
+    const PLAN =
+      '# Plan: Tiny ASCII animation\n\nCreate `fun.py`: a 3-line loop that prints a sine-wave ribbon of `~~~`.';
+
+    function writeTranscript(entries: TranscriptEntry[]): string {
+      const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-test-'));
+      const transcriptPath = resolve(tmpDir, 'plan.jsonl');
+      writeFileSync(transcriptPath, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+      return transcriptPath;
+    }
+
+    function userPrompt(content: string, timestamp: string): TranscriptEntry {
+      return {
+        type: 'user',
+        message: { role: 'user', content },
+        timestamp,
+        permissionMode: 'plan',
+      };
+    }
+
+    function exitPlanMode(id: string, plan: string, timestamp: string): TranscriptEntry {
+      return {
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'tool_use', id, name: 'ExitPlanMode', input: { plan } }],
+        },
+        timestamp,
+      };
+    }
+
+    function toolResult(
+      toolUseId: string,
+      content: string,
+      timestamp: string,
+      isError = false,
+    ): TranscriptEntry {
+      return {
+        type: 'user',
+        message: {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: toolUseId, content, is_error: isError }],
+        },
+        timestamp,
+      };
+    }
+
+    function assistantText(text: string, timestamp: string): TranscriptEntry {
+      return {
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'text', text }] },
+        timestamp,
+      };
+    }
+
+    function toolNames(rootSpanId: string) {
+      return getChildSpans(rootSpanId)
+        .filter((s) => s.spanType === 'TOOL')
+        .map((s) => s.name);
+    }
+
+    it('logs planning and the approved plan execution as separate traces', async () => {
+      await processTranscript(resolve(FIXTURES_DIR, 'with-plan-mode.jsonl'), 'plan-session');
+
+      const roots = getSpansByName('claude_code_conversation');
+      expect(roots).toHaveLength(2);
+      const [planning, execution] = roots;
+
+      expect(planning.parentId).toBeNull();
+      expect(planning.inputs.prompt).toBe('Plan a fun 3-line Python script');
+      expect(planning.outputs.response).toBe(PLAN);
+      expect(toolNames(planning.spanId)).toEqual(['tool_AskUserQuestion', 'tool_ExitPlanMode']);
+
+      expect(execution.parentId).toBeNull();
+      expect(execution.inputs.prompt).toBe(PLAN);
+      expect(execution.outputs.response).toBe(
+        'Created fun.py, a 3-line sine-wave ribbon animation. Run it with python3 fun.py.',
+      );
+      expect(toolNames(execution.spanId)).toEqual(['tool_Write']);
+      expect(execution.startTimeNs).toBe(Date.parse('2026-04-23T15:22:38.080Z') * 1e6);
+
+      // Every child span belongs to exactly one of the two traces
+      expect(getChildSpans(planning.spanId).length + getChildSpans(execution.spanId).length).toBe(
+        getSpans().length - 2,
+      );
+      expect(flushTraces).toHaveBeenCalledTimes(1);
+    });
+
+    it('records the permission mode of each phase', async () => {
+      // The shared mock trace info would be overwritten by the second trace, so collect one
+      // info object per trace in creation order.
+      const getInstance = InMemoryTraceManager.getInstance as jest.Mock;
+      const defaultImpl = getInstance.getMockImplementation();
+      const infos: Array<{ traceMetadata: Record<string, string> }> = [];
+      getInstance.mockImplementation(() => ({
+        getTrace: () => {
+          const info = { traceMetadata: {} as Record<string, string> };
+          infos.push(info);
+          return { info, spanDict: new Map(Object.entries(mockSpans)) };
+        },
+      }));
+      try {
+        await processTranscript(resolve(FIXTURES_DIR, 'with-plan-mode.jsonl'), 'plan-session');
+      } finally {
+        getInstance.mockImplementation(defaultImpl);
+      }
+
+      // The prompt was made in plan mode; the transcript switches to acceptEdits right after
+      // the plan is approved, before the first execution step.
+      expect(infos.map((info) => info.traceMetadata['mlflow.trace.permission_mode'])).toEqual([
+        'plan',
+        'acceptEdits',
+      ]);
+    });
+
+    it('uses the revised plan when an earlier plan was rejected', async () => {
+      const transcriptPath = writeTranscript([
+        userPrompt('Plan a fun script', '2025-01-15T10:00:00.000Z'),
+        exitPlanMode('toolu_plan_1', 'Plan v1', '2025-01-15T10:00:01.000Z'),
+        toolResult(
+          'toolu_plan_1',
+          "The user doesn't want to proceed with this tool use. The tool use was rejected. " +
+            'To tell you how to proceed, the user said:\nMake it 2 lines',
+          '2025-01-15T10:00:02.000Z',
+          true,
+        ),
+        exitPlanMode('toolu_plan_2', 'Plan v2', '2025-01-15T10:00:03.000Z'),
+        toolResult('toolu_plan_2', 'User has approved your plan.', '2025-01-15T10:00:04.000Z'),
+        assistantText('Done.', '2025-01-15T10:00:05.000Z'),
+      ]);
+
+      await processTranscript(transcriptPath, 'plan-session');
+
+      const [planning, execution] = getSpansByName('claude_code_conversation');
+      expect(getSpansByName('claude_code_conversation')).toHaveLength(2);
+      expect(planning.outputs.response).toBe('Plan v2');
+      expect(toolNames(planning.spanId)).toEqual(['tool_ExitPlanMode', 'tool_ExitPlanMode']);
+      expect(execution.inputs.prompt).toBe('Plan v2');
+      expect(execution.outputs.response).toBe('Done.');
+    });
+
+    it('keeps a single trace when the plan is not approved', async () => {
+      const transcriptPath = writeTranscript([
+        userPrompt('Plan a fun script', '2025-01-15T10:00:00.000Z'),
+        exitPlanMode('toolu_plan', 'Plan v1', '2025-01-15T10:00:01.000Z'),
+        toolResult(
+          'toolu_plan',
+          "The user doesn't want to proceed with this tool use.",
+          '2025-01-15T10:00:02.000Z',
+          true,
+        ),
+        assistantText('What would you like to change?', '2025-01-15T10:00:03.000Z'),
+      ]);
+
+      await processTranscript(transcriptPath, 'plan-session');
+
+      const roots = getSpansByName('claude_code_conversation');
+      expect(roots).toHaveLength(1);
+      expect(roots[0].inputs.prompt).toBe('Plan a fun script');
+      expect(roots[0].outputs.response).toBe('What would you like to change?');
+    });
+
+    it('ignores plans approved in earlier turns', async () => {
+      const transcriptPath = writeTranscript([
+        userPrompt('Plan a fun script', '2025-01-15T10:00:00.000Z'),
+        exitPlanMode('toolu_plan', 'Plan v1', '2025-01-15T10:00:01.000Z'),
+        toolResult('toolu_plan', 'User has approved your plan.', '2025-01-15T10:00:02.000Z'),
+        assistantText('Done.', '2025-01-15T10:00:03.000Z'),
+        userPrompt('Now add color', '2025-01-15T10:01:00.000Z'),
+        assistantText('Added color.', '2025-01-15T10:01:01.000Z'),
+      ]);
+
+      await processTranscript(transcriptPath, 'plan-session');
+
+      const roots = getSpansByName('claude_code_conversation');
+      expect(roots).toHaveLength(1);
+      expect(roots[0].inputs.prompt).toBe('Now add color');
+      expect(roots[0].outputs.response).toBe('Added color.');
     });
   });
 });
