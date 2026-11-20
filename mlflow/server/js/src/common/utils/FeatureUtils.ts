@@ -210,11 +210,11 @@ export const shouldEnableExperimentOverviewTab = (hasV4Location?: boolean) => {
 };
 
 /**
- * Enables the experiment Settings page (`/experiments/:experimentId/settings`) and its entry
- * points: the sidebar item, the experiment menu item and the Tags button in the page header.
+ * Enables the experiment Settings page (`/experiments/:experimentId/settings`) and its entry point,
+ * the Settings item in the experiment's ⋯ menu. Return false to hide both.
  */
 export const shouldEnableExperimentSettingsPage = () => {
-  return false;
+  return true;
 };
 
 /**
