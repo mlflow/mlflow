@@ -754,8 +754,9 @@ def test_get_prompt_returns_prompt(store):
         name="my_prompt",
         tags=[RegisteredModelTag(IS_PROMPT_TAG_KEY, "true"), RegisteredModelTag("team", "a")],
     )
-    with mock.patch.object(store, "get_registered_model", return_value=rm):
+    with mock.patch.object(store, "get_registered_model", return_value=rm) as get_model:
         prompt = store.get_prompt("my_prompt")
+    get_model.assert_called_once_with("my_prompt")
 
     assert prompt.name == "my_prompt"
     assert prompt.tags == {"team": "a"}
