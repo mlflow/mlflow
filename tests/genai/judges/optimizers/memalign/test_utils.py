@@ -384,19 +384,8 @@ def _mock_retriever(indices):
     return retriever
 
 
-def test_retrieve_relevant_examples_empty():
-    results = retrieve_relevant_examples(
-        retrievers=None,
-        examples=[],
-        embedding_model="openai:/text-embedding-3-small",
-        query_kwargs={"inputs": "test"},
-        retrieval_k=5,
-    )
-    assert results == []
-
-
-def test_retrieve_relevant_examples_no_search():
-    examples = [MagicMock(), MagicMock()]
+@pytest.mark.parametrize("examples", [[], [MagicMock(), MagicMock()]])
+def test_retrieve_relevant_examples_without_retrievers(examples):
     results = retrieve_relevant_examples(
         retrievers=None,
         examples=examples,
@@ -433,22 +422,18 @@ def test_retrieve_relevant_examples_success():
     mock_retriever.assert_called_once_with("test query")
 
 
-def test_get_query_fields_defaults_to_first_priority_field():
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs", "context"]
-    assert get_query_fields(signature) == ["inputs"]
-
-    signature.input_fields = ["outputs", "trace"]
-    assert get_query_fields(signature) == ["outputs"]
-
-    signature.input_fields = ["context"]
-    assert get_query_fields(signature) == []
-
-
-def test_get_query_fields_uses_explicit_retrieval_fields():
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs"]
-    assert get_query_fields(signature, ["outputs", "inputs"]) == ["outputs", "inputs"]
+@pytest.mark.parametrize(
+    ("input_fields", "retrieval_fields", "expected"),
+    [
+        (["inputs", "outputs", "context"], None, ["inputs"]),
+        (["outputs", "trace"], None, ["outputs"]),
+        (["context"], None, []),
+        (["inputs", "outputs"], ["outputs", "inputs"], ["outputs", "inputs"]),
+    ],
+)
+def test_get_query_fields(input_fields, retrieval_fields, expected):
+    signature = MagicMock(input_fields=input_fields)
+    assert get_query_fields(signature, retrieval_fields) == expected
 
 
 def test_retrieve_relevant_examples_returns_empty_for_none_value():
@@ -490,50 +475,59 @@ def _scored_retriever(corpus_embeddings, query_embedding):
     return retriever
 
 
-def test_retrieve_relevant_examples_fuses_multiple_fields():
+# Each index is (corpus embeddings, query embedding, episodic positions).
+@pytest.mark.parametrize(
+    ("indexes", "query_kwargs", "retrieval_k", "expected_positions"),
+    [
+        # inputs covers examples 0-2, outputs covers 1 and 3. Unnormalized queries check that the
+        # query is normalized. Totals: 1 = 0.8 + 1.0, 0 = 1.0, 3 = 1.0, 2 = 0.0. Examples 0 and 3
+        # tie and keep episodic order; example 2 is cut by k.
+        pytest.param(
+            {
+                "inputs": ([[1, 0], [0.8, 0.6], [0, 1]], [2, 0], [0, 1, 2]),
+                "outputs": ([[1, 0], [1, 0]], [3, 0], [1, 3]),
+            },
+            {"inputs": "finding", "outputs": "reply"},
+            3,
+            [1, 0, 3],
+            id="fuses_fields",
+        ),
+        # Example 0 only has inputs, which was not queried, so it is not a candidate.
+        pytest.param(
+            {
+                "inputs": ([[1, 0]], [1, 0], [0]),
+                "outputs": ([[1, 0]], [1, 0], [1]),
+            },
+            {"inputs": None, "outputs": "reply"},
+            5,
+            [1],
+            id="skips_empty_query",
+        ),
+    ],
+)
+def test_retrieve_relevant_examples_multiple_fields(
+    indexes, query_kwargs, retrieval_k, expected_positions
+):
     examples = [MagicMock(_trace_id=f"trace_{i}") for i in range(4)]
-    # inputs index covers examples 0, 1, 2; outputs index covers only 1 and 3 (0, 2 lack outputs).
-    # Unnormalized queries check that the query is normalized before scoring.
-    inputs_retriever = _scored_retriever([[1, 0], [0.8, 0.6], [0, 1]], [2, 0])
-    outputs_retriever = _scored_retriever([[1, 0], [1, 0]], [3, 0])
+    retrievers = {
+        field: (_scored_retriever(corpus, query), positions)
+        for field, (corpus, query, positions) in indexes.items()
+    }
 
     results = retrieve_relevant_examples(
-        retrievers={
-            "inputs": (inputs_retriever, [0, 1, 2]),
-            "outputs": (outputs_retriever, [1, 3]),
-        },
+        retrievers=retrievers,
         examples=examples,
         embedding_model="openai:/text-embedding-3-small",
-        query_kwargs={"inputs": "finding", "outputs": "reply"},
-        retrieval_k=3,
+        query_kwargs=query_kwargs,
+        retrieval_k=retrieval_k,
     )
 
-    inputs_retriever.embedder.assert_called_once_with(["finding"])
-    outputs_retriever.embedder.assert_called_once_with(["reply"])
-    # Totals: example 1 = 0.8 + 1.0, example 0 = 1.0 (no outputs), example 3 = 1.0 (no inputs),
-    # example 2 = 0.0. Examples 0 and 3 tie and keep episodic order; example 2 is cut by k.
-    assert [trace_id for _, trace_id in results] == ["trace_1", "trace_0", "trace_3"]
-
-
-def test_retrieve_relevant_examples_skips_fields_with_empty_query():
-    examples = [MagicMock(_trace_id="trace_0"), MagicMock(_trace_id="trace_1")]
-    inputs_retriever = _scored_retriever([[1, 0]], [1, 0])
-    outputs_retriever = _scored_retriever([[1, 0]], [1, 0])
-
-    results = retrieve_relevant_examples(
-        retrievers={
-            "inputs": (inputs_retriever, [0]),
-            "outputs": (outputs_retriever, [1]),
-        },
-        examples=examples,
-        embedding_model="openai:/text-embedding-3-small",
-        query_kwargs={"inputs": None, "outputs": "reply"},
-        retrieval_k=5,
-    )
-
-    inputs_retriever.embedder.assert_not_called()
-    # Example 0 only has inputs, which was not queried, so it is not a candidate
-    assert results == [(examples[1], "trace_1")]
+    assert results == [(examples[i], f"trace_{i}") for i in expected_positions]
+    for field, (retriever, _) in retrievers.items():
+        if query := query_kwargs[field]:
+            retriever.embedder.assert_called_once_with([query])
+        else:
+            retriever.embedder.assert_not_called()
 
 
 def test_retrieve_relevant_examples_truncates_oversized_queries():
