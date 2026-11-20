@@ -272,6 +272,27 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
             )
 
 
+def test_dataframe_input_example_missing_values_serialize_as_null():
+    df = pd.DataFrame({
+        "double": [1.0, np.nan],
+        "float": np.array([np.nan, 2.0], np.float32),
+        "string": ["a", None],
+        "datetime": pd.to_datetime(["2020-01-01", None]),
+    })
+
+    def reject_constant(token):
+        raise ValueError(f"Invalid JSON constant: {token}")
+
+    example = _Example(df)
+    for serialized in (example.json_input_example, example.json_serving_input):
+        json.loads(serialized, parse_constant=reject_constant)
+
+    assert json.loads(example.json_input_example) == {
+        "columns": ["double", "float", "string", "datetime"],
+        "data": [[1.0, None, "a", "2020-01-01T00:00:00"], [None, 2.0, None, None]],
+    }
+
+
 class DummySklearnModel(BaseEstimator, ClassifierMixin):
     def __init__(self, output_shape=(1,)):
         self.output_shape = output_shape
