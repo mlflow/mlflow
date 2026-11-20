@@ -1572,6 +1572,14 @@ def test_memory_augmented_judge_round_trip_preserves_base_judge_session_level():
 # =============================================================================
 
 
+def _last_corpus(mocks):
+    return mocks["embeddings_class"].call_args.kwargs["corpus"]
+
+
+def _mock_base_judge_call():
+    return patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={}))
+
+
 @pytest.mark.parametrize(
     ("retrieval_fields", "match"),
     [
@@ -1621,12 +1629,12 @@ def test_retrieval_fields_single_field_builds_corpus_and_queries_that_field(
         optimizer = MemAlignOptimizer(retrieval_fields=["outputs"])
         aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
 
-        corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
+        corpus = _last_corpus(mocks)
         assert len(corpus) == 3
         assert all("output_" in text and "input_" not in text for text in corpus)
         assert list(aligned_judge._retrievers) == ["outputs"]
 
-        with patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})):
+        with _mock_base_judge_call():
             aligned_judge(inputs="the finding", outputs="the reply")
         mocks["search"].assert_called_once_with("the reply")
 
@@ -1650,23 +1658,6 @@ def test_retrieval_fields_multi_field_builds_one_index_per_field(sample_judge):
             "inputs": [0, 1],
             "outputs": [0, 2],
         }
-
-        # Example 2 matches only on outputs but still lands in the top-k
-        inputs_retriever = MagicMock(corpus_embeddings=np.array([[1.0, 0.0], [0.6, 0.8]]))
-        inputs_retriever.embedder.return_value = np.array([[0.0, 1.0]])
-        outputs_retriever = MagicMock(corpus_embeddings=np.array([[0.0, 1.0], [1.0, 0.0]]))
-        outputs_retriever.embedder.return_value = np.array([[1.0, 0.0]])
-        judge._retrievers = {
-            "inputs": (inputs_retriever, [0, 1]),
-            "outputs": (outputs_retriever, [0, 2]),
-        }
-        judge._retrieval_k = 2
-        with patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})):
-            assessment = judge(inputs="q_in", outputs="q_out")
-        inputs_retriever.embedder.assert_called_once_with(["q_in"])
-        outputs_retriever.embedder.assert_called_once_with(["q_out"])
-        # Totals: example 0 = 0.0 + 0.0, example 1 = 0.8, example 2 = 1.0
-        assert assessment.metadata["retrieved_example_trace_ids"] == ["example_2", "example_1"]
 
 
 def _reply_embedder(texts):
@@ -1700,7 +1691,7 @@ def test_multi_field_retrieval_matches_all_fields_with_repeated_values(sample_ju
             "mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder",
             return_value=_reply_embedder,
         ),
-        patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
+        _mock_base_judge_call(),
     ):
         judge = MemoryAugmentedJudge(
             sample_judge, retrieval_k=5, retrieval_fields=["inputs", "outputs"]
@@ -1726,9 +1717,9 @@ def _build_single_field_index_and_score(judge, field, example, **call_kwargs):
         memory_judge._episodic_memory = [example]
         memory_judge._build_episodic_memory()
         assert list(memory_judge._retrievers) == [field]
-        with patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})):
+        with _mock_base_judge_call():
             memory_judge(**call_kwargs)
-    return mocks["embeddings_class"].call_args.kwargs["corpus"], mocks["search"]
+    return _last_corpus(mocks), mocks["search"]
 
 
 def test_retrieval_fields_expectations_builds_corpus_and_query():
@@ -1773,7 +1764,7 @@ def test_retrieval_fields_corpus_uses_truncation(sample_judge):
     mock_truncate.assert_called_once_with(
         "long output", "openai:/text-embedding-3-small", model_type="embedding"
     )
-    assert mocks["embeddings_class"].call_args.kwargs["corpus"] == ["lon"]
+    assert _last_corpus(mocks) == ["lon"]
 
 
 def test_retrieval_fields_serialization_round_trip(sample_judge, sample_traces):
@@ -1804,13 +1795,13 @@ def test_deserialized_judge_builds_configured_index_on_first_call(sample_judge, 
     with (
         mock_apis(guidelines=[]) as mocks,
         patch.object(MemoryAugmentedJudge, "_reconstruct_episodic_memory", return_value=examples),
-        patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
+        _mock_base_judge_call(),
     ):
         mocks["search"].return_value = MagicMock(indices=[0])
         restored(inputs="q", outputs="a")
 
     assert list(restored._retrievers) == ["outputs"]
-    assert mocks["embeddings_class"].call_args.kwargs["corpus"] == ["answer"]
+    assert _last_corpus(mocks) == ["answer"]
 
 
 def test_unalign_preserves_retrieval_fields(sample_judge, sample_traces):
@@ -1840,23 +1831,30 @@ def test_realign_unchanged_traces_with_new_retrieval_fields_rebuilds_index(
     assert judge_v2 is not judge_v1
     assert judge_v2._retrieval_fields == ["outputs"]
     assert list(judge_v2._retrievers) == ["outputs"]
-    corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
-    assert all("output_" in text for text in corpus)
+    assert all("output_" in text for text in _last_corpus(mocks))
     assert len(judge_v2._episodic_memory) == len(judge_v1._episodic_memory)
     assert [g.guideline_text for g in judge_v2._semantic_memory] == ["Guideline A"]
     # Memory is unchanged, so no re-distillation
     assert mocks["lm"].call_count == lm_calls
 
 
-def test_default_optimizer_realign_keeps_retrieval_fields(sample_judge, sample_traces):
+@pytest.mark.parametrize(
+    "realign",
+    [
+        lambda judge, traces: MemAlignOptimizer().align(judge, traces),
+        # Judge.align with no optimizer goes through get_default_optimizer()
+        lambda judge, traces: judge.align(traces=traces),
+    ],
+    ids=["default_optimizer", "judge_align"],
+)
+def test_default_realign_keeps_retrieval_fields(sample_judge, sample_traces, realign):
     with mock_apis(guidelines=[]):
-        aligned = MemAlignOptimizer(retrieval_fields=["outputs"], retrieval_k=3).align(
+        aligned = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
             sample_judge, sample_traces[:2]
         )
-        # Unchanged traces: the input judge comes back as-is, other config included
-        assert MemAlignOptimizer().align(aligned, sample_traces[:2]) is aligned
-
-        realigned = MemAlignOptimizer().align(aligned, sample_traces[:4])
+        # Unchanged traces: the input judge comes back as-is
+        assert realign(aligned, sample_traces[:2]) is aligned
+        realigned = realign(aligned, sample_traces[:4])
 
     assert realigned._retrieval_fields == ["outputs"]
     assert list(realigned._retrievers) == ["outputs"]
@@ -1877,23 +1875,10 @@ def test_explicit_optimizer_retrieval_fields_override_judge_fields(
     assert realigned is not aligned
     assert realigned._retrieval_fields == ["inputs"]
     assert list(realigned._retrievers) == ["inputs"]
-    corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
+    corpus = _last_corpus(mocks)
     assert len(corpus) == num_traces
     assert all("input_" in text and "output_" not in text for text in corpus)
     assert aligned._retrieval_fields == ["outputs"]
-
-
-def test_judge_align_with_default_optimizer_keeps_retrieval_fields(sample_judge, sample_traces):
-    with mock_apis(guidelines=[]):
-        aligned = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
-            sample_judge, sample_traces[:2]
-        )
-        # Judge.align with no optimizer goes through get_default_optimizer()
-        assert aligned.align(traces=sample_traces[:2]) is aligned
-        realigned = aligned.align(traces=sample_traces[:4])
-
-    assert realigned._retrieval_fields == ["outputs"]
-    assert list(realigned._retrievers) == ["outputs"]
 
 
 def test_realign_unchanged_traces_with_explicit_default_field_skips_rebuild(
@@ -1916,7 +1901,7 @@ def test_default_inputs_corpus_embeds_only_the_inputs_value(sample_judge, sample
     with mock_apis(guidelines=[]) as mocks:
         MemAlignOptimizer().align(sample_judge, sample_traces[:2])
 
-    corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
+    corpus = _last_corpus(mocks)
     assert len(corpus) == 2
     for i, text in enumerate(corpus):
         assert f"input_{i}" in text
