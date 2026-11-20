@@ -6212,6 +6212,30 @@ def test_validate_can_manage_roles_resolves_camel_case_id(
         assert auth_module.validate_can_manage_roles() is False
 
 
+@pytest.mark.parametrize("same_permission_id", [True, False])
+def test_validate_can_manage_roles_with_both_role_permission_id_aliases(
+    role_auth_setup, same_permission_id
+):
+    # Distinct permission IDs on the same role must still be denied: the handler may act
+    # on either spelling, so the caller must not pick which one gets authorized.
+    role_permission_id = role_auth_setup["role_permission_foo_id"]
+    camel_case_id = role_permission_id
+    if not same_permission_id:
+        camel_case_id = (
+            role_auth_setup["store"]
+            .add_role_permission(role_auth_setup["role_foo_id"], "experiment", "123", MANAGE.name)
+            .id
+        )
+    body = {
+        "role_permission_id": role_permission_id,
+        "rolePermissionId": camel_case_id,
+        "permission": MANAGE.name,
+    }
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module.validate_can_manage_roles() is same_permission_id
+
+
 @pytest.mark.parametrize("path", [CREATE_ROLE, AJAX_CREATE_ROLE])
 def test_validate_can_manage_roles_denies_workspace_conflicting_with_role_id(role_auth_setup, path):
     # create_role acts on ``workspace``, so a foo role_id must not authorize creating
