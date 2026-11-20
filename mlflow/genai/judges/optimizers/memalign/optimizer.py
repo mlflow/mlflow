@@ -319,6 +319,7 @@ class MemoryAugmentedJudge(Judge):
             retrievers=self._retrievers,
             examples=self._episodic_memory,
             query_kwargs=query_kwargs,
+            embedding_model=self._embedding_model,
             retrieval_k=self._retrieval_k,
         )
 

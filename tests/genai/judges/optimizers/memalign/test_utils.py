@@ -388,6 +388,7 @@ def test_retrieve_relevant_examples_empty():
     results = retrieve_relevant_examples(
         retrievers=None,
         examples=[],
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": "test"},
         retrieval_k=5,
     )
@@ -399,6 +400,7 @@ def test_retrieve_relevant_examples_no_search():
     results = retrieve_relevant_examples(
         retrievers=None,
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": "test"},
         retrieval_k=5,
     )
@@ -419,6 +421,7 @@ def test_retrieve_relevant_examples_success():
     results = retrieve_relevant_examples(
         retrievers={"inputs": (mock_retriever, [0, 1, 2])},
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": "test query", "outputs": "test output"},
         retrieval_k=5,
     )
@@ -456,6 +459,7 @@ def test_retrieve_relevant_examples_returns_empty_for_none_value():
     results = retrieve_relevant_examples(
         retrievers={"inputs": (mock_retriever, [0])},
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": None, "outputs": "output_val"},
         retrieval_k=5,
     )
@@ -472,7 +476,8 @@ def test_retrieve_relevant_examples_out_of_bounds_raises():
         retrieve_relevant_examples(
             retrievers={"inputs": (mock_retriever, [0, 1])},
             examples=examples,
-            query_kwargs={"inputs": "test"},
+            embedding_model="openai:/text-embedding-3-small",
+        query_kwargs={"inputs": "test"},
             retrieval_k=5,
         )
 
@@ -498,6 +503,7 @@ def test_retrieve_relevant_examples_fuses_multiple_fields():
             "outputs": (outputs_retriever, [1, 3]),
         },
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": "finding", "outputs": "reply"},
         retrieval_k=3,
     )
@@ -520,6 +526,7 @@ def test_retrieve_relevant_examples_skips_fields_with_empty_query():
             "outputs": (outputs_retriever, [1]),
         },
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": None, "outputs": "reply"},
         retrieval_k=5,
     )
@@ -527,6 +534,39 @@ def test_retrieve_relevant_examples_skips_fields_with_empty_query():
     inputs_retriever.embedder.assert_not_called()
     # Example 0 only has inputs, which was not queried, so it is not a candidate
     assert results == [(examples[1], "trace_1")]
+
+
+def test_retrieve_relevant_examples_truncates_oversized_queries():
+    long_output = "x" * 1_000_000
+    model = "openai:/text-embedding-3-small"
+    expected = truncate_to_token_limit(long_output, model, model_type="embedding")
+    assert len(expected) < len(long_output)
+    examples = [MagicMock(_trace_id="trace_0")]
+
+    single = _mock_retriever([0])
+    retrieve_relevant_examples(
+        retrievers={"outputs": (single, [0])},
+        examples=examples,
+        embedding_model=model,
+        query_kwargs={"outputs": long_output},
+        retrieval_k=5,
+    )
+    single.assert_called_once_with(expected)
+
+    inputs_retriever = _scored_retriever([[1, 0]], [1, 0])
+    outputs_retriever = _scored_retriever([[1, 0]], [1, 0])
+    retrieve_relevant_examples(
+        retrievers={
+            "inputs": (inputs_retriever, [0]),
+            "outputs": (outputs_retriever, [0]),
+        },
+        examples=examples,
+        embedding_model=model,
+        query_kwargs={"inputs": "short", "outputs": long_output},
+        retrieval_k=5,
+    )
+    inputs_retriever.embedder.assert_called_once_with(["short"])
+    outputs_retriever.embedder.assert_called_once_with([expected])
 
 
 @pytest.mark.parametrize(

@@ -578,6 +578,7 @@ def retrieve_relevant_examples(
     retrievers: dict[str, tuple["dspy.retrievers.Embeddings", list[int]]] | None,
     examples: list["dspy.Example"],
     query_kwargs: dict[str, Any],
+    embedding_model: str,
     retrieval_k: int,
 ) -> list[tuple["dspy.Example", str]]:
     """Retrieve relevant examples using semantic search.
@@ -587,6 +588,8 @@ def retrieve_relevant_examples(
             ``positions[i]`` is the index in ``examples`` of the retriever's i-th corpus entry.
         examples: List of all examples
         query_kwargs: Query parameters to construct search query
+        embedding_model: Embedding model, used to truncate queries to its token limit as the
+            corpus is
         retrieval_k: Maximum number of examples to return
 
     Returns:
@@ -598,7 +601,11 @@ def retrieve_relevant_examples(
 
     queries = {}
     for field in retrievers:
-        if (value := query_kwargs.get(field)) and (query := value_to_embedding_text(value)):
+        if not (value := query_kwargs.get(field)):
+            continue
+        if query := truncate_to_token_limit(
+            value_to_embedding_text(value), embedding_model, model_type="embedding"
+        ):
             queries[field] = query
 
     if len(retrievers) == 1:
