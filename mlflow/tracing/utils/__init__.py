@@ -4,9 +4,10 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import sys
 import uuid
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, fields, is_dataclass, replace
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
@@ -77,6 +78,14 @@ class TraceJSONEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, pydantic.BaseModel):
             return obj.model_dump(warnings=False)
+
+        # NumPy is looked up lazily so this module stays importable without it (mlflow-skinny).
+        np = sys.modules.get("numpy")
+        if np is not None and isinstance(obj, (np.ndarray, np.generic)):
+            converted = obj.tolist()
+            # Extended-precision types (e.g. np.longdouble) convert to themselves, which would
+            # re-enter default() indefinitely, so fall back to their string representation.
+            return str(obj) if isinstance(converted, np.generic) else converted
 
         # Some dataclass object defines __str__ method that doesn't return the full object
         # representation, so we use dict representation instead.
@@ -413,6 +422,17 @@ def calculate_cost_by_model_and_token_usage(
     if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
 
+    # Pricing expects input tokens to include cache tokens (OpenAI / OTel GenAI semconv), and
+    # subtracts them to get the uncached portion. Some producers report Anthropic-style disjoint
+    # counts, where input tokens exclude cache tokens. Fewer input tokens than cache tokens can
+    # only be disjoint counts, so add the cache tokens back to avoid pricing a negative count.
+    # Disjoint counts where the uncached input is at least the cache tokens are indistinguishable
+    # from inclusive counts, so they are still priced as inclusive.
+    with suppress(TypeError):  # Malformed counts are left for the pricer to reject, as before.
+        cache_tokens = (cached or 0) + (created or 0)
+        if prompt_tokens < cache_tokens:
+            prompt_tokens += cache_tokens
+
     # The 1-hour cache-creation breakdown is only understood by MLflow's builtin cost_per_token;
     # litellm's signature does not accept it, so only pass it to the builtin.
     builtin_cache_kwargs = dict(cache_kwargs)
@@ -488,6 +508,14 @@ def calculate_cost_by_model_and_token_usage(
         return None
 
     input_cost_usd, output_cost_usd = result
+    # A negative cost would silently cancel out other spans when costs are aggregated.
+    if input_cost_usd < 0 or output_cost_usd < 0:
+        _logger.debug(
+            f"Discarding negative cost for model {model_name}: "
+            f"input_cost={input_cost_usd}, output_cost={output_cost_usd}"
+        )
+        return None
+
     return {
         CostKey.INPUT_COST: input_cost_usd,
         CostKey.OUTPUT_COST: output_cost_usd,

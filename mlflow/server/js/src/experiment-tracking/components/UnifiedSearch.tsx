@@ -314,7 +314,8 @@ export const UnifiedSearch = ({
               ]
             : []),
           ...(suggestions.length ? [{ label: suggestionsHeader, options: suggestions.map(optionProps) }] : []),
-          ...(!visibleOptions.length ? [{ value: 'empty', disabled: true, style: { display: 'none' } }] : []),
+          // Keep a trailing option so rc-select can wrap backwards past a group header safely.
+          { value: 'empty', disabled: true, style: { display: 'none' } },
         ]}
         dropdownRender={renderDropdown}
         onSearch={(next) => {

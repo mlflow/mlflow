@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import type {
   Assessment,
@@ -1690,6 +1690,35 @@ describe('parseTraceV4SerializedLocation', () => {
 });
 
 describe('tryDeserializeAttribute', () => {
+  it('preserves already decoded OTLP values without parsing or coercing them', () => {
+    const spy = jest.spyOn(JSON, 'parse');
+    try {
+      for (const value of [undefined, null, true, 42, 1.25, [], [5], [false], { key: 5 }]) {
+        expect(tryDeserializeAttribute(value)).toBe(value);
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('skips JSON.parse for plain attributes and missing values', () => {
+    const spy = jest.spyOn(JSON, 'parse');
+    try {
+      for (const value of ['CHAIN', 'provider:model', 'falsehood', undefined]) {
+        expect(tryDeserializeAttribute(value as string)).toBe(value);
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it.each(['true', 'false', 'null', ' \t\r\ntrue ', '-0', '1e-5', '{"x":["🙂",null]}'])(
+    'preserves JSON parsing for %j',
+    (value) => expect(tryDeserializeAttribute(value)).toEqual(JSON.parse(value)),
+  );
+
   it.each([
     ['small int', '42', 42],
     ['float', '3.14', 3.14],

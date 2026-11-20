@@ -87,6 +87,28 @@
       },
       "last_updated_at": "2026-10-29"
     },
+    "databricks-claude-fable-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.00002,
+        "output_per_million_tokens": 40.00003,
+        "cache_read_per_million_tokens": 0.19999,
+        "cache_write_per_million_tokens": 9.99999,
+        "cache_write_1hr_per_million_tokens": 15.99997
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "databricks-claude-haiku-4-5": {
       "mode": "chat",
       "context_window": {
@@ -893,7 +915,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2026-11-19",
+      "last_updated_at": "2026-11-13"
     },
     "databricks-gemini-3-7-flash": {
       "mode": "chat",
@@ -1064,6 +1087,68 @@
       },
       "last_updated_at": "2026-10-29"
     },
+    "databricks-gemini-4-carbon": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.49998,
+        "output_per_million_tokens": 12.49997,
+        "cache_read_per_million_tokens": 0.12502,
+        "cache_write_per_million_tokens": 2.49998,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 4.50002,
+            "output_per_million_tokens": 22.50003,
+            "cache_read_per_million_tokens": 0.22498
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-20"
+    },
+    "databricks-gemini-nano-banana-2-1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.87502,
+        "output_per_million_tokens": 9.37503,
+        "cache_read_per_million_tokens": 0.18753,
+        "cache_write_per_million_tokens": 1.87502,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.37498,
+            "output_per_million_tokens": 16.87497,
+            "cache_read_per_million_tokens": 0.33747
+          }
+        },
+        "modality": {
+          "image": {
+            "input_per_million_tokens": 1.87502,
+            "output_per_million_tokens": 37.49998
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-20"
+    },
     "databricks-gemma-3-12b": {
       "mode": "chat",
       "context_window": {
@@ -1111,7 +1196,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-02-04",
+      "last_updated_at": "2026-11-12"
     },
     "databricks-glm-5-3": {
       "mode": "chat",
@@ -2220,7 +2306,7 @@
     "databricks-meta-llama-3-1-8b-instruct": {
       "mode": "chat",
       "context_window": {
-        "max_input": 200000,
+        "max_input": 128000,
         "max_output": 128000
       },
       "pricing": {
@@ -2236,7 +2322,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-12"
     },
     "databricks-meta-llama-3-3-70b-instruct": {
       "mode": "chat",
@@ -2412,6 +2498,28 @@
       },
       "last_updated_at": "2026-10-29"
     },
+    "system.ai.claude-fable-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.00002,
+        "output_per_million_tokens": 40.00003,
+        "cache_read_per_million_tokens": 0.19999,
+        "cache_write_per_million_tokens": 9.99999,
+        "cache_write_1hr_per_million_tokens": 15.99997
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
     "system.ai.deepseek-v4-flash-0731": {
       "mode": "chat",
       "capabilities": {
@@ -2423,6 +2531,136 @@
       },
       "deprecation_date": "2026-11-05",
       "last_updated_at": "2026-11-05"
+    },
+    "system.ai.gemini-4-carbon": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.49998,
+        "output_per_million_tokens": 12.49997,
+        "cache_read_per_million_tokens": 0.12502,
+        "cache_write_per_million_tokens": 2.49998,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 4.50002,
+            "output_per_million_tokens": 22.50003,
+            "cache_read_per_million_tokens": 0.22498
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-20"
+    },
+    "system.ai.gemini-4-hydrogen": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.87502,
+        "output_per_million_tokens": 9.37503,
+        "cache_read_per_million_tokens": 0.09373,
+        "cache_write_per_million_tokens": 2.34374,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 3.37498,
+            "output_per_million_tokens": 16.87497,
+            "cache_read_per_million_tokens": 0.16877
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-20"
+    },
+    "system.ai.gpt-6-2-astra": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 8.00002,
+        "output_per_million_tokens": 40.00003,
+        "cache_read_per_million_tokens": 0.39998,
+        "cache_write_per_million_tokens": 9.99999,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 15.99997,
+            "output_per_million_tokens": 80.0002,
+            "cache_read_per_million_tokens": 0.80003
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_write_per_million_tokens": 19.99998,
+            "cache_read_per_million_tokens": 0.80003,
+            "input_per_million_tokens": 15.99997,
+            "output_per_million_tokens": 59.9998
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-19"
+    },
+    "system.ai.gpt-6-2-sol": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.99997,
+        "output_per_million_tokens": 9.99999,
+        "cache_read_per_million_tokens": 0.10003,
+        "cache_write_per_million_tokens": 2.49998,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 4.00001,
+            "output_per_million_tokens": 19.9997,
+            "cache_read_per_million_tokens": 0.19999
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 272000,
+            "cache_write_per_million_tokens": 5.00003,
+            "cache_read_per_million_tokens": 0.19999,
+            "input_per_million_tokens": 4.00001,
+            "output_per_million_tokens": 15.00002
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-19"
     },
     "system.ai.kimi-k3": {
       "mode": "chat",

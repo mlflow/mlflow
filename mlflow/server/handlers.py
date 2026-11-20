@@ -138,6 +138,7 @@ from mlflow.prompt.constants import (
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_TAG_KEY,
 )
+from mlflow.prompt.registry_utils import validate_prompt_version_tag_key_is_mutable
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -363,7 +364,11 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server._request_keys import SCOPED_EXPERIMENT_FILTER, SCOPED_EXPERIMENT_IDS
+from mlflow.server._request_keys import (
+    SCOPED_EXPERIMENT_FILTER,
+    SCOPED_EXPERIMENT_IDS,
+    SCOPED_REGISTERED_MODEL_FILTER,
+)
 from mlflow.server._search_limits import translate_scoped_search_limits
 from mlflow.server.artifact_transfer import (
     reject_proxied_artifact_download,
@@ -486,6 +491,7 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
+    _validate_judge_inference_params,
     _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
@@ -1220,6 +1226,10 @@ def _get_scoped_experiment_ids() -> list[str] | None:
 
 def _get_scoped_experiment_filter() -> str | None:
     return getattr(g, SCOPED_EXPERIMENT_FILTER, None) if has_request_context() else None
+
+
+def _get_scoped_registered_model_filter() -> str | None:
+    return getattr(g, SCOPED_REGISTERED_MODEL_FILTER, None) if has_request_context() else None
 
 
 def _get_request_message(
@@ -3120,12 +3130,13 @@ def _search_registered_models():
         },
     )
     store = _get_model_registry_store()
-    registered_models = store.search_registered_models(
-        filter_string=request_message.filter,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_registered_model_filter() is not None):
+        registered_models = store.search_registered_models(
+            filter_string=request_message.filter,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
     if registered_models.token:
@@ -3751,9 +3762,12 @@ def _set_model_version_tag():
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     store = _get_model_registry_store()
+    is_prompt = _is_prompt(request_message.name)
+    if is_prompt:
+        validate_prompt_version_tag_key_is_mutable(request_message.key)
     store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
 
-    if _is_prompt(request_message.name):
+    if is_prompt:
         # Send prompt version tag set webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.SET),
@@ -3793,13 +3807,16 @@ def _delete_model_version_tag():
         },
     )
     store = _get_model_registry_store()
+    is_prompt = _is_prompt(request_message.name)
+    if is_prompt:
+        validate_prompt_version_tag_key_is_mutable(request_message.key)
     store.delete_model_version_tag(
         name=request_message.name,
         version=request_message.version,
         key=request_message.key,
     )
 
-    if _is_prompt(request_message.name):
+    if is_prompt:
         # Send prompt version tag deleted webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED),
@@ -6854,10 +6871,10 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
     `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
     ensemble is caught too (see `custom_scorer_execution_blocked`). Decorator scorers with empty
-    source code, which can never run, are rejected too. Third-party scorer kwargs that
-    would steer the judge's outbound requests are always rejected, independent of that flag.
-    Applied to caller payloads and to registered scorers fetched from the store, since rows
-    written before these checks existed can carry the same fields.
+    source code, which can never run, are rejected too. Third-party scorer kwargs and judge
+    inference params that would steer the judge's outbound requests are always rejected,
+    independent of that flag. Applied to caller payloads and to registered scorers fetched from
+    the store, since rows written before these checks existed can carry the same fields.
     """
     try:
         serialized_data = json.loads(serialized_scorer)
@@ -6873,6 +6890,7 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
             custom_scorer_without_source_error_message(name)
         )
     _validate_third_party_scorer_data(serialized_data)
+    _validate_judge_inference_params(serialized_data)
 
 
 @catch_mlflow_exception

@@ -5423,3 +5423,204 @@ def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAl
         },
         "values": {"COUNT": 2},
     }
+
+
+@pytest.fixture
+def gateway_traces_setup(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_gateway_caller_dimension")
+    # (trace_id, caller, total_tokens, span cost); the last trace never went through the gateway.
+    traces_data = [
+        ("gw1", "judge", 150, 0.01),
+        ("gw2", "judge", 300, 0.02),
+        ("gw3", "simulator", 225, 0.03),
+        ("gw4", "OpenAI", 450, 0.04),
+        ("app1", None, 600, 0.05),
+    ]
+    for trace_id, caller, total_tokens, cost in traces_data:
+        trace_metadata = {
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({TraceMetricKey.TOTAL_TOKENS: total_tokens})
+        }
+        if caller is not None:
+            trace_metadata[TraceMetadataKey.GATEWAY_CALLER] = caller
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=100,
+                state=TraceStatus.OK,
+                trace_metadata=trace_metadata,
+            )
+        )
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    "llm_call",
+                    span_id=1,
+                    span_type="LLM",
+                    attributes={
+                        SpanAttributeKey.LLM_COST: {
+                            "input_cost": cost / 2,
+                            "output_cost": cost / 2,
+                            "total_cost": cost,
+                        },
+                        SpanAttributeKey.MODEL: "gpt-4o-mini",
+                    },
+                )
+            ],
+        )
+    return exp_id, store
+
+
+@pytest.mark.parametrize(
+    ("view_type", "metric_name", "aggregation", "dimension", "expected"),
+    [
+        (
+            MetricViewType.TRACES,
+            TraceMetricKey.TRACE_COUNT,
+            AggregationType.COUNT,
+            TraceMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 1, "judge": 2, "simulator": 1},
+        ),
+        (
+            MetricViewType.TRACES,
+            TraceMetricKey.TOTAL_TOKENS,
+            AggregationType.SUM,
+            TraceMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 450, "judge": 450, "simulator": 225},
+        ),
+        (
+            MetricViewType.SPANS,
+            SpanMetricKey.TOTAL_COST,
+            AggregationType.SUM,
+            SpanMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 0.04, "judge": 0.03, "simulator": 0.03},
+        ),
+    ],
+)
+def test_query_trace_metrics_grouped_by_gateway_caller(
+    gateway_traces_setup, view_type, metric_name, aggregation, dimension, expected
+):
+    exp_id, store = gateway_traces_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=view_type,
+        metric_name=metric_name,
+        aggregations=[MetricAggregation(aggregation_type=aggregation)],
+        dimensions=[dimension],
+    )
+
+    # Traces without a gateway caller are left out rather than grouped under a null caller.
+    actual = {dp.dimensions[dimension]: dp.values[aggregation.value] for dp in result}
+    assert actual == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("view_type", "metric_name", "aggregation", "dimension", "expected"),
+    [
+        (
+            MetricViewType.TRACES,
+            TraceMetricKey.TRACE_COUNT,
+            AggregationType.COUNT,
+            TraceMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 1, "judge": 2, "simulator": 1},
+        ),
+        (
+            MetricViewType.SPANS,
+            SpanMetricKey.TOTAL_COST,
+            AggregationType.SUM,
+            SpanMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 0.04, "judge": 0.03, "simulator": 0.03},
+        ),
+    ],
+)
+def test_query_trace_metrics_repeated_gateway_caller_dimension(
+    gateway_traces_setup, view_type, metric_name, aggregation, dimension, expected
+):
+    exp_id, store = gateway_traces_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=view_type,
+        metric_name=metric_name,
+        aggregations=[MetricAggregation(aggregation_type=aggregation)],
+        dimensions=[dimension, dimension],
+    )
+
+    actual = {dp.dimensions[dimension]: dp.values[aggregation.value] for dp in result}
+    assert actual == pytest.approx(expected)
+    assert all(set(dp.dimensions) == {dimension} for dp in result)
+
+
+def test_query_trace_metrics_gateway_caller_dimension_with_caller_filter(gateway_traces_setup):
+    exp_id, store = gateway_traces_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.GATEWAY_CALLER],
+        filters=[f'trace.metadata.`{TraceMetadataKey.GATEWAY_CALLER}` = "judge"'],
+    )
+
+    assert [(dp.dimensions, dp.values) for dp in result] == [
+        ({SpanMetricDimensionKey.GATEWAY_CALLER: "judge"}, {"SUM": pytest.approx(0.03)})
+    ]
+
+
+def test_query_trace_metrics_gateway_caller_dimension_with_time_buckets(gateway_traces_setup):
+    exp_id, store = gateway_traces_setup
+    now = get_current_time_millis()
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.GATEWAY_CALLER],
+        time_interval_seconds=86400,
+        start_time_ms=now - 86400 * 1000,
+        end_time_ms=now + 86400 * 1000,
+    )
+
+    assert sum(dp.values["COUNT"] for dp in result) == 4
+    assert all(
+        set(dp.dimensions) == {"time_bucket", TraceMetricDimensionKey.GATEWAY_CALLER}
+        for dp in result
+    )
+
+
+@pytest.mark.parametrize("filters", [None, ["trace.status = 'OK'"]])
+def test_postgres_span_cost_gateway_caller_joins_through_the_span(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, filters
+):
+    statements = []
+
+    def capture_statement(query):
+        statements.append(str(query.statement.compile(dialect=postgresql.dialect())))
+        return []
+
+    monkeypatch.setattr(Query, "all", capture_statement)
+    with store.ManagedSessionMaker() as session:
+        query_metrics(
+            view_type=MetricViewType.SPANS,
+            db_type=db_types.POSTGRES,
+            query=store._trace_query(session),
+            metric_name=SpanMetricKey.TOTAL_COST,
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+            dimensions=[SpanMetricDimensionKey.GATEWAY_CALLER],
+            filters=filters,
+            time_interval_seconds=None,
+            max_results=1000,
+            accessible_experiment_ids=[7],
+        )
+
+    # Without trace filters PostgreSQL queries spans alone, so the join must not need trace_info.
+    assert (
+        "JOIN trace_request_metadata AS gateway_caller_metadata "
+        "ON gateway_caller_metadata.request_id = spans.trace_id"
+    ) in statements[0]

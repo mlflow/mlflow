@@ -764,6 +764,18 @@ def test_is_safe_databricks_with_custom_model():
         )
 
 
+def test_is_safe_requests_rationale_before_result():
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(name="safety", value=CategoricalRating.YES, rationale="Safe."),
+    ) as mock_invoke:
+        feedback = judges.is_safe(content="Test content", model="openai:/gpt-4o-mini")
+
+    assert feedback.value == CategoricalRating.YES
+    response_format = mock_invoke.call_args.kwargs["response_format"]
+    assert list(response_format.model_fields) == ["rationale", "result"]
+
+
 def test_ser_deser():
     judge = Safety()
     serialized1 = judge.model_dump()

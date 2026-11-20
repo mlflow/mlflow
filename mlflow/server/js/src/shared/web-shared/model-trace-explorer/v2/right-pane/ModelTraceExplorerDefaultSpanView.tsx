@@ -1,5 +1,5 @@
 import { isNil } from 'lodash';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 
 import { Button, ChevronDownIcon, DropdownMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -31,6 +31,7 @@ import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { DecisionAnswers, DecisionInputs } from './DecisionView';
 import { resolveDecision } from './decision-utils';
+import { useCachedPayloadResult } from './ModelTraceExplorerPayloadCache';
 import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
@@ -51,6 +52,15 @@ const getInitialSectionRenderMode = (
 };
 
 const stringifySectionData = (data: unknown) => JSON.stringify(data ?? null, null, 2);
+
+// Mount only for a visible JSON/YAML section, keeping serialization out of Pretty and comparison views.
+function ModelTraceExplorerSectionSnippet({
+  data,
+  ...props
+}: Omit<ComponentProps<typeof ModelTraceExplorerCodeSnippet>, 'data'> & { data: unknown }) {
+  const json = useCachedPayloadResult('section-json', data, () => stringifySectionData(data));
+  return <ModelTraceExplorerCodeSnippet {...props} data={json} />;
+}
 
 const getInputChatMessages = (
   activeSpan: ModelTraceSpanNode | undefined,
@@ -101,33 +111,45 @@ const getOutputChatMessages = (
   };
 };
 
-// In a comparison, chat messages that did not come from the payload itself are compared as one extra field.
-const getEffectiveComparisonFields = (
-  fields: ModelTraceExplorerField[],
-  chatMessages: { messages: ModelTraceChatMessage[]; hasTopLevelChatPayload: boolean },
-): ModelTraceExplorerField[] => {
-  if (chatMessages.hasTopLevelChatPayload || chatMessages.messages.length === 0) {
-    return fields;
-  }
-
-  return [
-    ...fields.filter(({ key }) => key !== 'mlflow.chat.messages'),
-    { key: 'mlflow.chat.messages', value: JSON.stringify(chatMessages.messages, null, 2) },
-  ];
-};
-
-// The input and output fields a comparison shows for a span, one entry per rendered field.
-export const getSpanComparisonFields = (
-  span: ModelTraceSpanNode | undefined,
-): { inputs: ModelTraceExplorerField[]; outputs: ModelTraceExplorerField[] } => {
-  const inputChatMessages = getInputChatMessages(span);
-  return {
-    inputs: getEffectiveComparisonFields(createListFromObject(span?.inputs), inputChatMessages),
-    outputs: getEffectiveComparisonFields(
-      createListFromObject(span?.outputs),
-      getOutputChatMessages(span, inputChatMessages.messages),
-    ),
-  };
+// Fallback conversations share the payload cache across badge and pane consumers.
+export const useSpanComparisonFields = (span: ModelTraceSpanNode | undefined, comparison = true) => {
+  const rawInputs = useCachedPayloadResult('fields', span?.inputs, () => createListFromObject(span?.inputs));
+  const rawOutputs = useCachedPayloadResult('fields', span?.outputs, () => createListFromObject(span?.outputs));
+  const inputChat = useMemo(() => getInputChatMessages(span), [span]);
+  const outputChat = useMemo(() => getOutputChatMessages(span, inputChat.messages), [span, inputChat]);
+  const needsInputFallback = comparison && !inputChat.hasTopLevelChatPayload && inputChat.messages.length > 0;
+  const needsOutputFallback = comparison && !outputChat.hasTopLevelChatPayload && outputChat.messages.length > 0;
+  const inputFallback = useCachedPayloadResult(
+    'input-chat-json',
+    needsInputFallback ? span?.chatMessages : undefined,
+    () => (needsInputFallback ? JSON.stringify(inputChat.messages, null, 2) : undefined),
+  );
+  const outputFallback = useCachedPayloadResult(
+    'output-chat-json',
+    needsOutputFallback ? span?.chatMessages : undefined,
+    () => (needsOutputFallback ? JSON.stringify(outputChat.messages, null, 2) : undefined),
+  );
+  const inputs = useMemo(
+    () =>
+      inputFallback === undefined
+        ? rawInputs
+        : [
+            ...rawInputs.filter(({ key }) => key !== 'mlflow.chat.messages'),
+            { key: 'mlflow.chat.messages', value: inputFallback },
+          ],
+    [rawInputs, inputFallback],
+  );
+  const outputs = useMemo(
+    () =>
+      outputFallback === undefined
+        ? rawOutputs
+        : [
+            ...rawOutputs.filter(({ key }) => key !== 'mlflow.chat.messages'),
+            { key: 'mlflow.chat.messages', value: outputFallback },
+          ],
+    [rawOutputs, outputFallback],
+  );
+  return { inputs, outputs, rawInputs, rawOutputs, inputChat, outputChat };
 };
 
 export function ModelTraceExplorerDefaultSpanView({
@@ -153,47 +175,22 @@ export function ModelTraceExplorerDefaultSpanView({
     outputs: getInitialSectionRenderMode(defaultRenderMode),
   });
   const [openSectionRenderModeDropdown, setOpenSectionRenderModeDropdown] = useState<'inputs' | 'outputs' | null>(null);
-  const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
-  const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
-  const inputChatMessagesResult = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
+  const {
+    rawInputs: inputList,
+    rawOutputs: outputList,
+    inputChat: inputChatMessagesResult,
+    outputChat: outputChatMessagesResult,
+    inputs: effectiveInputList,
+    outputs: effectiveOutputList,
+  } = useSpanComparisonFields(activeSpan, Boolean(comparisonRole));
   const inputChatMessages = inputChatMessagesResult.messages;
   const inputHasTopLevelChatPayload = inputChatMessagesResult.hasTopLevelChatPayload;
-  const outputChatMessagesResult = useMemo(
-    () => getOutputChatMessages(activeSpan, inputChatMessages),
-    [activeSpan, inputChatMessages],
-  );
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
+  const { inputs: effectiveComparisonInputList, outputs: effectiveComparisonOutputList } = useSpanComparisonFields(
+    comparisonRole ? selectedComparisonNode : undefined,
+  );
   const decision = useMemo(() => resolveDecision(activeSpan), [activeSpan]);
-  const comparisonInputList = useMemo(
-    () => createListFromObject(selectedComparisonNode?.inputs),
-    [selectedComparisonNode],
-  );
-  const comparisonOutputList = useMemo(
-    () => createListFromObject(selectedComparisonNode?.outputs),
-    [selectedComparisonNode],
-  );
-  const comparisonInputChat = useMemo(() => getInputChatMessages(selectedComparisonNode), [selectedComparisonNode]);
-  const comparisonOutputChat = useMemo(
-    () => getOutputChatMessages(selectedComparisonNode, comparisonInputChat.messages),
-    [comparisonInputChat, selectedComparisonNode],
-  );
-  const effectiveInputList = useMemo(
-    () => getEffectiveComparisonFields(inputList, inputChatMessagesResult),
-    [inputChatMessagesResult, inputList],
-  );
-  const effectiveOutputList = useMemo(
-    () => getEffectiveComparisonFields(outputList, outputChatMessagesResult),
-    [outputChatMessagesResult, outputList],
-  );
-  const effectiveComparisonInputList = useMemo(
-    () => getEffectiveComparisonFields(comparisonInputList, comparisonInputChat),
-    [comparisonInputChat, comparisonInputList],
-  );
-  const effectiveComparisonOutputList = useMemo(
-    () => getEffectiveComparisonFields(comparisonOutputList, comparisonOutputChat),
-    [comparisonOutputChat, comparisonOutputList],
-  );
 
   if (isNil(activeSpan)) {
     return null;
@@ -419,11 +416,10 @@ export function ModelTraceExplorerDefaultSpanView({
       return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
     }
 
-    const stringifiedData = stringifySectionData(data);
     return (
-      <ModelTraceExplorerCodeSnippet
+      <ModelTraceExplorerSectionSnippet
         title=""
-        data={stringifiedData}
+        data={data}
         initialRenderMode={
           sectionRenderModes[section] === 'yaml' ? CodeSnippetRenderMode.YAML : CodeSnippetRenderMode.JSON
         }

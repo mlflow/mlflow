@@ -912,6 +912,88 @@ def test_builtin_cost_fallback_with_cache_tokens():
     assert result["input_cost"] == pytest.approx(0.00225)
 
 
+def test_builtin_cost_normalizes_disjoint_cache_token_counts():
+    # Anthropic-style disjoint counts: input_tokens excludes the cache tokens.
+    disjoint = {
+        "input_tokens": 229,
+        "output_tokens": 118001,
+        "cache_read_input_tokens": 4899982,
+        "cache_creation_input_tokens": 909507,
+    }
+    inclusive = {**disjoint, "input_tokens": 229 + 4899982 + 909507}
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        disjoint_result = calculate_cost_by_model_and_token_usage(
+            "claude-opus-4-6", disjoint, model_provider="anthropic"
+        )
+        inclusive_result = calculate_cost_by_model_and_token_usage(
+            "claude-opus-4-6", inclusive, model_provider="anthropic"
+        )
+    assert inclusive_result is not None
+    assert disjoint_result == inclusive_result
+
+
+def test_disjoint_cache_token_counts_passed_to_litellm_as_inclusive(mock_litellm_cost):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "cache_read_input_tokens": 200,
+        "cache_creation_input_tokens": 50,
+    }
+    calculate_cost_by_model_and_token_usage("claude-opus-4-6", usage)
+    mock_litellm_cost.assert_called()
+    assert all(call.kwargs["prompt_tokens"] == 260 for call in mock_litellm_cost.call_args_list)
+
+
+@pytest.mark.parametrize(
+    ("input_tokens", "cache_read_input_tokens"),
+    [(None, None), (None, 200), ("100", None), ("100", 200), (100, "50")],
+)
+def test_builtin_cost_with_malformed_token_counts_returns_none(
+    input_tokens, cache_read_input_tokens
+):
+    usage = {
+        "input_tokens": input_tokens,
+        "output_tokens": 5,
+        "cache_read_input_tokens": cache_read_input_tokens,
+    }
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage("gpt-4o", usage)
+    assert result is None
+
+
+# 250 == cache_read + cache_creation: the boundary where counts are already inclusive.
+@pytest.mark.parametrize("input_tokens", [250, 1000])
+def test_inclusive_cache_token_counts_passed_to_litellm_unchanged(mock_litellm_cost, input_tokens):
+    if mock_litellm_cost is None:
+        pytest.skip("litellm is not installed")
+    usage = {
+        "input_tokens": input_tokens,
+        "output_tokens": 5,
+        "cache_read_input_tokens": 200,
+        "cache_creation_input_tokens": 50,
+    }
+    calculate_cost_by_model_and_token_usage("claude-opus-4-6", usage)
+    mock_litellm_cost.assert_called()
+    assert all(
+        call.kwargs["prompt_tokens"] == input_tokens for call in mock_litellm_cost.call_args_list
+    )
+
+
+@pytest.mark.parametrize("cost", [(-1.0, 2.0), (1.0, -2.0)])
+def test_negative_cost_returns_none(cost):
+    with (
+        mock.patch.dict("sys.modules", {"litellm": None}),
+        mock.patch("mlflow.utils.providers.cost_per_token", return_value=cost) as cost_per_token,
+    ):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o", {"input_tokens": 100, "output_tokens": 50}, model_provider="openai"
+        )
+    cost_per_token.assert_called_once()
+    assert result is None
+
+
 def test_builtin_cost_prices_1hr_cache_creation_higher():
     # claude-haiku-4-5 publishes a 1-hour cache-creation rate higher than the 5-minute rate,
     # so pricing part of the cache-creation tokens at the 1-hour rate raises the input cost.
@@ -1263,3 +1345,54 @@ def test_trace_json_encoder_does_not_warn_on_pydantic_type_mismatch():
         result = json.dumps(delta, cls=TraceJSONEncoder)
 
     assert json.loads(result) == {"content": content}
+
+
+def test_trace_json_encoder_serializes_numpy_objects():
+    np = pytest.importorskip("numpy")
+
+    value = {
+        "array": np.arange(5000),
+        "embedding": np.full((2, 3), 0.5, dtype=np.float32),
+        "float32": np.float32(0.5),
+        "int64": np.int64(7),
+        "bool": np.bool_(True),
+    }
+
+    assert json.loads(json.dumps(value, cls=TraceJSONEncoder)) == {
+        "array": list(range(5000)),
+        "embedding": [[0.5, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        "float32": 0.5,
+        "int64": 7,
+        "bool": True,
+    }
+
+
+def test_trace_json_encoder_serializes_extended_precision_numpy_objects():
+    np = pytest.importorskip("numpy")
+
+    value = {
+        "longdouble": np.longdouble(1.5),
+        "clongdouble": np.clongdouble(1 + 2j),
+        "array": np.array([1.5, 2.5], dtype=np.longdouble),
+    }
+
+    assert json.loads(json.dumps(value, cls=TraceJSONEncoder)) == {
+        "longdouble": str(np.longdouble(1.5)),
+        "clongdouble": str(np.clongdouble(1 + 2j)),
+        "array": [str(np.longdouble(1.5)), str(np.longdouble(2.5))],
+    }
+
+
+def test_trace_decorator_records_numpy_inputs_and_outputs():
+    np = pytest.importorskip("numpy")
+
+    @mlflow.trace
+    def embed(n):
+        return {"vector": np.arange(n), "score": np.float32(0.5)}
+
+    embed(np.int64(3))
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
+    span = trace.data.spans[0]
+    assert span.inputs == {"n": 3}
+    assert span.outputs == {"vector": [0, 1, 2], "score": 0.5}

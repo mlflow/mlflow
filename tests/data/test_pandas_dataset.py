@@ -1,5 +1,7 @@
+import datetime
 import json
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -293,6 +295,55 @@ def test_digest_includes_string_columns_with_missing_values(dtype):
         "y": [1, 0, 1],
     })
     assert mlflow.data.from_pandas(df1).digest != mlflow.data.from_pandas(df2).digest
+
+
+@pytest.mark.parametrize(
+    ("values1", "values2"),
+    [
+        (pd.Series([True, False, True]), pd.Series([False, True, False])),
+        (
+            pd.Series([True, False, None], dtype="boolean"),
+            pd.Series([False, True, None], dtype="boolean"),
+        ),
+        (
+            pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+            pd.to_datetime(["2025-06-01", "2025-06-02", "2025-06-03"]),
+        ),
+        (
+            pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]).tz_localize("UTC"),
+            pd.to_datetime(["2025-06-01", "2025-06-02", "2025-06-03"]).tz_localize("UTC"),
+        ),
+        (pd.Categorical([1, 2, 3]), pd.Categorical([3, 3, 1])),
+        (pd.Series([True, False, None]), pd.Series([False, True, None])),
+        (
+            pd.Series([datetime.date(2024, 1, 1), datetime.date(2024, 1, 2), None]),
+            pd.Series([datetime.date(2025, 6, 1), datetime.date(2025, 6, 2), None]),
+        ),
+    ],
+)
+def test_digest_includes_boolean_datetime_and_categorical_columns(values1, values2):
+    df1 = pd.DataFrame({"x": [1, 2, 3], "col": values1})
+    df2 = pd.DataFrame({"x": [1, 2, 3], "col": values2})
+    assert mlflow.data.from_pandas(df1).digest != mlflow.data.from_pandas(df2).digest
+
+
+@pytest.mark.parametrize("tz", [None, "UTC"])
+def test_digest_does_not_depend_on_datetime_unit(tz):
+    # `pd.to_datetime` on strings stores nanoseconds in pandas 2 but microseconds in pandas 3.
+    timestamps = pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]).tz_localize(tz)
+    digests = set()
+    for unit in ("s", "ms", "us", "ns"):
+        df = pd.DataFrame({"x": [1, 2, 3], "ts": timestamps.as_unit(unit)})
+        digests.add(mlflow.data.from_pandas(df).digest)
+    assert len(digests) == 1
+
+
+def test_digest_includes_datetimes_outside_the_nanosecond_range():
+    def digest(year):
+        values = np.array([f"{year}-01-01", f"{year}-01-02"], dtype="datetime64[s]")
+        return mlflow.data.from_pandas(pd.DataFrame({"x": [1, 2], "ts": values})).digest
+
+    assert digest(3000) != digest(3001)
 
 
 def test_df_hashing_with_dicts():

@@ -40,6 +40,8 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace
 from mlflow.environment_variables import (
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
+    MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_TRACE_DELETE_MAX_WORKERS,
 )
@@ -50,6 +52,8 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    DEADLINE_EXCEEDED,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
@@ -57,7 +61,8 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.store.db.utils import _get_managed_session_maker
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
@@ -564,6 +569,141 @@ def test_search_traces_order_by_null_handling(store, order_by, needs_null_orderi
         assert f"ORDER BY trace_info.timestamp_ms{direction}, trace_info.request_id" in statement
 
 
+def test_search_traces_timeout_is_ignored_on_sqlite(store, monkeypatch):
+    if store.db_type != SQLITE:
+        pytest.skip("Other databases are covered by tests/db/test_search_traces_timeout.py")
+
+    exp_id = _create_experiments(store, "test_search_traces_timeout")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "0.001")
+    statements = []
+
+    def capture(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture)
+    try:
+        traces, _ = store.search_traces(locations=[exp_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture)
+
+    assert [t.trace_id for t in traces] == ["tr-0"]
+    assert not any("statement_timeout" in s or "MAX_EXECUTION_TIME" in s for s in statements)
+
+
+class _FakeDriverError(Exception):
+    def __init__(self, *args, pgcode=None, sqlstate=None):
+        super().__init__(*args)
+        self.pgcode = pgcode
+        self.sqlstate = sqlstate
+
+
+def _dbapi_error(orig):
+    return sqlalchemy.exc.DBAPIError("SELECT 1", {}, orig)
+
+
+@pytest.mark.parametrize(("value", "expected_ms"), [("0.0001", 1), ("1.5", 1500)])
+def test_search_traces_timeout_is_applied_on_postgres(store, monkeypatch, value, expected_ms):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt
+    session.execute.assert_called_once()
+    assert session.execute.call_args.args[1] == {"timeout": str(expected_ms)}
+    stmt.prefix_with.assert_not_called()
+
+
+@pytest.mark.parametrize(("value", "expected_ms"), [("0.0001", 1), ("1.5", 1500)])
+def test_search_traces_timeout_is_applied_on_mysql(store, monkeypatch, value, expected_ms):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", MYSQL)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt.prefix_with.return_value
+    stmt.prefix_with.assert_called_once_with(f"/*+ MAX_EXECUTION_TIME({expected_ms}) */")
+    session.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("value", [None, "0", "-1", "inf", "nan"])
+@pytest.mark.parametrize(
+    ("db_type", "orig"),
+    [(POSTGRES, _FakeDriverError(pgcode="57014")), (MYSQL, _FakeDriverError(3024, "timeout"))],
+)
+def test_search_traces_timeout_is_disabled(store, monkeypatch, value, db_type, orig):
+    if value is None:
+        monkeypatch.delenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, raising=False)
+    else:
+        monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", db_type)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt
+    session.execute.assert_not_called()
+    stmt.prefix_with.assert_not_called()
+    # A cancel from the server's own limit must not be attributed to the disabled variable.
+    assert not store._is_search_traces_timeout_error(_dbapi_error(orig))
+
+
+@pytest.mark.parametrize(
+    ("db_type", "orig", "expected"),
+    [
+        (POSTGRES, _FakeDriverError(pgcode="57014"), True),
+        (POSTGRES, _FakeDriverError(sqlstate="57014"), True),
+        (POSTGRES, _FakeDriverError(pgcode="40P01"), False),
+        (POSTGRES, _FakeDriverError(), False),
+        (MYSQL, _FakeDriverError(3024, "maximum statement execution time exceeded"), True),
+        (MYSQL, _FakeDriverError(1205, "lock wait timeout exceeded"), False),
+        (MYSQL, _FakeDriverError(), False),
+        (SQLITE, _FakeDriverError(pgcode="57014"), False),
+    ],
+)
+def test_is_search_traces_timeout_error(store, monkeypatch, db_type, orig, expected):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "1")
+    monkeypatch.setattr(store, "db_type", db_type)
+
+    assert store._is_search_traces_timeout_error(_dbapi_error(orig)) is expected
+
+
+def test_search_traces_raises_deadline_exceeded_on_timeout(store, monkeypatch):
+    exp_id = _create_experiments(store, "test_search_traces_timeout_error")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "2.5")
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    monkeypatch.setattr(store, "_apply_search_traces_timeout", lambda session, stmt: stmt)
+    error = _dbapi_error(_FakeDriverError(pgcode="57014"))
+    monkeypatch.setattr(
+        sqlalchemy_store_module, "_build_trace_infos_from_rows", mock.Mock(side_effect=error)
+    )
+
+    with pytest.raises(MlflowException, match="2.5 second limit") as exc_info:
+        store.search_traces(locations=[exp_id])
+
+    assert exc_info.value.error_code == ErrorCode.Name(DEADLINE_EXCEEDED)
+    assert exc_info.value.__cause__ is error
+
+
+def test_search_traces_reraises_other_database_errors(store, monkeypatch):
+    exp_id = _create_experiments(store, "test_search_traces_other_error")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "2.5")
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    monkeypatch.setattr(store, "_apply_search_traces_timeout", lambda session, stmt: stmt)
+    error = _dbapi_error(_FakeDriverError("deadlock detected", pgcode="40P01"))
+    monkeypatch.setattr(
+        sqlalchemy_store_module, "_build_trace_infos_from_rows", mock.Mock(side_effect=error)
+    )
+
+    with pytest.raises(MlflowException, match="deadlock detected") as exc_info:
+        store.search_traces(locations=[exp_id])
+
+    assert exc_info.value.error_code == ErrorCode.Name(BAD_REQUEST)
+    assert exc_info.value.__cause__ is error
+
+
 @pytest.mark.parametrize("direction", ["ASC", "DESC"])
 def test_search_traces_order_by_nullable_attribute(store, direction):
     exp_id = store.create_experiment("nullable-ordering")
@@ -1004,6 +1144,74 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     # Test no matches
     traces, _ = store.search_traces([exp_id], filter_string='span.name = "nonexistent"')
     assert len(traces) == 0
+
+
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize(
+    ("pattern", "expected"),
+    [
+        (r"INPUT\_GUARDRAIL", {"input_guardrail"}),
+        ("input_guardrail", {"input_guardrail", "inputXguardrail"}),
+        (r"100\%\_literal", {"100%_literal"}),
+        (r"%\%%", {"100%_literal"}),
+        (r"path\\name", {r"path\name"}),
+        (r"\[abc]", {"[abc]"}),
+        ("trailing\\", set()),
+        (r"trailing\\", {"trailing\\"}),
+    ],
+)
+def test_search_traces_span_ilike_escape(store: SqlAlchemyStore, field, pattern, expected):
+    if pattern == "trailing\\" and store.db_type != SQLITE:
+        pytest.skip("Incomplete LIKE escape patterns have database-specific behavior.")
+    exp_id = store.create_experiment("span_ilike_escape")
+    values = [
+        "input_guardrail",
+        "inputXguardrail",
+        "100%_literal",
+        r"path\name",
+        "[abc]",
+        "a",
+        "trailing\\",
+    ]
+    trace_names = {}
+    for index, value in enumerate(values):
+        trace_id = f"trace{index}"
+        _create_trace(store, trace_id, exp_id)
+        store.log_spans(
+            exp_id, [create_test_span(trace_id, name=value, span_type=value, span_id=index + 1)]
+        )
+        trace_names[trace_id] = value
+
+    traces, _ = store.search_traces([exp_id], filter_string=f"span.{field} ILIKE '{pattern}'")
+    assert {trace_names[trace.trace_id] for trace in traces} == expected
+
+
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize(
+    ("comparison", "expected"),
+    [
+        ("= '100%\\it''s'", {"100%\\it's"}),
+        ("!= '100%\\it''s'", {"plain", "100%\\it''s"}),
+        (r"ILIKE '100\%\\IT''S'", {"100%\\it's"}),
+        (r"ILIKE '%\%\\it''s%'", {"100%\\it's"}),
+        ("= \"100%\\it''s\"", {"100%\\it''s"}),
+        ("IN ('100%\\it''s')", {"100%\\it's"}),
+        ("NOT IN ('100%\\it''s', 'plain')", {"100%\\it''s"}),
+    ],
+)
+def test_search_traces_span_escaped_quote(store: SqlAlchemyStore, field, comparison, expected):
+    exp_id = store.create_experiment("span_escaped_quote")
+    trace_names = {}
+    for index, value in enumerate(["plain", "100%\\it's", "100%\\it''s"]):
+        trace_id = f"trace{index}"
+        _create_trace(store, trace_id, exp_id)
+        store.log_spans(
+            exp_id, [create_test_span(trace_id, name=value, span_type=value, span_id=index + 1)]
+        )
+        trace_names[trace_id] = value
+
+    traces, _ = store.search_traces([exp_id], filter_string=f"span.{field} {comparison}")
+    assert {trace_names[trace.trace_id] for trace in traces} == expected
 
 
 def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
@@ -4140,6 +4348,43 @@ async def test_log_spans_async_allows_concurrent_store_calls(store: SqlAlchemySt
         )
 
     assert results == [[], []]
+
+
+@pytest.mark.parametrize("rollups_enabled", [False, True])
+def test_log_spans_with_single_connection_pool(
+    store: SqlAlchemyStore, monkeypatch, rollups_enabled
+):
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, str(rollups_enabled).lower())
+    experiment_id = store.create_experiment("single_connection_pool")
+    artifact_location = store.get_experiment(experiment_id).artifact_location
+    spans = [create_test_span(f"tr-single-connection-{i}", span_id=i, trace_num=i) for i in (1, 2)]
+    engine = sqlalchemy.create_engine(
+        store.engine.url,
+        poolclass=sqlalchemy.pool.QueuePool,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=0.1,
+    )
+    try:
+        managed_session_maker = _get_managed_session_maker(
+            sqlalchemy.orm.sessionmaker(bind=engine), store.db_type
+        )
+        with mock.patch.object(store, "ManagedSessionMaker", managed_session_maker):
+            assert store.log_spans(experiment_id, spans) == spans
+
+            for span in spans:
+                info = store.get_trace_info(span.trace_id)
+                assert info.experiment_id == experiment_id
+                assert info.tags[MLFLOW_ARTIFACT_LOCATION] == append_to_uri_path(
+                    artifact_location, "traces", span.trace_id, "artifacts"
+                )
+
+            with store.ManagedSessionMaker() as session:
+                assert {(row.trace_id, row.span_id) for row in session.query(SqlSpan).all()} == {
+                    (span.trace_id, span.span_id) for span in spans
+                }
+    finally:
+        engine.dispose()
 
 
 def test_log_spans_multiple_traces(store: SqlAlchemyStore):

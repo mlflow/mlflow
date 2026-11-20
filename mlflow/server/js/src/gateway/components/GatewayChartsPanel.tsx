@@ -20,6 +20,7 @@ import {
   calculateDefaultTimeUnit,
 } from '../../experiment-tracking/pages/experiment-overview/utils/timeUtils';
 import { generateTimeBuckets } from '../../experiment-tracking/pages/experiment-overview/utils/chartUtils';
+import { GatewayFeatureUsageSummary } from './GatewayFeatureUsageSummary';
 
 interface GatewayChartsPanelProps {
   experimentIds: string[];
@@ -99,6 +100,8 @@ const GatewayChartsPanelImpl = ({
           <LazyTraceRequestsChart
             title={<FormattedMessage defaultMessage="Requests" description="Title for the requests chart in gateway" />}
           />
+
+          <GatewayFeatureUsageSummary />
 
           {/* Latency and Errors charts - side by side */}
           <ChartGrid>
