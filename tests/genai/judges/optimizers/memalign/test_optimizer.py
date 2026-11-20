@@ -1534,6 +1534,9 @@ def test_remove_guidelines_on_initialized_judge(sample_judge, sample_traces):
             embedding_model="openai:/text-embedding-3-small",
             embedding_dim=256,
         ).align(sample_judge, sample_traces)
+        # mock_apis gives every guideline the same sources; make them distinct per guideline
+        for i, g in enumerate(aligned._semantic_memory):
+            g.source_trace_ids = [f"tr-{i}"]
         embedder_calls = mocks["embedder"].call_count
         embedder_class_calls = mocks["embedder_class"].call_count
         embeddings_class_calls = mocks["embeddings_class"].call_count
@@ -1546,9 +1549,11 @@ def test_remove_guidelines_on_initialized_judge(sample_judge, sample_traces):
         assert cleaned.guidelines == ["G0", "G2", "G4"]
         # The original judge is unchanged
         assert aligned.guidelines == _GUIDELINES
-        assert cleaned._semantic_memory[1].source_trace_ids == (
-            aligned._semantic_memory[2].source_trace_ids
-        )
+        assert [g.source_trace_ids for g in cleaned._semantic_memory] == [
+            ["tr-0"],
+            ["tr-2"],
+            ["tr-4"],
+        ]
 
         assert cleaned._episodic_memory == aligned._episodic_memory
         assert cleaned._episodic_memory is not aligned._episodic_memory
@@ -1653,19 +1658,46 @@ def test_remove_guidelines_then_register_then_load(sample_judge, sample_traces):
     assert loaded.guidelines == ["G1", "G2", "G4"]
 
 
-def test_remove_guidelines_while_lazy_init_in_progress_stays_deferred(sample_judge, sample_traces):
+def test_remove_guidelines_on_initialized_judge_without_episodic_examples(
+    sample_judge, sample_traces
+):
     with mock_apis(guidelines=_GUIDELINES):
         aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
     restored = Scorer.model_validate(aligned.model_dump())
-    # Mimic another thread inside _lazy_init: embedder set, memory and retriever not yet built
-    restored._embedder = MagicMock()
+    # Every stored trace is gone, so _lazy_init finishes with no examples and no retriever
+    with patch("mlflow.get_trace", return_value=None), patch("dspy.Embedder"):
+        restored._lazy_init()
+    assert restored._embedder is not None
     assert restored._retriever is None
 
-    cleaned = restored.remove_guidelines([0])
+    with patch("mlflow.get_trace") as mock_get_trace:
+        cleaned = restored.remove_guidelines([0])
+        cleaned._lazy_init()
 
-    assert cleaned._embedder is None
+    mock_get_trace.assert_not_called()
+    assert cleaned._embedder is restored._embedder
     assert cleaned._retriever is None
     assert cleaned.guidelines == ["G1", "G2", "G3", "G4"]
+
+
+def test_remove_guidelines_preserves_scorer_settings(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    aligned.timeout = 5
+    aligned.aggregations = ["median"]
+    aligned.description = "custom description"
+    aligned.session_level = "episode"
+    pass_if = lambda value: value == "yes"  # noqa: E731
+    aligned._pass_if = pass_if
+
+    cleaned = aligned.remove_guidelines([0])
+
+    assert cleaned.timeout == 5
+    assert cleaned.aggregations == ["median"]
+    assert cleaned.description == "custom description"
+    assert cleaned.session_level == "episode"
+    assert cleaned._pass_if is pass_if
+    assert cleaned.aggregations is not aligned.aggregations
 
 
 @pytest.mark.parametrize(

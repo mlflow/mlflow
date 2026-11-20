@@ -431,6 +431,12 @@ class MemoryAugmentedJudge(Judge):
         )
         judge_copy._semantic_memory = copy.deepcopy(self._semantic_memory)
         judge_copy._episodic_trace_ids = self._episodic_trace_ids.copy()
+        # Keep settings changed on this judge (timeout, aggregations, ...) instead of the
+        # base judge's. `name` is a read-only property backed by the base judge. Registration
+        # state (backend, version, sampling config) is not copied, matching a fresh judge.
+        for field in type(self).model_fields.keys() - {"name"}:
+            setattr(judge_copy, field, copy.deepcopy(getattr(self, field)))
+        judge_copy._pass_if = self._pass_if
 
         return judge_copy
 
@@ -599,10 +605,10 @@ class MemoryAugmentedJudge(Judge):
 
         # Deferred judges stay deferred (no trace fetch or embedding). Fully initialized judges
         # share the embedder and retriever, which __call__ only reads, so nothing is re-embedded.
-        # Gate on _retriever, which _lazy_init sets last, so a copy taken while another thread is
-        # initializing this judge usually stays deferred and initializes itself later.
+        # Gate on _embedder, the same init-complete signal _lazy_init uses: a judge with no
+        # episodic examples is fully initialized but has no retriever.
         new_judge = self._create_copy()
-        if self._retriever is not None:
+        if self._embedder is not None:
             new_judge._base_signature = self._base_signature
             new_judge._embedder = self._embedder
             new_judge._retriever = self._retriever
