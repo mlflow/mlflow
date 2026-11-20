@@ -1,17 +1,21 @@
 """Public API of the paired comparison of two GenAI evaluation runs."""
 
+import dataclasses
 import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.comparison.entities import ComparisonResult
 from mlflow.genai.evaluation.comparison.paired_comparison import _compare_paired_values
 from mlflow.genai.evaluation.comparison.utils import (
+    _attribute_scorer_failures,
     _EvalRow,
     _is_pass_fail,
     _load_eval_rows,
     _log_comparison,
     _mean_feedback_value,
     _pair_rows,
+    _warn_scorer_errors,
+    _warn_scorers_in_one_run,
     _warn_unpaired_rows,
 )
 from mlflow.telemetry.events import CompareEvaluationsEvent
@@ -39,8 +43,8 @@ def compare_evaluations(
     result and excluded from the statistics. Several feedbacks of one name on a trace (e.g.
     from a scorer returning a list of feedbacks) are averaged per trace, as
     :py:func:`mlflow.genai.evaluate` averages them into ``<scorer>/mean``. Each scorer that
-    produced feedback in both runs is then compared over the paired rows, with the test
-    chosen from the paired values rather than from the type the scorer returned:
+    produced feedback in both runs, valid or errored, is then compared over the paired rows,
+    with the test chosen from the paired values rather than from the type the scorer returned:
 
     - **Every paired value is 0 or 1** (booleans, yes/no ratings, but also ``int(x > 0.5)``
       or ``1.0``/``0.0`` scorers): McNemar's test, exact when there are fewer than 25
@@ -55,8 +59,15 @@ def compare_evaluations(
     differences. A scorer with
     fewer than six paired values, the smallest sample at which a result can be significant at
     0.05, is reported with status ``"insufficient_pairs"``, and a warning is logged for
-    scorers with fewer than ten. If no scorer produced valid feedback in both runs, a warning
-    is logged and the result has no scorers.
+    scorers with fewer than ten. Paired rows on which a scorer errored in either run are
+    excluded from that scorer's statistics and counted in ``n_baseline_errors`` and
+    ``n_candidate_errors``. A row on which a scorer raised counts as an error of each
+    feedback name that the scorer returns on other rows of either run, matched on the scorer
+    definition or, for a registered scorer, on its name across versions. Since errors are often
+    not random (e.g. judge timeouts on long inputs), such a scorer is reported with status
+    ``"scorer_errors"``, even when all of its feedback errored, and a warning is logged.
+    Scorers with feedback in only one run are not compared, and a warning lists them. If no
+    scorer produced feedback in both runs, a warning is logged and the result has no scorers.
 
     No correction for multiple comparisons is applied across scorers.
 
@@ -70,10 +81,11 @@ def compare_evaluations(
         confidence_level: Confidence level of the bootstrap confidence interval.
         log_results: If True, log the comparison to the candidate run: metrics
             ``compare/<baseline_short_id>/<scorer>/{diff,ci_low,ci_high,p_value,effect_size,
-            n_paired}`` and one ``compare/<baseline_short_id>.json`` artifact containing the
-            full baseline run ID. ``<baseline_short_id>`` is the first 8 characters of the
-            baseline run ID. Off by default, since every compared scorer adds six metrics to
-            the run.
+            n_paired}``, plus ``compare/<baseline_short_id>/<scorer>/{n_baseline_errors,
+            n_candidate_errors}`` for scorers with status ``"scorer_errors"``, and one
+            ``compare/<baseline_short_id>.json`` artifact containing the full baseline run ID.
+            ``<baseline_short_id>`` is the first 8 characters of the baseline run ID. Off by
+            default, since every compared scorer adds up to eight metrics to the run.
 
     Returns:
         A :py:class:`ComparisonResult <mlflow.genai.evaluation.comparison.ComparisonResult>`.
@@ -106,11 +118,14 @@ def compare_evaluations(
 
     greater_is_better = greater_is_better or {}
 
-    pairing = _pair_rows(_load_eval_rows(baseline_run_id), _load_eval_rows(candidate_run_id))
+    baseline_rows = _load_eval_rows(baseline_run_id)
+    candidate_rows = _load_eval_rows(candidate_run_id)
+    _attribute_scorer_failures([*baseline_rows, *candidate_rows])
+    pairing = _pair_rows(baseline_rows, candidate_rows)
     _warn_unpaired_rows(pairing)
 
     def scorer_names(rows: list[_EvalRow]) -> set[str]:
-        return {name for row in rows for name in row.feedbacks}
+        return {name for row in rows for name in (*row.feedbacks, *row.errored_scorers)}
 
     baseline_scorers = scorer_names([
         *pairing.unpaired_baseline,
@@ -124,10 +139,12 @@ def compare_evaluations(
     if not common_scorers:
         _logger.warning(
             "No scorers were compared because the baseline and candidate runs have no scorer "
-            "with valid feedback in common. Scorers with valid feedback in the baseline run: "
-            f"{sorted(baseline_scorers)}. Scorers with valid feedback in the candidate run: "
+            "with feedback in common. Scorers with feedback in the baseline run: "
+            f"{sorted(baseline_scorers)}. Scorers with feedback in the candidate run: "
             f"{sorted(candidate_scorers)}."
         )
+    else:
+        _warn_scorers_in_one_run(baseline_scorers, candidate_scorers)
 
     paired_rows = [
         {
@@ -142,6 +159,8 @@ def compare_evaluations(
     for name in common_scorers:
         baseline_values = []
         candidate_values = []
+        n_baseline_errors = 0
+        n_candidate_errors = 0
         pass_fail = True
         for pair, paired_row in zip(pairing.pairs, paired_rows):
             baseline_feedbacks = pair.baseline.feedbacks.get(name, [])
@@ -149,6 +168,12 @@ def compare_evaluations(
             baseline_value = _mean_feedback_value(baseline_feedbacks)
             candidate_value = _mean_feedback_value(candidate_feedbacks)
             if baseline_value is None or candidate_value is None:
+                # A row with errored feedback only counts as an error when no feedback of the
+                # scorer on the trace has a value.
+                if baseline_value is None and name in pair.baseline.errored_scorers:
+                    n_baseline_errors += 1
+                if candidate_value is None and name in pair.candidate.errored_scorers:
+                    n_candidate_errors += 1
                 continue
             pass_fail = pass_fail and all(
                 _is_pass_fail(feedback) for feedback in (*baseline_feedbacks, *candidate_feedbacks)
@@ -161,7 +186,7 @@ def compare_evaluations(
                 "delta": candidate_value - baseline_value,
             }
 
-        comparisons[name] = _compare_paired_values(
+        comparison = _compare_paired_values(
             name,
             np.array(baseline_values, dtype=float),
             np.array(candidate_values, dtype=float),
@@ -169,6 +194,15 @@ def compare_evaluations(
             greater_is_better=greater_is_better.get(name, True),
             confidence_level=confidence_level,
         )
+        if n_baseline_errors or n_candidate_errors:
+            comparison = dataclasses.replace(
+                comparison,
+                status="scorer_errors",
+                n_baseline_errors=n_baseline_errors,
+                n_candidate_errors=n_candidate_errors,
+            )
+        comparisons[name] = comparison
+    _warn_scorer_errors(comparisons)
 
     result = ComparisonResult(
         candidate_run_id=candidate_run_id,

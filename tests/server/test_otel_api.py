@@ -12,9 +12,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
+from opentelemetry.sdk.trace import TracerProvider
 from prometheus_client import REGISTRY
 
 from mlflow.entities import Workspace
+from mlflow.entities.span import create_mlflow_span
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
@@ -600,6 +602,39 @@ def test_otlp_json_string_attributes(monkeypatch, db_uri, tmp_path, key, sent_va
     assert response.status_code == 200
     stored_span = store.get_trace(f"tr-{trace_id}").data.spans[0]
     assert stored_span.get_attribute(key) == expected
+
+
+@pytest.mark.parametrize(
+    "output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]", 2, True, None, {"a": 1}]
+)
+def test_otlp_roundtrip_of_client_span_outputs(monkeypatch, db_uri, tmp_path, output):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    store = SqlAlchemyStore(db_uri, tmp_path.as_uri())
+    experiment_id = store.create_experiment("otlp-client-outputs")
+    monkeypatch.setattr("mlflow.server.otel_api._get_tracking_store", lambda: store)
+
+    otel_span = TracerProvider().get_tracer("test").start_span("span")
+    trace_id = "tr-" + format(otel_span.context.trace_id, "032x")
+    span = create_mlflow_span(otel_span, trace_id=trace_id)
+    span.set_outputs(output)
+    span.end()
+
+    request = ExportTraceServiceRequest()
+    request.resource_spans.add().scope_spans.add().spans.append(
+        span.to_otel_proto(serialize_strings=True)
+    )
+    response = _make_test_client().post(
+        OTLP_TRACES_PATH,
+        content=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": experiment_id,
+        },
+    )
+
+    assert response.status_code == 200
+    stored_span = store.get_trace(span.trace_id).data.spans[0]
+    assert stored_span.outputs == output
 
 
 @pytest.mark.parametrize("content_type", ["application/json", "application/json; charset=utf-8"])

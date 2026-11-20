@@ -19,7 +19,11 @@ export interface CopyController {
  * Utility hook that is internal to web-shared, use: `Copyable` or `CopyActionButton`
  *  or if it's a `CodeSnippet`, `SnippetCopyAction`
  */
-export function useCopyController(text: string, copyTooltip?: string, onCopy?: () => void): CopyController {
+export function useCopyController(
+  text: string | (() => string),
+  copyTooltip?: string,
+  onCopy?: () => void,
+): CopyController {
   const intl = useIntl();
 
   const copyMessage = copyTooltip
@@ -46,7 +50,7 @@ export function useCopyController(text: string, copyTooltip?: string, onCopy?: (
   }, []);
 
   const copy = () => {
-    clipboard.copy(text);
+    clipboard.copy(typeof text === 'function' ? text() : text);
     window.clearTimeout(copiedTimerIdRef.current);
     setCopied(true);
     onCopy?.();

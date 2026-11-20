@@ -6,6 +6,7 @@ import logging
 from pydantic import BaseModel as _BaseModel
 
 from mlflow.entities.issue import IssueSeverity
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.discovery.constants import (
     CLUSTER_LABELS_PROMPT_TEMPLATE,
     _format_cluster_categories,
@@ -67,6 +68,7 @@ def cluster_by_llm(
         [{"role": "user", "content": prompt}],
         response_format=_ClusterResponse,
         token_counter=token_counter,
+        gateway_caller=GatewayCaller.ISSUE_DETECTION,
     )
     content = (response.choices[0].message.content or "").strip()
     if not content:
@@ -155,6 +157,7 @@ def summarize_cluster(
         ],
         response_format=_IdentifiedIssue,
         token_counter=token_counter,
+        gateway_caller=GatewayCaller.ISSUE_DETECTION,
     )
 
     content = (response.choices[0].message.content or "").strip()

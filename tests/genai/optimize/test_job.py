@@ -5,6 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges import make_judge
 from mlflow.genai.optimize.job import (
     OptimizerType,
     _build_predict_fn,
@@ -138,6 +139,55 @@ def test_load_scorers_loads_non_scorer_module_names_from_registry(name):
     with mock.patch("mlflow.genai.optimize.job.get_scorer", return_value=registered) as get_scorer:
         assert _load_scorers([name], "exp-123") == [registered]
     get_scorer.assert_called_once_with(name=name, experiment_id="exp-123")
+
+
+@pytest.mark.parametrize(
+    ("inference_params", "error"),
+    [
+        ({"temperature": 0.0}, None),
+        ({"api_base": "http://localhost:8000/v1"}, "inference_params must not contain 'api_base'"),
+        ({"aws_region_name": "us-east-1.example.com"}, "'aws_region_name' must contain only"),
+    ],
+)
+def test_load_scorers_checks_registered_judge_inference_params(inference_params, error):
+    # Registering from the client writes to the store directly, like rows stored before the
+    # server checked scorer payloads.
+    experiment_id = mlflow.create_experiment("test_load_scorers_checks_inference_params")
+    make_judge(
+        name="judge",
+        instructions="Is {{ outputs }} polite?",
+        model="openai:/gpt-4o-mini",
+        inference_params=inference_params,
+    ).register(experiment_id=experiment_id)
+
+    if error is None:
+        [loaded] = _load_scorers(["judge"], experiment_id)
+        assert loaded.inference_params == inference_params
+    else:
+        with pytest.raises(MlflowException, match=error):
+            _load_scorers(["judge"], experiment_id)
+
+    mlflow.delete_experiment(experiment_id)
+
+
+def test_load_scorers_rejects_registered_third_party_destination_kwargs():
+    registered = mock.Mock(**{
+        "model_dump.return_value": {
+            "name": "coherence",
+            "third_party_scorer_data": {
+                "module": "mlflow.genai.scorers.trulens",
+                "class": "Coherence",
+                "metric_name": "Coherence",
+                "kwargs": {"api_base": "http://localhost:8000/v1"},
+            },
+        }
+    })
+    with mock.patch("mlflow.genai.optimize.job.get_scorer", return_value=registered) as get_scorer:
+        with pytest.raises(
+            MlflowException, match="third_party_scorer_data.kwargs must not contain 'api_base'"
+        ):
+            _load_scorers(["coherence"], "exp-123")
+    get_scorer.assert_called_once_with(name="coherence", experiment_id="exp-123")
 
 
 def test_build_predict_fn_success():
