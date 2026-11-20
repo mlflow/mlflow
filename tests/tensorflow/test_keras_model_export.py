@@ -788,7 +788,7 @@ def test_load_model_refuses_keras2_legacy_format_when_model_code_execution_disal
     )
 
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
-    with pytest.raises(MlflowException, match="a Keras 2 model saved in the H5 or SavedModel"):
+    with pytest.raises(MlflowException, match="saved in the H5 or SavedModel format with Keras 2"):
         mlflow.tensorflow.load_model(str(model_dir))
     assert not marker.exists()
 
@@ -798,7 +798,8 @@ def test_load_model_refuses_keras2_legacy_format_when_model_code_execution_disal
     [
         (types.SimpleNamespace(__version__="2.15.0"), "model.keras", True),
         (types.SimpleNamespace(), "model.keras", True),
-        (types.SimpleNamespace(__version__="3.0.0"), "model.h5", False),
+        (types.SimpleNamespace(__version__="3.0.0"), "model.keras", True),
+        (types.SimpleNamespace(__version__="3.11.3"), "model.h5", False),
     ],
 )
 def test_check_keras_model_loading_allows_safe_format_when_model_code_execution_disallowed(
@@ -816,10 +817,15 @@ def test_check_keras_model_loading_allows_safe_format_when_model_code_execution_
 
 
 @pytest.mark.parametrize(
-    "keras_module", [types.SimpleNamespace(__version__="2.15.0"), types.SimpleNamespace()]
+    "keras_module",
+    [
+        types.SimpleNamespace(__version__="2.15.0"),
+        types.SimpleNamespace(),
+        types.SimpleNamespace(__version__="3.11.2"),
+    ],
 )
 @pytest.mark.parametrize("file_name", ["model.keras", "model.h5", "model"])
-def test_check_keras_model_loading_refuses_keras2_non_zip_when_model_code_execution_disallowed(
+def test_check_keras_model_loading_refuses_unsafe_format_when_model_code_execution_disallowed(
     tmp_path, monkeypatch, keras_module, file_name
 ):
     model_path = tmp_path / file_name
@@ -828,6 +834,36 @@ def test_check_keras_model_loading_refuses_keras2_non_zip_when_model_code_execut
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     with pytest.raises(MlflowException, match="re-save the model in the zipped `.keras` format"):
         mlflow.tensorflow._check_keras_model_loading_allowed(keras_module, str(model_path))
+
+
+@pytest.mark.parametrize("save_format", ["h5", "tf", "keras"])
+def test_load_keras_model_checks_resolved_path_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch, save_format
+):
+    data_path = tmp_path / "data"
+    data_path.mkdir()
+    if save_format == "h5":
+        (data_path / "model.h5").write_bytes(b"not a zip")
+    elif save_format == "tf":
+        (data_path / "model").mkdir()
+    else:
+        with zipfile.ZipFile(data_path / "model.keras", "w") as zf:
+            zf.writestr("config.json", "{}")
+
+    keras_module = types.SimpleNamespace(__name__="tf_keras", __version__="2.15.0")
+    keras_models = mock.Mock(load_model=mock.Mock(return_value=mock.sentinel.model))
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with mock.patch("mlflow.tensorflow.importlib.import_module", return_value=keras_models):
+        if save_format == "keras":
+            loaded = mlflow.tensorflow._load_keras_model(str(data_path), keras_module, "tf")
+            assert loaded is mock.sentinel.model
+            keras_models.load_model.assert_called_once_with(
+                str(data_path / "model.keras"), custom_objects={}
+            )
+        else:
+            with pytest.raises(MlflowException, match="H5 or SavedModel format with Keras 2"):
+                mlflow.tensorflow._load_keras_model(str(data_path), keras_module, save_format)
+            keras_models.load_model.assert_not_called()
 
 
 def test_load_checkpoint_checks_keras_model_loading_allowed(tmp_path):
@@ -845,7 +881,8 @@ def test_load_checkpoint_checks_keras_model_loading_allowed(tmp_path):
 
 
 @pytest.mark.skipif(
-    Version(getattr(tf.keras, "__version__", "2")).major < 3, reason="Requires Keras 3"
+    Version(getattr(tf.keras, "__version__", "2")) < Version("3.11.3"),
+    reason="Requires Keras >= 3.11.3",
 )
 def test_load_model_allows_keras3_h5_model_when_model_code_execution_disallowed(
     model, model_path, data, monkeypatch

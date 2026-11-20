@@ -563,23 +563,25 @@ def _load_custom_objects(path, file_name):
 
 
 def _check_keras_model_loading_allowed(keras_module, model_path):
-    # Keras 3 refuses `Lambda` layer bytecode by default (`safe_mode=True`) in every format it
-    # loads. Keras 2 (e.g. `tf_keras`) applies `safe_mode` only to the zipped `.keras` format; its
-    # H5 and SavedModel loaders deserialize `Lambda` layer bytecode unconditionally.
+    # Keras 3.11.3+ refuses `Lambda` layer bytecode by default (`safe_mode=True`) in every format
+    # it loads. Earlier Keras 3 releases ignore `safe_mode` in the H5 loader (CVE-2025-9905), and
+    # Keras 2 (e.g. `tf_keras`) applies `safe_mode` only to the zipped `.keras` format; its H5 and
+    # SavedModel loaders deserialize `Lambda` layer bytecode unconditionally.
     if _is_model_code_loading_allowed():
         return
     keras_version = getattr(keras_module, "__version__", None)
-    if keras_version is not None and Version(keras_version).major >= 3:
+    if keras_version is not None and Version(keras_version) >= Version("3.11.3"):
         return
     if model_path.endswith(".keras") and zipfile.is_zipfile(model_path):
         return
     raise MlflowException(
-        "Loading a Keras 2 model saved in the H5 or SavedModel format is disallowed because it "
-        "can run code supplied by the model, such as `Lambda` layers. If you trust this model, "
-        f"set environment variable '{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to load "
-        "it. Otherwise, re-save the model in the zipped `.keras` format (the default with "
-        "TensorFlow 2.16 or later unless `save_format='h5'` is passed), which Keras loads with "
-        "`safe_mode=True`."
+        "Loading a Keras model saved in the H5 or SavedModel format with Keras 2, or in the H5 "
+        "format with Keras earlier than 3.11.3, is disallowed because it can run code supplied "
+        "by the model, such as `Lambda` layers. If you trust this model, set environment variable "
+        f"'{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to load it. Otherwise, upgrade to "
+        "Keras 3.11.3 or later, or re-save the model in the zipped `.keras` format (the default "
+        "with TensorFlow 2.16 or later unless `save_format='h5'` is passed), which Keras loads "
+        "with `safe_mode=True`."
     )
 
 

@@ -1976,9 +1976,10 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 #: cloudpickle artifacts, code directories logged with ``code_paths``, models from code, models
 #: on the Python path, Transformers custom code, LlamaIndex settings that name classes to
 #: construct, John Snow Labs models that start a Spark session with their own JARs and license,
-#: Keras 2 models saved in the H5 or SavedModel format, which can contain ``Lambda`` layer
-#: bytecode, and all PyFunc models, because a PyFunc model names the Python module that loads
-#: it. Set it to ``false`` to refuse such models. Only set it to ``true`` for models you trust.
+#: Keras 2 models saved in the H5 or SavedModel format and H5 models loaded with Keras earlier
+#: than 3.11.3, which can contain ``Lambda`` layer bytecode, and all PyFunc models, because a
+#: PyFunc model names the Python module that loads it. Set it to ``false`` to refuse such models.
+#: Only set it to ``true`` for models you trust.
 #: (default: ``True``)
 MLFLOW_ALLOW_MODEL_CODE_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_MODEL_CODE_EXECUTION", True
