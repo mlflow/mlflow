@@ -433,7 +433,7 @@ class MemoryAugmentedJudge(Judge):
         # Same knob and default as the parallel get_trace refresh in the genai evaluation harness.
         max_workers = max(1, min(len(trace_ids), MLFLOW_GENAI_EVAL_MAX_WORKERS.get()))
         with ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix="MemAlignTraceFetch"
+            max_workers=max_workers, thread_name_prefix="MLflowMemAlignTraceFetch"
         ) as executor:
             # map yields in input order, so examples stay in trace_ids order. Keep the iterator
             # inline so an error while converting closes it and cancels the pending fetches.
