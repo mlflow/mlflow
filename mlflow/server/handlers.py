@@ -4215,11 +4215,13 @@ def _get_graphql_auth_middleware():
     """
     try:
         from mlflow.server.auth import get_graphql_authorization_middleware
-
-        return get_graphql_authorization_middleware()
     except Exception:
-        # Auth not configured or other error
+        # The basic-auth app imports this module, so it cannot be running if the import fails.
         return []
+
+    # Errors here must propagate: returning no middleware while auth is enabled would skip
+    # authorization for every GraphQL field.
+    return get_graphql_authorization_middleware()
 
 
 @catch_mlflow_exception
