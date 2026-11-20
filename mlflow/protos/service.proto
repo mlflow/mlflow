@@ -4714,9 +4714,10 @@ message SearchLoggedModels {
 
   // List of datasets on which to apply the metrics filter clauses.
   // For example, a filter with `metrics.accuracy > 0.9` and dataset info with name "test_dataset"
-  // means we will return all logged models with accuracy > 0.9 on the test_dataset.
-  // Metric values from ANY dataset matching the criteria are considered.
-  // If no datasets are specified, then metrics across all datasets are considered in the filter.
+  // means we will return all logged models whose latest accuracy on the test_dataset is > 0.9.
+  // A metric is compared by its latest value (highest step, then latest timestamp) among the
+  // rows logged on the listed datasets. If no datasets are specified, the latest value across
+  // all datasets is compared.
   repeated Dataset datasets = 6;
 
   message Dataset {
