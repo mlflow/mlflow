@@ -1557,6 +1557,7 @@ class DatabricksTracingRestStore(RestStore):
         filter_string: str | None = None,
         model: str | None = None,
         trace_ids: list[str] | None = None,
+        idempotency_token: str | None = None,
     ) -> IssueDetectionRun:
         self._require_issue_detection_ids(experiment_id)
         if model is not None:
@@ -1578,6 +1579,8 @@ class DatabricksTracingRestStore(RestStore):
             # their format and count itself.
             bare_ids = (parse_trace_id_v4(trace_id)[1] for trace_id in trace_ids)
             body["trace_ids"] = list(dict.fromkeys(bare_ids))
+        if idempotency_token:
+            body["idempotency_token"] = idempotency_token
         # Detection reads traces in Unity Catalog through the run, so it takes the warehouse the
         # client reads them with; without one, Databricks chooses the compute.
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():

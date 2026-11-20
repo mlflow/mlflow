@@ -1081,6 +1081,7 @@ class TracingClient:
         filter_string: str | None = None,
         model: str | None = None,
         trace_ids: list[str] | None = None,
+        idempotency_token: str | None = None,
     ) -> IssueDetectionRun:
         """
         Start an issue detection run over an experiment's traces.
@@ -1089,13 +1090,19 @@ class TracingClient:
             experiment_id: The experiment whose traces to analyze.
             filter_string: Restricts the run to traces matching this ``search_traces`` filter.
             model: The model to analyze traces with. Not supported on Databricks.
-            trace_ids: The IDs of the traces to analyze. Not supported on Databricks.
+            trace_ids: The IDs of the traces to analyze.
+            idempotency_token: Makes the request safe to retry: a request with the same token
+                as the caller's earlier one returns the run that request started.
 
         Returns:
             The run, which has just started.
         """
         return self.store.detect_issues(
-            experiment_id, filter_string=filter_string, model=model, trace_ids=trace_ids
+            experiment_id,
+            filter_string=filter_string,
+            model=model,
+            trace_ids=trace_ids,
+            idempotency_token=idempotency_token,
         )
 
     def _get_issue_detection_run(

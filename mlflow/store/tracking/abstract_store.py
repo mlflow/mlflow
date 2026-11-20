@@ -835,6 +835,7 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
         filter_string: str | None = None,
         model: str | None = None,
         trace_ids: list[str] | None = None,
+        idempotency_token: str | None = None,
     ) -> IssueDetectionRun:
         """
         Start an issue detection run over an experiment's traces.
@@ -846,6 +847,8 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
                 ``"gateway:/<endpoint>"``.
             trace_ids: The IDs of the traces to analyze. Cannot be combined with
                 ``filter_string``.
+            idempotency_token: Makes the request safe to retry: a request with the same token
+                as the caller's earlier one returns the run that request started.
 
         Returns:
             The run, which has just started.

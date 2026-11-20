@@ -4489,11 +4489,12 @@ def test_detect_issues_with_trace_ids():
     with mock.patch(
         "mlflow.utils.rest_utils.http_request", return_value=_detection_run_response()
     ) as mock_http:
-        store.detect_issues("exp-1", trace_ids=["trace-1", "trace-2"])
+        store.detect_issues("exp-1", trace_ids=["trace-1", "trace-2"], idempotency_token="retry-1")
 
     assert mock_http.call_args.kwargs["json"] == {
         "experiment_id": "exp-1",
         "trace_ids": ["trace-1", "trace-2"],
+        "idempotency_token": "retry-1",
     }
 
 

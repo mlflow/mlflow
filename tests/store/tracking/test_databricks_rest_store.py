@@ -2842,10 +2842,15 @@ def test_detect_issues_sends_bare_deduplicated_trace_ids(detection_http):
     second = "0123456789abcdef0123456789abcdef"
 
     store.detect_issues(
-        "123", trace_ids=[f"trace:/catalog.schema/{first}", second, first, f"trace:/c.s/{second}"]
+        "123",
+        trace_ids=[f"trace:/catalog.schema/{first}", second, first, f"trace:/c.s/{second}"],
+        idempotency_token="retry-1",
     )
 
-    assert http.call_args.kwargs["json"] == {"trace_ids": [first, second]}
+    assert http.call_args.kwargs["json"] == {
+        "trace_ids": [first, second],
+        "idempotency_token": "retry-1",
+    }
 
 
 @pytest.mark.parametrize(

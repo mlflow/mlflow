@@ -1,5 +1,6 @@
 """Fluent APIs for managing issues in MLflow experiments."""
 
+import uuid
 from typing import Literal
 
 from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
@@ -189,6 +190,7 @@ def detect_issues(
     trace_ids: list[str] | None = None,
     model: str | None = None,
     experiment_id: str | None = None,
+    idempotency_token: str | None = None,
 ) -> IssueDetectionRun:
     """
     Start an issue detection run over an experiment's traces.
@@ -229,14 +231,25 @@ def detect_issues(
             ``"gateway:/<endpoint>"`` model uses the key saved with the AI Gateway endpoint. Not
             supported on Databricks, which chooses the model.
         experiment_id: The experiment whose traces to analyze. Defaults to the active experiment.
+        idempotency_token: Makes the call safe to retry. A call with the same token as one of
+            your earlier calls on the experiment returns the run that call started, instead of
+            starting another. Generate a new token, such as ``str(uuid.uuid4())``, for each run to
+            start, and pass the same one when retrying that call. At most 64 characters. Defaults
+            to a new random token, so the client's own retries of a failed request start at most
+            one run.
 
     Returns:
-        The :py:class:`mlflow.entities.IssueDetectionRun`, which has just started.
+        The :py:class:`mlflow.entities.IssueDetectionRun` that started, or that an earlier call
+        with the same ``idempotency_token`` started.
     """
     if experiment_id is None:
         experiment_id = _get_experiment_id()
     return TracingClient()._detect_issues(
-        experiment_id, filter_string=filter_string, model=model, trace_ids=trace_ids
+        experiment_id,
+        filter_string=filter_string,
+        model=model,
+        trace_ids=trace_ids,
+        idempotency_token=idempotency_token or str(uuid.uuid4()),
     )
 
 

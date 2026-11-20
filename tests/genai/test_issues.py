@@ -1,4 +1,5 @@
-from unittest.mock import Mock
+import uuid
+from unittest.mock import ANY, Mock
 
 import pytest
 
@@ -313,16 +314,39 @@ def test_detect_issues_delegates_to_tracing_client(tracing_client):
 
     assert result is tracing_client._detect_issues.return_value
     tracing_client._detect_issues.assert_called_once_with(
-        experiment.experiment_id, filter_string="trace.status = 'ERROR'", model=None, trace_ids=None
+        experiment.experiment_id,
+        filter_string="trace.status = 'ERROR'",
+        model=None,
+        trace_ids=None,
+        idempotency_token=ANY,
     )
     tracing_client._detect_issues.reset_mock()
 
     mlflow.genai.detect_issues(
-        trace_ids=["trace-1"], model="gateway:/endpoint", experiment_id="override"
+        trace_ids=["trace-1"],
+        model="gateway:/endpoint",
+        experiment_id="override",
+        idempotency_token="retry-1",
     )
     tracing_client._detect_issues.assert_called_once_with(
-        "override", filter_string=None, model="gateway:/endpoint", trace_ids=["trace-1"]
+        "override",
+        filter_string=None,
+        model="gateway:/endpoint",
+        trace_ids=["trace-1"],
+        idempotency_token="retry-1",
     )
+
+
+def test_detect_issues_sends_a_new_idempotency_token_for_each_call(tracing_client):
+    # Each call gets its own token, so only the client's retries of one request share it.
+    mlflow.genai.detect_issues(experiment_id="1")
+    mlflow.genai.detect_issues(experiment_id="1")
+
+    tokens = [
+        call.kwargs["idempotency_token"] for call in tracing_client._detect_issues.call_args_list
+    ]
+    assert len(set(tokens)) == 2
+    assert all(uuid.UUID(token) for token in tokens)
 
 
 @pytest.mark.parametrize("method", ["get_issue_detection_run", "cancel_issue_detection_run"])
