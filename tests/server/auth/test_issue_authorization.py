@@ -10,9 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
-from mlflow.server import jobs
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_ISSUE_DETECTION_SCHEDULE,
 )
 
@@ -155,37 +153,14 @@ def test_detect_issues_denies_a_missing_experiment(monkeypatch):
     assert _run_detect_issues(monkeypatch, {"experiment_id": "missing"}) == (False, [])
 
 
-def _run_cancel_detection(
-    monkeypatch,
-    *,
-    can_update=True,
-    job_id="job-1",
-    creator="u",
-    run=True,
-    job=True,
-    job_params='{"experiment_id": "1", "run_id": "r1"}',
-):
+def _run_cancel_detection(monkeypatch, *, can_update=True, run=True):
     monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
-    monkeypatch.setattr(a, "_authorize_run", lambda action: action == "update" and can_update)
 
-    def get_run(run_id):
-        if not run:
-            raise MlflowException("no such run", error_code=RESOURCE_DOES_NOT_EXIST)
-        tags = {MLFLOW_ISSUE_DETECTION_JOB_ID: job_id} if job_id else {}
-        return SimpleNamespace(
-            info=SimpleNamespace(run_id="r1", experiment_id="1"), data=SimpleNamespace(tags=tags)
-        )
+    def authorize_run(action):
+        # A missing run resolves to no requirement, which denies.
+        return run and action == "update" and can_update
 
-    monkeypatch.setattr(a, "_get_tracking_store", lambda: SimpleNamespace(get_run=get_run))
-
-    def get_job(job_id):
-        if not job:
-            raise MlflowException("no such job", error_code=RESOURCE_DOES_NOT_EXIST)
-        return SimpleNamespace(
-            creator=creator, job_name="invoke_issue_detection", params=job_params
-        )
-
-    monkeypatch.setattr(jobs, "get_job", get_job)
+    monkeypatch.setattr(a, "_authorize_run", authorize_run)
     app = flask.Flask(__name__)
     with app.test_request_context(
         "/api/3.0/mlflow/issues/detection-runs/r1/cancel", method="POST", json={"run_id": "r1"}
@@ -196,33 +171,6 @@ def _run_cancel_detection(
 def test_cancel_issue_detection_run_requires_update_on_the_run(monkeypatch):
     assert _run_cancel_detection(monkeypatch, can_update=True) is True
     assert _run_cancel_detection(monkeypatch, can_update=False) is False
-
-
-def test_cancel_issue_detection_run_requires_owning_the_job(monkeypatch):
-    # As for PATCH /mlflow/jobs/cancel/<job_id>: UPDATE on the run is not enough to cancel
-    # someone else's job.
-    assert _run_cancel_detection(monkeypatch, creator="someone-else") is False
-    assert _run_cancel_detection(monkeypatch, creator=None) is False
-
-
-def test_cancel_issue_detection_run_without_a_job_needs_only_update(monkeypatch):
-    assert _run_cancel_detection(monkeypatch, job_id=None) is True
-
-
-def test_cancel_issue_detection_run_whose_job_is_gone_needs_only_update(monkeypatch):
-    # The handler ends a run whose job is gone itself, as it does a run with no job.
-    assert _run_cancel_detection(monkeypatch, job=False) is True
-    assert _run_cancel_detection(monkeypatch, job=False, can_update=False) is False
-
-
-def test_cancel_issue_detection_run_retagged_to_another_job_needs_only_update(monkeypatch):
-    # The handler ignores a job that isn't the run's, and cancels only the run, so the job's
-    # creator doesn't matter, just as the handler doesn't cancel that job.
-    another_run = '{"experiment_id": "1", "run_id": "someone-elses-run"}'
-    assert _run_cancel_detection(monkeypatch, creator="someone-else", job_params=another_run)
-    assert not _run_cancel_detection(
-        monkeypatch, creator="someone-else", job_params=another_run, can_update=False
-    )
 
 
 def test_cancel_issue_detection_run_denies_a_missing_run(monkeypatch):

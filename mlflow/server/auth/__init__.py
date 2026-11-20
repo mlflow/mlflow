@@ -450,7 +450,6 @@ from mlflow.server.handlers import (
     _get_scoped_experiment_ids,
     _get_tracking_store,
     _get_validated_flask_request_json,
-    _is_detection_job_of_run,
     _raw_request_has_field,
     catch_mlflow_exception,
     get_endpoints,
@@ -509,7 +508,7 @@ from mlflow.store.tracking.skill_registry.artifact_paths import (
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
-from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_JOB_ID, MLFLOW_ISSUE_DETECTION_SCHEDULE
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import (
@@ -5989,34 +5988,12 @@ def validate_can_detect_issues():
 
 def validate_can_cancel_issue_detection_run():
     """
-    Canceling ends the run, so this requires UPDATE on it. Canceling also cancels its job, so,
-    as for ``PATCH /mlflow/jobs/cancel/<job_id>``, only the job's creator may do it.
+    Canceling ends the run and stops its detection job, so this requires UPDATE on the run, which
+    is EDIT on its experiment, whoever started it, as on Databricks. Unlike
+    ``PATCH /mlflow/jobs/cancel/<job_id>`` it doesn't also require having created the job: the
+    handler only cancels a detection job of the run's own experiment, which UPDATE there covers.
     """
-    from mlflow.server.jobs import get_job
-
-    if not _authorize_run("update"):
-        return False
-    try:
-        run = _get_tracking_store().get_run(_get_request_param("run_id"))
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return False
-        raise
-    job_id = run.data.tags.get(MLFLOW_ISSUE_DETECTION_JOB_ID)
-    # No job, or one that is gone, leaves only the run to end, which UPDATE on it already covers.
-    if not job_id:
-        return True
-    try:
-        job = get_job(job_id)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            return True
-        raise
-    # The handler ignores a job that isn't this run's detection job, as anyone who can update the
-    # run can retag it, and so cancels nothing but the run. Checked the same way here.
-    if not _is_detection_job_of_run(job, run):
-        return True
-    return job.creator is not None and job.creator == authenticate_request().username
+    return _authorize_run("update")
 
 
 ISSUE_BEFORE_REQUEST_HANDLERS = {
