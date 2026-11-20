@@ -22041,9 +22041,8 @@ public final class Issues {
   /**
    * <pre>
    * Request to cancel an issue detection run. Canceling a run that has ended returns it unchanged.
-   * When the server has authentication enabled, the caller needs EDIT on the run's experiment and
-   * must be the user who started the run, as for canceling any job. A scheduled run has no user who
-   * started it, so only an admin can cancel it.
+   * When the server has authentication enabled, the caller needs EDIT on the run's experiment,
+   * whoever started the run.
    * </pre>
    *
    * Protobuf type {@code mlflow.issues.CancelIssueDetectionRun}
@@ -23045,9 +23044,8 @@ public final class Issues {
     /**
      * <pre>
      * Request to cancel an issue detection run. Canceling a run that has ended returns it unchanged.
-     * When the server has authentication enabled, the caller needs EDIT on the run's experiment and
-     * must be the user who started the run, as for canceling any job. A scheduled run has no user who
-     * started it, so only an admin can cancel it.
+     * When the server has authentication enabled, the caller needs EDIT on the run's experiment,
+     * whoever started the run.
      * </pre>
      *
      * Protobuf type {@code mlflow.issues.CancelIssueDetectionRun}
