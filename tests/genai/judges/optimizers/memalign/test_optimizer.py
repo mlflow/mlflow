@@ -1,6 +1,7 @@
 import contextvars
 import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
@@ -1685,3 +1686,27 @@ def test_realign_does_not_duplicate_stored_trace_ids(sample_judge):
 
     assert judge_v2._episodic_trace_ids == [trace_id, other_id]
 
+
+def test_reconstruct_episodic_memory_propagates_fetch_error_and_cancels_pending(
+    sample_judge, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "2")
+    trace_ids = [f"t{i}" for i in range(50)]
+
+    def fake_get_trace(tid, **kwargs):
+        if tid == "t0":
+            raise RuntimeError("boom")
+        # Slow enough that the error reaches the caller and cancels the queue before the
+        # busy worker picks up another fetch; without cancellation all 50 fetches would run.
+        time.sleep(0.2)
+        return tid
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        judge._reconstruct_episodic_memory()
+
+    assert mock_get_trace.call_count < len(trace_ids)
