@@ -4,6 +4,7 @@
 import asyncio
 import base64
 import copy
+import gc
 import importlib.metadata
 import json
 import re
@@ -920,6 +921,119 @@ def test_generate_content_stream_never_consumed(is_async):
     (span,) = traces[0].data.spans
     assert span.name == f"{cls}.generate_content_stream"
     assert span.outputs is None
+
+
+def test_generate_content_stream_abandoned_releases_stream(is_async):
+    # Ending the span of an abandoned stream must not keep the SDK's stream, which holds the
+    # HTTP response, alive.
+    cls = "AsyncModels" if is_async else "Models"
+    released = []
+
+    if is_async:
+
+        async def _generate_content_stream(self, model, contents, config):
+            async def _stream():
+                try:
+                    yield _STREAM_CHUNKS[0]
+                    yield _STREAM_CHUNKS[1]
+                finally:
+                    released.append(True)
+
+            return _stream()
+
+    else:
+
+        def _generate_content_stream(self, model, contents, config):
+            try:
+                yield _STREAM_CHUNKS[0]
+                yield _STREAM_CHUNKS[1]
+            finally:
+                released.append(True)
+
+    with patch(f"google.genai.models.{cls}._generate_content_stream", new=_generate_content_stream):
+        mlflow.gemini.autolog()
+        client = genai.Client(api_key="dummy")
+        if is_async:
+
+            async def _abandon_stream():
+                stream = await client.aio.models.generate_content_stream(
+                    model="gemini-1.5-flash", contents="test content"
+                )
+                async for _ in stream:
+                    break
+                del stream
+                # The event loop closes collected async generators in tasks it schedules.
+                for _ in range(10):
+                    if released:
+                        break
+                    gc.collect()
+                    await asyncio.sleep(0)
+                # Checked before `asyncio.run` returns, because it closes leftover async generators.
+                assert released == [True]
+
+            asyncio.run(_abandon_stream())
+        else:
+            stream = client.models.generate_content_stream(
+                model="gemini-1.5-flash", contents="test content"
+            )
+            for _ in stream:
+                break
+            del stream
+            gc.collect()
+            assert released == [True]
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+
+def test_async_generate_content_stream_cancelled():
+    # Cancelling the consuming task (e.g. a client disconnecting from a streaming endpoint) must
+    # end the spans with an error right away, not leave them open until garbage collection.
+    async def _generate_content_stream(self, model, contents, config):
+        async def _stream():
+            yield _STREAM_CHUNKS[0]
+            await asyncio.Event().wait()
+
+        return _stream()
+
+    async def _cancel_stream():
+        client = genai.Client(api_key="dummy")
+        stream = await client.aio.models.generate_content_stream(
+            model="gemini-1.5-flash", contents="test content"
+        )
+        first_chunk_received = asyncio.Event()
+
+        async def _consume():
+            async for _ in stream:
+                first_chunk_received.set()
+
+        task = asyncio.create_task(_consume())
+        await first_chunk_received.wait()
+        task.cancel()
+        await asyncio.wait([task])
+        assert task.cancelled()
+        # `stream` is still referenced, so the trace is exported only if cancellation ended it.
+        assert len(get_traces()) == 1
+
+    with patch(
+        "google.genai.models.AsyncModels._generate_content_stream", new=_generate_content_stream
+    ):
+        mlflow.gemini.autolog()
+        asyncio.run(_cancel_stream())
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    assert len(traces[0].data.spans) == 2
+    for span in traces[0].data.spans:
+        assert span.status.status_code == "ERROR"
+        assert span.status.description == "CancelledError: "
+        assert span.events[-1].name == "exception"
+        assert span.events[-1].attributes["exception.type"] == "CancelledError"
+        assert span.outputs["candidates"][0]["content"]["parts"] == [
+            _STREAM_CHUNKS[0].candidates[0].content.parts[0].model_dump()
+        ]
 
 
 def test_count_tokens_autolog():

@@ -6,7 +6,7 @@ from typing import Any
 
 import mlflow
 import mlflow.gemini
-from mlflow.entities import SpanType
+from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
@@ -160,9 +160,14 @@ class TracingSession:
             self.output = chunks
         self._end_span(error)
 
-    def _end_span(self, exc):
+    def _end_span(self, exc: BaseException | None):
         if exc:
-            self.span.record_exception(exc)
+            # Not `record_exception`, which rejects `BaseException`s such as the
+            # `asyncio.CancelledError` that ends a stream when the caller's task is cancelled.
+            self.span.add_event(SpanEvent.from_exception(exc))
+            self.span.set_status(
+                SpanStatus(SpanStatusCode.ERROR, description=f"{type(exc).__name__}: {exc}")
+            )
 
         try:
             # Chat instances store model in _model attribute

@@ -51,7 +51,7 @@ class _StreamState:
         for child in list(self.children):
             child.finish()
 
-    def finish(self, error: Exception | None = None):
+    def finish(self, error: BaseException | None = None):
         if self.finished:
             return
         self.finished = True
@@ -60,6 +60,9 @@ class _StreamState:
         self.finish_children()
         if self.parent is not None:
             self.parent.children.discard(self)
+            # The parent's suspended generator holds this stream's wrapper. Keeping the reference
+            # would let this stream's finalizer keep both streams alive forever once abandoned.
+            self.parent = None
         try:
             self.on_finish(self.chunks, error)
         except Exception:
@@ -134,7 +137,9 @@ class AsyncStreamWrapper(BaseStreamWrapper):
         except StopAsyncIteration:
             state.finish()
             raise
-        except Exception as e:
+        # `BaseException` covers `asyncio.CancelledError`, raised when the caller's task is
+        # cancelled mid-stream (e.g. a client disconnects from a streaming endpoint).
+        except BaseException as e:
             state.finish(e)
             raise
 
@@ -147,7 +152,7 @@ class AsyncStreamWrapper(BaseStreamWrapper):
         if aclose := getattr(state.stream, "aclose", None):
             try:
                 await aclose()
-            except Exception as e:
+            except BaseException as e:
                 state.finish(e)
                 raise
         state.finish()
