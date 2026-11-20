@@ -9,15 +9,27 @@ from mlflow.protos.issues_pb2 import IssueDetectionRun as ProtoIssueDetectionRun
 
 
 class IssueDetectionRunStatus(str, Enum):
-    """Status of an issue detection run."""
+    """
+    Status of an issue detection run.
+
+    ``UNKNOWN`` means the server reported a status this version of MLflow doesn't recognize, such
+    as a run Databricks can't map to one of the others. The run may still change, so read it
+    again later.
+    """
 
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELED = "canceled"
+    UNKNOWN = "unknown"
 
     def __str__(self) -> str:
         return self.value
+
+    @classmethod
+    def _missing_(cls, value: object) -> IssueDetectionRunStatus:
+        # A status added by a newer server shouldn't make reading the run fail.
+        return cls.UNKNOWN
 
     @property
     def is_terminal(self) -> bool:

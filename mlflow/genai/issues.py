@@ -263,6 +263,14 @@ def cancel_issue_detection_run(
     """
     Cancel an issue detection run. Canceling a run that has ended returns it unchanged.
 
+    Who can cancel a run differs by backend:
+
+    - On an MLflow tracking server with authentication enabled, the caller needs EDIT on the
+      run's experiment and must be the user who started the run, as for canceling any job. A
+      scheduled run has no user who started it, so only an admin can cancel it.
+    - On Databricks, anyone with CAN_EDIT on the experiment can cancel any of its runs. The
+      returned run can still read as running for a moment, until it stops.
+
     Args:
         run_id: ID of the run, from :py:func:`detect_issues`.
         experiment_id: Parent experiment for Databricks routing. Defaults to the active

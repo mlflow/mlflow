@@ -44,8 +44,27 @@ def test_issue_detection_run_from_proto_leaves_unset_times_as_none():
         (IssueDetectionRunStatus.SUCCEEDED, True),
         (IssueDetectionRunStatus.FAILED, True),
         (IssueDetectionRunStatus.CANCELED, True),
+        (IssueDetectionRunStatus.UNKNOWN, False),
     ],
 )
 def test_issue_detection_run_status_is_terminal(status, is_terminal):
     assert status.is_terminal is is_terminal
     assert str(status) == status.value
+
+
+@pytest.mark.parametrize("status", ["queued", ""])
+def test_issue_detection_run_reads_an_unrecognized_status_as_unknown(status):
+    proto = IssueDetectionRun(
+        run_id="run-1", experiment_id="1", status=IssueDetectionRunStatus.RUNNING
+    ).to_proto()
+    proto.status = status
+
+    assert IssueDetectionRun.from_proto(proto).status is IssueDetectionRunStatus.UNKNOWN
+    assert (
+        IssueDetectionRun.from_dictionary({
+            "run_id": "run-1",
+            "experiment_id": "1",
+            "status": status,
+        }).status
+        is IssueDetectionRunStatus.UNKNOWN
+    )

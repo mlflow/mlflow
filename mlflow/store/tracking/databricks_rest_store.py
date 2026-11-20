@@ -1528,14 +1528,8 @@ class DatabricksTracingRestStore(RestStore):
         resource: dict[str, Any], experiment_id: str
     ) -> IssueDetectionRun:
         state = resource.get("state", "")
-        try:
-            status = IssueDetectionRunStatus(
-                state.removeprefix("ISSUE_DETECTION_RUN_STATE_").lower()
-            )
-        except ValueError:
-            raise MlflowException(
-                f"The Databricks Issues API returned an unrecognized run state {state!r}"
-            ) from None
+        # ISSUE_DETECTION_RUN_STATE_UNSPECIFIED, or a state added later, reads as UNKNOWN.
+        status = IssueDetectionRunStatus(state.removeprefix("ISSUE_DETECTION_RUN_STATE_").lower())
         start_time = resource.get("start_time")
         end_time = resource.get("end_time")
         return IssueDetectionRun(

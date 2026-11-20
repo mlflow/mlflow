@@ -2923,12 +2923,18 @@ def test_cancel_issue_detection_run_databricks_contract(detection_http):
     assert run.status is IssueDetectionRunStatus.CANCELED
 
 
-def test_issue_detection_run_rejects_an_unrecognized_state(detection_http):
+@pytest.mark.parametrize(
+    "state",
+    ["ISSUE_DETECTION_RUN_STATE_UNSPECIFIED", "ISSUE_DETECTION_RUN_STATE_SOMETHING_NEW", None],
+)
+def test_issue_detection_run_reads_an_unrecognized_state_as_unknown(detection_http, state):
     store, http = detection_http
-    http.return_value.text = json.dumps({
-        **_WIRE_DETECTION_RUN,
-        "state": "ISSUE_DETECTION_RUN_STATE_UNSPECIFIED",
-    })
+    wire_run = {**_WIRE_DETECTION_RUN, "state": state}
+    if state is None:
+        del wire_run["state"]
+    http.return_value.text = json.dumps(wire_run)
 
-    with pytest.raises(MlflowException, match="unrecognized run state"):
-        store.get_issue_detection_run("987654321", experiment_id="123")
+    run = store.get_issue_detection_run("987654321", experiment_id="123")
+
+    assert run.status is IssueDetectionRunStatus.UNKNOWN
+    assert not run.status.is_terminal
