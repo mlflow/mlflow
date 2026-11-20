@@ -900,7 +900,7 @@ def test_load_checkpoint_checks_keras_model_loading_allowed(tmp_path):
     mock_download.assert_called_once_with(
         run_id="run_id", epoch=None, global_step=None, dst_path=mock.ANY
     )
-    mock_check.assert_called_once_with(mock.ANY, checkpoint_path)
+    mock_check.assert_called_once_with(tf.keras, checkpoint_path)
 
 
 @pytest.mark.skipif(
