@@ -359,11 +359,6 @@ For a comprehensive list of tracked events, please refer to the [source code](ht
       <td>`{"reference_type": "alias"}`</td>
     </tr>
     <tr>
-      <td>agent_setup_script</td>
-      <td>Outcome of the `curl -LsSf https://mlflow.org/wizard/setup.sh | sh` setup wizard: chosen coding agent, trace backend, and names (not values) of the flags used. Sent only when MLflow is installed locally.</td>
-      <td>`{"agent": "claude", "backend": "databricks", "flags": ["profile"]}`</td>
-    </tr>
-    <tr>
       <td>ui_event</td>
       <td>A UI interaction event. See the [below table](#ui-interaction-metadata) for a description of the various metadata elements</td>
       <td>`{ "eventType": "onClick", "componentViewId": "88fc9edd-5e9e-4a17-abd2-c543f505b8eb", "componentId": "mlflow.prompts.list.create", "componentType": "button", timestamp_ns: 1765784028467000000 }`</td>
@@ -433,8 +428,6 @@ MLflow supports opt-out telemetry through either of the following environment va
 - **DO_NOT_TRACK=true** (or `DO_NOT_TRACK=1`, following the [Console Do Not Track](https://donottrack.sh/) convention)
 
 Setting either of these will **immediately disable telemetry**, no need to re-import MLflow or restart your session.
-
-The `setup.sh` setup wizard honors the same environment variables and CI detection. With a Databricks backend, its `agent_setup_script` event is sent to the workspace, like the Python client's events; runs that end before a workspace is chosen use the standard endpoint.
 
 :::note
 MLflow automatically disables telemetry in [**some CI environments**](https://github.com/mlflow/mlflow/blob/de6c11193ce6a68ffec4b33650f75bd163143178/mlflow/telemetry/utils.py#L22).
