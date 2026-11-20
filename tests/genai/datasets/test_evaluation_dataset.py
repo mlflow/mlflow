@@ -202,6 +202,32 @@ def test_evaluation_dataset_delete_records(mock_managed_dataset):
     mock_managed_dataset.delete_records.assert_called_once_with(record_ids)
 
 
+def test_evaluation_dataset_delete_records_refreshes_cached_df(mock_managed_dataset):
+    mock_managed_dataset.to_df.side_effect = [
+        pd.DataFrame({"col1": [1, 2, 3]}),
+        pd.DataFrame({"col1": [3]}),
+    ]
+    dataset = EvaluationDataset(mock_managed_dataset)
+    assert dataset.to_df()["col1"].tolist() == [1, 2, 3]
+
+    dataset.delete_records(["record-1", "record-2"])
+
+    assert dataset.to_df()["col1"].tolist() == [3]
+
+
+def test_evaluation_dataset_merge_records_refreshes_cached_df(mock_managed_dataset):
+    mock_managed_dataset.to_df.side_effect = [
+        pd.DataFrame({"col1": [1]}),
+        pd.DataFrame({"col1": [1, 2]}),
+    ]
+    dataset = EvaluationDataset(mock_managed_dataset)
+    assert dataset.to_df()["col1"].tolist() == [1]
+
+    dataset.merge_records([{"col1": 2}])
+
+    assert dataset.to_df()["col1"].tolist() == [1, 2]
+
+
 def test_evaluation_dataset_list_versions(mock_managed_dataset):
     mock_managed_dataset.list_versions.return_value = [
         SimpleNamespace(version=1),
