@@ -1,5 +1,10 @@
+from unittest import mock
+
 import mlflow
+from mlflow.server import handlers
+from mlflow.server.constants import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 from mlflow.tracing.attachments import Attachment
+from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 
 
 def test_attachment_roundtrip_with_local_tracking():
@@ -49,3 +54,28 @@ def test_attachment_roundtrip_with_local_tracking():
 
     assert stored_image == image_bytes
     assert stored_audio == audio_bytes
+
+
+def test_attachment_upload_inside_server_with_proxied_artifact_root(tmp_path, monkeypatch):
+    # Inside the tracking server (e.g. AI Gateway usage tracking), the tracking URI is the
+    # backend store URI and the trace artifact location is `mlflow-artifacts:`.
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, str(tmp_path))
+    mlflow.set_experiment(
+        experiment_id=mlflow.create_experiment("exp", artifact_location="mlflow-artifacts:/exp")
+    )
+    image_bytes = b"\x89PNG\r\n\x1a\n fake png content"
+
+    with mock.patch("mlflow.tracing.export.mlflow_v3._logger.warning") as mock_warning:
+        with mlflow.start_span(name="span") as span:
+            span.set_inputs({
+                "image": Attachment(content_type="image/png", content_bytes=image_bytes)
+            })
+        mlflow.flush_trace_async_logging()
+
+    mock_warning.assert_not_called()
+    trace = mlflow.get_trace(span.trace_id)
+    assert trace.info.tags[MLFLOW_ARTIFACT_LOCATION].startswith("mlflow-artifacts:/exp/")
+    attachment_id = Attachment.parse_ref(trace.data.spans[0].inputs["image"])["attachment_id"]
+    artifact_repo = handlers._get_trace_artifact_repo(trace.info)
+    assert artifact_repo.download_trace_attachment(attachment_id) == image_bytes
