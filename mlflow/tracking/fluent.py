@@ -3011,9 +3011,9 @@ def search_logged_models(
         datasets: List of dictionaries to specify datasets on which to apply metrics filters
             For example, a filter string with `metrics.accuracy > 0.9` and dataset with name
             "test_dataset" means we will return all logged models whose latest accuracy on the
-            test_dataset is > 0.9. A metric is compared by its latest value (highest step, then
-            latest timestamp) among the rows logged on the listed datasets. If no datasets are
-            specified, the latest value across all datasets is compared. The following fields are
+            test_dataset is > 0.9. On SQL-backed tracking stores, a metric is compared by its
+            latest value (highest step, then latest timestamp) among the rows logged on the listed
+            datasets, or across all datasets if none are specified. The following fields are
             supported:
 
             dataset_name (str):

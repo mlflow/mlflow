@@ -4663,9 +4663,9 @@ class SearchLoggedModels(_message.Message):
         """List of datasets on which to apply the metrics filter clauses.
         For example, a filter with `metrics.accuracy > 0.9` and dataset info with name "test_dataset"
         means we will return all logged models whose latest accuracy on the test_dataset is > 0.9.
-        A metric is compared by its latest value (highest step, then latest timestamp) among the
-        rows logged on the listed datasets. If no datasets are specified, the latest value across
-        all datasets is compared.
+        On SQL-backed tracking stores, a metric is compared by its latest value (highest step, then
+        latest timestamp) among the rows logged on the listed datasets, or across all datasets if
+        none are specified.
         """
 
     @_builtins.property
