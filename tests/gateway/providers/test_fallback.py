@@ -395,3 +395,29 @@ async def test_fallback_provider_propagates_http_status(exception, expected_stat
             await provider.chat(payload)
 
         assert exc_info.value.status_code == expected_status
+
+
+@pytest.mark.asyncio
+async def test_fallback_chat_keeps_cache_control_for_next_provider():
+    from tests.gateway.providers.test_anthropic import chat_config as anthropic_chat_config
+    from tests.gateway.providers.test_anthropic import chat_response as anthropic_chat_response
+
+    # OpenAI does not get the markers, but the Anthropic provider it falls back to does.
+    provider = _get_fallback_provider([chat_config(), anthropic_chat_config()])
+    mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+    marked_part = {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral"}}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            MockAsyncResponse(anthropic_chat_response()),
+        ]
+        await provider.chat(
+            chat.RequestPayload(messages=[{"role": "user", "content": [marked_part]}])
+        )
+
+    first_call, second_call = mock_client.post.call_args_list
+    assert first_call.kwargs["json"]["messages"] == [
+        {"role": "user", "content": [{"type": "text", "text": "Doc"}]}
+    ]
+    assert second_call.kwargs["json"]["messages"] == [{"role": "user", "content": [marked_part]}]

@@ -2110,6 +2110,7 @@ mlflow.types.agent.ChatAgentResponse.check_message_ids
 mlflow.types.agent.ChatContext
 mlflow.types.chat.AudioContentPart
 mlflow.types.chat.BaseRequestPayload
+mlflow.types.chat.CacheControl
 mlflow.types.chat.ChatChoice
 mlflow.types.chat.ChatChoiceDelta
 mlflow.types.chat.ChatChunkChoice
