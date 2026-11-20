@@ -41,6 +41,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace
 from mlflow.environment_variables import (
     MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
+    MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_TRACE_DELETE_MAX_WORKERS,
 )
@@ -51,6 +52,8 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    DEADLINE_EXCEEDED,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
@@ -564,6 +567,141 @@ def test_search_traces_order_by_null_handling(store, order_by, needs_null_orderi
     if order_by.startswith("timestamp"):
         direction = " DESC" if order_by.endswith("DESC") else ""
         assert f"ORDER BY trace_info.timestamp_ms{direction}, trace_info.request_id" in statement
+
+
+def test_search_traces_timeout_is_ignored_on_sqlite(store, monkeypatch):
+    if store.db_type != SQLITE:
+        pytest.skip("Other databases are covered by tests/db/test_search_traces_timeout.py")
+
+    exp_id = _create_experiments(store, "test_search_traces_timeout")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "0.001")
+    statements = []
+
+    def capture(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture)
+    try:
+        traces, _ = store.search_traces(locations=[exp_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture)
+
+    assert [t.trace_id for t in traces] == ["tr-0"]
+    assert not any("statement_timeout" in s or "MAX_EXECUTION_TIME" in s for s in statements)
+
+
+class _FakeDriverError(Exception):
+    def __init__(self, *args, pgcode=None, sqlstate=None):
+        super().__init__(*args)
+        self.pgcode = pgcode
+        self.sqlstate = sqlstate
+
+
+def _dbapi_error(orig):
+    return sqlalchemy.exc.DBAPIError("SELECT 1", {}, orig)
+
+
+@pytest.mark.parametrize(("value", "expected_ms"), [("0.0001", 1), ("1.5", 1500)])
+def test_search_traces_timeout_is_applied_on_postgres(store, monkeypatch, value, expected_ms):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt
+    session.execute.assert_called_once()
+    assert session.execute.call_args.args[1] == {"timeout": str(expected_ms)}
+    stmt.prefix_with.assert_not_called()
+
+
+@pytest.mark.parametrize(("value", "expected_ms"), [("0.0001", 1), ("1.5", 1500)])
+def test_search_traces_timeout_is_applied_on_mysql(store, monkeypatch, value, expected_ms):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", MYSQL)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt.prefix_with.return_value
+    stmt.prefix_with.assert_called_once_with(f"/*+ MAX_EXECUTION_TIME({expected_ms}) */")
+    session.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("value", [None, "0", "-1", "inf", "nan"])
+@pytest.mark.parametrize(
+    ("db_type", "orig"),
+    [(POSTGRES, _FakeDriverError(pgcode="57014")), (MYSQL, _FakeDriverError(3024, "timeout"))],
+)
+def test_search_traces_timeout_is_disabled(store, monkeypatch, value, db_type, orig):
+    if value is None:
+        monkeypatch.delenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, raising=False)
+    else:
+        monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", db_type)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt
+    session.execute.assert_not_called()
+    stmt.prefix_with.assert_not_called()
+    # A cancel from the server's own limit must not be attributed to the disabled variable.
+    assert not store._is_search_traces_timeout_error(_dbapi_error(orig))
+
+
+@pytest.mark.parametrize(
+    ("db_type", "orig", "expected"),
+    [
+        (POSTGRES, _FakeDriverError(pgcode="57014"), True),
+        (POSTGRES, _FakeDriverError(sqlstate="57014"), True),
+        (POSTGRES, _FakeDriverError(pgcode="40P01"), False),
+        (POSTGRES, _FakeDriverError(), False),
+        (MYSQL, _FakeDriverError(3024, "maximum statement execution time exceeded"), True),
+        (MYSQL, _FakeDriverError(1205, "lock wait timeout exceeded"), False),
+        (MYSQL, _FakeDriverError(), False),
+        (SQLITE, _FakeDriverError(pgcode="57014"), False),
+    ],
+)
+def test_is_search_traces_timeout_error(store, monkeypatch, db_type, orig, expected):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "1")
+    monkeypatch.setattr(store, "db_type", db_type)
+
+    assert store._is_search_traces_timeout_error(_dbapi_error(orig)) is expected
+
+
+def test_search_traces_raises_deadline_exceeded_on_timeout(store, monkeypatch):
+    exp_id = _create_experiments(store, "test_search_traces_timeout_error")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "2.5")
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    monkeypatch.setattr(store, "_apply_search_traces_timeout", lambda session, stmt: stmt)
+    error = _dbapi_error(_FakeDriverError(pgcode="57014"))
+    monkeypatch.setattr(
+        sqlalchemy_store_module, "_build_trace_infos_from_rows", mock.Mock(side_effect=error)
+    )
+
+    with pytest.raises(MlflowException, match="2.5 second limit") as exc_info:
+        store.search_traces(locations=[exp_id])
+
+    assert exc_info.value.error_code == ErrorCode.Name(DEADLINE_EXCEEDED)
+    assert exc_info.value.__cause__ is error
+
+
+def test_search_traces_reraises_other_database_errors(store, monkeypatch):
+    exp_id = _create_experiments(store, "test_search_traces_other_error")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "2.5")
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    monkeypatch.setattr(store, "_apply_search_traces_timeout", lambda session, stmt: stmt)
+    error = _dbapi_error(_FakeDriverError("deadlock detected", pgcode="40P01"))
+    monkeypatch.setattr(
+        sqlalchemy_store_module, "_build_trace_infos_from_rows", mock.Mock(side_effect=error)
+    )
+
+    with pytest.raises(MlflowException, match="deadlock detected") as exc_info:
+        store.search_traces(locations=[exp_id])
+
+    assert exc_info.value.error_code == ErrorCode.Name(BAD_REQUEST)
+    assert exc_info.value.__cause__ is error
 
 
 @pytest.mark.parametrize("direction", ["ASC", "DESC"])
