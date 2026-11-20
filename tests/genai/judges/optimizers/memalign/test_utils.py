@@ -477,7 +477,7 @@ def test_retrieve_relevant_examples_out_of_bounds_raises():
             retrievers={"inputs": (mock_retriever, [0, 1])},
             examples=examples,
             embedding_model="openai:/text-embedding-3-small",
-        query_kwargs={"inputs": "test"},
+            query_kwargs={"inputs": "test"},
             retrieval_k=5,
         )
 
