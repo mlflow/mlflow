@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { graphql } from 'msw';
@@ -99,11 +101,14 @@ describe('ExperimentSettingsPage', () => {
     jest.restoreAllMocks();
   });
 
-  const renderPage = (entry = createMLflowRoutePath('/experiments/123/settings')) => {
+  const renderPage = (
+    entry = createMLflowRoutePath('/experiments/123/settings'),
+    { cache = false, page = <ExperimentSettingsPage /> }: { cache?: boolean; page?: ReactNode } = {},
+  ) => {
     const queryClient = new QueryClient();
     return render(<div />, {
       wrapper: () => (
-        <TestApolloProvider disableCache>
+        <TestApolloProvider disableCache={!cache}>
           <MockedReduxStoreProvider state={{ entities: { experimentTagsByExperimentId: {}, experimentsById: {} } }}>
             <IntlProvider locale="en">
               <QueryClientProvider client={queryClient}>
@@ -113,9 +118,7 @@ describe('ExperimentSettingsPage', () => {
                     initialEntries={[entry]}
                     routes={[
                       testRoute(
-                        <ExperimentPageRevampProvider enabled>
-                          <ExperimentSettingsPage />
-                        </ExperimentPageRevampProvider>,
+                        <ExperimentPageRevampProvider enabled>{page}</ExperimentPageRevampProvider>,
                         createMLflowRoutePath('/experiments/:experimentId/settings'),
                       ),
                       testRoute(<div>Experiment root</div>, createMLflowRoutePath('/experiments/:experimentId')),
@@ -198,6 +201,27 @@ describe('ExperimentSettingsPage', () => {
     await waitFor(() => expect(screen.queryByTestId('experiment-settings-content')).not.toBeInTheDocument());
     expect(screen.queryByText(/No Experiment with id=123 exists/)).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'About' })).not.toBeInTheDocument();
+  });
+
+  test('loads the latest experiment each time Settings opens, not a cached copy', async () => {
+    const SettingsToggle = () => {
+      const [shown, setShown] = useState(true);
+      return (
+        <>
+          <button onClick={() => setShown((value) => !value)}>Toggle Settings</button>
+          {shown && <ExperimentSettingsPage />}
+        </>
+      );
+    };
+    renderPage(undefined, { cache: true, page: <SettingsToggle /> });
+    expect(await screen.findByRole('textbox', { name: 'Experiment name' })).toHaveValue('team/Helpful experiment');
+
+    // Another page changes the experiment on the server without touching this page's cache.
+    server.use(experimentQuery(() => ({ ...makeExperiment(), name: 'team/Renamed elsewhere' })));
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle Settings' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Toggle Settings' }));
+
+    expect(await screen.findByRole('textbox', { name: 'Experiment name' })).toHaveValue('team/Renamed elsewhere');
   });
 
   test('saves the full experiment name, including slashes', async () => {

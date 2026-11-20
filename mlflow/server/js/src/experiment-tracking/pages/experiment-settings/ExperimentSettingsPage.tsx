@@ -77,7 +77,12 @@ export const ExperimentSettingsPage = () => {
   const { enabled: revampEnabled } = useExperimentPageRevampContext();
   invariant(experimentId, 'Experiment ID must be defined');
 
-  const { data, loading, refetch, apiError, apolloError } = useGetExperimentQuery({ experimentId });
+  // Load the latest experiment every time Settings opens. Some edits elsewhere, such as the experiments
+  // list's tag editor, don't refresh the cached copy the experiment page would otherwise reuse.
+  const { data, loading, refetch, apiError, apolloError } = useGetExperimentQuery({
+    experimentId,
+    options: { fetchPolicy: 'network-only' },
+  });
   const error = apiError ?? apolloError;
   const experiment = useMemo(
     () =>
