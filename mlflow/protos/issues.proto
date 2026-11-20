@@ -217,8 +217,15 @@ message DetectIssues {
   // with filter_string.
   repeated string trace_ids = 4;
 
+  // A token the caller generates to make the request safe to retry, such as a random UUID: a new
+  // one for each run to start, and the same one when retrying that request. A request with the
+  // same token as the caller's earlier request in this experiment returns the run that request
+  // started, instead of starting another. Requests with different tokens, or without one, each
+  // start a run. At most 64 characters, with no control characters.
+  optional string idempotency_token = 5;
+
   message Response {
-    // The run, which has just started.
+    // The run that started, or that an earlier request with the same idempotency_token started.
     optional IssueDetectionRun issue_detection_run = 1;
   }
 }
