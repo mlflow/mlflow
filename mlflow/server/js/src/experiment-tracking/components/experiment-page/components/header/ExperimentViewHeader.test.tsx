@@ -14,7 +14,6 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 import { TestRouter, setupTestRouter, testRoute } from '../../../../../common/utils/RoutingTestUtils';
 import { ExperimentKind } from '../../../../constants';
 import { EXPERIMENT_KIND_TAG_KEY } from '../../../../utils/ExperimentKindUtils';
-import { shouldEnableExperimentSettingsPage } from '../../../../../common/utils/FeatureUtils';
 import {
   HeaderVisibilityProvider,
   useHeaderVisibility,
@@ -39,7 +38,6 @@ jest.mock('../../../../../common/utils/FeatureUtils', () => {
       '../../../../../common/utils/FeatureUtils',
     ),
     shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(false),
-    shouldEnableExperimentSettingsPage: jest.fn().mockReturnValue(false),
   };
 });
 
@@ -273,41 +271,6 @@ describe('ExperimentViewHeader', () => {
       });
 
       expect(screen.queryByTestId('overflow-menu-trigger')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('experiment Settings page entry point', () => {
-    it('shows no Tags button without the experiment Settings page', async () => {
-      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
-      await act(async () => {
-        renderComponent();
-      });
-
-      expect(screen.queryByRole('button', { name: 'Manage experiment tags' })).not.toBeInTheDocument();
-    });
-
-    it('opens Settings at the Tags row from the Tags button', async () => {
-      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
-      await act(async () => {
-        renderComponent();
-      });
-
-      await userEvent.click(screen.getByRole('button', { name: 'Manage experiment tags' }));
-      expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/settings#tags');
-      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
-    });
-
-    it('keeps the workflow type and workspace when opening Settings from the Tags button', async () => {
-      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
-      await act(async () => {
-        renderComponent(defaultExperiment, '/experiments/123/runs?workflowType=machine_learning&workspace=team-a&x=1');
-      });
-
-      await userEvent.click(screen.getByRole('button', { name: 'Manage experiment tags' }));
-      expect(mockNavigate).toHaveBeenCalledWith(
-        '/experiments/123/settings?workflowType=machine_learning&workspace=team-a#tags',
-      );
-      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
     });
   });
 });

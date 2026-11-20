@@ -9971,10 +9971,6 @@
     "defaultMessage": "Inputs",
     "description": "Table section name for schema inputs in the model comparison page"
   },
-  "Thvxee": {
-    "defaultMessage": "Manage experiment tags",
-    "description": "Label for the experiment header button that opens Settings to edit experiment tags"
-  },
   "Tl63jz": {
     "defaultMessage": "All runs are filtered",
     "description": "Empty state title text for experiment runs page when all runs have been filtered out"
@@ -18486,10 +18482,6 @@
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
-  },
-  "u1DmmD": {
-    "defaultMessage": "Settings",
-    "description": "Sidebar link to the experiment settings page"
   },
   "u1UjvS": {
     "defaultMessage": "e.g. Hallucination review",

@@ -1,15 +1,13 @@
 import { Button, CopyIcon, PencilIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { KeyValueTag } from '../../../common/components/KeyValueTag';
 import { useTagAssignmentModal } from '../../../common/hooks/useTagAssignmentModal';
 import type { KeyValueEntity } from '../../../common/types';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
-import { useLocation } from '../../../common/utils/RoutingUtils';
 import { isUserFacingTag } from '../../../common/utils/TagUtils';
 import { CopyButton } from '../../../shared/building_blocks/CopyButton';
 import { ExperimentViewArtifactLocation } from '../../components/experiment-page/components/ExperimentViewArtifactLocation';
-import { EXPERIMENT_SETTINGS_TAGS_HASH } from '../../components/experiment-page/components/header/ExperimentViewManageTagsButton';
 import { MlflowService } from '../../sdk/MlflowService';
 import type { ExperimentEntity } from '../../types';
 import { ExperimentSettingsNameInput } from './ExperimentSettingsNameInput';
@@ -47,13 +45,6 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
   const { theme } = useDesignSystemTheme();
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [saveTagsError, setSaveTagsError] = useState<string>();
-  const hash = useLocation().hash;
-  const editTagsRef = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (hash === EXPERIMENT_SETTINGS_TAGS_HASH) {
-      editTagsRef.current?.scrollIntoView?.({ block: 'center' });
-    }
-  }, [hash]);
   const userFacingTags = (experiment.tags ?? []).filter((tag) => isUserFacingTag(tag.key));
   const { TagAssignmentModal, showTagAssignmentModal } = useTagAssignmentModal({
     componentIdPrefix: 'mlflow.experiment_settings.tags',
@@ -117,7 +108,7 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
                     })
               }
             >
-              <span ref={editTagsRef}>
+              <span>
                 <Button
                   componentId="mlflow.experiment_settings.tags.edit"
                   type="tertiary"

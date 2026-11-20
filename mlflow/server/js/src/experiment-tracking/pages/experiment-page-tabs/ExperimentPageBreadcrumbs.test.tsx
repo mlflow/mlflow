@@ -311,21 +311,12 @@ describe('ExperimentPageBreadcrumbs', () => {
     expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
   });
 
-  test('shows no Tags button without the experiment Settings page', async () => {
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
-    renderAt('/experiments/123/datasets', '/experiments/:experimentId/datasets');
-
-    await screen.findByRole('navigation', { name: 'Breadcrumb' });
-    expect(screen.queryByRole('button', { name: 'Manage experiment tags' })).not.toBeInTheDocument();
-  });
-
-  test('shows the Tags button and a Settings breadcrumb with the experiment Settings page', async () => {
+  test('shows a Settings breadcrumb on the experiment Settings page', async () => {
     jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
     renderAt('/experiments/123/settings', '/experiments/:experimentId/settings');
 
     const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
     expect(within(breadcrumb).getByText('Settings')).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('button', { name: 'Manage experiment tags' })).toBeInTheDocument();
     jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
 });

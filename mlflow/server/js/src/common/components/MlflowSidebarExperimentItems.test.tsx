@@ -6,12 +6,6 @@ import { MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../utils/reactQueryHooks';
 import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { renderWithDesignSystem } from '../utils/TestUtils.react18';
-import { shouldEnableExperimentSettingsPage } from '../utils/FeatureUtils';
-
-jest.mock('../utils/FeatureUtils', () => ({
-  ...jest.requireActual<typeof import('../utils/FeatureUtils')>('../utils/FeatureUtils'),
-  shouldEnableExperimentSettingsPage: jest.fn(() => false),
-}));
 
 jest.mock('../../experiment-tracking/hooks/useExperimentQuery', () => ({
   useGetExperimentQuery: jest.fn(() => ({})),
@@ -82,31 +76,5 @@ describe('MlflowSidebarExperimentItems', () => {
     expect(judgesLink).toHaveAttribute('href', expect.stringContaining('startTimeLabel=LAST_24_HOURS'));
     expect(judgesLink).not.toHaveAttribute('href', expect.stringContaining('selectedDatasetId'));
     expect(judgesLink).not.toHaveAttribute('href', expect.stringContaining('viewMode'));
-  });
-
-  test('shows no Settings link without the experiment Settings page', () => {
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
-    renderTestComponent();
-
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
-  });
-
-  test('links to the experiment Settings page with the experiment Settings page', () => {
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
-    renderTestComponent(['/experiments/test-123/settings']);
-
-    expect(screen.getByText('Settings').closest('a')).toHaveAttribute('href', '/experiments/test-123/settings');
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
-  });
-
-  test('keeps the workflow type and workspace on the Settings link', () => {
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
-    renderTestComponent(['/experiments/test-123/traces?workflowType=genai&workspace=team-a&searchFilter=abc']);
-
-    expect(screen.getByText('Settings').closest('a')).toHaveAttribute(
-      'href',
-      '/experiments/test-123/settings?workflowType=genai&workspace=team-a',
-    );
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
 });

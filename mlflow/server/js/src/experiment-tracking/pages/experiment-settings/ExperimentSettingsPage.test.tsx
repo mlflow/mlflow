@@ -300,17 +300,6 @@ describe('ExperimentSettingsPage', () => {
       expect(await openTagEditor(aboutSection)).toBeVisible();
     });
 
-    test('scrolls to the Tags row when opened with the tags hash', async () => {
-      const scrollIntoView = jest.fn();
-      Element.prototype.scrollIntoView = scrollIntoView;
-      mockExperimentWithUserTag();
-      renderPage(`${createMLflowRoutePath('/experiments/123/settings')}#tags`);
-
-      const aboutSection = await screen.findByRole('region', { name: 'About' });
-      expect(within(aboutSection).getByRole('button', { name: 'Edit tags' })).toBeVisible();
-      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' });
-    });
-
     test('enables Save only for a valid change', async () => {
       mockExperimentWithUserTag();
       renderPage();
