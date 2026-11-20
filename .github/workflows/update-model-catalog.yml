@@ -2,7 +2,12 @@ name: Update Model Catalog
 
 on:
   schedule:
-    # Once a day, off the top of the hour when GitHub delays scheduled runs most.
+    # Off the top of the hour when GitHub delays scheduled runs most.
+    # Every 30 minutes, refresh the live catalog (GitHub Release assets).
+    - cron: "47 * * * *"
+    - cron: "17 1-23 * * *"
+    # Once a day, also file a catalog PR. Must not overlap the entries above, since
+    # `create-pr` keys off `github.event.schedule`.
     - cron: "17 0 * * *"
   workflow_dispatch:
   push:
@@ -87,6 +92,14 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name != 'pull_request'
+        with:
+          name: model-catalog-json
+          path: mlflow/utils/model_catalog/*.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.diff.outputs.changed == 'true'
         with:
           name: model-catalog-patch
@@ -94,9 +107,43 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  publish-live:
+    needs: sync
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: model-catalog-json
+          path: ${{ runner.temp }}/catalog
+
+      - name: Publish to GitHub Releases if changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CATALOG_DIR: ${{ runner.temp }}/catalog
+          CURRENT_DIR: ${{ runner.temp }}/current
+        run: |
+          # Skip unchanged catalogs: `--clobber` briefly removes each asset while re-uploading.
+          if gh release download model-catalog/latest --pattern '*.json' --dir "$CURRENT_DIR" \
+            && diff -r "$CURRENT_DIR" "$CATALOG_DIR"; then
+            echo "Live catalog is up to date."
+            exit 0
+          fi
+          bash dev/publish_model_catalog.sh --catalog-dir "$CATALOG_DIR"
+
   create-pr:
     needs: sync
-    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && needs.sync.outputs.changed == 'true'
+    if: >-
+      (github.event.schedule == '17 0 * * *' || github.event_name == 'workflow_dispatch')
+      && needs.sync.outputs.changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
