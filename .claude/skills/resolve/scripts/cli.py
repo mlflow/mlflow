@@ -1,32 +1,21 @@
+import argparse
 import html
 import json
 import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 APP = "mlflow-app[bot]"
 APP_ID = 191841109
 COPILOT = "copilot-pull-request-reviewer[bot]"
-MAX_ROUNDS = 3
+NAILAOPUS = "nailaopus[bot]"
+MAX_ROUNDS = 5
 PATCH_PATHS = Path(__file__).resolve().parents[2] / "patch-paths.txt"
-THREADS_QUERY = """
-query($owner: String!, $name: String!, $number: Int!, $endCursor: String) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      reviewThreads(first: 100, after: $endCursor) {
-        nodes {
-          id path line originalLine isResolved isOutdated
-          comments(first: 1) { nodes { id } }
-        }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }
-}
-"""
+PR_CONTEXT = Path(__file__).resolve().parents[3] / "scripts" / "pr_context.py"
 CLOSE_THREAD = """
 mutation($id: ID!) {
   resolveReviewThread(input: {threadId: $id}) { thread { isResolved } }
@@ -38,9 +27,9 @@ def command(*args: str | Path, input: str | None = None) -> str:
     return subprocess.check_output(args, input=input, text=True)
 
 
-def api(*args: str, data: dict[str, Any] | None = None) -> Any:
+def api(*args: str, data: dict[str, Any] | None = None, method: str = "POST") -> Any:
     if data is not None:
-        args += ("--method", "POST", "--input", "-")
+        args += ("--method", method, "--input", "-")
     result = command("gh", "api", *args, input=json.dumps(data) if data is not None else None)
     return json.loads(result) if result.strip() else None
 
@@ -68,26 +57,21 @@ def eligible(pr: dict[str, Any], repo: str) -> bool:
     )
 
 
-def threads(repo: str, number: str) -> list[dict[str, Any]]:
-    owner, name = repo.split("/")
-    pages = api(
-        "graphql",
-        "--paginate",
-        "--slurp",
-        "-f",
-        f"query={THREADS_QUERY}",
-        "-f",
-        f"owner={owner}",
-        "-f",
-        f"name={name}",
-        "-F",
-        f"number={number}",
+def fetch_timeline(repo: str, number: str, review_id: str) -> list[dict[str, Any]]:
+    pr_context = json.loads(
+        command(
+            sys.executable,
+            PR_CONTEXT,
+            "--repo",
+            repo,
+            "--pr-number",
+            number,
+            "--review-id",
+            review_id,
+        )
     )
-    return [
-        thread
-        for page in pages
-        for thread in page["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
-    ]
+    timeline: list[dict[str, Any]] = pr_context["timeline"]
+    return timeline
 
 
 def app_comment(comment: dict[str, Any]) -> bool:
@@ -116,7 +100,7 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         if role not in {"write", "maintain", "admin"}:
             summary("The reviewer lacks write access.")
             return
-    elif reviewer != COPILOT:
+    elif reviewer not in {COPILOT, NAILAOPUS}:
         summary("This bot reviewer is outside the resolver's scope.")
         return
 
@@ -133,68 +117,12 @@ def collect(repo: str, number: str, review_id: str, context_path: Path) -> None:
         summary(f"The PR has reached its limit of {MAX_ROUNDS} automatic review rounds.")
         return
 
-    by_root: dict[int, list[dict[str, Any]]] = {}
-    for comment in comments:
-        by_root.setdefault(comment.get("in_reply_to_id") or comment["id"], []).append(comment)
-    roots = {comment["node_id"]: comment["id"] for comment in comments}
-    pr_threads = []
-    for thread in threads(repo, number):
-        root_nodes = thread["comments"]["nodes"]
-        if not root_nodes or root_nodes[0]["id"] not in roots:
-            continue
-        conversation = by_root[roots[root_nodes[0]["id"]]]
-        pr_threads.append({
-            "id": thread["id"],
-            "path": thread["path"],
-            "line": thread["line"] or thread["originalLine"],
-            "resolved": thread["isResolved"],
-            "outdated": thread["isOutdated"],
-            "diff_hunk": conversation[0]["diff_hunk"],
-            "comments": [
-                {
-                    "id": c["id"],
-                    "author": (c["user"] or {}).get("login", ""),
-                    "created_at": c["created_at"],
-                    "body": c["body"],
-                    "review_id": c["pull_request_review_id"],
-                }
-                for c in conversation
-            ],
-        })
-    # Mirror the Conversation tab: a timeline of comments and reviews, where each thread
-    # appears under the review that started it.
-    started: dict[int, list[dict[str, Any]]] = {}
-    for thread in pr_threads:
-        started.setdefault(thread["comments"][0]["review_id"], []).append(thread)
-    timeline = [
-        {
-            "type": "comment",
-            "author": (c["user"] or {}).get("login", ""),
-            "created_at": c["created_at"],
-            "body": c["body"],
-        }
-        for c in issue_comments
-    ] + [
-        {
-            "type": "review",
-            "id": r["id"],
-            "author": (r["user"] or {}).get("login", ""),
-            "state": r["state"],
-            "created_at": r["submitted_at"],
-            "body": r["body"] or "",
-            "url": r["html_url"],
-            "threads": started.get(r["id"], []),
-        }
-        for r in list_items(f"{endpoint}/reviews")
-        # Replies made with "Add single comment" create empty reviews that GitHub doesn't
-        # show; their comments already appear in the threads they belong to.
-        if r["id"] == int(review_id) or r["body"] or r["state"] != "COMMENTED" or r["id"] in started
-    ]
-    timeline.sort(key=lambda item: item["created_at"])
+    timeline = fetch_timeline(repo, number, review_id)
     context = {
         "head_sha": pr["head"]["sha"],
         "head_ref": pr["head"]["ref"],
         "review_id": int(review_id),
+        "pr": {"title": pr["title"], "body": pr["body"] or ""},
         "timeline": timeline,
     }
     if not any(item.get("id") == context["review_id"] for item in timeline):
@@ -233,6 +161,13 @@ def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def markdown_sections(result: dict[str, Any]) -> Iterator[dict[str, str]]:
+    yield from result["responses"].values()
+    pr_update = result.get("pr_update", {})
+    if "body" in pr_update:
+        yield pr_update
+
+
 def validate(context_path: Path, out_dir: Path) -> None:
     payload = out_dir / "payload.json"
     patch = out_dir / "fix.patch"
@@ -253,21 +188,28 @@ def validate(context_path: Path, out_dir: Path) -> None:
         ".claude/skills/resolve/payload.schema.yml",
         payload,
     )
-    responses = json.loads(payload.read_text(), object_pairs_hook=unique_keys)["responses"]
+    result = json.loads(payload.read_text(), object_pairs_hook=unique_keys)
+    responses = result["responses"]
     context = json.loads(context_path.read_text())
     thread_ids = review_thread_ids(context)
     optional = {"review"} if current_review(context)["body"].strip() else set()
     if not thread_ids <= responses.keys() <= thread_ids | optional:
         raise ValueError("Responses must cover every thread and only a nonempty review body")
-    if patch.exists() != any(item["status"] == "resolved" for item in responses.values()):
-        raise ValueError("A patch must accompany resolved feedback")
+    has_resolved = any(item["status"] == "resolved" for item in responses.values())
+    pr_update = result.get("pr_update")
+    if has_resolved != (patch.exists() or pr_update is not None):
+        raise ValueError("Resolved feedback must accompany a patch or a PR update")
+    if pr_update and any(value == context["pr"][field] for field, value in pr_update.items()):
+        raise ValueError("A PR update must change each proposed field")
     command(
-        *media_command(media), "--check", input="\n\n".join(r["body"] for r in responses.values())
+        *media_command(media),
+        "--check",
+        input="\n\n".join(section["body"] for section in markdown_sections(result)),
     )
 
 
-def media_command(media: Path) -> tuple[str | Path, ...]:
-    return (
+def media_command(media: Path, *, strict: bool = False) -> tuple[str | Path, ...]:
+    command = (
         "uv",
         "run",
         "--locked",
@@ -279,18 +221,20 @@ def media_command(media: Path) -> tuple[str | Path, ...]:
         "--dir",
         media,
     )
+    return command + (("--strict",) if strict else ())
 
 
 def embed(out_dir: Path) -> None:
     payload = out_dir / "payload.json"
     result = json.loads(payload.read_text())
-    for response in result["responses"].values():
-        if str(out_dir / "media") in response["body"]:
-            response["body"] = command(
-                *media_command(out_dir / "media"),
+    pr_update = result.get("pr_update")
+    for section in markdown_sections(result):
+        if str(out_dir / "media") in section["body"]:
+            section["body"] = command(
+                *media_command(out_dir / "media", strict=section is pr_update),
                 "--repository-id",
                 os.environ["REPOSITORY_ID"],
-                input=response["body"],
+                input=section["body"],
             )
     (out_dir / "publish.json").write_text(json.dumps(result))
 
@@ -353,15 +297,40 @@ def update_branch(repo: str, review_id: str, context: dict[str, Any], head: str,
     return git("rev-parse", "HEAD")
 
 
+def pending_pr_update(
+    pr: dict[str, Any], original: dict[str, str], proposed: dict[str, str]
+) -> dict[str, str]:
+    pending = {}
+    for field, value in proposed.items():
+        current = pr[field] or ""
+        if current == value:
+            continue
+        if current != original[field]:
+            summary(f"Skipped the PR update because its {field} changed after collection.")
+            raise ValueError(f"PR {field} changed before publication")
+        pending[field] = value
+    return pending
+
+
 def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir: Path) -> None:
     context = json.loads(context_path.read_text())
     dry_run = os.environ["DRY_RUN"] == "true"
     file = "payload.json" if dry_run else "publish.json"
-    responses = json.loads((out_dir / file).read_text())["responses"]
+    result = json.loads((out_dir / file).read_text())
+    responses = result["responses"]
+    pr_update = result.get("pr_update", {})
     patch = out_dir / "fix.patch"
     tree = git("write-tree") if patch.is_file() else None
     if dry_run:
         details = json.dumps(responses, indent=2)
+        metadata_diff = ""
+        if pr_update:
+            changes = {
+                field: {"before": context["pr"][field], "after": value}
+                for field, value in pr_update.items()
+            }
+            rendered = html.escape(json.dumps(changes, indent=2, ensure_ascii=False)[:30_000])
+            metadata_diff = f"**PR title and description changes**\n\n<pre>{rendered}</pre>\n\n"
         diff = html.escape(patch.read_text(errors="replace")[:60_000]) if tree else ""
         details = html.escape(details[:60_000])
         closures = ", ".join(
@@ -371,7 +340,7 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
         )
         summary(
             f"### Resolution preview for {current_review(context)['author']}\n\n"
-            f"<pre>{details}</pre>\n\n<pre>{diff}</pre>\n\n"
+            f"{metadata_diff}<pre>{details}</pre>\n\n<pre>{diff}</pre>\n\n"
             f"**Threads to close**\n\n{html.escape(closures) or 'None'}"
         )
         return
@@ -386,18 +355,39 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
         or (review["user"] or {}).get("login") != current_review(context)["author"]
     ):
         raise ValueError("PR or review changed before publication")
-    head = pr["head"]["sha"]
+    previous_head = head = pr["head"]["sha"]
+    pending = pending_pr_update(pr, context["pr"], pr_update) if pr_update else {}
     if tree:
         head = update_branch(repo, review_id, context, head, tree)
     elif head != context["head_sha"]:
         raise ValueError("PR head changed before publication")
+
+    if pr_update and tree:
+        pr = api(endpoint)
+        # GitHub may briefly return the previous PR head after a successful push.
+        if (
+            not eligible(pr, repo)
+            or pr["head"]["ref"] != context["head_ref"]
+            or pr["head"]["sha"] not in {previous_head, head}
+        ):
+            raise ValueError("PR changed before publishing its title or description")
+        pending = pending_pr_update(pr, context["pr"], pr_update)
+    if pending:
+        updated = api(endpoint, data=pending, method="PATCH")
+        if not isinstance(updated, dict) or any(
+            (updated[field] or "") != value for field, value in pending.items()
+        ):
+            raise ValueError("GitHub did not apply the PR update")
+        summary(f"Updated PR fields: {', '.join(pending)}.")
 
     issue_comments = f"repos/{repo}/issues/{number}/comments"
     previous = list_items(f"{endpoint}/comments")
     if "review" in responses:
         previous += list_items(issue_comments)
     posted = {comment["body"].rpartition("\n")[2] for comment in previous if app_comment(comment)}
-    closed = {thread["id"] for thread in threads(repo, number) if thread["isResolved"]}
+    # Threads may have been resolved since the context was collected.
+    latest = {"timeline": fetch_timeline(repo, number, review_id)}
+    closed = {thread["id"] for thread in all_threads(latest) if thread["resolved"]}
     current = current_review(context)
     roots = {thread["id"]: thread["comments"][0]["id"] for thread in all_threads(context)}
     blocked = False
@@ -410,7 +400,7 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
         resolved = response["status"] == "resolved"
         if note not in posted:
             body = response["body"]
-            if resolved:
+            if resolved and tree and not pr_update:
                 body += f"\n\n[Fix commit]({os.environ['GITHUB_SERVER_URL']}/{repo}/commit/{head})."
             if key == "review":
                 url = current["url"]
@@ -423,13 +413,34 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
             if not result["data"]["resolveReviewThread"]["thread"]["isResolved"]:
                 raise ValueError("GitHub did not close the resolved thread")
 
-    # An approver has already signed off, so don't ask them to review again.
-    if blocked or review["state"] == "APPROVED":
+    # Blocked items need a human, so the review loop stops here.
+    if blocked:
         return
     pr = api(endpoint)
-    if not eligible(pr, repo) or pr["head"]["sha"] != head:
+    if not eligible(pr, repo) or pr["head"]["ref"] != context["head_ref"]:
+        raise ValueError("PR head changed before the review request")
+    review_head = pr["head"]["sha"]
+    if review_head == previous_head and previous_head != head:
+        # Read the branch directly when the PR API still reports the pre-push SHA.
+        ref = api(f"repos/{repo}/git/ref/heads/{context['head_ref']}")
+        review_head = ref["object"]["sha"]
+    if review_head != head:
         raise ValueError("PR head changed before the review request")
     reviewer = current["author"]
+    # NaiLaOpus reviews every pushed fix, whoever asked for it. After a NaiLaOpus round
+    # that only answered its threads, it re-checks them so it can approve. It can't be
+    # requested as a reviewer, so a `/review` comment starts it.
+    if tree or (reviewer == NAILAOPUS and review["state"] != "APPROVED"):
+        note = marker(reviewer, review_id, "review-request")
+        if not any(
+            app_comment(comment) and note in comment["body"]
+            for comment in list_items(issue_comments)
+        ):
+            api(issue_comments, data={"body": f"/review\n\n{note}"})
+            summary("Requested a NaiLaOpus review.")
+    # Approvers need no re-request, and NaiLaOpus uses the comment above.
+    if review["state"] == "APPROVED" or reviewer == NAILAOPUS:
+        return
     requested = api(f"{endpoint}/requested_reviewers")["users"]
     reviews = list_items(f"{endpoint}/reviews")
     if any(user["login"] == reviewer for user in requested) or any(
@@ -449,31 +460,69 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     summary(f"Re-requested review from {reviewer}.")
 
 
+class ReviewTarget(TypedDict):
+    repo: str
+    number: str
+    review_id: str
+
+
+def read_review_target() -> ReviewTarget:
+    repo = os.environ["GH_REPO"]
+    number = os.environ["PR_NUMBER"]
+    review_id = os.environ["REVIEW_ID"]
+    if repo != "mlflow/mlflow" or not number.isdecimal() or not review_id.isdecimal():
+        raise ValueError("Expected an MLflow PR and numeric review ID")
+    return {"repo": repo, "number": number, "review_id": review_id}
+
+
+def run_collect(args: argparse.Namespace) -> None:
+    collect(**read_review_target(), context_path=args.context_path)
+
+
+def run_validate(args: argparse.Namespace) -> None:
+    validate(args.context_path, args.out_dir)
+    if "PR_CHECKOUT" in os.environ:
+        if git("rev-parse", "HEAD") != json.loads(args.context_path.read_text())["head_sha"]:
+            raise ValueError("Publisher checkout does not match the collected head")
+        if (patch := args.out_dir / "fix.patch").is_file():
+            apply_patch(patch)
+
+
+def run_embed(args: argparse.Namespace) -> None:
+    embed(args.out_dir)
+
+
+def run_publish(args: argparse.Namespace) -> None:
+    publish(**read_review_target(), context_path=args.context_path, out_dir=args.out_dir)
+
+
 def main() -> None:
-    context_path = Path(os.environ["CONTEXT_PATH"])
-    out_dir = Path(os.environ["OUT_DIR"])
-    match sys.argv[1:]:
-        case ["validate"]:
-            validate(context_path, out_dir)
-            if "PR_CHECKOUT" in os.environ:
-                if git("rev-parse", "HEAD") != json.loads(context_path.read_text())["head_sha"]:
-                    raise ValueError("Publisher checkout does not match the collected head")
-                if (patch := out_dir / "fix.patch").is_file():
-                    apply_patch(patch)
-        case ["embed"]:
-            embed(out_dir)
-        case [operation] if operation in {"collect", "publish"}:
-            repo = os.environ["GH_REPO"]
-            number = os.environ["PR_NUMBER"]
-            review_id = os.environ["REVIEW_ID"]
-            if repo != "mlflow/mlflow" or not number.isdecimal() or not review_id.isdecimal():
-                raise ValueError("Expected an MLflow PR and numeric review ID")
-            if operation == "collect":
-                collect(repo, number, review_id, context_path)
-            else:
-                publish(repo, number, review_id, context_path, out_dir)
-        case _:
-            raise ValueError("Expected collect, validate, embed, or publish")
+    parser = argparse.ArgumentParser(description="Run a Resolve workflow operation.")
+    operations = parser.add_subparsers(required=True)
+    operations.add_parser(
+        "collect",
+        help="Collect pull request review context",
+        description="Collect review context for the configured pull request and review.",
+    ).set_defaults(func=run_collect)
+    operations.add_parser(
+        "validate",
+        help="Validate the resolution output",
+        description="Validate the resolution payload, media, and any accompanying patch.",
+    ).set_defaults(func=run_validate)
+    operations.add_parser(
+        "embed",
+        help="Upload and embed resolution media",
+        description="Upload media and replace local links in replies and PR descriptions.",
+    ).set_defaults(func=run_embed)
+    operations.add_parser(
+        "publish",
+        help="Publish or preview the resolution",
+        description="Publish replies, any patch, and PR edits, or write a dry-run preview.",
+    ).set_defaults(func=run_publish)
+    args = parser.parse_args()
+    args.context_path = Path(os.environ["CONTEXT_PATH"])
+    args.out_dir = Path(os.environ["OUT_DIR"])
+    args.func(args)
 
 
 if __name__ == "__main__":

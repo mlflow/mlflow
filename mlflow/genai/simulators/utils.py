@@ -9,6 +9,7 @@ import pydantic
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _create_message_from_databricks_response,
     call_chat_completions,
@@ -18,6 +19,7 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
+from mlflow.genai.utils.gateway_utils import gateway_caller
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.uri import is_databricks_uri
 
@@ -61,7 +63,7 @@ def invoke_model_without_tracing(
     Invoke a model without tracing. This method will delete the last trace created by the
     invocation, if any.
     """
-    with delete_trace_if_created():
+    with delete_trace_if_created(), gateway_caller(GatewayCaller.SIMULATOR):
         if model_uri in (_DATABRICKS_DEFAULT_JUDGE_MODEL, _DATABRICKS_AGENTIC_JUDGE_MODEL):
             user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
 

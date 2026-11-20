@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
@@ -33,6 +34,29 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
+
+# The judge's rationale is free text that may contain unescaped double quotes (e.g. when it
+# quotes JSON from the trace), while the result is a fixed enum, number, or boolean. These
+# patterns recover both fields from such malformed output, in either key order. The greedy
+# rationale capture can swallow field or object boundaries, so recovery is skipped when the
+# decoded rationale looks like it spans more than the rationale value (see
+# `_is_unambiguous_rationale`).
+_RESULT_VALUE_PATTERN = r'"[^"\\]*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null'
+_RATIONALE_THEN_RESULT_PATTERN = re.compile(
+    r'^\s*\{\s*"rationale"\s*:\s*"(?P<rationale>.*)"\s*,'
+    rf'\s*"result"\s*:\s*(?P<result>{_RESULT_VALUE_PATTERN})\s*\}}\s*$',
+    re.DOTALL,
+)
+_RESULT_THEN_RATIONALE_PATTERN = re.compile(
+    rf'^\s*\{{\s*"result"\s*:\s*(?P<result>{_RESULT_VALUE_PATTERN})\s*,'
+    r'\s*"rationale"\s*:\s*"(?P<rationale>.*)"\s*\}\s*$',
+    re.DOTALL,
+)
+# Matches a double quote that is not escaped (preceded by an even number of backslashes).
+_UNESCAPED_QUOTE_PATTERN = re.compile(r'(?<!\\)((?:\\\\)*)"')
+# Matches a `", "key":` field boundary, which signals that the greedy rationale capture spans
+# extra fields of the outer object.
+_FIELD_BOUNDARY_PATTERN = re.compile(r'"\s*,\s*"[^"]*"\s*:')
 
 
 def _check_databricks_agents_installed() -> None:
@@ -127,6 +151,71 @@ def call_chat_completions(
     return _call_chat_completions(user_prompt, system_prompt, tools, model, use_case)
 
 
+def _is_unambiguous_rationale(rationale: str) -> bool:
+    """
+    Return False if the decoded rationale may span outer object boundaries, i.e. its braces or
+    brackets are unbalanced (truncated output or concatenated objects) or it contains a field
+    boundary outside any nested braces or brackets (extra fields). Inside nested braces or
+    brackets, string literals are skipped so braces within embedded JSON strings are not
+    counted. Top-level quotes are free rationale text, so they are not treated as strings.
+    """
+    depth = 0
+    in_string = False
+    escaped = False
+    top_level_chars = []
+    for char in rationale:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif depth > 0 and char == '"':
+            in_string = True
+        elif char in "{[":
+            depth += 1
+        elif char in "}]":
+            depth -= 1
+            if depth < 0:
+                return False
+        elif depth == 0:
+            top_level_chars.append(char)
+    return (
+        depth == 0
+        and not in_string
+        and not _FIELD_BOUNDARY_PATTERN.search("".join(top_level_chars))
+    )
+
+
+def _lenient_parse_judge_output(llm_output: str) -> dict[str, Any] | None:
+    """
+    Recover ``result`` and ``rationale`` from judge output that is not valid JSON because the
+    rationale contains unescaped double quotes. Returns None if the output doesn't match the
+    expected two-field shape.
+    """
+    patterns = (_RATIONALE_THEN_RESULT_PATTERN, _RESULT_THEN_RATIONALE_PATTERN)
+    match = next((m for p in patterns if (m := p.match(llm_output))), None)
+    if match is None:
+        return None
+
+    try:
+        result = json.loads(match.group("result"))
+    except json.JSONDecodeError:
+        return None
+    raw_rationale = match.group("rationale")
+    escaped_rationale = _UNESCAPED_QUOTE_PATTERN.sub(r'\1\\"', raw_rationale)
+    try:
+        rationale = json.loads(f'"{escaped_rationale}"', strict=False)
+    except json.JSONDecodeError:
+        rationale = raw_rationale
+    # Check after decoding so that quotes the model did escape (e.g. `{\"a\": 1}` next to an
+    # unescaped quote) are scanned as plain quotes rather than as an extra escape layer.
+    if not _is_unambiguous_rationale(rationale):
+        return None
+    return {"result": result, "rationale": rationale}
+
+
 def _parse_databricks_judge_response(
     llm_output: str | None,
     assessment_name: str,
@@ -160,12 +249,16 @@ def _parse_databricks_judge_response(
         response_data = json.loads(llm_output)
     except json.JSONDecodeError as e:
         _logger.debug(f"Invalid JSON response from Databricks judge: {e}", exc_info=True)
-        return Feedback(
-            name=assessment_name,
-            error=f"Invalid JSON response from Databricks judge: {e}\n\nLLM output: {llm_output}",
-            source=source,
-            trace_id=trace_id,
-        )
+        response_data = _lenient_parse_judge_output(llm_output)
+        if response_data is None:
+            return Feedback(
+                name=assessment_name,
+                error=(
+                    f"Invalid JSON response from Databricks judge: {e}\n\nLLM output: {llm_output}"
+                ),
+                source=source,
+                trace_id=trace_id,
+            )
 
     if "result" not in response_data:
         return Feedback(

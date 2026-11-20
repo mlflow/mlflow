@@ -539,3 +539,14 @@ def test_clipping_leaves_ordinary_text_untouched():
 
     assert "..." not in rendered
     assert "stored desc" in rendered
+
+
+def test_matcher_attributes_llm_calls_to_issue_detection():
+    from mlflow.gateway.constants import GatewayCaller
+
+    with _matcher({"matches": []}) as mock_call:
+        match_findings_to_existing_issues(
+            [_finding("Refund falsely confirmed")], [_existing("iss-one", "Refund confirmed")]
+        )
+
+    assert mock_call.call_args.kwargs["gateway_caller"] == GatewayCaller.ISSUE_DETECTION

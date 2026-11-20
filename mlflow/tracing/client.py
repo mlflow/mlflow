@@ -53,6 +53,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     NOT_FOUND,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
@@ -736,6 +737,19 @@ class TracingClient:
                     return self.store.create_assessment(assessment)
                 trace.info.assessments.append(assessment)
             return assessment
+
+        try:
+            return self.store.create_assessment(assessment)
+        except MlflowException as e:
+            # The store also raises RESOURCE_DOES_NOT_EXIST when the `overrides` target is
+            # missing; flushing pending trace writes cannot fix that, so re-raise it as is.
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST) or (
+                assessment.overrides and assessment.overrides in e.message
+            ):
+                raise
+        # A trace that just ended in this process may not have been exported yet when async
+        # trace logging is enabled, so flush pending trace writes and retry once.
+        mlflow.flush_trace_async_logging()
         return self.store.create_assessment(assessment)
 
     def update_assessment(

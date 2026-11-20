@@ -144,6 +144,25 @@ use `gh` CLI instead of `actions/github-script`. It avoids the need for
     gh pr comment ...
 ```
 
+## Benchmark GraphQL Queries to Avoid Timeouts
+
+GitHub terminates any GraphQL request that runs longer than 10 seconds and
+returns a `502` or `504`. A timeout also deducts extra points from the primary
+rate limit for the next hour
+([docs](https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api#timeouts)).
+Nested connections multiply the work, so a query that is fast on a small PR can
+time out on a large one.
+
+Before adding a GraphQL query to a workflow, time it against realistic inputs,
+including some large ones (e.g., a PR with many review threads):
+
+```bash
+time gh api graphql -F owner=mlflow -F repo=mlflow -F number=12345 -f query='...' > /dev/null
+```
+
+If it is not comfortably under the limit, lower `first`/`last` and paginate,
+reduce nesting, request fewer fields, or split the query.
+
 ## Prefer `GITHUB_TOKEN` When Its Scope and Trigger Behavior Are Sufficient
 
 Use `${{ secrets.GITHUB_TOKEN }}` by default for operations in the current repository when its job-level permissions are sufficient. Use `actions/create-github-app-token` when access to other repositories or separately scoped credentials is required, or when the resulting GitHub event must trigger another workflow. Events created with `GITHUB_TOKEN` [generally do not trigger workflow runs](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).

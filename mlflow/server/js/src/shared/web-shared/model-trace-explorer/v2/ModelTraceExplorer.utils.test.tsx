@@ -26,7 +26,6 @@ import {
   parseModelTraceToTree,
   parseModelTraceToTreeWithMultipleRoots,
   searchTree,
-  searchTreeBySpanId,
   getMatchesFromSpan,
   normalizeConversation,
   isModelTraceChatTool,
@@ -559,33 +558,6 @@ describe('searchTree', () => {
         matchIndex: 0,
       }),
     ]);
-  });
-});
-
-describe('searchTreeBySpanId', () => {
-  it('should return a matched node if exists', () => {
-    const rootNode = parseModelTraceToTree(MOCK_TRACE) as ModelTraceSpanNode;
-    const node = searchTreeBySpanId(rootNode, 'rephrase_chat_to_queue');
-
-    expect(node).toEqual(
-      expect.objectContaining({
-        key: 'rephrase_chat_to_queue',
-      }),
-    );
-  });
-
-  it('should return undefined when selectedSpanId is undefined', () => {
-    const rootNode = parseModelTraceToTree(MOCK_TRACE) as ModelTraceSpanNode;
-    const node = searchTreeBySpanId(rootNode, undefined);
-
-    expect(node).toBeUndefined();
-  });
-
-  it('should return undefined when no node matches selectedSpanId', () => {
-    const rootNode = parseModelTraceToTree(MOCK_TRACE) as ModelTraceSpanNode;
-    const node = searchTreeBySpanId(rootNode, 'unknown');
-
-    expect(node).toBeUndefined();
   });
 });
 

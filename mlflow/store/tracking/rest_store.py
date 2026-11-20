@@ -2659,7 +2659,13 @@ class RestStore(
         resource = getattr(spans[0]._span, "resource", None)
         resource_spans.resource.CopyFrom(resource_to_otel_proto(resource))
         scope_spans = resource_spans.scope_spans.add()
-        scope_spans.spans.extend(span.to_otel_proto() for span in spans)
+        # The server-side strip arrived in 3.7. A 3.6 server JSON-encodes every wire attribute
+        # again without stripping, so it needs the plain typed encoding. 3.4 and 3.5 servers
+        # store attributes as-is and accept either encoding.
+        serialize_strings = server_version >= Version("3.7")
+        scope_spans.spans.extend(
+            span.to_otel_proto(serialize_strings=serialize_strings) for span in spans
+        )
 
         response = http_request(
             host_creds=self.get_host_creds(),

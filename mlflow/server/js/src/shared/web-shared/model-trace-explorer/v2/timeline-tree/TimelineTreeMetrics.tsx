@@ -27,6 +27,22 @@ export interface TimelineTreeComparisonMetricValue {
   icon?: React.ReactNode;
 }
 
+const totalTokensCache = new WeakMap<ModelTraceSpanNode, number | undefined>();
+
+const getTotalTokens = (node: ModelTraceSpanNode | undefined): number | undefined => {
+  if (!node) {
+    return undefined;
+  }
+  if (node.tokenUsage) {
+    return node.tokenUsage.total_tokens;
+  }
+  // Normalized nodes are replaced when content changes; cache missing usage too.
+  if (!totalTokensCache.has(node)) {
+    totalTokensCache.set(node, getSpanTokenUsage(node)?.total_tokens);
+  }
+  return totalTokensCache.get(node);
+};
+
 export const getTimelineTreeComparisonMetricValues = (
   baselineNode: ModelTraceSpanNode | undefined,
   candidateNode: ModelTraceSpanNode | undefined,
@@ -51,8 +67,8 @@ export const getTimelineTreeComparisonMetricValues = (
     {
       key: 'tokens',
       label: intl.formatMessage({ defaultMessage: 'Tokens', description: 'Trace comparison metric label' }),
-      baseline: baselineNode ? getSpanTokenUsage(baselineNode)?.total_tokens : undefined,
-      candidate: candidateNode ? getSpanTokenUsage(candidateNode)?.total_tokens : undefined,
+      baseline: getTotalTokens(baselineNode),
+      candidate: getTotalTokens(candidateNode),
       format: formatCompactNumber,
       icon: <TokenIcon />,
     },
@@ -118,9 +134,9 @@ export const getTimelineTreeMetricValue = (
   node: ModelTraceSpanNode,
   intl: IntlShape,
 ): TimelineTreeMetricValue | undefined => {
-  const duration = spanTimeFormatter(node.end - node.start);
   switch (metric) {
-    case 'duration':
+    case 'duration': {
+      const duration = spanTimeFormatter(node.end - node.start);
       return {
         key: metric,
         value: duration,
@@ -129,8 +145,9 @@ export const getTimelineTreeMetricValue = (
           { value: duration },
         ),
       };
+    }
     case 'tokens': {
-      const tokens = getSpanTokenUsage(node)?.total_tokens;
+      const tokens = getTotalTokens(node);
       return tokens === undefined
         ? undefined
         : {
