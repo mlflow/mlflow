@@ -98,4 +98,15 @@ describe('MlflowSidebarExperimentItems', () => {
     expect(screen.getByText('Settings').closest('a')).toHaveAttribute('href', '/experiments/test-123/settings');
     jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
+
+  test('keeps the workflow type and workspace on the Settings link', () => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+    renderTestComponent(['/experiments/test-123/traces?workflowType=genai&workspace=team-a&searchFilter=abc']);
+
+    expect(screen.getByText('Settings').closest('a')).toHaveAttribute(
+      'href',
+      '/experiments/test-123/settings?workflowType=genai&workspace=team-a',
+    );
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+  });
 });

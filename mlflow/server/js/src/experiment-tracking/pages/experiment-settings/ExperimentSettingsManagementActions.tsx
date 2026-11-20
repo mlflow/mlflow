@@ -1,5 +1,4 @@
 import { Button, Tooltip, Typography } from '@databricks/design-system';
-import type { ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useCurrentUserQuery } from '../../../account/hooks';
 import AdminRoutes from '../../../admin/routes';
@@ -83,15 +82,10 @@ const ExperimentSettingsPermissions = () => {
 
 export interface ExperimentSettingsContentProps {
   experiment: ExperimentEntity;
-  experimentKindSelector: ReactNode;
   refetchExperiment?: () => Promise<unknown>;
 }
 
-export const ExperimentSettingsContent = ({
-  experiment,
-  experimentKindSelector,
-  refetchExperiment,
-}: ExperimentSettingsContentProps) => {
+export const ExperimentSettingsContent = ({ experiment, refetchExperiment }: ExperimentSettingsContentProps) => {
   const intl = useIntl();
   const actions = useExperimentManagementActions({ experiment, refetchExperiment });
 
@@ -99,7 +93,6 @@ export const ExperimentSettingsContent = ({
     <>
       <ExperimentSettingsDetails
         experiment={experiment}
-        experimentKindSelector={experimentKindSelector}
         canEdit={actions.canEdit}
         saveExperimentName={actions.saveExperimentName}
         refetchExperiment={refetchExperiment}

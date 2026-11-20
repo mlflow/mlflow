@@ -1,6 +1,5 @@
 import { Button, CopyIcon, PencilIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { KeyValueTag } from '../../../common/components/KeyValueTag';
 import { useTagAssignmentModal } from '../../../common/hooks/useTagAssignmentModal';
@@ -140,16 +139,14 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
 
 export interface ExperimentSettingsDetailsProps {
   experiment: ExperimentEntity;
-  experimentKindSelector: ReactNode;
   canEdit: boolean;
   saveExperimentName: (name: string) => Promise<void>;
   refetchExperiment?: () => Promise<unknown>;
 }
 
-/** The About section: name, ID, artifact location, experiment type and tags. */
+/** The About section: name, ID, artifact location and tags. */
 export const ExperimentSettingsDetails = ({
   experiment,
-  experimentKindSelector,
   canEdit,
   saveExperimentName,
   refetchExperiment,
@@ -232,25 +229,6 @@ export const ExperimentSettingsDetails = ({
             </ExperimentSettingsValue>
           )}
         </SettingCell.Static>
-        <SettingCell
-          label={
-            <>
-              <Typography.Text bold>
-                <FormattedMessage
-                  defaultMessage="Experiment type"
-                  description="Label for the experiment type setting"
-                />
-              </Typography.Text>
-              <Typography.Hint>
-                <FormattedMessage
-                  defaultMessage="Controls the tracking experience and available features."
-                  description="Description for the experiment type setting"
-                />
-              </Typography.Hint>
-            </>
-          }
-          value={<ExperimentSettingsValue>{experimentKindSelector}</ExperimentSettingsValue>}
-        />
         <ExperimentSettingsTags experiment={experiment} canEdit={canEdit} refetchExperiment={refetchExperiment} />
       </div>
     </section>

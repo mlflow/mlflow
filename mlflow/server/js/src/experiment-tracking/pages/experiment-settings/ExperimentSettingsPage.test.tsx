@@ -11,7 +11,6 @@ import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
-import { ExperimentKind } from '../../constants';
 import { MlflowService } from '../../sdk/MlflowService';
 import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
 import ExperimentSettingsPage from './ExperimentSettingsPage';
@@ -154,8 +153,8 @@ describe('ExperimentSettingsPage', () => {
     expect(within(aboutSection).getByText('The location where run artifacts are stored.')).toBeInTheDocument();
     expect(within(aboutSection).getByRole('button', { name: 'Copy experiment ID' })).toBeInTheDocument();
     expect(within(aboutSection).getByRole('button', { name: 'Copy artifact location' })).toBeInTheDocument();
-    expect(within(aboutSection).getByText('Experiment type')).toBeInTheDocument();
-    expect(within(aboutSection).getByText('GenAI apps & agents')).toBeInTheDocument();
+    // OSS hides the experiment type when the GenAI / Model training switch picks the layout.
+    expect(within(aboutSection).queryByText('Experiment type')).not.toBeInTheDocument();
     expect(within(aboutSection).queryByText('Path')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Trace location' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Governance' })).not.toBeInTheDocument();
@@ -171,6 +170,36 @@ describe('ExperimentSettingsPage', () => {
     expect(within(actionsSection).getByRole('button', { name: 'Delete' })).toBeEnabled();
   });
 
+  test('leaves a load error to the experiment page instead of showing it again', async () => {
+    let requested = false;
+    server.use(
+      graphql.query('MlflowGetExperimentQuery', (_req, res, ctx) => {
+        requested = true;
+        return res(
+          ctx.data({
+            mlflowGetExperiment: {
+              __typename: 'MlflowGetExperimentResponse',
+              apiError: {
+                __typename: 'ApiError',
+                helpUrl: null,
+                code: 'RESOURCE_DOES_NOT_EXIST',
+                message: 'No Experiment with id=123 exists',
+              },
+              experiment: null,
+            },
+          }),
+        );
+      }),
+    );
+    renderPage();
+
+    await waitFor(() => expect(requested).toBe(true));
+    // The container also wraps the loading skeleton, so its removal means the error has arrived.
+    await waitFor(() => expect(screen.queryByTestId('experiment-settings-content')).not.toBeInTheDocument());
+    expect(screen.queryByText(/No Experiment with id=123 exists/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'About' })).not.toBeInTheDocument();
+  });
+
   test('saves the full experiment name, including slashes', async () => {
     const updateExperiment = jest.spyOn(MlflowService, 'updateExperiment').mockResolvedValue({});
     renderPage();
@@ -183,38 +212,6 @@ describe('ExperimentSettingsPage', () => {
     await waitFor(() => {
       expect(updateExperiment).toHaveBeenCalledWith({ experiment_id: '123', new_name: 'team/Renamed experiment' });
     });
-  });
-
-  test('refetches the experiment before leaving Settings after changing to machine learning', async () => {
-    let experimentQueryCount = 0;
-    let refetchedBeforeNavigation = false;
-    server.use(
-      experimentQuery(() => {
-        experimentQueryCount += 1;
-        if (experimentQueryCount > 1 && screen.queryByText('Experiment root') === null) {
-          refetchedBeforeNavigation = true;
-        }
-        return makeExperiment();
-      }),
-    );
-    const updateKind = jest.spyOn(MlflowService, 'setExperimentTag').mockResolvedValue({});
-    renderPage();
-
-    // Editing (and so the type dropdown) is enabled once the server reports no authentication.
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Experiment name' })).toBeEnabled());
-    await userEvent.click(screen.getByText('GenAI apps & agents'));
-    await userEvent.click(await screen.findByText('Machine learning'));
-
-    await waitFor(() => {
-      expect(updateKind).toHaveBeenCalledWith({
-        experiment_id: '123',
-        key: 'mlflow.experimentKind',
-        value: ExperimentKind.CUSTOM_MODEL_DEVELOPMENT,
-      });
-    });
-    expect(await screen.findByText('Experiment root')).toBeInTheDocument();
-    expect(experimentQueryCount).toBeGreaterThanOrEqual(2);
-    expect(refetchedBeforeNavigation).toBe(true);
   });
 
   test('deletes the experiment after confirmation and returns to the experiments list', async () => {

@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useLocation } from '../../../common/utils/RoutingUtils';
-import type { ExperimentKind } from '../../constants';
 
 interface PublishedTitle {
   routeKey: string;
@@ -15,7 +14,6 @@ interface PublishedPairwiseReviewAction {
 
 interface ExperimentPageRevampContextValue {
   enabled: boolean;
-  inferredExperimentKind?: ExperimentKind;
   publishedTitle?: PublishedTitle;
   setPublishedTitle: React.Dispatch<React.SetStateAction<PublishedTitle | undefined>>;
   publishedPairwiseReviewAction?: PublishedPairwiseReviewAction;
@@ -31,26 +29,20 @@ const ExperimentPageRevampContext = createContext<ExperimentPageRevampContextVal
 export interface ExperimentPageRevampProviderProps {
   children: React.ReactNode;
   enabled: boolean;
-  inferredExperimentKind?: ExperimentKind;
 }
 
-export const ExperimentPageRevampProvider = ({
-  children,
-  enabled,
-  inferredExperimentKind,
-}: ExperimentPageRevampProviderProps) => {
+export const ExperimentPageRevampProvider = ({ children, enabled }: ExperimentPageRevampProviderProps) => {
   const [publishedTitle, setPublishedTitle] = useState<PublishedTitle>();
   const [publishedPairwiseReviewAction, setPublishedPairwiseReviewAction] = useState<PublishedPairwiseReviewAction>();
   const value = useMemo(
     () => ({
       enabled,
-      inferredExperimentKind,
       publishedTitle,
       setPublishedTitle,
       publishedPairwiseReviewAction,
       setPublishedPairwiseReviewAction,
     }),
-    [enabled, inferredExperimentKind, publishedTitle, publishedPairwiseReviewAction],
+    [enabled, publishedTitle, publishedPairwiseReviewAction],
   );
 
   return <ExperimentPageRevampContext.Provider value={value}>{children}</ExperimentPageRevampContext.Provider>;

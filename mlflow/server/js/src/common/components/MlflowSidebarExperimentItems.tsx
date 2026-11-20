@@ -140,7 +140,10 @@ export const MlflowSidebarExperimentItems = ({
       {shouldEnableExperimentSettingsPage() && experimentId && (
         <MlflowSidebarLink
           css={{ paddingLeft: collapsed ? undefined : theme.spacing.lg }}
-          to={ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Settings)}
+          to={{
+            pathname: ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Settings),
+            search: getPreservedQueryString(search),
+          }}
           componentId="mlflow.experiment_side_nav.settings"
           isActive={() => activeTabByRoute === ExperimentPageTabName.Settings}
           collapsed={collapsed}

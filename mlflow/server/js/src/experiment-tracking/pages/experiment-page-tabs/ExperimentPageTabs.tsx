@@ -330,10 +330,7 @@ const ExperimentPageTabsImpl = () => {
   );
 
   return (
-    <ExperimentPageRevampProvider
-      enabled={showRevamp}
-      inferredExperimentKind={shouldEnableExperimentSettingsPage() ? inferredExperimentKind : undefined}
-    >
+    <ExperimentPageRevampProvider enabled={showRevamp}>
       {revampFlagEnabled ? (
         // The shell has its own vertical padding, so the page keeps it only outside the shell. The wrapper
         // stays mounted either way, so switching in and out of the shell does not remount the page.

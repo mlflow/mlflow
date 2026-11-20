@@ -1,19 +1,13 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import invariant from 'invariant';
-import { Alert, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
-import { FormattedMessage } from 'react-intl';
 import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
-import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
-import { ExperimentKind } from '../../constants';
-import Routes from '../../routes';
+import { useParams } from '../../../common/utils/RoutingUtils';
 import type { ExperimentEntity } from '../../types';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentPermission } from '../../hooks/useExperimentPermission';
-import { useExperimentKind } from '../../utils/ExperimentKindUtils';
-import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
-import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
 import { useExperimentPageRevampContext } from '../experiment-page-tabs/ExperimentPageRevampContext';
 import { ExperimentSettingsContent } from './ExperimentSettingsManagementActions';
 
@@ -80,8 +74,7 @@ const ExperimentSettingsSkeleton = () => {
 
 export const ExperimentSettingsPage = () => {
   const { experimentId } = useParams();
-  const navigate = useNavigate();
-  const { enabled: revampEnabled, inferredExperimentKind } = useExperimentPageRevampContext();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
   invariant(experimentId, 'Experiment ID must be defined');
 
   const { data, loading, refetch, apiError, apolloError } = useGetExperimentQuery({ experimentId });
@@ -97,17 +90,8 @@ export const ExperimentSettingsPage = () => {
         : null,
     [data],
   );
-  const experimentKind = useExperimentKind(experiment?.tags);
-  const canEdit = useExperimentPermission(experimentId, ['EDIT', 'MANAGE']);
-  const updatedExperimentKind = useRef<ExperimentKind>();
-  const onExperimentKindUpdated = useCallback(async () => {
-    await refetch();
-    if (updatedExperimentKind.current === ExperimentKind.CUSTOM_MODEL_DEVELOPMENT) {
-      navigate(Routes.getExperimentPageRoute(experimentId), { replace: true });
-    }
-  }, [experimentId, navigate, refetch]);
-  const { mutate: updateExperimentKind, isLoading: isUpdatingExperimentKind } =
-    useUpdateExperimentKind(onExperimentKindUpdated);
+  // Look up permissions alongside the experiment, so the controls don't render disabled and then enable.
+  useExperimentPermission(experimentId, ['EDIT', 'MANAGE']);
 
   if (error instanceof PredefinedError) {
     throw error;
@@ -120,24 +104,9 @@ export const ExperimentSettingsPage = () => {
     );
   }
 
-  const errorMessage = getGraphQLErrorMessage(error);
-  if (errorMessage) {
-    return (
-      <ExperimentSettingsPageContainer revampEnabled={revampEnabled}>
-        <Alert
-          componentId="mlflow.experiment_settings.load_error"
-          type="error"
-          closable={false}
-          message={
-            <FormattedMessage
-              defaultMessage="Experiment load error: {errorMessage}"
-              description="Error shown when experiment Settings cannot load"
-              values={{ errorMessage }}
-            />
-          }
-        />
-      </ExperimentSettingsPageContainer>
-    );
+  // The experiment page around every tab already shows this load error.
+  if (getGraphQLErrorMessage(error)) {
+    return null;
   }
   if (!experiment) {
     return null;
@@ -145,22 +114,7 @@ export const ExperimentSettingsPage = () => {
 
   return (
     <ExperimentSettingsPageContainer revampEnabled={revampEnabled}>
-      <ExperimentSettingsContent
-        experiment={experiment}
-        experimentKindSelector={
-          <ExperimentViewHeaderKindSelector
-            value={experimentKind}
-            inferredExperimentKind={inferredExperimentKind}
-            onChange={(kind) => {
-              updatedExperimentKind.current = kind;
-              updateExperimentKind({ experimentId, kind });
-            }}
-            isUpdating={isUpdatingExperimentKind}
-            readOnly={!canEdit}
-          />
-        }
-        refetchExperiment={refetch}
-      />
+      <ExperimentSettingsContent experiment={experiment} refetchExperiment={refetch} />
     </ExperimentSettingsPageContainer>
   );
 };
