@@ -5958,7 +5958,7 @@ def validate_can_detect_issues():
     from the store, so it also requires what searching them with that filter does. That covers
     ``trace_ids`` too, since the handler rejects a trace outside the experiment. Without an
     explicit ``model``, the run uses the model saved in the experiment's detection schedule, and
-    when that names a stored gateway secret the caller also needs USE on it, as
+    when the run would decrypt a stored gateway secret for it the caller also needs USE on it, as
     ``validate_can_invoke_issue_detection`` requires for a secret named in the request.
     """
     message = _get_request_message(DetectIssues())
@@ -5977,8 +5977,9 @@ def validate_can_detect_issues():
             return False
         raise
     schedule = read_detection_schedule(experiment)
-    secret_id = schedule.model.secret_id if schedule is not None and schedule.model else ""
-    if not secret_id:
+    if schedule is None or schedule.model is None:
+        return True
+    if not (secret_id := schedule.model.credential_secret_id):
         return True
     return _get_gateway_secret_permission(secret_id).can_use
 
