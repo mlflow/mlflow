@@ -124,6 +124,20 @@ print(aligned_judge.instructions)
 #   - Use neutral, descriptive language..."
 ```
 
+## Removing Specific Guidelines
+
+To list the learned guidelines, use `guidelines`. To drop specific ones (for example, contradictory guidelines), pass their 0-based positions to `remove_guidelines`. It returns a new judge and leaves the original unchanged. Examples and MemAlign settings (reflection model, retrieval size, and embedding model) are kept.
+
+```python
+for i, guideline in enumerate(aligned_judge.guidelines):
+    print(i, guideline)
+
+cleaned_judge = aligned_judge.remove_guidelines([3, 17])
+cleaned_judge.register()
+```
+
+Indices refer to the current list, so call `guidelines` again on the new judge before removing more. A later `align` can distill a removed guideline again (for example, after feedback on one of its source traces changes), so check `guidelines` after each alignment.
+
 ## Removing Feedback (Unalignment)
 
 If requirements change or feedback was incorrect, you can selectively remove learned knowledge:
