@@ -4,10 +4,21 @@ import {
   getRootSpan,
   extractInputs,
   extractOutputs,
+  extractExpectations,
   extractRetrievalContext,
   getTrace,
 } from './TraceUtils';
-import type { ModelTrace, ModelTraceSpanV2, ModelTraceSpanV3 } from '@databricks/web-shared/model-trace-explorer';
+import type {
+  Expectation,
+  ModelTrace,
+  ModelTraceSpanV2,
+  ModelTraceSpanV3,
+} from '@databricks/web-shared/model-trace-explorer';
+import {
+  MOCK_EXPECTATION,
+  MOCK_TRACE_INFO_V3,
+  MOCK_V3_TRACE,
+} from '../../shared/web-shared/model-trace-explorer/ModelTraceExplorer.test-utils';
 import { getExperimentTraceV3, TracesServiceV3 } from '@databricks/web-shared/model-trace-explorer';
 import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '@databricks/web-shared/genai-traces-table';
 
@@ -1094,6 +1105,38 @@ describe('extractRetrievalContext', () => {
         ],
       });
     });
+  });
+});
+
+describe('extractExpectations', () => {
+  it.each<[Expectation, Record<string, unknown>]>([
+    [{ value: false }, { expected_facts: false }],
+    [{ serialized_value: { value: '[1, 2]', serialization_format: 'JSON_FORMAT' } }, { expected_facts: [1, 2] }],
+    [
+      { serialized_value: { value: '{"label":"positive"}', serialization_format: 'JSON_FORMAT' } },
+      { expected_facts: { label: 'positive' } },
+    ],
+    [
+      { serialized_value: { value: 'unfinished {', serialization_format: 'JSON_FORMAT' } },
+      { expected_facts: 'unfinished {' },
+    ],
+    [{ serialized_value: { value: 'null', serialization_format: 'JSON_FORMAT' } }, {}],
+  ])('extracts human expectation values from %p', (expectation, expected) => {
+    const trace: ModelTrace = {
+      ...MOCK_V3_TRACE,
+      info: {
+        ...MOCK_TRACE_INFO_V3,
+        assessments: [
+          {
+            ...MOCK_EXPECTATION,
+            source: { source_type: 'HUMAN', source_id: 'reviewer' },
+            expectation,
+          },
+        ],
+      },
+    };
+
+    expect(extractExpectations(trace)).toEqual(expected);
   });
 });
 

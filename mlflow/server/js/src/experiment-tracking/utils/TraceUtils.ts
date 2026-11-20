@@ -11,6 +11,7 @@ import {
   TracesServiceV3,
   isV4TraceId,
   getExperimentTraceV3,
+  getParsedExpectationValue,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   getSpanAttribute,
@@ -157,22 +158,6 @@ function isExpectationAssessment(assessment: Assessment): assessment is Expectat
   return 'expectation' in assessment;
 }
 
-function extractExpectationValue(expectation: ExpectationAssessment['expectation']): any {
-  if ('value' in expectation) {
-    return expectation.value;
-  }
-
-  if ('serialized_value' in expectation && expectation.serialized_value) {
-    try {
-      return JSON.parse(expectation.serialized_value.value);
-    } catch {
-      return expectation.serialized_value.value;
-    }
-  }
-
-  return null;
-}
-
 export function extractExpectations(trace: ModelTrace): Record<string, any> {
   const result: Record<string, any> = {};
 
@@ -200,7 +185,7 @@ export function extractExpectations(trace: ModelTrace): Record<string, any> {
     }
 
     // Extract the expectation value
-    const value = extractExpectationValue(assessment.expectation);
+    const value = getParsedExpectationValue(assessment.expectation);
     if (value !== undefined && value !== null) {
       result[assessment.assessment_name] = value;
     }
