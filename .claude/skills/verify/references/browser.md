@@ -37,7 +37,8 @@ Record a flow when a still image cannot show it, such as a multi-step interactio
    sessions, so don't use them in the steps you save.
 2. Save the commands to `$tmp_dir/work/steps.json`, e.g. `[["click", "<selector>"], ["wait", "500"]]`.
 3. Close the rehearsal session, reset data if the flow changed it, and reopen a fresh session
-   with the `open` command above.
+   with the `open` command above. A fresh session loses the theme, so set it again before
+   `record start`.
 4. Replay while recording:
 
 ```bash
