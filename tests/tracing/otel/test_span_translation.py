@@ -125,7 +125,8 @@ def test_gemini_cli_translator_wraps_input():
     assert '"contents"' in result
 
 
-def test_gemini_cli_translator_rewrites_system_prompt_role():
+@pytest.mark.parametrize("serialize_attributes", [False, True])
+def test_gemini_cli_translator_rewrites_system_prompt_role(serialize_attributes):
     translator = GeminiCliTranslator()
     messages = json.dumps([{"role": "user", "parts": [{"text": "You are helpful"}]}])
     attrs = {
@@ -133,6 +134,8 @@ def test_gemini_cli_translator_rewrites_system_prompt_role():
         "gen_ai.operation.name": "system_prompt",
         "gen_ai.input.messages": messages,
     }
+    if serialize_attributes:
+        attrs = strip_otlp_double_encoding({key: json.dumps(value) for key, value in attrs.items()})
     result = translator.get_input_value(attrs)
     parsed = json.loads(result)
     assert parsed["contents"][0]["role"] == "system"
