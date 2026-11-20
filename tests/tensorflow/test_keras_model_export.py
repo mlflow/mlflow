@@ -788,7 +788,7 @@ def test_load_model_refuses_keras2_legacy_format_when_model_code_execution_disal
     )
 
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
-    with pytest.raises(MlflowException, match="saved in the H5 or SavedModel format with Keras 2"):
+    with pytest.raises(MlflowException, match="Loading this Keras model is disallowed"):
         mlflow.tensorflow.load_model(str(model_dir))
     assert not marker.exists()
 
@@ -798,7 +798,7 @@ def test_load_model_refuses_keras2_legacy_format_when_model_code_execution_disal
     [
         (types.SimpleNamespace(__version__="2.15.0"), "model.keras", True),
         (types.SimpleNamespace(), "model.keras", True),
-        (types.SimpleNamespace(__version__="3.0.0"), "model.keras", True),
+        (types.SimpleNamespace(__version__="3.11.0"), "model.keras", True),
         (types.SimpleNamespace(__version__="3.11.3"), "model.h5", False),
     ],
 )
@@ -814,6 +814,21 @@ def test_check_keras_model_loading_allows_safe_format_when_model_code_execution_
 
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     mlflow.tensorflow._check_keras_model_loading_allowed(keras_module, str(model_path))
+
+
+@pytest.mark.parametrize("keras_version", ["3.0.0", "3.10.0"])
+def test_check_keras_model_loading_refuses_keras3_before_3_11_zip_when_code_execution_disallowed(
+    tmp_path, monkeypatch, keras_version
+):
+    model_path = tmp_path / "model.keras"
+    with zipfile.ZipFile(model_path, "w") as zf:
+        zf.writestr("config.json", "{}")
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="Keras 3 earlier than 3.11.0"):
+        mlflow.tensorflow._check_keras_model_loading_allowed(
+            types.SimpleNamespace(__version__=keras_version), str(model_path)
+        )
 
 
 @pytest.mark.parametrize(
@@ -853,7 +868,9 @@ def test_load_keras_model_checks_resolved_path_when_model_code_execution_disallo
     keras_module = types.SimpleNamespace(__name__="tf_keras", __version__="2.15.0")
     keras_models = mock.Mock(load_model=mock.Mock(return_value=mock.sentinel.model))
     monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
-    with mock.patch("mlflow.tensorflow.importlib.import_module", return_value=keras_models):
+    with mock.patch(
+        "mlflow.tensorflow.importlib.import_module", return_value=keras_models
+    ) as mock_import:
         if save_format == "keras":
             loaded = mlflow.tensorflow._load_keras_model(str(data_path), keras_module, "tf")
             assert loaded is mock.sentinel.model
@@ -861,15 +878,18 @@ def test_load_keras_model_checks_resolved_path_when_model_code_execution_disallo
                 str(data_path / "model.keras"), custom_objects={}
             )
         else:
-            with pytest.raises(MlflowException, match="H5 or SavedModel format with Keras 2"):
+            with pytest.raises(MlflowException, match="Loading this Keras model is disallowed"):
                 mlflow.tensorflow._load_keras_model(str(data_path), keras_module, save_format)
             keras_models.load_model.assert_not_called()
+    mock_import.assert_called_once_with("tf_keras.models")
 
 
 def test_load_checkpoint_checks_keras_model_loading_allowed(tmp_path):
     checkpoint_path = str(tmp_path / "checkpoint.h5")
     with (
-        mock.patch("mlflow.tensorflow.download_checkpoint_artifact", return_value=checkpoint_path),
+        mock.patch(
+            "mlflow.tensorflow.download_checkpoint_artifact", return_value=checkpoint_path
+        ) as mock_download,
         mock.patch(
             "mlflow.tensorflow._check_keras_model_loading_allowed",
             side_effect=MlflowException("refused"),
@@ -877,6 +897,9 @@ def test_load_checkpoint_checks_keras_model_loading_allowed(tmp_path):
         pytest.raises(MlflowException, match="refused"),
     ):
         mlflow.tensorflow.load_checkpoint(run_id="run_id")
+    mock_download.assert_called_once_with(
+        run_id="run_id", epoch=None, global_step=None, dst_path=mock.ANY
+    )
     mock_check.assert_called_once_with(mock.ANY, checkpoint_path)
 
 

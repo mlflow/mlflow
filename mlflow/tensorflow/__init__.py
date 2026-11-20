@@ -565,23 +565,29 @@ def _load_custom_objects(path, file_name):
 def _check_keras_model_loading_allowed(keras_module, model_path):
     # Keras 3.11.3+ refuses `Lambda` layer bytecode by default (`safe_mode=True`) in every format
     # it loads. Earlier Keras 3 releases ignore `safe_mode` in the H5 loader (CVE-2025-9905), and
-    # Keras 2 (e.g. `tf_keras`) applies `safe_mode` only to the zipped `.keras` format; its H5 and
-    # SavedModel loaders deserialize `Lambda` layer bytecode unconditionally.
+    # releases before 3.11.0 also have `safe_mode` bypasses in the `.keras` loader (CVE-2025-1550,
+    # CVE-2025-9906). Keras 2 (e.g. `tf_keras`) applies `safe_mode` only to the zipped `.keras`
+    # format; its H5 and SavedModel loaders deserialize `Lambda` layer bytecode unconditionally.
     if _is_model_code_loading_allowed():
         return
     keras_version = getattr(keras_module, "__version__", None)
-    if keras_version is not None and Version(keras_version) >= Version("3.11.3"):
+    keras_version = Version(keras_version) if keras_version is not None else None
+    if keras_version is not None and keras_version >= Version("3.11.3"):
         return
-    if model_path.endswith(".keras") and zipfile.is_zipfile(model_path):
+    keras_zip_is_safe = (
+        keras_version is None or keras_version.major < 3 or keras_version >= Version("3.11.0")
+    )
+    if keras_zip_is_safe and model_path.endswith(".keras") and zipfile.is_zipfile(model_path):
         return
     raise MlflowException(
-        "Loading a Keras model saved in the H5 or SavedModel format with Keras 2, or in the H5 "
-        "format with Keras earlier than 3.11.3, is disallowed because it can run code supplied "
-        "by the model, such as `Lambda` layers. If you trust this model, set environment variable "
-        f"'{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to load it. Otherwise, upgrade to "
-        "Keras 3.11.3 or later, or re-save the model in the zipped `.keras` format (the default "
-        "with TensorFlow 2.16 or later unless `save_format='h5'` is passed), which Keras loads "
-        "with `safe_mode=True`."
+        "Loading this Keras model is disallowed because it can run code supplied by the model, "
+        "such as `Lambda` layers. Keras 2 runs such code in models saved in the H5 or SavedModel "
+        "format, Keras earlier than 3.11.3 in the H5 format, and Keras 3 earlier than 3.11.0 in "
+        "every format. If you trust this model, set environment variable "
+        f"'{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to load it. Otherwise, re-save "
+        "the model in the zipped `.keras` format, which Keras 2 and Keras 3.11.0 or later load "
+        "with `safe_mode=True`. For H5 models, loading with Keras 3.11.3 or later instead of a "
+        "legacy module such as `tf_keras` is another option."
     )
 
 
