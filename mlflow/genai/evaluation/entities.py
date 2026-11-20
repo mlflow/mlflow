@@ -266,6 +266,11 @@ class EvaluationResult:
     pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
     # Run-level conditions parsed from ``evaluate(quality_criteria=...)``. In-process only.
     quality_criteria: list[QualityCriteriaRule] = field(default_factory=list)
+    # Names of the feedback this run's scorers produced. Populated by the evaluation harness so
+    # ``passed`` skips the other ``/value`` columns of ``result_df``: dataset expectations and
+    # feedback logged on the traces outside this run. ``None`` checks every ``/value`` column.
+    # In-process only.
+    scorer_feedback_names: set[str] | None = None
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -290,6 +295,9 @@ class EvaluationResult:
 
         A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
         Declare ``@scorer(pass_if=...)`` to define passing for other values.
+        Only the feedback this run's scorers produced is checked. Dataset expectations
+        and feedback logged on the traces outside this run stay in ``result_df`` but
+        don't affect ``passed``.
 
         Usage::
 
@@ -323,6 +331,10 @@ class EvaluationResult:
             return []
 
         value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
+        if self.scorer_feedback_names is not None:
+            value_cols = [
+                c for c in value_cols if c.removesuffix("/value") in self.scorer_feedback_names
+            ]
         if not value_cols:
             return []
 

@@ -840,12 +840,24 @@ def run(
         if getattr(scorer, "pass_if", None) is not None
     }
 
+    # result_df also carries dataset expectations and feedback logged on the traces outside
+    # this run, so tell EvaluationResult.passed which columns are this run's scorer verdicts.
+    # eval_results already includes the session-level feedback attached above.
+    scorer_feedback_names = {
+        assessment.name
+        for result in eval_results
+        if result is not None
+        for assessment in result.assessments
+        if isinstance(assessment, Feedback)
+    }
+
     return EvaluationResult(
         run_id=run_id,
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
         pass_criteria=pass_criteria,
         quality_criteria=quality_criteria or [],
+        scorer_feedback_names=scorer_feedback_names,
     )
 
 

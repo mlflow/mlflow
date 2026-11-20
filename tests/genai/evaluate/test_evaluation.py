@@ -601,6 +601,75 @@ def test_evaluate_reason_includes_scorer_rationale(server_config):
     assert "answer was wrong" in result.reason
 
 
+@pytest.mark.parametrize(
+    ("scorer_value", "expected_reason"),
+    [
+        ("yes", ""),
+        ("no", "judged: value='no'"),
+    ],
+)
+def test_evaluate_passed_ignores_dataset_expectations(server_config, scorer_value, expected_reason):
+    @scorer
+    def judged(outputs):
+        return scorer_value
+
+    result = mlflow.genai.evaluate(
+        data=[
+            {
+                "inputs": {"q": "x"},
+                "outputs": "hello",
+                "expectations": {"expected_response": "hello", "max_length": 10},
+            }
+        ],
+        scorers=[judged],
+    )
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+    # Expectations stay in result_df for comparison.
+    assert result.result_df["expected_response/value"].tolist() == ["hello"]
+
+
+def test_evaluate_passed_ignores_feedback_logged_outside_the_run(server_config):
+    @mlflow.trace
+    def app(q):
+        return "hello"
+
+    app("x")
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_assessment(trace_id=trace_id, assessment=Feedback(name="self_grade", value="no"))
+
+    @scorer
+    def judged(outputs):
+        return "yes"
+
+    result = mlflow.genai.evaluate(data=[mlflow.get_trace(trace_id)], scorers=[judged])
+    assert result.passed, result.reason
+    assert result.result_df["self_grade/value"].tolist() == ["no"]
+
+
+def test_evaluate_passed_checks_session_level_scorer_feedback(server_config):
+    class ConversationJudge(mlflow.genai.Scorer):
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            return "no"
+
+    @mlflow.trace
+    def app(q):
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: "session-1"})
+        return "hello"
+
+    app("q1")
+    app("q2")
+    traces = mlflow.search_traces(return_type="list")
+
+    result = mlflow.genai.evaluate(data=traces, scorers=[ConversationJudge(name="conversation")])
+    assert not result.passed
+    assert result.reason == "conversation: value='no'"
+
+
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
     model_id = mlflow.set_active_model(name="test-model-id").model_id
