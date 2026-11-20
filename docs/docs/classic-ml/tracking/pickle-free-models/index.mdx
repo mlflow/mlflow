@@ -164,6 +164,7 @@ When set to `false`, MLflow raises an error instead of loading:
 - a [Models From Code](/ml/model/models-from-code) model, because loading it runs the model's Python file,
 - a model stored inside a directory on the Python path (such as the current directory), because module names read from the model could import the model's own files. Move the model to another directory, or load it by run or model URI,
 - a Transformers model with a custom architecture or component, because loading it runs code saved with the model. Sentence Transformers models are loaded without `trust_remote_code`, so models that need custom code fail to load,
+- a Keras 2 model (such as one using `tf_keras`) saved in the H5 or SavedModel format, including checkpoints loaded with <APILink fn="mlflow.tensorflow.load_checkpoint" />, because Keras 2 deserializes `Lambda` layer code in these formats without `safe_mode`. Keras 3 models and Keras 2 models saved in the zipped `.keras` format are not affected,
 - a LlamaIndex model whose saved `Settings` name objects such as an LLM or embedding model, because loading them imports and constructs the classes named in the model's settings file,
 - a John Snow Labs model loaded with <APILink fn="mlflow.johnsnowlabs.load_model" /> when no Spark session is active, because MLflow would start a new Spark session with the JARs stored in the model and copy the model's license keys into the environment. Start a Spark session yourself before loading such a model.
 
@@ -178,7 +179,7 @@ Only set it to `true` for models from sources you trust. The default is `true` f
 :::
 
 :::note
-In Databricks Runtime and Databricks Model Serving, these checks are skipped: PyFunc models, models serialized with `pickle` or `cloudpickle`, models with a code directory, Models From Code, models inside a directory on the Python path, and John Snow Labs models that start a Spark session with their own JARs and license always load, regardless of `MLFLOW_ALLOW_MODEL_CODE_EXECUTION` or `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`. This is because Databricks uses a managed MLflow artifact store that protects model artifacts from unauthorized modification. By ensuring artifact integrity, the platform mitigates the risk of executing malicious code supplied by a model. Pickle-based evaluation artifacts are the exception: they are refused in these environments too when either variable is `false`.
+In Databricks Runtime and Databricks Model Serving, these checks are skipped: PyFunc models, models serialized with `pickle` or `cloudpickle`, models with a code directory, Models From Code, models inside a directory on the Python path, Keras 2 models saved in the H5 or SavedModel format, and John Snow Labs models that start a Spark session with their own JARs and license always load, regardless of `MLFLOW_ALLOW_MODEL_CODE_EXECUTION` or `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`. This is because Databricks uses a managed MLflow artifact store that protects model artifacts from unauthorized modification. By ensuring artifact integrity, the platform mitigates the risk of executing malicious code supplied by a model. Pickle-based evaluation artifacts are the exception: they are refused in these environments too when either variable is `false`.
 :::
 
 ## Summary

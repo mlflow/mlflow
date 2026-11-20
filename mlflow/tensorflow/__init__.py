@@ -27,6 +27,7 @@ from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
 from mlflow.entities import LoggedModelInput
+from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -66,7 +67,6 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
-    _check_model_code_loading_allowed,
     _copy_extra_files,
     _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
@@ -573,7 +573,14 @@ def _check_keras_model_loading_allowed(keras_module, model_path):
         return
     if model_path.endswith(".keras") and zipfile.is_zipfile(model_path):
         return
-    _check_model_code_loading_allowed("a Keras 2 model saved in the H5 or SavedModel format")
+    raise MlflowException(
+        "Loading a Keras 2 model saved in the H5 or SavedModel format is disallowed because it "
+        "can run code supplied by the model, such as `Lambda` layers. If you trust this model, "
+        f"set environment variable '{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to load "
+        "it. Otherwise, re-save the model in the zipped `.keras` format (the default with "
+        "TensorFlow 2.16 or later unless `save_format='h5'` is passed), which Keras loads with "
+        "`safe_mode=True`."
+    )
 
 
 def _load_keras_model(model_path, keras_module, save_format, **kwargs):
@@ -1532,4 +1539,5 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
                 )
             model.load_weights(downloaded_checkpoint_filepath)
             return model
+        _check_keras_model_loading_allowed(tf.keras, downloaded_checkpoint_filepath)
         return tf.keras.models.load_model(downloaded_checkpoint_filepath)

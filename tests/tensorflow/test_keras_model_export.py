@@ -1,6 +1,8 @@
 import os
 import random
 import shutil
+import types
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -789,6 +791,57 @@ def test_load_model_refuses_keras2_legacy_format_when_model_code_execution_disal
     with pytest.raises(MlflowException, match="a Keras 2 model saved in the H5 or SavedModel"):
         mlflow.tensorflow.load_model(str(model_dir))
     assert not marker.exists()
+
+
+@pytest.mark.parametrize(
+    ("keras_module", "file_name", "is_zip"),
+    [
+        (types.SimpleNamespace(__version__="2.15.0"), "model.keras", True),
+        (types.SimpleNamespace(), "model.keras", True),
+        (types.SimpleNamespace(__version__="3.0.0"), "model.h5", False),
+    ],
+)
+def test_check_keras_model_loading_allows_safe_format_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch, keras_module, file_name, is_zip
+):
+    model_path = tmp_path / file_name
+    if is_zip:
+        with zipfile.ZipFile(model_path, "w") as zf:
+            zf.writestr("config.json", "{}")
+    else:
+        model_path.write_bytes(b"not a zip")
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    mlflow.tensorflow._check_keras_model_loading_allowed(keras_module, str(model_path))
+
+
+@pytest.mark.parametrize(
+    "keras_module", [types.SimpleNamespace(__version__="2.15.0"), types.SimpleNamespace()]
+)
+@pytest.mark.parametrize("file_name", ["model.keras", "model.h5", "model"])
+def test_check_keras_model_loading_refuses_keras2_non_zip_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch, keras_module, file_name
+):
+    model_path = tmp_path / file_name
+    model_path.write_bytes(b"not a zip")
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="re-save the model in the zipped `.keras` format"):
+        mlflow.tensorflow._check_keras_model_loading_allowed(keras_module, str(model_path))
+
+
+def test_load_checkpoint_checks_keras_model_loading_allowed(tmp_path):
+    checkpoint_path = str(tmp_path / "checkpoint.h5")
+    with (
+        mock.patch("mlflow.tensorflow.download_checkpoint_artifact", return_value=checkpoint_path),
+        mock.patch(
+            "mlflow.tensorflow._check_keras_model_loading_allowed",
+            side_effect=MlflowException("refused"),
+        ) as mock_check,
+        pytest.raises(MlflowException, match="refused"),
+    ):
+        mlflow.tensorflow.load_checkpoint(run_id="run_id")
+    mock_check.assert_called_once_with(mock.ANY, checkpoint_path)
 
 
 @pytest.mark.skipif(
