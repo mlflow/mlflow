@@ -217,8 +217,10 @@ def detect_issues(
             not every match: on an MLflow tracking server, up to 100 sessions picked at random
             from the newest 500 matching traces; on Databricks, the traces its agent's searches
             return.
-        trace_ids: The IDs of the traces to analyze, all in the experiment and at most 500.
-            Cannot be combined with ``filter_string``. Not supported on Databricks.
+        trace_ids: The IDs of the traces to analyze, all in the experiment. Cannot be combined
+            with ``filter_string``. An MLflow tracking server takes at most 500; Databricks takes
+            at most 100 traces stored in Unity Catalog, as returned by
+            :py:func:`mlflow.search_traces` or as bare trace IDs.
         model: The model to analyze traces with, as ``"<provider>:/<model>"`` or
             ``"gateway:/<endpoint>"``. Defaults to the model saved in the experiment's issue
             detection schedule. The run calls the model from the MLflow server, so a
@@ -263,13 +265,9 @@ def cancel_issue_detection_run(
     """
     Cancel an issue detection run. Canceling a run that has ended returns it unchanged.
 
-    Who can cancel a run differs by backend:
-
-    - On an MLflow tracking server with authentication enabled, the caller needs EDIT on the
-      run's experiment and must be the user who started the run, as for canceling any job. A
-      scheduled run has no user who started it, so only an admin can cancel it.
-    - On Databricks, anyone with CAN_EDIT on the experiment can cancel any of its runs. The
-      returned run can still read as running for a moment, until it stops.
+    The caller needs edit permission on the run's experiment, whoever started the run: EDIT on
+    an MLflow tracking server with authentication enabled, and CAN_EDIT on Databricks. On
+    Databricks, the returned run can still read as running for a moment, until it stops.
 
     Args:
         run_id: ID of the run, from :py:func:`detect_issues`.

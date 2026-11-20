@@ -1564,14 +1564,20 @@ class DatabricksTracingRestStore(RestStore):
                 "`model` is not supported by the Databricks Issues API, which chooses the model "
                 "an issue detection run uses."
             )
-        if trace_ids:
+        # Databricks would ignore the filter, so the pair is refused here as the MLflow server
+        # refuses it.
+        if trace_ids and filter_string:
             raise MlflowException.invalid_parameter_value(
-                "`trace_ids` is not supported by the Databricks Issues API. Select the traces to "
-                "analyze with `filter_string` instead."
+                "`trace_ids` and `filter_string` cannot be combined."
             )
         body = {}
         if filter_string:
             body["filter_string"] = filter_string
+        if trace_ids:
+            # Databricks takes the bare Unity Catalog trace IDs, without duplicates, and checks
+            # their format and count itself.
+            bare_ids = (parse_trace_id_v4(trace_id)[1] for trace_id in trace_ids)
+            body["trace_ids"] = list(dict.fromkeys(bare_ids))
         # Detection reads traces in Unity Catalog through the run, so it takes the warehouse the
         # client reads them with; without one, Databricks chooses the compute.
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
