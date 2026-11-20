@@ -37,3 +37,7 @@ MLflow will use the tracking server associated with the current tracking URI.}
 \description{
 Create a model version
 }
+\details{
+Use a fully qualified registered model name when your registry requires one,
+  for example `catalog.schema.model`.
+}
