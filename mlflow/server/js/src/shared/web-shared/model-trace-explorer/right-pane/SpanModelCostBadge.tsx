@@ -18,8 +18,14 @@ const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
     () => (isNewEvalRunsUi ? formatEstimatedCostUSD(cost.total_cost) : formatCostUSD(cost.total_cost)),
     [cost.total_cost, isNewEvalRunsUi],
   );
-  const inputCost = useMemo(() => formatCostUSD(cost.input_cost), [cost.input_cost]);
-  const outputCost = useMemo(() => formatCostUSD(cost.output_cost), [cost.output_cost]);
+  const inputCost = useMemo(
+    () => (cost.input_cost === undefined ? undefined : formatCostUSD(cost.input_cost)),
+    [cost.input_cost],
+  );
+  const outputCost = useMemo(
+    () => (cost.output_cost === undefined ? undefined : formatCostUSD(cost.output_cost)),
+    [cost.output_cost],
+  );
   // aria-label announces the plain dollar amount so screen readers say "Estimated cost: $X" rather than the ≈ glyph.
   const estimatedAriaLabel = isNewEvalRunsUi
     ? intl.formatMessage(estimatedCostMessages.ariaLabel, { cost: formatCostUSD(cost.total_cost) })
@@ -66,36 +72,40 @@ const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
               gap: theme.spacing.sm,
             }}
           >
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Typography.Text size="md">
-                <FormattedMessage defaultMessage="Input cost" description="Label for input cost" />
-              </Typography.Text>
-              <Tag componentId="shared.model-trace-explorer.span-cost-hovercard.input-cost.tag">
-                <span>{inputCost}</span>
-              </Tag>
-            </div>
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Typography.Text size="md">
-                <FormattedMessage defaultMessage="Output cost" description="Label for output cost" />
-              </Typography.Text>
-              <Tag componentId="shared.model-trace-explorer.span-cost-hovercard.output-cost.tag">
-                <span>{outputCost}</span>
-              </Tag>
-            </div>
+            {inputCost && (
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="md">
+                  <FormattedMessage defaultMessage="Input cost" description="Label for input cost" />
+                </Typography.Text>
+                <Tag componentId="shared.model-trace-explorer.span-cost-hovercard.input-cost.tag">
+                  <span>{inputCost}</span>
+                </Tag>
+              </div>
+            )}
+            {outputCost && (
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="md">
+                  <FormattedMessage defaultMessage="Output cost" description="Label for output cost" />
+                </Typography.Text>
+                <Tag componentId="shared.model-trace-explorer.span-cost-hovercard.output-cost.tag">
+                  <span>{outputCost}</span>
+                </Tag>
+              </div>
+            )}
             <div
               css={{
                 display: 'flex',

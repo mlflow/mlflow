@@ -637,9 +637,7 @@ const getCostFromSpan = (costAttributeValue: any): SpanCostInfo | undefined => {
   if (
     costAttributeValue &&
     typeof costAttributeValue === 'object' &&
-    'input_cost' in costAttributeValue &&
-    'output_cost' in costAttributeValue &&
-    'total_cost' in costAttributeValue
+    typeof costAttributeValue.total_cost === 'number'
   ) {
     return costAttributeValue as SpanCostInfo;
   }
