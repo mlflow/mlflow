@@ -173,7 +173,9 @@ def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
 
 
 def _handle_dataframe_nans(df: pd.DataFrame):
-    return df.where(df.notnull(), None)
+    # Cast to object first: float and datetime columns cannot hold `None`, so `where` would
+    # put `NaN`/`NaT` back, which serialize to invalid JSON (`NaN`) or the string "NaT".
+    return df.astype(object).where(df.notnull(), None)
 
 
 def _coerce_to_pandas_df(input_ex):
