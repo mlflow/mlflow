@@ -11,6 +11,7 @@ import { EvaluationsReviewInputSection } from './EvaluationsReviewInputSection';
 import { EvaluationsReviewResponseSection } from './EvaluationsReviewResponseSection';
 import { EvaluationsReviewRetrievalSection } from './EvaluationsReviewRetrievalSection';
 import { getEvaluationResultTitle } from './GenAiEvaluationTracesReview.utils';
+import { useOnUserIdentityChange, useUserIdentity } from '../../global-settings/getUser';
 import { usePendingAssessmentEntries } from '../hooks/usePendingAssessmentEntries';
 import type { AssessmentInfo, RunEvaluationResultAssessmentDraft, RunEvaluationTracesDataEntry } from '../types';
 
@@ -75,6 +76,15 @@ export const EvaluationsReviewDetails = ({
   // If user has already reviewed the evaluation, this flag allows to override the review and enable editing
   const [overridingExistingReview, setOverridingExistingReview] = useState(false);
 
+  // Pending drafts and open forms belong to the user who made them, so discard them when the user changes.
+  const { user } = useUserIdentity();
+  const [assessmentsSectionKey, setAssessmentsSectionKey] = useState(0);
+  useOnUserIdentityChange(user, () => {
+    resetPendingAssessments();
+    setOverridingExistingReview(false);
+    setAssessmentsSectionKey((key) => key + 1);
+  });
+
   const hasErrorCode = Boolean(evaluationResult.errorCode);
   const hasErrorMessage = Boolean(evaluationResult.errorMessage);
   const showAlert = hasErrorCode || hasErrorMessage;
@@ -122,6 +132,7 @@ export const EvaluationsReviewDetails = ({
         compareToTraceQueryResult={compareToTraceQueryResult}
       />
       <EvaluationsReviewAssessmentsSection
+        key={assessmentsSectionKey}
         evaluationResult={draftEvaluationResult}
         otherEvaluationResult={otherEvaluationResult}
         onUpsertAssessment={upsertAssessment}

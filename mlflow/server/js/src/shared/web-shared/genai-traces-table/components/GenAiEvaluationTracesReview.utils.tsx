@@ -804,16 +804,15 @@ export const createDraftEvaluationResultAssessmentObject = ({
   value,
   rationale,
   metadata = {},
+  sourceId = getUser() ?? '',
 }: {
   isOverallAssessment: boolean;
   name: string;
   value: string | boolean;
   rationale?: string;
   metadata?: RunEvaluationResultAssessment['metadata'];
+  sourceId?: string;
 }): RunEvaluationResultAssessmentDraft => {
-  // Use current user's email to set as source ID
-  const sourceId = getUser() ?? '';
-
   const resultMetadata = isOverallAssessment
     ? { ...metadata, [KnownEvaluationResultAssessmentMetadataFields.IS_OVERALL_ASSESSMENT]: true }
     : metadata;
@@ -848,14 +847,13 @@ export const shouldRepeatExistingOriginalOverallAiAssessment = (
 
 export const copyAiOverallAssessmentAsHumanAssessment = (
   sourceEvaluationResult: RunEvaluationTracesDataEntry,
+  sourceId = getUser() ?? '',
 ): RunEvaluationResultAssessmentDraft | null => {
   const firstAiOverallAssessment = sourceEvaluationResult.overallAssessments.find(isAssessmentAiGenerated);
 
   if (!firstAiOverallAssessment) {
     return null;
   }
-
-  const sourceId = getUser() ?? '';
 
   return {
     ...firstAiOverallAssessment,

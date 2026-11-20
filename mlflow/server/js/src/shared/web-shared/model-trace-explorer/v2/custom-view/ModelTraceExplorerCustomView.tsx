@@ -30,7 +30,7 @@ import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import { ModelTraceExplorerAssistantButton } from '../ModelTraceExplorerAssistantButton';
 import type { CreateAssessmentPayload } from '../../api';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { getUser } from '../../../global-settings/getUser';
+import { useOnUserIdentityChange, useUserIdentity } from '../../../global-settings/getUser';
 import { shouldUseTracesV4API } from '../../FeatureUtils';
 import { useCreateAssessment } from '../../hooks/useCreateAssessment';
 import { useTraceCachedActions } from '../../hooks/useTraceCachedActions';
@@ -129,7 +129,7 @@ const CustomViewGeneratingSkeleton = () => {
 export interface ModelTraceExplorerCustomViewProps {
   modelTraceInfo: ModelTrace['info'];
   enableFeedback?: boolean;
-  // Who feedback written from the view is attributed to; defaults to `getUser()`.
+  // Explicit source ID for hosted views; otherwise uses the signed-in user when available.
   feedbackSourceId?: string;
 }
 
@@ -140,6 +140,9 @@ export const ModelTraceExplorerCustomView = ({
 }: ModelTraceExplorerCustomViewProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const { user, isResolved: isUserResolved } = useUserIdentity();
+  const resolvedFeedbackSourceId = feedbackSourceId || user;
+  const isFeedbackSourceResolved = Boolean(feedbackSourceId) || isUserResolved;
 
   const { nodeMap } = useModelTraceExplorerViewState();
   const { setTraceExplorerDisplayMode } = useModelTraceExplorerContext();
@@ -275,6 +278,9 @@ export const ModelTraceExplorerCustomView = ({
   // rating for the rationale to be logged with it. Rejects when nothing could
   // be submitted OR every attempt failed so the button can surface an error.
   const submitStagedFeedback = async (formId?: string): Promise<{ submitted: number }> => {
+    if (!isFeedbackSourceResolved) {
+      throw new Error('The current user could not be resolved.');
+    }
     if (!enableFeedback) {
       throw new Error('Feedback cannot be submitted in read-only mode.');
     }
@@ -310,7 +316,7 @@ export const ModelTraceExplorerCustomView = ({
           assessment: {
             assessment_name: entry.name,
             trace_id: traceId,
-            source: { source_type: 'HUMAN', source_id: feedbackSourceId ?? getUser() ?? '' },
+            source: { source_type: 'HUMAN', source_id: resolvedFeedbackSourceId },
             ...(entry.spanId ? { span_id: entry.spanId } : {}),
             ...feedbackValue,
             ...(hasRationale ? { rationale: entry.rationale } : {}),
@@ -623,6 +629,21 @@ export const ModelTraceExplorerCustomView = ({
     feedbackResetVersionsRef.current.clear();
     bumpPendingFeedbackVersion();
   }, [traceId]);
+
+  useOnUserIdentityChange(resolvedFeedbackSourceId, () => {
+    for (const [surfaceId, surfaceBuffer] of pendingFeedbackRef.current) {
+      let resetVersions = feedbackResetVersionsRef.current.get(surfaceId);
+      if (!resetVersions) {
+        resetVersions = new Map();
+        feedbackResetVersionsRef.current.set(surfaceId, resetVersions);
+      }
+      for (const key of surfaceBuffer.keys()) {
+        resetVersions.set(key, (resetVersions.get(key) ?? 0) + 1);
+      }
+    }
+    pendingFeedbackRef.current.clear();
+    bumpPendingFeedbackVersion();
+  });
 
   // Rebuild the active view's surface whenever the active view, its template, or
   // the trace changes: re-bind the stored trace-agnostic template against the
@@ -1175,7 +1196,8 @@ export const ModelTraceExplorerCustomView = ({
                 value={{
                   enabled: enableFeedback,
                   traceId,
-                  sourceId: feedbackSourceId,
+                  sourceId: resolvedFeedbackSourceId,
+                  isSourceResolved: isFeedbackSourceResolved,
                   hasStagedFeedback,
                   submitStagedFeedback,
                   getStagedFeedbackValue,

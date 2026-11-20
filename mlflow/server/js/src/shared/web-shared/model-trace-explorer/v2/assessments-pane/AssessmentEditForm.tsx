@@ -12,7 +12,7 @@ import {
   FormUI,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { getUser } from '../../../global-settings/getUser';
+import { useOnUserIdentityChange, useUserIdentity } from '../../../global-settings/getUser';
 
 import type { AssessmentFormInputDataType } from '../../assessments-pane/AssessmentsPane.utils';
 import { getCreateAssessmentPayloadValue } from '../../assessments-pane/AssessmentsPane.utils';
@@ -77,7 +77,8 @@ export const AssessmentEditForm = ({
   const initialValue = getAssessmentValue(assessment);
   const defaultType = getDefaultType(initialValue, isFeedback);
   const defaultValue = getDefaultValue(initialValue);
-  const user = getUser() ?? '';
+  const { user, isResolved: isUserResolved } = useUserIdentity();
+  useOnUserIdentityChange(user, onCancel);
 
   const { theme } = useDesignSystemTheme();
   const [dataType, setDataType] = useState<AssessmentFormInputDataType>(defaultType);
@@ -98,8 +99,15 @@ export const AssessmentEditForm = ({
   });
 
   const isLoading = isUpdating || isOverwriting;
+  // Ownership is checked when the form opens, but credentials can change while it is open. An expectation edit
+  // updates the original in place, so the confirmed user must still own it.
+  const canSave = isUserResolved && (isFeedback || user === assessment.source.source_id);
 
   const handleUpdate = useCallback(async () => {
+    if (!canSave) {
+      return;
+    }
+
     if (dataType === 'json') {
       try {
         JSON.parse(value as string);
@@ -140,7 +148,17 @@ export const AssessmentEditForm = ({
         ...(rationale ? { rationale } : {}),
       });
     }
-  }, [dataType, value, isFeedback, user, assessment, rationale, updateAssessmentMutation, overrideAssessmentMutation]);
+  }, [
+    canSave,
+    dataType,
+    value,
+    isFeedback,
+    user,
+    assessment,
+    rationale,
+    updateAssessmentMutation,
+    overrideAssessmentMutation,
+  ]);
 
   return (
     <div
@@ -287,6 +305,7 @@ export const AssessmentEditForm = ({
           componentId="shared.model-trace-explorer.assessment-edit-save-button"
           onClick={handleUpdate}
           loading={isLoading}
+          disabled={isLoading || !canSave}
         >
           <FormattedMessage defaultMessage="Save" description="Button label for saving an edit to an assessment" />
         </Button>
