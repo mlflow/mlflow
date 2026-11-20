@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import dspy
+import numpy as np
 import pytest
 
 import mlflow
@@ -15,7 +16,6 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     distill_guidelines,
     get_default_embedding_model,
     get_query_fields,
-    reciprocal_rank_fusion,
     retrieve_relevant_examples,
     truncate_to_token_limit,
     value_to_embedding_text,
@@ -477,11 +477,20 @@ def test_retrieve_relevant_examples_out_of_bounds_raises():
         )
 
 
+def _scored_retriever(corpus_embeddings, query_embedding):
+    # Mirrors dspy.retrievers.Embeddings: normalized corpus_embeddings plus the embedder
+    retriever = MagicMock()
+    retriever.corpus_embeddings = np.array(corpus_embeddings, dtype=float)
+    retriever.embedder = MagicMock(return_value=np.array([query_embedding], dtype=float))
+    return retriever
+
+
 def test_retrieve_relevant_examples_fuses_multiple_fields():
     examples = [MagicMock(_trace_id=f"trace_{i}") for i in range(4)]
-    # inputs index covers examples 0, 1, 2; outputs index covers only 1 and 3 (0, 2 lack outputs)
-    inputs_retriever = _mock_retriever([0, 1, 2])  # corpus positions -> examples 0, 1, 2
-    outputs_retriever = _mock_retriever([1, 0])  # corpus positions -> examples 3, 1
+    # inputs index covers examples 0, 1, 2; outputs index covers only 1 and 3 (0, 2 lack outputs).
+    # Unnormalized queries check that the query is normalized before scoring.
+    inputs_retriever = _scored_retriever([[1, 0], [0.8, 0.6], [0, 1]], [2, 0])
+    outputs_retriever = _scored_retriever([[1, 0], [1, 0]], [3, 0])
 
     results = retrieve_relevant_examples(
         retrievers={
@@ -493,17 +502,17 @@ def test_retrieve_relevant_examples_fuses_multiple_fields():
         retrieval_k=3,
     )
 
-    inputs_retriever.assert_called_once_with("finding")
-    outputs_retriever.assert_called_once_with("reply")
-    # Example 1 is in both lists; example 3 matches only on outputs (rank 0) and ties
-    # example 0 (inputs rank 0), keeping first-appearance order. Example 2 is cut by k.
+    inputs_retriever.embedder.assert_called_once_with(["finding"])
+    outputs_retriever.embedder.assert_called_once_with(["reply"])
+    # Totals: example 1 = 0.8 + 1.0, example 0 = 1.0 (no outputs), example 3 = 1.0 (no inputs),
+    # example 2 = 0.0. Examples 0 and 3 tie and keep episodic order; example 2 is cut by k.
     assert [trace_id for _, trace_id in results] == ["trace_1", "trace_0", "trace_3"]
 
 
 def test_retrieve_relevant_examples_skips_fields_with_empty_query():
     examples = [MagicMock(_trace_id="trace_0"), MagicMock(_trace_id="trace_1")]
-    inputs_retriever = _mock_retriever([0])
-    outputs_retriever = _mock_retriever([0])
+    inputs_retriever = _scored_retriever([[1, 0]], [1, 0])
+    outputs_retriever = _scored_retriever([[1, 0]], [1, 0])
 
     results = retrieve_relevant_examples(
         retrievers={
@@ -515,15 +524,9 @@ def test_retrieve_relevant_examples_skips_fields_with_empty_query():
         retrieval_k=5,
     )
 
-    inputs_retriever.assert_not_called()
+    inputs_retriever.embedder.assert_not_called()
+    # Example 0 only has inputs, which was not queried, so it is not a candidate
     assert results == [(examples[1], "trace_1")]
-
-
-def test_reciprocal_rank_fusion():
-    assert reciprocal_rank_fusion([], k=5) == []
-    assert reciprocal_rank_fusion([[3, 1, 2]], k=2) == [3, 1]
-    # 1 appears in both lists and wins; 0 and 2 tie and keep first-appearance order
-    assert reciprocal_rank_fusion([[0, 1], [2, 1]], k=5) == [1, 0, 2]
 
 
 @pytest.mark.parametrize(

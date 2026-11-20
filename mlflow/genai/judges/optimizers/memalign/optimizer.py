@@ -178,8 +178,9 @@ others via LiteLLM. Default: `"openai:/text-embedding-3-small"`.
 retrieval, a non-empty list drawn from `"inputs"`, `"outputs"`, `"expectations"`,
 and `"trace"`. Each field must be referenced by the judge's instructions.
 Defaults to the first of inputs/outputs/expectations/conversation/trace referenced by
-the judge's instructions. With multiple fields, each field is retrieved separately
-and results are merged with reciprocal rank fusion.
+the judge's instructions. With multiple fields, examples are ranked by the sum of
+their per-field cosine similarities to the query, so the top examples are close on
+all fields; a field an example lacks contributes 0.
 Each field adds one embedding index and one query embedding per scoring call, so cost
 scales with the number of fields. When re-aligning an aligned judge, `None` keeps that
 judge's `retrieval_fields`; the other settings come from the optimizer.
@@ -679,11 +680,10 @@ class MemoryAugmentedJudge(Judge):
                         )
                     )
                     positions.append(i)
-            # Over-fetch with several fields so fusion can see items ranked just past k
             retriever = dspy.retrievers.Embeddings(
                 embedder=self._embedder,
                 corpus=corpus,
-                k=self._retrieval_k * len(query_fields),
+                k=self._retrieval_k,
             )
             retrievers[field] = (retriever, positions)
             _logger.debug(f"Episodic memory corpus for {field!r} contains {len(corpus)} examples")

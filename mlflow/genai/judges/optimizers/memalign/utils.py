@@ -59,9 +59,6 @@ _QUERY_FIELD_PRIORITY = ["inputs", "outputs", "expectations", "conversation", "t
 # never passes it into the retrieval query, so it would silently retrieve nothing.
 _ALLOWED_RETRIEVAL_FIELDS = ("inputs", "outputs", "expectations", "trace")
 
-# Standard reciprocal rank fusion constant (Cormack et al., 2009)
-_RRF_K = 60
-
 
 def get_query_fields(
     signature: "dspy.Signature", retrieval_fields: list[str] | None = None
@@ -550,18 +547,31 @@ def distill_guidelines(
     return new_guidelines
 
 
-def reciprocal_rank_fusion(ranked_lists: list[list[int]], k: int) -> list[int]:
-    """Merge ranked lists with reciprocal rank fusion and return the top ``k`` items.
+def _fuse_similarity_scores(
+    retrievers: dict[str, tuple["dspy.retrievers.Embeddings", list[int]]],
+    queries: dict[str, str],
+    k: int,
+) -> list[int]:
+    """Return the top ``k`` episodic positions by summed per-field cosine similarity.
 
-    Each item scores ``sum(1 / (_RRF_K + rank))`` over the lists it appears in (rank is
-    0-based). Ties keep the order in which items were first seen.
+    Every corpus entry of each queried field is scored, so an example close on all fields
+    outranks one that is closest on a single field. A field an example lacks adds 0. Ties keep
+    episodic order.
     """
+    import numpy as np
+
     scores: dict[int, float] = {}
-    for ranked in ranked_lists:
-        for rank, item in enumerate(ranked):
-            scores[item] = scores.get(item, 0.0) + 1.0 / (_RRF_K + rank)
-    # sorted() is stable and dicts keep insertion order, so ties fall back to first appearance
-    return sorted(scores, key=lambda item: -scores[item])[:k]
+    for field, query in queries.items():
+        retriever, positions = retrievers[field]
+        # Same scoring as dspy's brute-force search: corpus_embeddings are already normalized
+        # (normalize=True by default), so the dot product with the normalized query is cosine.
+        query_embedding = np.asarray(retriever.embedder([query]))[0]
+        query_embedding = query_embedding / max(np.linalg.norm(query_embedding), 1e-10)
+        similarities = np.asarray(retriever.corpus_embeddings) @ query_embedding
+        for position, similarity in zip(positions, similarities.tolist()):
+            scores[position] = scores.get(position, 0.0) + similarity
+    # sorted() is stable, so ties keep the episodic order of sorted(scores)
+    return sorted(sorted(scores), key=lambda position: -scores[position])[:k]
 
 
 def retrieve_relevant_examples(
@@ -580,20 +590,25 @@ def retrieve_relevant_examples(
         retrieval_k: Maximum number of examples to return
 
     Returns:
-        List of tuples of (retrieved example, trace ID)
+        List of tuples of (retrieved example, trace ID). With several retrievers, examples
+        are ranked by the sum of their per-field cosine similarities to the query.
     """
     if not examples or not retrievers:
         return []
 
-    ranked_lists = []
-    for field, (retriever, positions) in retrievers.items():
-        if not (value := query_kwargs.get(field)):
-            continue
-        if query := value_to_embedding_text(value):
-            search_results = retriever(query)
-            ranked_lists.append([positions[int(i)] for i in search_results.indices])
+    queries = {}
+    for field in retrievers:
+        if (value := query_kwargs.get(field)) and (query := value_to_embedding_text(value)):
+            queries[field] = query
 
-    indices = reciprocal_rank_fusion(ranked_lists, retrieval_k)
+    if len(retrievers) == 1:
+        indices = []
+        if queries:
+            [(field, query)] = queries.items()
+            retriever, positions = retrievers[field]
+            indices = [positions[int(i)] for i in retriever(query).indices]
+    else:
+        indices = _fuse_similarity_scores(retrievers, queries, retrieval_k)
 
     return [
         (

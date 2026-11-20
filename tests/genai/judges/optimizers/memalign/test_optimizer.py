@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import dspy
+import numpy as np
 import pytest
 
 import mlflow
@@ -1073,12 +1074,11 @@ def test_concurrent_first_call_on_deferred_multi_field_judge_does_not_raise(samp
 
     class FakeEmbeddings:
         def __init__(self, embedder, corpus, k):
+            self.embedder = lambda texts: np.ones((len(texts), 1))
+            self.corpus_embeddings = np.ones((len(corpus), 1))
             if "answer" in corpus[0]:  # the second field's index: hold the first call here
                 building.set()
                 assert release.wait(timeout=30)
-
-        def __call__(self, query):
-            return MagicMock(indices=[0])
 
     def first_call():
         try:
@@ -1651,9 +1651,11 @@ def test_retrieval_fields_multi_field_builds_one_index_per_field(sample_judge):
             "outputs": [0, 2],
         }
 
-        # Example 2 matches only on outputs but still lands in the top-k via RRF
-        inputs_retriever = MagicMock(return_value=MagicMock(indices=[1, 0]))
-        outputs_retriever = MagicMock(return_value=MagicMock(indices=[1]))
+        # Example 2 matches only on outputs but still lands in the top-k
+        inputs_retriever = MagicMock(corpus_embeddings=np.array([[1.0, 0.0], [0.6, 0.8]]))
+        inputs_retriever.embedder.return_value = np.array([[0.0, 1.0]])
+        outputs_retriever = MagicMock(corpus_embeddings=np.array([[0.0, 1.0], [1.0, 0.0]]))
+        outputs_retriever.embedder.return_value = np.array([[1.0, 0.0]])
         judge._retrievers = {
             "inputs": (inputs_retriever, [0, 1]),
             "outputs": (outputs_retriever, [0, 2]),
@@ -1661,48 +1663,60 @@ def test_retrieval_fields_multi_field_builds_one_index_per_field(sample_judge):
         judge._retrieval_k = 2
         with patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})):
             assessment = judge(inputs="q_in", outputs="q_out")
-        inputs_retriever.assert_called_once_with("q_in")
-        outputs_retriever.assert_called_once_with("q_out")
-        assert assessment.metadata["retrieved_example_trace_ids"] == ["example_1", "example_2"]
+        inputs_retriever.embedder.assert_called_once_with(["q_in"])
+        outputs_retriever.embedder.assert_called_once_with(["q_out"])
+        # Totals: example 0 = 0.0 + 0.0, example 1 = 0.8, example 2 = 1.0
+        assert assessment.metadata["retrieved_example_trace_ids"] == ["example_2", "example_1"]
 
 
-def test_retrieval_fields_over_fetches_per_field_before_fusion(sample_judge):
-    # Item 1 is second in both lists, so it only wins fusion if each list reaches past k.
-    rankings = {"in_": [0, 1, 2], "out_": [2, 1, 0]}
-    fetch_sizes = []
+def _reply_embedder(texts):
+    # Findings ("finding_<i>") sit at angle 0.1 * i in dims 0-1; replies are orthogonal one-hots
+    # in dims 2-3, so every repeated reply embeds identically.
+    vectors = []
+    for text in texts:
+        if text.startswith("finding_"):
+            angle = 0.1 * int(text.removeprefix("finding_"))
+            vectors.append([np.cos(angle), np.sin(angle), 0.0, 0.0])
+        else:
+            vectors.append([0.0, 0.0, float(text == "Fixed"), float(text == "Won't fix")])
+    return np.array(vectors)
 
-    class FakeEmbeddings:
-        def __init__(self, embedder, corpus, k):
-            self.ranking = next(r for prefix, r in rankings.items() if corpus[0].startswith(prefix))
-            self.k = k
-            fetch_sizes.append(k)
 
-        def __call__(self, query):
-            return MagicMock(indices=self.ranking[: self.k])
-
+def test_multi_field_retrieval_matches_all_fields_with_repeated_values(sample_judge):
+    # Labels follow the reply. The "Won't fix" findings are the closest to the query finding,
+    # so a judge that only interleaves per-field rankings retrieves opposite-reply examples.
+    replies = ["Won't fix"] * 6 + ["Fixed"] * 6
     examples = [
-        dspy.Example(inputs=f"in_{i}", outputs=f"out_{i}", result="yes", rationale="r")
-        for i in range(3)
+        dspy.Example(
+            inputs=f"finding_{i}",
+            outputs=reply,
+            result="no" if reply == "Won't fix" else "yes",
+            rationale="r",
+        )
+        for i, reply in enumerate(replies)
     ]
     with (
-        patch("dspy.retrievers.Embeddings", FakeEmbeddings),
-        patch("mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder"),
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder",
+            return_value=_reply_embedder,
+        ),
         patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
     ):
-        multi = MemoryAugmentedJudge(
-            sample_judge, retrieval_k=1, retrieval_fields=["inputs", "outputs"]
+        judge = MemoryAugmentedJudge(
+            sample_judge, retrieval_k=5, retrieval_fields=["inputs", "outputs"]
         )
-        multi._episodic_memory = list(examples)
-        multi._build_episodic_memory()
-        assert fetch_sizes == [2, 2]
-        assessment = multi(inputs="q", outputs="a")
-        assert assessment.metadata["retrieved_example_trace_ids"] == ["example_1"]
+        judge._episodic_memory = list(examples)
+        judge._build_episodic_memory()
+        assessment = judge(inputs="finding_0", outputs="Fixed")
 
-        fetch_sizes.clear()
-        single = MemoryAugmentedJudge(sample_judge, retrieval_k=1, retrieval_fields=["inputs"])
-        single._episodic_memory = list(examples)
-        single._build_episodic_memory()
-        assert fetch_sizes == [1]
+    retrieved = [
+        int(trace_id.removeprefix("example_"))
+        for trace_id in assessment.metadata["retrieved_example_trace_ids"]
+    ]
+    assert len(retrieved) == 5
+    assert [replies[i] for i in retrieved] == ["Fixed"] * 5
+    # Among same-reply examples, the closest findings win
+    assert retrieved == [6, 7, 8, 9, 10]
 
 
 def _build_single_field_index_and_score(judge, field, example, **call_kwargs):
