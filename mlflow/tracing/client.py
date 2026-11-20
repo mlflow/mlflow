@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 import urllib.parse
 from collections import defaultdict
@@ -794,8 +795,12 @@ class TracingClient:
 
     def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
         artifact_uri = get_artifact_uri_for_trace(trace_info)
-        if urllib.parse.urlparse(artifact_uri).scheme == "mlflow-artifacts" and not is_http_uri(
-            self.tracking_uri
+        if (
+            urllib.parse.urlparse(artifact_uri).scheme == "mlflow-artifacts"
+            and not is_http_uri(self.tracking_uri)
+            # Check the server's serve-artifacts flag before importing `mlflow.server`, which
+            # requires Flask and isn't available in skinny client installations.
+            and os.environ.get("_MLFLOW_SERVER_SERVE_ARTIFACTS", "false") == "true"
         ):
             # Inside a tracking server (e.g. AI Gateway usage tracking), the tracking URI is the
             # backend store URI, so `mlflow-artifacts:` can't be resolved over HTTP. Resolve it to

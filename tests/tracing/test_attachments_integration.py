@@ -1,10 +1,15 @@
 from unittest import mock
 
 import mlflow
-from mlflow.server import handlers
-from mlflow.server.constants import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 from mlflow.tracing.attachments import Attachment
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
+from mlflow.version import IS_TRACING_SDK_ONLY
+
+from tests.tracing.helper import skip_when_testing_trace_sdk
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.server import handlers
+    from mlflow.server.constants import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
 
 
 def test_attachment_roundtrip_with_local_tracking():
@@ -56,6 +61,7 @@ def test_attachment_roundtrip_with_local_tracking():
     assert stored_audio == audio_bytes
 
 
+@skip_when_testing_trace_sdk
 def test_attachment_upload_inside_server_with_proxied_artifact_root(tmp_path, monkeypatch):
     # Inside the tracking server (e.g. AI Gateway usage tracking), the tracking URI is the
     # backend store URI and the trace artifact location is `mlflow-artifacts:`.
