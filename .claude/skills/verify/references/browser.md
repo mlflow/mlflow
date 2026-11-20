@@ -7,6 +7,20 @@ agent-browser --session verify --input-mode human \
   --init-script "$trusted_checkout/.claude/scripts/browser-init.js" open <url>
 ```
 
+## Themes
+
+MLflow reads the theme from local storage when the page loads. The first load of a session
+stores the system preference, so the starting theme varies and `set media dark` has no effect
+afterwards. Set the key and reload for each theme, `true` for dark and `false` for light:
+
+```bash
+agent-browser --session verify storage local set _mlflow_dark_mode_toggle_enabled true
+agent-browser --session verify reload
+```
+
+Capture each theme under its own name, such as `<name>-light.png` and `<name>-dark.png`, and
+pass `"dark"` as the caption theme on dark pages.
+
 ## Screenshots
 
 Capture a screenshot when it shows the result of a check, and look at it before citing it:
