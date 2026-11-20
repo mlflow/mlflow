@@ -16,6 +16,7 @@ import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { MlflowService } from '../../sdk/MlflowService';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
+import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import ExperimentSettingsPage from './ExperimentSettingsPage';
 
 // The client retries failed reads with growing delays before reporting a network error; pass
@@ -41,9 +42,10 @@ jest.mock('../../../account/api', () => ({
   },
 }));
 
+let mockWorkspacesEnabled = false;
 jest.mock('../../hooks/useServerInfo', () => ({
   ...jest.requireActual<typeof import('../../hooks/useServerInfo')>('../../hooks/useServerInfo'),
-  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+  useWorkspacesEnabled: () => ({ workspacesEnabled: mockWorkspacesEnabled, loading: false }),
 }));
 
 const mockedAccountApi = jest.mocked(AccountApi);
@@ -78,6 +80,31 @@ const experimentQuery = (getExperiment: () => ReturnType<typeof makeExperiment>)
   );
 
 const server = setupServer(experimentQuery(() => makeExperiment()));
+
+/** Serves the experiment until `failFromNow` is called, then fails every request at the network level. */
+const failingAfterwards = (getExperiment = () => makeExperiment()) => {
+  let failing = false;
+  server.use(
+    graphql.query('MlflowGetExperimentQuery', (_req, res, ctx) =>
+      failing
+        ? res.networkError('Failed to connect')
+        : res(
+            ctx.data({
+              mlflowGetExperiment: {
+                __typename: 'MlflowGetExperimentResponse',
+                apiError: null,
+                experiment: getExperiment(),
+              },
+            }),
+          ),
+    ),
+  );
+  return {
+    failFromNow: () => {
+      failing = true;
+    },
+  };
+};
 
 const authDisabled = () => {
   mockedAccountApi.getCurrentUser.mockRejectedValue(new Error('Not found'));
@@ -115,6 +142,8 @@ describe('ExperimentSettingsPage', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    mockWorkspacesEnabled = false;
+    setActiveWorkspace(null);
   });
 
   const renderPage = (
@@ -274,6 +303,29 @@ describe('ExperimentSettingsPage', () => {
     expect(await screen.findByRole('textbox', { name: 'Experiment name' })).toHaveValue('team/Renamed elsewhere');
   });
 
+  test('does not report a rename as failed when only the refresh after it fails', async () => {
+    const { failFromNow } = failingAfterwards();
+    const updateExperiment = jest.spyOn(MlflowService, 'updateExperiment').mockImplementation(async () => {
+      failFromNow();
+      return {};
+    });
+    renderPage(undefined, { cache: true });
+
+    const input = await screen.findByRole('textbox', { name: 'Experiment name' });
+    await waitFor(() => expect(input).toBeEnabled());
+    await userEvent.clear(input);
+    await userEvent.paste('team/Renamed experiment');
+    await userEvent.tab();
+    await waitFor(() => expect(updateExperiment).toHaveBeenCalled());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+
+    expect(screen.queryByText(/Unable to save the experiment name/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Experiment load error/)).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Experiment name' })).toHaveValue('team/Renamed experiment');
+  });
+
   test('saves the full experiment name, including slashes', async () => {
     const updateExperiment = jest.spyOn(MlflowService, 'updateExperiment').mockResolvedValue({});
     renderPage();
@@ -317,6 +369,49 @@ describe('ExperimentSettingsPage', () => {
       expect(manageButton).toBeEnabled();
       await userEvent.click(manageButton);
       expect(await screen.findByText('Admin page')).toBeInTheDocument();
+    });
+
+    const managerOfWorkspace = (workspace: string) =>
+      mockedAccountApi.listUserRoles.mockResolvedValue({
+        roles: [
+          {
+            id: 7,
+            name: 'managers',
+            workspace,
+            description: null,
+            permissions: [
+              { id: 1, role_id: 7, resource_type: 'workspace', resource_pattern: '*', permission: 'MANAGE' },
+            ],
+          },
+        ],
+      });
+
+    test('lets a manager of the workspace being viewed open the admin page', async () => {
+      mockWorkspacesEnabled = true;
+      setActiveWorkspace('ws-a');
+      authEnabledAs({ isAdmin: false });
+      managerOfWorkspace('ws-a');
+      renderPage();
+
+      const permissionsSection = await screen.findByRole('region', { name: 'Permissions' });
+      await waitFor(() =>
+        expect(within(permissionsSection).getByRole('button', { name: 'Manage permissions' })).toBeEnabled(),
+      );
+    });
+
+    test('does not let a manager of a different workspace manage permissions here', async () => {
+      mockWorkspacesEnabled = true;
+      setActiveWorkspace('ws-a');
+      authEnabledAs({ isAdmin: false });
+      managerOfWorkspace('ws-other');
+      renderPage();
+
+      const permissionsSection = await screen.findByRole('region', { name: 'Permissions' });
+      await waitFor(() => expect(mockedAccountApi.listUserRoles).toHaveBeenCalled());
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      });
+      expect(within(permissionsSection).getByRole('button', { name: 'Manage permissions' })).toBeDisabled();
     });
 
     test('disables managing permissions for users who are not admins', async () => {
@@ -405,6 +500,26 @@ describe('ExperimentSettingsPage', () => {
       expect(await within(dialog).findByText('Tag save failed')).toBeVisible();
       expect(dialog).toBeVisible();
       expect(setTag).toHaveBeenCalled();
+    });
+
+    test('closes the tag editor and keeps showing Settings when the refresh after a save fails', async () => {
+      const { failFromNow } = failingAfterwards(() => makeExperiment([{ key: 'team', value: 'search' }]));
+      jest.spyOn(MlflowService, 'setExperimentTag').mockImplementation(async () => {
+        failFromNow();
+        return {};
+      });
+      renderPage(undefined, { cache: true });
+
+      const aboutSection = await screen.findByRole('region', { name: 'About' });
+      const dialog = await openTagEditor(aboutSection);
+      const textboxes = within(dialog).getAllByRole('textbox');
+      await userEvent.click(textboxes[textboxes.length - 2]);
+      await userEvent.paste('newkey');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add tags' })).not.toBeInTheDocument());
+      expect(screen.getByRole('region', { name: 'About' })).toBeVisible();
+      expect(screen.queryByText(/Experiment load error/)).not.toBeInTheDocument();
     });
 
     test('keeps the failed edit after a partly failed save, and retries only what failed', async () => {

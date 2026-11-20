@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const SETTING_CELL_CONTAINER_NAME = 'SettingCell';
 export const SETTING_CELL_STACKED_BREAKPOINT = 480;
-const SETTING_CELL_CLASS_NAME = '__SettingCell__';
+export const SETTING_CELL_CLASS_NAME = '__SettingCell__';
 const SETTING_CELL_VALUE_CLASS_NAME = `${SETTING_CELL_CLASS_NAME}-value`;
 
 /** A stable, document-unique element ID for ARIA relationships. */
@@ -79,13 +79,12 @@ const SettingCellRoot = ({ as: Component = 'div', label, value }: SettingCellPro
 interface SettingCellControlProps {
   label: ReactNode;
   description?: ReactNode;
-  children: (ids: { labelId: string; descriptionId: string }) => ReactNode;
+  children: (ids: { labelId: string }) => ReactNode;
 }
 
 /** A row whose value is a form control; the control is labelled by `labelId`. */
 const SettingCellControl = ({ label, description, children }: SettingCellControlProps) => {
   const labelId = useElementId('setting-label');
-  const descriptionId = useElementId('setting-description');
 
   return (
     <SettingCellRoot
@@ -94,10 +93,10 @@ const SettingCellControl = ({ label, description, children }: SettingCellControl
           <label id={labelId}>
             <Typography.Text bold>{label}</Typography.Text>
           </label>
-          {description && <Typography.Hint id={descriptionId}>{description}</Typography.Hint>}
+          {description && <Typography.Hint>{description}</Typography.Hint>}
         </>
       }
-      value={children({ labelId, descriptionId })}
+      value={children({ labelId })}
     />
   );
 };
@@ -105,26 +104,23 @@ const SettingCellControl = ({ label, description, children }: SettingCellControl
 interface SettingCellStaticProps {
   label: ReactNode;
   description?: ReactNode;
-  children: (ids: { labelId: string; descriptionId: string }) => ReactNode;
+  children: ReactNode;
 }
 
 /** A read-only row, rendered as its own `<section>` with the label as a definition term. */
 const SettingCellStatic = ({ label, description, children }: SettingCellStaticProps) => {
-  const labelId = useElementId('setting-label');
-  const descriptionId = useElementId('setting-description');
-
   return (
     <SettingCellRoot
       as="section"
       label={
         <>
-          <dfn css={{ fontStyle: 'unset' }} id={labelId}>
+          <dfn css={{ fontStyle: 'unset' }}>
             <Typography.Text bold>{label}</Typography.Text>
           </dfn>
-          {description && <Typography.Hint id={descriptionId}>{description}</Typography.Hint>}
+          {description && <Typography.Hint>{description}</Typography.Hint>}
         </>
       }
-      value={children({ labelId, descriptionId })}
+      value={children}
     />
   );
 };

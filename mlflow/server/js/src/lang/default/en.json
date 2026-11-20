@@ -59,6 +59,10 @@
     "defaultMessage": "Show span tree",
     "description": "Accessible label for showing the span tree in the trace explorer"
   },
+  "+7iDNC": {
+    "defaultMessage": "Unable to save the experiment name: {reason}",
+    "description": "Inline error shown when an experiment rename fails, with the server's reason"
+  },
   "+7qu4I": {
     "defaultMessage": "Version {version}",
     "description": "Skill version list item label"

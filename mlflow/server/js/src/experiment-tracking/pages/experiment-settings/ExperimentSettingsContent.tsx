@@ -1,9 +1,11 @@
 import { Button, Tooltip, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useCurrentUserQuery } from '../../../account/hooks';
+import { useCurrentUserAdminWorkspaces, useCurrentUserIsAdmin, useCurrentUserQuery } from '../../../account/hooks';
 import AdminRoutes from '../../../admin/routes';
 import { useNavigate } from '../../../common/utils/RoutingUtils';
 import type { ExperimentEntity } from '../../types';
+import { useWorkspacesEnabled } from '../../hooks/useServerInfo';
+import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import { useExperimentManagementActions } from '../../components/experiment-page/hooks/useExperimentManagementActions';
 import { ExperimentSettingsDetails } from './ExperimentSettingsDetails';
 import { ExperimentSettingsValue } from './ExperimentSettingsValue';
@@ -15,7 +17,15 @@ const ExperimentSettingsPermissions = () => {
   const navigate = useNavigate();
   const { data: currentUser } = useCurrentUserQuery();
   const isAdmin = useCurrentUserIsAdmin();
-  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
+  const adminWorkspaces = useCurrentUserAdminWorkspaces();
+  const activeWorkspace = useActiveWorkspace();
+  const { workspacesEnabled, loading: workspacesLoading } = useWorkspacesEnabled();
+  // Only a manager of the workspace being viewed, like the edit and delete checks. Without workspaces
+  // there is a single workspace, so managing any workspace counts.
+  const workspacesDefinitelyDisabled = !workspacesEnabled && !workspacesLoading;
+  const isWorkspaceAdmin = workspacesDefinitelyDisabled
+    ? adminWorkspaces.size > 0
+    : Boolean(activeWorkspace && adminWorkspaces.has(activeWorkspace));
 
   if (!currentUser?.user) {
     return null;

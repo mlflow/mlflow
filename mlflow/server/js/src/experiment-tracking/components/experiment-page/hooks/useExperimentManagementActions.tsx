@@ -9,7 +9,7 @@ import { useExperimentPermission } from '../../../hooks/useExperimentPermission'
 import { useInvalidateExperimentList } from './useExperimentListQuery';
 
 export interface ExperimentManagementActions {
-  /** EDIT or MANAGE on the experiment: rename, edit tags, change the experiment type. */
+  /** EDIT or MANAGE on the experiment: rename and edit tags. */
   canEdit: boolean;
   /** MANAGE on the experiment: delete it. */
   canDelete: boolean;
@@ -40,7 +40,8 @@ export const useExperimentManagementActions = ({
     async (name: string) => {
       await MlflowService.updateExperiment({ experiment_id: experiment.experimentId, new_name: name });
       invalidateExperimentList();
-      await refetchExperiment?.();
+      // The rename has saved; a failed refresh afterwards isn't a failed rename.
+      await refetchExperiment?.()?.catch(() => undefined);
     },
     [experiment.experimentId, invalidateExperimentList, refetchExperiment],
   );

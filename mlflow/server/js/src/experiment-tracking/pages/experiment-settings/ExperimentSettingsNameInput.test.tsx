@@ -106,13 +106,13 @@ describe('ExperimentSettingsNameInput', () => {
     });
 
     expect(input).toHaveValue('Retained draft');
-    expect(input).toHaveAccessibleDescription('Unable to save the experiment name. Retry');
+    expect(input).toHaveAccessibleDescription('Unable to save the experiment name: rename failed Retry');
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     await act(async () => Promise.resolve());
 
     expect(onSave).toHaveBeenCalledTimes(2);
     expect(onSave).toHaveBeenLastCalledWith('Retained draft');
-    expect(screen.queryByText('Unable to save the experiment name.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Unable to save the experiment name/)).not.toBeInTheDocument();
   });
 
   it('requires a non-empty name without offering a retry', async () => {
@@ -126,6 +126,56 @@ describe('ExperimentSettingsNameInput', () => {
     expect(input).toHaveAccessibleDescription('Experiment name is required.');
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the autosave timer running when the page re-renders with a new save callback', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const firstSave = jest.fn<ExperimentSettingsNameInputProps['onSave']>().mockResolvedValue(undefined);
+    const secondSave = jest.fn<ExperimentSettingsNameInputProps['onSave']>().mockResolvedValue(undefined);
+    const nameInput = (onSave: ExperimentSettingsNameInputProps['onSave']) => (
+      <>
+        <span id="experiment-name-label">Experiment name</span>
+        <ExperimentSettingsNameInput
+          initialName="Original name"
+          isEditable
+          labelId="experiment-name-label"
+          onSave={onSave}
+        />
+      </>
+    );
+    const { rerender } = render(nameInput(firstSave), { wrapper: ProvidersWrapper });
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.paste('Updated name');
+    act(() => jest.advanceTimersByTime(300));
+    rerender(nameInput(secondSave));
+    await act(async () => {
+      jest.advanceTimersByTime(200);
+    });
+
+    expect([...firstSave.mock.calls, ...secondSave.mock.calls]).toEqual([['Updated name']]);
+  });
+
+  it('shows the server reason when a rename fails', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const { onSave } = renderNameInput({
+      onSave: jest
+        .fn<ExperimentSettingsNameInputProps['onSave']>()
+        .mockRejectedValue(new Error("Experiment 'Taken name' already exists.")),
+    });
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.paste('Taken name');
+    await user.tab();
+    await act(async () => Promise.resolve());
+
+    expect(onSave).toHaveBeenCalledWith('Taken name');
+    expect(
+      await screen.findByText("Unable to save the experiment name: Experiment 'Taken name' already exists."),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
   });
 
   it('saves the original name again when it is restored while another save is in flight', async () => {

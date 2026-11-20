@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -71,6 +71,10 @@ const ReviewActionHarness = ({ action }: { action?: () => void }) => {
 };
 
 describe('ExperimentPageBreadcrumbs', () => {
+  afterEach(() => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+  });
+
   const { history } = setupTestRouter();
 
   const renderAt = (entry: string, routePath: string, title?: string, routeAware = false, status?: string) =>
@@ -317,6 +321,5 @@ describe('ExperimentPageBreadcrumbs', () => {
 
     const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
     expect(within(breadcrumb).getByText('Settings')).toHaveAttribute('aria-current', 'page');
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
 });

@@ -20,10 +20,10 @@ interface Params {
   /** Disables Save until the form is valid and differs from `initialTags`. */
   disableSaveWithoutValidChanges?: boolean;
   /**
-   * Keeps the modal open when `onSubmit` rejects, without leaving the rejection unhandled.
-   * Callers show the failure through `error`.
+   * Catches a rejected `onSubmit` so it isn't reported as an unhandled rejection. The modal stays
+   * open on a rejection either way; callers show the failure through `error`.
    */
-  keepOpenOnSubmitError?: boolean;
+  catchSubmitError?: boolean;
 }
 
 const keyProperty = 'key' as const;
@@ -43,7 +43,7 @@ export const useTagAssignmentModal = ({
   onSuccess,
   onClose,
   disableSaveWithoutValidChanges = false,
-  keepOpenOnSubmitError = false,
+  catchSubmitError = false,
 }: Params) => {
   const baseComponentId = `${componentIdPrefix}.tag-assignment-modal`;
 
@@ -92,7 +92,7 @@ export const useTagAssignmentModal = ({
         hideTagAssignmentModal();
         onSuccess?.();
       },
-      keepOpenOnSubmitError ? () => undefined : undefined,
+      catchSubmitError ? () => undefined : undefined,
     );
   };
 

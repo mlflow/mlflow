@@ -58,11 +58,11 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
       setSaveTagsError(undefined);
       if (savedTagChanges.current.size > 0) {
         savedTagChanges.current.clear();
-        refetchExperiment?.();
+        refetchExperiment?.()?.catch(() => undefined);
       }
     },
     disableSaveWithoutValidChanges: true,
-    keepOpenOnSubmitError: true,
+    catchSubmitError: true,
     onSubmit: async (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]) => {
       const experimentId = experiment.experimentId;
       const changes = [
@@ -92,7 +92,8 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
         throw error;
       }
       savedTagChanges.current.clear();
-      await refetchExperiment?.();
+      // The tags have saved; a failed refresh afterwards isn't a failed save.
+      await refetchExperiment?.()?.catch(() => undefined);
     },
   });
   const editTagsLabel = intl.formatMessage({
@@ -199,19 +200,17 @@ export const ExperimentSettingsDetails = ({
             />
           }
         >
-          {() => (
-            <ExperimentSettingsValue>
-              <Typography.Text>{experiment.experimentId}</Typography.Text>
-              <CopyValueButton
-                componentId="mlflow.experiment_settings.copy_experiment_id"
-                copyText={experiment.experimentId}
-                label={intl.formatMessage({
-                  defaultMessage: 'Copy experiment ID',
-                  description: 'Accessible label for the button that copies the experiment ID in Settings',
-                })}
-              />
-            </ExperimentSettingsValue>
-          )}
+          <ExperimentSettingsValue>
+            <Typography.Text>{experiment.experimentId}</Typography.Text>
+            <CopyValueButton
+              componentId="mlflow.experiment_settings.copy_experiment_id"
+              copyText={experiment.experimentId}
+              label={intl.formatMessage({
+                defaultMessage: 'Copy experiment ID',
+                description: 'Accessible label for the button that copies the experiment ID in Settings',
+              })}
+            />
+          </ExperimentSettingsValue>
         </SettingCell.Static>
         <SettingCell.Static
           label={
@@ -227,22 +226,19 @@ export const ExperimentSettingsDetails = ({
             />
           }
         >
-          {() => (
-            <ExperimentSettingsValue>
-              <Typography.Text>
-                <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />
-              </Typography.Text>
-              <CopyValueButton
-                componentId="mlflow.experiment_settings.copy_artifact_location"
-                copyText={experiment.artifactLocation}
-                label={intl.formatMessage({
-                  defaultMessage: 'Copy artifact location',
-                  description:
-                    'Accessible label for the button that copies the experiment artifact location in Settings',
-                })}
-              />
-            </ExperimentSettingsValue>
-          )}
+          <ExperimentSettingsValue>
+            <Typography.Text>
+              <ExperimentViewArtifactLocation artifactLocation={experiment.artifactLocation} />
+            </Typography.Text>
+            <CopyValueButton
+              componentId="mlflow.experiment_settings.copy_artifact_location"
+              copyText={experiment.artifactLocation}
+              label={intl.formatMessage({
+                defaultMessage: 'Copy artifact location',
+                description: 'Accessible label for the button that copies the experiment artifact location in Settings',
+              })}
+            />
+          </ExperimentSettingsValue>
         </SettingCell.Static>
         <ExperimentSettingsTags experiment={experiment} canEdit={canEdit} refetchExperiment={refetchExperiment} />
       </div>

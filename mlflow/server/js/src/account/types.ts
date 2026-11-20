@@ -79,12 +79,12 @@ export interface UpdatePasswordRequest {
   current_password?: string;
 }
 
-/** A workspace-admin role has a (workspace, *, MANAGE) permission row. */
 /** Mirrors the server's ``is_workspace_admin_grant``: MANAGE on every resource in the workspace. */
 export const isWorkspaceAdminGrant = (
   grant: Pick<RolePermission, 'resource_type' | 'resource_pattern' | 'permission'>,
 ) => grant.resource_type === 'workspace' && grant.resource_pattern === '*' && grant.permission === 'MANAGE';
 
+/** A workspace-admin role has a (workspace, *, MANAGE) permission row. */
 export const isWorkspaceAdminRole = (role: Role): boolean => role.permissions?.some(isWorkspaceAdminGrant) ?? false;
 
 /**

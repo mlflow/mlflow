@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import invariant from 'invariant';
 import { Alert, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
@@ -10,7 +10,8 @@ import type { ExperimentEntity } from '../../types';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import { useExperimentPageRevampContext } from '../experiment-page-tabs/ExperimentPageRevampContext';
-import { ExperimentSettingsContent } from './ExperimentSettingsManagementActions';
+import { ExperimentSettingsContent } from './ExperimentSettingsContent';
+import { SETTING_CELL_CLASS_NAME } from './SettingCell';
 
 const SETTINGS_MAX_WIDTH = '80ch';
 
@@ -49,7 +50,7 @@ const ExperimentSettingsPageContainer = ({
           '& [data-settings-section-content] > div:last-child': {
             borderBlockEnd: 0,
           },
-          '& [data-settings-section-content] > div > .__SettingCell__': {
+          [`& [data-settings-section-content] > div > .${SETTING_CELL_CLASS_NAME}`]: {
             borderBlockEnd: 0,
           },
         }}
@@ -91,16 +92,22 @@ export const ExperimentSettingsPage = () => {
     experimentId,
     options: { fetchPolicy: 'cache-only' },
   });
+  // Keep what this page last loaded, so a refresh that fails after a save doesn't replace the page with an error.
+  const lastLoadedData = useRef(data);
+  if (data) {
+    lastLoadedData.current = data;
+  }
+  const shownData = data ?? lastLoadedData.current;
   const experiment = useMemo(
     () =>
-      data
+      shownData
         ? ({
-            ...data,
-            creationTime: Number(data.creationTime),
-            lastUpdateTime: Number(data.lastUpdateTime),
+            ...shownData,
+            creationTime: Number(shownData.creationTime),
+            lastUpdateTime: Number(shownData.lastUpdateTime),
           } as ExperimentEntity)
         : null,
-    [data],
+    [shownData],
   );
   // Look up permissions alongside the experiment, so the controls don't render disabled and then enable.
   useExperimentPermission(experimentId, ['EDIT', 'MANAGE']);
@@ -108,7 +115,7 @@ export const ExperimentSettingsPage = () => {
   if (error instanceof PredefinedError) {
     throw error;
   }
-  if (loading) {
+  if (loading && !experiment) {
     return (
       <ExperimentSettingsPageContainer revampEnabled={revampEnabled}>
         <ExperimentSettingsSkeleton />
@@ -116,7 +123,7 @@ export const ExperimentSettingsPage = () => {
     );
   }
 
-  const errorMessage = getGraphQLErrorMessage(error);
+  const errorMessage = experiment ? undefined : getGraphQLErrorMessage(error);
   if (errorMessage && apolloError && pageExperiment) {
     return (
       <ExperimentSettingsPageContainer revampEnabled={revampEnabled}>

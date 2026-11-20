@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 import { IntlProvider } from 'react-intl';
@@ -21,6 +21,10 @@ jest.mock('../../../../../common/utils/FeatureUtils', () => ({
 }));
 
 describe('ExperimentViewManagementMenu', () => {
+  afterEach(() => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+  });
+
   const defaultExperiment: ExperimentEntity = {
     experimentId: '123',
     name: 'test/experiment/name',
@@ -153,7 +157,6 @@ describe('ExperimentViewManagementMenu', () => {
     await userEvent.click(screen.getByText('Settings'));
 
     expect(window.location.pathname).toBe('/experiments/123/settings');
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
 
   test('it should keep the workflow type and workspace when opening Settings', async () => {
@@ -184,6 +187,5 @@ describe('ExperimentViewManagementMenu', () => {
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/experiments/123/settings?workflowType=machine_learning&workspace=team-a',
     );
-    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
 });

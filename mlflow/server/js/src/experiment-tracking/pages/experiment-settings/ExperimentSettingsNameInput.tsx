@@ -1,7 +1,8 @@
 import { Button, FormUI, Input, useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useElementId } from './SettingCell';
 import { FormattedMessage } from 'react-intl';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
+import { useElementId } from './SettingCell';
 
 const AUTOSAVE_DELAY_MS = 500;
 
@@ -22,6 +23,10 @@ export const ExperimentSettingsNameInput = ({
   const errorId = useElementId('experiment-name-error');
   const [draftName, setDraftName] = useState(initialName);
   const [saveError, setSaveError] = useState<'required' | 'request' | null>(null);
+  const [saveErrorReason, setSaveErrorReason] = useState<string>();
+  // Read through a ref so a new callback from a parent re-render doesn't restart the autosave timer.
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
   const persistedNameRef = useRef(initialName);
   const latestDraftNameRef = useRef(initialName);
   // The name the server will have once every queued save has run.
@@ -53,14 +58,21 @@ export const ExperimentSettingsNameInput = ({
           if (name !== latestQueuedNameRef.current || name === persistedNameRef.current) {
             return;
           }
-          await onSave(name);
+          await onSaveRef.current(name);
           persistedNameRef.current = name;
           if (latestDraftNameRef.current === name) {
             setSaveError(null);
           }
-        } catch {
+        } catch (error) {
           if (latestDraftNameRef.current === name) {
             setSaveError('request');
+            setSaveErrorReason(
+              error instanceof ErrorWrapper
+                ? error.getMessageField()
+                : error instanceof Error
+                  ? error.message
+                  : undefined,
+            );
           }
         } finally {
           pendingSaveCountRef.current -= 1;
@@ -68,7 +80,7 @@ export const ExperimentSettingsNameInput = ({
       });
       saveQueueRef.current = pendingSave.catch(() => undefined);
     },
-    [isEditable, onSave],
+    [isEditable],
   );
 
   useEffect(() => {
@@ -141,6 +153,12 @@ export const ExperimentSettingsNameInput = ({
                 <FormattedMessage
                   defaultMessage="Experiment name is required."
                   description="Inline error shown when the experiment name is empty"
+                />
+              ) : saveErrorReason ? (
+                <FormattedMessage
+                  defaultMessage="Unable to save the experiment name: {reason}"
+                  description="Inline error shown when an experiment rename fails, with the server's reason"
+                  values={{ reason: saveErrorReason }}
                 />
               ) : (
                 <FormattedMessage
