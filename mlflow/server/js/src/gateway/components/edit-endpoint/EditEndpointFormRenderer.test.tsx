@@ -117,4 +117,18 @@ describe('EditEndpointFormRenderer', () => {
     renderWithDesignSystem(<TestHarness experimentId="" initialEntry="/?tab=guardrails" />);
     expect(screen.getByRole('tab', { name: 'Guardrails' })).not.toBeDisabled();
   });
+
+  test('links Try in Playground to the experiment playground with the endpoint preselected', () => {
+    renderWithDesignSystem(<TestHarness experimentId="exp-1" initialEntry="/?tab=overview" />);
+    expect(screen.getByRole('link', { name: 'Try in Playground' })).toHaveAttribute(
+      'href',
+      '/experiments/exp-1/playground?endpoint=test-endpoint',
+    );
+  });
+
+  test('disables Try in Playground when the endpoint has no experiment', () => {
+    renderWithDesignSystem(<TestHarness experimentId="" initialEntry="/?tab=overview" />);
+    expect(screen.getByRole('button', { name: 'Try in Playground' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: 'Try in Playground' })).not.toBeInTheDocument();
+  });
 });

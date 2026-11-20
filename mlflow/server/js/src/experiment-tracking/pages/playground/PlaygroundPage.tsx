@@ -12,8 +12,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
+import { useSearchParams } from '../../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
+import { PLAYGROUND_ENDPOINT_QUERY_PARAM } from '../../routes';
 import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
@@ -36,7 +38,11 @@ const EMPTY_USER_MESSAGE: ConversationMessage = { role: 'user', content: '' };
 const PlaygroundPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const [endpointName, setEndpointName] = useState<string>('');
+  const [searchParams] = useSearchParams();
+  // Read once so a later pick in the endpoint selector is not reset by the URL that opened the page.
+  const [endpointName, setEndpointName] = useState<string>(
+    () => searchParams.get(PLAYGROUND_ENDPOINT_QUERY_PARAM) ?? '',
+  );
   const [messages, setMessages] = useState<ConversationMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
   const [params, setParams] = useState<PlaygroundParams>({});
   const [variables, setVariables] = useState<Record<string, string>>({});
