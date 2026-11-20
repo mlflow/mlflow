@@ -1862,6 +1862,27 @@ def test_default_optimizer_realign_keeps_retrieval_fields(sample_judge, sample_t
     assert list(realigned._retrievers) == ["outputs"]
 
 
+@pytest.mark.parametrize("num_traces", [2, 4], ids=["skip_unchanged", "add_new"])
+def test_explicit_optimizer_retrieval_fields_override_judge_fields(
+    sample_judge, sample_traces, num_traces
+):
+    with mock_apis(guidelines=[]) as mocks:
+        aligned = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
+            sample_judge, sample_traces[:2]
+        )
+        realigned = MemAlignOptimizer(retrieval_fields=["inputs"]).align(
+            aligned, sample_traces[:num_traces]
+        )
+
+    assert realigned is not aligned
+    assert realigned._retrieval_fields == ["inputs"]
+    assert list(realigned._retrievers) == ["inputs"]
+    corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
+    assert len(corpus) == num_traces
+    assert all("input_" in text and "output_" not in text for text in corpus)
+    assert aligned._retrieval_fields == ["outputs"]
+
+
 def test_judge_align_with_default_optimizer_keeps_retrieval_fields(sample_judge, sample_traces):
     with mock_apis(guidelines=[]):
         aligned = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
