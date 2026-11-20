@@ -24,7 +24,9 @@ export const ExperimentSettingsNameInput = ({
   const [saveError, setSaveError] = useState<'required' | 'request' | null>(null);
   const persistedNameRef = useRef(initialName);
   const latestDraftNameRef = useRef(initialName);
+  // The name the server will have once every queued save has run.
   const latestQueuedNameRef = useRef(initialName);
+  const pendingSaveCountRef = useRef(0);
   const saveQueueRef = useRef(Promise.resolve());
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -33,7 +35,9 @@ export const ExperimentSettingsNameInput = ({
       if (autosaveTimerRef.current) {
         clearTimeout(autosaveTimerRef.current);
       }
-      if (!isEditable || name === persistedNameRef.current || name === latestQueuedNameRef.current) {
+      // Compare with the queued name, not the saved one: restoring the saved name while another
+      // save is in flight still has to be sent, or that other save wins.
+      if (!isEditable || name === latestQueuedNameRef.current) {
         return;
       }
       if (!name.trim()) {
@@ -43,11 +47,12 @@ export const ExperimentSettingsNameInput = ({
 
       latestQueuedNameRef.current = name;
       setSaveError(null);
+      pendingSaveCountRef.current += 1;
       const pendingSave = saveQueueRef.current.then(async () => {
-        if (name !== latestQueuedNameRef.current || name === persistedNameRef.current) {
-          return;
-        }
         try {
+          if (name !== latestQueuedNameRef.current || name === persistedNameRef.current) {
+            return;
+          }
           await onSave(name);
           persistedNameRef.current = name;
           if (latestDraftNameRef.current === name) {
@@ -57,6 +62,8 @@ export const ExperimentSettingsNameInput = ({
           if (latestDraftNameRef.current === name) {
             setSaveError('request');
           }
+        } finally {
+          pendingSaveCountRef.current -= 1;
         }
       });
       saveQueueRef.current = pendingSave.catch(() => undefined);
@@ -66,7 +73,7 @@ export const ExperimentSettingsNameInput = ({
 
   useEffect(() => {
     latestDraftNameRef.current = draftName;
-    if (!isEditable || draftName === persistedNameRef.current) {
+    if (!isEditable || draftName === latestQueuedNameRef.current) {
       return;
     }
     autosaveTimerRef.current = setTimeout(() => queueSave(draftName), AUTOSAVE_DELAY_MS);
@@ -78,6 +85,11 @@ export const ExperimentSettingsNameInput = ({
   }, [draftName, isEditable, queueSave]);
 
   useEffect(() => {
+    // A name that arrives while saves are pending is the refetch after one of them; adopting it
+    // could overwrite a newer draft that is still queued.
+    if (pendingSaveCountRef.current > 0) {
+      return;
+    }
     if (latestDraftNameRef.current === persistedNameRef.current) {
       setDraftName(initialName);
       latestDraftNameRef.current = initialName;

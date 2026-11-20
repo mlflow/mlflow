@@ -1,4 +1,5 @@
 import { useIsAuthAvailable, useMyPermissionsQuery } from '../../account/hooks';
+import { isWorkspaceAdminGrant } from '../../account/types';
 import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
 import { useWorkspacesEnabled } from './useServerInfo';
 
@@ -31,9 +32,10 @@ export const useExperimentPermission = (experimentId: string, levels: string[]):
   const workspacesDefinitelyDisabled = !workspacesEnabled && !workspacesLoading;
   return (data.permissions ?? []).some(
     (p) =>
-      p.resource_type === 'experiment' &&
-      (p.resource_pattern === experimentId || p.resource_pattern === '*') &&
-      levels.includes(p.permission) &&
+      (isWorkspaceAdminGrant(p) ||
+        (p.resource_type === 'experiment' &&
+          (p.resource_pattern === experimentId || p.resource_pattern === '*') &&
+          levels.includes(p.permission))) &&
       (workspacesDefinitelyDisabled || p.workspace === activeWorkspace),
   );
 };

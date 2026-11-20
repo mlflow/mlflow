@@ -1,5 +1,5 @@
 import { Button, CopyIcon, PencilIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { KeyValueTag } from '../../../common/components/KeyValueTag';
 import { useTagAssignmentModal } from '../../../common/hooks/useTagAssignmentModal';
@@ -45,30 +45,54 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
   const { theme } = useDesignSystemTheme();
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [saveTagsError, setSaveTagsError] = useState<string>();
+  // Changes saved while the editor is open. After a partly failed save the experiment isn't
+  // refetched (that would reset the editor and drop the failed edits), so a retry skips these.
+  const savedTagChanges = useRef(new Set<string>());
   const userFacingTags = (experiment.tags ?? []).filter((tag) => isUserFacingTag(tag.key));
   const { TagAssignmentModal, showTagAssignmentModal } = useTagAssignmentModal({
     componentIdPrefix: 'mlflow.experiment_settings.tags',
     initialTags: userFacingTags.map(({ key, value }) => ({ key, value })),
     isLoading: isSavingTags,
     error: saveTagsError,
-    onClose: () => setSaveTagsError(undefined),
+    onClose: () => {
+      setSaveTagsError(undefined);
+      if (savedTagChanges.current.size > 0) {
+        savedTagChanges.current.clear();
+        refetchExperiment?.();
+      }
+    },
     disableSaveWithoutValidChanges: true,
     keepOpenOnSubmitError: true,
-    onSubmit: (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]) => {
+    onSubmit: async (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]) => {
       const experimentId = experiment.experimentId;
+      const changes = [
+        ...newTags.map(({ key, value }) => ({
+          id: `set:${key}=${value}`,
+          save: () => MlflowService.setExperimentTag({ experiment_id: experimentId, key, value }),
+        })),
+        ...deletedTags.map(({ key }) => ({
+          id: `delete:${key}`,
+          save: () => MlflowService.deleteExperimentTag({ experiment_id: experimentId, key }),
+        })),
+      ].filter((change) => !savedTagChanges.current.has(change.id));
       setIsSavingTags(true);
       setSaveTagsError(undefined);
-      return Promise.all([
-        ...newTags.map(({ key, value }) => MlflowService.setExperimentTag({ experiment_id: experimentId, key, value })),
-        ...deletedTags.map(({ key }) => MlflowService.deleteExperimentTag({ experiment_id: experimentId, key })),
-      ])
-        .catch((error) => {
-          setSaveTagsError(error instanceof ErrorWrapper ? error.getMessageField() : error?.message);
-          // Rethrow so the modal stays open and shows the error.
-          throw error;
-        })
-        .finally(() => refetchExperiment?.())
-        .finally(() => setIsSavingTags(false));
+      const results = await Promise.allSettled(changes.map((change) => change.save()));
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          savedTagChanges.current.add(changes[index].id);
+        }
+      });
+      setIsSavingTags(false);
+      const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (failure) {
+        const error = failure.reason;
+        setSaveTagsError(error instanceof ErrorWrapper ? error.getMessageField() : error?.message);
+        // Rejecting keeps the editor open with the error and the user's edits.
+        throw error;
+      }
+      savedTagChanges.current.clear();
+      await refetchExperiment?.();
     },
   });
   const editTagsLabel = intl.formatMessage({

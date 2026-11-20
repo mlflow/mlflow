@@ -10403,6 +10403,10 @@
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
   },
+  "V/m6G2": {
+    "defaultMessage": "Experiment load error: {errorMessage}",
+    "description": "Error shown when experiment Settings cannot load the experiment"
+  },
   "V0/5Oy": {
     "defaultMessage": "Model: {model}",
     "description": "Display of default model for selected provider"

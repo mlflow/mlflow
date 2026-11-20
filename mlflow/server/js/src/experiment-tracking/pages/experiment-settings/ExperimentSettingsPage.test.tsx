@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { graphql } from 'msw';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -14,8 +14,24 @@ import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { MlflowService } from '../../sdk/MlflowService';
+import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
 import ExperimentSettingsPage from './ExperimentSettingsPage';
+
+// The client retries failed reads with growing delays before reporting a network error; pass
+// requests straight through so a network failure surfaces at once.
+jest.mock('@mlflow/mlflow/src/common/utils/graphQLHooks', () => {
+  const actual = jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/graphQLHooks')>(
+    '@mlflow/mlflow/src/common/utils/graphQLHooks',
+  );
+  // Takes the RetryLink options but ignores them: ApolloLink's constructor would store them as the request.
+  class PassThroughLink extends actual.ApolloLink {
+    constructor() {
+      super((operation, forward) => forward(operation));
+    }
+  }
+  return { ...actual, RetryLink: PassThroughLink };
+});
 
 jest.mock('../../../account/api', () => ({
   AccountApi: {
@@ -171,6 +187,40 @@ describe('ExperimentSettingsPage', () => {
         .map((button) => button.textContent),
     ).toEqual(['Delete']);
     expect(within(actionsSection).getByRole('button', { name: 'Delete' })).toBeEnabled();
+  });
+
+  test('shows its own load error when only Settings fails, after the experiment page loaded', async () => {
+    // Requests succeed until the experiment page has loaded; Settings' own request then fails at the
+    // network level, leaving that page's copy intact.
+    let failRequests = false;
+    server.use(
+      graphql.query('MlflowGetExperimentQuery', (_req, res, ctx) =>
+        failRequests
+          ? res.networkError('Failed to connect')
+          : res(
+              ctx.data({
+                mlflowGetExperiment: {
+                  __typename: 'MlflowGetExperimentResponse',
+                  apiError: null,
+                  experiment: makeExperiment(),
+                },
+              }),
+            ),
+      ),
+    );
+    // Stands in for the experiment page: it loads the experiment first, then renders the tab.
+    const ExperimentPage = () => {
+      const { data } = useGetExperimentQuery({ experimentId: '123' });
+      if (!data) {
+        return null;
+      }
+      failRequests = true;
+      return <ExperimentSettingsPage />;
+    };
+    renderPage(undefined, { cache: true, page: <ExperimentPage /> });
+
+    expect(await screen.findByText(/^Experiment load error:/)).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'About' })).not.toBeInTheDocument();
   });
 
   test('leaves a load error to the experiment page instead of showing it again', async () => {
@@ -355,6 +405,48 @@ describe('ExperimentSettingsPage', () => {
       expect(await within(dialog).findByText('Tag save failed')).toBeVisible();
       expect(dialog).toBeVisible();
       expect(setTag).toHaveBeenCalled();
+    });
+
+    test('keeps the failed edit after a partly failed save, and retries only what failed', async () => {
+      // A server whose tags reflect each successful write, so a refetch would show the partial save.
+      let serverTags = [{ key: 'team', value: 'search' }];
+      server.use(experimentQuery(() => makeExperiment(serverTags)));
+      let ownerAttempts = 0;
+      const setTag = jest.spyOn(MlflowService, 'setExperimentTag').mockImplementation(async ({ key, value }) => {
+        if (key === 'owner' && ++ownerAttempts === 1) {
+          throw new Error('Owner tag failed');
+        }
+        serverTags = [...serverTags.filter((tag) => tag.key !== key), { key, value }];
+        return {};
+      });
+      renderPage();
+
+      const aboutSection = await screen.findByRole('region', { name: 'About' });
+      const dialog = await openTagEditor(aboutSection);
+      const textboxes = within(dialog).getAllByRole('textbox');
+      await userEvent.clear(textboxes[1]);
+      await userEvent.paste('platform');
+      await userEvent.click(within(dialog).getAllByRole('textbox')[2]);
+      await userEvent.paste('owner');
+      await userEvent.click(within(dialog).getAllByRole('textbox')[3]);
+      await userEvent.paste('alice');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+      expect(await within(dialog).findByText('Owner tag failed')).toBeVisible();
+      // Give any refetch time to land and reset the form.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      });
+      const values = within(dialog)
+        .getAllByRole('textbox')
+        .map((box) => (box as HTMLInputElement).value);
+      expect(values).toEqual(expect.arrayContaining(['team', 'platform', 'owner', 'alice']));
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+      await waitFor(() => expect(dialog).not.toBeInTheDocument());
+      expect(setTag.mock.calls.filter(([args]) => args.key === 'team')).toHaveLength(1);
+      expect(setTag.mock.calls.filter(([args]) => args.key === 'owner')).toHaveLength(2);
+      expect(await within(aboutSection).findByText('owner')).toBeVisible();
     });
 
     test('saves tags from the editor and shows the refetched tags', async () => {

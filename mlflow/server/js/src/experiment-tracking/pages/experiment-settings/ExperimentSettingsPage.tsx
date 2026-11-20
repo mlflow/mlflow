@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import invariant from 'invariant';
-import { ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useParams } from '../../../common/utils/RoutingUtils';
@@ -84,6 +85,12 @@ export const ExperimentSettingsPage = () => {
     options: { fetchPolicy: 'network-only' },
   });
   const error = apiError ?? apolloError;
+  // The experiment page's own copy, from the cache. A network failure in Settings' separate request
+  // can leave that page loaded and showing no error, so Settings has to report it itself.
+  const { data: pageExperiment } = useGetExperimentQuery({
+    experimentId,
+    options: { fetchPolicy: 'cache-only' },
+  });
   const experiment = useMemo(
     () =>
       data
@@ -109,8 +116,27 @@ export const ExperimentSettingsPage = () => {
     );
   }
 
-  // The experiment page around every tab already shows this load error.
-  if (getGraphQLErrorMessage(error)) {
+  const errorMessage = getGraphQLErrorMessage(error);
+  if (errorMessage && apolloError && pageExperiment) {
+    return (
+      <ExperimentSettingsPageContainer revampEnabled={revampEnabled}>
+        <Alert
+          componentId="mlflow.experiment_settings.load_error"
+          type="error"
+          closable={false}
+          message={
+            <FormattedMessage
+              defaultMessage="Experiment load error: {errorMessage}"
+              description="Error shown when experiment Settings cannot load the experiment"
+              values={{ errorMessage }}
+            />
+          }
+        />
+      </ExperimentSettingsPageContainer>
+    );
+  }
+  // Otherwise the experiment page around every tab already shows this load error.
+  if (errorMessage) {
     return null;
   }
   if (!experiment) {

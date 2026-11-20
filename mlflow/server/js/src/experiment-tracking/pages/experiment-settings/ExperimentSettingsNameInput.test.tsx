@@ -127,4 +127,54 @@ describe('ExperimentSettingsNameInput', () => {
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
   });
+
+  it('saves the original name again when it is restored while another save is in flight', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    let finishFirstSave: () => void = () => undefined;
+    const onSave = jest
+      .fn<ExperimentSettingsNameInputProps['onSave']>()
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            finishFirstSave = resolve;
+          }),
+      )
+      .mockResolvedValue(undefined);
+    const nameInput = (initialName: string) => (
+      <>
+        <span id="experiment-name-label">Experiment name</span>
+        <ExperimentSettingsNameInput
+          initialName={initialName}
+          isEditable
+          labelId="experiment-name-label"
+          onSave={onSave}
+        />
+      </>
+    );
+    const { rerender } = render(nameInput('Original name'), { wrapper: ProvidersWrapper });
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.paste('Unwanted name');
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(onSave).toHaveBeenCalledWith('Unwanted name');
+
+    // While that save is still in flight, restore the original name and leave the field.
+    await user.clear(input);
+    await user.paste('Original name');
+    await user.tab();
+
+    // The in-flight save lands, and the page refetches the experiment with its name.
+    rerender(nameInput('Unwanted name'));
+    await act(async () => {
+      finishFirstSave();
+      await Promise.resolve();
+    });
+    await act(async () => Promise.resolve());
+
+    expect(onSave).toHaveBeenLastCalledWith('Original name');
+    expect(input).toHaveValue('Original name');
+  });
 });
