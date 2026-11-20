@@ -1634,6 +1634,18 @@ def test_reconstruct_episodic_memory_reports_missing_traces(sample_judge, monkey
     )
 
 
+def test_reconstruct_episodic_memory_warning_counts_traces_not_examples(sample_judge):
+    judge = _deferred_judge(sample_judge, ["t0", "t1", "t2"])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: None if tid == "t2" else tid),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace] * 3),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
+    ):
+        assert len(judge._reconstruct_episodic_memory()) == 6
+
+    assert "(2/3 traces)" in mock_logger.warning.call_args.args[0]
+
+
 def test_reconstruct_episodic_memory_with_no_trace_ids(sample_judge):
     judge = _deferred_judge(sample_judge, [])
     with patch(_GET_TRACE_PATH) as mock_get_trace:

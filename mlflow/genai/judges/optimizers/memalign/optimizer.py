@@ -455,7 +455,7 @@ class MemoryAugmentedJudge(Judge):
                 f"Missing trace IDs: {missing_ids[:5]}"
                 f"{'...' if len(missing_ids) > 5 else ''}. "
                 f"Judge will operate with partial memory "
-                f"({len(examples)}/{len(trace_ids)} traces)."
+                f"({len(trace_ids) - len(missing_ids)}/{len(trace_ids)} traces)."
             )
 
         return examples
