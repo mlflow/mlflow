@@ -4098,7 +4098,9 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
                 f"Artifact path targets workspace '{requested_workspace}' "
                 f"but the workspace specified in the request is '{workspace}'."
             )
-        return normalized
+        # Canonicalize the prefix: on a case-sensitive store a variant spelling is a distinct
+        # legacy default-workspace path, not this workspace's namespace.
+        return "/".join(("workspaces", *leading_segments[1:]))
 
     return posixpath.join(base, normalized)
 

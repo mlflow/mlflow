@@ -9787,7 +9787,8 @@ def test_artifact_proxy_child_types_ignore_case():
         # U+017F folds to ``s`` on a store that applies Unicode case folding (macOS APFS).
         ("1/model\u017f/m-1/artifacts/f", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
         ("1/trace\u017f/tr-1/artifacts/f", auth_module.RESOURCE_TYPE_TRACE),
-        (f"1/{run_id}/artifact\u017f/f", auth_module.RESOURCE_TYPE_RUN),
+        # Not a run id, so only recognizing ``artifact\u017f`` classifies it as a run.
+        ("1/run-id/artifact\u017f/f", auth_module.RESOURCE_TYPE_RUN),
         ("work\u017fpaces/wsb/1/model\u017f/m-1", auth_module.RESOURCE_TYPE_LOGGED_MODEL),
     ):
         assert classify(path, recursive=False) == (expected,)

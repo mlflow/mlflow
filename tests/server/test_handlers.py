@@ -9169,7 +9169,7 @@ def test_get_workspace_scoped_repo_path_if_enabled_prefix_ignores_case(
             _get_workspace_scoped_repo_path_if_enabled(f"{prefix}/team-b/data.txt")
         assert (
             _get_workspace_scoped_repo_path_if_enabled(f"{prefix}/{workspace}/data.txt")
-            == f"{prefix}/{workspace}/data.txt"
+            == f"workspaces/{workspace}/data.txt"
         )
 
 
