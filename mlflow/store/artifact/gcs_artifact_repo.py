@@ -11,18 +11,26 @@ from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadCredential,
 )
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
-from mlflow.exceptions import _UnsupportedMultipartUploadException
+from mlflow.exceptions import (
+    MlflowException,
+    _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedDownloadException,
+)
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
+    MultipartDownloadMixin,
     MultipartUploadMixin,
     _is_object_key_within_path,
     _retry_with_new_creds,
 )
+from mlflow.store.artifact.s3_artifact_repo import _attachment_content_disposition
 from mlflow.utils import get_installed_version
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
@@ -34,7 +42,7 @@ class GCSMPUArguments(NamedTuple):
     content_type: str
 
 
-class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
+class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartDownloadMixin):
     """
     Stores artifacts on Google Cloud Storage.
 
@@ -192,6 +200,67 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         for blob in blobs:
             if _is_object_key_within_path(blob.name, dest_path):
                 blob.delete()
+
+    def supports_presigned_download(self) -> bool:
+        """Whether the client's credentials can sign URLs locally (i.e. implement ``Signing``).
+
+        Service account keys (and impersonated credentials) can sign. User credentials (e.g.
+        ``gcloud auth application-default login``), Compute Engine / GKE metadata server and
+        external account (Workload Identity Federation) credentials, and anonymous credentials
+        cannot. This is a cheap pre-check; ``get_download_presigned_url`` still raises
+        ``_UnsupportedPresignedDownloadException`` if signing fails at runtime (e.g. impersonated
+        credentials whose IAM ``signBlob`` call is denied).
+        """
+        from google.auth.credentials import Signing
+
+        return isinstance(getattr(self.client, "_credentials", None), Signing)
+
+    def get_download_presigned_url(self, artifact_path, expiration=300):
+        """Generate a presigned URL for downloading an artifact directly from GCS.
+
+        Raises:
+            MlflowException: ``RESOURCE_DOES_NOT_EXIST`` if the object does not exist.
+            _UnsupportedPresignedDownloadException: If the client's credentials cannot sign
+                URLs (``NOT_IMPLEMENTED``, i.e. HTTP 501 from the server).
+        """
+        from google.auth.exceptions import GoogleAuthError
+
+        (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
+        dest_path = posixpath.join(dest_path, artifact_path) if artifact_path else dest_path
+
+        # get_blob() (unlike blob(), which only builds a local handle) fetches the object's
+        # metadata, so it both confirms the object exists and provides its size.
+        blob = self._get_bucket(bucket).get_blob(dest_path)
+        if blob is None:
+            raise MlflowException(
+                f"No such file or directory: '{dest_path}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        # Serve the object as a download with the artifact's own filename, same
+        # rationale as S3ArtifactRepository.get_download_presigned_url.
+        try:
+            url = blob.generate_signed_url(
+                method="GET",
+                version="v4",
+                expiration=datetime.timedelta(seconds=expiration),
+                response_disposition=_attachment_content_disposition(posixpath.basename(dest_path)),
+            )
+        except (AttributeError, GoogleAuthError) as e:
+            # google-cloud-storage raises AttributeError for credentials that cannot sign (user,
+            # Compute Engine / GKE metadata, or anonymous credentials) and GoogleAuthError when
+            # remote signing through IAM fails. Both mean this server cannot presign, so answer 501
+            # and let the client use the Tracking Server instead. The exception is an error that
+            # explicitly marks itself retryable (e.g. a RefreshError for a transient token refresh
+            # failure): that is a temporary outage, not a missing capability, so let it propagate
+            # as an ordinary server error. TransportError is deliberately treated as unsupported:
+            # impersonated credentials raise it both when the IAM `signBlob` retries are exhausted
+            # and when the call is permanently denied (e.g. a missing Token Creator role), and the
+            # two cannot be told apart.
+            if getattr(e, "retryable", False):
+                raise
+            raise _UnsupportedPresignedDownloadException() from e
+        return PresignedDownloadUrlResponse(url=url, headers={}, file_size=blob.size)
 
     @staticmethod
     def _validate_support_mpu():
