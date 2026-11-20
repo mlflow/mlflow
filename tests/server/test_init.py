@@ -11,8 +11,10 @@ import pytest
 
 from mlflow import server
 from mlflow.environment_variables import (
+    _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY,
     _MLFLOW_AUTH_ADMIN_BOOTSTRAPPED,
     _MLFLOW_IN_JOB_EXECUTOR,
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SERVER_BOOT_ID,
     _MLFLOW_SERVER_TLS_LISTENER,
     _MLFLOW_SGI_NAME,
@@ -599,6 +601,57 @@ def test_mlflow_server_shuts_down_on_signal(sig: signal.Signals, tmp_path):
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
+
+
+@pytest.mark.parametrize("app_name", ["custom_app", "basic-auth", None])
+@pytest.mark.parametrize("job_execution_enabled", [True, False])
+def test_run_server_internal_gateway_token(
+    mock_exec_cmd, monkeypatch, tmp_path, app_name, job_execution_enabled
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", str(job_execution_enabled).lower())
+    monkeypatch.setenv("MLFLOW_SQL_TRACE_ROLLUPS_ENABLED", "false")
+    monkeypatch.delenv("MLFLOW_SERVER_JOB_EXECUTION_ENGINE", raising=False)
+    monkeypatch.setenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, "my-secret-key")
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    monkeypatch.delenv(_MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name, raising=False)
+
+    with (
+        mock.patch("mlflow.server.auth.bootstrap_admin_user"),
+        mock.patch("mlflow.server.jobs.utils._check_requirements"),
+        mock.patch("mlflow.server.jobs.executor_registry.validate_executor_config"),
+        mock.patch("mlflow.server.jobs.utils._launch_job_execution_runner") as launch_job_runner,
+        mock.patch("mlflow.server.tempfile.mkdtemp", return_value=str(tmp_path)),
+        mock.patch("mlflow.tracing.trace_rollup_service.validate_sql_trace_rollup_startup"),
+        mock.patch("signal.signal"),
+    ):
+        server._run_server(
+            file_store_path="sqlite:///primary.db",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="localhost",
+            port="5000",
+            app_name=app_name,
+        )
+
+    mock_exec_cmd.assert_called_once()
+    server_env = mock_exec_cmd.call_args.kwargs["extra_env"]
+    token_name = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name
+    signing_key_name = _MLFLOW_ASSISTANT_DELEGATION_SIGNING_KEY.name
+    assert (token_name in server_env) is (app_name is not None)
+    assert (signing_key_name in server_env) is (app_name == "basic-auth")
+    if app_name is not None:
+        assert len(bytes.fromhex(server_env[token_name])) == 32
+
+    if job_execution_enabled:
+        launch_job_runner.assert_called_once()
+        job_env = launch_job_runner.call_args.args[0]
+        assert job_env.get(token_name) == server_env.get(token_name)
+        assert signing_key_name not in job_env
+    else:
+        launch_job_runner.assert_not_called()
 
 
 def test_run_server_bootstraps_basic_auth_admin_before_spawning_workers(mock_exec_cmd, monkeypatch):
