@@ -919,9 +919,12 @@ authenticate_databricks
 def fake_python(tmp_path: Path) -> Path:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    # Records the argv after `-c <snippet>`, joined with "|".
+    # Records the MLFLOW_* env, then the argv after `-c <snippet>` joined with "|".
     script = bin_dir / "python3"
-    script.write_text('#!/bin/sh\nshift 2\nIFS="|"\nprintf "%s\\n" "$*" >> "$0.calls"\n')
+    script.write_text(
+        '#!/bin/sh\nenv | grep "^MLFLOW_" > "$0.env"\nshift 2\nIFS="|"\n'
+        'printf "%s\\n" "$*" >> "$0.calls"\n'
+    )
     script.chmod(0o755)
     return bin_dir
 
@@ -942,6 +945,7 @@ def telemetry_calls(bin_dir: Path, timeout: float = 5) -> list[list[str]]:
         ("exit 0", "success"),
         ("die boom", "failure"),
         ("kill -INT $$", "canceled"),
+        ("kill -TERM $$", "canceled"),
         ("telemetry_send canceled; die boom", "canceled"),
         ("telemetry_send success; exec true", "success"),
     ],
@@ -957,6 +961,69 @@ telemetry_start=123 agent_choice=claude backend=remote telemetry_flags=" agent"
     )
 
     assert telemetry_calls(fake_python) == [[status, "123", "claude", "remote", " agent"]]
+
+
+def test_telemetry_child_drops_credentials(fake_python: Path):
+    run_shell(
+        """
+PATH=$1:$PATH
+export MLFLOW_TRACKING_TOKEN=t MLFLOW_TRACKING_USERNAME=u MLFLOW_TRACKING_PASSWORD=p
+TRACKING_URI=http://mlflow.example.com telemetry_start=123
+telemetry_send failure
+""",
+        str(fake_python),
+    )
+
+    assert len(telemetry_calls(fake_python)) == 1
+    env = dict(
+        line.split("=", 1) for line in (fake_python / "python3.env").read_text().splitlines()
+    )
+    assert env["MLFLOW_TRACKING_URI"] == "http://mlflow.example.com"
+    assert not {"MLFLOW_TRACKING_TOKEN", "MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"} & (
+        env.keys()
+    )
+
+
+def test_inspect_repository_exit_sends_canceled(fake_python: Path, tmp_path: Path):
+    (tmp_path / "not-a-repo").mkdir()
+    result = run_shell(
+        """
+PATH=$1:$PATH
+cd "$2"
+GIT_CEILING_DIRECTORIES=$3
+export GIT_CEILING_DIRECTORIES
+telemetry_start=123
+select_option() { selected_index=0; }
+inspect_repository
+""",
+        str(fake_python),
+        str(tmp_path / "not-a-repo"),
+        str(tmp_path),
+    )
+
+    assert result.returncode == 1
+    assert "Setup cancelled." in result.stderr
+    assert [call[0] for call in telemetry_calls(fake_python)] == ["canceled"]
+
+
+def test_launch_agent_sends_success_before_exec(fake_python: Path, tmp_path: Path):
+    # The agent fails, so a success event can only come from before exec replaced the shell.
+    agent = fake_python / "claude"
+    agent.write_text("#!/bin/sh\nexit 7\n")
+    agent.chmod(0o755)
+    result = run_shell(
+        """
+PATH=$1:$PATH
+repo_root=$2 telemetry_start=123 agent_choice=claude agent_display=Claude
+build_agent_prompt() { printf prompt; }
+launch_agent
+""",
+        str(fake_python),
+        str(tmp_path),
+    )
+
+    assert result.returncode == 7
+    assert [call[0] for call in telemetry_calls(fake_python)] == ["success"]
 
 
 def test_telemetry_not_sent_before_start(fake_python: Path):
@@ -983,7 +1050,7 @@ def test_telemetry_python_records_event(tmp_path: Path, monkeypatch):
     snippet = tmp_path / "telemetry.py"
     snippet.write_text(run_shell('printf "%s" "$telemetry_python"').stdout)
     start = int(time.time()) - 2
-    monkeypatch.setattr(sys, "path", [*sys.path])
+    monkeypatch.setattr(sys, "path", ["", *sys.path])
     monkeypatch.setattr(sys, "argv", ["-c", "failure", str(start), "", "remote", " a b a"])
     client = mock.Mock()
     with (
@@ -998,3 +1065,4 @@ def test_telemetry_python_records_event(tmp_path: Path, monkeypatch):
     assert kwargs["status"] == Status.FAILURE
     assert kwargs["duration_ms"] >= 2000
     client.flush.assert_called_once_with()
+    assert "" not in sys.path

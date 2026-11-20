@@ -138,6 +138,8 @@ telemetry_send() {
 	telemetry_sent="true"
 	(
 		trap '' HUP
+		# The client's server-info probe must not send credentials, possibly over plain HTTP.
+		unset MLFLOW_TRACKING_TOKEN MLFLOW_TRACKING_USERNAME MLFLOW_TRACKING_PASSWORD
 		MLFLOW_TRACKING_URI="${TRACKING_URI:-${MLFLOW_TRACKING_URI:-}}" python3 -c "$telemetry_python" \
 			"$1" "$telemetry_start" "$agent_choice" "$backend" "$telemetry_flags"
 	) </dev/null >/dev/null 2>&1 &
