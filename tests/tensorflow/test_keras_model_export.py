@@ -762,3 +762,43 @@ def test_load_model_refuses_keras_module_on_python_path_when_model_code_executio
     with pytest.raises(MlflowException, match="on the Python path"):
         mlflow.tensorflow.load_model(str(model_dir))
     assert not marker.exists()
+
+
+@pytest.mark.parametrize("save_format", ["h5", "tf"])
+def test_load_model_refuses_keras2_legacy_format_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch, save_format
+):
+    tf_keras = pytest.importorskip("tf_keras")
+
+    marker = tmp_path / "marker"
+    inputs = tf_keras.Input(shape=(1,))
+    outputs = tf_keras.layers.Lambda(lambda x, p=str(marker): (open(p, "w").close(), x)[1])(inputs)
+    model_dir = tmp_path / "model"
+    data_path = model_dir / "data" / "model"
+    data_path.parent.mkdir(parents=True)
+    tf_keras.Model(inputs, outputs).save(
+        str(data_path) + (".h5" if save_format == "h5" else ""), save_format=save_format
+    )
+    marker.unlink()
+    (model_dir / "MLmodel").write_text(
+        "flavors:\n  tensorflow:\n    model_type: keras\n    keras_module: tf_keras\n"
+        f"    save_format: {save_format}\n    data: data\n"
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="a Keras 2 model saved in the H5 or SavedModel"):
+        mlflow.tensorflow.load_model(str(model_dir))
+    assert not marker.exists()
+
+
+@pytest.mark.skipif(
+    Version(getattr(tf.keras, "__version__", "2")).major < 3, reason="Requires Keras 3"
+)
+def test_load_model_allows_keras3_h5_model_when_model_code_execution_disallowed(
+    model, model_path, data, monkeypatch
+):
+    mlflow.tensorflow.save_model(model, path=model_path, keras_model_kwargs={"save_format": "h5"})
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    loaded = mlflow.tensorflow.load_model(model_path)
+    np.testing.assert_allclose(loaded.predict(data[0]), model.predict(data[0]))

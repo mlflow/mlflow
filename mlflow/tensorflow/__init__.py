@@ -13,6 +13,7 @@ import logging
 import os
 import shutil
 import tempfile
+import zipfile
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -65,9 +66,11 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _check_model_code_loading_allowed,
     _copy_extra_files,
     _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
+    _is_model_code_loading_allowed,
     _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -559,6 +562,20 @@ def _load_custom_objects(path, file_name):
             return cloudpickle.load(f)
 
 
+def _check_keras_model_loading_allowed(keras_module, model_path):
+    # Keras 3 refuses `Lambda` layer bytecode by default (`safe_mode=True`) in every format it
+    # loads. Keras 2 (e.g. `tf_keras`) applies `safe_mode` only to the zipped `.keras` format; its
+    # H5 and SavedModel loaders deserialize `Lambda` layer bytecode unconditionally.
+    if _is_model_code_loading_allowed():
+        return
+    keras_version = getattr(keras_module, "__version__", None)
+    if keras_version is not None and Version(keras_version).major >= 3:
+        return
+    if model_path.endswith(".keras") and zipfile.is_zipfile(model_path):
+        return
+    _check_model_code_loading_allowed("a Keras 2 model saved in the H5 or SavedModel format")
+
+
 def _load_keras_model(model_path, keras_module, save_format, **kwargs):
     keras_models = importlib.import_module(keras_module.__name__ + ".models")
     custom_objects = kwargs.pop("custom_objects", {})
@@ -582,6 +599,8 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
     # for older versions of TF.
     elif os.path.exists(model_path + ".keras"):
         model_path += ".keras"
+
+    _check_keras_model_loading_allowed(keras_module, model_path)
 
     import tensorflow as tf
 
