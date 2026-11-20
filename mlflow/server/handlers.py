@@ -1,4 +1,5 @@
 # Define all the service endpoint handlers here.
+import hashlib
 import io
 import json
 import logging
@@ -432,6 +433,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
+    MLFLOW_ISSUE_DETECTION_ERROR,
+    MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_GENAI_EVALUATE,
@@ -5963,6 +5966,66 @@ def _resolve_issue_detection_model(
 # sample from, so a run never reads more traces one way than the other.
 _MAX_DETECTION_TRACE_IDS = MAX_SCHEDULED_SESSION_SAMPLE_SIZE * SAMPLE_POOL_MULTIPLIER
 
+_MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH = 64
+
+_DETECTION_STATUS_BY_RUN_STATUS = {
+    "SCHEDULED": "running",
+    "RUNNING": "running",
+    "FINISHED": "succeeded",
+    "FAILED": "failed",
+    "KILLED": "canceled",
+}
+
+
+def _validate_detection_idempotency_token(token: str) -> None:
+    if len(token) > _MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"`idempotency_token` can be at most {_MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH} "
+            f"characters, got {len(token)}."
+        )
+    if any(unicodedata.category(char) == "Cc" for char in token):
+        raise MlflowException.invalid_parameter_value(
+            "`idempotency_token` must not contain control characters."
+        )
+
+
+def _detection_idempotency_key(token: str) -> str:
+    """
+    The run tag value a DetectIssues request with ``token`` is found by. It includes the caller,
+    so another user's request with the same token starts its own run rather than getting this one.
+    """
+    caller = _get_request_username() or ""
+    return hashlib.sha256(f"{caller}\0{token}".encode()).hexdigest()
+
+
+def _find_detection_run_by_idempotency_key(store, experiment_id: str, key: str):
+    """The experiment's active detection run an earlier request with ``key`` started, if any."""
+    runs = store.search_runs(
+        experiment_ids=[experiment_id],
+        filter_string=f"tags.`{MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY}` = '{key}'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=1,
+        order_by=["attributes.start_time ASC"],
+    )
+    for run in runs:
+        if run.data.tags.get(MLFLOW_RUN_TYPE) == MLFLOW_RUN_TYPE_ISSUE_DETECTION:
+            return run
+    return None
+
+
+def _detection_run_from_run(run) -> IssueDetectionRun:
+    proto = IssueDetectionRun(
+        run_id=run.info.run_id,
+        experiment_id=run.info.experiment_id,
+        status=_DETECTION_STATUS_BY_RUN_STATUS.get(run.info.status, "running"),
+        start_time=run.info.start_time,
+    )
+    if run.info.end_time:
+        proto.end_time = run.info.end_time
+    if run.info.status == "FAILED" and (error := run.data.tags.get(MLFLOW_ISSUE_DETECTION_ERROR)):
+        proto.error_message = error
+    return proto
+
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
@@ -5977,7 +6040,8 @@ def _detect_issues():
     detection over different traces at once. Runs that overlap can refresh the same issues, and
     a run in progress still counts for the scheduler and ``issues/invoke``: a due scheduled
     occurrence waits for a later pass, and loses nothing, since its window still reaches back
-    over the traces it would have covered.
+    over the traces it would have covered. A request with the ``idempotency_token`` of an earlier
+    one from the same caller returns the run that request started.
     """
     from mlflow.genai.discovery.job import _record_failure, invoke_issue_detection_job
     from mlflow.server.jobs import submit_job
@@ -5989,9 +6053,12 @@ def _detect_issues():
             "filter_string": [_assert_string],
             "model": [_assert_string],
             "trace_ids": [_assert_array, _assert_item_type_string],
+            "idempotency_token": [_assert_string],
         },
     )
     experiment_id = request_message.experiment_id
+    if idempotency_token := request_message.idempotency_token:
+        _validate_detection_idempotency_token(idempotency_token)
     filter_string = request_message.filter_string or None
     # Deduplicated while preserving order so a repeated trace is not fetched or analyzed twice.
     trace_ids = list(dict.fromkeys(request_message.trace_ids))
@@ -6018,6 +6085,15 @@ def _detect_issues():
 
     store = _get_tracking_store()
     experiment = store.get_experiment(experiment_id)
+    idempotency_key = _detection_idempotency_key(idempotency_token) if idempotency_token else None
+    # Best effort: two requests with the same token that arrive together can both start a run.
+    if idempotency_key and (
+        started := _find_detection_run_by_idempotency_key(store, experiment_id, idempotency_key)
+    ):
+        response_message = DetectIssues.Response(
+            issue_detection_run=_detection_run_from_run(started)
+        )
+        return _wrap_response(response_message)
     if trace_ids:
         found = {
             info.trace_id
@@ -6044,6 +6120,8 @@ def _detect_issues():
     if trace_ids:
         # A sampled run records its count once the job has sampled.
         tags["total_traces"] = str(len(trace_ids))
+    if idempotency_key:
+        tags[MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY] = idempotency_key
     client = MlflowClient()
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
