@@ -7,10 +7,11 @@ import pytest
 import sqlalchemy
 import sqlalchemy.orm
 
-from mlflow.entities import Metric, ViewType
+from mlflow.entities import ExperimentTag, Metric, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.utils import _get_routing_session_maker
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_KIND
 
 ARTIFACT_URI = "artifact_folder"
 
@@ -314,3 +315,27 @@ def test_write_on_write_session_succeeds(store_with_replica, monkeypatch):
     with store_with_replica.ManagedSessionMaker(read_only=False) as session:
         session.add(SqlExperiment(name="should_succeed", lifecycle_stage="active"))
         session.flush()
+
+
+# --- Inferred experiment kind ---
+
+
+def test_traced_experiment_kind_ignores_stale_replica(tmp_path: Path, write_db_uri, read_db_uri):
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir(exist_ok=True)
+    write_store = SqlAlchemyStore(write_db_uri, str(artifact_uri))
+    experiment_id = write_store.create_experiment("traced")
+    write_store.engine.dispose()
+    # The replica has the experiment but not the kind that is set next
+    shutil.copy(tmp_path / "write.db", tmp_path / "read.db")
+    store = SqlAlchemyStore(write_db_uri, str(artifact_uri), read_db_uri=read_db_uri)
+    store.set_experiment_tag(
+        experiment_id, ExperimentTag(MLFLOW_EXPERIMENT_KIND, "custom_model_development")
+    )
+
+    store._set_traced_experiment_kind(experiment_id)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        experiment = store._get_experiment(session, experiment_id, ViewType.ALL, eager=True)
+        tags = {tag.key: tag.value for tag in experiment.tags}
+    assert tags[MLFLOW_EXPERIMENT_KIND] == "custom_model_development"
