@@ -591,7 +591,7 @@ def test_evaluate_errored_scorer_fails_not_silently_passes(server_config):
 @pytest.mark.parametrize("unscored_value", [None, float("nan")])
 def test_evaluate_without_any_scored_value_does_not_pass(server_config, unscored_value):
     @scorer
-    def unparseable_judge(outputs):
+    def unparsable_judge(outputs):
         return unscored_value
 
     result = mlflow.genai.evaluate(
@@ -599,7 +599,7 @@ def test_evaluate_without_any_scored_value_does_not_pass(server_config, unscored
             {"inputs": {"q": "2+2?"}, "outputs": "5"},
             {"inputs": {"q": "capital of France?"}, "outputs": "Berlin"},
         ],
-        scorers=[unparseable_judge],
+        scorers=[unparsable_judge],
     )
     assert not result.passed
     assert result.reason
