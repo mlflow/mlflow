@@ -176,7 +176,9 @@ others via LiteLLM. Default: `"openai:/text-embedding-3-small"`.
 """,
     "retrieval_fields": """Judge fields embedded for episodic-memory
 retrieval, a non-empty list drawn from `"inputs"`, `"outputs"`, `"expectations"`,
-and `"trace"`. Each field must be referenced by the judge's instructions.
+and `"trace"`. Each field must be referenced by the judge's instructions. A `"trace"`
+field embeds only the root span's request and response text, so combining it with
+`"inputs"` or `"outputs"` mostly repeats them.
 Defaults to the first of inputs/outputs/expectations/conversation/trace referenced by
 the judge's instructions. With multiple fields, examples are ranked by the sum of
 their per-field cosine similarities to the query, so the top examples are close on
