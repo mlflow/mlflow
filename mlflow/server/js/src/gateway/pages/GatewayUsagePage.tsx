@@ -16,6 +16,7 @@ import { createTraceMetadataFilter, AUTH_USER_ID_METADATA_KEY } from '@databrick
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
 import { useUsersQuery } from '../hooks/useUsersQuery';
 import { GatewayChartsPanel } from '../components/GatewayChartsPanel';
+import { getGatewayFeatureFilterOption } from '../utils/gatewayFeatures';
 import GatewayRoutes from '../routes';
 import { TracesV3Logs } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../experiment-tracking/hooks/useMonitoringConfig';
@@ -200,6 +201,7 @@ export const GatewayUsagePage = () => {
           label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
         })),
       },
+      getGatewayFeatureFilterOption(intl),
     ],
     [intl],
   );

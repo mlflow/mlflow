@@ -2,9 +2,12 @@
 # resolve to an authorization decision, or be listed in the debt list
 # _KNOWN_UNGATED_ROUTE_MARKERS.
 
+import ast
 import inspect
 import json
+import os
 import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -12,6 +15,7 @@ from fastapi.routing import iter_route_contexts
 from flask import Flask
 from starlette.routing import Mount, Route
 
+import mlflow
 from mlflow.server import app as server_app
 from mlflow.server import auth as a
 from mlflow.server.auth.routes import CREATE_USER_UI
@@ -181,6 +185,139 @@ def test_gateway_secret_selector_inert_routes_still_drop_the_field():
             "_gateway_secret_selector_not_denied and drop it from "
             "_GATEWAY_SECRET_SELECTOR_INERT_ROUTES."
         )
+
+
+# Functions that decrypt a stored gateway secret.
+_SECRET_DECRYPTION_FUNCTIONS = frozenset({
+    "_decrypt_secret",
+    "_get_decrypted_secret",
+    "_fetch_provider_credentials",
+})
+
+# Every function in ``mlflow/`` allowed to reference one, with the validators that check the
+# caller's permission on the secret. Empty for a pass-through layer, whose callers are listed too.
+_SECRET_DECRYPTION_CALL_SITES = {
+    ("mlflow/store/tracking/sqlalchemy_store.py", "<module>"): (),
+    ("mlflow/store/tracking/sqlalchemy_store.py", "_get_decrypted_secret"): (),
+    ("mlflow/genai/discovery/job.py", "_fetch_provider_credentials"): (),
+    # ``secret_id`` from the request body.
+    ("mlflow/server/handlers.py", "_invoke_issue_detection_handler"): (
+        "validate_can_invoke_issue_detection",
+    ),
+    # ``secretId`` from the schedule tag, checked on the routes that store the tag.
+    ("mlflow/genai/discovery/scheduler.py", "_provider_credentials"): (
+        "validate_can_set_experiment_tag",
+        "validate_can_create_experiment",
+    ),
+    # The gateway decrypts the secret a model definition binds, not one the caller names.
+    ("mlflow/store/tracking/gateway/config_resolver.py", "<module>"): (),
+    ("mlflow/store/tracking/gateway/config_resolver.py", "get_resource_endpoint_configs"): (
+        "validate_can_create_gateway_model_definition",
+        "validate_can_update_gateway_model_definition",
+    ),
+    ("mlflow/store/tracking/gateway/config_resolver.py", "get_endpoint_config"): (
+        "validate_can_create_gateway_model_definition",
+        "validate_can_update_gateway_model_definition",
+        "_validate_gateway_use_permission",
+    ),
+}
+
+
+class _SecretDecryptionReferences(ast.NodeVisitor):
+    def __init__(self):
+        self._scope = ["<module>"]
+        self.functions = set()
+        self.renamed = []
+
+    def _record(self, name):
+        if name in _SECRET_DECRYPTION_FUNCTIONS:
+            self.functions.add(self._scope[-1])
+
+    def visit_FunctionDef(self, node):
+        self._scope.append(node.name)
+        self.generic_visit(node)
+        self._scope.pop()
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_Name(self, node):
+        self._record(node.id)
+
+    def visit_Attribute(self, node):
+        self._record(node.attr)
+        self.generic_visit(node)
+
+    def visit_Constant(self, node):
+        # e.g. ``getattr(store, "_get_decrypted_secret")``
+        if isinstance(node.value, str):
+            self._record(node.value)
+
+    def visit_alias(self, node):
+        name = node.name.rpartition(".")[2]
+        self._record(name)
+        if name in _SECRET_DECRYPTION_FUNCTIONS and node.asname not in (None, name):
+            self.renamed.append(f"{name} as {node.asname}")
+
+
+def _secret_decryption_references():
+    package = Path(mlflow.__file__).parent
+    call_sites = set()
+    renamed = []
+    for directory, subdirectories, filenames in os.walk(package):
+        subdirectories[:] = [d for d in subdirectories if d not in ("js", "node_modules")]
+        for filename in filenames:
+            if not filename.endswith(".py"):
+                continue
+            path = Path(directory, filename)
+            source = path.read_text(encoding="utf-8")
+            # Only parse the few files that mention one of the names.
+            if not any(name in source for name in _SECRET_DECRYPTION_FUNCTIONS):
+                continue
+            references = _SecretDecryptionReferences()
+            references.visit(ast.parse(source))
+            relative_path = path.relative_to(package.parent).as_posix()
+            call_sites.update((relative_path, function) for function in references.functions)
+            renamed.extend(f"{relative_path}: {entry}" for entry in references.renamed)
+    return call_sites, sorted(renamed)
+
+
+def test_secret_decryption_call_sites_are_all_accounted_for():
+    """A gateway secret is decrypted by id with no user attached, so each path that reaches
+    decryption must check the caller itself. A new reference fails here until it is listed with
+    the check that covers it.
+    """
+    call_sites, renamed = _secret_decryption_references()
+
+    assert not renamed, (
+        "Import these under their own names so this guard can follow them: " + ", ".join(renamed)
+    )
+
+    unlisted = sorted(call_sites - _SECRET_DECRYPTION_CALL_SITES.keys())
+    assert not unlisted, (
+        "New code decrypts a stored gateway secret:\n"
+        + "\n".join(f"  {path}::{function}" for path, function in unlisted)
+        + "\nIf the secret id can come from a client (a request field, a tag, any stored "
+        "config a user can write), require USE on that secret from the user who supplied it -- "
+        "at write time if it is used later with no request to authorize -- and add a regression "
+        "test. Then list the call site in _SECRET_DECRYPTION_CALL_SITES with that validator."
+    )
+
+    stale = sorted(_SECRET_DECRYPTION_CALL_SITES.keys() - call_sites)
+    assert not stale, (
+        "These no longer reference a decryption function; remove them from "
+        f"_SECRET_DECRYPTION_CALL_SITES: {stale}"
+    )
+
+    missing = sorted(
+        validator
+        for validators in _SECRET_DECRYPTION_CALL_SITES.values()
+        for validator in validators
+        if not callable(getattr(a, validator, None))
+    )
+    assert not missing, (
+        "_SECRET_DECRYPTION_CALL_SITES names validators that no longer exist in "
+        f"mlflow.server.auth, so those call sites have no check on record: {missing}"
+    )
 
 
 def test_unknown_issue_subpath_fails_closed():

@@ -251,7 +251,7 @@ jobs:
           # Gateway). The orchestrator names exact model versions, so a newer
           # model doesn't get picked up on its own; moving to one takes an
           # orchestrator change and another bump here.
-          ref: a61fa28667286734e33cd10907c345ea5921035f
+          ref: e74c27337cf4b7e69a4b4896b70725b340de53c7
           sparse-checkout: |
             nailaopus
           path: internal

@@ -11,6 +11,7 @@ import { useSecretsQuery } from './useSecretsQuery';
 import type { ProviderModel, Endpoint, CodingAgentType } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 import { isValidEndpointName } from '../utils/gatewayUtils';
+import { hasNonAsciiApiKey } from '../utils/secretUtils';
 import { telemetryClient } from '../../telemetry/TelemetryClient';
 
 export const CODING_AGENT_TAG_KEY = 'mlflow.endpoint.agent';
@@ -296,13 +297,14 @@ export function useCreateEndpointForm({
   );
   const requiresSecretFields = selectedAuthMode?.secret_fields?.some((f) => f.required) ?? true;
   const hasSecretFieldValues = !requiresSecretFields || Object.values(newSecretFields || {}).some((v) => Boolean(v));
+  const hasValidSecretFieldValues = hasSecretFieldValues && !hasNonAsciiApiKey(newSecretFields);
 
   const { data: allSecrets } = useSecretsQuery();
 
   const isSecretConfigured =
     secretMode === 'existing'
       ? Boolean(existingSecretId)
-      : Boolean(newSecretName) && Boolean(newSecretAuthMode) && hasSecretFieldValues;
+      : Boolean(newSecretName) && Boolean(newSecretAuthMode) && hasValidSecretFieldValues;
   // Coding agent endpoints pre-fill all required fields; only the name must be non-empty.
   const isFormComplete = agentConfig ? Boolean(name) : Boolean(provider) && Boolean(modelName) && isSecretConfigured;
 

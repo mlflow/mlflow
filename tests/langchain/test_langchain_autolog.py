@@ -59,13 +59,8 @@ MODEL_DIR = "model"
 # So the expected output will be the prompt itself.
 TEST_CONTENT = "What is MLflow?"
 # The chain under test ends with StrOutputParser, so its output is the JSON string the mock
-# returns. Logged directly to a database, it is stored as that string. Logged through
-# `mlflow server`, RestStore.log_spans sends the decoded value and the server cannot tell it
-# from a raw JSON string sent by a third-party OTel client, so it is parsed into a list.
-# That gap is tracked separately from https://github.com/mlflow/mlflow/issues/26941.
+# returns. It stays a string whether logged directly to a database or through `mlflow server`.
 _EXPECTED_CHAIN_OUTPUT = json.dumps([{"role": "user", "content": TEST_CONTENT}])
-if IS_TRACING_SDK_ONLY:
-    _EXPECTED_CHAIN_OUTPUT = json.loads(_EXPECTED_CHAIN_OUTPUT)
 
 _SIMPLE_MODEL_CODE_PATH = "tests/langchain/sample_code/simple_runnable.py"
 

@@ -949,9 +949,14 @@ class PyFuncModel:
 
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        data, params = _validate_prediction_input(
-            data, params, self.input_schema, self.params_schema, self.loader_module
-        )
+        # A signature inferred from type hints describes `predict`'s batch input, so it does not
+        # apply to the single input of `predict_stream`
+        if self.metadata._is_signature_from_type_hint():
+            params = _enforce_params_schema(params, self.params_schema)
+        else:
+            data, params = _validate_prediction_input(
+                data, params, self.input_schema, self.params_schema, self.loader_module
+            )
         data = _convert_llm_input_data(data)
         if isinstance(data, list):
             # `predict_stream` only accepts single input.
@@ -2831,7 +2836,7 @@ e.g., struct<a:int, b:array<int>>.
                     raise MlflowException(
                         message="Cannot apply udf because no column names specified. The udf "
                         f"expects {len(input_schema.inputs)} columns with types: "
-                        "{input_schema.inputs}. Input column names could not be inferred from the"
+                        f"{input_schema.inputs}. Input column names could not be inferred from the"
                         " model signature (column names not found).",
                         error_code=INVALID_PARAMETER_VALUE,
                     )

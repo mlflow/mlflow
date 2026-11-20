@@ -856,6 +856,25 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "XiaomiMiMo/MiMo-V2.6-Flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.14,
+        "output_per_million_tokens": 0.28,
+        "cache_read_per_million_tokens": 0.0028
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-13"
+    },
     "allenai/olmOCR-7B-0725-FP8": {
       "mode": "chat",
       "context_window": {
@@ -1334,11 +1353,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "deepseek-ai/DeepSeek-V4-Pro-0813": {
       "mode": "chat",
@@ -1354,11 +1373,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": false,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "deepseek-ai/DeepSeek-V4.1-Flash": {
       "mode": "chat",
@@ -2202,11 +2221,11 @@
       "capabilities": {
         "function_calling": true,
         "vision": true,
-        "reasoning": false,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-13"
     },
     "nvidia/Llama-3.1-Nemotron-70B-Instruct": {
       "mode": "chat",
@@ -2303,6 +2322,25 @@
         "response_schema": false
       },
       "last_updated_at": "2026-11-12"
+    },
+    "nvidia/NVIDIA-Nemotron-3.5-Super-VL": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-13"
     },
     "nvidia/NVIDIA-Nemotron-Nano-9B-v2": {
       "mode": "chat",
@@ -2477,6 +2515,26 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "tencent/Hy4-preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.834,
+        "output_per_million_tokens": 2.501,
+        "cache_read_per_million_tokens": 0.042
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-13"
     },
     "thinkingmachines/Inkling": {
       "mode": "chat",
@@ -2656,6 +2714,26 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "zai-org/GLM-5.3-Flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-13"
     }
   }
 }

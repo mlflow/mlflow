@@ -191,6 +191,18 @@ def test_from_huggingface_dataset_digest_is_consistent_for_large_ordered_dataset
     assert mlflow_ds.digest == "1dda4ce8"
 
 
+def test_from_huggingface_dataset_with_no_rows():
+    ds = datasets.Dataset.from_dict({"text": ["a", "b"], "label": [0, 1]}).filter(
+        lambda row: row["label"] > 1
+    )
+    assert ds.num_rows == 0
+
+    mlflow_ds = mlflow.data.from_huggingface(ds, path="x")
+    assert mlflow_ds.digest == "6e10a051"
+    assert mlflow_ds.schema == _infer_schema(ds.to_pandas())
+    assert mlflow_ds.schema.input_names() == ["text", "label"]
+
+
 def test_from_huggingface_dataset_throws_for_dataset_dict():
     ds = datasets.load_dataset("cornell-movie-review-data/rotten_tomatoes")
     assert isinstance(ds, datasets.DatasetDict)

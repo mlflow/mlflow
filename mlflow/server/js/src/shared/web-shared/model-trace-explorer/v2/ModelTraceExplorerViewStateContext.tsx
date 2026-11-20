@@ -11,7 +11,6 @@ import {
   buildModelTraceComparisonForest,
   getDefaultActiveTab,
   parseModelTraceToTreeWithMultipleRoots,
-  searchTreeBySpanId,
 } from './ModelTraceExplorer.utils';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
 import { useModelTraceExplorerPreferences } from './ModelTraceExplorerPreferencesContext';
@@ -165,7 +164,9 @@ export const ModelTraceExplorerViewStateProvider = ({
 
   const nodeMap = useMemo(() => getTimelineTreeNodesMap(topLevelNodes), [topLevelNodes]);
   const selectedSpanOnRender =
-    searchTreeBySpanId(rootNode, selectedSpanIdOnRender) ??
+    (selectedSpanIdOnRender && Object.hasOwn(nodeMap, selectedSpanIdOnRender)
+      ? nodeMap[selectedSpanIdOnRender]
+      : undefined) ??
     (comparisonForest && selectedSpanIdOnRender
       ? (comparisonForest.sourceNodeToDisplayNodeMap[`baseline:${selectedSpanIdOnRender}`] ??
         comparisonForest.sourceNodeToDisplayNodeMap[`candidate:${selectedSpanIdOnRender}`])
@@ -199,14 +200,23 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
   const [showGraph, setShowGraph] = useState(false);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(initialShowTimelineTreeGantt);
+  const adoptedSpanIdRef = useRef(selectedSpanOnRender ? selectedSpanIdOnRender : undefined);
 
   useEffect(() => {
+    // Spend the deep link after landing so later refreshes preserve the user's selection.
+    if (selectedSpanOnRender && adoptedSpanIdRef.current !== selectedSpanIdOnRender) {
+      if (selectedNode?.key !== selectedSpanOnRender.key) {
+        setSelectedNode(selectedSpanOnRender);
+        return;
+      }
+      adoptedSpanIdRef.current = selectedSpanIdOnRender;
+    }
     if (!selectedNode) {
       if (rootNode) setSelectedNode(rootNode);
       return;
     }
     setSelectedNode(nodeMap[String(selectedNode.key)] ?? rootNode ?? topLevelNodes[0]);
-  }, [nodeMap, rootNode, selectedNode, topLevelNodes]);
+  }, [nodeMap, rootNode, selectedNode, selectedSpanIdOnRender, selectedSpanOnRender, topLevelNodes]);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
     if (preferences.assessmentsPaneExpanded !== undefined) {
       return preferences.assessmentsPaneExpanded;
