@@ -538,7 +538,7 @@ class DetectIssues(_message.Message):
         ISSUE_DETECTION_RUN_FIELD_NUMBER: _builtins.int
         @_builtins.property
         def issue_detection_run(self) -> Global___IssueDetectionRun:
-            """The run, which has just started."""
+            """The run that started, or that an earlier request with the same idempotency_token started."""
 
         def __init__(
             self,
@@ -555,6 +555,7 @@ class DetectIssues(_message.Message):
     FILTER_STRING_FIELD_NUMBER: _builtins.int
     MODEL_FIELD_NUMBER: _builtins.int
     TRACE_IDS_FIELD_NUMBER: _builtins.int
+    IDEMPOTENCY_TOKEN_FIELD_NUMBER: _builtins.int
     experiment_id: _builtins.str
     """Experiment ID."""
     filter_string: _builtins.str
@@ -567,6 +568,13 @@ class DetectIssues(_message.Message):
     model: _builtins.str
     """The model the run analyzes traces with, as "<provider>:/<model>" or "gateway:/<endpoint>".
     When unset, the run uses the model saved in the experiment's issue detection schedule.
+    """
+    idempotency_token: _builtins.str
+    """A token the caller generates to make the request safe to retry, such as a random UUID: a new
+    one for each run to start, and the same one when retrying that request. A request with the
+    same token as the caller's earlier request in this experiment returns the run that request
+    started, instead of starting another. Requests with different tokens, or without one, each
+    start a run. At most 64 characters, with no control characters.
     """
     @_builtins.property
     def trace_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
@@ -581,10 +589,11 @@ class DetectIssues(_message.Message):
         filter_string: _builtins.str | None = ...,
         model: _builtins.str | None = ...,
         trace_ids: _abc.Iterable[_builtins.str] | None = ...,
+        idempotency_token: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "model", b"model"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "idempotency_token", b"idempotency_token", "model", b"model"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "model", b"model", "trace_ids", b"trace_ids"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "idempotency_token", b"idempotency_token", "model", b"model", "trace_ids", b"trace_ids"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

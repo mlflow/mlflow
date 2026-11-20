@@ -1,3 +1,4 @@
+import hashlib
 import json
 import urllib.parse
 import uuid
@@ -322,6 +323,9 @@ from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
+    MLFLOW_ISSUE_DETECTION_ERROR,
+    MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY,
+    MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_ISSUE_DETECTION_PRIORITIES,
     MLFLOW_ISSUE_DETECTION_SCHEDULE,
     MLFLOW_RUN_TYPE,
@@ -11849,6 +11853,22 @@ def test_detect_issues_handler_rejects_traces_from_another_experiment(
             "MLFLOW_SERVER_ENABLE_JOB_EXECUTION",
             id="job_execution_disabled",
         ),
+        pytest.param(
+            {"experiment_id": "exp-123", "model": "gateway:/e", "idempotency_token": "t" * 65},
+            {},
+            {},
+            "INVALID_PARAMETER_VALUE",
+            "`idempotency_token` can be at most 64 characters, got 65",
+            id="long_idempotency_token",
+        ),
+        pytest.param(
+            {"experiment_id": "exp-123", "model": "gateway:/e", "idempotency_token": "a\nb"},
+            {},
+            {},
+            "INVALID_PARAMETER_VALUE",
+            "`idempotency_token` must not contain control characters",
+            id="idempotency_token_with_a_control_character",
+        ),
     ],
 )
 def test_detect_issues_handler_rejects_before_creating_a_run(
@@ -11898,6 +11918,177 @@ def test_detect_issues_handler_starts_a_run_while_another_is_in_flight(
     mock_tracking_store.search_runs.assert_not_called()
     detect_issues_client.create_run.assert_called_once()
     mock_submit_job.assert_called_once()
+
+
+def _idempotency_key(caller: str, token: str) -> str:
+    return hashlib.sha256(f"{caller}\0{token}".encode()).hexdigest()
+
+
+def _earlier_detection_run(status="RUNNING", end_time=None, tags=None):
+    run = mock.MagicMock()
+    run.info.run_id = "run-earlier"
+    run.info.experiment_id = "exp-123"
+    run.info.status = status
+    run.info.start_time = 1690000000000
+    run.info.end_time = end_time
+    run.data.tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION, **(tags or {})}
+    return run
+
+
+def test_detect_issues_handler_tags_a_new_run_with_the_idempotency_key(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    mock_tracking_store.search_runs.return_value = []
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "gateway:/e", "idempotency_token": "t-1"},
+        )
+
+    assert resp.status_code == 200
+    key = _idempotency_key("alice", "t-1")
+    search_kwargs = mock_tracking_store.search_runs.call_args.kwargs
+    assert search_kwargs["experiment_ids"] == ["exp-123"]
+    assert search_kwargs["filter_string"] == (
+        f"tags.`{MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY}` = '{key}'"
+    )
+    # The token itself isn't stored: only the hash, which also names the caller.
+    tags = detect_issues_client.create_run.call_args.kwargs["tags"]
+    assert tags[MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY] == key
+    assert "t-1" not in tags.values()
+
+
+@pytest.mark.parametrize(
+    ("earlier", "expected"),
+    [
+        (_earlier_detection_run(), {"status": "running"}),
+        (
+            _earlier_detection_run("FINISHED", end_time=1690000900000),
+            {"status": "succeeded", "end_time": 1690000900000},
+        ),
+        (
+            _earlier_detection_run(
+                "FAILED",
+                end_time=1690000900000,
+                tags={MLFLOW_ISSUE_DETECTION_ERROR: "MlflowException: bad key"},
+            ),
+            {
+                "status": "failed",
+                "end_time": 1690000900000,
+                "error_message": "MlflowException: bad key",
+            },
+        ),
+    ],
+    ids=["running", "succeeded", "failed"],
+)
+def test_detect_issues_handler_returns_the_run_an_earlier_request_with_the_token_started(
+    monkeypatch, mock_tracking_store, detect_issues_client, earlier, expected
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    mock_tracking_store.search_runs.return_value = [earlier]
+    mock_tracking_store.get_run.return_value = earlier
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "gateway:/e", "idempotency_token": "t-1"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.get_json() == {
+        "issue_detection_run": {
+            "run_id": "run-earlier",
+            "experiment_id": "exp-123",
+            "start_time": 1690000000000,
+            **expected,
+        }
+    }
+    detect_issues_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
+def test_detect_issues_handler_reports_a_retried_runs_canceled_job(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    # A retry reports the run as GetIssueDetectionRun does, so a run whose job was just canceled
+    # reads as canceled even before its worker settles it.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    earlier = _earlier_detection_run(tags={MLFLOW_ISSUE_DETECTION_JOB_ID: "job-detect-1"})
+    mock_tracking_store.search_runs.return_value = [earlier]
+    mock_tracking_store.get_run.return_value = earlier
+    job = JobEntity(
+        job_id="job-detect-1",
+        creation_time=1690000000000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123", "run_id": "run-earlier"}',
+        timeout=None,
+        status=JobStatus.CANCELED,
+        result=None,
+        retry_count=0,
+        last_update_time=1690000500000,
+        status_details=None,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.get_job", return_value=job),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "gateway:/e", "idempotency_token": "t-1"},
+        )
+
+    run = resp.get_json()["issue_detection_run"]
+    assert (run["status"], run["end_time"]) == ("canceled", 1690000500000)
+    detect_issues_client.create_run.assert_not_called()
+
+
+def test_detect_issues_handler_ignores_a_non_detection_run_with_the_key(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+    other = _earlier_detection_run()
+    other.data.tags = {}
+    mock_tracking_store.search_runs.return_value = [other]
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "gateway:/e", "idempotency_token": "t-1"},
+        )
+
+    assert resp.get_json()["issue_detection_run"]["run_id"] == "run-detect-1"
+    detect_issues_client.create_run.assert_called_once()
+
+
+def test_detect_issues_idempotency_key_is_scoped_to_the_caller():
+    from mlflow.server.handlers import _detection_idempotency_key
+
+    with mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"):
+        alice = _detection_idempotency_key("t-1")
+    with mock.patch("mlflow.server.handlers._get_request_username", return_value="bob"):
+        bob = _detection_idempotency_key("t-1")
+    with mock.patch("mlflow.server.handlers._get_request_username", return_value=None):
+        nobody = _detection_idempotency_key("t-1")
+
+    assert len({alice, bob, nobody}) == 3
+    assert alice == _idempotency_key("alice", "t-1")
 
 
 def test_detect_issues_handler_fails_the_run_when_submission_fails(

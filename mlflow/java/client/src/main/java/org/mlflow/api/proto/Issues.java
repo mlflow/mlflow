@@ -18626,6 +18626,47 @@ public final class Issues {
      */
     com.google.protobuf.ByteString
         getTraceIdsBytes(int index);
+
+    /**
+     * <pre>
+     * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+     * one for each run to start, and the same one when retrying that request. A request with the
+     * same token as the caller's earlier request in this experiment returns the run that request
+     * started, instead of starting another. Requests with different tokens, or without one, each
+     * start a run. At most 64 characters, with no control characters.
+     * </pre>
+     *
+     * <code>optional string idempotency_token = 5;</code>
+     * @return Whether the idempotencyToken field is set.
+     */
+    boolean hasIdempotencyToken();
+    /**
+     * <pre>
+     * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+     * one for each run to start, and the same one when retrying that request. A request with the
+     * same token as the caller's earlier request in this experiment returns the run that request
+     * started, instead of starting another. Requests with different tokens, or without one, each
+     * start a run. At most 64 characters, with no control characters.
+     * </pre>
+     *
+     * <code>optional string idempotency_token = 5;</code>
+     * @return The idempotencyToken.
+     */
+    java.lang.String getIdempotencyToken();
+    /**
+     * <pre>
+     * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+     * one for each run to start, and the same one when retrying that request. A request with the
+     * same token as the caller's earlier request in this experiment returns the run that request
+     * started, instead of starting another. Requests with different tokens, or without one, each
+     * start a run. At most 64 characters, with no control characters.
+     * </pre>
+     *
+     * <code>optional string idempotency_token = 5;</code>
+     * @return The bytes for idempotencyToken.
+     */
+    com.google.protobuf.ByteString
+        getIdempotencyTokenBytes();
   }
   /**
    * <pre>
@@ -18648,6 +18689,7 @@ public final class Issues {
       filterString_ = "";
       model_ = "";
       traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      idempotencyToken_ = "";
     }
 
     @java.lang.Override
@@ -18708,6 +18750,12 @@ public final class Issues {
               traceIds_.add(bs);
               break;
             }
+            case 42: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000008;
+              idempotencyToken_ = bs;
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -18749,7 +18797,7 @@ public final class Issues {
 
       /**
        * <pre>
-       * The run, which has just started.
+       * The run that started, or that an earlier request with the same idempotency_token started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18758,7 +18806,7 @@ public final class Issues {
       boolean hasIssueDetectionRun();
       /**
        * <pre>
-       * The run, which has just started.
+       * The run that started, or that an earlier request with the same idempotency_token started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18767,7 +18815,7 @@ public final class Issues {
       org.mlflow.api.proto.Issues.IssueDetectionRun getIssueDetectionRun();
       /**
        * <pre>
-       * The run, which has just started.
+       * The run that started, or that an earlier request with the same idempotency_token started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18870,7 +18918,7 @@ public final class Issues {
       private org.mlflow.api.proto.Issues.IssueDetectionRun issueDetectionRun_;
       /**
        * <pre>
-       * The run, which has just started.
+       * The run that started, or that an earlier request with the same idempotency_token started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18882,7 +18930,7 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The run, which has just started.
+       * The run that started, or that an earlier request with the same idempotency_token started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -18894,7 +18942,7 @@ public final class Issues {
       }
       /**
        * <pre>
-       * The run, which has just started.
+       * The run that started, or that an earlier request with the same idempotency_token started.
        * </pre>
        *
        * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19232,7 +19280,7 @@ public final class Issues {
             org.mlflow.api.proto.Issues.IssueDetectionRun, org.mlflow.api.proto.Issues.IssueDetectionRun.Builder, org.mlflow.api.proto.Issues.IssueDetectionRunOrBuilder> issueDetectionRunBuilder_;
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19243,7 +19291,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19258,7 +19306,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19278,7 +19326,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19296,7 +19344,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19320,7 +19368,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19337,7 +19385,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19349,7 +19397,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19364,7 +19412,7 @@ public final class Issues {
         }
         /**
          * <pre>
-         * The run, which has just started.
+         * The run that started, or that an earlier request with the same idempotency_token started.
          * </pre>
          *
          * <code>optional .mlflow.issues.IssueDetectionRun issue_detection_run = 1;</code>
@@ -19686,6 +19734,78 @@ public final class Issues {
       return traceIds_.getByteString(index);
     }
 
+    public static final int IDEMPOTENCY_TOKEN_FIELD_NUMBER = 5;
+    private volatile java.lang.Object idempotencyToken_;
+    /**
+     * <pre>
+     * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+     * one for each run to start, and the same one when retrying that request. A request with the
+     * same token as the caller's earlier request in this experiment returns the run that request
+     * started, instead of starting another. Requests with different tokens, or without one, each
+     * start a run. At most 64 characters, with no control characters.
+     * </pre>
+     *
+     * <code>optional string idempotency_token = 5;</code>
+     * @return Whether the idempotencyToken field is set.
+     */
+    @java.lang.Override
+    public boolean hasIdempotencyToken() {
+      return ((bitField0_ & 0x00000008) != 0);
+    }
+    /**
+     * <pre>
+     * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+     * one for each run to start, and the same one when retrying that request. A request with the
+     * same token as the caller's earlier request in this experiment returns the run that request
+     * started, instead of starting another. Requests with different tokens, or without one, each
+     * start a run. At most 64 characters, with no control characters.
+     * </pre>
+     *
+     * <code>optional string idempotency_token = 5;</code>
+     * @return The idempotencyToken.
+     */
+    @java.lang.Override
+    public java.lang.String getIdempotencyToken() {
+      java.lang.Object ref = idempotencyToken_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          idempotencyToken_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+     * one for each run to start, and the same one when retrying that request. A request with the
+     * same token as the caller's earlier request in this experiment returns the run that request
+     * started, instead of starting another. Requests with different tokens, or without one, each
+     * start a run. At most 64 characters, with no control characters.
+     * </pre>
+     *
+     * <code>optional string idempotency_token = 5;</code>
+     * @return The bytes for idempotencyToken.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getIdempotencyTokenBytes() {
+      java.lang.Object ref = idempotencyToken_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        idempotencyToken_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -19712,6 +19832,9 @@ public final class Issues {
       for (int i = 0; i < traceIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, traceIds_.getRaw(i));
       }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, idempotencyToken_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -19737,6 +19860,9 @@ public final class Issues {
         }
         size += dataSize;
         size += 1 * getTraceIdsList().size();
+      }
+      if (((bitField0_ & 0x00000008) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, idempotencyToken_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -19770,6 +19896,11 @@ public final class Issues {
       }
       if (!getTraceIdsList()
           .equals(other.getTraceIdsList())) return false;
+      if (hasIdempotencyToken() != other.hasIdempotencyToken()) return false;
+      if (hasIdempotencyToken()) {
+        if (!getIdempotencyToken()
+            .equals(other.getIdempotencyToken())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -19796,6 +19927,10 @@ public final class Issues {
       if (getTraceIdsCount() > 0) {
         hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getTraceIdsList().hashCode();
+      }
+      if (hasIdempotencyToken()) {
+        hash = (37 * hash) + IDEMPOTENCY_TOKEN_FIELD_NUMBER;
+        hash = (53 * hash) + getIdempotencyToken().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -19942,6 +20077,8 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000004);
         traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000008);
+        idempotencyToken_ = "";
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -19987,6 +20124,10 @@ public final class Issues {
           bitField0_ = (bitField0_ & ~0x00000008);
         }
         result.traceIds_ = traceIds_;
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          to_bitField0_ |= 0x00000008;
+        }
+        result.idempotencyToken_ = idempotencyToken_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -20059,6 +20200,11 @@ public final class Issues {
             ensureTraceIdsIsMutable();
             traceIds_.addAll(other.traceIds_);
           }
+          onChanged();
+        }
+        if (other.hasIdempotencyToken()) {
+          bitField0_ |= 0x00000010;
+          idempotencyToken_ = other.idempotencyToken_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -20595,6 +20741,138 @@ public final class Issues {
   }
   ensureTraceIdsIsMutable();
         traceIds_.add(value);
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object idempotencyToken_ = "";
+      /**
+       * <pre>
+       * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+       * one for each run to start, and the same one when retrying that request. A request with the
+       * same token as the caller's earlier request in this experiment returns the run that request
+       * started, instead of starting another. Requests with different tokens, or without one, each
+       * start a run. At most 64 characters, with no control characters.
+       * </pre>
+       *
+       * <code>optional string idempotency_token = 5;</code>
+       * @return Whether the idempotencyToken field is set.
+       */
+      public boolean hasIdempotencyToken() {
+        return ((bitField0_ & 0x00000010) != 0);
+      }
+      /**
+       * <pre>
+       * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+       * one for each run to start, and the same one when retrying that request. A request with the
+       * same token as the caller's earlier request in this experiment returns the run that request
+       * started, instead of starting another. Requests with different tokens, or without one, each
+       * start a run. At most 64 characters, with no control characters.
+       * </pre>
+       *
+       * <code>optional string idempotency_token = 5;</code>
+       * @return The idempotencyToken.
+       */
+      public java.lang.String getIdempotencyToken() {
+        java.lang.Object ref = idempotencyToken_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            idempotencyToken_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+       * one for each run to start, and the same one when retrying that request. A request with the
+       * same token as the caller's earlier request in this experiment returns the run that request
+       * started, instead of starting another. Requests with different tokens, or without one, each
+       * start a run. At most 64 characters, with no control characters.
+       * </pre>
+       *
+       * <code>optional string idempotency_token = 5;</code>
+       * @return The bytes for idempotencyToken.
+       */
+      public com.google.protobuf.ByteString
+          getIdempotencyTokenBytes() {
+        java.lang.Object ref = idempotencyToken_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          idempotencyToken_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+       * one for each run to start, and the same one when retrying that request. A request with the
+       * same token as the caller's earlier request in this experiment returns the run that request
+       * started, instead of starting another. Requests with different tokens, or without one, each
+       * start a run. At most 64 characters, with no control characters.
+       * </pre>
+       *
+       * <code>optional string idempotency_token = 5;</code>
+       * @param value The idempotencyToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setIdempotencyToken(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        idempotencyToken_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+       * one for each run to start, and the same one when retrying that request. A request with the
+       * same token as the caller's earlier request in this experiment returns the run that request
+       * started, instead of starting another. Requests with different tokens, or without one, each
+       * start a run. At most 64 characters, with no control characters.
+       * </pre>
+       *
+       * <code>optional string idempotency_token = 5;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearIdempotencyToken() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        idempotencyToken_ = getDefaultInstance().getIdempotencyToken();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * A token the caller generates to make the request safe to retry, such as a random UUID: a new
+       * one for each run to start, and the same one when retrying that request. A request with the
+       * same token as the caller's earlier request in this experiment returns the run that request
+       * started, instead of starting another. Requests with different tokens, or without one, each
+       * start a run. At most 64 characters, with no control characters.
+       * </pre>
+       *
+       * <code>optional string idempotency_token = 5;</code>
+       * @param value The bytes for idempotencyToken to set.
+       * @return This builder for chaining.
+       */
+      public Builder setIdempotencyTokenBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000010;
+        idempotencyToken_ = value;
         onChanged();
         return this;
       }
@@ -23513,18 +23791,19 @@ public final class Issues {
       "unt\030\003 \001(\003\"\207\001\n\021IssueDetectionRun\022\016\n\006run_i" +
       "d\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\016\n\006status" +
       "\030\003 \001(\t\022\022\n\nstart_time\030\004 \001(\003\022\020\n\010end_time\030\005" +
-      " \001(\003\022\025\n\rerror_message\030\006 \001(\t\"\257\001\n\014DetectIs" +
+      " \001(\003\022\025\n\rerror_message\030\006 \001(\t\"\312\001\n\014DetectIs" +
       "sues\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\025\n\rfil" +
       "ter_string\030\002 \001(\t\022\r\n\005model\030\003 \001(\t\022\021\n\ttrace" +
-      "_ids\030\004 \003(\t\032I\n\010Response\022=\n\023issue_detectio" +
-      "n_run\030\001 \001(\0132 .mlflow.issues.IssueDetecti" +
-      "onRun\"w\n\024GetIssueDetectionRun\022\024\n\006run_id\030" +
-      "\001 \001(\tB\004\370\206\031\001\032I\n\010Response\022=\n\023issue_detecti" +
-      "on_run\030\001 \001(\0132 .mlflow.issues.IssueDetect" +
-      "ionRun\"z\n\027CancelIssueDetectionRun\022\024\n\006run" +
-      "_id\030\001 \001(\tB\004\370\206\031\001\032I\n\010Response\022=\n\023issue_det" +
-      "ection_run\030\001 \001(\0132 .mlflow.issues.IssueDe" +
-      "tectionRunB\031\n\024org.mlflow.api.proto\220\001\001"
+      "_ids\030\004 \003(\t\022\031\n\021idempotency_token\030\005 \001(\t\032I\n" +
+      "\010Response\022=\n\023issue_detection_run\030\001 \001(\0132 " +
+      ".mlflow.issues.IssueDetectionRun\"w\n\024GetI" +
+      "ssueDetectionRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032I" +
+      "\n\010Response\022=\n\023issue_detection_run\030\001 \001(\0132" +
+      " .mlflow.issues.IssueDetectionRun\"z\n\027Can" +
+      "celIssueDetectionRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206" +
+      "\031\001\032I\n\010Response\022=\n\023issue_detection_run\030\001 " +
+      "\001(\0132 .mlflow.issues.IssueDetectionRunB\031\n" +
+      "\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -23614,7 +23893,7 @@ public final class Issues {
     internal_static_mlflow_issues_DetectIssues_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_DetectIssues_descriptor,
-        new java.lang.String[] { "ExperimentId", "FilterString", "Model", "TraceIds", });
+        new java.lang.String[] { "ExperimentId", "FilterString", "Model", "TraceIds", "IdempotencyToken", });
     internal_static_mlflow_issues_DetectIssues_Response_descriptor =
       internal_static_mlflow_issues_DetectIssues_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_DetectIssues_Response_fieldAccessorTable = new
