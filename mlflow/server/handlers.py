@@ -4079,15 +4079,15 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
         # so root operations continue to see the existing layout.
         return base if workspace != DEFAULT_WORKSPACE_NAME else artifact_path
 
-    # Case-insensitive because a case-insensitive local store serves ``WORKSPACES/`` as
-    # ``workspaces/``.
-    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.lower().startswith("workspaces/"):
+    # Case-folded because a case-insensitive local store serves ``WORKSPACES/`` (or, with Unicode
+    # case folding, ``work\u017fpaces/``) as ``workspaces/``.
+    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.casefold().startswith("workspaces/"):
         # Legacy default-workspace artifacts never had the workspace prefix; allow them to be served
         # without rewriting as long as the path isn't trying to opt into the reserved namespace.
         return artifact_path
 
     leading_segments = normalized.split("/", 2)
-    if leading_segments and leading_segments[0].lower() == "workspaces":
+    if leading_segments and leading_segments[0].casefold() == "workspaces":
         if len(leading_segments) == 1 or not leading_segments[1]:
             raise MlflowException.invalid_parameter_value(
                 "Artifact paths prefixed with 'workspaces/' must include a workspace name."

@@ -9156,11 +9156,12 @@ def test_get_workspace_scoped_repo_path_if_enabled_default_workspace_cross_acces
 
 
 @pytest.mark.parametrize("workspace", [DEFAULT_WORKSPACE_NAME, "team-a"])
-@pytest.mark.parametrize("prefix", ["WORKSPACES", "Workspaces"])
+@pytest.mark.parametrize("prefix", ["WORKSPACES", "Workspaces", "work\u017fpaces"])
 def test_get_workspace_scoped_repo_path_if_enabled_prefix_ignores_case(
     monkeypatch, workspace, prefix
 ):
-    # A case-insensitive local store serves ``WORKSPACES/`` from ``workspaces/``.
+    # A case-insensitive local store serves ``WORKSPACES/`` from ``workspaces/``, and one that
+    # applies Unicode case folding also serves ``work\u017fpaces/`` from it.
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
 
     with WorkspaceContext(workspace):

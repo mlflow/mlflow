@@ -1245,8 +1245,10 @@ def _artifact_proxy_child_types(artifact_path: str, *, recursive: bool) -> "tupl
     can reach, so stripping a path segment cannot turn a denied delete into a permitted one.
     """
     remainder = _EXPERIMENT_ID_PATTERN.sub("", f"{artifact_path.lstrip('/')}/", count=1)
-    # Lowercased because a case-insensitive local store serves ``MODELS`` as ``models``.
-    segments = [segment.lower() for segment in remainder.split("/") if segment]
+    # Case-folded because a case-insensitive local store serves ``MODELS`` as ``models``, and one
+    # that applies Unicode case folding (macOS APFS) also serves ``model\u017f`` as ``models``,
+    # which ``str.lower()`` does not equate.
+    segments = [segment.casefold() for segment in remainder.split("/") if segment]
     if not segments:
         # The experiment artifact root contains every child tier's subtree.
         return _ARTIFACT_PROXY_EXPERIMENT_ROOT_TIERS if recursive else ()
@@ -1305,7 +1307,7 @@ def _parse_artifact_auth_target(artifact_path: str | None) -> _ArtifactAuthTarge
     workspace = None
     relative_path = resolved
     # Matches the artifact handler, which treats any case of ``workspaces`` as the reserved prefix.
-    if segments[0].lower() == "workspaces":
+    if segments[0].casefold() == "workspaces":
         if len(segments) < 3 or segments[1] in ("", ".", ".."):
             return _ArtifactAuthTarget(invalid=True)
         workspace = segments[1]
