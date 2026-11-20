@@ -68,6 +68,9 @@ they should see, what setup it needs, and whether you need the base behavior to 
 - **Use the user's interface.** A check one layer down does not replace it: check a UI change in
   the browser, not only through its API, and an endpoint change against a running server, not by
   calling its handler. Mock external providers.
+- **Visual changes get both themes.** When a PR changes how the UI looks, such as colors,
+  styling, or a new or restyled component, check it in light and dark. A UI change that only
+  affects logic needs one theme.
 - **Bug fixes need both sides.** Reproduce the failure on the base and the success on the PR with
   identical inputs. Without the base failure you have not shown the PR fixed anything. If you
   cannot reproduce it, say why.
@@ -100,7 +103,7 @@ Before a check that needs a server or a browser, read the matching reference in
 `$trusted_checkout/.claude/skills/verify/references/`:
 
 - `servers.md`: backend and frontend servers, readiness.
-- `browser.md`: `agent-browser` sessions, screenshots, and recordings.
+- `browser.md`: `agent-browser` sessions, themes, screenshots, and recordings.
 
 When setup or a mock fails, fix it and retry. Report a gap only after recovery attempts fail,
 and include the command, the error, and what you tried, so a maintainer can tell an environment
