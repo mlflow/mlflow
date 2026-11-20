@@ -1,28 +1,15 @@
-import ast
-import http.server
 import json
 import os
-import platform
-import re
-import shutil
-import signal
+import runpy
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
-from typing import Any
+from unittest import mock
 
-import certifi
-import charset_normalizer
-import idna
-import packaging
 import pytest
-import requests
-import urllib3
 
-import mlflow.telemetry.constant
-import mlflow.telemetry.utils
+from mlflow.telemetry.schemas import Status
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32", reason="setup.sh tests are flaky on Windows"
@@ -928,542 +915,86 @@ authenticate_databricks
     )
 
 
-TELEMETRY_CONFIG = {
-    "mlflow_version": "3.18.0",
-    "disable_telemetry": False,
-    "rollout_percentage": 100,
-    "disable_sdks": [],
-    "disable_os": [],
-    "disable_events": [],
-    "disable_ui_events": ["agent_setup_script"],
-}
-TELEMETRY_DEPENDENCIES = [requests, packaging, urllib3, idna, certifi, charset_normalizer]
-
-
-def telemetry_ci_vars() -> set[str]:
-    tree = ast.parse(Path(mlflow.telemetry.utils.__file__).read_text())
-    function = next(
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "_is_ci_env_or_testing"
-    )
-    literal = next(node for node in ast.walk(function) if isinstance(node, ast.Set))
-    return {element.value for element in literal.elts}
-
-
-class TelemetryServer(http.server.ThreadingHTTPServer):
-    def __init__(self):
-        super().__init__(("127.0.0.1", 0), TelemetryHandler)
-        self.config = TELEMETRY_CONFIG | {"ingestion_url": f"{self.url}/log"}
-        self.config_status = 200
-        self.config_delay = 0.0
-        self.requests: list[str] = []
-        self.posts: list[dict[str, Any]] = []
-        self.post_statuses: list[int] = []
-
-    @property
-    def url(self) -> str:
-        return f"http://127.0.0.1:{self.server_address[1]}"
-
-
-class TelemetryHandler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.server.requests.append(self.path)
-        time.sleep(self.server.config_delay)
-        body = json.dumps(self.server.config).encode()
-        self.send_response(self.server.config_status)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def do_POST(self):
-        self.server.requests.append(self.path)
-        body = self.rfile.read(int(self.headers["Content-Length"]))
-        self.server.posts.append(json.loads(body))
-        self.send_response(self.server.post_statuses.pop(0) if self.server.post_statuses else 200)
-        self.send_header("Content-Length", "0")
-        self.end_headers()
-
-    def log_message(self, *args):
-        pass
-
-
-class TelemetryHarness:
-    def __init__(self, tmp_path: Path, server: TelemetryServer):
-        self.server = server
-        self.tmp_path = tmp_path
-        self.bin = tmp_path / "bin"
-        self.bin.mkdir()
-        self.site = tmp_path / "site"
-        self.site.mkdir()
-        deps = tmp_path / "deps"
-        deps.mkdir()
-        for module in TELEMETRY_DEPENDENCIES:
-            (deps / module.__name__).symlink_to(Path(module.__file__).parent)
-        self.install("mlflow", "3.18.0")
-        for name in ("python3", "python"):
-            # -S hides the test environment's own mlflow so tests control what is installed.
-            self.write_bin(name, f'exec "{sys.executable}" -S "$@"')
-        self.xdg = tmp_path / "xdg"
-        self.databricks_calls = tmp_path / "databricks.calls"
-        env = {
-            key: value
-            for key, value in os.environ.items()
-            if key not in telemetry_ci_vars()
-            and not key.startswith(("MLFLOW_", "DATABRICKS_", "_MLFLOW_"))
-            and key not in ("DO_NOT_TRACK", "IS_IN_DB_MODEL_SERVING_ENV")
-        }
-        self.env = env | {
-            "NO_COLOR": "1",
-            "TERM": "dumb",
-            "PATH": f"{self.bin}:{os.environ['PATH']}",
-            "PYTHONPATH": f"{self.site}:{deps}",
-            "XDG_CONFIG_HOME": str(self.xdg),
-            "_MLFLOW_SETUP_TELEMETRY_CONFIG_URL": server.url,
-        }
-
-    def install(self, name: str, version: str):
-        dist = self.site / f"{name.replace('-', '_')}-{version}.dist-info"
-        dist.mkdir()
-        (dist / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n")
-
-    def write_bin(self, name: str, body: str):
-        path = self.bin / name
-        path.write_text(f"#!/bin/sh\n{body}\n")
-        path.chmod(0o755)
-
-    def run(
-        self, body: str, shell: str = "sh", new_session: bool = False, **env: str
-    ) -> subprocess.CompletedProcess[str]:
-        command = f"""
-MLFLOW_SETUP_SKIP_MAIN=1
-export MLFLOW_SETUP_SKIP_MAIN
-. "$1"
-shift
-{body}
-"""
-        # Every descendant inherits fd 3, so EOF on it means the detached sender has exited.
-        read_fd, write_fd = os.pipe()
-        process = subprocess.Popen(
-            [shell, "-c", command, shell, str(SETUP_SCRIPT)],
-            env=self.env | env,
-            cwd=self.tmp_path,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            pass_fds=(write_fd,),
-            preexec_fn=lambda: (os.dup2(write_fd, 3), signal.signal(signal.SIGINT, signal.SIG_DFL)),
-            start_new_session=new_session,
-        )
-        os.close(write_fd)
-        stdout, stderr = process.communicate(timeout=30)
-        with os.fdopen(read_fd) as descendants:
-            descendants.read()
-        return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
-
-    def started(self, body: str, **kwargs) -> subprocess.CompletedProcess[str]:
-        return self.run(
-            f"telemetry_start=$(($(date +%s) - 2))\nagent_choice=claude\nbackend=remote\n"
-            f'telemetry_flags=" agent profile agent"\n{body}',
-            **kwargs,
-        )
-
-    def data(self) -> dict[str, Any]:
-        [post] = self.server.posts
-        [record] = post["records"]
-        return record["data"]
-
-
 @pytest.fixture
-def telemetry_server():
-    server = TelemetryServer()
-    thread = threading.Thread(target=server.serve_forever, daemon=True, name="telemetry-server")
-    thread.start()
-    yield server
-    server.shutdown()
-    server.server_close()
+def fake_python(tmp_path: Path) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    # Records the argv after `-c <snippet>`, joined with "|".
+    script = bin_dir / "python3"
+    script.write_text('#!/bin/sh\nshift 2\nIFS="|"\nprintf "%s\\n" "$*" >> "$0.calls"\n')
+    script.chmod(0o755)
+    return bin_dir
 
 
-@pytest.fixture
-def telemetry(tmp_path, telemetry_server):
-    return TelemetryHarness(tmp_path, telemetry_server)
-
-
-def test_telemetry_ci_vars_match_python_client(telemetry):
-    result = telemetry.run('printf "%s" "$telemetry_ci_vars"')
-
-    assert result.returncode == 0, result.stderr
-    assert set(result.stdout.split()) == telemetry_ci_vars()
-
-
-def test_telemetry_body_matches_python_client(telemetry):
-    telemetry.xdg.joinpath("mlflow").mkdir(parents=True)
-    installation_id = "123e4567-e89b-42d3-a456-426614174000"
-    telemetry.xdg.joinpath("mlflow", "telemetry.json").write_text(
-        json.dumps({"installation_id": installation_id})
-    )
-
-    result = telemetry.started(
-        "TRACKING_URI=http://localhost:5000\ntelemetry_post success", MLFLOW_WORKSPACE="team"
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert telemetry.server.requests == ["/3.18.0.json", "/log"]
-    [record] = telemetry.server.posts[0]["records"]
-    assert re.fullmatch(r"[0-9a-f]{32}", record["partition-key"])
-    data = record["data"]
-    assert re.fullmatch(r"[0-9a-f]{32}", data["session_id"])
-    assert data["duration_ms"] >= 2000
-    assert isinstance(data["timestamp_ns"], int)
-    assert json.loads(data["params"]) == {
-        "agent": "claude",
-        "backend": "oss",
-        "flags": ["agent", "profile"],
-    }
-    version = sys.version_info
-    assert {
-        key: data[key]
-        for key in data
-        if key not in {"session_id", "timestamp_ns", "duration_ms", "params"}
-    } == {
-        "source_sdk": "mlflow",
-        "mlflow_version": "3.18.0",
-        "schema_version": 2,
-        "python_version": f"{version.major}.{version.minor}.{version.micro}",
-        "operating_system": platform.platform(),
-        "environment": None,
-        "coding_agent": None,
-        "tracking_uri_scheme": "http",
-        "is_localhost": True,
-        "installation_id": installation_id,
-        "ws_enabled": True,
-        "event_name": "agent_setup_script",
-        "status": "success",
-    }
-
-
-@pytest.mark.parametrize("contents", [None, '{"installation_id": "not-a-uuid"}'])
-def test_telemetry_installation_id_missing_or_invalid(telemetry, contents):
-    if contents:
-        telemetry.xdg.joinpath("mlflow").mkdir(parents=True)
-        telemetry.xdg.joinpath("mlflow", "telemetry.json").write_text(contents)
-
-    telemetry.started("telemetry_post success")
-
-    assert telemetry.data()["installation_id"] is None
-    assert contents or not telemetry.xdg.exists()
-
-
-@pytest.mark.parametrize(
-    ("name", "value"),
-    [
-        ("MLFLOW_DISABLE_TELEMETRY", "true"),
-        ("MLFLOW_DISABLE_TELEMETRY", "1"),
-        ("MLFLOW_DISABLE_TELEMETRY", "yes"),
-        ("MLFLOW_DISABLE_TELEMETRY", ""),
-        ("DO_NOT_TRACK", "TRUE"),
-        ("DO_NOT_TRACK", "1"),
-        ("_MLFLOW_TESTING_TELEMETRY", "maybe"),
-        *[(name, "") for name in sorted(telemetry_ci_vars())],
-    ],
-)
-def test_telemetry_opt_outs(telemetry, name, value):
-    telemetry.write_bin("python3", "exit 9")
-
-    result = telemetry.started("telemetry_post success", **{name: value})
-
-    assert result.returncode == 0, result.stderr
-    assert telemetry.server.requests == []
-
-
-@pytest.mark.parametrize(
-    "env",
-    [
-        {"MLFLOW_DISABLE_TELEMETRY": "false"},
-        {"MLFLOW_DISABLE_TELEMETRY": "0"},
-        {"DO_NOT_TRACK": "yes"},
-        {"_MLFLOW_TESTING_TELEMETRY": "true", "CI": "true", "MLFLOW_DISABLE_TELEMETRY": "1"},
-    ],
-)
-def test_telemetry_env_values_that_still_send(telemetry, env):
-    telemetry.started("telemetry_post success", **env)
-
-    assert len(telemetry.server.posts) == 1
-
-
-def test_telemetry_skips_oss_endpoint_inside_databricks(telemetry):
-    telemetry.started("telemetry_post success", DATABRICKS_RUNTIME_VERSION="15.4")
-
-    assert telemetry.server.requests == ["/3.18.0.json"]
-
-
-def test_telemetry_requires_installed_mlflow(telemetry):
-    shutil.rmtree(telemetry.site)
-    telemetry.site.mkdir()
-
-    telemetry.started("telemetry_post success")
-
-    assert telemetry.server.requests == []
-
-
-@pytest.mark.parametrize("sdk", ["mlflow-skinny", "mlflow-tracing"])
-def test_telemetry_detects_source_sdk(telemetry, sdk):
-    shutil.rmtree(telemetry.site)
-    telemetry.site.mkdir()
-    telemetry.install(sdk, "3.18.0")
-
-    telemetry.started("telemetry_post success")
-
-    assert telemetry.data()["source_sdk"] == sdk
-
-
-def test_telemetry_falls_back_to_python(telemetry):
-    telemetry.write_bin("python3", f'PYTHONPATH= exec "{sys.executable}" -S "$@"')
-
-    telemetry.started("telemetry_post success")
-
-    assert len(telemetry.server.posts) == 1
-
-
-@pytest.mark.parametrize("version", ["3.19.0.dev0", "3.18.0.post1"])
-def test_telemetry_skips_unpublished_versions(telemetry, version):
-    shutil.rmtree(telemetry.site)
-    telemetry.site.mkdir()
-    telemetry.install("mlflow", version)
-
-    telemetry.started("telemetry_post success")
-
-    assert telemetry.server.requests == []
-
-
-@pytest.mark.parametrize(
-    "config",
-    [
-        {"disable_telemetry": True},
-        {"ingestion_url": None},
-        {"mlflow_version": "3.17.0"},
-        {"disable_events": ["other", "agent_setup_script"]},
-        {"disable_sdks": ["mlflow"]},
-        {"disable_os": [sys.platform]},
-        {"rollout_percentage": -1},
-    ],
-)
-def test_telemetry_remote_config_gating(telemetry, config):
-    telemetry.server.config |= config
-
-    telemetry.started("telemetry_post success")
-
-    assert telemetry.server.posts == []
-
-
-def test_telemetry_config_error_sends_nothing(telemetry):
-    telemetry.server.config_status = 403
-
-    telemetry.started("telemetry_post success")
-
-    assert telemetry.server.requests == ["/3.18.0.json"]
-
-
-@pytest.mark.parametrize(
-    ("setup", "host"),
-    [
-        ("PROFILE=DEFAULT", ""),
-        ("WORKSPACE_URL=https://workspace.example.com", "https://workspace.example.com"),
-    ],
-)
-def test_telemetry_databricks_backend_uses_workspace_endpoint(telemetry, setup, host):
-    telemetry.write_bin(
-        "databricks",
-        f'printf "%s\\n" "host=${{DATABRICKS_HOST-unset}}" "$@" > "{telemetry.databricks_calls}"',
-    )
-
-    telemetry.started(
-        f"backend=databricks\nDATABRICKS_BIN={telemetry.bin / 'databricks'}\n{setup}\n"
-        "TRACKING_URI=databricks\ntelemetry_post success",
-        DATABRICKS_RUNTIME_VERSION="15.4",
-    )
-
-    assert telemetry.server.posts == []
-    calls = telemetry.databricks_calls.read_text().splitlines()
-    assert calls[:5] == [
-        f"host={host}",
-        "api",
-        "post",
-        "/api/2.0/mlflow/client-telemetry/ingest",
-        "--json",
-    ]
-    assert calls[6:] == (["--profile", "DEFAULT"] if host == "" else [])
-    [event] = json.loads(calls[5])["events"]
-    assert "params" not in event
-    assert json.loads(event["params_json"])["backend"] == "databricks"
-    assert event["tracking_uri_scheme"] == "databricks"
-    assert event["event_name"] == "agent_setup_script"
-
-
-def test_telemetry_sends_once_and_survives_exec(telemetry):
-    result = telemetry.started("telemetry_send success\ntelemetry_send failure\nexec true")
-
-    assert result.returncode == 0, result.stderr
-    assert telemetry.data()["status"] == "success"
+def telemetry_calls(bin_dir: Path, timeout: float = 5) -> list[list[str]]:
+    calls = bin_dir / "python3.calls"
+    deadline = time.monotonic() + timeout
+    while not calls.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    # Give a duplicate send time to land.
+    time.sleep(0.3)
+    return [line.split("|") for line in calls.read_text().splitlines()] if calls.exists() else []
 
 
 @pytest.mark.parametrize(
     ("body", "status"),
     [
+        ("exit 0", "success"),
         ("die boom", "failure"),
-        ("value=$(die boom)", "failure"),
         ("kill -INT $$", "canceled"),
-        ("kill -TERM $$", "canceled"),
-        ("kill -HUP $$", "canceled"),
-        ("telemetry_send success\ndie boom", "success"),
+        ("telemetry_send canceled; die boom", "canceled"),
+        ("telemetry_send success; exec true", "success"),
     ],
 )
-@pytest.mark.parametrize("shell", ["sh", "bash"])
-def test_telemetry_exit_paths_send_once(telemetry, body, status, shell):
-    result = telemetry.started(body, shell=shell)
-
-    assert result.returncode != 0
-    assert telemetry.data()["status"] == status
-
-
-def test_telemetry_child_survives_sighup(telemetry):
-    telemetry.server.config_delay = 0.8
-
-    result = telemetry.started(
-        "telemetry_send success\nsleep 0.3\nkill -HUP 0\nsleep 5", new_session=True
+def test_telemetry_exit_paths_send_once(fake_python: Path, body: str, status: str):
+    run_shell(
+        f"""
+PATH=$1:$PATH
+telemetry_start=123 agent_choice=claude backend=remote telemetry_flags=" agent"
+{body}
+""",
+        str(fake_python),
     )
 
-    assert result.returncode != 0
-    assert telemetry.data()["status"] == "success"
+    assert telemetry_calls(fake_python) == [[status, "123", "claude", "remote", " agent"]]
 
 
-def test_telemetry_does_not_retry_interpreter_after_other_errors(telemetry):
-    telemetry.write_bin("python3", "exit 1")
+def test_telemetry_not_sent_before_start(fake_python: Path):
+    result = run_shell("PATH=$1:$PATH\nmain --help", str(fake_python))
 
-    telemetry.started("telemetry_post success")
-
-    assert telemetry.server.requests == []
-
-
-def test_telemetry_skipped_before_main_starts(telemetry):
-    telemetry.run("die boom")
-    telemetry.run("exit 0")
-
-    assert telemetry.server.requests == []
+    assert result.returncode == 0, result.stderr
+    assert telemetry_calls(fake_python, timeout=1) == []
 
 
-def test_telemetry_main_manual_path(telemetry):
-    result = telemetry.run(
-        "inspect_repository() { repo_root=$PWD; }\n"
-        "configure_remote() { :; }\n"
-        "show_manual_setup() { :; }\n"
-        'main --agent manual --tracking-uri "https://mlflow.example.com" --experiment-id 1'
+def test_telemetry_records_flag_names_not_values():
+    result = run_shell(
+        'parse_args "$@"\nprintf "%s" "$telemetry_flags"',
+        "--agent",
+        "codex",
+        "--tracking-uri",
+        "--profile",
     )
 
     assert result.returncode == 0, result.stderr
-    data = telemetry.data()
-    assert data["status"] == "success"
-    assert data["tracking_uri_scheme"] == "https"
-    assert data["is_localhost"] is False
-    assert json.loads(data["params"]) == {
-        "agent": "manual",
-        "backend": "oss",
-        "flags": ["agent", "experiment-id", "tracking-uri"],
-    }
+    assert result.stdout.split() == ["agent", "tracking-uri"]
 
 
-def test_telemetry_main_launch_agent_path(telemetry):
-    telemetry.write_bin("claude", "exit 0")
+def test_telemetry_python_records_event(tmp_path: Path, monkeypatch):
+    snippet = tmp_path / "telemetry.py"
+    snippet.write_text(run_shell('printf "%s" "$telemetry_python"').stdout)
+    start = int(time.time()) - 2
+    monkeypatch.setattr(sys, "path", [*sys.path])
+    monkeypatch.setattr(sys, "argv", ["-c", "failure", str(start), "", "remote", " a b a"])
+    client = mock.Mock()
+    with (
+        mock.patch("mlflow.telemetry.track._record_event", autospec=True) as record_event,
+        mock.patch("mlflow.telemetry.client.get_telemetry_client", return_value=client),
+    ):
+        runpy.run_path(str(snippet))
 
-    result = telemetry.run(
-        "inspect_repository() { repo_root=$PWD; }\n"
-        "configure_local() { :; }\n"
-        "choose_backend() { backend=local; }\n"
-        "build_agent_prompt() { printf prompt; }\n"
-        "main --agent claude"
-    )
-
-    assert result.returncode == 0, result.stderr
-    data = telemetry.data()
-    assert data["status"] == "success"
-    assert json.loads(data["params"]) == {"agent": "claude", "backend": "local", "flags": ["agent"]}
-
-
-def test_telemetry_main_early_failure_reports_requested_agent(telemetry):
-    result = telemetry.run("inspect_repository() { die boom; }\nmain --agent codex")
-
-    assert result.returncode == 1
-    data = telemetry.data()
-    assert data["status"] == "failure"
-    assert json.loads(data["params"]) == {"agent": "codex", "backend": None, "flags": ["agent"]}
-
-
-def test_telemetry_ctrl_c_in_selection_is_canceled(telemetry):
-    telemetry.write_bin("stty", "exit 0")
-
-    result = telemetry.run(
-        "telemetry_start=$(date +%s)\nTTY_DEVICE=/dev/null\n"
-        "read_key() { key_code=3; }\nselect_option Question One Two"
-    )
-
-    assert result.returncode == 1
-    assert telemetry.data()["status"] == "canceled"
-
-
-def test_telemetry_exit_choice_is_canceled(telemetry):
-    result = telemetry.run(
-        "telemetry_start=$(date +%s)\nselect_option() { selected_index=0; }\ninspect_repository",
-        GIT_CEILING_DIRECTORIES=str(telemetry.tmp_path.parent),
-    )
-
-    assert result.returncode == 1
-    assert telemetry.data()["status"] == "canceled"
-
-
-def test_telemetry_config_urls_match_python_client():
-    urls = set(
-        re.findall(r'"(https://config[a-z-]*\.mlflow-telemetry\.io)"', SETUP_SCRIPT.read_text())
-    )
-
-    assert urls == {
-        mlflow.telemetry.constant.CONFIG_URL,
-        mlflow.telemetry.constant.CONFIG_STAGING_URL,
-    }
-
-
-def test_telemetry_retries_oss_server_errors(telemetry):
-    telemetry.server.post_statuses = [500, 429]
-
-    telemetry.started("telemetry_post success")
-
-    assert len(telemetry.server.posts) == 3
-
-
-def test_telemetry_dirty_repo_exit_is_canceled(telemetry):
-    repo = telemetry.tmp_path / "repo"
-    repo.mkdir()
-    git = [
-        "git",
-        "-C",
-        str(repo),
-        "-c",
-        "user.name=t",
-        "-c",
-        "user.email=t@example.com",
-        "-c",
-        "commit.gpgsign=false",
-    ]
-    subprocess.check_call([*git, "init", "-q"])
-    (repo / "file.txt").write_text("a")
-    subprocess.check_call([*git, "add", "file.txt"])
-    subprocess.check_call([*git, "commit", "-qm", "init"])
-    (repo / "file.txt").write_text("b")
-
-    result = telemetry.run(
-        f'cd "{repo}"\ntelemetry_start=$(date +%s)\n'
-        "select_option() { selected_index=0; }\ninspect_repository"
-    )
-
-    assert result.returncode == 1
-    assert "Commit or stash the changes" in result.stderr
-    assert telemetry.data()["status"] == "canceled"
+    (event, params), kwargs = record_event.call_args
+    assert event.name == "agent_setup_script"
+    assert params == {"agent": None, "backend": "oss", "flags": ["a", "b"]}
+    assert kwargs["status"] == Status.FAILURE
+    assert kwargs["duration_ms"] >= 2000
+    client.flush.assert_called_once_with()
