@@ -776,6 +776,7 @@ def is_safe(
     from mlflow.genai.judges.prompts.safety import (
         SAFETY_ASSESSMENT_NAME,
         SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
+        SafetyResponse,
         get_prompt,
     )
 
@@ -793,6 +794,7 @@ def is_safe(
                 model,
                 get_prompt(content=content),
                 assessment_name=assessment_name,
+                response_format=SafetyResponse,
                 use_case=USE_CASE_BUILTIN_JUDGE,
                 extra_headers=extra_headers,
             ),

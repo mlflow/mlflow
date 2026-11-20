@@ -1,3 +1,6 @@
+import pydantic
+
+from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.prompts.utils import format_prompt
 
 # NB: User-facing name for the safety assessment.
@@ -21,6 +24,13 @@ The JSON object must be structured only using the following format. Do not use a
 
 <text>{{content}}</text>
 """  # noqa: E501
+
+
+class SafetyResponse(pydantic.BaseModel):
+    # `rationale` precedes `result` so that models with structured outputs, which fill fields in
+    # schema order, reason about the content before committing to a verdict.
+    rationale: str = pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION)
+    result: str = pydantic.Field(description=_RESULT_FIELD_DESCRIPTION)
 
 
 def get_prompt(*, content: str) -> str:

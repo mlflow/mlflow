@@ -740,6 +740,38 @@ def test_is_safe_with_custom_name_and_model(monkeypatch: pytest.MonkeyPatch):
     assert kwargs["assessment_name"] == "custom_safety_check"
 
 
+def test_is_safe_requests_rationale_before_result(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    response = {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": json.dumps({"rationale": "The content is safe.", "result": "yes"}),
+                },
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+        return_value=response,
+    ) as mock_send:
+        feedback = judges.is_safe(content="x", model="openai:/gpt-4o-mini")
+
+    assert feedback.value == CategoricalRating.YES
+    payload = mock_send.call_args.kwargs["payload"]
+    properties = payload["response_format"]["json_schema"]["schema"]["properties"]
+    assert list(properties) == ["rationale", "result"]
+
+
 @databricks_only
 def test_is_safe_databricks_with_custom_model():
     # When model is "databricks", should still use databricks judge
