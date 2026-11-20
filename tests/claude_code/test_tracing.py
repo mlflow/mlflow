@@ -312,3 +312,50 @@ def test_process_sdk_messages_cache_tokens():
     # Trace-level aggregation should match
     assert trace.info.token_usage["input_tokens"] == 36 + 139035 + 23554
     assert trace.info.token_usage["output_tokens"] == 3344
+
+
+@pytest.mark.parametrize(
+    ("cache_creation", "expected_above_1hr"),
+    [
+        ({"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 23554}, 23554),
+        ({"ephemeral_5m_input_tokens": 20000, "ephemeral_1h_input_tokens": 3554}, 3554),
+        ({"ephemeral_5m_input_tokens": 23554, "ephemeral_1h_input_tokens": 0}, 0),
+        ({"ephemeral_5m_input_tokens": 23554}, None),
+        (None, None),
+    ],
+)
+def test_process_sdk_messages_cache_creation_1h_tokens(cache_creation, expected_above_1hr):
+    usage = {
+        "input_tokens": 36,
+        "cache_creation_input_tokens": 23554,
+        "cache_read_input_tokens": 139035,
+        "output_tokens": 3344,
+    }
+    if cache_creation is not None:
+        usage["cache_creation"] = cache_creation
+    messages = [
+        UserMessage(content="Hello"),
+        AssistantMessage(
+            content=[TextBlock(text="Hi!")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=5000,
+            duration_api_ms=4000,
+            is_error=False,
+            num_turns=1,
+            session_id="cache-1h-session",
+            usage=usage,
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "cache-1h-session")
+
+    assert trace is not None
+    token_usage = trace.data.spans[0].get_attribute(SpanAttributeKey.CHAT_USAGE)
+    # The 1-hour portion is a subset of cache_creation_input_tokens, so the totals are unchanged.
+    assert token_usage["cache_creation_input_tokens"] == 23554
+    assert token_usage["input_tokens"] == 36 + 139035 + 23554
+    assert token_usage["total_tokens"] == 36 + 139035 + 23554 + 3344
+    assert token_usage.get("cache_creation_input_tokens_above_1hr") == expected_above_1hr

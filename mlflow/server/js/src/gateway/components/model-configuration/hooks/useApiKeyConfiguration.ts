@@ -16,17 +16,30 @@ interface UseApiKeyConfigurationResult {
   selectedAuthMode: AuthMode | undefined;
   isLoadingProviderConfig: boolean;
   hasExistingSecrets: boolean;
+  /**
+   * Whether the server's own environment already carries a credential for this provider, so no
+   * key needs saving. `undefined` when the answer is unknown -- an older server that does not
+   * report it, or a provider config that could not be read -- so a caller can tell "no credential"
+   * apart from "could not tell" instead of acting on a false.
+   */
+  envCredentialsAvailable: boolean | undefined;
+  /** Set when the stored secrets could not be listed, so `hasExistingSecrets` is not conclusive. */
+  secretsError: Error | undefined;
 }
 
 export function useApiKeyConfiguration({ provider }: UseApiKeyConfigurationOptions): UseApiKeyConfigurationResult {
-  const { data: allSecrets, isLoading: isLoadingSecrets } = useSecretsQuery();
+  const { data: allSecrets, isLoading: isLoadingSecrets, error: secretsError } = useSecretsQuery();
 
   const existingSecrets = useMemo(() => {
     if (!allSecrets || !provider) return [];
     return allSecrets.filter((secret) => secret.provider === provider);
   }, [allSecrets, provider]);
 
-  const { data: providerConfig, isLoading: isLoadingProviderConfig } = useProviderConfigQuery({
+  const {
+    data: providerConfig,
+    isLoading: isLoadingProviderConfig,
+    error: providerConfigError,
+  } = useProviderConfigQuery({
     provider,
   });
 
@@ -54,5 +67,7 @@ export function useApiKeyConfiguration({ provider }: UseApiKeyConfigurationOptio
     selectedAuthMode: getSelectedAuthMode(defaultAuthMode),
     isLoadingProviderConfig,
     hasExistingSecrets: existingSecrets.length > 0,
+    envCredentialsAvailable: providerConfigError ? undefined : providerConfig?.env_credentials_available,
+    secretsError,
   };
 }

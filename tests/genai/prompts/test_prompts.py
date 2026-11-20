@@ -1,4 +1,5 @@
 import json
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -515,6 +516,19 @@ def test_format_prompt_with_backslashes(
 ):
     result = format_prompt(prompt_template, **values)
     assert result == expected
+
+
+def test_prompt_version_format_does_not_replace_placeholders_inside_values():
+    prompt = PromptVersion(
+        "chat",
+        1,
+        [{"role": "system", "content": "Docs: {{docs}}"}, {"role": "user", "content": "{{name}}"}],
+    )
+
+    assert prompt.format(docs="Jinja greets with 'Hello {{ name }}!'", name="Ada") == [
+        {"role": "system", "content": "Docs: Jinja greets with 'Hello {{ name }}!'"},
+        {"role": "user", "content": "Ada"},
+    ]
 
 
 def test_load_prompt_with_link_to_model_disabled():
@@ -2124,3 +2138,58 @@ def test_concurrent_prompt_linking_to_run_and_trace():
     assert trace_linked_prompts is not None
     trace_prompts = json.loads(trace_linked_prompts)
     assert any(p["name"] == "test" for p in trace_prompts)
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "Hello, {{name}}!",
+        [{"role": "user", "content": "Hello, {{name}}!"}],
+    ],
+)
+@pytest.mark.parametrize(
+    "key",
+    [
+        "mlflow.prompt.text",
+        "_mlflow_prompt_type",
+        "mlflow.prompt.is_prompt",
+        "_mlflow_prompt_response_format",
+    ],
+)
+def test_prompt_version_reserved_tags_are_immutable(template, key):
+    mlflow.genai.register_prompt(name="immutable_prompt", template=template)
+    client = MlflowClient()
+    match = f"Tag '{re.escape(key)}' is set when the prompt version is registered"
+
+    with pytest.raises(MlflowException, match=match):
+        mlflow.genai.set_prompt_version_tag("immutable_prompt", 1, key, "modified")
+    with pytest.raises(MlflowException, match=match):
+        client.set_prompt_version_tag("immutable_prompt", 1, key, "modified")
+    with pytest.raises(MlflowException, match=match):
+        mlflow.genai.delete_prompt_version_tag("immutable_prompt", 1, key)
+    with pytest.raises(MlflowException, match=match):
+        client.delete_prompt_version_tag("immutable_prompt", 1, key)
+
+    prompt = mlflow.genai.load_prompt("prompts:/immutable_prompt/1", cache_ttl_seconds=0)
+    assert prompt.template == template
+
+
+def test_prompt_version_non_template_tags_remain_mutable():
+    mlflow.genai.register_prompt(name="mutable_tags_prompt", template="Hi {{name}}")
+
+    mlflow.genai.set_prompt_version_tag("mutable_tags_prompt", 1, "env", "prod")
+    mlflow.genai.set_prompt_model_config(
+        "mutable_tags_prompt", 1, PromptModelConfig(model_name="gpt-5")
+    )
+    prompt = mlflow.genai.load_prompt("prompts:/mutable_tags_prompt/1", cache_ttl_seconds=0)
+    assert prompt.tags == {"env": "prod"}
+    assert prompt.model_config == {"model_name": "gpt-5"}
+
+    mlflow.genai.delete_prompt_version_tag("mutable_tags_prompt", 1, "env")
+    mlflow.genai.delete_prompt_model_config("mutable_tags_prompt", 1)
+    prompt = mlflow.genai.load_prompt("prompts:/mutable_tags_prompt/1", cache_ttl_seconds=0)
+    assert "env" not in prompt.tags
+    assert prompt.model_config is None
+
+    mlflow.genai.register_prompt(name="mutable_tags_prompt", template="Bye {{name}}")
+    assert mlflow.genai.load_prompt("prompts:/mutable_tags_prompt/2").template == "Bye {{name}}"

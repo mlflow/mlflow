@@ -151,7 +151,17 @@ class MlflowUtils {
         url += `/tree/${branchName}/${fileDir}`;
       }
     }
-    return url;
+    return url && MlflowUtils.isValidHttpUrl(url) ? url : null;
+  }
+
+  static isValidHttpUrl(str: any) {
+    // The URL() constructor will throw on invalid URL
+    try {
+      const url = new URL(str);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (err) {
+      return false;
+    }
   }
 
   static getNotebookRevisionId(tags: any) {

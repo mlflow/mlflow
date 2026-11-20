@@ -7,6 +7,7 @@ import math
 import os
 import sys
 import threading
+import tokenize
 from contextlib import contextmanager
 from contextvars import ContextVar, copy_context
 from dataclasses import asdict, dataclass, fields
@@ -25,6 +26,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers._scorer_execution import get_scorer_execution
 from mlflow.genai.scorers.ensemble import (
     BOOL_ENSEMBLES,
     BUILTIN_ENSEMBLES,
@@ -38,6 +40,8 @@ from mlflow.genai.scorers.scorer_utils import (
     THIRD_PARTY_SCORER_REGISTRATION_NOT_SUPPORTED_ON_DATABRICKS_ERROR,
     _obj_has_call_source,
     _parse_serialized_scorer,
+    custom_scorer_without_source_error_message,
+    extract_function_body,
 )
 from mlflow.telemetry.events import ScorerCallEvent
 from mlflow.telemetry.track import record_usage_event
@@ -136,6 +140,18 @@ class ScorerSamplingConfig:
 
 
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
+
+
+def _to_python_scalar(value: Any) -> Any:
+    """
+    Convert a NumPy scalar (e.g. ``np.bool_``, ``np.int64``), which is not a subclass of the
+    matching Python primitive, to that primitive. NumPy is looked up lazily so this module
+    stays importable without it.
+    """
+    np = sys.modules.get("numpy")
+    if np is not None and isinstance(value, np.generic):
+        return value.item()
+    return value
 
 
 def _extract_scorer_value(result: Any) -> Any:
@@ -342,19 +358,27 @@ def _in_job_executor() -> bool:
 
 
 def _is_tracking_server_process() -> bool:
-    """True in the tracking server process or a subprocess it spawned.
+    """True in the tracking server, a subprocess it spawned, or an ``mlflow.server.app`` request.
 
     ``mlflow server`` sets ``_MLFLOW_SERVER_BOOT_ID`` at startup, and worker and job subprocesses
     inherit it. A server started by importing the app directly (for example
-    ``gunicorn mlflow.server:app`` or ``uvicorn mlflow.server.fastapi_app:app``) has no boot id, so
-    also honor ``mlflow.server``'s own ``is_running_as_server`` detection when that module is
-    already loaded. Otherwise such a server would be misclassified as a client and reconstruct
-    custom scorer code in the server process, defeating the confinement.
+    ``gunicorn mlflow.server:app`` or ``uvicorn mlflow.server.fastapi_app:app``) has no boot id,
+    so also honor ``mlflow.server``'s own detection when that module is already loaded:
+    ``is_running_as_server``, which recognizes some WSGI/ASGI servers, and
+    ``_is_serving_request()``, which is true in the app's request context under any of them.
+    Otherwise such a server would be misclassified as a client and reconstruct custom scorer code
+    in the server process, defeating the confinement.
     """
     if _MLFLOW_SERVER_BOOT_ID.get() is not None:
         return True
     server_module = sys.modules.get("mlflow.server")
-    return bool(server_module is not None and getattr(server_module, "is_running_as_server", False))
+    if server_module is None:
+        return False
+    # `mlflow.server` may still be initializing, so its attributes might not exist yet.
+    if getattr(server_module, "is_running_as_server", False):
+        return True
+    is_serving_request = getattr(server_module, "_is_serving_request", None)
+    return is_serving_request is not None and is_serving_request()
 
 
 def _should_reconstruct_scorer_code() -> bool:
@@ -991,7 +1015,11 @@ class Scorer(BaseModel):
         # Filter to only the parameters the function actually expects
         sig = inspect.signature(self.__call__)
         filtered = {k: v for k, v in merged.items() if k in sig.parameters}
-        result = self(**filtered)
+        result = _to_python_scalar(self(**filtered))
+        # Feedback values are JSON-serialized when logged, which fails for NumPy scalars
+        for feedback in result if isinstance(result, list) else [result]:
+            if isinstance(feedback, Feedback):
+                feedback.value = _to_python_scalar(feedback.value)
         if not (
             # TODO: Replace 'Assessment' with 'Feedback' once we migrate from the agent eval harness
             isinstance(result, (int, float, bool, str, Assessment, LegacyAssessment))
@@ -1037,6 +1065,10 @@ class Scorer(BaseModel):
         # scorer directly, so a Scorer.run frame stays on its stack for telemetry callsite lookup.
         ctx = copy_context()
         outcome: dict[str, Any] = {}
+        execution = get_scorer_execution()
+        done = threading.Event() if execution is not None else None
+        if execution is not None:
+            execution.start()
 
         def _target() -> None:
             _in_scorer_timeout.set(True)
@@ -1044,14 +1076,22 @@ class Scorer(BaseModel):
                 outcome["value"] = self.run(**kwargs)
             except BaseException as e:  # re-surface whatever the scorer raised on the caller
                 outcome["error"] = e
+            finally:
+                if execution is not None:
+                    done.set()
+                    execution.notify_completion()
 
         thread = threading.Thread(
             target=lambda: ctx.run(_target), name=f"MlflowScorer-{self.name}", daemon=True
         )
         thread.start()
         # Thread.join rejects values above TIMEOUT_MAX; clamp so a huge timeout just means "wait".
-        thread.join(min(timeout, threading.TIMEOUT_MAX))
-        if thread.is_alive():
+        if execution is None:
+            thread.join(min(timeout, threading.TIMEOUT_MAX))
+            completed = not thread.is_alive()
+        else:
+            completed = execution.wait(done, timeout)
+        if not completed:
             # Warn so a climbing thread count from timed-out scorers is diagnosable.
             _logger.warning("Scorer '%s' timed out after %s seconds.", self.name, timeout)
             raise MlflowTimeoutError(
@@ -1216,6 +1256,7 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
+        self._check_has_source_code()
         store = _get_scorer_store()
         # Create a new scorer instance
         new_scorer = self._create_copy()
@@ -1286,6 +1327,7 @@ class Scorer(BaseModel):
         )
 
         self._check_can_be_registered()
+        self._check_has_source_code()
 
         sample_rate = sampling_config.sample_rate
         if not isinstance(sample_rate, (int, float)):
@@ -1511,6 +1553,32 @@ class Scorer(BaseModel):
         if self._cached_dump is not None:
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
         return copy
+
+    def _check_has_source_code(self) -> None:
+        """Reject a custom scorer whose function body is empty or cannot be read.
+
+        Such a scorer would be saved without source code, and could never run. This reads the
+        body without caching a serialized form on the scorer, so later changes to it still apply.
+        """
+        if self.kind == ScorerKind.ENSEMBLE:
+            for sub_scorer in self._scorers:
+                sub_scorer._check_has_source_code()
+            return
+        if self.kind != ScorerKind.DECORATOR:
+            return
+        if self._cached_dump is not None:
+            call_source = self._cached_dump.get("call_source")
+        else:
+            try:
+                call_source, _ = extract_function_body(self._original_func)
+            except (OSError, TypeError, SyntaxError, tokenize.TokenError):
+                # For example, a function defined with `exec` or in a REPL, or one whose file was
+                # changed after it was imported and no longer parses.
+                call_source = None
+        if not (call_source or "").strip():
+            raise MlflowException.invalid_parameter_value(
+                custom_scorer_without_source_error_message(self.name)
+            )
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store

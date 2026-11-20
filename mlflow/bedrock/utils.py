@@ -56,7 +56,9 @@ _USAGE_DOCS = """The provider-specific usage dictionary. This function will atte
                 - cache_read_input_tokens / cacheReadInputTokens / cacheReadInputTokenCount:
                   Tokens read from the prompt cache
                 - cache_creation_input_tokens / cacheWriteInputTokens / cacheWriteInputTokenCount:
-                  Tokens written to the prompt cache"""
+                  Tokens written to the prompt cache
+                - cache_creation.ephemeral_1h_input_tokens / cacheDetails entries with
+                  ttl "1h": The portion of the cache write tokens with a 1-hour TTL"""
 
 
 def _validate_usage_input(usage_data: Any) -> bool:
@@ -75,6 +77,26 @@ def _extract_token_value_by_keys(d: dict[str, Any], names: Sequence[str]) -> int
         The first integer value found for any of the provided keys, or None if none exist.
     """
     return next((d[name] for name in names if name in d and isinstance(d[name], int)), None)
+
+
+def _extract_1h_cache_creation_tokens(usage_data: dict[str, Any]) -> int | None:
+    match usage_data:
+        # Anthropic-native InvokeModel bodies
+        case {"cache_creation": {"ephemeral_1h_input_tokens": int(tokens)}}:
+            return tokens
+        # Converse API, which breaks cacheWriteInputTokens down per TTL
+        case {"cacheDetails": list(details)}:
+            return sum(
+                detail["inputTokens"]
+                for detail in details
+                if isinstance(detail, dict)
+                and detail.get("ttl") == "1h"
+                and isinstance(detail.get("inputTokens"), int)
+            )
+        # Usage already standardized by parse_partial_token_usage_from_response (streaming)
+        case {TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: int(tokens)}:
+            return tokens
+    return None
 
 
 def capture_exception(logging_message: str):
@@ -151,6 +173,8 @@ def parse_complete_token_usage_from_response(
         token_usage_data[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
     if cache_creation is not None:
         token_usage_data[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+    if (above_1hr := _extract_1h_cache_creation_tokens(usage_data)) is not None:
+        token_usage_data[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
 
     if cache_total := (cache_read or 0) + (cache_creation or 0):
         # Bedrock reports input tokens excluding tokens read from or written to the
@@ -207,6 +231,8 @@ def parse_partial_token_usage_from_response(usage_data: dict[str, Any]) -> dict[
         cache_creation := _extract_token_value_by_keys(usage_data, CACHE_CREATION_TOKEN_KEYS)
     ) is not None:
         token_usage_data[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+    if (above_1hr := _extract_1h_cache_creation_tokens(usage_data)) is not None:
+        token_usage_data[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
 
     # If no token usage data was found, return None. Otherwise, return the partial dictionary.
     return token_usage_data or None

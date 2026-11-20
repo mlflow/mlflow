@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import type {
   ModelTraceInfoV3,
   RenderExportTracesToDatasetsModalParams,
@@ -7,13 +7,15 @@ import { isEvaluatingTracesInDetailsViewEnabled } from '@databricks/web-shared/m
 import { type GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import {
-  useRunScorerInTracesViewConfiguration,
-  useRunJudgesOnTracesConfiguration,
+  type useRunScorerInTracesViewConfiguration,
+  useRunScorerInTracesViewConfigurationForExperiment,
+  useRunJudgesOnTracesConfigurationForExperiment,
 } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { ExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { AddToReviewQueueDropdown } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-review-queue/AddToReviewQueueDropdown';
 import { useEditExperimentTraceTags } from '@mlflow/mlflow/src/experiment-tracking/components/traces/hooks/useEditExperimentTraceTags';
 import { getTracesTagKeys } from '@databricks/web-shared/genai-traces-table';
+import type { TracesV4NotifyApi } from './useTracesV4Notifications';
 
 /**
  * The shared trace-action building blocks the v4 Traces tab wires into both the detail drawer and
@@ -56,11 +58,13 @@ export const useTracesV4TraceActions = (
   experimentId: string,
   pageTraces: ModelTraceInfoV3[],
   onTagsUpdated: () => void,
+  notify: TracesV4NotifyApi,
 ): TracesV4TraceActions => {
   const getTrace: GetTraceFunction = getTraceV3;
 
-  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
-  const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(
+  const runJudgeConfiguration = useRunScorerInTracesViewConfigurationForExperiment(experimentId);
+  const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner } = useRunJudgesOnTracesConfigurationForExperiment(
+    experimentId,
     runJudgeConfiguration.evaluateTraces,
     runJudgeConfiguration.allEvaluations,
     runJudgeConfiguration.subscribeToScorerFinished,
@@ -75,10 +79,15 @@ export const useTracesV4TraceActions = (
     existingTagKeys: getTracesTagKeys(pageTraces),
   });
 
+  const AddToReviewQueueDropdownWithNotifications = useCallback<typeof AddToReviewQueueDropdown>(
+    (props) => <AddToReviewQueueDropdown {...props} notify={notify} />,
+    [notify],
+  );
+
   const actions: TracesV4TraceActions = {
     getTrace,
     renderExportTracesToDatasetsModal: ExportTracesToDatasetModal,
-    AddToReviewQueueDropdown,
+    AddToReviewQueueDropdown: AddToReviewQueueDropdownWithNotifications,
     editTags: { showEditTagsModalForTrace, EditTagsModal },
     runJudges,
   };

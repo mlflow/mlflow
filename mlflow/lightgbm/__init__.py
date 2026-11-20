@@ -913,10 +913,10 @@ def autolog(
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
-                tmp_list[callbacks_index] += [callback]
+                tmp_list[callbacks_index] = [*tmp_list[callbacks_index], callback]
                 args = tuple(tmp_list)
             elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
-                kwargs["callbacks"] += [callback]
+                kwargs["callbacks"] = [*kwargs["callbacks"], callback]
             else:
                 kwargs["callbacks"] = [callback]
 

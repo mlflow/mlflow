@@ -2,6 +2,8 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
+from pydantic import ValidationError
+
 from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
@@ -29,7 +31,7 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
     try:
         if tools := _parse_tools(inputs):
             set_span_chat_tools(span, tools)
-    except MlflowException:
+    except (MlflowException, ValidationError):
         _logger.debug("Failed to set chat tools on span", exc_info=True)
 
     # Set model name if available

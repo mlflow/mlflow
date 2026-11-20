@@ -161,6 +161,21 @@ def test_filter_json_by_fields_partial_matches():
     assert filtered == expected
 
 
+def test_filter_json_by_fields_preserves_null_values():
+    data = {
+        "info": {"trace_id": "tr-123", "request_preview": None},
+        "data": {"spans": [{"name": "root", "parent_span_id": None}]},
+    }
+    filtered = filter_json_by_fields(
+        data, ["info.request_preview", "data.spans.*.parent_span_id", "info.nonexistent"]
+    )
+    expected = {
+        "info": {"request_preview": None},
+        "data": {"spans": [{"parent_span_id": None}]},
+    }
+    assert filtered == expected
+
+
 def test_validate_field_paths_valid():
     data = {"info": {"trace_id": "tr-123", "assessments": [{"feedback": {"value": 0.8}}]}}
     # Should not raise any exception

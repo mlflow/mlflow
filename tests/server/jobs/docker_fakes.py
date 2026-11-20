@@ -15,6 +15,19 @@ class FakeContainer:
         self.killed = False
         self.removed = False
         self.on_wait = client.on_wait
+        # Set by a test to make Docker report that the container ran out of memory.
+        self.oom_killed = False
+        self.reloads = 0
+        # Like docker-py, ``attrs`` is a snapshot from when the container started, refreshed only
+        # by ``reload()``.
+        self.attrs = self._inspect()
+
+    def _inspect(self):
+        return {"State": {"OOMKilled": self.oom_killed}}
+
+    def reload(self):
+        self.reloads += 1
+        self.attrs = self._inspect()
 
     def _output_dir(self):
         for host, spec in self.kwargs["volumes"].items():

@@ -372,6 +372,10 @@ const config: Config = {
             to: '/self-hosting/webhooks',
             from: ['/ml/webhooks'],
           },
+          {
+            to: '/self-hosting/job-containers',
+            from: ['/genai/eval-monitor/scorers/custom/job-containers'],
+          },
           // Redirect to the new self-hosting guide
           {
             to: '/self-hosting/architecture/tracking-server',

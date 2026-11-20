@@ -34,6 +34,7 @@ from mlflow.models.evaluation.utils.trace import configure_autologging_for_evalu
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
+    GenAiSemconvKey,
     SpanAttributeKey,
     TraceMetadataKey,
     TraceTagKey,
@@ -209,7 +210,22 @@ def _extract_tool_name_from_span(span: Span) -> str:
         call_data = inputs.get("call")
         if isinstance(call_data, dict) and "tool_name" in call_data:
             return call_data["tool_name"]
+    if isinstance(tool_name := span.attributes.get(GenAiSemconvKey.TOOL_NAME), str):
+        return tool_name
     return span.name
+
+
+# Google ADK adds this TOOL span when a model response calls several tools at once. It merges
+# the responses of its sibling tool spans and is not a tool call itself.
+_GOOGLE_ADK_MERGED_TOOL_NAME = "(merged tools)"
+
+
+def _search_tool_call_spans(trace: Trace) -> list[Span]:
+    return [
+        span
+        for span in trace.search_spans(span_type=SpanType.TOOL)
+        if span.attributes.get(GenAiSemconvKey.TOOL_NAME) != _GOOGLE_ADK_MERGED_TOOL_NAME
+    ]
 
 
 def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
@@ -235,7 +251,7 @@ def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
     from mlflow.genai.utils.type import FunctionCall
 
     tools_called = []
-    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+    tool_spans = _search_tool_call_spans(trace)
 
     for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
         tool_info = FunctionCall(
@@ -909,6 +925,7 @@ def clean_up_extra_traces(
     eval_start_time: int,
     experiment_id: str,
     input_trace_ids: set[str] | None = None,
+    keep_untagged_run_traces: bool = False,
 ) -> None:
     """
     Clean up noisy traces generated outside predict function.
@@ -924,12 +941,21 @@ def clean_up_extra_traces(
         experiment_id: The experiment ID of the evaluation run.
         input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
             These traces should never be deleted.
+        keep_untagged_run_traces: If True, do not delete traces that were created during
+            the evaluation run but lack ``mlflow.eval.requestId``. Use this when a
+            ``predict_fn`` row missed the eval tag so the failure is missing assessments
+            rather than deleted traces.
     """
     try:
         extra_trace_ids = [
             trace.info.trace_id
             for trace in traces
-            if not _should_keep_trace(trace, eval_start_time, input_trace_ids)
+            if not _should_keep_trace(
+                trace,
+                eval_start_time,
+                input_trace_ids,
+                keep_untagged_run_traces=keep_untagged_run_traces,
+            )
         ]
         if extra_trace_ids:
             _logger.debug(
@@ -955,6 +981,7 @@ def _should_keep_trace(
     trace: Trace,
     eval_start_time: int,
     input_trace_ids: set[str] | None = None,
+    keep_untagged_run_traces: bool = False,
 ) -> bool:
     # Never delete traces that were explicitly passed in the input DataFrame.
     if input_trace_ids and trace.info.trace_id in input_trace_ids:
@@ -972,7 +999,9 @@ def _should_keep_trace(
         return True
 
     # Otherwise, only keep traces from the prediction function.
-    return TraceTagKey.EVAL_REQUEST_ID in trace.info.tags
+    if TraceTagKey.EVAL_REQUEST_ID in trace.info.tags:
+        return True
+    return keep_untagged_run_traces
 
 
 def construct_eval_result_df(

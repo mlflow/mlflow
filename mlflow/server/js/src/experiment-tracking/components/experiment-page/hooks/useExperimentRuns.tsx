@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useDispatch } from 'react-redux';
 import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
-import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
+import { loadMoreRunsApi, RUNS_SEARCH_MAX_RESULTS, SEARCH_RUNS_API, searchRunsApi } from '../../../actions';
 import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { createSearchRunsParams, fetchModelVersionsForRuns } from '../utils/experimentPage.fetch-utils';
 import type { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
@@ -17,6 +17,11 @@ import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../../commo
 import Utils from '../../../../common/utils/Utils';
 import { useExperimentRunsAutoRefresh } from './useExperimentRunsAutoRefresh';
 import type { RunEntity, SearchRunsApiResponse } from '../../../types';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
+import type { CursorPaginationProps } from '@databricks/design-system';
+import { fulfilled, rejected } from '../../../../common/utils/ActionUtils';
+
+const RUNS_PAGE_SIZE_OPTIONS = [RUNS_SEARCH_MAX_RESULTS, 250, 500];
 
 export type FetchRunsHookParams = ReturnType<typeof createSearchRunsParams> & {
   requestedFacets: ExperimentPageSearchFacetsState;
@@ -26,7 +31,11 @@ export type FetchRunsHookFunction = (
   params: FetchRunsHookParams,
   options?: {
     isAutoRefreshing?: boolean;
-    discardResultsFn?: (lastRequestedParams: FetchRunsHookParams, response?: SearchRunsApiResponse) => boolean;
+    isCancelled?: () => boolean;
+    prepareResults?: (
+      lastRequestedParams: FetchRunsHookParams,
+      response: SearchRunsApiResponse,
+    ) => SearchRunsApiResponse | null;
   },
 ) => Promise<{ runs: RunEntity[]; next_page_token?: string }>;
 
@@ -35,11 +44,18 @@ const createFetchRunsRequestParams = (
   searchFacets: ExperimentQueryParamsSearchFacets | null,
   experimentIds: string[],
   runsPinned: string[],
+  pageSize: number,
 ): FetchRunsHookParams | null => {
   if (!searchFacets || !experimentIds.length) {
     return null;
   }
-  const searchParams = createSearchRunsParams(experimentIds, { ...searchFacets, runsPinned }, Date.now());
+  const searchParams = createSearchRunsParams(
+    experimentIds,
+    { ...searchFacets, runsPinned },
+    Date.now(),
+    undefined,
+    pageSize,
+  );
   return { ...searchParams, requestedFacets: searchFacets };
 };
 
@@ -54,6 +70,17 @@ export const useExperimentRuns = (
   disabled = false,
 ) => {
   const dispatch = useDispatch<ThunkDispatch>();
+  const [storedPageSize, setPageSize] = useLocalStorage({
+    key: 'runs_page.page_size',
+    version: 0,
+    initialValue: RUNS_SEARCH_MAX_RESULTS,
+  });
+  const pageSize = RUNS_PAGE_SIZE_OPTIONS.includes(storedPageSize) ? storedPageSize : RUNS_SEARCH_MAX_RESULTS;
+  const pageSizeSelect: NonNullable<CursorPaginationProps['pageSizeSelect']> = {
+    options: RUNS_PAGE_SIZE_OPTIONS,
+    default: pageSize,
+    onChange: setPageSize,
+  };
 
   const [runsData, setRunsData] = useState<ExperimentRunsSelectorResult>(() => createEmptyRunsResult());
 
@@ -126,20 +153,47 @@ export const useExperimentRuns = (
           setIsLoadingRuns(true);
           lastRequestedParams.current = fetchParams;
         }
-        return thunkDispatch((fetchParams.pageToken ? loadMoreRunsApi : searchRunsApi)(fetchParams))
+        const requestedParams = lastRequestedParams.current;
+        const isObsolete = () =>
+          Boolean(
+            options.isAutoRefreshing && (options.isCancelled?.() || lastRequestedParams.current !== requestedParams),
+          );
+        const action = (fetchParams.pageToken ? loadMoreRunsApi : searchRunsApi)(fetchParams);
+        // Background pages are published together after the refresh is complete and still current.
+        const response = options.isAutoRefreshing
+          ? action.payload.then(
+              (value: SearchRunsApiResponse) => ({ value }),
+              (error: ErrorWrapper | PredefinedError) => {
+                if (!isObsolete()) {
+                  thunkDispatch({ ...action, type: rejected(action.type), payload: error, error: true });
+                }
+                throw error;
+              },
+            )
+          : thunkDispatch(action);
+        return response
           .then(async ({ value }) => {
+            if (isObsolete()) {
+              return { runs: [] };
+            }
+            const results =
+              lastRequestedParams.current && options.prepareResults
+                ? options.prepareResults(lastRequestedParams.current, value)
+                : value;
+            if (!results) {
+              return value;
+            }
+            if (options.isAutoRefreshing) {
+              thunkDispatch({ ...action, type: fulfilled(SEARCH_RUNS_API), payload: results });
+            }
             lastFetchedTime.current = Date.now();
 
             setIsLoadingRuns(false);
             setIsInitialLoadingRuns(false);
             setRequestError(null);
 
-            if (lastRequestedParams.current && options.discardResultsFn?.(lastRequestedParams.current, value)) {
-              return value;
-            }
-
             lastSuccessfulRequestedParams.current = fetchParams;
-            setNextPageToken(value.next_page_token || null);
+            setNextPageToken(results.next_page_token || null);
 
             // We rely on redux reducer to update the state with new runs data,
             // then we pick it up from the store. This benefits other pages that use same data
@@ -147,10 +201,13 @@ export const useExperimentRuns = (
             setResultRunsData(getStore(), fetchParams.experimentIds, fetchParams.requestedFacets);
 
             // In the end, load model versions for the fetched runs
-            loadModelVersions(value.runs || []);
+            loadModelVersions(results.runs || []);
             return value;
           })
           .catch((e: ErrorWrapper | PredefinedError) => {
+            if (isObsolete()) {
+              return;
+            }
             setIsLoadingRuns(false);
             setIsInitialLoadingRuns(false);
             if (shouldUsePredefinedErrorsInExperimentTracking()) {
@@ -180,14 +237,14 @@ export const useExperimentRuns = (
     if (disabled) {
       return;
     }
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
+    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current, pageSize);
     if (requestParams) {
       fetchRuns(requestParams);
     }
-  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds]);
+  }, [fetchRuns, dispatch, disabled, searchFacets, experimentIds, pageSize]);
 
   const loadMoreRuns = async () => {
-    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current);
+    const requestParams = createFetchRunsRequestParams(searchFacets, experimentIds, cachedPinnedRuns.current, pageSize);
     if (!nextPageToken || !requestParams) {
       return [];
     }
@@ -196,11 +253,12 @@ export const useExperimentRuns = (
 
   const refreshRuns = useCallback(() => {
     if (lastSuccessfulRequestedParams.current) {
-      fetchRuns({ ...lastSuccessfulRequestedParams.current, pageToken: undefined });
+      fetchRuns({ ...lastSuccessfulRequestedParams.current, pageToken: undefined, maxResults: pageSize });
     }
-  }, [fetchRuns]);
+  }, [fetchRuns, pageSize]);
 
   useExperimentRunsAutoRefresh({
+    pageSize,
     experimentIds,
     fetchRuns,
     searchFacets,
@@ -212,6 +270,7 @@ export const useExperimentRuns = (
   });
 
   return {
+    pageSizeSelect,
     isLoadingRuns,
     moreRunsAvailable: Boolean(nextPageToken),
     refreshRuns,

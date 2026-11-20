@@ -452,6 +452,18 @@ def test_importing_the_scorer_jobs_first_registers_every_job_function():
     subprocess.check_call([sys.executable, "-c", code])
 
 
+def test_loading_job_functions_does_not_import_the_evaluation_harness():
+    # Every job runner and huey consumer loads all job functions at startup; the harness eagerly
+    # imports heavy optional dependencies such as litellm, which those processes never use.
+    code = (
+        "import sys\n"
+        "import mlflow.server.jobs._job_runner\n"
+        "assert 'mlflow.genai.scorers.job' in sys.modules\n"
+        "assert 'mlflow.genai.evaluation.harness' not in sys.modules\n"
+    )
+    subprocess.check_call([sys.executable, "-c", code])
+
+
 @pytest.mark.parametrize(
     ("backend", "custom_scorers_enabled", "expected"),
     [

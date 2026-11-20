@@ -1,9 +1,12 @@
 import { HoverCard, Overflow, Tag, useDesignSystemTheme } from '@databricks/design-system';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
-import { RunPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { shouldEnableExperimentIssuesTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
 import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
+
+import { useVisibleIssueIds } from '../../model-trace-explorer/hooks/useVisibleIssueReferences';
 
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
@@ -17,14 +20,16 @@ const IssueTag = ({ issue }: { issue: Issue }) => {
   const navigate = useNavigate();
 
   const handleClick = async () => {
+    // The experiment Issues tab is the only destination for an issue, so there is nowhere to go
+    // while it is disabled. Issues logged by an earlier build can outlive the flag being turned
+    // back off, and their tags would otherwise navigate to a Page Not Found.
+    if (!shouldEnableExperimentIssuesTab()) {
+      return;
+    }
     try {
       const issueData = await getIssue(issue.id);
-      if (issueData.source_run_id && issueData.experiment_id) {
-        const baseUrl = Routes.getIssueDetectionRunDetailsTabRoute(
-          issueData.experiment_id,
-          issueData.source_run_id,
-          RunPageTabName.ISSUES,
-        );
+      if (issueData.experiment_id) {
+        const baseUrl = Routes.getExperimentPageTabRoute(issueData.experiment_id, ExperimentPageTabName.Issues);
         const params = new URLSearchParams({ [SELECTED_ISSUE_ID_PARAM]: issue.id });
         const url = `${baseUrl}?${params.toString()}`;
         navigate(url);
@@ -48,13 +53,17 @@ const IssueTag = ({ issue }: { issue: Issue }) => {
 
 const IssuesList = ({ issues, isComparing }: { issues: Issue[] | undefined; isComparing: boolean }) => {
   const { theme } = useDesignSystemTheme();
+  // A trace keeps its reference to an issue after someone marks it "Not an issue", so the column
+  // listed findings that had already been ruled out.
+  const visibleIssueIds = useVisibleIssueIds((issues ?? []).map(({ id }) => id));
+  const visibleIssues = (issues ?? []).filter(({ id }) => visibleIssueIds.has(id));
 
-  if (!issues || issues.length === 0) {
+  if (visibleIssues.length === 0) {
     return <NullCell isComparing={isComparing} />;
   }
 
-  const firstIssue = issues[0];
-  const remainingIssues = issues.slice(1);
+  const firstIssue = visibleIssues[0];
+  const remainingIssues = visibleIssues.slice(1);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, minWidth: 0 }}>

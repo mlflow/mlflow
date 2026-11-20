@@ -12,6 +12,7 @@ import { FormattedMessage } from 'react-intl';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'papa... Remove this comment to see the full error message
 import Papa from 'papaparse';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
@@ -27,8 +28,7 @@ const ShowArtifactTableView = ({
   getArtifact,
   isLoggedModelsMode,
   loggedModelId,
-  experimentId,
-  entityTags,
+  artifactRootUri,
 }: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState();
@@ -39,14 +39,13 @@ const ShowArtifactTableView = ({
   const MAX_NUM_ROWS = 500;
 
   useEffect(() => {
+    let cancelled = false;
     resetState();
 
     function fetchArtifacts() {
-      fetchArtifactUnified?.(
-        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
-        getArtifact,
-      )
+      fetchArtifactUnified?.({ runUuid, path, artifactRootUri, isLoggedModelsMode, loggedModelId }, getArtifact)
         .then((artifactText: any) => {
+          if (cancelled) return;
           try {
             const result = Papa.parse(artifactText, {
               header: true,
@@ -69,13 +68,17 @@ const ShowArtifactTableView = ({
           }
         })
         .catch((e: any) => {
+          if (cancelled) return;
           setError(e);
           setLoading(false);
         });
     }
 
     fetchArtifacts();
-  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
+    return () => {
+      cancelled = true;
+    };
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, artifactRootUri]);
 
   function resetState() {
     // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
@@ -93,7 +96,7 @@ const ShowArtifactTableView = ({
     return <ArtifactViewSkeleton className="artifact-text-view-loading" />;
   }
   if (error) {
-    return <div className="artifact-text-view-error">Oops we couldn't load your file because of an error.</div>;
+    return <ArtifactViewErrorState error={error} className="artifact-text-view-error" />;
   }
 
   if (data) {

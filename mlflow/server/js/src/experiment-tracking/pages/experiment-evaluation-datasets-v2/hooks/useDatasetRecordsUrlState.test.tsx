@@ -156,4 +156,20 @@ describe('useDatasetRecordsUrlState', () => {
     expect(result.current.sort).toBe('created_by');
     expect(result.current.dir).toBe('desc');
   });
+  test('reads the runs panel state from the URL, unless a record is open', async () => {
+    expect((await mountHook('/p?runsPanel=true')).result.current.isRunsPanelOpen).toBe(true);
+    expect((await mountHook('/p?runsPanel=true&recordId=r-1')).result.current.isRunsPanelOpen).toBe(false);
+  });
+
+  test('the runs panel and record panel URL states are mutually exclusive', async () => {
+    const { result } = await mountHook('/p?recordId=r-old');
+
+    act(() => result.current.setRunsPanelOpen(true));
+    expect(new URLSearchParams(lastSearch).get('runsPanel')).toBe('true');
+    expect(new URLSearchParams(lastSearch).get('recordId')).toBeNull();
+
+    act(() => result.current.setRecordId('r-new'));
+    expect(new URLSearchParams(lastSearch).get('recordId')).toBe('r-new');
+    expect(new URLSearchParams(lastSearch).get('runsPanel')).toBeNull();
+  });
 });

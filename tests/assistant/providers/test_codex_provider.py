@@ -1091,6 +1091,33 @@ async def test_astream_in_sandbox_forwards_registry_uri(monkeypatch):
     assert "MLFLOW_REGISTRY_URI" not in env
 
 
+@pytest.mark.parametrize(
+    ("codex_key", "openai_key", "expected_codex_key"),
+    [
+        # `codex exec` reads CODEX_API_KEY, so a server with only OPENAI_API_KEY still
+        # authenticates.
+        (None, "sk-openai", "sk-openai"),
+        ("", "sk-openai", "sk-openai"),
+        ("sk-codex", "sk-openai", "sk-codex"),
+        ("sk-codex", None, "sk-codex"),
+        (None, None, None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_astream_in_sandbox_sets_codex_api_key(
+    monkeypatch, codex_key, openai_key, expected_codex_key
+):
+    monkeypatch.setattr("mlflow.assistant.providers.codex.assistant_sandbox_enabled", lambda: True)
+    for name, value in [("CODEX_API_KEY", codex_key), ("OPENAI_API_KEY", openai_key)]:
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    env = await _capture_sandbox_env(CodexProvider())
+    assert env.get("CODEX_API_KEY") == expected_codex_key
+    assert env.get("OPENAI_API_KEY") == (openai_key or None)
+
+
 @pytest.mark.asyncio
 async def test_astream_in_sandbox_rewrites_loopback_base_url(monkeypatch):
     # A loopback OPENAI_BASE_URL is rewritten so the CLI can reach the host from the container;

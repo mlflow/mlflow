@@ -15,10 +15,13 @@ import base64
 import json
 import logging
 import time
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from google.protobuf.json_format import Error as ProtoJsonError
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.json_format import Parse as ParseJsonProto
 from google.protobuf.message import DecodeError
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
@@ -28,7 +31,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 
 from mlflow.entities.span import Span
 from mlflow.exceptions import MlflowException
-from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.handlers import _HANDLER_BLOCKED_TRACE_TAGS, _get_tracking_store
 from mlflow.server.otlp_metrics import (
     INGESTION_ERRORS,
     REQUEST_DURATION,
@@ -38,6 +41,8 @@ from mlflow.server.otlp_metrics import (
 )
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
@@ -94,14 +99,35 @@ def _convert_otlp_json_ids_to_base64(body: bytes) -> bytes:
     for resource_span in data.get("resourceSpans", []):
         for scope_span in resource_span.get("scopeSpans", []):
             for span in scope_span.get("spans", []):
-                for field in _OTLP_HEX_ID_FIELDS:
-                    if hex_val := span.get(field):
-                        span[field] = base64.b64encode(bytes.fromhex(hex_val)).decode("ascii")
+                for span_or_link in [span, *(span.get("links") or [])]:
+                    for field in _OTLP_HEX_ID_FIELDS:
+                        if hex_val := span_or_link.get(field):
+                            span_or_link[field] = base64.b64encode(bytes.fromhex(hex_val)).decode(
+                                "ascii"
+                            )
     return json.dumps(data).encode("utf-8")
 
 
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
+
+
+def log_missing_experiment_id_header() -> None:
+    # OTel exporters don't print response bodies, so without this the server logs only the
+    # access line for a rejected export.
+    _logger.warning(
+        "Rejecting OTLP trace export request to %s: missing or empty required '%s' header. "
+        "Set it on the exporter, e.g. OTEL_EXPORTER_OTLP_TRACES_HEADERS=%s=<experiment id>.",
+        OTLP_TRACES_PATH,
+        MLFLOW_EXPERIMENT_ID_HEADER,
+        MLFLOW_EXPERIMENT_ID_HEADER,
+    )
+
+
+def is_missing_experiment_id_header_error(path: str, errors: Sequence[Mapping[str, Any]]) -> bool:
+    return path.rstrip("/").endswith(OTLP_TRACES_PATH) and any(
+        tuple(error.get("loc", ())) == ("header", MLFLOW_EXPERIMENT_ID_HEADER) for error in errors
+    )
 
 
 @otel_router.post("", status_code=200)
@@ -121,7 +147,7 @@ async def export_traces(
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
 
-    This endpoint accepts OTLP/HTTP protobuf trace export requests.
+    This endpoint accepts OTLP/HTTP protobuf and JSON trace export requests.
     Protobuf format reference: https://opentelemetry.io/docs/specs/otlp/#binary-protobuf-encoding
 
     Note: All spans in the batch are persisted in a single log_spans() call. If that
@@ -129,7 +155,7 @@ async def export_traces(
     supported; clients that need per-trace error isolation should batch by trace.
 
     Args:
-        request: OTel ExportTraceServiceRequest in protobuf format
+        request: OTel ExportTraceServiceRequest in protobuf or JSON format
         x_mlflow_experiment_id: Required header containing the experiment ID
         x_mlflow_run_id: Optional header containing the run ID to associate with ingested traces
         content_type: Content-Type header from the request
@@ -138,11 +164,18 @@ async def export_traces(
         x_mlflow_workspace: Optional workspace header if using MLflow workspaces
 
     Returns:
-        FastAPI Response with ExportTraceServiceResponse in protobuf format
+        FastAPI Response with ExportTraceServiceResponse, encoded to match the request
 
     Raises:
         HTTPException: If the request is invalid or span logging fails
     """
+    if not x_mlflow_experiment_id.strip():
+        log_missing_experiment_id_header()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The '{MLFLOW_EXPERIMENT_ID_HEADER}' header must not be empty.",
+        )
+
     start_time = time.perf_counter()
 
     try:
@@ -211,6 +244,9 @@ async def export_traces(
                 for otel_proto_span in scope_span.spans:
                     try:
                         mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
+                        mlflow_span._span._attributes = strip_otlp_double_encoding(
+                            mlflow_span._span._attributes
+                        )
 
                         # Propagate service.name onto root spans so it's visible
                         # in the UI. Per the OTel resource spec, resource attrs
@@ -221,6 +257,12 @@ async def export_traces(
                             if resource_service_name:
                                 mlflow_span._span._attributes["service.name"] = (
                                     dump_span_attribute_value(resource_service_name)
+                                )
+                            # Root span "mlflow.traceTag.<key>" attributes become trace tags,
+                            # so drop the system-managed ones like the trace handlers do.
+                            for key in _HANDLER_BLOCKED_TRACE_TAGS:
+                                mlflow_span._span._attributes.pop(
+                                    SpanAttributeKey.TRACE_TAG_PREFIX + key, None
                                 )
 
                         all_spans.append(mlflow_span)
@@ -290,8 +332,11 @@ async def export_traces(
 
                 _record_event(TracesReceivedByServerEvent, event_params)
 
-        # Return protobuf response as per OTLP specification
+        # Per the OTLP spec, the response must use the same encoding as the request:
+        # https://opentelemetry.io/docs/specs/otlp/#otlphttp-response
         response_message = ExportTraceServiceResponse()
+        if media_type == "application/json":
+            return JSONResponse(content=MessageToDict(response_message), status_code=200)
         response_bytes = response_message.SerializeToString()
         return Response(
             content=response_bytes,

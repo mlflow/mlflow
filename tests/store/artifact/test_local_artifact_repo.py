@@ -1,3 +1,4 @@
+import functools
 import io
 import json
 import os
@@ -28,6 +29,118 @@ def local_artifact_repo(local_artifact_root):
     from mlflow.utils.file_utils import path_to_local_file_uri
 
     return LocalArtifactRepository(artifact_uri=path_to_local_file_uri(local_artifact_root))
+
+
+@pytest.mark.parametrize(
+    ("windows", "path"), [(True, "folder/model.txt"), (False, "folder./model:stream")]
+)
+def test_local_artifact_roundtrip_preserves_platform_names(
+    local_artifact_repo, tmp_path_factory, monkeypatch, windows, path
+):
+    if not windows and os.name == "nt":
+        pytest.skip("POSIX names require a POSIX filesystem.")
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: windows)
+    monkeypatch.setattr("mlflow.store.artifact.local_artifact_repo.is_windows", lambda: windows)
+    source = tmp_path_factory.mktemp("source")
+    folder, name = path.rsplit("/", 1)
+    (source / name).write_text("x")
+    local_artifact_repo.log_artifacts(str(source), artifact_path=folder)
+    assert [f.path for f in local_artifact_repo.list_artifacts(folder)] == [path]
+    assert pathlib.Path(local_artifact_repo.download_artifacts(path)).read_text() == "x"
+    local_artifact_repo.delete_artifacts(folder)
+    assert local_artifact_repo.list_artifacts() == []
+
+
+@pytest.mark.parametrize("path", ["folder./file.txt", "folder /file.txt", "FOLDER~1/file.txt"])
+@pytest.mark.parametrize("operation", ["get_local_path", "_download_file"])
+def test_local_artifact_reads_reject_windows_aliases(
+    local_artifact_repo, monkeypatch, path, operation
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    args = (path,) if operation == "get_local_path" else (path, "unused")
+    with pytest.raises(MlflowException, match="Invalid path"):
+        getattr(local_artifact_repo, operation)(*args)
+
+
+@pytest.mark.parametrize(
+    "path", ["folder.", "folder ", "FOLDER~1", "file:stream", "folder.\\file.txt"]
+)
+@pytest.mark.parametrize("operation", ["list_artifacts", "delete_artifacts"])
+def test_local_artifact_operations_reject_windows_aliases(
+    local_artifact_repo, monkeypatch, path, operation
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path"):
+        getattr(local_artifact_repo, operation)(path)
+
+
+@pytest.mark.parametrize("name", ["file:stream", "file.txt.", "FILE~1"])
+def test_local_artifact_rejected_upload_leaves_no_directory(
+    local_artifact_repo, local_artifact_root, monkeypatch, name
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path"):
+        local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"x"), name, artifact_path="newdir")
+    assert not (pathlib.Path(local_artifact_root) / "newdir").exists()
+
+
+@pytest.mark.parametrize("artifact_path", ["folder.", "folder ", "FOLDER~1", "nested/folder."])
+@pytest.mark.parametrize("operation", ["log_artifact", "log_artifact_from_stream"])
+def test_local_artifact_upload_rejects_windows_alias_artifact_path(
+    local_artifact_repo,
+    local_artifact_root,
+    monkeypatch,
+    tmp_path_factory,
+    artifact_path,
+    operation,
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    if operation == "log_artifact":
+        src_file = tmp_path_factory.mktemp("source") / "source.txt"
+        src_file.write_text("x")
+        call = functools.partial(
+            local_artifact_repo.log_artifact, str(src_file), artifact_path=artifact_path
+        )
+    else:
+        call = functools.partial(
+            local_artifact_repo.log_artifact_from_stream,
+            io.BytesIO(b"x"),
+            "source.txt",
+            artifact_path=artifact_path,
+        )
+    with pytest.raises(MlflowException, match="Invalid path"):
+        call()
+    assert list(pathlib.Path(local_artifact_root).iterdir()) == []
+
+
+def test_list_artifacts_hides_windows_alias_names(
+    local_artifact_repo, local_artifact_root, monkeypatch, caplog
+):
+    for name in ["model.txt", "model~1.txt"]:
+        with open(os.path.join(local_artifact_root, name), "w") as f:
+            f.write("x")
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    assert [f.path for f in local_artifact_repo.list_artifacts()] == ["model.txt"]
+    assert "model~1.txt" in caplog.text
+    assert "Skipping artifact" in caplog.text
+
+
+@pytest.mark.parametrize("is_directory", [False, True])
+def test_log_artifacts_rejects_nested_windows_alias_names(
+    local_artifact_repo, local_artifact_root, tmp_path_factory, monkeypatch, is_directory
+):
+    source = tmp_path_factory.mktemp("source") / "nested"
+    source.mkdir()
+    entry = source / "entry~1"
+    if is_directory:
+        entry.mkdir()
+    else:
+        entry.write_text("x")
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    monkeypatch.setattr("mlflow.store.artifact.local_artifact_repo.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path"):
+        local_artifact_repo.log_artifacts(str(source.parent), artifact_path="newdir")
+    assert list(pathlib.Path(local_artifact_root).iterdir()) == []
 
 
 def test_list_artifacts(local_artifact_repo, local_artifact_root):

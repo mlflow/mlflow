@@ -7,7 +7,7 @@ import pytest
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation import (
-    sanitize_attributes,
+    strip_otlp_double_encoding,
     translate_loaded_span,
     translate_span_type_from_otel,
     translate_span_when_storing,
@@ -668,8 +668,10 @@ def test_translate_inputs_outputs_edge_cases(
         ),
     ],
 )
-def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):
-    result = sanitize_attributes(attributes)
+def test_strip_otlp_double_encoding(
+    attributes: dict[str, Any], expected_attributes: dict[str, Any]
+):
+    result = strip_otlp_double_encoding(attributes)
     assert result == expected_attributes
 
 
@@ -943,6 +945,61 @@ def test_translate_cost_with_model_provider(translator: OtelSchemaTranslator, mo
     }
 
 
+@pytest.mark.parametrize(
+    "type_attributes",
+    [
+        {"gen_ai.operation.name": "invoke_agent"},
+        {SpanAttributeKey.SPAN_TYPE: json.dumps(SpanType.AGENT)},
+    ],
+)
+def test_translate_skips_cost_for_agent_spans(type_attributes, mock_litellm_cost):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {
+            **type_attributes,
+            "gen_ai.request.model": '"gpt-4o-mini"',
+            "gen_ai.usage.input_tokens": 10,
+            "gen_ai.usage.output_tokens": 20,
+        }
+    }
+
+    result = translate_span_when_storing(span)
+
+    attributes = result["attributes"]
+    assert json.loads(attributes[SpanAttributeKey.SPAN_TYPE]) == SpanType.AGENT
+    assert json.loads(attributes[SpanAttributeKey.CHAT_USAGE]) == {
+        "input_tokens": 10,
+        "output_tokens": 20,
+        "total_tokens": 30,
+    }
+    assert SpanAttributeKey.LLM_COST not in attributes
+
+
+def test_translate_prices_explicit_non_agent_span_with_invoke_agent_operation(mock_litellm_cost):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {
+            SpanAttributeKey.SPAN_TYPE: json.dumps(SpanType.CHAT_MODEL),
+            "gen_ai.operation.name": "invoke_agent",
+            "gen_ai.request.model": '"gpt-4o-mini"',
+            "gen_ai.usage.input_tokens": 10,
+            "gen_ai.usage.output_tokens": 20,
+        }
+    }
+
+    result = translate_span_when_storing(span)
+
+    attributes = result["attributes"]
+    assert json.loads(attributes[SpanAttributeKey.SPAN_TYPE]) == SpanType.CHAT_MODEL
+    assert json.loads(attributes[SpanAttributeKey.LLM_COST]) == {
+        "input_cost": 10.0,
+        "output_cost": 40.0,
+        "total_cost": 50.0,
+    }
+
+
 def test_translate_preserves_client_computed_cost():
     cost = {"input_cost": 1.0, "output_cost": 2.0, "total_cost": 3.0}
     span = mock.Mock(spec=Span)
@@ -1085,8 +1142,10 @@ def test_update_token_usage_without_cached_tokens():
 def _translate_claude_code_span(attributes, events=None):
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
+    # Mirror the OTLP ingest path: from_otel_proto encodes each value once, then the
+    # endpoint strips the extra layer before the store translates the span.
     span.to_dict.return_value = {
-        "attributes": {k: json.dumps(v) for k, v in attributes.items()},
+        "attributes": strip_otlp_double_encoding({k: json.dumps(v) for k, v in attributes.items()}),
         "events": events or [],
     }
     return translate_span_when_storing(span)["attributes"]

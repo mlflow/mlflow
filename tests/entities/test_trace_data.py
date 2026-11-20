@@ -41,6 +41,7 @@ def test_json_deserialization():
         "spans": [
             {
                 "name": "predict",
+                "kind": "SPAN_KIND_INTERNAL",
                 "trace_id": mock.ANY,
                 "span_id": mock.ANY,
                 "parent_span_id": None,
@@ -73,6 +74,7 @@ def test_json_deserialization():
             },
             {
                 "name": "with_ok_event",
+                "kind": "SPAN_KIND_INTERNAL",
                 "trace_id": mock.ANY,
                 "span_id": mock.ANY,
                 "parent_span_id": mock.ANY,
@@ -98,6 +100,7 @@ def test_json_deserialization():
             },
             {
                 "name": "always_fail_name",
+                "kind": "SPAN_KIND_INTERNAL",
                 "trace_id": mock.ANY,
                 "span_id": mock.ANY,
                 "parent_span_id": mock.ANY,

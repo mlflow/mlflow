@@ -13,6 +13,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import (
+    GATEWAY_DESTINATION_KEYS,
+    GATEWAY_REGION_KEYS,
     MAX_TAG_VAL_LENGTH,
     _find_destination_keys,
     _is_numeric,
@@ -29,6 +31,7 @@ from mlflow.utils.validation import (
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
     _validate_icon_url,
+    _validate_judge_inference_params,
     _validate_list_param,
     _validate_metric_name,
     _validate_model_name,
@@ -37,6 +40,7 @@ from mlflow.utils.validation import (
     _validate_public_https_url,
     _validate_run_id,
     _validate_tag_name,
+    _validate_text_field,
     _validate_third_party_scorer_data,
     _validate_webhook_url,
     path_not_unique,
@@ -989,7 +993,38 @@ def test_validate_gateway_secret_value_rejects_api_base():
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize("value", ["", "us-east-1", "europe-west4", "us-isob-east-1"])
+def test_validate_gateway_secret_region_keys_accept_region_names(key, value):
+    assert _validate_gateway_secret_auth_config({key: value}) == {key: value}
+    _validate_gateway_secret_value({key: value})
+
+
+@pytest.mark.parametrize("key", ["aws_region_name", "vertex_location", "vertex_ai_location"])
+@pytest.mark.parametrize(
+    "value", ["evil.example", "evil.example/#", "US-EAST-1", "us-east-1\n", 1, 0, False, [], {}]
+)
+def test_validate_gateway_secret_region_keys_reject_non_region_names(key, value):
+    with pytest.raises(MlflowException, match=f"auth_config '{key}' must contain only") as exc:
+        _validate_gateway_secret_auth_config({key: value})
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    with pytest.raises(MlflowException, match=f"secret_value '{key}' must contain only"):
+        _validate_gateway_secret_value({key: value})
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "base_url",
+        "model_list",
+        "fallbacks",
+        "custom_llm_provider",
+        "aws_bedrock_runtime_endpoint",
+        "aws_sts_endpoint",
+        "sagemaker_base_url",
+        "gigachat_auth_url",
+    ],
+)
 def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases(key):
     # The LiteLLM provider spreads auth_config into litellm kwargs, where these keys steer the
     # request past the api_base check.
@@ -998,7 +1033,19 @@ def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.parametrize("key", ["base_url", "model_list", "fallbacks", "custom_llm_provider"])
+@pytest.mark.parametrize(
+    "key",
+    [
+        "base_url",
+        "model_list",
+        "fallbacks",
+        "custom_llm_provider",
+        "aws_bedrock_runtime_endpoint",
+        "aws_sts_endpoint",
+        "sagemaker_base_url",
+        "gigachat_auth_url",
+    ],
+)
 def test_validate_gateway_secret_value_rejects_litellm_destination_aliases(key):
     with pytest.raises(MlflowException, match=f"secret_value must not contain '{key}'"):
         _validate_gateway_secret_value({"api_key": "x", key: "http://169.254.169.254/"})
@@ -1120,12 +1167,51 @@ def test_validate_third_party_scorer_data_names_every_offending_key():
         )
 
 
+@pytest.mark.parametrize("key", sorted(GATEWAY_REGION_KEYS))
+@pytest.mark.parametrize("value", ["us-east-1.example.com", "US-EAST-1", "us-east-1\n", 1])
+def test_validate_third_party_scorer_data_rejects_non_region_names(key, value):
+    with pytest.raises(
+        MlflowException, match=f"third_party_scorer_data.kwargs '{key}' must contain only"
+    ) as exc:
+        _validate_third_party_scorer_data(_trulens_scorer({key: value}))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        # trulens' LiteLLM provider forwards `completion_kwargs` into every litellm call.
+        _trulens_scorer({"completion_kwargs": {"aws_region_name": "us-east-1.example.com"}}),
+        _trulens_scorer({"completion_kwargs": [["aws_region_name", "us-east-1.example.com"]]}),
+        _trulens_scorer({"model_kwargs": {"extra": [{"vertex_location": "us.example.com"}]}}),
+        {
+            "name": "ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    _trulens_scorer({"completion_kwargs": {"vertex_ai_location": "US"}}),
+                ],
+            },
+        },
+    ],
+)
+def test_validate_third_party_scorer_data_rejects_nested_non_region_names(serialized_scorer):
+    with pytest.raises(MlflowException, match="must contain only lowercase letters") as exc:
+        _validate_third_party_scorer_data(serialized_scorer)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 @pytest.mark.parametrize(
     "serialized_scorer",
     [
         _trulens_scorer({}),
         _trulens_scorer(None),
         _trulens_scorer({"threshold": 0.7, "temperature": 0.0}),
+        _trulens_scorer({"aws_region_name": "us-east-1"}),
+        _trulens_scorer({"vertex_location": "europe-west4", "vertex_ai_location": ""}),
+        _trulens_scorer({"completion_kwargs": {"aws_region_name": "us-isob-east-1"}}),
+        _trulens_scorer({"completion_kwargs": [["vertex_location", "us-central1"]]}),
+        _trulens_scorer({"completion_kwargs": [[["aws_region_name"], "x"]]}),
         {"name": "builtin", "builtin_scorer_class": "Safety"},
         {"name": "not-a-dict", "third_party_scorer_data": "x"},
         {
@@ -1145,6 +1231,159 @@ def test_validate_third_party_scorer_data_accepts_benign_payloads(serialized_sco
     _validate_third_party_scorer_data(serialized_scorer)
 
 
+def _instructions_judge(inference_params):
+    return {
+        "name": "judge",
+        "instructions_judge_pydantic_data": {
+            "instructions": "Is {{ outputs }} polite?",
+            "model": "hosted_vllm:/x",
+            "inference_params": inference_params,
+        },
+    }
+
+
+def _builtin_judge(inference_params):
+    return {
+        "name": "correctness",
+        "builtin_scorer_class": "Correctness",
+        "builtin_scorer_pydantic_data": {
+            "name": "correctness",
+            "model": "hosted_vllm:/x",
+            "inference_params": inference_params,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    ("make_scorer", "field"),
+    [
+        (_instructions_judge, "instructions_judge_pydantic_data"),
+        (_builtin_judge, "builtin_scorer_pydantic_data"),
+    ],
+)
+@pytest.mark.parametrize("key", sorted(GATEWAY_DESTINATION_KEYS))
+def test_validate_judge_inference_params_rejects_destination_keys(make_scorer, field, key):
+    # The LiteLLM judge adapter merges inference_params last, so any of these would take
+    # precedence over the endpoint configured on the server.
+    with pytest.raises(
+        MlflowException, match=f"{field}.inference_params must not contain '{key}'"
+    ) as exc:
+        _validate_judge_inference_params(
+            make_scorer({"temperature": 0.0, key: "http://localhost:8000/v1"})
+        )
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    "inference_params",
+    [
+        {"fallbacks": [{"model": "openai/gpt-4o", "api_base": "http://localhost:8000/v1"}]},
+        {"extra_body": {"base_url": "http://localhost:8001/v1"}},
+        {"extra_body": [["api_base", "http://localhost:8001/v1"]]},
+    ],
+)
+def test_validate_judge_inference_params_rejects_nested_destination_keys(inference_params):
+    with pytest.raises(MlflowException, match="inference_params must not contain"):
+        _validate_judge_inference_params(_instructions_judge(inference_params))
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        {
+            "name": "ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {"name": "builtin", "builtin_scorer_class": "Safety"},
+                    _instructions_judge({"api_base": "http://localhost:8000/v1"}),
+                ],
+            },
+        },
+        {
+            "name": "nested-ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    {
+                        "name": "inner",
+                        "ensemble_scorer_data": {
+                            "ensemble_fn": "majority_vote",
+                            "scorers": [_builtin_judge({"base_url": "http://localhost:8001/v1"})],
+                        },
+                    }
+                ],
+            },
+        },
+        {
+            "name": "memalign",
+            "memory_augmented_judge_data": {
+                "base_judge": _instructions_judge({"api_base": "http://localhost:8000/v1"}),
+                "semantic_memory": [],
+            },
+        },
+    ],
+)
+def test_validate_judge_inference_params_rejects_wrapped_judges(serialized_scorer):
+    with pytest.raises(MlflowException, match="inference_params must not contain"):
+        _validate_judge_inference_params(serialized_scorer)
+
+
+def test_validate_judge_inference_params_rejects_non_object_params():
+    # `dict.update` also accepts a list of key/value pairs, so the shape is checked before the
+    # key search.
+    with pytest.raises(
+        MlflowException, match="inference_params must be a JSON object, got list"
+    ) as exc:
+        _validate_judge_inference_params(
+            _instructions_judge([["api_base", "http://localhost:8000/v1"]])
+        )
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_validate_judge_inference_params_names_every_offending_key():
+    with pytest.raises(MlflowException, match="'api_base', 'custom_llm_provider'"):
+        _validate_judge_inference_params(
+            _instructions_judge({"api_base": "http://a/", "custom_llm_provider": "openai"})
+        )
+
+
+@pytest.mark.parametrize(
+    ("make_scorer", "field"),
+    [
+        (_instructions_judge, "instructions_judge_pydantic_data"),
+        (_builtin_judge, "builtin_scorer_pydantic_data"),
+    ],
+)
+@pytest.mark.parametrize("key", sorted(GATEWAY_REGION_KEYS))
+@pytest.mark.parametrize("value", ["us-east-1.example.com", "US-EAST-1", "us-east-1\n", 1])
+def test_validate_judge_inference_params_rejects_non_region_names(make_scorer, field, key, value):
+    with pytest.raises(
+        MlflowException, match=f"{field}.inference_params '{key}' must contain only"
+    ) as exc:
+        _validate_judge_inference_params(make_scorer({key: value}))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        _instructions_judge(None),
+        _instructions_judge({}),
+        _instructions_judge({"temperature": 0.0, "max_tokens": 256, "top_p": 0.9}),
+        _builtin_judge({"temperature": 0.0}),
+        _instructions_judge({"aws_region_name": "us-east-1"}),
+        _builtin_judge({"vertex_location": "europe-west4", "vertex_ai_location": ""}),
+        {"name": "judge", "instructions_judge_pydantic_data": {"instructions": "x", "model": "y"}},
+        {"name": "builtin", "builtin_scorer_class": "Safety"},
+        {"name": "not-a-dict", "instructions_judge_pydantic_data": "x"},
+        _trulens_scorer({"threshold": 0.7}),
+    ],
+)
+def test_validate_judge_inference_params_accepts_benign_payloads(serialized_scorer):
+    _validate_judge_inference_params(serialized_scorer)
+
+
 def test_validate_gateway_secret_auth_config_rejects_private_api_base():
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
@@ -1157,6 +1396,17 @@ def test_validate_gateway_secret_auth_config_rejects_private_api_base():
             })
 
 
+def test_validate_gateway_secret_auth_config_rejects_private_auth_url():
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo",
+        side_effect=_mock_getaddrinfo("10.0.0.1"),
+    ):
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_gateway_secret_auth_config({
+                "auth_url": "https://auth.internal/oauth/token",
+            })
+
+
 def test_validate_gateway_secret_auth_config_accepts_public_api_base():
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
@@ -1166,3 +1416,21 @@ def test_validate_gateway_secret_auth_config_accepts_public_api_base():
             "auth_mode": "api_key",
             "api_base": "https://api.example.com/v1",
         })
+
+
+@pytest.mark.parametrize("value", [None, "", "a" * 5])
+def test_validate_text_field_accepts_values_within_limit(value):
+    _validate_text_field("Field", value, 5)
+
+
+@pytest.mark.parametrize(
+    ("value", "match"),
+    [
+        ("a" * 6, "'Field' exceeds the maximum length of 5"),
+        ("a\x00b", "'Field' cannot contain NUL"),
+    ],
+)
+def test_validate_text_field_rejects_values_the_database_would_refuse(value, match):
+    with pytest.raises(MlflowException, match=match) as exc:
+        _validate_text_field("Field", value, 5)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

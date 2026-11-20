@@ -149,6 +149,17 @@ def test_truncate_responses_api_output():
     assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."
 
 
+def test_truncate_responses_api_input_text():
+    input_str = json.dumps({
+        "model": "gpt-5",
+        "input": [
+            {"role": "user", "content": [{"type": "input_text", "text": "What is MLflow?"}]},
+        ],
+    })
+
+    assert _get_truncated_preview(input_str, role="user") == "What is MLflow?"
+
+
 @pytest.mark.parametrize(
     "input_data",
     [
@@ -230,3 +241,8 @@ def test_set_request_response_preview_skips_none_data():
 
     assert trace_info.request_preview is None
     assert trace_info.response_preview is None
+
+
+def test_truncate_replaces_nul_in_extracted_message():
+    request = json.dumps({"messages": [{"role": "user", "content": "file contents: \x00"}]})
+    assert _get_truncated_preview(request, role="user") == "file contents: \ufffd"

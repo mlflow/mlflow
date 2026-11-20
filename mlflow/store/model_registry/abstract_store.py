@@ -30,7 +30,11 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
-from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
+from mlflow.prompt.registry_utils import (
+    has_prompt_tag,
+    model_version_to_prompt_version,
+    validate_prompt_version_tag_key_is_mutable,
+)
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -1074,6 +1078,8 @@ class AbstractStore:
         except (ValueError, TypeError):
             raise MlflowException(f"Invalid version number: {version}")
 
+        validate_prompt_version_tag_key_is_mutable(key)
+
         # Create a ModelVersionTag and delegate to the underlying model version method
         tag = ModelVersionTag(key=key, value=value)
         return self.set_model_version_tag(name, version_int, tag)
@@ -1095,6 +1101,8 @@ class AbstractStore:
             version_int = int(version)
         except (ValueError, TypeError):
             raise MlflowException(f"Invalid version number: {version}")
+
+        validate_prompt_version_tag_key_is_mutable(key)
 
         # Delegate to the underlying model version method
         return self.delete_model_version_tag(name, version_int, key)

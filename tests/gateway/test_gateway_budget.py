@@ -14,6 +14,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.gateway.budget import (
     calculate_existing_cost_for_windows,
     check_budget_limit,
@@ -25,9 +26,12 @@ from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
+from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.workspace_context import WorkspaceContext
 
 _DELIVER_FUNC = "mlflow.gateway.budget.deliver_webhook"
+_REGISTRY_STORE_FUNC = "mlflow.server.handlers._get_model_registry_store"
 
 
 @pytest.fixture(autouse=True)
@@ -77,7 +81,7 @@ _NO_TRACE_CONFIG = GatewayEndpointConfig(
 
 def _make_store(policies=None):
     store = MagicMock()
-    store.list_budget_policies.return_value = policies or []
+    store.list_budget_policies_across_workspaces.return_value = policies or []
     store.sum_gateway_trace_cost.return_value = 0.0
     return store
 
@@ -268,14 +272,51 @@ def test_fire_budget_exceeded_webhooks_with_workspace():
 
 def test_maybe_refresh_budget_policies():
     store = MagicMock()
-    store.list_budget_policies.return_value = [_make_policy()]
+    store.list_budget_policies_across_workspaces.return_value = [_make_policy()]
     store.sum_gateway_trace_cost.return_value = 0.0
 
     maybe_refresh_budget_policies(store)
 
-    store.list_budget_policies.assert_called_once()
+    store.list_budget_policies_across_workspaces.assert_called_once()
     tracker = get_budget_tracker()
     assert tracker._get_window_info("bp-test") is not None
+
+
+def test_maybe_refresh_keeps_other_workspaces_windows(tmp_path, db_uri, monkeypatch):
+    # A refresh is triggered by whichever workspace happens to send a request. It must not
+    # drop the windows belonging to the other workspaces.
+    # https://github.com/mlflow/mlflow/issues/26052
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    store = tracking_utils._get_sqlalchemy_store(db_uri, artifact_dir.as_uri())
+
+    policy_ids = {}
+    for workspace in ("budget-refresh-a", "budget-refresh-b"):
+        with WorkspaceContext(workspace):
+            policy_ids[workspace] = store.create_budget_policy(
+                budget_unit=BudgetUnit.USD,
+                budget_amount=100.0,
+                duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                target_scope=BudgetTargetScope.WORKSPACE,
+                budget_action=BudgetAction.REJECT,
+            ).budget_policy_id
+
+    tracker = get_budget_tracker()
+    with WorkspaceContext("budget-refresh-a"):
+        maybe_refresh_budget_policies(store)
+    tracker.record_cost(150.0, workspace="budget-refresh-a")
+    assert tracker.should_reject_request(workspace="budget-refresh-a")[0]
+
+    # The refresh interval elapses and the next request happens to come from the other
+    # workspace.
+    tracker.invalidate()
+    with WorkspaceContext("budget-refresh-b"):
+        maybe_refresh_budget_policies(store)
+
+    assert tracker._get_window_info(policy_ids["budget-refresh-b"]) is not None
+    assert tracker._get_window_info(policy_ids["budget-refresh-a"]) is not None
+    assert tracker.should_reject_request(workspace="budget-refresh-a")[0]
 
 
 def test_maybe_refresh_skips_when_not_needed():
@@ -284,7 +325,7 @@ def test_maybe_refresh_skips_when_not_needed():
 
     store = MagicMock()
     maybe_refresh_budget_policies(store)
-    store.list_budget_policies.assert_not_called()
+    store.list_budget_policies_across_workspaces.assert_not_called()
 
 
 # --- calculate_existing_cost_for_windows tests ---
@@ -340,7 +381,7 @@ def test_calculate_existing_cost_zero_spend_excluded():
 
 def test_refresh_triggers_backfill():
     store = MagicMock()
-    store.list_budget_policies.return_value = [_make_policy(budget_amount=100.0)]
+    store.list_budget_policies_across_workspaces.return_value = [_make_policy(budget_amount=100.0)]
     store.sum_gateway_trace_cost.return_value = 25.0
 
     maybe_refresh_budget_policies(store)
@@ -348,6 +389,94 @@ def test_refresh_triggers_backfill():
     store.sum_gateway_trace_cost.assert_called_once()
     tracker = get_budget_tracker()
     assert tracker._get_window_info("bp-test").cumulative_spend == 25.0
+
+
+def test_refresh_fires_webhook_when_backfill_crosses_the_limit():
+    # The crossing is only ever visible in trace history: no single record_cost call
+    # makes the transition, so without alerting here the window is silently muted.
+    store = _make_store(policies=[_make_policy(budget_amount=100.0)])
+    store.sum_gateway_trace_cost.return_value = 150.0
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_called_once()
+    payload = mock_deliver.call_args.kwargs["payload"]
+    assert payload["budget_policy_id"] == "bp-test"
+    assert payload["budget_amount"] == 100.0
+    assert payload["current_spend"] == 150.0
+    assert get_budget_tracker()._get_window_info("bp-test").exceeded is True
+
+
+def test_refresh_does_not_refire_for_an_already_exceeded_window():
+    store = _make_store(policies=[_make_policy(budget_amount=100.0)])
+    store.sum_gateway_trace_cost.return_value = 150.0
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+        tracker = get_budget_tracker()
+        tracker.invalidate()
+        store.sum_gateway_trace_cost.return_value = 400.0
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_called_once()
+
+
+def test_refresh_does_not_fire_below_the_limit():
+    store = _make_store(policies=[_make_policy(budget_amount=100.0)])
+    store.sum_gateway_trace_cost.return_value = 25.0
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_not_called()
+
+
+def test_refresh_does_not_fire_for_a_reject_policy():
+    # fire_budget_exceeded_webhooks alerts on ALERT policies only, on this path too.
+    store = _make_store(
+        policies=[_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)]
+    )
+    store.sum_gateway_trace_cost.return_value = 150.0
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_not_called()
+    assert get_budget_tracker()._get_window_info("bp-test").exceeded is True
+
+
+def test_a_crossing_is_alerted_once_whether_backfill_or_record_cost_sees_it_first():
+    # Same window, opposite order: the live request crosses the limit first, so the
+    # later backfill must stay quiet rather than alert a second time.
+    store = _make_store(policies=[_make_policy(budget_amount=100.0)])
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+        tracker = get_budget_tracker()
+        crossed = tracker.record_cost(150.0)
+        fire_budget_exceeded_webhooks(crossed, workspace=None, registry_store=MagicMock())
+
+        tracker.invalidate()
+        store.sum_gateway_trace_cost.return_value = 150.0
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_called_once()
 
 
 # --- check_budget_limit tests ---

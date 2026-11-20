@@ -13,7 +13,12 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
 import type { BudgetAction, DurationUnit } from '../../types';
-import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
+import {
+  BudgetScopeField,
+  getBudgetScopePayload,
+  useBudgetScopeField,
+  type BudgetScopeFormValue,
+} from './BudgetScopeField';
 
 type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
@@ -29,7 +34,7 @@ interface CreateBudgetPolicyModalProps {
   onSuccess?: () => void;
 }
 
-interface FormData {
+interface FormData extends BudgetScopeFormValue {
   budgetAmount: string;
   duration: DurationPreset;
   budgetAction: BudgetAction;
@@ -39,6 +44,9 @@ const INITIAL_FORM_DATA: FormData = {
   budgetAmount: '',
   duration: 'MONTHLY',
   budgetAction: 'REJECT',
+  scope: 'ALL',
+  endpointId: '',
+  username: '',
 };
 
 export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudgetPolicyModalProps) => {
@@ -51,6 +59,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     error: mutationError,
     reset: resetMutation,
   } = useCreateBudgetPolicy();
+  const scopeField = useBudgetScopeField(formData);
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
@@ -58,9 +67,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     onClose();
   }, [onClose, resetMutation]);
 
-  const handleFieldChange = useCallback(
-    <K extends keyof FormData>(field: K, value: FormData[K]) => {
-      setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleFormChange = useCallback(
+    (change: Partial<FormData>) => {
+      setFormData((prev) => ({ ...prev, ...change }));
       resetMutation();
     },
     [resetMutation],
@@ -68,8 +77,8 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
 
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
-    return !isNaN(amount) && amount > 0;
-  }, [formData.budgetAmount]);
+    return !isNaN(amount) && amount > 0 && scopeField.isValid;
+  }, [formData.budgetAmount, scopeField.isValid]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid) return;
@@ -81,7 +90,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
         budget_unit: 'USD',
         budget_amount: parseFloat(formData.budgetAmount),
         duration: { unit, value },
-        target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
+        ...getBudgetScopePayload(formData),
         budget_action: formData.budgetAction,
       });
     } catch {
@@ -148,7 +157,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             <Input
               componentId="mlflow.gateway.create-budget-policy-modal.budget-amount"
               value={formData.budgetAmount}
-              onChange={(e) => handleFieldChange('budgetAmount', e.target.value)}
+              onChange={(e) => handleFormChange({ budgetAmount: e.target.value })}
               placeholder={intl.formatMessage({
                 defaultMessage: 'e.g., 100.00',
                 description: 'Budget amount placeholder',
@@ -159,6 +168,13 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             />
           </div>
         </div>
+
+        <BudgetScopeField
+          componentId="mlflow.gateway.create-budget-policy-modal"
+          value={formData}
+          onChange={handleFormChange}
+          field={scopeField}
+        />
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
@@ -192,8 +208,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           <SimpleSelect
             id="create-budget-policy-duration"
             componentId="mlflow.gateway.create-budget-policy-modal.duration"
+            label={intl.formatMessage({ defaultMessage: 'Reset period', description: 'Budget reset period label' })}
             value={formData.duration}
-            onChange={({ target }) => handleFieldChange('duration', target.value as DurationPreset)}
+            onChange={({ target }) => handleFormChange({ duration: target.value as DurationPreset })}
           >
             <SimpleSelectOption value="DAILY">Daily</SimpleSelectOption>
             <SimpleSelectOption value="WEEKLY">Weekly</SimpleSelectOption>
@@ -208,8 +225,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           <SimpleSelect
             id="create-budget-policy-on-exceeded"
             componentId="mlflow.gateway.create-budget-policy-modal.on-exceeded"
+            label={intl.formatMessage({ defaultMessage: 'On exceeded', description: 'Budget on exceeded label' })}
             value={formData.budgetAction}
-            onChange={({ target }) => handleFieldChange('budgetAction', target.value as BudgetAction)}
+            onChange={({ target }) => handleFormChange({ budgetAction: target.value as BudgetAction })}
           >
             <SimpleSelectOption value="ALERT">Alert</SimpleSelectOption>
             <SimpleSelectOption value="REJECT">Reject requests</SimpleSelectOption>
