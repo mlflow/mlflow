@@ -2,9 +2,8 @@ name: Update Model Catalog
 
 on:
   schedule:
-    # Every 30 minutes, off the top of the hour when GitHub delays scheduled runs most.
-    # `create-pr` leaves an in-flight catalog PR alone, so frequent runs don't restart its CI.
-    - cron: "17,47 * * * *"
+    # Once a day, off the top of the hour when GitHub delays scheduled runs most.
+    - cron: "17 0 * * *"
   workflow_dispatch:
   push:
     branches:
