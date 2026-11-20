@@ -101,6 +101,36 @@ def test_none_result_df():
     assert result.passed
 
 
+@pytest.mark.parametrize(
+    ("scorer_value", "expected_reason"),
+    [
+        ("yes", ""),
+        ("no", "scorer_a: value='no'"),
+    ],
+)
+def test_only_scorer_feedback_columns_are_checked(scorer_value, expected_reason):
+    # Expectations and feedback logged outside the run share the "<name>/value" shape.
+    df = pd.DataFrame([
+        {
+            "scorer_a/value": scorer_value,
+            "expected_response/value": "hello",
+            "max_length/value": 10,
+            "app_self_grade/value": "no",
+        }
+    ])
+    result = EvaluationResult(
+        run_id="r1", metrics={}, result_df=df, scorer_feedback_names={"scorer_a"}
+    )
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+
+
+def test_without_scorer_feedback_names_every_value_column_is_checked():
+    df = pd.DataFrame([{"scorer_a/value": "yes", "app_self_grade/value": "no"}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert result.reason == "app_self_grade: value='no'"
+
+
 def test_categorical_rating_value():
     df = pd.DataFrame([
         {"scorer_a/value": CategoricalRating.YES, "scorer_a/rationale": None},
