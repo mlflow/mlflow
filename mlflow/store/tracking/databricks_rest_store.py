@@ -736,11 +736,6 @@ class DatabricksTracingRestStore(RestStore):
         if not spans:
             return []
 
-        if tracking_uri is None:
-            raise MlflowException(
-                "`tracking_uri` must be provided to log spans to with Databricks tracking server."
-            )
-
         endpoint = f"/api/2.0/otel{OTLP_TRACES_PATH}"
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()

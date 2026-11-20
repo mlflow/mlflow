@@ -1258,8 +1258,9 @@ def test_log_spans_to_uc_table_empty_spans():
     assert result == []
 
 
+@pytest.mark.parametrize("tracking_uri", ["databricks", None])
 @pytest.mark.parametrize("diff_trace_id", [True, False])
-def test_log_spans_to_uc_table_success(diff_trace_id):
+def test_log_spans_to_uc_table_success(diff_trace_id, tracking_uri):
     spans = create_mock_spans(diff_trace_id)
 
     # Mock HTTP response
@@ -1276,7 +1277,7 @@ def test_log_spans_to_uc_table_success(diff_trace_id):
         ) as mock_http_request,
         mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
     ):
-        store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
+        store.log_spans("catalog.schema.spans", spans, tracking_uri=tracking_uri)
 
     # `http_request` authenticates from `host_creds`, so `log_spans` must not build its own
     # client (and fetch a fresh token) per upload.
