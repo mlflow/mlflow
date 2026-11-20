@@ -17,6 +17,7 @@ from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
     _Example,
     _read_sparse_matrix_from_json,
+    convert_input_example_to_serving_input,
     parse_inputs_data,
 )
 from mlflow.types import DataType
@@ -283,14 +284,17 @@ def test_dataframe_input_example_missing_values_serialize_as_null():
     def reject_constant(token):
         raise ValueError(f"Invalid JSON constant: {token}")
 
-    example = _Example(df)
-    for serialized in (example.json_input_example, example.json_serving_input):
-        json.loads(serialized, parse_constant=reject_constant)
+    def loads(serialized):
+        return json.loads(serialized, parse_constant=reject_constant)
 
-    assert json.loads(example.json_input_example) == {
+    expected = {
         "columns": ["double", "float", "string", "datetime"],
         "data": [[1.0, None, "a", "2020-01-01T00:00:00"], [None, 2.0, None, None]],
     }
+    example = _Example(df)
+    assert loads(example.json_input_example) == expected
+    assert loads(example.json_serving_input) == {"dataframe_split": expected}
+    assert loads(convert_input_example_to_serving_input(df)) == {"dataframe_split": expected}
 
 
 class DummySklearnModel(BaseEstimator, ClassifierMixin):
