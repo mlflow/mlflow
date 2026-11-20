@@ -1638,3 +1638,50 @@ def test_reconstruct_episodic_memory_with_no_trace_ids(sample_judge):
     with patch(_GET_TRACE_PATH) as mock_get_trace:
         assert judge._reconstruct_episodic_memory() == []
     mock_get_trace.assert_not_called()
+
+
+def test_multi_assessment_trace_is_stored_and_fetched_once(sample_judge):
+    trace_id = _start_test_trace("multi_assessment_trace")
+    _log_human_feedback(trace_id, value="yes", rationale="ra")
+    _log_human_feedback(trace_id, value="yes", rationale="rb")
+    trace = mlflow.get_trace(trace_id)
+
+    with mock_apis(guidelines=[]):
+        judge = MemAlignOptimizer().align(sample_judge, [trace])
+        assert len(judge._episodic_memory) == 2
+        assert judge._episodic_trace_ids == [trace_id]
+
+        restored = MemoryAugmentedJudge._from_serialized(SerializedScorer(**judge.model_dump()))
+        with patch(_GET_TRACE_PATH, wraps=mlflow.get_trace) as mock_get_trace:
+            examples = restored._reconstruct_episodic_memory()
+
+    assert len(examples) == 2
+    assert mock_get_trace.call_count == 1
+
+
+def test_reconstruct_episodic_memory_dedupes_legacy_duplicate_trace_ids(sample_judge):
+    judge = _deferred_judge(sample_judge, ["t0", "t0", "t1", "t0"])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: tid) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == ["t0", "t1"]
+    assert [c.args[0] for c in mock_get_trace.call_args_list] == ["t0", "t1"]
+
+
+def test_realign_does_not_duplicate_stored_trace_ids(sample_judge):
+    trace_id = _start_test_trace("realign_trace")
+    _log_human_feedback(trace_id, value="yes", rationale="ra")
+    _log_human_feedback(trace_id, value="yes", rationale="rb")
+    trace = mlflow.get_trace(trace_id)
+    other_id = _start_test_trace("other_trace")
+    _log_human_feedback(other_id, value="yes", rationale="rc")
+    other = mlflow.get_trace(other_id)
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, [trace])
+        judge_v2 = optimizer.align(judge_v1, [trace, other])
+
+    assert judge_v2._episodic_trace_ids == [trace_id, other_id]
+

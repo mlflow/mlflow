@@ -422,7 +422,8 @@ class MemoryAugmentedJudge(Judge):
         return judge_copy
 
     def _reconstruct_episodic_memory(self) -> list["dspy.Example"]:
-        trace_ids = self._episodic_trace_ids
+        # Judges registered before IDs were deduped hold one entry per example.
+        trace_ids = list(dict.fromkeys(self._episodic_trace_ids))
         if not trace_ids:
             return []
 
@@ -638,7 +639,9 @@ class MemoryAugmentedJudge(Judge):
         """
         # Update episodic memory and trace IDs
         self._episodic_memory.extend(examples)
-        self._episodic_trace_ids.extend(ex._trace_id for ex in examples if hasattr(ex, "_trace_id"))
+        # One trace can yield several examples; store each trace ID once, in first-seen order.
+        new_ids = (ex._trace_id for ex in examples if hasattr(ex, "_trace_id"))
+        self._episodic_trace_ids = list(dict.fromkeys([*self._episodic_trace_ids, *new_ids]))
         self._build_episodic_memory()
 
         # Update semantic memory
