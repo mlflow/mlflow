@@ -1190,8 +1190,9 @@ def test_build_embedder_cache_is_not_shared_across_configs(
 
 def test_litellm_embed_raises_when_litellm_missing():
     with patch.dict(sys.modules, {"litellm": None}):
-        with pytest.raises(MlflowException, match="pip install litellm"):
+        with pytest.raises(MlflowException, match="pip install litellm") as exc_info:
             _litellm_embed(["a"], "openai/text-embedding-3-small")
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 # =============================================================================
