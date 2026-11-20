@@ -183,7 +183,9 @@ their per-field cosine similarities to the query, so the top examples are close 
 all fields; a field an example lacks contributes 0.
 Each field adds one embedding index and one query embedding per scoring call, so cost
 scales with the number of fields. When re-aligning an aligned judge, `None` keeps that
-judge's `retrieval_fields`; the other settings come from the optimizer.
+judge's `retrieval_fields`. If every trace is already in memory unchanged and the
+retrieval fields stay the same, the judge is returned as-is; otherwise the other
+settings come from the optimizer.
 """,
 }
 
