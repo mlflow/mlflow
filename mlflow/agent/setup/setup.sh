@@ -102,6 +102,7 @@ telemetry_python='
 import sys
 import time
 
+end = time.time()  # Before the slow mlflow import.
 if "" in sys.path:
     sys.path.remove("")  # Never import modules from the working directory.
 
@@ -124,7 +125,7 @@ _record_event(
         "flags": sorted(set(flags.split())),
     },
     status=Status(status),
-    duration_ms=int((time.time() - int(start)) * 1000),
+    duration_ms=int((end - int(start)) * 1000),
 )
 # The atexit hook drops unsent records, so flush explicitly in this short-lived process.
 if client := get_telemetry_client():
