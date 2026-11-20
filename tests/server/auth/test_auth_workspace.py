@@ -47,6 +47,7 @@ from mlflow.server.auth.routes import (
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
+    GET_ROLE,
     GET_TRACE_ARTIFACT,
     GET_TRACE_ARTIFACT_V3,
     INVOKE_GENAI_EVALUATE,
@@ -6165,6 +6166,31 @@ def test_validate_can_manage_roles_denies_camel_case_id_from_other_workspace(
     role_auth_setup["login_as"]("ws_admin_foo")
     with auth_module.app.test_request_context(path, method=method, json=body):
         assert auth_module.validate_can_manage_roles() is False
+
+
+def test_validate_can_manage_roles_denies_multiple_role_permission_id_spellings(role_auth_setup):
+    # Both permissions belong to the same foo role, so only the distinct-permission-id
+    # check denies: the handler could act on either one.
+    other_rp = role_auth_setup["store"].add_role_permission(
+        role_auth_setup["role_foo_id"], "experiment", "1", READ.name
+    )
+    body = {
+        "role_permission_id": role_auth_setup["role_permission_foo_id"],
+        "rolePermissionId": other_rp.id,
+        "permission": MANAGE.name,
+    }
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+def test_validate_can_view_roles_ignores_camel_case_id_on_get(role_auth_setup):
+    # GET handlers read only snake_case query keys, so a camelCase ID must not
+    # affect authorization.
+    query = {"role_id": role_auth_setup["role_foo_id"], "roleId": role_auth_setup["role_bar_id"]}
+    role_auth_setup["login_as"]("ws_member_foo")
+    with auth_module.app.test_request_context(GET_ROLE, method="GET", query_string=query):
+        assert auth_module.validate_can_view_roles() is True
 
 
 @pytest.mark.parametrize(

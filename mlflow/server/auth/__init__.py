@@ -3139,7 +3139,8 @@ def _get_role_workspace_from_request() -> str | None:
 
     Requests identify a role either directly (``role_id``), indirectly via a role
     permission (``role_permission_id``), or by supplying ``workspace`` on create. The
-    lowerCamelCase aliases (``roleId``, ``rolePermissionId``) count as identifiers too.
+    lowerCamelCase aliases (``roleId``, ``rolePermissionId``) count as identifiers too,
+    except on GET, where handlers read only the snake_case names.
     Returns ``None`` if the referenced role/role_permission does not exist — callers
     (validators) should treat that as unauthorized rather than leaking existence via
     a 404.
@@ -3161,12 +3162,10 @@ def _get_role_workspace_from_request() -> str | None:
 
     def _int_params(param: str) -> set[int]:
         # Handlers read IDs via ``_get_request_param``, which falls back to the
-        # lowerCamelCase alias, so every spelling present must be authorized.
-        return {
-            _coerce_int_param(param, params[key])
-            for key in (param, _snake_to_camel(param))
-            if key in params
-        }
+        # lowerCamelCase alias outside GET, so every spelling it may read must be
+        # authorized.
+        keys = (param,) if request.method == "GET" else (param, _snake_to_camel(param))
+        return {_coerce_int_param(param, params[key]) for key in keys if key in params}
 
     role_permission_ids = _int_params("role_permission_id")
     role_ids = _int_params("role_id")
