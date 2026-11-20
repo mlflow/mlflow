@@ -1938,6 +1938,26 @@
       },
       "last_updated_at": "2026-11-19"
     },
+    "tencent/Hy4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.834,
+        "output_per_million_tokens": 2.501,
+        "cache_read_per_million_tokens": 0.042
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-20"
+    },
     "thinkingmachines/Inkling": {
       "mode": "chat",
       "context_window": {
