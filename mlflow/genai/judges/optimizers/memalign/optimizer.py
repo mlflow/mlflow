@@ -678,7 +678,9 @@ class MemAlignOptimizer(AlignmentOptimizer):
         The number of parallel threads for LLM calls during guideline distillation can be
         configured via the ``MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS`` environment variable
         (default: 8). Increasing this value can speed up alignment when processing many
-        feedback examples, but may increase API rate limit errors.
+        feedback examples, but may increase API rate limit errors. A judge loaded from the
+        registry fetches its episodic-memory traces in parallel on first use, with up to
+        ``MLFLOW_GENAI_EVAL_MAX_WORKERS`` threads (default: 10).
 
     Example:
         .. code-block:: python
