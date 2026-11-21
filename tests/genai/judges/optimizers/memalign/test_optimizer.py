@@ -1,6 +1,8 @@
+import contextvars
 import json
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
@@ -1583,6 +1585,227 @@ def test_memory_augmented_judge_round_trip_preserves_base_judge_session_level():
     restored = Scorer.model_validate(dumped)
     assert isinstance(restored, MemoryAugmentedJudge)
     assert restored._base_judge.session_level == "episode"
+
+
+def _deferred_judge(sample_judge, trace_ids):
+    judge = MemoryAugmentedJudge(sample_judge, _defer_init=True)
+    judge._episodic_trace_ids = list(trace_ids)
+    return judge
+
+
+_GET_TRACE_PATH = "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace"
+_TO_EXAMPLE_PATH = "mlflow.genai.judges.optimizers.memalign.optimizer.trace_to_dspy_example"
+
+
+def test_reconstruct_episodic_memory_preserves_order_when_fetches_finish_out_of_order(
+    sample_judge, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
+    trace_ids = ["t0", "t1", "t2"]
+    last_fetched = threading.Event()
+
+    def fake_get_trace(tid, **kwargs):
+        # t0 returns only after t2 has returned, so completion order differs from input order.
+        if tid == "t0":
+            assert last_fetched.wait(timeout=10)
+        elif tid == "t2":
+            last_fetched.set()
+        return tid
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [f"{trace}-a", f"{trace}-b"]),
+    ):
+        examples = judge._reconstruct_episodic_memory()
+
+    assert examples == ["t0-a", "t0-b", "t1-a", "t1-b", "t2-a", "t2-b"]
+    assert sorted(c.args[0] for c in mock_get_trace.call_args_list) == trace_ids
+    assert all(c.kwargs == {"silent": True} for c in mock_get_trace.call_args_list)
+
+
+def test_reconstruct_episodic_memory_fetches_concurrently(sample_judge, monkeypatch):
+    n = 4
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(n))
+    # Every fetch blocks until all n are in flight; a sequential loop would time out.
+    barrier = threading.Barrier(n, timeout=10)
+
+    def fake_get_trace(tid, **kwargs):
+        barrier.wait()
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(n)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == [f"t{i}" for i in range(n)]
+
+
+def test_reconstruct_episodic_memory_respects_max_workers(sample_judge, monkeypatch):
+    max_workers = 2
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(max_workers))
+    lock = threading.Lock()
+    in_flight = 0
+    peak = 0
+    # Forces pairs of fetches to overlap, so a pool larger than max_workers would be observable.
+    barrier = threading.Barrier(max_workers, timeout=10)
+
+    def fake_get_trace(tid, **kwargs):
+        nonlocal in_flight, peak
+        with lock:
+            in_flight += 1
+            peak = max(peak, in_flight)
+        barrier.wait()
+        with lock:
+            in_flight -= 1
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(8)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == [f"t{i}" for i in range(8)]
+
+    assert peak == max_workers
+
+
+def test_reconstruct_episodic_memory_propagates_caller_context(sample_judge, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
+    var = contextvars.ContextVar("memalign_test_var", default=None)
+    var.set("caller-value")
+    seen = []
+
+    def fake_get_trace(tid, **kwargs):
+        seen.append(var.get())
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(4)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        judge._reconstruct_episodic_memory()
+
+    assert seen == ["caller-value"] * 4
+
+
+def test_reconstruct_episodic_memory_reports_missing_traces(sample_judge, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
+    trace_ids = [f"t{i}" for i in range(8)]
+    found = {"t1", "t4"}
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: tid if tid in found else None),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
+    ):
+        examples = judge._reconstruct_episodic_memory()
+
+    assert examples == ["t1", "t4"]
+    mock_logger.warning.assert_called_once_with(
+        "Could not find 6 traces for episodic memory reconstruction. "
+        "Missing trace IDs: ['t0', 't2', 't3', 't5', 't6'].... "
+        "Judge will operate with partial memory (2/8 traces)."
+    )
+
+
+def test_reconstruct_episodic_memory_warning_counts_traces_not_examples(sample_judge):
+    judge = _deferred_judge(sample_judge, ["t0", "t1", "t2"])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: None if tid == "t2" else tid),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace] * 3),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
+    ):
+        assert len(judge._reconstruct_episodic_memory()) == 6
+
+    assert "(2/3 traces)" in mock_logger.warning.call_args.args[0]
+
+
+def test_reconstruct_episodic_memory_with_no_trace_ids(sample_judge):
+    judge = _deferred_judge(sample_judge, [])
+    with patch(_GET_TRACE_PATH) as mock_get_trace:
+        assert judge._reconstruct_episodic_memory() == []
+    mock_get_trace.assert_not_called()
+
+
+def test_multi_assessment_trace_is_stored_and_fetched_once(sample_judge):
+    trace_id = _start_test_trace("multi_assessment_trace")
+    _log_human_feedback(trace_id, value="yes", rationale="ra")
+    _log_human_feedback(trace_id, value="yes", rationale="rb")
+    trace = mlflow.get_trace(trace_id)
+
+    with mock_apis(guidelines=[]):
+        judge = MemAlignOptimizer().align(sample_judge, [trace])
+        assert len(judge._episodic_memory) == 2
+        assert judge._episodic_trace_ids == [trace_id]
+
+        restored = MemoryAugmentedJudge._from_serialized(SerializedScorer(**judge.model_dump()))
+        with patch(_GET_TRACE_PATH, wraps=mlflow.get_trace) as mock_get_trace:
+            examples = restored._reconstruct_episodic_memory()
+
+    assert len(examples) == 2
+    assert mock_get_trace.call_count == 1
+
+
+def test_reconstruct_episodic_memory_dedupes_legacy_duplicate_trace_ids(sample_judge):
+    judge = _deferred_judge(sample_judge, ["t0", "t0", "t1", "t0"])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: tid) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == ["t0", "t1"]
+    assert [c.args[0] for c in mock_get_trace.call_args_list] == ["t0", "t1"]
+
+
+def test_realign_does_not_duplicate_stored_trace_ids(sample_judge):
+    trace_id = _start_test_trace("realign_trace")
+    _log_human_feedback(trace_id, value="yes", rationale="ra")
+    _log_human_feedback(trace_id, value="yes", rationale="rb")
+    trace = mlflow.get_trace(trace_id)
+    other_id = _start_test_trace("other_trace")
+    _log_human_feedback(other_id, value="yes", rationale="rc")
+    other = mlflow.get_trace(other_id)
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, [trace])
+        judge_v2 = optimizer.align(judge_v1, [trace, other])
+
+    assert judge_v2._episodic_trace_ids == [trace_id, other_id]
+
+
+@pytest.mark.parametrize("failing_step", ["fetch", "convert"])
+def test_reconstruct_episodic_memory_propagates_error_and_cancels_pending(
+    sample_judge, monkeypatch, failing_step
+):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "2")
+    trace_ids = [f"t{i}" for i in range(50)]
+
+    def fake_get_trace(tid, **kwargs):
+        if failing_step == "fetch" and tid == "t0":
+            raise RuntimeError("boom")
+        # Slow enough that the error reaches the caller and cancels the queue before a busy
+        # worker picks up another fetch; without cancellation all 50 fetches would run.
+        time.sleep(0.2)
+        return tid
+
+    def fake_to_example(trace, base_judge):
+        if failing_step == "convert" and trace == "t0":
+            raise RuntimeError("boom")
+        return [trace]
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=fake_to_example),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        judge._reconstruct_episodic_memory()
+
+    assert mock_get_trace.call_count < len(trace_ids)
 
 
 def test_default_inputs_corpus_embeds_only_the_inputs_value(sample_judge, sample_traces):
