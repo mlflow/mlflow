@@ -19,11 +19,11 @@ export const useGetTracesById = (traceIds: string[], params: UseGetTracesByIdPro
     queries: traceIds.map((traceId) => {
       return {
         queryKey: [GET_TRACE_BY_ID, traceId],
-        queryFn: async () => {
+        queryFn: async ({ signal }: { signal?: AbortSignal }) => {
           // Use either full trace ID (trace:/) or fallback to just the v3 trace ID
           const maybeParsedTraceId = parseV4TraceIdToObject(traceId);
 
-          return TracesServiceV3.getTraceV3(maybeParsedTraceId?.trace_id ?? traceId);
+          return TracesServiceV3.getTraceV3(maybeParsedTraceId?.trace_id ?? traceId, signal);
         },
         enabled: Boolean(traceId),
         refetchOnWindowFocus: false,

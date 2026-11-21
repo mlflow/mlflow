@@ -8,8 +8,9 @@ import {
   getTrace,
 } from './TraceUtils';
 import type { ModelTrace, ModelTraceSpanV2, ModelTraceSpanV3 } from '@databricks/web-shared/model-trace-explorer';
-import { getExperimentTraceV3, TracesServiceV3 } from '@databricks/web-shared/model-trace-explorer';
+import { getExperimentTraceV3, TracesServiceV3, TracesServiceV4 } from '@databricks/web-shared/model-trace-explorer';
 import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '@databricks/web-shared/genai-traces-table';
+import { MlflowService } from '../sdk/MlflowService';
 
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
   ...jest.requireActual<any>('@databricks/web-shared/model-trace-explorer'),
@@ -1131,7 +1132,7 @@ describe('getTrace', () => {
     await getTrace('tr-1', { trace_id: 'tr-1' } as any);
 
     expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1' });
-    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1');
+    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1', undefined, undefined);
   });
 
   it('falls back to getTraceV3 for a non-TRACKING_STORE v3 trace', async () => {
@@ -1141,6 +1142,56 @@ describe('getTrace', () => {
     await getTrace('tr-1', { trace_id: 'tr-1' } as any);
 
     expect(mockGetExperimentTraceV3).not.toHaveBeenCalled();
-    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1');
+    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1', undefined, undefined);
+  });
+
+  it('forwards cancellation through a v4 trace identifier', async () => {
+    const { signal } = new AbortController();
+    mockGetSpansLocation.mockReturnValue(undefined);
+    await getTrace('trace:/synthetic/tr-owned', undefined, undefined, { signal });
+    expect(TracesServiceV4.getTraceV4).toHaveBeenCalledWith('trace:/synthetic/tr-owned', undefined, signal, {
+      compactPayloads: undefined,
+    });
+    expect(mockGetTraceV3).not.toHaveBeenCalled();
+    expect(mockGetExperimentTraceV3).not.toHaveBeenCalled();
+  });
+
+  it('forwards cancellation through tracking-store and artifact routes', async () => {
+    const { signal } = new AbortController();
+    mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
+    mockGetExperimentTraceV3.mockResolvedValue({ trace: { spans: [] } } as any);
+    await getTrace('tr-1', undefined, undefined, { signal });
+    expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1', signal });
+
+    mockGetSpansLocation.mockReturnValue(undefined);
+    await getTrace('tr-1', undefined, undefined, { signal });
+    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1', signal, { compactPayloads: undefined });
+  });
+
+  it('suppresses canceled legacy SDK results and avoids already canceled requests', async () => {
+    mockGetSpansLocation.mockReturnValue(undefined);
+    let finish!: (value: { spans: never[] }) => void;
+    const body = new Promise<{ spans: never[] }>((resolve) => {
+      finish = resolve;
+    });
+    const info = jest.spyOn(MlflowService, 'getExperimentTraceInfo').mockResolvedValue({ trace_info: {} } as any);
+    const data = jest.spyOn(MlflowService, 'getExperimentTraceData').mockReturnValue(body as any);
+    try {
+      const controller = new AbortController();
+      const result = getTrace('legacy-owned', undefined, undefined, { signal: controller.signal });
+      controller.abort();
+      finish({ spans: [] });
+      await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+      info.mockClear();
+      data.mockClear();
+      await expect(getTrace('legacy-owned', undefined, undefined, { signal: controller.signal })).rejects.toMatchObject(
+        { name: 'AbortError' },
+      );
+      expect(info).not.toHaveBeenCalled();
+      expect(data).not.toHaveBeenCalled();
+    } finally {
+      info.mockRestore();
+      data.mockRestore();
+    }
   });
 });

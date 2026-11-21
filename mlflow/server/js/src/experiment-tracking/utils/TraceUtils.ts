@@ -21,18 +21,23 @@ import {
 export async function getTrace(
   traceId?: string,
   traceInfo?: ModelTrace['info'],
+  // The shared GetTraceFunction contract includes this position; OSS has no SQL warehouse transport.
+  _sqlWarehouseId?: string,
+  options?: { signal?: AbortSignal; compactPayloads?: boolean },
   // prettier-ignore
 ): Promise<ModelTrace | undefined> {
   if (!traceId) {
     return undefined;
   }
+  const signal = options?.signal;
+  const parseOptions = options && { compactPayloads: options.compactPayloads };
 
   // Check spans location tag to decide the source of span data
   // If spans are in the tracking store, use V3 get-trace (allow_partial=true)
   // Otherwise, fall back to artifact route. Currently, tracking store tag is
   // only set when the backend is OSS SQLAlchemyStore.
   if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
-    const traceResp = await getExperimentTraceV3({ traceId });
+    const traceResp = await getExperimentTraceV3({ traceId, ...options });
     // The get-trace response is { trace: { trace_info, spans } } (see GetTrace.Response),
     // so the spans live under trace.spans. Reshape into the { info, data: { spans } } shape
     // the UI expects, mirroring getTraceV4. Returning here avoids falling through to the
@@ -50,14 +55,21 @@ export async function getTrace(
     // prettier-ignore
     return TracesServiceV4.getTraceV4(
       traceId,
+      undefined,
+      signal,
+      parseOptions,
     );
   }
 
   // v3 trace ID
   if (traceId.startsWith('tr-')) {
-    return TracesServiceV3.getTraceV3(traceId);
+    return TracesServiceV3.getTraceV3(traceId, signal, parseOptions);
   }
-  return getTraceLegacy(traceId);
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  const trace = await getTraceLegacy(traceId);
+  // shortcut: the legacy SDK cannot abort transport; suppress results after cancellation.
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  return trace;
 }
 
 /**
