@@ -58,9 +58,9 @@ Read both input files and `$trusted_checkout/.claude/skills/verify/payload.schem
 
 ## 1. Find candidates
 
-For every PR, invoke the `Agent` tool once per angle below. Launch the finders in parallel
-and assign each finder exactly one angle. While they work, identify the user flows the PR
-changes and relevant existing threads.
+For every PR, invoke the `Agent` tool once per angle in the following list. Launch the
+finders in parallel and assign each finder exactly one angle. While they work, identify
+the user flows the PR changes and relevant existing threads.
 
 - **Changed behavior.** Read each hunk and its enclosing function. Identify the input, state,
   or timing that makes the changed path produce a wrong result.
@@ -78,6 +78,16 @@ changes and relevant existing threads.
 - **Root cause.** Trace the symptom to the code that causes it. If the patch fixes only one
   path, identify another affected path and the shared change that would fix both.
 
+Add one **Repository style** finder when either guide applies. Give it the paths to all
+applicable guides from `$trusted_checkout/.claude/skills/`.
+
+- For changed Python source or tests, use `python-style/SKILL.md`.
+- For changed workflow or action YAML under `.github/workflows/` or `.github/actions/`,
+  use `github-actions-style/SKILL.md`.
+
+For each style finding, cite the guide section, identify the changed line that violates it,
+and give a correction consistent with the rule.
+
 Invoke the `Agent` tool with these arguments for each finder, naming its angle in `description`.
 For `<inputs>`, give the absolute paths of the trusted skill, PR checkout and temporary
 directory, plus any relevant thread or file pointers. Each finder starts with fresh context.
@@ -86,7 +96,7 @@ Omit `isolation` to use the Action's prepared checkouts.
 ```json
 {
   "description": "Review changed caller contracts",
-  "prompt": "<inputs>. Follow the trust boundary and the phase 1 instructions for <assigned angle> in the trusted skill. Start at <paths> without running PR code or delegating. For each candidate, return the changed file and line, trigger, concrete failure or cost, and strongest source evidence. Return no candidates if you find none.",
+  "prompt": "<inputs>. Follow the trust boundary and the phase 1 instructions for <assigned angle> in the trusted skill. Start at <paths> without running PR code or delegating. For each candidate, return the changed file and line and the strongest source evidence. For a failure or cost, describe its trigger and consequence. Return no candidates if you find none.",
   "subagent_type": "general-purpose",
   "model": "sonnet",
   "effort": "high",
