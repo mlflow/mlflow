@@ -128,6 +128,7 @@ from mlflow.prompt.constants import (
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_TAG_KEY,
 )
+from mlflow.prompt.registry_utils import validate_prompt_version_tag_key_is_mutable
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -3743,9 +3744,12 @@ def _set_model_version_tag():
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     store = _get_model_registry_store()
+    is_prompt = _is_prompt(request_message.name)
+    if is_prompt:
+        validate_prompt_version_tag_key_is_mutable(request_message.key)
     store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
 
-    if _is_prompt(request_message.name):
+    if is_prompt:
         # Send prompt version tag set webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.SET),
@@ -3785,13 +3789,16 @@ def _delete_model_version_tag():
         },
     )
     store = _get_model_registry_store()
+    is_prompt = _is_prompt(request_message.name)
+    if is_prompt:
+        validate_prompt_version_tag_key_is_mutable(request_message.key)
     store.delete_model_version_tag(
         name=request_message.name,
         version=request_message.version,
         key=request_message.key,
     )
 
-    if _is_prompt(request_message.name):
+    if is_prompt:
         # Send prompt version tag deleted webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED),
@@ -4208,11 +4215,13 @@ def _get_graphql_auth_middleware():
     """
     try:
         from mlflow.server.auth import get_graphql_authorization_middleware
-
-        return get_graphql_authorization_middleware()
     except Exception:
-        # Auth not configured or other error
+        # The basic-auth app imports this module, so it cannot be running if the import fails.
         return []
+
+    # Errors here must propagate: returning no middleware while auth is enabled would skip
+    # authorization for every GraphQL field.
+    return get_graphql_authorization_middleware()
 
 
 @catch_mlflow_exception

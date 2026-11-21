@@ -45,7 +45,14 @@ export const useRunScorerInTracesViewConfiguration = (
   scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
 ): UseRunScorerInTracesViewConfigurationReturnType => {
   const [experimentId] = useExperimentIds();
+  return useRunScorerInTracesViewConfigurationForExperiment(experimentId, scope);
+};
 
+// Callers with an experiment ID can avoid subscribing to unrelated route updates.
+export const useRunScorerInTracesViewConfigurationForExperiment = (
+  experimentId: string,
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+): UseRunScorerInTracesViewConfigurationReturnType => {
   const scorerFinishSubscribers = useRef<((event: ScorerFinishedEvent) => void)[]>([]);
 
   const onScorerFinished = useCallback((event: ScorerFinishedEvent) => {
@@ -71,6 +78,7 @@ export const useRunScorerInTracesViewConfiguration = (
     ({ itemId, onClose, visible }) => {
       return (
         <RunJudgeModalImpl
+          experimentId={experimentId}
           scope={scope}
           visible={visible}
           itemIds={[itemId]}
@@ -79,7 +87,7 @@ export const useRunScorerInTracesViewConfiguration = (
         />
       );
     },
-    [evaluateTraces, scope],
+    [evaluateTraces, experimentId, scope],
   );
 
   return {
@@ -101,6 +109,23 @@ export const useRunScorerInTracesViewConfiguration = (
  * bulk evaluations are visible in `ModelTraceExplorerRunJudgesContext` (used by AssessmentCell).
  */
 export const useRunJudgesOnTracesConfiguration = (
+  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
+  allEvaluations: Record<string, ScorerEvaluation> | undefined,
+  subscribeToScorerFinished?: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+) => {
+  const [experimentId] = useExperimentIds();
+  return useRunJudgesOnTracesConfigurationForExperiment(
+    experimentId,
+    evaluateTraces,
+    allEvaluations,
+    subscribeToScorerFinished,
+    scope,
+  );
+};
+
+export const useRunJudgesOnTracesConfigurationForExperiment = (
+  experimentId: string,
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
   allEvaluations: Record<string, ScorerEvaluation> | undefined,
   subscribeToScorerFinished?: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
@@ -151,6 +176,7 @@ export const useRunJudgesOnTracesConfiguration = (
   const RunJudgesModal = useMemo(
     () => (
       <RunJudgeModalImpl
+        experimentId={experimentId}
         scope={scope}
         visible={isModalVisible}
         itemIds={pendingTraceIds}
@@ -158,7 +184,7 @@ export const useRunJudgesOnTracesConfiguration = (
         onClose={handleClose}
       />
     ),
-    [scope, isModalVisible, pendingTraceIds, evaluateTraces, handleClose],
+    [experimentId, scope, isModalVisible, pendingTraceIds, evaluateTraces, handleClose],
   );
 
   // Invalidate the traces search cache when a scorer finishes
@@ -175,19 +201,20 @@ export const useRunJudgesOnTracesConfiguration = (
  * Dropdown for selecting a judge to run against one or more traces.
  */
 const RunJudgeModalImpl = ({
+  experimentId,
   itemIds,
   evaluateTraces,
   visible,
   onClose,
   scope = ScorerEvaluationScope.TRACES,
 }: {
+  experimentId: string;
   itemIds: string[];
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
   visible: boolean;
   onClose: () => void;
   scope?: ScorerEvaluationScope;
 }) => {
-  const [experimentId] = useExperimentIds();
   const { data, isLoading: loadingScorers } = useGetScheduledScorers(experimentId, { enabled: visible });
   const { templateOptions } = useTemplateOptions(scope);
   const intl = useIntl();

@@ -440,6 +440,7 @@ export const TracesV4TraceDrawer = ({
       <ModelTraceExplorerDrawer
         handleClose={onClose}
         navigationLabel={navigationLabel}
+        deferHeaderActions={!isComparisonMode}
         selectPreviousEval={selectPreviousEval}
         selectNextEval={selectNextEval}
         isPreviousAvailable={isPreviousAvailable}

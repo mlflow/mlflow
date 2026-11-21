@@ -7,6 +7,20 @@ agent-browser --session verify --input-mode human \
   --init-script "$trusted_checkout/.claude/scripts/browser-init.js" open <url>
 ```
 
+## Themes
+
+MLflow reads the theme from local storage when the page loads. The first load of a session
+stores the system preference, so the starting theme varies and `set media dark` has no effect
+afterwards. Set the key and reload for each theme, `true` for dark and `false` for light:
+
+```bash
+agent-browser --session verify storage local set _mlflow_dark_mode_toggle_enabled true
+agent-browser --session verify reload
+```
+
+Capture each theme under its own name, such as `<name>-light.png` and `<name>-dark.png`, and
+pass `"dark"` as the caption theme on dark pages.
+
 ## Screenshots
 
 Capture a screenshot when it shows the result of a check, and look at it before citing it:
@@ -23,7 +37,8 @@ Record a flow when a still image cannot show it, such as a multi-step interactio
    sessions, so don't use them in the steps you save.
 2. Save the commands to `$tmp_dir/work/steps.json`, e.g. `[["click", "<selector>"], ["wait", "500"]]`.
 3. Close the rehearsal session, reset data if the flow changed it, and reopen a fresh session
-   with the `open` command above.
+   with the `open` command above. A fresh session loses the theme, so set it again before
+   `record start`.
 4. Replay while recording:
 
 ```bash

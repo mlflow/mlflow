@@ -362,6 +362,11 @@ class VertexAIProvider(GeminiProvider):
     def get_provider_name(self) -> str:
         return "vertex_ai"
 
+    def _supports_cache_control(self) -> bool:
+        # Claude models are sent through the Anthropic adapter, which forwards the markers.
+        # Gemini and MaaS models get them removed.
+        return self._model_type == "claude"
+
     @property
     def adapter_class(self):
         # Claude/MaaS models are formatted by their delegate's adapter; only Gemini

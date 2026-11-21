@@ -18,6 +18,8 @@ from mlflow.entities.issue_evidence import (
     IssueEvidenceStep,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, RESOURCE_DOES_NOT_EXIST
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
@@ -923,6 +925,144 @@ def test_log_assessment_on_in_progress_trace(trace_id, legacy_api):
     assert len(trace.info.assessments) == 1
     assert trace.info.assessments[0].name == "other"
     assert trace.info.assessments[0].feedback.value == 2.0
+
+
+def test_log_assessment_on_finished_trace_not_yet_exported():
+    @mlflow.trace
+    def func(x: int, y: int) -> int:
+        return x + y
+
+    assert func(1, 2) == 3
+    trace_id = mlflow.get_last_active_trace_id()
+
+    feedback = mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
+    expectation = mlflow.log_expectation(trace_id=trace_id, name="expectation", value="MLflow")
+    assert feedback.assessment_id is not None
+    assert expectation.assessment_id is not None
+
+    trace = mlflow.get_trace(trace_id)
+    assessments = {a.name: a for a in trace.info.assessments}
+    assert assessments.keys() == {"feedback", "expectation"}
+    assert assessments["feedback"].value == 1.0
+    assert assessments["expectation"].value == "MLflow"
+
+
+def test_log_assessment_flushes_and_retries_when_trace_not_yet_exported(trace_id):
+    store_cls = type(TracingClient().store)
+    original_create_assessment = store_cls.create_assessment
+    calls = []
+
+    # Simulate the window where the trace has left the in-memory buffer but is not yet in the
+    # store: the first write misses and the write after the flush succeeds.
+    def create_assessment(self, assessment):
+        calls.append(assessment.trace_id)
+        if len(calls) == 1:
+            raise MlflowException(
+                f"Trace with ID '{assessment.trace_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return original_create_assessment(self, assessment)
+
+    with (
+        mock.patch.object(store_cls, "create_assessment", create_assessment),
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+    ):
+        feedback = mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
+
+    mock_flush.assert_called_once()
+    assert calls == [trace_id, trace_id]
+    assert feedback.assessment_id is not None
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert assessment.name == "feedback"
+    assert assessment.value == 1.0
+
+
+def test_log_assessment_on_nonexistent_trace_raises():
+    with pytest.raises(MlflowException, match=r"Trace with ID 'tr-nonexistent' not found"):
+        mlflow.log_feedback(trace_id="tr-nonexistent", name="feedback", value=1.0)
+
+
+def test_log_assessment_with_missing_override_target_raises_without_flush(trace_id):
+    with (
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+        pytest.raises(MlflowException, match=r"Assessment with ID 'a-missing' not found"),
+    ):
+        mlflow.log_assessment(trace_id, Feedback(name="feedback", value=1.0, overrides="a-missing"))
+    mock_flush.assert_not_called()
+
+
+def test_log_issue_with_evidence_flushes_when_trace_not_yet_exported(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    span_id = mlflow.get_trace(trace_id).data.spans[0].span_id
+    original_get_trace = TracingClient.get_trace
+    calls = []
+
+    # Simulate the window where the trace has left the in-memory buffer but is not yet in the
+    # store: the first read misses and the read after the flush finds it.
+    def get_trace(self, trace_id):
+        calls.append(trace_id)
+        if len(calls) == 1:
+            raise MlflowException(
+                f"Trace with ID '{trace_id}' not found.", error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        return original_get_trace(self, trace_id)
+
+    with (
+        mock.patch.object(TracingClient, "get_trace", get_trace),
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+    ):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            evidence=IssueEvidence(
+                summary="The agent answered from an empty context",
+                steps=[IssueEvidenceStep(span_id=span_id, text="No documents", highlights=["No"])],
+                primary_span_id=span_id,
+            ),
+        )
+
+    mock_flush.assert_called_once()
+    assert calls == [trace_id, trace_id]
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert isinstance(assessment, IssueReference)
+    assert assessment.span_id == span_id
+
+
+def test_log_issue_with_evidence_raises_without_flush_on_non_not_found_error(trace_id):
+    issue = mlflow.MlflowClient()._tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    with (
+        mock.patch.object(
+            TracingClient,
+            "get_trace",
+            side_effect=MlflowException("Span data is corrupted.", error_code=BAD_REQUEST),
+        ) as mock_get_trace,
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+        pytest.raises(MlflowException, match=r"Span data is corrupted"),
+    ):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            evidence=IssueEvidence(
+                summary="The agent answered from an empty context",
+                steps=[IssueEvidenceStep(span_id="span-1", text="No documents", highlights=["No"])],
+            ),
+        )
+    mock_get_trace.assert_called_once()
+    mock_flush.assert_not_called()
 
 
 @pytest.mark.asyncio

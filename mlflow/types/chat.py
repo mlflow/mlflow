@@ -7,9 +7,57 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
 
+class CacheControl(BaseModel):
+    """
+    Marks the end of a prompt prefix that the provider should cache (prompt caching).
+
+    Uses the shape of Anthropic's ``cache_control`` field:
+    https://docs.claude.com/en/docs/build-with-claude/prompt-caching
+
+    Attributes:
+        type: The cache type. ``"ephemeral"`` is the only type.
+        ttl: How long the cache entry lives, e.g. ``"5m"`` (the default) or ``"1h"``. Not
+            checked here, so a value the provider does not accept gets the provider's own
+            error, and chat prompts saved with other values still load.
+    """
+
+    type: Literal["ephemeral"]
+    ttl: str | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if data.get("ttl") is None:
+            data.pop("ttl", None)
+        return data
+
+
+def _drop_unset_cache_control(data: dict[str, Any]) -> dict[str, Any]:
+    # Leave `cache_control` out when it is not set, so content parts without it serialize
+    # exactly as they did before the field existed.
+    if data.get("cache_control") is None:
+        data.pop("cache_control", None)
+    return data
+
+
 class TextContentPart(BaseModel):
+    """
+    A text content part.
+
+    Attributes:
+        type: Always ``"text"``.
+        text: The text.
+        cache_control: Optional prompt caching marker. Providers that support prompt caching
+            cache the prompt up to and including this part. Other providers never receive it.
+    """
+
     type: Literal["text"]
     text: str
+    cache_control: CacheControl | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        return _drop_unset_cache_control(handler(self))
 
 
 class ImageUrl(BaseModel):
@@ -31,8 +79,23 @@ class ImageUrl(BaseModel):
 
 
 class ImageContentPart(BaseModel):
+    """
+    An image content part.
+
+    Attributes:
+        type: Always ``"image_url"``.
+        image_url: The image.
+        cache_control: Optional prompt caching marker, as on
+            :py:class:`TextContentPart <mlflow.types.chat.TextContentPart>`.
+    """
+
     type: Literal["image_url"]
     image_url: ImageUrl
+    cache_control: CacheControl | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        return _drop_unset_cache_control(handler(self))
 
 
 class InputAudio(BaseModel):

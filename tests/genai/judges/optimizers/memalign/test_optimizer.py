@@ -1728,3 +1728,13 @@ def test_reconstruct_episodic_memory_propagates_error_and_cancels_pending(
         judge._reconstruct_episodic_memory()
 
     assert mock_get_trace.call_count < len(trace_ids)
+
+
+def test_default_inputs_corpus_embeds_only_the_inputs_value(sample_judge, sample_traces):
+    # getattr(example, "inputs") is dspy.Example's bound ``inputs`` method, whose repr would
+    # leak the whole example (including the human label and rationale) into the corpus.
+    with mock_apis(guidelines=[]) as mocks:
+        MemAlignOptimizer().align(sample_judge, sample_traces[:2])
+
+    corpus = mocks["embeddings_class"].call_args.kwargs["corpus"]
+    assert corpus == ["{'inputs': 'input_0'}", "{'inputs': 'input_1'}"]
