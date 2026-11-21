@@ -290,6 +290,8 @@ class EvaluationResult:
 
         A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
         Declare ``@scorer(pass_if=...)`` to define passing for other values.
+        A run does not pass when its per-row results are unavailable or when no
+        scorer produced a value for any row.
 
         Usage::
 
@@ -320,13 +322,15 @@ class EvaluationResult:
 
     def _row_failures(self) -> list[str]:
         if self.result_df is None:
-            return []
+            return [
+                "per-row results are unavailable (the result table could not be built), "
+                "so the run cannot be checked"
+            ]
 
         value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
-        if not value_cols:
-            return []
 
         failures: list[str] = []
+        num_scored = 0
         for _, row in self.result_df.iterrows():
             for col in value_cols:
                 scorer_name = col.removesuffix("/value")
@@ -336,6 +340,7 @@ class EvaluationResult:
                 # Skip cells a scorer did not produce for this row.
                 if error_msg is None and is_none_or_nan(value):
                     continue
+                num_scored += 1
                 rationale = row.get(f"{scorer_name}/rationale")
                 rationale = None if is_none_or_nan(rationale) else rationale
                 passed, detail = _assertion_outcome(
@@ -343,6 +348,13 @@ class EvaluationResult:
                 )
                 if not passed:
                     failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
+        # Skipping a single missing cell is fine, but a run where no scorer produced a
+        # value for any row has no evidence to pass on.
+        if num_scored == 0:
+            failures.append(
+                "no scorer produced a value for any row; check that the scorers return a "
+                "value and receive the inputs they need"
+            )
         return failures
 
     # For backwards compatibility
