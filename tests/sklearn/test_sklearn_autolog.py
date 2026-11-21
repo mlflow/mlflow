@@ -288,6 +288,21 @@ def test_classifier_binary():
     assert len(plt.get_fignums()) == 0
 
 
+@pytest.mark.filterwarnings("error:`y_pred` was renamed to `y_proba`:FutureWarning")
+def test_classifier_log_loss_does_not_use_deprecated_y_pred_argument():
+    mlflow.sklearn.autolog()
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    _, metrics, _, _ = get_run_data(run.info.run_id)
+    assert metrics["training_log_loss"] == pytest.approx(
+        sklearn.metrics.log_loss(y_true, model.predict_proba(X))
+    )
+
+
 def test_classifier_multi_class():
     mlflow.sklearn.autolog()
     # use RandomForestClassifier that has method [predict_proba], so that we can test

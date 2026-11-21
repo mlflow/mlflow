@@ -260,13 +260,15 @@ def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight, 
 
     if hasattr(fitted_estimator, "predict_proba"):
         y_pred_proba = fitted_estimator.predict_proba(X)
+        # scikit-learn 1.9 renamed the `y_pred` parameter of `log_loss` to `y_proba`
+        y_proba_arg = "y_proba" if Version(sklearn.__version__) >= Version("1.9") else "y_pred"
         classifier_metrics.extend([
             _SklearnMetric(
                 name=prefix + "log_loss",
                 function=sklearn.metrics.log_loss,
                 arguments={
                     "y_true": y_true,
-                    "y_pred": y_pred_proba,
+                    y_proba_arg: y_pred_proba,
                     "sample_weight": sample_weight,
                 },
             ),
