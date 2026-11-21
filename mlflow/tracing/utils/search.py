@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 from mlflow.exceptions import MlflowException
@@ -11,6 +12,58 @@ if TYPE_CHECKING:
 
     import mlflow.entities
     from mlflow.entities import Trace
+
+
+# sqlparse 0.4.3 and newer releases differ on paired backslashes before a quote.
+_TRACE_FILTER_QUOTED_TOKENS = (
+    r"""'(?:''|\\'|[^'])*'|"(?:""|\\"|[^"])*"|`(?:``|[^`])*`""",
+    r"""'(?:''|\\\\|\\'|[^'])*'|"(?:""|\\\\|\\"|[^"])*"|`(?:``|[^`])*`""",
+)
+_TRACE_METADATA_FILTER_FIELDS = {
+    "request_metadata.`mlflow.modelId`",
+    "metadata.`mlflow.trace.session`",
+}
+
+
+def format_trace_metadata_filter(field: str, value: str) -> str:
+    """Frame fixed metadata IDs as one exact literal under supported server tokenizers."""
+    value = str(value)
+    if field not in _TRACE_METADATA_FILTER_FIELDS or any(
+        (literal := re.match(pattern, f"'{value}'")) is None or literal.end() != len(value) + 2
+        for pattern in _TRACE_FILTER_QUOTED_TOKENS
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Value cannot be represented as a single equality filter for {field}"
+        )
+    # Metadata literals retain their raw contents, including doubled quotes and backslashes.
+    return f"{field} = '{value}'"
+
+
+def combine_trace_filters(*filters: str | None) -> str:
+    """Conjoin filters, grouping top-level OR without rewriting the supplied expressions."""
+    filters = [expression for expression in filters if expression]
+    if len(filters) < 2:
+        return "".join(filters)
+    clauses = []
+    for expression in filters:
+        has_or = False
+        for quoted_tokens in _TRACE_FILTER_QUOTED_TOKENS:
+            depth = 0
+            for match in re.finditer(
+                quoted_tokens + r"|[()]|(?<![\w.$#])OR(?![\w.$#])", expression, re.IGNORECASE
+            ):
+                token = match.group()
+                if token == "(":
+                    depth += 1
+                elif token == ")":
+                    depth -= 1
+                elif token.upper() == "OR" and depth == 0:
+                    has_or = True
+                    break
+            if has_or:
+                break
+        clauses.append(f"({expression})" if has_or else expression)
+    return " AND ".join(clauses)
 
 
 def traces_to_df(

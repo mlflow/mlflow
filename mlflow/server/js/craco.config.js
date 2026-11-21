@@ -501,7 +501,7 @@ module.exports = function () {
         // languages + dropping the search/quickCommand features keeps the lazy chunk to ~1MB
         // gz instead of the full ~3MB.
         new MonacoWebpackPlugin({
-          languages: ['json'],
+          languages: ['json', 'sql'],
           features: ['!gotoSymbol', '!documentSymbols'],
           filename: 'static/js/monaco-[name].worker.[contenthash:8].js',
         }),

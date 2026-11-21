@@ -592,7 +592,9 @@ describe('unified search shell', () => {
 
   test('offers an explicit text search when no filter suggestions match', async () => {
     const user = userEvent.setup();
-    const onOpenFilter = jest.fn((_index?: number) => expect(searchBox()).toHaveAttribute('aria-expanded', 'false'));
+    const onOpenFilter = jest.fn((_index?: number | 'sql') =>
+      expect(searchBox()).toHaveAttribute('aria-expanded', 'false'),
+    );
     const onSubmit = jest.fn();
     renderSearch({ traces: [], onOpenFilter, onSubmit });
     await user.click(searchBox());
@@ -785,7 +787,7 @@ const EDITOR_FIELDS: FilterFieldDef[] = [
 const SearchWithFilterEditor = ({ onFilterChange }: { onFilterChange: (model: TraceFilterModel) => void }) => {
   const [filterModel, setFilterModel] = useState<TraceFilterModel>([]);
   const [value, setValue] = useState('');
-  const renderSearchControl = (openEditor: (filterIndex?: number) => void) => (
+  const renderSearchControl = (openEditor: (filterIndex?: number | 'sql') => void) => (
     <TracesV4Search
       traces={[]}
       value={value}

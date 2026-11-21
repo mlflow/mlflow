@@ -37,6 +37,8 @@ import {
   useTracesV4CustomColumnHeaderActions,
   useTracesV4CustomColumns,
 } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4CustomColumns';
+import { useTracesV4FilterEditor } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4FilterEditor';
+import { useMlflowTraceFilterFields } from '../../components/experiment-page/components/traces-v4/utils/filterModel';
 import { useTracesV4UnifiedSearch } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UnifiedSearch';
 import {
   getSessionAssessmentNames,
@@ -321,9 +323,8 @@ export const EvalRunTracesV4Table = ({
   );
 
   const clearAllFilters = useCallback(() => {
-    controller.setFilterModel(EMPTY_FILTER_MODEL);
-    url.clearTagFilters();
-  }, [controller, url]);
+    url.setFilterState(EMPTY_FILTER_MODEL, []);
+  }, [url]);
   const clearFilters = useCallback(() => {
     searchInput.clear();
     clearAllFilters();
@@ -371,15 +372,23 @@ export const EvalRunTracesV4Table = ({
 
   const unifiedSearch = useTracesV4UnifiedSearch({
     filterModel,
-    setFilterModel: controller.setFilterModel,
+    setFilterState: url.setFilterState,
     tagFilters: url.tagFilters,
-    setTagFilters: url.setTagFilters,
     searchInput,
   });
 
+  const filterFields = useMlflowTraceFilterFields(assessments.candidateNames, page.traces);
+  const filterEditor = useTracesV4FilterEditor({
+    filterModel,
+    unifiedSearch,
+    filterFields,
+    url,
+    numericAssessmentKeys: controller.numericAssessmentKeys,
+    error: page.error,
+    isFetching: page.isFetching,
+  });
   const toolbarSlots = useTracesV4ToolbarSlots({
-    filterModel: unifiedSearch.searchFilterModel,
-    onFilterChange: unifiedSearch.setSearchFilters,
+    ...filterEditor,
     hideFilterButton: true,
     traces: page.traces,
     onClearFilters: clearAllFilters,

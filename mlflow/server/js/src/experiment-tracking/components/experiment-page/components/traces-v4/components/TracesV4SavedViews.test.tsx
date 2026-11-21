@@ -1,4 +1,5 @@
-import { jest, describe, beforeEach, test, expect } from '@jest/globals';
+import * as FeatureUtils from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import { render, screen, waitFor, fireEvent, act } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
@@ -10,6 +11,7 @@ import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/commo
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetExperimentQuery } from '@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery';
 import { encodeSavedViewEnvelope } from '../../../utils/savedViewEnvelope';
+import * as savedViewEnvelope from '../../../utils/savedViewEnvelope';
 import { textCompressDeflate, textDecompressDeflate } from '@mlflow/mlflow/src/common/utils/StringUtils';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { TRACE_V4_SHARE_URL_PARAM_KEY, buildV4ViewQuery, captureV4ViewState } from '../utils/tracesV4SavedViewState';
@@ -87,7 +89,6 @@ const SavedViewsButtonHarness = ({ experimentId }: { experimentId: string }) => 
     filterModel: [],
     setColumns: buttonSetColumns,
     resetColumns: jest.fn(),
-    setFilterModel: jest.fn(),
     customVisibility: {},
     setCustomVisibility: buttonSetCustomVisibility,
   });
@@ -343,18 +344,20 @@ describe('TracesV4SavedViewsButton', () => {
 });
 
 describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   const setColumns = jest.fn();
   const setColumnOrder = jest.fn();
   // Report BOTH the hook API and the live URL search each render, so assertions read the in-memory
   // router's state (TestRouter never touches window.location.hash) after a param rewrite.
-  const setFilterModel = jest.fn();
   const setAssessmentVisibility = jest.fn();
   const DirtyProbe = ({
     onRender,
     filterModel = [],
     assessmentVisibility = {},
   }: {
-    onRender: (s: any, search: string) => void;
+    onRender: (s: any, search: string, setParams: ReturnType<typeof useSearchParams>[1]) => void;
     filterModel?: TraceFilterModel;
     assessmentVisibility?: Record<string, boolean>;
   }) => {
@@ -364,19 +367,18 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       filterModel,
       setColumns,
       resetColumns: jest.fn(),
-      setFilterModel,
       assessmentVisibility,
       setAssessmentVisibility,
       setColumnOrder,
     });
-    const [params] = useSearchParams();
-    onRender(savedViews, params.toString());
+    const [params, setParams] = useSearchParams();
+    onRender(savedViews, params.toString(), setParams);
     return null;
   };
 
   const renderProbeAt = (
     entry: string,
-    onRender: (s: any, search: string) => void,
+    onRender: (s: any, search: string, setParams: ReturnType<typeof useSearchParams>[1]) => void,
     filterModel: TraceFilterModel = [],
     assessmentVisibility: Record<string, boolean> = {},
   ) =>
@@ -419,6 +421,30 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     // Live URL (q=x) + live columns ([start_time]) equal v1's stored state.
     renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s));
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+  });
+
+  test('does not decode the active saved view again after an unrelated URL edit', async () => {
+    const decode = jest.spyOn(savedViewEnvelope, 'deserializePersistedState');
+    try {
+      let state: any;
+      let navigate: ReturnType<typeof useSearchParams>[1];
+      renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s, _search, setParams) => {
+        state = s;
+        navigate = setParams;
+      });
+      await waitFor(() => expect(setColumns).toHaveBeenCalledWith(['start_time']));
+      expect(decode).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        navigate((params) => {
+          params.set('selectedTraceId', 'tr-other');
+          return params;
+        });
+      });
+      expect(state.dirtyStatus).toBe('clean');
+      expect(decode).toHaveBeenCalledTimes(1);
+    } finally {
+      decode.mockRestore();
+    }
   });
 
   test('dirtyStatus becomes dirty when the live URL diverges from the active view', async () => {
@@ -506,7 +532,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
         filterModel: [],
         setColumns,
         resetColumns: jest.fn(),
-        setFilterModel,
         setColumnOrder,
       });
       onRender(savedViews);
@@ -547,11 +572,17 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       ),
     ]);
     let state: any;
-    renderProbeAt('/', (s) => (state = s));
+    let search = '';
+    renderProbeAt('/', (s, sp) => {
+      state = s;
+      search = sp;
+    });
     await act(async () => {
       await state.openView('v1');
     });
-    expect(setFilterModel).toHaveBeenCalledWith([{ field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' }]);
+    expect(JSON.parse(new URLSearchParams(search).get('filters') ?? '[]')).toEqual([
+      { field: 'state', operator: FilterOp.EQUALS, value: 'ERROR' },
+    ]);
   });
 
   test('a filter-model divergence from the stored view reads as dirty', async () => {
@@ -592,13 +623,96 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
       ),
     ]);
     let state: any;
-    renderProbeAt(`/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s), []);
+    let search = '';
+    renderProbeAt(
+      `/?q=x&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`,
+      (s, sp) => {
+        state = s;
+        search = sp;
+      },
+      [],
+    );
     await act(async () => {
       await state.openView('v1');
     });
-    expect(setFilterModel).toHaveBeenLastCalledWith([]);
     await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+    expect(new URLSearchParams(search).get('filters')).toBe('[]');
   });
+
+  test.each([false, true])(
+    'share and open validate the same stored filters (valid clause: %s)',
+    async (includeValid) => {
+      const valid = { field: 'tag', key: 'build:version', operator: FilterOp.EQUALS, value: 'v1' };
+      mockExperiment([
+        await makeV4ViewTag(
+          'v1',
+          'Known',
+          1000,
+          'q=x',
+          ['start_time'],
+          [{ field: 'state', operator: FilterOp.CONTAINS, value: 'ERROR' }, ...(includeValid ? [valid] : [])],
+        ),
+      ]);
+      let state: any;
+      let search = '';
+      renderProbeAt('/', (s, sp) => {
+        state = s;
+        search = sp;
+      });
+      let link = '';
+      await act(async () => {
+        link = await state.buildShareUrl('v1');
+        await state.openView('v1');
+      });
+      const shared = new URLSearchParams(link.split('?')[1]);
+      expect(shared.toString()).toBe(new URLSearchParams(search).toString());
+      expect(JSON.parse(shared.get('filters') ?? 'null')).toEqual(includeValid ? [valid] : []);
+    },
+  );
+
+  test.each([false, true])(
+    'open, share, reset and absent-only hydration respect the SQL editor flag: %s',
+    async (enabled) => {
+      jest.spyOn(FeatureUtils, 'shouldEnableNewEvalRunsUi').mockReturnValue(enabled);
+      const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env = 'qa'" };
+      const basic = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
+      const expected = enabled ? [sql, basic] : [basic];
+      mockExperiment([await makeV4ViewTag('v1', 'Known', 1000, 'q=x', ['start_time'], [sql, basic])]);
+      let state: any;
+      let search = '';
+      let setParams: ReturnType<typeof useSearchParams>[1];
+      renderProbeAt(
+        '/?q=x&traceViewShareKey=v1',
+        (s, sp, setter) => {
+          state = s;
+          search = sp;
+          setParams = setter;
+        },
+        expected,
+      );
+      await waitFor(() => expect(JSON.parse(new URLSearchParams(search).get('filters') ?? 'null')).toEqual(expected));
+      await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+      let link = '';
+      await act(async () => {
+        link = await state.buildShareUrl('v1');
+        await state.openView('v1');
+      });
+      const shared = new URLSearchParams(link.split('?')[1]);
+      expect(shared.toString()).toBe(search);
+      expect(JSON.parse(shared.get('filters') ?? 'null')).toEqual(expected);
+      await act(async () => {
+        setParams!((params) => {
+          params.set('filters', '[]');
+          return params;
+        });
+      });
+      await waitFor(() => expect(new URLSearchParams(search).get('filters')).toBe('[]'));
+      await act(async () => {
+        await state.resetActiveView();
+      });
+      expect(JSON.parse(new URLSearchParams(search).get('filters') ?? 'null')).toEqual(expected);
+    },
+  );
 
   test('opening a view restores its stored assessment-column visibility', async () => {
     // v1 stored with one assessment hidden; opening it must push the full map into the live store.
@@ -624,7 +738,6 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
 
 describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
   const setColumns = jest.fn();
-  const setFilterModel = jest.fn();
   const V3Probe = ({ onRender }: { onRender: (s: any, search: string) => void }) => {
     const savedViews = useTracesV4SavedViews({
       experimentId: 'exp-1',
@@ -632,7 +745,6 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
       filterModel: [],
       setColumns,
       resetColumns: jest.fn(),
-      setFilterModel,
     });
     const [params] = useSearchParams();
     onRender(savedViews, params.toString());
@@ -701,8 +813,9 @@ describe('useTracesV4SavedViews legacy V3 view compatibility', () => {
     });
     // Columns restored into the user's store (V3 ids → V4 ids: request_time→start_time, request→input).
     expect(setColumns).toHaveBeenCalledWith(['start_time', 'input']);
-    // V3 filter[] → V4's in-memory popover model (not the URL-backed tag[]).
-    expect(setFilterModel).toHaveBeenCalledWith([{ field: 'state', operator: '=', value: 'ERROR' }]);
+    expect(JSON.parse(new URLSearchParams(search).get('filters') ?? '[]')).toEqual([
+      { field: 'state', operator: '=', value: 'ERROR' },
+    ]);
   });
 
   test('overwriting a V3 view migrates it: writes a V4 tag (same id) and deletes the V3 tag', async () => {
@@ -777,7 +890,6 @@ describe('useTracesV4SavedViews stale-tag refetch on active share key', () => {
       filterModel: [],
       setColumns: jest.fn(),
       resetColumns: jest.fn(),
-      setFilterModel: jest.fn(),
     });
     return null;
   };

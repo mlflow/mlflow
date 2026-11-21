@@ -45,6 +45,17 @@ describe('TracesV4PageContent unified search', () => {
     expect(screen.queryByPlaceholderText('Add a filter')).not.toBeInTheDocument();
   }, 20000);
 
+  test('with the new eval runs UI off, keeps URL tags outside the Basic-only filter popover', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    const user = userEvent.setup();
+    renderPage({ initialUrl: `${URL}?tag=${encodeURIComponent('env=prod')}` });
+    await findTraceRow('tr-000');
+    await user.click(screen.getByRole('button', { name: /^Filters/ }));
+    expect(screen.queryByRole('tab', { name: 'SQL' })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('prod')).not.toBeInTheDocument();
+    expect(new URLSearchParams(env.lastSearch).get('tag')).toBe('env=prod');
+  }, 20000);
+
   test('with the new eval runs UI on, turns a typed query into a filter pill', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const user = userEvent.setup();
@@ -65,6 +76,22 @@ describe('TracesV4PageContent unified search', () => {
     // The unfiltered page is served from the query cache, so check the pills rather than a new request.
     await user.click(remove);
     await waitFor(() => expect(screen.queryByRole('button', { name: /Remove filter/ })).not.toBeInTheDocument());
+  }, 20000);
+
+  test('with the new eval runs UI off, never executes a restored hidden SQL clause', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    const filters = [
+      { field: 'sql_where', operator: '=', value: "tags.hidden = 'sql-only'" },
+      { field: 'duration', operator: '>', value: '1000' },
+    ];
+    renderPage({ initialUrl: `${URL}?filters=${encodeURIComponent(JSON.stringify(filters))}&tag=env%3Dprod` });
+    await findTraceRow('tr-000');
+    expect(lastFilter()).toContain('attributes.execution_time_ms > 1000');
+    expect(lastFilter()).toContain("tags.env = 'prod'");
+    expect(lastFilter()).not.toContain('hidden');
+    await userEvent.click(screen.getByRole('button', { name: /^Filters/ }));
+    expect(screen.queryByRole('tab', { name: 'SQL' })).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue('1000')).toBeInTheDocument();
   }, 20000);
 
   test('shows click-to-filter tags as pills and keeps them in the URL until their own pill is removed', async () => {

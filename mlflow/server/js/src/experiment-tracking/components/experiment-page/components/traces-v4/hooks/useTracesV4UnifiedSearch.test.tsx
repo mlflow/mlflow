@@ -8,18 +8,16 @@ const stateClause = { field: 'status', operator: FilterOp.EQUALS, value: 'ERROR'
 const urlTagClause = { field: 'tag', key: 'env', operator: FilterOp.EQUALS, value: 'prod' };
 
 const renderUnifiedSearch = () => {
-  const setFilterModel = jest.fn<(next: TraceFilterModel) => void>();
-  const setTagFilters = jest.fn<(filters: { key: string; value: string }[]) => void>();
+  const setFilterState = jest.fn();
   const { result } = renderHook(() =>
     useTracesV4UnifiedSearch({
       filterModel: [stateClause],
-      setFilterModel,
+      setFilterState,
       tagFilters: [{ key: 'env', value: 'prod' }],
-      setTagFilters,
       searchInput: {} as UseDebouncedSearchInputResult,
     }),
   );
-  return { result, setFilterModel, setTagFilters };
+  return { result, setFilterState };
 };
 
 describe('useTracesV4UnifiedSearch', () => {
@@ -29,40 +27,36 @@ describe('useTracesV4UnifiedSearch', () => {
   });
 
   test('keeps the URL tag filters in the URL when another pill is removed', () => {
-    const { result, setFilterModel, setTagFilters } = renderUnifiedSearch();
+    const { result, setFilterState } = renderUnifiedSearch();
 
     act(() => result.current.setSearchFilters([urlTagClause]));
 
-    expect(setFilterModel).toHaveBeenCalledWith([]);
-    expect(setTagFilters).not.toHaveBeenCalled();
+    expect(setFilterState).toHaveBeenCalledWith([], [{ key: 'env', value: 'prod' }]);
   });
 
   test('keeps the URL tag filters in the URL when another pill is edited', () => {
-    const { result, setFilterModel, setTagFilters } = renderUnifiedSearch();
+    const { result, setFilterState } = renderUnifiedSearch();
     const editedClause = { ...stateClause, value: 'OK' };
 
     act(() => result.current.setSearchFilters([editedClause, urlTagClause]));
 
-    expect(setFilterModel).toHaveBeenCalledWith([editedClause]);
-    expect(setTagFilters).not.toHaveBeenCalled();
+    expect(setFilterState).toHaveBeenCalledWith([editedClause], [{ key: 'env', value: 'prod' }]);
   });
 
   test('removes a URL tag filter from the URL when its own pill is removed', () => {
-    const { result, setFilterModel, setTagFilters } = renderUnifiedSearch();
+    const { result, setFilterState } = renderUnifiedSearch();
 
     act(() => result.current.setSearchFilters([stateClause]));
 
-    expect(setFilterModel).toHaveBeenCalledWith([stateClause]);
-    expect(setTagFilters).toHaveBeenCalledWith([]);
+    expect(setFilterState).toHaveBeenCalledWith([stateClause], []);
   });
 
   test('moves an edited URL tag pill into the filter model', () => {
-    const { result, setFilterModel, setTagFilters } = renderUnifiedSearch();
+    const { result, setFilterState } = renderUnifiedSearch();
     const editedTag = { ...urlTagClause, value: 'staging' };
 
     act(() => result.current.setSearchFilters([stateClause, editedTag]));
 
-    expect(setFilterModel).toHaveBeenCalledWith([stateClause, editedTag]);
-    expect(setTagFilters).toHaveBeenCalledWith([]);
+    expect(setFilterState).toHaveBeenCalledWith([stateClause, editedTag], []);
   });
 });

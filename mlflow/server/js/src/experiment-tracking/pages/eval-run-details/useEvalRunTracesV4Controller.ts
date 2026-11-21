@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@databricks/web-shared/query-client';
 import {
   createTraceLocationForExperiment,
@@ -17,7 +17,6 @@ import {
 } from '@databricks/web-shared/model-trace-explorer';
 import {
   countActiveFilters,
-  EMPTY_FILTER_MODEL,
   useBulkTraceSelection,
   useTraceTokenCache,
   useTracesPageQuery,
@@ -69,6 +68,7 @@ export interface UseEvalRunTracesV4ControllerResult {
   bulk: ReturnType<typeof useBulkTraceSelection>;
   searchInput: ReturnType<typeof useDebouncedSearchInput>;
   filterModel: TraceFilterModel;
+  numericAssessmentKeys: ReadonlySet<string>;
   setFilterModel: (next: TraceFilterModel) => void;
   activeFilterCount: number;
   /** Selected trace id, exposed only after the trace is known to belong to this run. */
@@ -106,7 +106,7 @@ export const buildEvalRunTraceFilter = ({
   const runClause = `attributes.run_id = '${escapeFilterValue(runUuid)}'`;
   const userFilter = buildFilter({ searchQuery, extraClauses });
   const requiredFilter = `${runClause} AND ${EXCLUDE_SCORER_TRACES_CLAUSE}`;
-  return userFilter ? `${requiredFilter} AND ${userFilter}` : requiredFilter;
+  return buildFilter({ extraClauses: [requiredFilter, userFilter ?? ''] }) ?? requiredFilter;
 };
 
 /** Owns the eval-run-specific trace query policy while reusing the shared table mechanisms. */
@@ -118,17 +118,10 @@ export const useEvalRunTracesV4Controller = ({
   const url = useEvalRunTracesV4UrlState();
   const queryClient = useQueryClient();
   const monitoringConfig = useMonitoringConfig();
-  const [filterModel, setFilterModelState] = useState<TraceFilterModel>(EMPTY_FILTER_MODEL);
+  const { filterModel, setFilterModel } = url;
   const isGroupedBySession = shouldEnableSessionGrouping() && url.isGroupedBySession;
   const persistenceId = `${experimentId}.${runUuid}`;
   const { setPageIndex } = url;
-  const setFilterModel = useCallback(
-    (next: TraceFilterModel) => {
-      setPageIndex(1);
-      setFilterModelState(next);
-    },
-    [setPageIndex],
-  );
 
   const searchInput = useDebouncedSearchInput({
     committedValue: url.search,
@@ -333,6 +326,7 @@ export const useEvalRunTracesV4Controller = ({
     bulk,
     searchInput,
     filterModel,
+    numericAssessmentKeys,
     setFilterModel,
     activeFilterCount,
     activeTraceId,

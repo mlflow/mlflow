@@ -7,6 +7,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
+from mlflow.utils.search_utils import SearchTraceUtils
 
 _logger = logging.getLogger(__name__)
 
@@ -114,7 +115,7 @@ class OnlineTraceLoader:
         time_filter = (
             f"trace.timestamp_ms >= {start_time_ms} AND trace.timestamp_ms <= {end_time_ms}"
         )
-        combined_filter = f"{time_filter} AND {filter_string}" if filter_string else time_filter
+        combined_filter = SearchTraceUtils.combine_filters(time_filter, filter_string)
         _logger.debug(f"Fetching traces with filter: {combined_filter}")
 
         all_trace_infos = []

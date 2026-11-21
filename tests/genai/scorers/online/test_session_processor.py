@@ -14,6 +14,7 @@ from mlflow.entities.trace_location import (
     TraceLocationType,
 )
 from mlflow.entities.trace_state import TraceState
+from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 from mlflow.genai.scorers.base import _UnexecutedDecoratorScorer
@@ -576,6 +577,17 @@ def test_score_session_excludes_eval_run_traces(
         filter_string
         == "metadata.mlflow.sourceRun IS NULL AND metadata.`mlflow.trace.session` = 'sess-001'"
     )
+
+
+def test_fetch_session_rejects_unrepresentable_id(
+    mock_trace_loader, mock_checkpoint_manager, mock_tracking_store, empty_sampler
+):
+    processor = make_processor(
+        mock_trace_loader, mock_checkpoint_manager, empty_sampler, mock_tracking_store
+    )
+    with pytest.raises(MlflowException, match="single equality filter"):
+        processor._fetch_session_traces(make_completed_session("O'Reilly", 500, 1500))
+    mock_trace_loader.fetch_trace_infos_in_range.assert_not_called()
 
 
 def test_score_session_adds_session_metadata_to_assessments(

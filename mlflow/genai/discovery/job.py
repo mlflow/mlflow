@@ -37,6 +37,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
 )
 from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
+from mlflow.utils.search_utils import SearchTraceUtils
 
 _logger = logging.getLogger(__name__)
 
@@ -334,7 +335,7 @@ def run_scheduled_issue_detection_job(
         )
         return {"traces_in_window": 0, "run_id": run_id}
 
-    filter_string = " AND ".join(filter(None, [window_clause, trace_filter]))
+    filter_string = SearchTraceUtils.combine_filters(window_clause, trace_filter)
     # Whole sessions, so a multi-turn conversation is analyzed together rather than cut in half.
     # The session count bounds the traces too -- see MAX_SCHEDULED_SESSION_SAMPLE_SIZE.
     traces = sample_traces(

@@ -1,7 +1,13 @@
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.search import _FieldParser, _parse_fields, _ParsedField
+from mlflow.tracing.utils.search import (
+    _FieldParser,
+    _parse_fields,
+    _ParsedField,
+    combine_trace_filters,
+    format_trace_metadata_filter,
+)
 
 
 @pytest.mark.parametrize(
@@ -78,3 +84,46 @@ def test_parse_fields():
     assert parsed_fields[2].span_name == "span3"
     assert parsed_fields[2].field_type == "outputs"
     assert parsed_fields[2].field_name is None
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "tags.name = 'AND OR (literal)'",
+        'tags.name = "AND OR (literal)"',
+        "tags.`OR (name)` = 'value'",
+        "tags.\"OR (name)\" = 'value'",
+        "tags.OR = 'value'",
+        r"tags.name = 'a\' OR (literal)'",
+        "tags.name = 'a'' OR (literal)'",
+        r'tags.name = "a\" OR (literal)"',
+        "(status = 'OK' OR status = 'ERROR')",
+    ],
+)
+def test_combine_trace_filters_keeps_quoted_or_nested_or(expression):
+    assert combine_trace_filters(expression, "timestamp > 1") == expression + " AND timestamp > 1"
+
+
+def test_combine_trace_filters_preserves_repeated_composition():
+    expression = "tags.name = 'a' oR tags.name = 'b'"
+    first = combine_trace_filters(None, expression, "", "timestamp > 1")
+    assert first == "(" + expression + ") AND timestamp > 1"
+    assert combine_trace_filters(first, "status = 'OK'") == first + " AND status = 'OK'"
+    assert combine_trace_filters(None, "") == ""
+
+
+def test_trace_metadata_formatter_rejects_other_fields():
+    with pytest.raises(MlflowException, match="single equality filter"):
+        format_trace_metadata_filter("metadata.`other`", "value")
+
+
+@pytest.mark.parametrize("value", [r"a\\'", r"a\\''"])
+def test_trace_metadata_formatter_rejects_version_ambiguous_literals(value):
+    with pytest.raises(MlflowException, match="single equality filter"):
+        format_trace_metadata_filter("metadata.`mlflow.trace.session`", value)
+
+
+@pytest.mark.parametrize("value", [r"a\\'", r"a\\''"])
+def test_combine_trace_filters_groups_or_for_both_server_tokenizers(value):
+    expression = f"tags.name = '{value}' OR status = 'OK'"
+    assert combine_trace_filters(expression, "timestamp > 1") == f"({expression}) AND timestamp > 1"

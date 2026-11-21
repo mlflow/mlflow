@@ -2,15 +2,15 @@ import { useCallback, useMemo, useState, type RefObject } from 'react';
 import type { InputRef } from '@databricks/design-system';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { FilterOp, type FilterClause, type TraceFilterModel } from '@databricks/web-shared/traces-table';
+import { isSqlFilterClause } from '../utils/filterModel';
 import { TracesV4Search } from '../components/TracesV4Search';
 import type { TracesV4ToolbarSlots } from '../components/TracesV4Toolbar';
 import type { UseDebouncedSearchInputResult } from './useDebouncedSearchInput';
 
 interface UseTracesV4UnifiedSearchParams {
   filterModel: TraceFilterModel;
-  setFilterModel: (next: TraceFilterModel) => void;
+  setFilterState: (next: TraceFilterModel, tags: { key: string; value: string }[]) => void;
   tagFilters: { key: string; value: string }[];
-  setTagFilters: (filters: { key: string; value: string }[]) => void;
   searchInput: UseDebouncedSearchInputResult;
 }
 
@@ -34,9 +34,8 @@ const isSameClause = (left: FilterClause, right: FilterClause) =>
  */
 export const useTracesV4UnifiedSearch = ({
   filterModel,
-  setFilterModel,
+  setFilterState,
   tagFilters,
-  setTagFilters,
   searchInput,
 }: UseTracesV4UnifiedSearchParams) => {
   const [searchMinimumWidth, setSearchMinimumWidth] = useState(340);
@@ -45,8 +44,9 @@ export const useTracesV4UnifiedSearch = ({
   // pill is edited or removed, so a reload, a shared link or Back keeps them.
   const searchFilterModel = useMemo(
     () => [
-      ...filterModel,
+      ...filterModel.filter((clause) => !isSqlFilterClause(clause)),
       ...tagFilters.map(({ key, value }) => ({ field: 'tag', key, operator: FilterOp.EQUALS, value })),
+      ...filterModel.filter(isSqlFilterClause),
     ],
     [filterModel, tagFilters],
   );
@@ -60,23 +60,21 @@ export const useTracesV4UnifiedSearch = ({
       const keptTagFilters = tagFilters.filter(({ key, value }) =>
         next.some((clause) => isUrlTagClause(clause) && clause.key === key && clause.value === value),
       );
-      setFilterModel(next.filter((clause) => !isUrlTagClause(clause)));
-      if (keptTagFilters.length !== tagFilters.length) {
-        setTagFilters(keptTagFilters);
-      }
+      const model = next.filter((clause) => !isUrlTagClause(clause));
+      setFilterState(model, keptTagFilters);
     },
-    [setFilterModel, tagFilters, setTagFilters],
+    [setFilterState, tagFilters],
   );
 
   // Picking a filter replaces the typed query that produced it.
   const addSearchFilter = useCallback(
     (clause: FilterClause) => {
       if (!searchFilterModel.some((existing) => isSameClause(existing, clause))) {
-        setFilterModel([...filterModel, clause]);
+        setFilterState([...filterModel, clause], tagFilters);
       }
       searchInput.clear();
     },
-    [filterModel, searchFilterModel, setFilterModel, searchInput],
+    [filterModel, searchFilterModel, setFilterState, tagFilters, searchInput],
   );
 
   const runTextSearch = useCallback(

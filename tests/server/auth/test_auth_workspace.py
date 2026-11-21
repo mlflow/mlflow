@@ -9069,6 +9069,11 @@ def test_search_traces_refuses_an_assessment_backed_filter(workspace_permission_
     assert _run_search_traces("expectation.expected = 'x'") is False
     # Numeric comparators reach the same table.
     assert _run_search_traces("feedback.score > 0.5") is False
+    assert _run_search_traces("status = 'OK' OR feedback.score > 0.5") is False
+    assert (
+        _run_search_traces("status = 'OK' AND (tags.env = 'prod' OR expectation.expected = 'x')")
+        is False
+    )
 
 
 def test_search_traces_unaffected_by_non_assessment_filters(workspace_permission_setup):
@@ -9081,6 +9086,7 @@ def test_search_traces_unaffected_by_non_assessment_filters(workspace_permission
     assert _run_search_traces("status = 'OK'") is True
     assert _run_search_traces("name = 'x' AND timestamp_ms > 0") is True
     assert _run_search_traces("tags.foo = 'bar'") is True
+    assert _run_search_traces("status = 'OK' OR (tags.foo = 'bar' AND timestamp_ms > 0)") is True
     # issue.id selects on the assessment NAME, not a value, and `issue` is not a type we govern.
     assert _run_search_traces("issue.id = 'i1'") is True
     # `prompt` maps to the linked-prompts tag: an unvalidated author assertion, not prompt
@@ -11113,6 +11119,10 @@ def test_search_traces_refuses_a_run_backed_filter(workspace_permission_setup):
     assert _run_search_traces("run_id = 'run-1'") is False
     assert _run_search_traces("attributes.run_id = 'run-1'") is False
     assert _run_search_traces("metadata.`mlflow.sourceRun` = 'run-1'") is False
+    assert (
+        _run_search_traces("status = 'OK' OR (tags.env = 'prod' AND attributes.run_id = 'run-1')")
+        is False
+    )
     # Broad operators need no special handling: run grain is wildcard-only, so one key decides.
     assert _run_search_traces("run_id LIKE '%run%'") is False
     # Unrelated filters are untouched.
@@ -11124,6 +11134,7 @@ def test_search_traces_refuses_a_logged_model_backed_filter(workspace_permission
     _deny_tier(workspace_permission_setup, "logged_model")
 
     assert _run_search_traces("metadata.`mlflow.modelId` = 'model-1'") is False
+    assert _run_search_traces("status = 'OK' OR metadata.`mlflow.modelId` = 'model-1'") is False
     assert _run_search_traces("run_id = 'run-1'") is True
 
 

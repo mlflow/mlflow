@@ -233,4 +233,19 @@ describe('validateComparisonFilters', () => {
       ),
     ).toBeUndefined();
   });
+  it.each([
+    ['1.2e3', true],
+    ['1200.0', true],
+    ['-2', false],
+    ['+1200.0', true],
+  ])('retains the local finite duration contract for %s', (value, expected) => {
+    expect(validateComparisonFilters([clause('duration', value)], fields, intl)).toBeUndefined();
+    expect(matches(makeTrace('a'), clause('duration', value))).toBe(expected);
+  });
+  it('validates and matches local keys literally without applying server identifier restrictions', () => {
+    const key = 'key`"\\name';
+    const filter = clause('tag', 'prod', FilterOp.EQUALS, key);
+    expect(validateComparisonFilters([filter], fields, intl)).toBeUndefined();
+    expect(matches(makeTrace('a', { tags: { [key]: 'prod' } }), filter)).toBe(true);
+  });
 });

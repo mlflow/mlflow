@@ -44,6 +44,8 @@ import {
 // Reuse the generic (branding-free) "/" hotkey hook from datasets-v2.
 import { useSlashFocusSearch } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
 import { isAssessmentColumnId } from '../utils/assessmentColumns';
+import { useMlflowTraceFilterFields } from '../utils/filterModel';
+import { useTracesV4FilterEditor } from '../hooks/useTracesV4FilterEditor';
 import { isCustomTraceColumnId } from '../utils/customColumns';
 import { useTracesV4Controller } from '../hooks/useTracesV4Controller';
 import { useTracesV4Density } from '../hooks/useTracesV4Density';
@@ -379,7 +381,6 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     filterModel,
     setColumns: columns.setColumns,
     resetColumns,
-    setFilterModel: controller.setFilterModel,
     assessmentNames: assessments.candidateNames,
     assessmentVisibility: assessments.visibilityByName,
     setAssessmentVisibility: assessments.setVisibility,
@@ -607,9 +608,8 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // Filter button "clear all": resets exactly what the count badge totals — the popover clauses AND
   // the URL tag filters — but leaves the search box (a separate control the badge doesn't count).
   const clearAllFilters = useCallback(() => {
-    controller.setFilterModel(EMPTY_FILTER_MODEL);
-    url.clearTagFilters();
-  }, [controller, url]);
+    url.setFilterState(EMPTY_FILTER_MODEL, []);
+  }, [url]);
   // Empty-state "clear filters": the broader reset that also clears the search query, since the
   // no-results state can be caused by the search too.
   const clearFilters = useCallback(() => {
@@ -658,16 +658,24 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // shows the applied filters as pills and turns typed queries into filters.
   const unifiedSearchEnabled = shouldEnableNewEvalRunsUi();
   const unifiedSearch = useTracesV4UnifiedSearch({
+    setFilterState: url.setFilterState,
     filterModel,
-    setFilterModel: controller.setFilterModel,
     tagFilters: url.tagFilters,
-    setTagFilters: url.setTagFilters,
     searchInput,
   });
 
+  const filterFields = useMlflowTraceFilterFields(assessments.candidateNames, page.traces);
+  const filterEditor = useTracesV4FilterEditor({
+    filterModel,
+    unifiedSearch,
+    filterFields,
+    url,
+    numericAssessmentKeys: controller.numericAssessmentKeys,
+    error: page.error,
+    isFetching: page.isFetching,
+  });
   const toolbarSlots = useTracesV4ToolbarSlots({
-    filterModel: unifiedSearchEnabled ? unifiedSearch.searchFilterModel : filterModel,
-    onFilterChange: unifiedSearchEnabled ? unifiedSearch.setSearchFilters : controller.setFilterModel,
+    ...(unifiedSearchEnabled ? filterEditor : { filterModel, onFilterChange: controller.setFilterModel }),
     hideFilterButton: unifiedSearchEnabled,
     ...(unifiedSearchEnabled ? { traces: page.traces } : {}),
     onClearFilters: clearAllFilters,

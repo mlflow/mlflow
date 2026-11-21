@@ -1528,6 +1528,13 @@ def test_search_traces_with_run_id():
     )
     assert _get_names(traces) == ["tr-5"]
 
+    traces = mlflow.search_traces(
+        run_id=run2.info.run_id,
+        filter_string="tag.fruit = 'apple' OR tag.fruit = 'banana'",
+        flush=True,
+    )
+    assert set(_get_names(traces)) == {"tr-4", "tr-5"}
+
     with pytest.raises(MlflowException, match="You cannot filter by run_id when it is already"):
         mlflow.search_traces(
             run_id=run2.info.run_id,
@@ -2792,6 +2799,13 @@ def test_search_sessions_empty():
     _create_trace_without_session()
     sessions = mlflow.search_sessions()
     assert sessions == []
+
+
+@pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="Requires the full tracking store.")
+def test_search_sessions_rejects_unrepresentable_session_id():
+    _create_trace_with_session("O'Reilly", "quoted-session")
+    with pytest.raises(MlflowException, match="single equality filter"):
+        mlflow.search_sessions()
 
 
 @pytest.mark.skipif(

@@ -3567,7 +3567,7 @@ class SqlAlchemyStore(
                     f"filter_string must be a string, got {type(filter_string).__name__}"
                 )
             # Validate the filter string syntax before storing
-            SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+            SearchTraceUtils.parse_search_filter_groups(filter_string)
 
         with self.ManagedSessionMaker(read_only=False) as session:
             experiment = self.get_experiment(experiment_id)
@@ -4296,8 +4296,8 @@ class SqlAlchemyStore(
             )
         return sql_trace_info
 
+    @staticmethod
     def _apply_trace_filter_clauses(
-        self,
         statement: _SqlAlchemyStatement,
         attribute_filters: list[ColumnElement],
         non_attribute_filters: list[Subquery],
@@ -5770,12 +5770,8 @@ class SqlAlchemyStore(
             # Keep IDs as integers when filtering trace_info.experiment_id. psycopg v3
             # rejects VARCHAR parameters compared with this INTEGER column.
 
-            filter1_combined = (
-                f"{base_filter} and {filter_string1}" if base_filter else filter_string1
-            )
-            filter2_combined = (
-                f"{base_filter} and {filter_string2}" if base_filter else filter_string2
-            )
+            filter1_combined = SearchTraceUtils.combine_filters(base_filter, filter_string1)
+            filter2_combined = SearchTraceUtils.combine_filters(base_filter, filter_string2)
 
             filter1_subquery = self._build_trace_filter_subquery(
                 session, experiment_ids, filter1_combined
@@ -11004,13 +11000,16 @@ class _ParsedTraceFilter:
 @lru_cache(maxsize=64)
 def _parse_trace_filter(filter_string):
     return tuple(
-        _ParsedTraceFilter(
-            key_type=clause.get("type"),
-            key=clause.get("key"),
-            value=clause.get("value"),
-            comparator=clause.get("comparator"),
+        tuple(
+            _ParsedTraceFilter(
+                key_type=clause.get("type"),
+                key=clause.get("key"),
+                value=clause.get("value"),
+                comparator=clause.get("comparator"),
+            )
+            for clause in group
         )
-        for clause in SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+        for group in SearchTraceUtils.parse_search_filter_groups(filter_string)
     )
 
 
@@ -11115,6 +11114,25 @@ def _get_session_scoped_trace_ids(scoped_trace_query: Query, assessment_filters)
 
 
 def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scoped_trace_query):
+    """Return the conjunction's filter tuple, folding OR branches into one attribute predicate."""
+    groups = _parse_trace_filter(filter_string)
+    if len(groups) == 1:
+        return _get_trace_conjunction_filter_clauses(
+            groups[0], session, dialect, scoped_trace_query
+        )
+
+    alternatives = []
+    for group in groups:
+        clauses = _get_trace_conjunction_filter_clauses(group, session, dialect, scoped_trace_query)
+        # Compile every branch through the existing scoped, parameterized AND search path.
+        matches = SqlAlchemyStore._apply_trace_filter_clauses(
+            scoped_trace_query.with_entities(SqlTraceInfo.request_id), *clauses
+        )
+        alternatives.append(SqlTraceInfo.request_id.in_(matches))
+    return [or_(*alternatives)], [], [], [], None
+
+
+def _get_trace_conjunction_filter_clauses(parsed_filters, session, dialect, scoped_trace_query):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
@@ -11134,7 +11152,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect, scope
     run_id_filter = None
     span_start_time_lower_bound_ms = None
 
-    for clause in _parse_trace_filter(filter_string):
+    for clause in parsed_filters:
         key_type = clause.key_type
         key_name = clause.key
         value = clause.value

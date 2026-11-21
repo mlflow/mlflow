@@ -44,6 +44,13 @@ const NUMERIC_OPERATORS: FilterOp[] = [
   FilterOp.LESS_THAN_OR_EQUALS,
 ];
 
+export const SQL_FILTER_FIELD = 'sql_where';
+export const isSqlFilterClause = (clause: FilterClause): boolean => clause.field === SQL_FILTER_FIELD;
+export const isValidDuration = (value: string): boolean => /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
+// Punctuation remains literal inside quoted identifiers; delimiters and escapes cannot be embedded.
+export const isSafeFilterKey = (key: string): boolean =>
+  !/[`"\\]/.test(key) && !Array.from(key).some((char) => char.charCodeAt(0) < 32);
+
 /** Session operators with the new evaluation runs UI (the server has no null checks for them here). */
 const SESSION_OPERATORS: FilterOp[] = [FilterOp.EQUALS, FilterOp.NOT_EQUALS, FilterOp.CONTAINS];
 
@@ -63,6 +70,8 @@ const stateLabel = (intl: IntlShape, value: string): string => {
   }
 };
 
+const EMPTY_ASSESSMENT_NAMES: string[] = [];
+
 /**
  * The MLflow trace filter fields, in dropdown order, with localized labels — fed to the shared
  * `TraceFilterButton`. Operators per field mirror v1's `getAvailableOperators` for the V4 path; the
@@ -70,7 +79,7 @@ const stateLabel = (intl: IntlShape, value: string): string => {
  * whose key (the feedback name) is a freeform-capable combobox suggesting the candidate names.
  */
 export const useMlflowTraceFilterFields = (
-  assessmentNames: string[] = [],
+  assessmentNames: string[] = EMPTY_ASSESSMENT_NAMES,
   /** Rows on the current page, used for value suggestions with the new evaluation runs UI. */
   traces?: ModelTraceInfoV3[],
 ): FilterFieldDef[] => {
@@ -266,20 +275,31 @@ export const useMlflowTraceFilterFields = (
   }, [intl, assessmentNames, enhanced, traceSuggestions, availableAssessmentNames]);
 };
 
-/**
- * Validate a persisted filter clause against the current field set: the field still exists, still
- * offers the clause's operator, and (for a `requiresKey` field) carries a non-blank key. Used when
- * restoring a saved view so a clause referencing a field/operator that no longer exists is dropped
- * rather than silently producing wrong results — and, symmetrically, so the dirty diff normalizes
- * the stored baseline the same way (an unsupported clause can't strand a view permanently dirty).
- */
-export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
+export const isSupportedFilterField = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
   fields.some(
     (field) =>
       field.id === clause.field &&
       field.operators.includes(clause.operator) &&
       (!field.requiresKey || (typeof clause.key === 'string' && clause.key.trim() !== '')),
   );
+
+/**
+ * Validate a persisted filter clause against the current field set, operator, key and value rules.
+ * Used when restoring URL filters or a saved view so a clause referencing a field/operator that no longer exists is dropped
+ * rather than silently producing wrong results — and, symmetrically, so the dirty diff normalizes
+ * the stored baseline the same way (an unsupported clause can't strand a view permanently dirty).
+ */
+export const isSupportedFilterClause = (fields: FilterFieldDef[], clause: FilterClause): boolean =>
+  clause != null &&
+  typeof clause.field === 'string' &&
+  typeof clause.value === 'string' &&
+  (clause.key === undefined || typeof clause.key === 'string') &&
+  isClauseComplete(clause) &&
+  (clause.key === undefined || isSafeFilterKey(clause.key)) &&
+  (clause.field !== 'duration' || isValidDuration(clause.value)) &&
+  (isSqlFilterClause(clause)
+    ? shouldEnableNewEvalRunsUi() && clause.operator === FilterOp.EQUALS
+    : isSupportedFilterField(fields, clause));
 
 /**
  * Compile a text field where only `CONTAINS` needs translation (to `ILIKE '%value%'`, since the
@@ -307,11 +327,13 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
 };
 
 /**
- * The `tags.<key>` field reference, backticked only when the key contains a `.` or a space (matching
- * the shared `createMlflowSearchFilter` tag clause), so dotted/spaced keys survive.
+ * Quote any tag key that is not a plain identifier, preserving punctuation as part of the key.
  */
-const tagFieldRef = (key: string): string =>
-  key.includes('.') || key.includes(' ') ? `tags.\`${key}\`` : `tags.${key}`;
+export const tagFieldRef = (key: string): string =>
+  /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? `tags.${key}` : `tags.\`${key}\``;
+
+export const metadataFieldRef = (key: string): string =>
+  `request_metadata.${/^[A-Za-z_][A-Za-z0-9_.]*$/.test(key) ? key : `"${key}"`}`;
 
 const NO_NUMERIC_ASSESSMENT_KEYS: ReadonlySet<string> = new Set();
 
@@ -359,6 +381,13 @@ const compileClause = (
     return undefined;
   }
   const { field, operator, value, key } = clause;
+  if (!Object.values(FilterOp).includes(operator) || (key !== undefined && !isSafeFilterKey(key))) {
+    return undefined;
+  }
+  if (isSqlFilterClause(clause)) {
+    // This remains a search-DSL predicate: the existing search API parses and validates it.
+    return enhanced && operator === FilterOp.EQUALS ? value.trim() : undefined;
+  }
   // Every clause below wraps `value` in a single-quoted literal, so escape it once up front (the
   // numeric `duration` case doesn't quote and simply doesn't use this).
   const v = escapeFilterValue(value);
@@ -366,7 +395,7 @@ const compileClause = (
     case 'state':
       return enhanced ? `attributes.status ${operator} '${v}'` : `attributes.status = '${v}'`;
     case 'duration':
-      return `attributes.execution_time_ms ${operator} ${value}`;
+      return isValidDuration(value) ? `attributes.execution_time_ms ${operator} ${Number(value)}` : undefined;
     case 'trace_name':
       return compileContainsAwareClause('attributes.name', operator, value);
     case 'service_name':
@@ -404,7 +433,7 @@ const compileClause = (
       return `${tagFieldRef(key ?? '')} ${operator} '${v}'`;
     case 'metadata':
       // Arbitrary trace-metadata key, matching v3's custom-metadata clause (CONTAINS → ILIKE).
-      return compileContainsAwareClause(`request_metadata.${key ?? ''}`, operator, value);
+      return compileContainsAwareClause(metadataFieldRef(key ?? ''), operator, value);
     case 'assessment':
       // The key is the assessment name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to a `feedback.\`<name>\`` clause (matching the shared `createMlflowSearchFilter`);
@@ -453,8 +482,10 @@ export const compileFilterModel = (
 
 /**
  * Compile URL-backed click-to-filter tag constraints into `tags.<key> = '<value>'` clauses. The key
- * is backticked only when it contains a `.` or a space, matching the shared `createMlflowSearchFilter`
- * tag clause. Structural `{ key, value }` input keeps this util free of a hook import.
+ * is quoted unless it is a plain identifier. Structural `{ key, value }` input keeps this util free
+ * of a hook import.
  */
 export const compileTagFilters = (tagFilters: { key: string; value: string }[]): string[] =>
-  tagFilters.map(({ key, value }) => `${tagFieldRef(key)} = '${escapeFilterValue(value)}'`);
+  tagFilters
+    .filter(({ key }) => isSafeFilterKey(key))
+    .map(({ key, value }) => `${tagFieldRef(key)} = '${escapeFilterValue(value)}'`);

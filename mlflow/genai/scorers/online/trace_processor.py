@@ -23,6 +23,7 @@ from mlflow.genai.scorers.online.trace_checkpointer import (
 )
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.utils.search_utils import SearchTraceUtils
 
 if TYPE_CHECKING:
     # Type-only: importing the job container code here would import the server's job package,
@@ -187,10 +188,8 @@ class OnlineTraceScoringProcessor:
         for filter_string, scorers in self._sampler.group_scorers_by_filter(
             session_level=False
         ).items():
-            combined_filter = (
-                f"{EXCLUDE_EVAL_RUN_TRACES_FILTER} AND {filter_string}"
-                if filter_string
-                else EXCLUDE_EVAL_RUN_TRACES_FILTER
+            combined_filter = SearchTraceUtils.combine_filters(
+                EXCLUDE_EVAL_RUN_TRACES_FILTER, filter_string
             )
             trace_infos = self._trace_loader.fetch_trace_infos_in_range(
                 self._experiment_id,

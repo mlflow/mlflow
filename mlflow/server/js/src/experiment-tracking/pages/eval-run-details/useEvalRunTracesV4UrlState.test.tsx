@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
+import { IntlProvider } from 'react-intl';
 import { act, renderHook } from '@testing-library/react';
 import { useLocation } from '../../../common/utils/RoutingUtils';
 import {
@@ -26,18 +27,20 @@ describe('useEvalRunTracesV4UrlState', () => {
     lastSearch = '';
     const result = renderHook(() => useEvalRunTracesV4UrlState(), {
       wrapper: ({ children }) => (
-        <TestRouter
-          history={history}
-          initialEntries={[initialUrl]}
-          routes={[
-            testRoute(
-              <>
-                <LocationSpy />
-                <div>{children}</div>
-              </>,
-            ),
-          ]}
-        />
+        <IntlProvider locale="en">
+          <TestRouter
+            history={history}
+            initialEntries={[initialUrl]}
+            routes={[
+              testRoute(
+                <>
+                  <LocationSpy />
+                  <div>{children}</div>
+                </>,
+              ),
+            ]}
+          />
+        </IntlProvider>
       ),
     });
     await waitForRoutesToBeRendered();
