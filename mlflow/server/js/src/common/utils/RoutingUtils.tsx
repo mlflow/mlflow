@@ -94,7 +94,13 @@ export const useLocationSelector = <T,>(selector: (location: Location) => T): T 
   );
 };
 
-/** Select query state; writes merge the latest params and retain hash/state. Only data routers skip unrelated renders. */
+/**
+ * Select query state without unrelated data-router renders. The setter has React Router's call signature,
+ * but functional updates receive fresh params and navigation retains the current path, hash and state.
+ * Explicit options override retained state, including `state: undefined`. Non-functional updates replace
+ * the query. Only data routers compose same-tick writes across hook instances; fallback routers use their
+ * committed location plus writes made through this setter.
+ */
 export const useSearchParamSelector = <T,>(selector: (params: URLSearchParams) => T): [T, SetURLSearchParams] => {
   const router = useContext(UNSAFE_DataRouterContext)?.router;
   const { navigator, basename } = useContext(UNSAFE_NavigationContext);

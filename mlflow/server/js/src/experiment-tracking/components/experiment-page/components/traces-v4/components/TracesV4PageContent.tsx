@@ -651,9 +651,6 @@ const TracesV4PageContentBody = ({
   // toasts are handled globally by `IssueDetectionJobNotifications` (mounted in MlflowRouter).
   const [isIssueDetectionOpen, setIsIssueDetectionOpen] = useState(false);
 
-  // The overview and run pages deep-link here with `?detectIssues=true` to auto-open the modal.
-  // Wait for the first page so the modal seeds from real traces, then strip the param via `replace`
-  // so a refresh doesn't reopen it.
   const [searchParams, setSearchParams] = useTracesV4SearchParams();
   const onSelectSpan = useCallback(
     (spanId?: string) => {
@@ -668,6 +665,9 @@ const TracesV4PageContentBody = ({
     },
     [setSearchParams],
   );
+  // The overview and run pages deep-link here with `?detectIssues=true` to auto-open the modal.
+  // Wait for the first page so the modal seeds from real traces, then strip the param via `replace`
+  // so a refresh doesn't reopen it.
   useEffect(() => {
     if (!shouldEnableIssueDetection() || searchParams.get('detectIssues') !== 'true' || page.isLoading) {
       return;

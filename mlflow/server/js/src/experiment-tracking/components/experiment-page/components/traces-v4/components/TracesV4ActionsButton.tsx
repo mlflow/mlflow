@@ -76,6 +76,7 @@ export const TracesV4ActionsButton = ({
   const { theme } = useDesignSystemTheme();
   // The new eval runs UI compares exactly two traces in the trace drawer instead of the comparison modal.
   const isComparisonV2Enabled = shouldEnableModelTraceComparisonV2();
+  // A constant selection lets this button write params without subscribing to data-router URL changes.
   const [, setSearchParams] = useSearchParamSelector(() => undefined);
 
   // Match the shared GenAITracesTable menu: mute the group heading and indent its items so
