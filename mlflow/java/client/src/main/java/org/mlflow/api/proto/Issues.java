@@ -18670,7 +18670,10 @@ public final class Issues {
   }
   /**
    * <pre>
-   * Request to start an issue detection run over an experiment's traces.
+   * Request to start an issue detection run over an experiment's traces. A finding that matches an
+   * issue the experiment already has refreshes that issue instead of filing another. Matching is
+   * best effort: runs in progress at the same time don't see the issues each other files, so each
+   * can file an issue for the same finding.
    * </pre>
    *
    * Protobuf type {@code mlflow.issues.DetectIssues}
@@ -20029,7 +20032,10 @@ public final class Issues {
     }
     /**
      * <pre>
-     * Request to start an issue detection run over an experiment's traces.
+     * Request to start an issue detection run over an experiment's traces. A finding that matches an
+     * issue the experiment already has refreshes that issue instead of filing another. Matching is
+     * best effort: runs in progress at the same time don't see the issues each other files, so each
+     * can file an issue for the same finding.
      * </pre>
      *
      * Protobuf type {@code mlflow.issues.DetectIssues}
