@@ -95,7 +95,7 @@ class GeminiCliTranslator(GenAiTranslator):
         if not self._is_gemini_cli(attributes):
             return None
         if value := super().get_input_value(attributes):
-            operation = attributes.get(self.SPAN_KIND_ATTRIBUTE_KEY)
+            operation = try_json_loads(attributes.get(self.SPAN_KIND_ATTRIBUTE_KEY))
             return self._try_wrap_input(value, operation=operation)
         return None
 
