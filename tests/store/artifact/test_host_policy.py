@@ -1,6 +1,9 @@
 import pytest
 
-from mlflow.environment_variables import MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT,
+    MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, ARTIFACTS_DESTINATION_ENV_VAR
 from mlflow.store.artifact.host_policy import (
@@ -9,7 +12,9 @@ from mlflow.store.artifact.host_policy import (
     enforce_server_artifact_uri_host_policy,
     host_addressed_uri_targets,
     rejected_host_addressed_scheme,
+    rejected_local_artifact_path,
 )
+from mlflow.utils.os import is_windows
 
 
 @pytest.mark.parametrize(
@@ -159,3 +164,79 @@ def test_enforcement_only_applies_in_tracking_server_processes(monkeypatch):
     with pytest.raises(MlflowException, match="does not connect to artifact location"):
         enforce_server_artifact_uri_host_policy("ftp://other/x")
     enforce_server_artifact_uri_host_policy("s3://bucket/x")
+
+
+def _setup_local_root(monkeypatch, tmp_path):
+    """Configure the server with a local artifacts destination and a proxied default root."""
+    root = tmp_path / "mlartifacts"
+    root.mkdir()
+    monkeypatch.setenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, "mlflow-artifacts:/")
+    monkeypatch.setenv(_SERVER_ARTIFACTS_DESTINATION_ENV_VAR, str(root))
+    return root
+
+
+def test_local_path_inside_trusted_root_is_accepted(monkeypatch, tmp_path):
+    root = _setup_local_root(monkeypatch, tmp_path)
+    assert rejected_local_artifact_path(str(root)) is None
+    assert rejected_local_artifact_path(f"file://{root}/1/run/artifacts") is None
+    assert rejected_local_artifact_path(f"{root}/1/run/artifacts") is None
+
+
+def test_local_path_on_default_artifact_root_is_accepted(monkeypatch, tmp_path):
+    root = tmp_path / "mlruns"
+    root.mkdir()
+    monkeypatch.setenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, str(root))
+    assert rejected_local_artifact_path(f"file://{root}/0/run/artifacts") is None
+
+
+@pytest.mark.parametrize("make_uri", [lambda p: f"file://{p}", lambda p: str(p)])
+def test_local_path_outside_trusted_roots_is_rejected(monkeypatch, tmp_path, make_uri):
+    _setup_local_root(monkeypatch, tmp_path)
+    outside = tmp_path / "elsewhere"
+    assert rejected_local_artifact_path(make_uri(outside)) == str(outside)
+
+
+def test_local_path_traversal_out_of_root_is_rejected(monkeypatch, tmp_path):
+    root = _setup_local_root(monkeypatch, tmp_path)
+    escape = f"file://{root}/../secret"
+    # The resolved path escapes the root even though the string starts with it.
+    assert rejected_local_artifact_path(escape) is not None
+
+
+@pytest.mark.skipif(is_windows(), reason="POSIX authority handling")
+def test_local_file_uri_authority_is_resolved_like_the_repository(monkeypatch, tmp_path):
+    _setup_local_root(monkeypatch, tmp_path)
+    # LocalArtifactRepository drops the authority on POSIX, so `file://host/srv/x` uses `/srv/x`.
+    assert rejected_local_artifact_path("file://other-host/srv/shared/data") == "/srv/shared/data"
+
+
+def test_local_path_accepted_when_opted_out(monkeypatch, tmp_path):
+    _setup_local_root(monkeypatch, tmp_path)
+    monkeypatch.setenv(MLFLOW_ALLOW_LOCAL_ARTIFACT_LOCATION_OUTSIDE_ROOT.name, "true")
+    assert rejected_local_artifact_path("file:///srv/shared") is None
+
+
+def test_local_path_not_enforced_off_server(monkeypatch):
+    monkeypatch.delenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, raising=False)
+    assert rejected_local_artifact_path("file:///srv/shared") is None
+
+
+def test_local_path_rejected_when_server_has_no_local_root(monkeypatch):
+    # A server that stores only on a remote backend has no trusted local directory at all, so
+    # every local location is refused.
+    monkeypatch.setenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, "s3://bucket/root")
+    monkeypatch.setenv(_SERVER_ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket/root")
+    assert rejected_local_artifact_path("file:///srv/shared") == "/srv/shared"
+
+
+def test_non_local_locations_are_not_subject_to_local_policy(monkeypatch, tmp_path):
+    _setup_local_root(monkeypatch, tmp_path)
+    for uri in ("s3://bucket/x", "mlflow-artifacts:/1/run/artifacts", "hdfs://namenode/x"):
+        assert rejected_local_artifact_path(uri) is None
+
+
+def test_enforce_does_not_check_stored_local_locations(monkeypatch, tmp_path):
+    _setup_local_root(monkeypatch, tmp_path)
+    # Only client-submitted locations are confined; a stored local location stays servable.
+    enforce_server_artifact_uri_host_policy(f"file://{tmp_path}/mlruns/0/run/artifacts")
+    enforce_server_artifact_uri_host_policy("/srv/shared/1/run/artifacts")

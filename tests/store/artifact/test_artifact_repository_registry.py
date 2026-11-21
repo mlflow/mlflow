@@ -11,7 +11,11 @@ from mlflow.store.artifact.artifact_repository_registry import (
     get_artifact_repository,
 )
 from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
-from mlflow.store.artifact.host_policy import _SERVER_ARTIFACT_ROOT_ENV_VAR
+from mlflow.store.artifact.host_policy import (
+    _SERVER_ARTIFACT_ROOT_ENV_VAR,
+    _SERVER_ARTIFACTS_DESTINATION_ENV_VAR,
+)
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 
 
 def test_standard_artifact_registry(monkeypatch):
@@ -155,3 +159,14 @@ def test_client_process_builds_repositories_for_any_host(monkeypatch):
     monkeypatch.delenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, raising=False)
     repo = get_artifact_repository("ftp://other-host/pub/run/artifacts")
     assert isinstance(repo, FTPArtifactRepository)
+
+
+def test_server_process_builds_local_repositories_for_stored_locations(monkeypatch, tmp_path):
+    root = tmp_path / "mlartifacts"
+    root.mkdir()
+    monkeypatch.setenv(_SERVER_ARTIFACT_ROOT_ENV_VAR, "mlflow-artifacts:/")
+    monkeypatch.setenv(_SERVER_ARTIFACTS_DESTINATION_ENV_VAR, str(root))
+
+    # Runs logged straight to a local backend store keep artifacts outside the server's roots.
+    repo = get_artifact_repository(f"file://{tmp_path}/mlruns/0/run/artifacts")
+    assert isinstance(repo, LocalArtifactRepository)
