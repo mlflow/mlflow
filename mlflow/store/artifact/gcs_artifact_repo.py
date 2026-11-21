@@ -16,7 +16,8 @@ from mlflow.environment_variables import (
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
-from mlflow.exceptions import _UnsupportedMultipartUploadException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -145,6 +146,8 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 )
 
     def list_artifacts(self, path=None):
+        from google.api_core.exceptions import NotFound
+
         (bucket, artifact_path) = self.parse_gcs_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
@@ -153,16 +156,22 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         bkt = self._get_bucket(bucket)
 
-        infos = self._list_folders(bkt, prefix, artifact_path)
+        try:
+            infos = self._list_folders(bkt, prefix, artifact_path)
 
-        results = bkt.list_blobs(prefix=prefix, delimiter="/")
-        for result in results:
-            # skip blobs matching current directory path as list_blobs api
-            # returns subdirectories as well
-            if result.name == prefix:
-                continue
-            blob_path = result.name[len(artifact_path) + 1 :]
-            infos.append(FileInfo(blob_path, False, result.size))
+            results = bkt.list_blobs(prefix=prefix, delimiter="/")
+            for result in results:
+                # skip blobs matching current directory path as list_blobs api
+                # returns subdirectories as well
+                if result.name == prefix:
+                    continue
+                blob_path = result.name[len(artifact_path) + 1 :]
+                infos.append(FileInfo(blob_path, False, result.size))
+        except NotFound as error:
+            raise MlflowException(
+                f"Artifact bucket gs://{bucket} does not exist.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            ) from error
 
         return sorted(infos, key=lambda f: f.path)
 
@@ -175,12 +184,20 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return [FileInfo(path[len(artifact_path) + 1 : -1], True, None) for path in dir_paths]
 
     def _download_file(self, remote_file_path, local_path):
+        from google.api_core.exceptions import NotFound
+
         (bucket, remote_root_path) = self.parse_gcs_uri(self.artifact_uri)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         gcs_bucket = self._get_bucket(bucket)
-        gcs_bucket.blob(
-            remote_full_path, chunk_size=self._GCS_DOWNLOAD_CHUNK_SIZE
-        ).download_to_filename(local_path, timeout=self._GCS_DEFAULT_TIMEOUT)
+        try:
+            gcs_bucket.blob(
+                remote_full_path, chunk_size=self._GCS_DOWNLOAD_CHUNK_SIZE
+            ).download_to_filename(local_path, timeout=self._GCS_DEFAULT_TIMEOUT)
+        except NotFound as error:
+            raise MlflowException(
+                f"Artifact gs://{bucket}/{remote_full_path} does not exist.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            ) from error
 
     def delete_artifacts(self, artifact_path=None):
         (bucket_name, dest_path) = self.parse_gcs_uri(self.artifact_uri)
