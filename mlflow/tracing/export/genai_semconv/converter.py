@@ -65,7 +65,9 @@ class GenAiSemconvConverter(ABC):
         """Orchestrate conversion of inputs/outputs into GenAI semconv attributes."""
         result: dict[str, Any] = {}
 
-        if inputs is not None:
+        # Payloads that are not dicts (e.g. a traced function returning plain text) can't be
+        # converted. Skip them so they don't discard the attributes converted from the other side.
+        if isinstance(inputs, dict):
             messages = self.convert_inputs(inputs)
             if messages is not None:
                 result[GenAiSemconvKey.INPUT_MESSAGES] = json.dumps(messages)
@@ -74,7 +76,7 @@ class GenAiSemconvConverter(ABC):
                 result[GenAiSemconvKey.SYSTEM_INSTRUCTIONS] = json.dumps(system_instructions)
             result.update(self.extract_request_params(inputs))
 
-        if outputs is not None:
+        if isinstance(outputs, dict):
             messages = self.convert_outputs(outputs)
             if messages is not None:
                 result[GenAiSemconvKey.OUTPUT_MESSAGES] = json.dumps(messages)
