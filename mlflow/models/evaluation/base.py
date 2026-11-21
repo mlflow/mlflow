@@ -1012,8 +1012,8 @@ def _evaluate(
     The public API "evaluate" will verify argument first, and then pass normalized arguments
     to the _evaluate method.
     """
-    # import _model_evaluation_registry inside function to avoid circuit importing
-    from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
+    # Lazy import to avoid a circular import (default_evaluator imports this module)
+    from mlflow.models.evaluation.default_evaluator import BuiltInEvaluator
 
     global _last_failed_evaluator
     _last_failed_evaluator = None
@@ -1048,7 +1048,7 @@ def _evaluate(
             if eval_result is not None:
                 eval_results.append(eval_result)
                 # Built-in evaluators already log their metrics linked to the model and dataset
-                if model_id is not None and not _model_evaluation_registry.is_builtin(eval_.name):
+                if model_id is not None and not isinstance(eval_.evaluator, BuiltInEvaluator):
                     timestamp = get_current_time_millis()
                     client.log_batch(
                         run_id,
