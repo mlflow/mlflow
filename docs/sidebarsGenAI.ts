@@ -1362,6 +1362,10 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'mcp-registry/connect-to-servers',
         },
+        {
+          type: 'doc',
+          id: 'mcp-registry/trace-mcp-servers',
+        },
       ],
       link: {
         type: 'doc',

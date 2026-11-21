@@ -26,6 +26,7 @@
   "mlflow.lightgbm": "api_reference/python_api/mlflow.lightgbm.html",
   "mlflow.litellm": "api_reference/python_api/mlflow.litellm.html",
   "mlflow.llama_index": "api_reference/python_api/mlflow.llama_index.html",
+  "mlflow.mcp.tracing": "api_reference/python_api/mlflow.mcp.tracing.html",
   "mlflow.metrics": "api_reference/python_api/mlflow.metrics.html",
   "mlflow.mistral": "api_reference/python_api/mlflow.mistral.html",
   "mlflow.models": "api_reference/python_api/mlflow.models.html",

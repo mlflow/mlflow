@@ -1668,6 +1668,7 @@ mlflow.log_table
 mlflow.log_text
 mlflow.log_trace
 mlflow.login
+mlflow.mcp.tracing.instrument_fastmcp
 mlflow.metrics.EvaluationMetric
 mlflow.metrics.MetricValue
 mlflow.metrics.ari_grade_level
