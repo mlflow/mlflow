@@ -144,29 +144,13 @@ def publish(args: argparse.Namespace) -> int:
             "event": "COMMENT",
             "body": f"{notice}\n\nVerification did not complete. See the workflow run for details.",
         }
-    # An approval enables auto-merge unless someone has yet to review the PR.
-    auto_merge = (
-        review["event"] == "APPROVE"
-        and not pr["draft"]
-        and not pr["requested_reviewers"]
-        and not pr["requested_teams"]
-    )
     write_step_summary(f"```json\n{json.dumps(review, indent=2, ensure_ascii=False)}\n```\n")
     if args.dry_run:
         write_step_summary(
-            "Dry run: no review or media was published. Local media paths are not GitHub links.\n\n"
-            f"Auto-merge would {'be enabled' if auto_merge else 'not be enabled'}."
+            "Dry run: no review or media was published. Local media paths are not GitHub links."
         )
     else:
         sys.stdout.write(api(f"{endpoint}/reviews", data=review)["html_url"] + "\n")
-        if auto_merge:
-            number = args.pr_number
-            # Fails if the head moved since verification.
-            command(
-                "gh", "pr", "merge", number, "--repo", args.repo,
-                "--auto", "--squash", "--match-head-commit", args.head_sha,
-            )  # fmt: skip
-            command("gh", "pr", "edit", number, "--repo", args.repo, "--add-label", "auto-repair")
     return 0
 
 

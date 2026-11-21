@@ -360,3 +360,90 @@ def test_chat_stream_response():
         ],
     })
     assert response_no_usage.usage is None
+
+
+def test_chat_request_keeps_cache_control_on_content_parts():
+    messages = [
+        {
+            "role": "system",
+            "content": [
+                {"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}},
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/a.png"},
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                },
+                {"type": "text", "text": "Question", "cache_control": {"type": "ephemeral"}},
+            ],
+        },
+    ]
+
+    payload = chat.RequestPayload(messages=messages)
+
+    assert payload.model_dump(exclude_none=True)["messages"] == messages
+    # The gateway server re-validates the dumped payload after the guardrails run.
+    assert chat.RequestPayload(**payload.model_dump()) == payload
+
+
+def test_chat_request_without_cache_control_serializes_as_before():
+    payload = chat.RequestPayload(
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe"},
+                    {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+                ],
+            }
+        ]
+    )
+
+    assert payload.model_dump()["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/a.png", "detail": None},
+                },
+            ],
+            "tool_calls": None,
+            "refusal": None,
+            "tool_call_id": None,
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "cache_control",
+    [
+        {"type": "persistent"},
+        {"ttl": "1h"},
+    ],
+)
+def test_chat_request_rejects_invalid_cache_control(cache_control):
+    with pytest.raises(pydantic.ValidationError, match="cache_control"):
+        chat.RequestPayload(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "Doc", "cache_control": cache_control}],
+                }
+            ]
+        )
+
+
+def test_chat_request_keeps_unknown_cache_control_ttl():
+    part = {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral", "ttl": "24h"}}
+
+    payload = chat.RequestPayload(messages=[{"role": "user", "content": [part]}])
+
+    assert payload.model_dump(exclude_none=True)["messages"] == [
+        {"role": "user", "content": [part]}
+    ]
