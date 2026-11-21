@@ -640,6 +640,14 @@ def test_parse_outputs_to_str(output_data, expected):
     assert parse_outputs_to_str(output_data) == expected
 
 
+@pytest.mark.parametrize(
+    ("output_data", "expected"),
+    [(42, "42"), (3.5, "3.5"), (True, "true"), ([], "[]"), ([7], "7")],
+)
+def test_parse_outputs_to_str_non_dict_values(output_data, expected):
+    assert parse_outputs_to_str(output_data) == expected
+
+
 @pytest.mark.parametrize("response_format", ["dict", "model", "list"])
 def test_parse_outputs_to_str_responses_api_multiple_text_parts(response_format):
     output = {
