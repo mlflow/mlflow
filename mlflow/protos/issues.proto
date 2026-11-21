@@ -227,6 +227,11 @@ message DetectIssues {
   // start a run. At most 64 characters, with no control characters.
   optional string idempotency_token = 5;
 
+  // The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+  // "<provider>:/<model>" model, and only on an MLflow tracking server. When authentication is
+  // enabled, the caller needs USE on the secret.
+  optional string secret_id = 6;
+
   message Response {
     // The run that started, or that an earlier request with the same idempotency_token started.
     optional IssueDetectionRun issue_detection_run = 1;

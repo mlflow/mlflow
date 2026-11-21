@@ -5956,27 +5956,31 @@ def _saved_detection_model(experiment) -> ScheduleModel | None:
 
 
 def _resolve_issue_detection_model(
-    store, experiment, model: str | None
+    store, experiment, model: str | None, secret_id: str | None = None
 ) -> tuple[str, dict[str, str] | None]:
     """
     The model URI a DetectIssues run analyzes with, and the credentials its job needs.
 
-    An explicit ``model`` runs on the server's own keys or, for ``gateway:/<endpoint>``, on the
-    endpoint's. Without one, the run uses the model saved in the experiment's detection schedule,
-    including the stored secret a direct provider selection records, so a caller can run
-    detection the way the experiment is configured. The auth plugin requires USE on that secret,
-    and the run uses the schedule model it checked.
+    An explicit ``model`` runs on the stored secret ``secret_id`` names, the server's own keys
+    or, for ``gateway:/<endpoint>``, on the endpoint's. The auth plugin requires USE on a secret
+    named in the request. Without a ``model``, the run uses the model saved in the experiment's
+    detection schedule, including the stored secret a direct provider selection records, so a
+    caller can run detection the way the experiment is configured. The auth plugin requires USE
+    on that secret too, and the run uses the schedule model it checked.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials
 
     if model:
         provider, model_name = _parse_llm_model_uri(model)
         provider = provider.lower()
-        if provider != "gateway":
+        credentials = None
+        if secret_id:
+            credentials = _fetch_provider_credentials(store, provider, secret_id)
+        elif provider != "gateway":
             _require_server_provider_credentials(provider)
         # Rebuilt with the provider lowercased, as `issues/invoke` does, so the run's tag and its
         # job see the same URI however the caller cased it.
-        return f"{provider}:/{model_name}", None
+        return f"{provider}:/{model_name}", credentials
 
     saved = _saved_detection_model(experiment)
     if saved is None:
@@ -6062,6 +6066,7 @@ def _detect_issues():
             "model": [_assert_string],
             "trace_ids": [_assert_array, _assert_item_type_string],
             "idempotency_token": [_assert_string],
+            "secret_id": [_assert_string],
         },
     )
     experiment_id = request_message.experiment_id
@@ -6073,6 +6078,15 @@ def _detect_issues():
     if filter_string and trace_ids:
         raise MlflowException.invalid_parameter_value(
             "Set at most one of `filter_string` and `trace_ids`."
+        )
+    secret_id = request_message.secret_id or None
+    # Checked before any read, as the model's own parse is: a secret means nothing without a
+    # provider model to call, and a gateway endpoint carries its own credential.
+    if secret_id and (
+        not request_message.model or request_message.model.lower().startswith("gateway:/")
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "`secret_id` needs a `model` of the form '<provider>:/<model>'."
         )
     if len(trace_ids) > _MAX_DETECTION_TRACE_IDS:
         raise MlflowException.invalid_parameter_value(
@@ -6116,7 +6130,7 @@ def _detect_issues():
                 f"{len(missing)} of `trace_ids` not found in experiment {experiment_id}: {shown}"
             )
     model, credentials = _resolve_issue_detection_model(
-        store, experiment, request_message.model or None
+        store, experiment, request_message.model or None, secret_id
     )
 
     settings = read_detection_settings(experiment)

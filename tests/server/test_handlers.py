@@ -11665,6 +11665,69 @@ def test_detect_issues_handler_uses_the_schedule_model_and_its_secret(
     assert submit_kwargs["extra_envs"] == {"OPENAI_API_KEY": "stored-key"}
 
 
+def test_detect_issues_handler_runs_a_provider_model_on_a_named_secret(
+    monkeypatch, mock_tracking_store, detect_issues_client
+):
+    # The Issues tab's dialog names the stored secret it picked, which takes precedence over the
+    # server's own key and over the schedule's model and secret.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    mock_tracking_store.get_experiment.return_value = _detection_experiment(
+        _detection_schedule_tags(
+            ScheduleModel(provider="anthropic", model="claude", secret_id="schedule-secret")
+        )
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.discovery.job._fetch_provider_credentials",
+            return_value={"OPENAI_API_KEY": "stored-key"},
+        ) as mock_fetch_creds,
+        mock.patch(
+            "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
+        ) as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/api/3.0/mlflow/issues/detect",
+            json={"experiment_id": "exp-123", "model": "OpenAI:/gpt-5", "secret_id": "secret-1"},
+        )
+
+    assert resp.status_code == 200
+    mock_fetch_creds.assert_called_once_with(mock_tracking_store, "openai", "secret-1")
+    submit_kwargs = mock_submit_job.call_args.kwargs
+    assert submit_kwargs["params"]["model"] == "openai:/gpt-5"
+    assert submit_kwargs["extra_envs"] == {"OPENAI_API_KEY": "stored-key"}
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"experiment_id": "exp-123", "secret_id": "secret-1"},
+        {"experiment_id": "exp-123", "model": "gateway:/e", "secret_id": "secret-1"},
+        {"experiment_id": "exp-123", "model": "Gateway:/e", "secret_id": "secret-1"},
+    ],
+)
+def test_detect_issues_handler_rejects_a_secret_without_a_provider_model(
+    monkeypatch, mock_tracking_store, detect_issues_client, body
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    mock_tracking_store.get_experiment.return_value = _detection_experiment()
+
+    with (
+        mock.patch("mlflow.genai.discovery.job._fetch_provider_credentials") as mock_fetch_creds,
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_client() as c,
+    ):
+        resp = c.post("/api/3.0/mlflow/issues/detect", json=body)
+
+    assert resp.status_code == 400
+    assert "`secret_id` needs a `model`" in resp.get_json()["message"]
+    mock_fetch_creds.assert_not_called()
+    detect_issues_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
 def test_detect_issues_handler_uses_the_schedule_gateway_endpoint(
     monkeypatch, mock_tracking_store, detect_issues_client
 ):

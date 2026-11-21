@@ -18667,6 +18667,41 @@ public final class Issues {
      */
     com.google.protobuf.ByteString
         getIdempotencyTokenBytes();
+
+    /**
+     * <pre>
+     * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+     * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+     * enabled, the caller needs USE on the secret.
+     * </pre>
+     *
+     * <code>optional string secret_id = 6;</code>
+     * @return Whether the secretId field is set.
+     */
+    boolean hasSecretId();
+    /**
+     * <pre>
+     * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+     * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+     * enabled, the caller needs USE on the secret.
+     * </pre>
+     *
+     * <code>optional string secret_id = 6;</code>
+     * @return The secretId.
+     */
+    java.lang.String getSecretId();
+    /**
+     * <pre>
+     * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+     * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+     * enabled, the caller needs USE on the secret.
+     * </pre>
+     *
+     * <code>optional string secret_id = 6;</code>
+     * @return The bytes for secretId.
+     */
+    com.google.protobuf.ByteString
+        getSecretIdBytes();
   }
   /**
    * <pre>
@@ -18693,6 +18728,7 @@ public final class Issues {
       model_ = "";
       traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       idempotencyToken_ = "";
+      secretId_ = "";
     }
 
     @java.lang.Override
@@ -18757,6 +18793,12 @@ public final class Issues {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
               idempotencyToken_ = bs;
+              break;
+            }
+            case 50: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000010;
+              secretId_ = bs;
               break;
             }
             default: {
@@ -19809,6 +19851,72 @@ public final class Issues {
       }
     }
 
+    public static final int SECRET_ID_FIELD_NUMBER = 6;
+    private volatile java.lang.Object secretId_;
+    /**
+     * <pre>
+     * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+     * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+     * enabled, the caller needs USE on the secret.
+     * </pre>
+     *
+     * <code>optional string secret_id = 6;</code>
+     * @return Whether the secretId field is set.
+     */
+    @java.lang.Override
+    public boolean hasSecretId() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <pre>
+     * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+     * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+     * enabled, the caller needs USE on the secret.
+     * </pre>
+     *
+     * <code>optional string secret_id = 6;</code>
+     * @return The secretId.
+     */
+    @java.lang.Override
+    public java.lang.String getSecretId() {
+      java.lang.Object ref = secretId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          secretId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+     * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+     * enabled, the caller needs USE on the secret.
+     * </pre>
+     *
+     * <code>optional string secret_id = 6;</code>
+     * @return The bytes for secretId.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getSecretIdBytes() {
+      java.lang.Object ref = secretId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        secretId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -19838,6 +19946,9 @@ public final class Issues {
       if (((bitField0_ & 0x00000008) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 5, idempotencyToken_);
       }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, secretId_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -19866,6 +19977,9 @@ public final class Issues {
       }
       if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, idempotencyToken_);
+      }
+      if (((bitField0_ & 0x00000010) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, secretId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -19904,6 +20018,11 @@ public final class Issues {
         if (!getIdempotencyToken()
             .equals(other.getIdempotencyToken())) return false;
       }
+      if (hasSecretId() != other.hasSecretId()) return false;
+      if (hasSecretId()) {
+        if (!getSecretId()
+            .equals(other.getSecretId())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -19934,6 +20053,10 @@ public final class Issues {
       if (hasIdempotencyToken()) {
         hash = (37 * hash) + IDEMPOTENCY_TOKEN_FIELD_NUMBER;
         hash = (53 * hash) + getIdempotencyToken().hashCode();
+      }
+      if (hasSecretId()) {
+        hash = (37 * hash) + SECRET_ID_FIELD_NUMBER;
+        hash = (53 * hash) + getSecretId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -20085,6 +20208,8 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000008);
         idempotencyToken_ = "";
         bitField0_ = (bitField0_ & ~0x00000010);
+        secretId_ = "";
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
 
@@ -20134,6 +20259,10 @@ public final class Issues {
           to_bitField0_ |= 0x00000008;
         }
         result.idempotencyToken_ = idempotencyToken_;
+        if (((from_bitField0_ & 0x00000020) != 0)) {
+          to_bitField0_ |= 0x00000010;
+        }
+        result.secretId_ = secretId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -20211,6 +20340,11 @@ public final class Issues {
         if (other.hasIdempotencyToken()) {
           bitField0_ |= 0x00000010;
           idempotencyToken_ = other.idempotencyToken_;
+          onChanged();
+        }
+        if (other.hasSecretId()) {
+          bitField0_ |= 0x00000020;
+          secretId_ = other.secretId_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -20879,6 +21013,126 @@ public final class Issues {
   }
   bitField0_ |= 0x00000010;
         idempotencyToken_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object secretId_ = "";
+      /**
+       * <pre>
+       * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+       * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+       * enabled, the caller needs USE on the secret.
+       * </pre>
+       *
+       * <code>optional string secret_id = 6;</code>
+       * @return Whether the secretId field is set.
+       */
+      public boolean hasSecretId() {
+        return ((bitField0_ & 0x00000020) != 0);
+      }
+      /**
+       * <pre>
+       * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+       * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+       * enabled, the caller needs USE on the secret.
+       * </pre>
+       *
+       * <code>optional string secret_id = 6;</code>
+       * @return The secretId.
+       */
+      public java.lang.String getSecretId() {
+        java.lang.Object ref = secretId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            secretId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+       * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+       * enabled, the caller needs USE on the secret.
+       * </pre>
+       *
+       * <code>optional string secret_id = 6;</code>
+       * @return The bytes for secretId.
+       */
+      public com.google.protobuf.ByteString
+          getSecretIdBytes() {
+        java.lang.Object ref = secretId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          secretId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+       * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+       * enabled, the caller needs USE on the secret.
+       * </pre>
+       *
+       * <code>optional string secret_id = 6;</code>
+       * @param value The secretId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setSecretId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000020;
+        secretId_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+       * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+       * enabled, the caller needs USE on the secret.
+       * </pre>
+       *
+       * <code>optional string secret_id = 6;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearSecretId() {
+        bitField0_ = (bitField0_ & ~0x00000020);
+        secretId_ = getDefaultInstance().getSecretId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+       * "&lt;provider&gt;:/&lt;model&gt;" model, and only on an MLflow tracking server. When authentication is
+       * enabled, the caller needs USE on the secret.
+       * </pre>
+       *
+       * <code>optional string secret_id = 6;</code>
+       * @param value The bytes for secretId to set.
+       * @return This builder for chaining.
+       */
+      public Builder setSecretIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000020;
+        secretId_ = value;
         onChanged();
         return this;
       }
@@ -23797,19 +24051,20 @@ public final class Issues {
       "unt\030\003 \001(\003\"\207\001\n\021IssueDetectionRun\022\016\n\006run_i" +
       "d\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\016\n\006status" +
       "\030\003 \001(\t\022\022\n\nstart_time\030\004 \001(\003\022\020\n\010end_time\030\005" +
-      " \001(\003\022\025\n\rerror_message\030\006 \001(\t\"\312\001\n\014DetectIs" +
+      " \001(\003\022\025\n\rerror_message\030\006 \001(\t\"\335\001\n\014DetectIs" +
       "sues\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\025\n\rfil" +
       "ter_string\030\002 \001(\t\022\r\n\005model\030\003 \001(\t\022\021\n\ttrace" +
-      "_ids\030\004 \003(\t\022\031\n\021idempotency_token\030\005 \001(\t\032I\n" +
-      "\010Response\022=\n\023issue_detection_run\030\001 \001(\0132 " +
-      ".mlflow.issues.IssueDetectionRun\"w\n\024GetI" +
-      "ssueDetectionRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032I" +
-      "\n\010Response\022=\n\023issue_detection_run\030\001 \001(\0132" +
-      " .mlflow.issues.IssueDetectionRun\"z\n\027Can" +
-      "celIssueDetectionRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206" +
-      "\031\001\032I\n\010Response\022=\n\023issue_detection_run\030\001 " +
-      "\001(\0132 .mlflow.issues.IssueDetectionRunB\031\n" +
-      "\024org.mlflow.api.proto\220\001\001"
+      "_ids\030\004 \003(\t\022\031\n\021idempotency_token\030\005 \001(\t\022\021\n" +
+      "\tsecret_id\030\006 \001(\t\032I\n\010Response\022=\n\023issue_de" +
+      "tection_run\030\001 \001(\0132 .mlflow.issues.IssueD" +
+      "etectionRun\"w\n\024GetIssueDetectionRun\022\024\n\006r" +
+      "un_id\030\001 \001(\tB\004\370\206\031\001\032I\n\010Response\022=\n\023issue_d" +
+      "etection_run\030\001 \001(\0132 .mlflow.issues.Issue" +
+      "DetectionRun\"z\n\027CancelIssueDetectionRun\022" +
+      "\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032I\n\010Response\022=\n\023iss" +
+      "ue_detection_run\030\001 \001(\0132 .mlflow.issues.I" +
+      "ssueDetectionRunB\031\n\024org.mlflow.api.proto" +
+      "\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -23899,7 +24154,7 @@ public final class Issues {
     internal_static_mlflow_issues_DetectIssues_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_DetectIssues_descriptor,
-        new java.lang.String[] { "ExperimentId", "FilterString", "Model", "TraceIds", "IdempotencyToken", });
+        new java.lang.String[] { "ExperimentId", "FilterString", "Model", "TraceIds", "IdempotencyToken", "SecretId", });
     internal_static_mlflow_issues_DetectIssues_Response_descriptor =
       internal_static_mlflow_issues_DetectIssues_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_DetectIssues_Response_fieldAccessorTable = new

@@ -133,6 +133,20 @@ def test_detect_issues_requires_use_on_the_schedule_secret(monkeypatch):
     )
 
 
+def test_detect_issues_requires_use_on_a_secret_named_in_the_request(monkeypatch):
+    # A secret named in the request is decrypted for the run, whatever the schedule holds.
+    schedule = _schedule_json(ScheduleModel(provider="openai", model="gpt-5", secret_id="s-1"))
+    body = {"experiment_id": "e1", "model": "openai:/gpt-5", "secret_id": "s-2"}
+    assert _run_detect_issues(monkeypatch, body, schedule_json=schedule, can_use=False) == (
+        False,
+        ["s-2"],
+    )
+    assert _run_detect_issues(monkeypatch, body, schedule_json=schedule, can_use=True) == (
+        True,
+        ["s-2"],
+    )
+
+
 def test_detect_issues_skips_the_secret_check_when_none_is_used(monkeypatch):
     endpoint_schedule = _schedule_json(ScheduleModel(endpoint_name="saved-endpoint"))
     secret_schedule = _schedule_json(

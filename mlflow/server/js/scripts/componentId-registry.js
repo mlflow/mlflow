@@ -2398,8 +2398,6 @@ module.exports = {
   "mlflow.traces.issue-detection-modal.model": "",
   "mlflow.traces.issue-detection-modal.model-dropdown": "",
   "mlflow.traces.issue-detection-modal.no-focus-area-selected": "",
-  "mlflow.traces.issue-detection-modal.settings-not-refreshed": "",
-  "mlflow.traces.issue-detection-modal.settings-unavailable": "",
   "mlflow.traces.issue-detection-modal.submit": "",
   "mlflow.traces.issue-detection-modal.submit.tooltip": "",
   "mlflow.traces.issue-detection.api-key.auth-mode-radio-group": "",

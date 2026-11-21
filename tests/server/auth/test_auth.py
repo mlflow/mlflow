@@ -9499,6 +9499,47 @@ def test_detect_issues_requires_use_permission_on_the_schedule_secret(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_detect_issues_requires_use_permission_on_a_secret_named_in_the_request(client):
+    # The Issues tab names the stored secret it runs on, which the run decrypts into its job, so
+    # EDIT on the experiment is not enough to run on another user's key.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    collaborator, collaborator_pw = create_user(base)
+    resp = requests.post(
+        f"{base}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "owner-key",
+            "secret_value": {"api_key": "sk-owner"},
+            "provider": "openai",
+        },
+        auth=(owner, owner_pw),
+    )
+    resp.raise_for_status()
+    secret_id = resp.json()["secret"]["secret_id"]
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "named-secret-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    grant_role_permission(base, collaborator, "experiment", exp_id, "EDIT")
+
+    url = f"{base}/api/3.0/mlflow/issues/detect"
+    payload = {"experiment_id": exp_id, "model": "openai:/gpt-4o", "secret_id": secret_id}
+    resp = requests.post(url, json=payload, auth=(collaborator, collaborator_pw))
+    assert resp.status_code == 403
+
+    # Past the gate with USE. Job execution is off in this test server, so the request fails
+    # later, but not with a 403.
+    grant_role_permission(base, collaborator, "gateway_secret", secret_id, "USE")
+    resp = requests.post(url, json=payload, auth=(collaborator, collaborator_pw))
+    assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_detect_issues_is_refused_under_an_assessment_deny(client):
     # The job reads the traces' assessments and logs its own straight through the store, outside
     # the HTTP routes that would check them, so EDIT on the experiment is not enough under an

@@ -7387,10 +7387,6 @@
     "defaultMessage": "Download as SVG",
     "description": "Experiment page > compare runs tab > chart header > download as SVG option"
   },
-  "LjeQn8": {
-    "defaultMessage": "This experiment's issue detection settings could not be refreshed, so this run uses the last ones loaded. Reopen this dialog to try again.",
-    "description": "Warning in the issue detection modal shown when the saved detection settings could not be refreshed and the previously loaded ones are used"
-  },
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
@@ -10006,10 +10002,6 @@
   "TxtCFX": {
     "defaultMessage": "A fingerprint of all scorers in this run.",
     "description": "Tooltip explaining what the eval run scorers digest identifies"
-  },
-  "Tyh+hX": {
-    "defaultMessage": "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
-    "description": "Warning in the issue detection modal shown when the saved detection settings could not be loaded"
   },
   "U+0wfV": {
     "defaultMessage": "Trace name",
