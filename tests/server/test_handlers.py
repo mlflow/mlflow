@@ -10855,24 +10855,26 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
         assert call_kwargs["extra_envs"] == {"OPENAI_API_KEY": "test-key"}
 
 
-def test_invoke_issue_detection_handler_rejects_a_second_concurrent_run(
+def test_invoke_issue_detection_handler_starts_a_run_while_another_is_in_flight(
     monkeypatch, mock_tracking_store
 ):
-    # Ad-hoc and scheduled detection must not overlap: both would analyze the same traces and
-    # file the same findings, paying the model twice for one answer. Rejected at submission with
-    # a message naming the run, because the job engine's exclusive lock cannot express it (the
-    # key is per job name) and its contention behaviour is to cancel the loser.
+    # Ad-hoc runs from the Issues tab overlap the experiment's other detection runs, ad-hoc or
+    # scheduled, as on Databricks.
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
-    # Enough of a credential for the fail-fast check above the guard to pass, so the refusal
-    # under test is the concurrent run rather than a missing key.
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     in_flight = mock.MagicMock()
     in_flight.info.run_id = "run-already-going"
     mock_tracking_store.search_runs.return_value = [in_flight]
+    started = mock.MagicMock()
+    started.info.run_id = "run-123"
+    job = mock.MagicMock()
+    job.job_id = "job-123"
 
     with (
-        mock.patch("mlflow.server.jobs.submit_job") as submit_job,
-        mock.patch("mlflow.start_run") as start_run,
+        mock.patch("mlflow.server.jobs.submit_job", return_value=job) as submit_job,
+        mock.patch("mlflow.start_run", return_value=started),
+        mock.patch("mlflow.set_tag"),
+        mock.patch("mlflow.end_run"),
         app.test_client() as c,
     ):
         resp = c.post(
@@ -10886,12 +10888,10 @@ def test_invoke_issue_detection_handler_rejects_a_second_concurrent_run(
             },
         )
 
-    assert resp.status_code == 400
-    assert resp.get_json()["error_code"] == "RESOURCE_ALREADY_EXISTS"
-    assert "run-already-going" in resp.get_json()["message"]
-    # Rejected before anything is created, so a blocked request leaves no orphan run behind.
-    start_run.assert_not_called()
-    submit_job.assert_not_called()
+    assert resp.status_code == 200
+    assert resp.get_json()["run_id"] == "run-123"
+    mock_tracking_store.search_runs.assert_not_called()
+    submit_job.assert_called_once()
 
 
 def _schedule_experiment(mock_tracking_store, schedule_json, state_json=None):
@@ -11903,7 +11903,8 @@ def test_detect_issues_handler_starts_a_run_while_another_is_in_flight(
             "mlflow.server.jobs.submit_job", return_value=_make_detect_issues_job()
         ) as mock_submit_job,
         mock.patch(
-            "mlflow.genai.discovery.utils.in_flight_detection_run", return_value="run-in-flight"
+            "mlflow.genai.discovery.utils.in_flight_scheduled_detection_run",
+            return_value="run-in-flight",
         ) as mock_in_flight,
         app.test_client() as c,
     ):

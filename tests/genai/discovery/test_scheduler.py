@@ -45,6 +45,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_SCHEDULE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
+    MLFLOW_ISSUE_DETECTION_TRIGGER,
+    MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
 )
@@ -120,17 +122,31 @@ def test_the_first_pass_anchors_a_new_schedule_without_running_it(store, dispatc
     assert state.last_fire_time_ms == ONE_PM_MS
 
 
-def _detection_run(store, experiment_id: str, start_time_ms: int):
-    return store.create_run(
-        experiment_id,
-        "someone",
-        start_time_ms,
-        [RunTag(MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION)],
-        "detection",
+def _detection_run(store, experiment_id: str, start_time_ms: int, *, scheduled: bool = True):
+    tags = [RunTag(MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION)]
+    if scheduled:
+        tags.append(RunTag(MLFLOW_ISSUE_DETECTION_TRIGGER, MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE))
+    return store.create_run(experiment_id, "someone", start_time_ms, tags, "detection")
+
+
+def test_an_occurrence_due_during_an_ad_hoc_run_is_dispatched(store, dispatch):
+    # Ad-hoc runs, from the Issues tab or DetectIssues, run alongside a scheduled one, as on
+    # Databricks, and don't move the watermark, so the occurrence has no reason to wait.
+    experiment_id = _experiment_with(
+        store,
+        "ad-hoc-overlap",
+        **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY)),
     )
+    dispatch(ONE_PM_MS)
+    due_ms = ONE_PM_MS + HOUR_MS
+    _detection_run(store, experiment_id, due_ms - 60_000, scheduled=False)
+    _detection_run(store, experiment_id, due_ms - 30_000, scheduled=False)
+
+    assert dispatch(due_ms).call_count == 1
+    assert _state(store, experiment_id).last_fire_time_ms == due_ms
 
 
-def test_an_occurrence_due_while_detection_is_running_is_left_unclaimed(store, dispatch):
+def test_an_occurrence_due_while_a_scheduled_run_is_going_is_left_unclaimed(store, dispatch):
     experiment_id = _experiment_with(
         store, "overlapping", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
     )
