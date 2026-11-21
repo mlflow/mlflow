@@ -22,10 +22,11 @@ from mlflow.genai.judges.optimizers.memalign.prompts import (
     GUIDELINES_SECTION_HEADER,
 )
 from mlflow.genai.judges.optimizers.memalign.utils import (
+    _ALLOWED_RETRIEVAL_FIELDS,
     Guideline,
     distill_guidelines,
     get_default_embedding_model,
-    get_query_field,
+    get_query_fields,
     retrieve_relevant_examples,
     truncate_to_token_limit,
     value_to_embedding_text,
@@ -51,7 +52,13 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-_CONFIG_FIELDS = ("reflection_lm", "retrieval_k", "embedding_model", "embedding_dim")
+_CONFIG_FIELDS = (
+    "reflection_lm",
+    "retrieval_k",
+    "embedding_model",
+    "embedding_dim",
+    "retrieval_fields",
+)
 
 # Databricks embedding endpoints have stricter input size limits than other providers.
 # Use a smaller batch size to avoid "input embedding size too large" errors.
@@ -106,6 +113,43 @@ def _build_embedder(embedding_model: str, embedding_dim: int) -> "dspy.Embedder"
     )
 
 
+def _validate_retrieval_fields(retrieval_fields: Any) -> list[str] | None:
+    if retrieval_fields is None:
+        return None
+    allowed = ", ".join(_ALLOWED_RETRIEVAL_FIELDS)
+    if not isinstance(retrieval_fields, list) or not retrieval_fields:
+        raise MlflowException(
+            f"retrieval_fields must be a non-empty list of field names from: {allowed}. "
+            f"Got {retrieval_fields!r}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    for field in retrieval_fields:
+        if field not in _ALLOWED_RETRIEVAL_FIELDS:
+            raise MlflowException(
+                f"retrieval_fields contains unsupported value {field!r}. Allowed values: {allowed}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    if len(set(retrieval_fields)) != len(retrieval_fields):
+        raise MlflowException(
+            f"retrieval_fields must not contain duplicates, got {retrieval_fields!r}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return list(retrieval_fields)
+
+
+def _check_retrieval_fields_referenced(judge: Judge, retrieval_fields: list[str] | None) -> None:
+    if retrieval_fields is None:
+        return
+    referenced = [field.name for field in judge.get_input_fields()]
+    for field in retrieval_fields:
+        if field not in referenced:
+            raise MlflowException(
+                f"retrieval_fields includes {field!r} but the judge's instructions only "
+                f"reference: {', '.join(referenced)}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
 def _generate_fingerprint(
     examples: Iterable["dspy.Example"],
 ) -> frozenset[tuple[str | None, int | None]]:
@@ -152,7 +196,27 @@ example retrieval. Must be a form of `<provider>:/<model-name>`, such as
 `"openai:/text-embedding-3-small"`. Supported providers include OpenAI and
 others via LiteLLM. Default: `"openai:/text-embedding-3-small"`.
 """,
+    "retrieval_fields": """Judge fields embedded for episodic-memory
+retrieval, a non-empty list drawn from `"inputs"`, `"outputs"`, `"expectations"`,
+and `"trace"`. Each field must be referenced by the judge's instructions. A `"trace"`
+field embeds only the root span's request and response text, so combining it with
+`"inputs"` or `"outputs"` mostly repeats them.
+Defaults to the first of inputs/outputs/expectations/conversation/trace referenced by
+the judge's instructions. With multiple fields, examples are ranked by the sum of
+their per-field cosine similarities to the query, so the top examples are close on
+all fields; a field an example lacks contributes 0.
+Each field adds one embedding index and one query embedding per scoring call, so cost
+scales with the number of fields.
+""",
 }
+_MODEL_API_DOC["optimizer_retrieval_fields"] = (
+    _MODEL_API_DOC["retrieval_fields"]
+    + """When re-aligning an aligned judge, `None` keeps that
+judge's `retrieval_fields`. If every trace is already in memory unchanged and the
+retrieval fields stay the same, the judge is returned as-is; otherwise the other
+settings come from the optimizer.
+"""
+)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -173,6 +237,7 @@ class MemoryAugmentedJudge(Judge):
         retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
+        retrieval_fields: {{ retrieval_fields }}
     """
 
     def __init__(
@@ -182,6 +247,7 @@ class MemoryAugmentedJudge(Judge):
         retrieval_k: int = 5,
         embedding_model: str | None = None,
         embedding_dim: int = 512,
+        retrieval_fields: list[str] | None = None,
         *,
         _defer_init: bool = False,
     ):
@@ -198,9 +264,12 @@ class MemoryAugmentedJudge(Judge):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        retrieval_fields = _validate_retrieval_fields(retrieval_fields)
+
         effective_base_judge = (
             base_judge._base_judge if isinstance(base_judge, MemoryAugmentedJudge) else base_judge
         )
+        _check_retrieval_fields_referenced(effective_base_judge, retrieval_fields)
 
         super().__init__(
             name=effective_base_judge.name,
@@ -215,6 +284,7 @@ class MemoryAugmentedJudge(Judge):
             embedding_model if embedding_model is not None else get_default_embedding_model()
         )
         self._embedding_dim = embedding_dim
+        self._retrieval_fields = retrieval_fields
 
         # Always store trace IDs for serialization
         self._episodic_trace_ids: list[str] = []
@@ -223,7 +293,7 @@ class MemoryAugmentedJudge(Judge):
             # Defer creating heavyweight DSPy objects until first use (_embedder=None signals this)
             self._base_signature = None
             self._embedder = None
-            self._retriever = None
+            self._retrievers = None
             self._episodic_memory: list["dspy.Example"] = []
             self._semantic_memory: list[Guideline] = []
         else:
@@ -235,7 +305,7 @@ class MemoryAugmentedJudge(Judge):
 
         self._base_signature = create_dspy_signature(effective_base_judge)
         self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
-        self._retriever = None
+        self._retrievers = None
 
         # Inherit memory from base_judge if it's a MemoryAugmentedJudge.
         # Episodic memory index is not built here — _add_examples_to_memory() handles it.
@@ -275,10 +345,11 @@ class MemoryAugmentedJudge(Judge):
             "trace": trace,
         }
         retrieved_results = retrieve_relevant_examples(
-            retriever=self._retriever,
+            retrievers=self._retrievers,
             examples=self._episodic_memory,
             query_kwargs=query_kwargs,
-            signature=self._base_signature,
+            embedding_model=self._embedding_model,
+            retrieval_k=self._retrieval_k,
         )
 
         relevant_examples = [example for example, _ in retrieved_results]
@@ -409,6 +480,7 @@ class MemoryAugmentedJudge(Judge):
             retrieval_k=data.get("retrieval_k", 5),
             embedding_model=data.get("embedding_model"),
             embedding_dim=data.get("embedding_dim", 512),
+            retrieval_fields=data.get("retrieval_fields"),
             _defer_init=True,
         )
 
@@ -423,7 +495,7 @@ class MemoryAugmentedJudge(Judge):
         Override base _create_copy for Scorer.register().
 
         The base implementation uses model_copy(deep=True), which fails because
-        DSPy objects (_embedder, _retriever) contain thread locks that can't be
+        DSPy objects (_embedder, _retrievers) contain thread locks that can't be
         pickled. We create a new instance with _defer_init=True and store trace
         IDs for lazy reconstruction.
         """
@@ -433,6 +505,7 @@ class MemoryAugmentedJudge(Judge):
             retrieval_k=self._retrieval_k,
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
+            retrieval_fields=self._retrieval_fields,
             _defer_init=True,
         )
         judge_copy._semantic_memory = copy.deepcopy(self._semantic_memory)
@@ -557,6 +630,7 @@ class MemoryAugmentedJudge(Judge):
             retrieval_k=self._retrieval_k,
             embedding_model=self._embedding_model,
             embedding_dim=self._embedding_dim,
+            retrieval_fields=self._retrieval_fields,
         )
         new_judge._episodic_memory = list(self._episodic_memory)
         new_judge._episodic_trace_ids = list(self._episodic_trace_ids)
@@ -624,8 +698,8 @@ class MemoryAugmentedJudge(Judge):
         """Build episodic memory search index from examples."""
         import dspy.retrievers
 
-        query_field = get_query_field(self._base_signature)
-        if query_field is None:
+        query_fields = get_query_fields(self._base_signature, self._retrieval_fields)
+        if not query_fields:
             raise MlflowException(
                 "Unable to build episodic memory: no suitable input field found in judge "
                 "instructions. Please ensure the judge instructions reference at least one of "
@@ -633,22 +707,46 @@ class MemoryAugmentedJudge(Judge):
                 error_code=INTERNAL_ERROR,
             )
 
-        # Build corpus and filter examples with empty query field
-        filtered_memory = []
-        corpus = []
-        for example in self._episodic_memory:
-            if value := example.get(query_field):
-                query = truncate_to_token_limit(
-                    value_to_embedding_text(value), self._embedding_model, model_type="embedding"
-                )
-                corpus.append(query)
-                filtered_memory.append(example)
-        self._episodic_memory = filtered_memory
+        # Read fields with .get(): getattr(example, "inputs") is the bound Example.inputs method.
+        # Drop examples with no value for any query field; they can never be retrieved.
+        episodic_memory = [
+            example
+            for example in self._episodic_memory
+            if any(example.get(field) for field in query_fields)
+        ]
 
-        self._retriever = dspy.retrievers.Embeddings(
-            embedder=self._embedder, corpus=corpus, k=self._retrieval_k
+        # One index per field. positions maps each corpus entry back to its episodic index.
+        retrievers = {}
+        for field in query_fields:
+            corpus = []
+            positions = []
+            for i, example in enumerate(episodic_memory):
+                if value := example.get(field):
+                    corpus.append(
+                        truncate_to_token_limit(
+                            value_to_embedding_text(value),
+                            self._embedding_model,
+                            model_type="embedding",
+                        )
+                    )
+                    positions.append(i)
+            retriever = dspy.retrievers.Embeddings(
+                embedder=self._embedder,
+                corpus=corpus,
+                k=self._retrieval_k,
+            )
+            retrievers[field] = (retriever, positions)
+
+        _logger.debug(
+            "Built episodic memory for %d examples; corpus sizes by field: %s",
+            len(episodic_memory),
+            {field: len(positions) for field, (_, positions) in retrievers.items()},
         )
-        _logger.debug(f"Episodic memory corpus contains {len(corpus)} examples")
+
+        # Publish after all indexes are built. These are two separate assignments; that is safe
+        # because rebuilds only run on judges not yet shared, or during lazy init.
+        self._episodic_memory = episodic_memory
+        self._retrievers = retrievers
 
     def _add_examples_to_memory(self, examples: list["dspy.Example"]) -> None:
         """Add examples by updating both episodic memory and semantic memory.
@@ -692,6 +790,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
         retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
+        retrieval_fields: {{ optimizer_retrieval_fields }}
 
     Note:
         The number of parallel threads for LLM calls during guideline distillation can be
@@ -726,6 +825,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
         retrieval_k: int = 5,
         embedding_model: str | None = None,
         embedding_dim: int = 512,
+        retrieval_fields: list[str] | None = None,
     ):
         _check_dspy_installed()
         self._reflection_lm = reflection_lm if reflection_lm is not None else get_default_model()
@@ -734,6 +834,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
             embedding_model if embedding_model is not None else get_default_embedding_model()
         )
         self._embedding_dim = embedding_dim
+        self._retrieval_fields = _validate_retrieval_fields(retrieval_fields)
 
     def align(self, judge: Judge, traces: list[Trace]) -> MemoryAugmentedJudge:
         """
@@ -763,6 +864,13 @@ class MemAlignOptimizer(AlignmentOptimizer):
         Returns:
             Memory-augmented judge aligned with feedback.
         """
+        # Re-aligning with a default optimizer (e.g. Judge.align) keeps the judge's fields.
+        retrieval_fields = self._retrieval_fields
+        if retrieval_fields is None and isinstance(judge, MemoryAugmentedJudge):
+            retrieval_fields = judge._retrieval_fields
+        # Checked before the try so the error is not rewrapped as INTERNAL_ERROR.
+        _check_retrieval_fields_referenced(judge, retrieval_fields)
+
         try:
             if not traces:
                 raise MlflowException(
@@ -777,6 +885,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 retrieval_k=self._retrieval_k,
                 embedding_model=self._embedding_model,
                 embedding_dim=self._embedding_dim,
+                retrieval_fields=retrieval_fields,
             )
 
             # Build resolved examples once per incoming trace; reused for both change
@@ -834,12 +943,17 @@ class MemAlignOptimizer(AlignmentOptimizer):
                 # Reachable only when every incoming trace was a no-op skip; the
                 # raises above already cover all empty-example paths. Skip can
                 # only fire when ``judge`` is already a MemoryAugmentedJudge — a
-                # vanilla Judge has no in-memory fingerprints to match against —
-                # so returning the input is type-safe and avoids handing back the
-                # freshly-built ``memory_judge`` whose retriever is uninitialized.
+                # vanilla Judge has no in-memory fingerprints to match against.
                 assert isinstance(judge, MemoryAugmentedJudge)
-                _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
-                return judge
+                if get_query_fields(memory_judge._base_signature, judge._retrieval_fields) == (
+                    get_query_fields(memory_judge._base_signature, retrieval_fields)
+                ):
+                    _logger.debug("MemAlign alignment skipped: all traces unchanged in memory.")
+                    return judge
+                # Memory is unchanged but the retrieval fields are not: rebuild the index.
+                memory_judge._build_episodic_memory()
+                _logger.debug("MemAlign rebuilt episodic memory index for new retrieval_fields.")
+                return memory_judge
 
             if trace_ids_to_refresh:
                 memory_judge._apply_unalign_inplace(trace_ids_to_refresh)
