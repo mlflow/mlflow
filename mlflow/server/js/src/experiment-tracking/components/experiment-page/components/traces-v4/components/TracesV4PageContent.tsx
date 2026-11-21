@@ -1,4 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Global, keyframes } from '@emotion/react';
 import {
@@ -34,7 +44,8 @@ import { useAssistant, useCoverFloatingBottomObstructions } from '@mlflow/mlflow
 import { useExperimentPageLayoutContainer } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-page-tabs/ExperimentPageLayout';
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
-import { useNavigate, useSearchParams, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useNavigate, useLocationSelector, type To } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useTracesV4SearchParams, selectTracesV4PageLocation } from '../hooks/useTracesV4SearchParams';
 import { shouldEnableIssueDetection, shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
   SELECTED_TRACE_ID_QUERY_PARAM,
@@ -302,12 +313,22 @@ const ResponsiveTraceDrawer = {
  * providers (ModelTraceExplorer, GenAITracesTable), the drawer, the delete modal, and notifications
  * stay MLflow-side.
  */
-export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) => {
+export const TracesV4PageContent = (props: TracesV4PageContentProps) => {
+  const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  const navigateToSession = useCallback((href: To) => navigateRef.current(href), []);
+  return <MemoizedTracesV4PageContentBody {...props} navigate={navigateToSession} />;
+};
+
+const TracesV4PageContentBody = ({
+  experimentId,
+  navigate,
+}: TracesV4PageContentProps & { navigate: (href: To) => void }) => {
   const { theme } = useDesignSystemTheme();
   const { enabled: revampEnabled } = useExperimentPageRevampContext();
   const intl = useIntl();
-  const navigate = useNavigate();
-  const { pathname, search, hash } = useLocation();
+  const { pathname, search, hash } = useLocationSelector(selectTracesV4PageLocation);
   const { notify, notificationContainer } = useTracesV4Notifications();
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
@@ -633,7 +654,7 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
   // The overview and run pages deep-link here with `?detectIssues=true` to auto-open the modal.
   // Wait for the first page so the modal seeds from real traces, then strip the param via `replace`
   // so a refresh doesn't reopen it.
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useTracesV4SearchParams();
   useEffect(() => {
     if (!shouldEnableIssueDetection() || searchParams.get('detectIssues') !== 'true' || page.isLoading) {
       return;
@@ -914,3 +935,4 @@ export const TracesV4PageContent = ({ experimentId }: TracesV4PageContentProps) 
     </div>
   );
 };
+const MemoizedTracesV4PageContentBody = memo(TracesV4PageContentBody);

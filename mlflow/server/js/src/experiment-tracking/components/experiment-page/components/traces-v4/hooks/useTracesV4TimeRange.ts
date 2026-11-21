@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';
-import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useTracesV4SearchParams } from './useTracesV4SearchParams';
 import { useMonitoringConfig } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import {
   DEFAULT_TRACES_V4_TIME_LABEL,
@@ -52,7 +52,7 @@ export const useTracesV4TimeRange = (experimentId: string): UseTracesV4TimeRange
 
   // OSS's `useSearchParams` is the raw react-router hook (no read-selector overload), so read each
   // param off the `searchParams` object directly.
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useTracesV4SearchParams();
   const urlLabelRaw = searchParams.get(START_TIME_LABEL_PARAM);
   const urlStartTime = searchParams.get(START_TIME_PARAM) ?? undefined;
   const urlEndTime = searchParams.get(END_TIME_PARAM) ?? undefined;
