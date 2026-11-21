@@ -5962,7 +5962,8 @@ def validate_can_detect_issues():
     ``trace_ids`` too, since the handler rejects a trace outside the experiment. Without an
     explicit ``model``, the run uses the model saved in the experiment's detection schedule, and
     when the run would decrypt a stored gateway secret for it the caller also needs USE on it, as
-    ``validate_can_invoke_issue_detection`` requires for a secret named in the request.
+    ``validate_can_invoke_issue_detection`` requires for a secret named in the request. So does a
+    ``secret_id`` in the request.
 
     The job also reads the traces' assessments and logs its own straight through the store, so an
     explicit DENY on assessments refuses the request. Absent an assessment grant the experiment
@@ -5985,6 +5986,10 @@ def validate_can_detect_issues():
         return False
     if not _authorize_trace_search([message.experiment_id], message.filter_string):
         return False
+    if message.secret_id:
+        # The handler decrypts a secret named in the request, so it needs USE, as
+        # ``validate_can_invoke_issue_detection`` does.
+        return _get_gateway_secret_permission(message.secret_id).can_use
     if message.model:
         return True
     try:

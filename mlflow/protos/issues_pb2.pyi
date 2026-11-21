@@ -560,6 +560,7 @@ class DetectIssues(_message.Message):
     MODEL_FIELD_NUMBER: _builtins.int
     TRACE_IDS_FIELD_NUMBER: _builtins.int
     IDEMPOTENCY_TOKEN_FIELD_NUMBER: _builtins.int
+    SECRET_ID_FIELD_NUMBER: _builtins.int
     experiment_id: _builtins.str
     """Experiment ID."""
     filter_string: _builtins.str
@@ -580,6 +581,11 @@ class DetectIssues(_message.Message):
     started, instead of starting another. Requests with different tokens, or without one, each
     start a run. At most 64 characters, with no control characters.
     """
+    secret_id: _builtins.str
+    """The ID of a stored AI Gateway secret the run's model calls its provider with. Only with a
+    "<provider>:/<model>" model, and only on an MLflow tracking server. When authentication is
+    enabled, the caller needs USE on the secret.
+    """
     @_builtins.property
     def trace_ids(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
         """The IDs of the traces the run analyzes, all in this experiment, at most 500. Cannot be combined
@@ -594,10 +600,11 @@ class DetectIssues(_message.Message):
         model: _builtins.str | None = ...,
         trace_ids: _abc.Iterable[_builtins.str] | None = ...,
         idempotency_token: _builtins.str | None = ...,
+        secret_id: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "idempotency_token", b"idempotency_token", "model", b"model"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "idempotency_token", b"idempotency_token", "model", b"model", "secret_id", b"secret_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "idempotency_token", b"idempotency_token", "model", b"model", "trace_ids", b"trace_ids"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["experiment_id", b"experiment_id", "filter_string", b"filter_string", "idempotency_token", b"idempotency_token", "model", b"model", "secret_id", b"secret_id", "trace_ids", b"trace_ids"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
