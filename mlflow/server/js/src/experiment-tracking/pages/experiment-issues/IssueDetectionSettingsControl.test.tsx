@@ -1,12 +1,18 @@
-import { beforeEach, describe, expect, test } from '@jest/globals';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { rest } from 'msw';
 import userEvent from '@testing-library/user-event';
 
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { QueryClient, QueryClientProvider } from '../../../common/utils/reactQueryHooks';
-import { MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG } from '../../constants';
+import {
+  MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+  MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG,
+} from '../../constants';
 import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
+
+import { useExperimentPermission } from '../../hooks/useExperimentPermission';
+jest.mock('../../hooks/useExperimentPermission');
 
 interface SavedTag {
   key: string;
@@ -55,6 +61,7 @@ const openSettings = async () => {
 const savedSettings = () => JSON.parse(written.at(-1)!.value);
 
 beforeEach(() => {
+  jest.mocked(useExperimentPermission).mockReturnValue(true);
   experimentTags = [];
   written = [];
   saveFails = false;
@@ -62,6 +69,54 @@ beforeEach(() => {
 });
 
 describe('IssueDetectionSettingsControl', () => {
+  test.each([undefined, null, 7])('a legacy empty equality value %j stays visible in setup', async (value) => {
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
+        value: JSON.stringify([{ field: 'tag', operator: '=', key: 'team', value }]),
+      },
+    ];
+    render();
+    await openSettings();
+    expect(screen.getByRole('button', { name: "Edit filter tag.team = ''" })).toHaveTextContent("tag.team = ''");
+    expect(screen.queryByText(/Could not read the saved trace scope/)).not.toBeInTheDocument();
+    expect(written).toEqual([]);
+  });
+
+  test('users without edit permission cannot change saved settings', async () => {
+    jest.mocked(useExperimentPermission).mockReturnValue(false);
+    render();
+    expect(await screen.findByRole('button', { name: 'Issue detection settings' })).toBeDisabled();
+    expect(written).toEqual([]);
+  });
+
+  test('invalid saved scope can be explicitly reset without changing priorities, including a failed reset retry', async () => {
+    experimentTags = [{ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: 'not-json' }];
+    saveFails = true;
+    render();
+    const reset = await screen.findByRole('button', { name: 'Reset trace scope to all traces' });
+    expect(screen.getByText(/Could not read the saved trace scope/)).toBeInTheDocument();
+    await userEvent.click(reset);
+    await screen.findByText('Could not reset trace scope. Try again.');
+    expect(written).toEqual([]);
+    saveFails = false;
+    await userEvent.click(reset);
+    await waitFor(() =>
+      expect(written).toEqual([{ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: '' }]),
+    );
+    await openSettings();
+    expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('');
+  });
+
+  test('a read-only user cannot reset an invalid scope', async () => {
+    experimentTags = [{ key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG, value: 'not-json' }];
+    jest.mocked(useExperimentPermission).mockReturnValue(false);
+    render();
+    await screen.findByRole('button', { name: /retry loading issue detection settings/i });
+    expect(screen.queryByRole('button', { name: 'Reset trace scope to all traces' })).not.toBeInTheDocument();
+    expect(written).toEqual([]);
+  });
+
   test('an experiment with no saved settings opens with every focus area selected', async () => {
     render();
     await openSettings();
@@ -120,6 +175,17 @@ describe('IssueDetectionSettingsControl', () => {
     expect(savedSettings().categories.correctness).toBe(true);
   });
 
+  test('invalid scope leaves priorities and every saved tag unchanged', async () => {
+    render();
+    const priorities = await openSettings();
+    await userEvent.type(priorities, 'New priorities');
+    await userEvent.type(screen.getByPlaceholderText('Add a filter'), "can't");
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('Single quotes are not supported in trace filter values or text search.');
+    expect(written).toEqual([]);
+    expect(priorities).toHaveValue('New priorities');
+  });
+
   test('priorities are trimmed before being stored', async () => {
     render();
     const priorities = await openSettings();
@@ -173,6 +239,24 @@ describe('IssueDetectionSettingsControl', () => {
     expect(screen.queryByText(/already exists/)).not.toBeInTheDocument();
   });
 
+  test.each(['latency', 'LATENCY', '  Latency  '])(
+    'rejects an omitted built-in custom category %s',
+    async (category) => {
+      experimentTags = [
+        {
+          key: MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG,
+          value: JSON.stringify({ instructions: '', categories: { correctness: true } }),
+        },
+      ];
+      render();
+      await openSettings();
+      await userEvent.click(screen.getByRole('button', { name: 'Custom category' }));
+      await userEvent.type(screen.getByRole('textbox', { name: 'Custom category' }), category);
+      expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+      expect(written).toHaveLength(0);
+    },
+  );
+
   test('a focus area name containing a template variable is rejected', async () => {
     // Reported in review: such a name saves fine but then reaches the judge's instructions,
     // where a doubled brace declares a template variable. The server rewrites it rather than
@@ -198,13 +282,15 @@ describe('IssueDetectionSettingsControl', () => {
     await openSettings();
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove custom category pii leakage' }));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Correctness' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(written).toHaveLength(1));
     expect(savedSettings().categories['pii leakage']).toBeUndefined();
   });
 
-  test('deselecting every focus area says what the run will do instead', async () => {
+  test('deselecting every focus area explains why Save is disabled', async () => {
     render();
     await openSettings();
 
@@ -213,7 +299,7 @@ describe('IssueDetectionSettingsControl', () => {
     }
 
     // Silently detecting everything would read as the settings being ignored.
-    expect(screen.getByText('With no focus area selected, detection considers all of them.')).toBeInTheDocument();
+    expect(screen.getByText('Select at least one focus area to save these settings.')).toBeInTheDocument();
   });
 
   test('a failed save keeps the modal open with the draft intact', async () => {
@@ -226,6 +312,39 @@ describe('IssueDetectionSettingsControl', () => {
 
     expect(await screen.findByText('Could not save issue detection settings. Try again.')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Worth keeping.');
+  });
+
+  test('a failed scope write discloses persisted priorities and permits retry or cancel', async () => {
+    let scopeFails = true;
+    server.use(
+      rest.post('*/ajax-api/2.0/mlflow/experiments/set-experiment-tag', async (req, res, ctx) => {
+        const body = (await req.json()) as SavedTag;
+        if (scopeFails && body.key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG) {
+          return res(ctx.status(500), ctx.json({ message: 'Scope unavailable' }));
+        }
+        written.push(body);
+        experimentTags = [...experimentTags.filter(({ key }) => key !== body.key), body];
+        return res(ctx.json({}));
+      }),
+    );
+    render();
+    await userEvent.type(await openSettings(), 'Persisted priorities');
+    await userEvent.type(screen.getByPlaceholderText('Add a filter'), 'synthetic');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText(
+      /Priorities and focus areas were saved, but trace scope was not\. Retry to finish saving, or cancel to keep the saved changes\..*Scope unavailable/,
+    );
+    expect(written.map(({ key }) => key)).toEqual([MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG]);
+    expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Persisted priorities');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await openSettings();
+    expect(screen.getByRole('textbox', { name: /Detection priorities/ })).toHaveValue('Persisted priorities');
+    expect(screen.getByPlaceholderText('Add a filter')).toHaveValue('');
+    await userEvent.type(screen.getByPlaceholderText('Add a filter'), 'synthetic');
+    scopeFails = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(written.at(-1)?.key).toBe(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument());
   });
 
   test('a failed settings read offers a retry instead of a dead control', async () => {

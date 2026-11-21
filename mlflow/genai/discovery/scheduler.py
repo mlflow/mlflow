@@ -16,6 +16,7 @@ from contextlib import nullcontext
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.view_type import ViewType
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import (
     FIRST_RUN_LOOKBACK_MS,
     read_detection_checkpoint,
@@ -159,7 +160,15 @@ def _submit_occurrence(
 
 
 def _dispatch_if_due(store: AbstractStore, experiment: Experiment, now_ms: int) -> None:
-    schedule = read_detection_schedule(experiment)
+    try:
+        schedule = read_detection_schedule(experiment)
+    except MlflowException as error:
+        _logger.warning(
+            "Could not read issue detection schedule for experiment %s: %s",
+            experiment.experiment_id,
+            error,
+        )
+        return
     if schedule is None:
         return
     state = read_detection_schedule_state(experiment)

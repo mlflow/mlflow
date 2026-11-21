@@ -34,12 +34,14 @@ const CenteredState = ({ children }: { children: ReactNode }) => (
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      minHeight: 400,
+      minHeight: 0,
       height: '100%',
       width: '100%',
       flex: 1,
+      overflowY: 'auto',
       '& > div': {
-        height: '100%',
+        flexShrink: 0,
+        marginBlock: 'auto',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -408,6 +410,7 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       ) : isEmptyState ? (
         <CenteredState>
           <ExperimentIssuesEmptyState
+            experimentId={experimentId}
             hasCompletedDetectionRuns={detection.status === JobStatus.SUCCEEDED}
             isCleanScan={cleanScan}
             hasTimedOutDetectionRun={detection.status === JobStatus.TIMEOUT}

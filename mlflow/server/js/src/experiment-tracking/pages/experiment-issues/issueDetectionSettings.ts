@@ -1,3 +1,5 @@
+import type { IntlShape } from 'react-intl';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { MlflowService } from '../../sdk/MlflowService';
 import { MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG } from '../../constants';
 import { ALL_ISSUE_CATEGORIES } from '../../components/experiment-page/components/traces-v3/IssueDetectionCategories';
@@ -110,4 +112,17 @@ export const selectedDetectionCategories = (settings: IssueDetectionSettings | u
     .filter(([, isSelected]) => isSelected)
     .map(([category]) => category);
   return selected.length > 0 ? selected : [...ALL_ISSUE_CATEGORIES];
+};
+
+export const issueDetectionPartialSaveError = (cause: unknown, intl: IntlShape): Error => {
+  const detail =
+    cause instanceof ErrorWrapper ? cause.getMessageField() : cause instanceof Error ? cause.message : undefined;
+  return new Error(
+    intl.formatMessage({
+      defaultMessage:
+        'Priorities and focus areas were saved, but trace scope was not. Retry to finish saving, or cancel to keep the saved changes.',
+      description: 'Issue detection settings modal > Partial save error after priorities succeeded and scope failed',
+    }) + (detail ? ` ${detail}` : ''),
+    { cause },
+  );
 };
