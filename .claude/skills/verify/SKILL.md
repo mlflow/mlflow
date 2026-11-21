@@ -62,13 +62,21 @@ For every PR, invoke the `Agent` tool once per angle below. Launch the finders i
 and assign each finder exactly one angle. While they work, identify the user flows the PR
 changes and relevant existing threads.
 
-- **Changed behavior.** Inspect each hunk for failure inputs, lost guards, removed guarantees,
-  and language or framework pitfalls.
-- **Callers and contracts.** Trace changed values through callers, wrappers and adapters.
-  Check compatibility and whether the fix reaches all callers affected by the original defect.
-- **Implementation and conventions.** Look for repeated work, redundant branches, and existing
-  helpers that preserve an invariant. Cite the applicable rule from the trusted checkout for
-  convention findings.
+- **Changed behavior.** Read each hunk and its enclosing function. Identify the input, state,
+  or timing that makes the changed path produce a wrong result.
+- **Removed guarantees.** For deleted or replaced code, identify the case it handled and
+  check whether the new implementation still covers it.
+- **Callers and contracts.** Trace changed interfaces through callers and callees. Check
+  assumptions about inputs, results, errors, and ordering. For wrappers, check which methods
+  they forward and which instance receives the call.
+- **Reuse.** Look for an existing implementation that already handles the new code's cases.
+  Name it and explain what duplication using it would remove.
+- **Simplification.** Look for redundant state, repeated branches, or dead code introduced by
+  the diff. Describe a simpler implementation that preserves the behavior.
+- **Efficiency.** Trace repeated computation or I/O, independent operations run in sequence,
+  or resources held longer than needed. Identify what incurs the cost and how to avoid it.
+- **Root cause.** Trace the symptom to the code that causes it. If the patch fixes only one
+  path, identify another affected path and the shared change that would fix both.
 
 Invoke the `Agent` tool with these arguments for each finder, naming its angle in `description`.
 For `<inputs>`, give the absolute paths of the trusted skill, PR checkout and temporary
@@ -78,7 +86,7 @@ Omit `isolation` to use the Action's prepared checkouts.
 ```json
 {
   "description": "Review changed caller contracts",
-  "prompt": "<inputs>. Follow the trust boundary in the trusted skill. Investigate <assigned angle> starting at <paths> without running PR code or delegating. Return the changed file and line, trigger, consequence and strongest source evidence for each candidate.",
+  "prompt": "<inputs>. Follow the trust boundary and the phase 1 instructions for <assigned angle> in the trusted skill. Start at <paths> without running PR code or delegating. For each candidate, return the changed file and line, trigger, concrete failure or cost, and strongest source evidence. Return no candidates if you find none.",
   "subagent_type": "general-purpose",
   "model": "sonnet",
   "effort": "medium",
