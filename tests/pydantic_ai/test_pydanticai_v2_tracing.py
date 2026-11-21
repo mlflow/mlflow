@@ -199,6 +199,29 @@ def test_agent_spans_do_not_record_model_api_key(model_override):
     assert spans[0].inputs["user_prompt"] == "hi"
 
 
+def test_model_request_span_does_not_record_credential_headers():
+    mlflow.pydantic_ai.autolog()
+    agent = Agent(TestModel(custom_output_text="hello"))
+
+    result = agent.run_sync(
+        "hi",
+        model_settings={
+            "max_tokens": 10,
+            "extra_headers": {"Authorization": "Bearer test-api-key", "X-Trace": "1"},
+        },
+    )
+
+    assert result.output == "hello"
+    spans = get_traces()[0].data.spans
+    for span in spans:
+        assert "test-api-key" not in json.dumps(span.to_dict())
+    model_span = next(span for span in spans if span.span_type == SpanType.LLM)
+    assert model_span.inputs["model_settings"] == {
+        "max_tokens": 10,
+        "extra_headers": {"X-Trace": "1"},
+    }
+
+
 def test_model_request_span_records_model_attributes():
     mlflow.pydantic_ai.autolog()
     agent = Agent(TestModel(custom_output_text="hello"))

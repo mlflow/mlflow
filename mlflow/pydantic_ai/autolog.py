@@ -217,7 +217,7 @@ def _model_request_inputs(request_context) -> dict[str, Any]:
         "model_settings": getattr(request_context, "model_settings", None),
         "model_request_parameters": getattr(request_context, "model_request_parameters", None),
     }
-    return {k: v for k, v in inputs.items() if v is not None}
+    return strip_credentials({k: v for k, v in inputs.items() if v is not None})
 
 
 def patched_class_call(original, self, *args, **kwargs):

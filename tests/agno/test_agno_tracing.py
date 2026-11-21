@@ -107,8 +107,10 @@ def test_run_does_not_record_model_api_key():
 
     mock_client = MagicMock()
     mock_client.messages.create.return_value = _create_message("Paris")
-    with patch.object(Claude, "get_client", return_value=mock_client):
+    with patch.object(Claude, "get_client", return_value=mock_client) as mock_get_client:
         agent.run("Capital of France?")
+    mock_get_client.assert_called()
+    mock_client.messages.create.assert_called_once()
 
     spans = get_traces()[0].data.spans
     assert spans[0].name == "Agent.run"

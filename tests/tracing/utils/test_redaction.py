@@ -1,3 +1,5 @@
+import functools
+from collections import UserDict
 from dataclasses import dataclass, field
 from unittest import mock
 
@@ -69,6 +71,44 @@ def test_strip_credentials_expands_nested_dataclasses_and_pydantic_models():
 )
 def test_strip_credentials_handles_collections(value, expected):
     assert strip_credentials(value) == expected
+
+
+def test_strip_credentials_traverses_mappings():
+    value = {"headers": UserDict({"api_key": "secret", "a": 1})}
+
+    assert strip_credentials(value) == {"headers": {"a": 1}}
+
+
+class _ApiClient:
+    def __init__(self, api_key):
+        self.api_key = api_key
+
+    def __repr__(self):
+        return f"_ApiClient(api_key={self.api_key!r})"
+
+    def send(self):
+        pass
+
+
+def _callback(client):
+    pass
+
+
+def test_strip_credentials_records_callables_by_name():
+    client = _ApiClient("secret")
+    value = {
+        "method": client.send,
+        "partial": functools.partial(_callback, client),
+        "function": _callback,
+        "builtin": len,
+    }
+
+    assert strip_credentials(value) == {
+        "method": "_ApiClient.send",
+        "partial": "_callback",
+        "function": "_callback",
+        "builtin": "len",
+    }
 
 
 def test_strip_credentials_handles_reference_cycles():

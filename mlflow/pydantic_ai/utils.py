@@ -47,7 +47,7 @@ def model_request_inputs(request_context) -> dict[str, Any]:
         "model_settings": getattr(request_context, "model_settings", None),
         "model_request_parameters": getattr(request_context, "model_request_parameters", None),
     }
-    return {key: value for key, value in inputs.items() if value is not None}
+    return strip_credentials({key: value for key, value in inputs.items() if value is not None})
 
 
 def serialize_output(result: Any) -> Any:

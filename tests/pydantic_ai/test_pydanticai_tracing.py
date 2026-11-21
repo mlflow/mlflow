@@ -28,6 +28,7 @@ from mlflow.pydantic_ai.autolog import (
     _get_mcp_server_attributes,
     _get_model_attributes,
     _get_tool_attributes,
+    _model_request_inputs,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -461,6 +462,22 @@ def test_get_model_attributes_drops_credentials():
     assert attrs["model_name"] == "gpt-4"
     assert attrs["settings"] == {"max_tokens": 10}
     assert "api_key" not in attrs
+
+
+def test_model_request_inputs_drops_credentials():
+    request_context = types.SimpleNamespace(
+        messages=["hi"],
+        model_settings={
+            "max_tokens": 10,
+            "extra_headers": {"Authorization": "Bearer test-api-key", "X-Trace": "1"},
+        },
+        model_request_parameters=None,
+    )
+
+    assert _model_request_inputs(request_context) == {
+        "messages": ["hi"],
+        "model_settings": {"max_tokens": 10, "extra_headers": {"X-Trace": "1"}},
+    }
 
 
 def test_autolog_auto_enables_instrument():

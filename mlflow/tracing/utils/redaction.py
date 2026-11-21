@@ -1,11 +1,24 @@
+import functools
 import logging
 import re
+import types
+from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
 from typing import Any
 
 import pydantic
 
 _logger = logging.getLogger(__name__)
+
+# Encoding these with `str()` would embed the repr of a bound object or partial arguments, which
+# can hold credentials (e.g. a method bound to an API client), so they are recorded by name.
+_CALLABLE_TYPES = (
+    types.FunctionType,
+    types.MethodType,
+    types.BuiltinFunctionType,
+    types.BuiltinMethodType,
+    functools.partial,
+)
 
 # Matches credential-like keys such as `api_key`, `_api_key`, `x-api-key`, `client_secret`,
 # `Authorization`, `auth_token`, or `accessToken`. Credential keys end with `token`, so
@@ -22,10 +35,10 @@ def strip_credentials(value: Any) -> Any:
     """
     Recursively drop credential-like keys from a value before it is attached to a span.
 
-    Dicts, lists, tuples, and sets are traversed. Dataclasses and pydantic models are converted
-    to dicts the same way ``TraceJSONEncoder`` serializes them, so credentials stored on nested
-    objects (e.g. a model client's ``api_key`` field) are dropped too. Other objects are returned
-    as-is.
+    Mappings, lists, tuples, and sets are traversed, and functions and methods are replaced by
+    their qualified name. Dataclasses and pydantic models are converted to dicts the same way
+    ``TraceJSONEncoder`` serializes them, so credentials stored on nested objects (e.g. a model
+    client's ``api_key`` field) are dropped too. Other objects are returned as-is.
 
     Fails closed: if sanitization raises, the value is replaced rather than logged unsanitized.
     Dicts become an empty dict so callers that merge the result into span attributes keep
@@ -48,7 +61,7 @@ def _strip_credentials(value: Any, ancestors: set[int]) -> Any:
         return type(value).__name__
     ancestors.add(id(value))
     try:
-        if isinstance(value, dict):
+        if isinstance(value, Mapping):
             return {
                 k: _strip_credentials(v, ancestors)
                 for k, v in value.items()
@@ -64,6 +77,9 @@ def _strip_credentials(value: Any, ancestors: set[int]) -> Any:
             return _strip_credentials(
                 {f.name: getattr(value, f.name) for f in fields(value)}, ancestors
             )
+        if isinstance(value, _CALLABLE_TYPES):
+            func = value.func if isinstance(value, functools.partial) else value
+            return getattr(func, "__qualname__", type(func).__name__)
         return value
     finally:
         ancestors.discard(id(value))
