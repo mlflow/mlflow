@@ -270,7 +270,7 @@ def test_get_dataset_name_with_quotes(experiments, name):
     assert retrieved.name == name
 
 
-def test_delete_dataset(mock_client):
+def test_delete_dataset_with_mock(mock_client):
     delete_dataset(dataset_id="test_id")
 
     mock_client.delete_dataset.assert_called_once_with("test_id")
