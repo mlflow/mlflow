@@ -14,10 +14,29 @@ const SPAN_ID_PARAM = 'spanId';
  * the experiment V4 table. All other paging, search, sort, and tag state follows the shared V4 URL
  * contract.
  */
-export const useEvalRunTracesV4UrlState = (): TracesV4UrlState => {
+export const useEvalRunTracesV4UrlState = (): TracesV4UrlState & {
+  setSpanId: (next: string | undefined) => void;
+} => {
   const base = useTracesV4UrlState();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedEvaluationId = searchParams.get(LEGACY_TRACE_ID_PARAM) ?? undefined;
+
+  const setSpanId = useCallback(
+    (next: string | undefined) => {
+      setSearchParams(
+        (params) => {
+          if (next) {
+            params.set(SPAN_ID_PARAM, next);
+          } else {
+            params.delete(SPAN_ID_PARAM);
+          }
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const setTraceId = useCallback(
     (next: string | undefined) => {
@@ -39,5 +58,6 @@ export const useEvalRunTracesV4UrlState = (): TracesV4UrlState => {
     ...base,
     traceId: selectedEvaluationId ?? base.traceId,
     setTraceId,
+    setSpanId,
   };
 };

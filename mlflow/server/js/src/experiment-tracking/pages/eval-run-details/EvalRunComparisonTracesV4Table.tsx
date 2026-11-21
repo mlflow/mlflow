@@ -738,6 +738,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
         experimentId,
         traces: controller.pageTraces,
         onSelectTrace: url.setTraceId,
+        onSelectSpan: url.setSpanId,
         runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
         comparisonRunOptions: activeComparisonRunOptions,
         comparisonNavigation,

@@ -69,4 +69,15 @@ describe('useEvalRunTracesV4UrlState', () => {
     expect(param('selectedEvaluationId')).toBeNull();
     expect(param('traceId')).toBeNull();
   });
+
+  test('writes the selected span without changing table parameters', async () => {
+    const { result } = await mountHook('/p?page=3&selectedEvaluationId=trace-1');
+
+    act(() => result.current.setSpanId('span-1'));
+    expect(param('spanId')).toBe('span-1');
+    expect(param('page')).toBe('3');
+
+    act(() => result.current.setSpanId(undefined));
+    expect(param('spanId')).toBeNull();
+  });
 });

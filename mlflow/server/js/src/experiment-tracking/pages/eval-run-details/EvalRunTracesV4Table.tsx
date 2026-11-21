@@ -534,6 +534,7 @@ export const EvalRunTracesV4Table = ({
     experimentId,
     traces: page.traces,
     onSelectTrace: url.setTraceId,
+    onSelectSpan: url.setSpanId,
     runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
   };
 
