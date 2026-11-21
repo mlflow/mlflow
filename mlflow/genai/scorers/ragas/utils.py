@@ -201,9 +201,9 @@ def map_trace_to_ragas_messages(
     if include_tool_calls:
         if tools_called := extract_tools_called_from_trace(trace):
             tool_calls.extend(
-                ToolCall(name=tool.name, args=tool.arguments)
+                ToolCall(name=tool.name, args=tool.arguments or {})
                 for tool in tools_called
-                if tool.name and tool.arguments
+                if tool.name
             )
 
     if outputs := resolve_outputs_from_trace(None, trace):
@@ -239,7 +239,7 @@ def extract_reference_tool_calls_from_expectations(
     return [
         ToolCall(name=fc.name, args=fc.arguments)
         for fc in function_calls
-        if fc.name and fc.arguments
+        if fc.name and fc.arguments is not None
     ]
 
 

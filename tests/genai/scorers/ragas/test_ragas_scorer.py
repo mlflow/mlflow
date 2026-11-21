@@ -7,6 +7,7 @@ from ragas.embeddings.base import BaseRagasEmbedding
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
@@ -418,6 +419,44 @@ def test_agentic_scorer_with_expectations(scorer_class, expectations, sample_ass
 
     assert isinstance(result, Feedback)
     assert result.name == scorer_class.metric_name
+
+
+@pytest.mark.parametrize(
+    ("scorer_class", "call_get_time", "expected_value"),
+    [
+        (ToolCallAccuracy, False, 0.0),
+        (ToolCallAccuracy, True, 1.0),
+        (ToolCallF1, False, 0.6667),
+        (ToolCallF1, True, 1.0),
+    ],
+)
+def test_tool_call_scorers_count_tool_calls_without_arguments(
+    scorer_class, call_get_time, expected_value
+):
+    with mlflow.start_span(name="agent", span_type=SpanType.AGENT) as root:
+        root.set_inputs({"messages": [{"role": "user", "content": "Paris weather and time?"}]})
+        with mlflow.start_span(name="get_weather", span_type=SpanType.TOOL) as t:
+            t.set_inputs({"city": "Paris"})
+            t.set_outputs("sunny")
+        if call_get_time:
+            with mlflow.start_span(name="get_time", span_type=SpanType.TOOL) as t:
+                t.set_inputs({})
+                t.set_outputs("12:00")
+        root.set_outputs("It is sunny in Paris.")
+    trace = mlflow.get_trace(root.trace_id)
+
+    feedback = scorer_class()(
+        trace=trace,
+        expectations={
+            "expected_tool_calls": [
+                {"name": "get_weather", "arguments": {"city": "Paris"}},
+                {"name": "get_time", "arguments": {}},
+            ]
+        },
+    )
+
+    assert feedback.error is None
+    assert feedback.value == expected_value
 
 
 # --- Model adapter tests ---
