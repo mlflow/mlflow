@@ -28,6 +28,8 @@ class _Settings(pydantic.BaseModel):
 def test_strip_credentials_drops_credential_keys_but_keeps_config():
     value = {
         "api_key": "secret",
+        "x-api-key": "secret",
+        "X-Goog-Api-Key": "secret",
         "Authorization": "Bearer secret",
         "accessToken": "secret",
         "client_secret": "secret",

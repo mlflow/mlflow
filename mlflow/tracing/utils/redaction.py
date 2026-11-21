@@ -7,11 +7,12 @@ import pydantic
 
 _logger = logging.getLogger(__name__)
 
-# Matches credential-like keys such as `api_key`, `_api_key`, `client_secret`, `Authorization`,
-# `auth_token`, or `accessToken`. Credential keys end with `token`, so `max_tokens`,
-# `tokenizer`, and `token_usage` (legitimate LLM configuration and usage fields) are kept.
+# Matches credential-like keys such as `api_key`, `_api_key`, `x-api-key`, `client_secret`,
+# `Authorization`, `auth_token`, or `accessToken`. Credential keys end with `token`, so
+# `max_tokens`, `tokenizer`, and `token_usage` (legitimate LLM configuration and usage fields)
+# are kept.
 SENSITIVE_KEY_PATTERN = re.compile(
-    r"(?i:api_?key|secret|password|authorization|credential)"  # anywhere in the key
+    r"(?i:api[-_]?key|secret|password|authorization|credential)"  # anywhere in the key
     r"|(?<![A-Za-z])(?i:token)$"  # snake_case / standalone `token`
     r"|(?<=[a-z])Token$"  # camelCase `accessToken`
 )
