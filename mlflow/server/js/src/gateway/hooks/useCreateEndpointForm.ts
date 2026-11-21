@@ -1,14 +1,13 @@
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch, type Control } from 'react-hook-form';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useCreateEndpointMutation } from './useCreateEndpointMutation';
 import { useCreateSecret } from './useCreateSecret';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useSetEndpointTagMutation } from './useSetEndpointTagMutation';
-import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import { useProviderConfigQuery } from './useProviderConfigQuery';
 import { useSecretsQuery } from './useSecretsQuery';
-import type { ProviderModel, Endpoint, CodingAgentType } from '../types';
+import type { Endpoint, CodingAgentType } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 import { isValidEndpointName } from '../utils/gatewayUtils';
 import { hasNonAsciiApiKey } from '../utils/secretUtils';
@@ -71,8 +70,6 @@ export interface UseCreateEndpointFormResult {
   error: Error | null;
   resetErrors: () => void;
   existingEndpoints: ReturnType<typeof useEndpointsQuery>['data'];
-  selectedModel: ProviderModel | undefined;
-  isFormComplete: boolean;
   handleSubmit: (values: CreateEndpointFormData) => Promise<void>;
   handleCancel: () => void;
   handleNameBlur: () => void;
@@ -234,14 +231,7 @@ export function useCreateEndpointForm({
     onCancel?.();
   };
 
-  const name = form.watch('name');
-  const provider = form.watch('provider');
-  const modelName = form.watch('modelName');
-  const secretMode = form.watch('secretMode');
-  const existingSecretId = form.watch('existingSecretId');
-  const newSecretName = form.watch('newSecret.name');
-  const newSecretAuthMode = form.watch('newSecret.authMode');
-  const newSecretFields = form.watch('newSecret.secretFields');
+  const provider = useWatch({ control: form.control, name: 'provider' });
 
   const prevProviderRef = useRef(provider);
 
@@ -265,9 +255,6 @@ export function useCreateEndpointForm({
     resetErrors();
   }, [provider, form, resetErrors]);
 
-  const { data: models } = useModelsQuery({ provider: provider || undefined });
-  const selectedModel = models?.find((m) => m.model === modelName);
-
   const { data: existingEndpoints } = useEndpointsQuery();
 
   const handleNameBlur = () => {
@@ -290,6 +277,37 @@ export function useCreateEndpointForm({
     }
   };
 
+  const { data: allSecrets } = useSecretsQuery();
+
+  return {
+    form,
+    isLoading,
+    error,
+    resetErrors,
+    existingEndpoints,
+    handleSubmit,
+    handleCancel,
+    handleNameBlur,
+  };
+}
+
+// Subscribe below FormProvider so field edits do not rerender the page or modal shell.
+// Pass the same codingAgent used by useCreateEndpointForm.
+export function useCreateEndpointFormComplete(control: Control<CreateEndpointFormData>, codingAgent?: CodingAgentType) {
+  const name = useWatch({ control, name: 'name', disabled: !codingAgent });
+  const [provider, modelName, secretMode, existingSecretId, newSecretName, newSecretAuthMode, newSecretFields] =
+    useWatch({
+      control,
+      name: [
+        'provider',
+        'modelName',
+        'secretMode',
+        'existingSecretId',
+        'newSecret.name',
+        'newSecret.authMode',
+        'newSecret.secretFields',
+      ],
+    });
   const { data: providerConfig } = useProviderConfigQuery({ provider: provider || '' });
   const selectedAuthMode = useMemo(
     () => providerConfig?.auth_modes?.find((m) => m.mode === newSecretAuthMode),
@@ -299,25 +317,12 @@ export function useCreateEndpointForm({
   const hasSecretFieldValues = !requiresSecretFields || Object.values(newSecretFields || {}).some((v) => Boolean(v));
   const hasValidSecretFieldValues = hasSecretFieldValues && !hasNonAsciiApiKey(newSecretFields);
 
-  const { data: allSecrets } = useSecretsQuery();
-
   const isSecretConfigured =
     secretMode === 'existing'
       ? Boolean(existingSecretId)
       : Boolean(newSecretName) && Boolean(newSecretAuthMode) && hasValidSecretFieldValues;
   // Coding agent endpoints pre-fill all required fields; only the name must be non-empty.
-  const isFormComplete = agentConfig ? Boolean(name) : Boolean(provider) && Boolean(modelName) && isSecretConfigured;
+  const isFormComplete = codingAgent ? Boolean(name) : Boolean(provider) && Boolean(modelName) && isSecretConfigured;
 
-  return {
-    form,
-    isLoading,
-    error,
-    resetErrors,
-    existingEndpoints,
-    selectedModel,
-    isFormComplete,
-    handleSubmit,
-    handleCancel,
-    handleNameBlur,
-  };
+  return isFormComplete;
 }

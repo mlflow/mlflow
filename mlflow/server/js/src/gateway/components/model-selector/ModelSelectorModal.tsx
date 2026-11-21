@@ -104,13 +104,13 @@ export const ModelSelectorModal = ({
   const hasActiveFilters = Object.values(filters.capabilities).some(Boolean);
   const filterCount = Object.values(filters.capabilities).filter(Boolean).length;
 
-  const filteredModels = useMemo(() => {
-    if (!models) return [];
+  const sortedModels = useMemo(() => sortModelsByDate(models ?? []), [models]);
 
+  const filteredModels = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const filtered = models.filter((model) => {
+    return sortedModels.filter((model) => {
       // Exclude models that have already been deprecated
       if (model.deprecation_date) {
         const deprecationDate = new Date(model.deprecation_date);
@@ -135,10 +135,7 @@ export const ModelSelectorModal = ({
       }
       return true;
     });
-
-    // Sort by extracted date from model name (newest first)
-    return sortModelsByDate(filtered);
-  }, [models, filters]);
+  }, [sortedModels, filters]);
 
   const selectedModel = useMemo(() => {
     return models?.find((m) => m.model === selectedModelId);

@@ -27,17 +27,7 @@ interface CreateEndpointModalProps {
 export const CreateEndpointModal = ({ open, onClose, onSuccess, provider, zIndex }: CreateEndpointModalProps) => {
   const intl = useIntl();
 
-  const {
-    form,
-    isLoading,
-    error,
-    resetErrors,
-    selectedModel,
-    isFormComplete,
-    handleSubmit,
-    handleCancel,
-    handleNameBlur,
-  } = useCreateEndpointForm({
+  const { form, isLoading, error, resetErrors, handleSubmit, handleCancel, handleNameBlur } = useCreateEndpointForm({
     defaultProvider: provider,
     onSuccess: (endpoint) => {
       form.reset();
@@ -73,8 +63,6 @@ export const CreateEndpointModal = ({ open, onClose, onSuccess, provider, zIndex
           error={error}
           errorMessage={getReadableErrorMessage(error)}
           resetErrors={resetErrors}
-          selectedModel={selectedModel}
-          isFormComplete={isFormComplete}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           onNameBlur={handleNameBlur}
