@@ -468,7 +468,7 @@ class TelemetryClient:
             self._is_stopped = True
             self.is_active = False
 
-        # non-terminating flush is only used in tests
+        # non-terminating flush is used in tests and by mlflow/agent/setup/setup.sh
         else:
             self._config_thread.join(timeout=1)
 
