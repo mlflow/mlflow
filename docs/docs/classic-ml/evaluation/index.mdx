@@ -178,7 +178,7 @@ result = mlflow.models.evaluate(
     model_type="classifier",
     evaluator_config={
         "log_explainer": True,
-        "explainability_algorithm": "exact",
+        "explainability_algorithm": "permutation",
     },
 )
 ```
@@ -439,7 +439,7 @@ with mlflow.start_run():
 Custom artifact functions receive three parameters:
 
 - `eval_df`: DataFrame with predictions, targets, and input features
-- `builtin_metrics`: Dictionary of computed metrics
+- `builtin_metrics`: Dictionary mapping metric names to `MetricValue` objects. Get the scalar value of metric `name` with `builtin_metrics[name].aggregate_results[name]`.
 - `artifacts_dir`: Directory path to save artifact files
 
 Return a dictionary mapping artifact names to file paths.
@@ -503,7 +503,7 @@ result = mlflow.models.evaluate(
     model_type="classifier",
     evaluator_config={
         "log_explainer": True,
-        "explainability_algorithm": "exact",
+        "explainability_algorithm": "permutation",
     },
 )
 ```
@@ -511,7 +511,7 @@ result = mlflow.models.evaluate(
 **Configuration Options:**
 
 - `log_explainer`: Whether to save the SHAP explainer as a model (default: False)
-- `explainability_algorithm`: SHAP algorithm type - "exact", "permutation", "partition", or "kernel" (default: chosen automatically)
+- `explainability_algorithm`: SHAP algorithm type - "exact", "permutation", "partition", or "kernel" (default: chosen automatically). "exact" grows exponentially with the number of features, so use it only for models with few features.
 
 ### Using Saved Explainers
 
