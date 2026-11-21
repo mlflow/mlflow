@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795227737111,
+  "lastUpdate": 1795228505715,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sourcehatchery@gmail.com",
-            "name": "Cheolhee Lee",
-            "username": "iamhuman-cheolheelee"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "707691d1581f5909680fed90fd83f48b09adc326",
-          "message": "Handle OpenAI streams that yield no chunks in autolog (#26283)\n\nSigned-off-by: chlee <sourcehatchery@gmail.com>",
-          "timestamp": "2026-09-30T09:21:50Z",
-          "tree_id": "83b53a2e072c56043ae86bc70ea12fda4b17fab8",
-          "url": "https://github.com/mlflow/mlflow/commit/707691d1581f5909680fed90fd83f48b09adc326"
-        },
-        "date": 1790760327574,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 52.56684050000047,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 11.047699819999366,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 6.704734907561904,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.69751183471026,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.945440046296335,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 10.50436520000062,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.6291917142852332,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "samrajmoorjani@gmail.com",
+            "name": "Samraj Moorjani",
+            "username": "smoorjani"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ca7129977abce86ad69d1c108617adebbbaa1a8",
+          "message": "Add `retrieval_fields` to `MemAlignOptimizer` to choose which judge fields drive episodic retrieval (#27886)\n\nSigned-off-by: Samraj Moorjani <samraj.moorjani@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-11-21T02:31:34Z",
+          "tree_id": "421359646334f436f6029678768a30016d64da08",
+          "url": "https://github.com/mlflow/mlflow/commit/1ca7129977abce86ad69d1c108617adebbbaa1a8"
+        },
+        "date": 1795228502055,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.53740740000009,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.543219841463804,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.8962661989791902,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.9106172642490757,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.298128798850481,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.60609083333685,
             "unit": "ms"
           }
         ]
