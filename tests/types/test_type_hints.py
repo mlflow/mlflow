@@ -396,6 +396,64 @@ def test_python_type_hints_validation(type_hint, example):
     assert _validate_data_against_type_hint(data=example, type_hint=type_hint) == example
 
 
+def _assert_no_numpy_scalars(value):
+    if isinstance(value, list):
+        for item in value:
+            _assert_no_numpy_scalars(item)
+    elif isinstance(value, dict):
+        for item in value.values():
+            _assert_no_numpy_scalars(item)
+    else:
+        assert not isinstance(value, np.generic)
+
+
+@pytest.mark.parametrize(
+    ("type_hint", "data", "expected"),
+    [
+        (int, np.int64(1), 1),
+        (int, np.uint8(2), 2),
+        (float, np.float32(1.5), 1.5),
+        (float, np.float16(0.5), 0.5),
+        (bool, np.bool_(True), True),
+        (int | None, np.int32(3), 3),
+        (list[int], [np.int64(1), 2], [1, 2]),
+        (list[float], [np.float32(0.5), 1.5], [0.5, 1.5]),
+        (dict[str, int], {"a": np.int64(1)}, {"a": 1}),
+        (list[dict[str, float]], [{"a": np.float32(0.5)}], [{"a": 0.5}]),
+    ],
+)
+def test_type_hints_validation_accepts_numpy_scalars(type_hint, data, expected):
+    result = _validate_data_against_type_hint(data=data, type_hint=type_hint)
+    assert result == expected
+    _assert_no_numpy_scalars(result)
+
+
+def test_type_hints_validation_preserves_numpy_float64():
+    # np.float64 subclasses float, so it already passes the isinstance check and
+    # must keep flowing through unchanged rather than being re-wrapped
+    data = np.float64(2.5)
+    assert _validate_data_against_type_hint(data=data, type_hint=float) is data
+
+
+def test_type_hints_validation_rejects_mismatched_numpy_scalars():
+    with pytest.raises(MlflowException, match=r"Expected type int, but got float32"):
+        _validate_data_against_type_hint(np.float32(1.5), int)
+
+    with pytest.raises(MlflowException, match=r"Expected type bool, but got int64"):
+        _validate_data_against_type_hint(np.int64(1), bool)
+
+    with pytest.raises(MlflowException, match=r"Expected type str, but got int64"):
+        _validate_data_against_type_hint(np.int64(1), str)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Failed to validate data against type hint `list\[int\]`, "
+        r"invalid elements: \[\('a', 'Expected type int, but got str'\)\]",
+    ):
+        # np.int64(1) is normalized and passes validation; only "a" is reported
+        _validate_data_against_type_hint([np.int64(1), "a"], list[int])
+
+
 def test_type_hints_validation_errors():
     with pytest.raises(MlflowException, match=r"Data doesn't match type hint"):
         _validate_data_against_type_hint({"long_field": 1, "str_field": "a"}, CustomModel)
