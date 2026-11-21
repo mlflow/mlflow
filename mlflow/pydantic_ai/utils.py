@@ -2,6 +2,8 @@ import logging
 from dataclasses import asdict, is_dataclass
 from typing import Any
 
+import mlflow
+from mlflow.entities import SpanType
 from mlflow.tracing.constant import TokenUsageKey
 
 _logger = logging.getLogger(__name__)
@@ -47,6 +49,16 @@ def model_request_inputs(request_context) -> dict[str, Any]:
         "model_request_parameters": getattr(request_context, "model_request_parameters", None),
     }
     return {key: value for key, value in inputs.items() if value is not None}
+
+
+def mcp_tool_call_span_type() -> str:
+    # Pydantic AI runs an MCP call inside the TOOL span of the tool it executes. There the call is
+    # that tool's transport, not a second tool call (tool-call scorers count TOOL spans).
+    # Anywhere else, e.g. when user code calls the server directly, it is a tool call itself.
+    parent = mlflow.get_current_active_span()
+    if parent is not None and parent.span_type == SpanType.TOOL:
+        return SpanType.CHAIN
+    return SpanType.TOOL
 
 
 def serialize_output(result: Any) -> Any:

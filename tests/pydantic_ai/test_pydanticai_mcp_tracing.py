@@ -1,4 +1,5 @@
 import importlib.metadata
+from contextlib import ExitStack
 from unittest.mock import patch
 
 import pytest
@@ -51,7 +52,7 @@ async def test_mcp_server_list_tools_autolog():
     span = spans[0]
 
     assert span.name == "MCPServerStdio.list_tools"
-    assert span.span_type == SpanType.TOOL
+    assert span.span_type == SpanType.CHAIN
 
     outputs = span.outputs
     assert len(outputs) == 2
@@ -119,3 +120,31 @@ async def test_mcp_server_call_tool_autolog():
         await server.call_tool(tool_name, tool_args)
 
     assert len(get_traces()) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("parent_span_types", "expected_span_type"),
+    [
+        pytest.param([], SpanType.TOOL, id="direct-call"),
+        pytest.param([SpanType.TOOL], SpanType.CHAIN, id="inside-tool-span"),
+        pytest.param([SpanType.TOOL, SpanType.AGENT], SpanType.TOOL, id="agent-used-as-tool"),
+    ],
+)
+async def test_mcp_server_call_tool_span_type_depends_on_parent_span(
+    parent_span_types, expected_span_type
+):
+    async def call_tool(self, name, args, *remaining_args, **kwargs):
+        return {"result": 12}
+
+    with patch("pydantic_ai.mcp.MCPServer.call_tool", new=call_tool):
+        mlflow.pydantic_ai.autolog(log_traces=True)
+        server = MCPServerStdio("deno", args=["run", "jsr:@pydantic/mcp-run-python", "stdio"])
+        with ExitStack() as stack:
+            for span_type in parent_span_types:
+                stack.enter_context(mlflow.start_span(name=span_type, span_type=span_type))
+            result = await server.call_tool("calculator", {"operation": "add", "a": 5, "b": 7})
+
+    assert result == {"result": 12}
+    span = next(s for s in get_traces()[0].data.spans if s.name == "MCPServerStdio.call_tool")
+    assert span.span_type == expected_span_type

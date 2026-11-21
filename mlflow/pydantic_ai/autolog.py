@@ -8,6 +8,7 @@ from typing import Any
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
+from mlflow.pydantic_ai.utils import mcp_tool_call_span_type as _mcp_tool_call_span_type
 from mlflow.pydantic_ai.utils import parse_usage as _parse_usage
 from mlflow.pydantic_ai.utils import serialize_output as _serialize_output
 from mlflow.tracing.constant import SpanAttributeKey
@@ -144,7 +145,7 @@ async def patched_async_class_call(original, self, *args, **kwargs):
         return await original(self, *args, **kwargs)
 
     fullname = f"{self.__class__.__name__}.{original.__name__}"
-    span_type = _get_span_type(self)
+    span_type = _get_span_type(self, original.__name__)
 
     with mlflow.start_span(name=fullname, span_type=span_type) as span:
         inputs = _construct_full_inputs(original, self, *args, **kwargs)
@@ -409,7 +410,7 @@ def patched_sync_stream_call(original, self, *args, **kwargs):
         raise
 
 
-def _get_span_type(instance) -> str:
+def _get_span_type(instance, method_name: str | None = None) -> str:
     try:
         from pydantic_ai import Agent, Tool
         from pydantic_ai.mcp import MCPServer
@@ -427,7 +428,8 @@ def _get_span_type(instance) -> str:
     if isinstance(instance, Tool):
         return SpanType.TOOL
     if isinstance(instance, MCPServer):
-        return SpanType.TOOL
+        # Listing the server's tools is not a tool call, and tool-call scorers count TOOL spans
+        return SpanType.CHAIN if method_name == "list_tools" else _mcp_tool_call_span_type()
 
     try:
         from mlflow.pydantic_ai import _get_tool_manager_module_path
