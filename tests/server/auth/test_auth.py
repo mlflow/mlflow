@@ -77,7 +77,11 @@ from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider imp
     ASSISTANT_DELEGATION_HEADER,
 )
 from mlflow.utils import workspace_context
-from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ISSUE_DETECTION_SCHEDULE,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+)
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -9419,6 +9423,51 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
         url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
     )
     assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_cancel_issue_detection_run_needs_edit_whoever_started_the_run(client):
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    editor, editor_pw = create_user(base)
+    reader, reader_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "shared-detection-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    grant_role_permission(base, editor, "experiment", exp_id, "EDIT")
+    grant_role_permission(base, reader, "experiment", exp_id, "READ")
+
+    def start_detection_run():
+        # A detection run with no job: cancel ends the run itself, so no job execution is needed.
+        resp = requests.post(
+            f"{base}/api/2.0/mlflow/runs/create",
+            json={
+                "experiment_id": exp_id,
+                "tags": [{"key": MLFLOW_RUN_TYPE, "value": MLFLOW_RUN_TYPE_ISSUE_DETECTION}],
+            },
+            auth=(owner, owner_pw),
+        )
+        resp.raise_for_status()
+        return resp.json()["run"]["info"]["run_id"]
+
+    def cancel(run_id, auth):
+        return requests.post(
+            f"{base}/api/3.0/mlflow/issues/detection-runs/{run_id}/cancel",
+            json={"run_id": run_id},
+            auth=auth,
+        )
+
+    run_id = start_detection_run()
+    assert cancel(run_id, (reader, reader_pw)).status_code == 403
+    resp = cancel(run_id, (editor, editor_pw))
+    assert resp.status_code == 200
+    assert resp.json()["issue_detection_run"]["status"] == "canceled"
 
 
 @pytest.mark.parametrize(

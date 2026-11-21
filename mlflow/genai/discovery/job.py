@@ -19,7 +19,11 @@ from mlflow.genai.discovery.checkpoint import (
     read_detection_checkpoint,
     write_detection_checkpoint,
 )
-from mlflow.genai.discovery.constants import DEFAULT_MODEL
+from mlflow.genai.discovery.constants import (
+    DEFAULT_MODEL,
+    INVOKE_ISSUE_DETECTION_JOB_NAME,
+    SCHEDULED_ISSUE_DETECTION_JOB_NAME,
+)
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.server.jobs import job
@@ -152,7 +156,7 @@ def _record_failure(client: MlflowClient, run_id: str, error: BaseException) -> 
     client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
 
 
-@job(name="invoke_issue_detection", max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
+@job(name=INVOKE_ISSUE_DETECTION_JOB_NAME, max_workers=MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS.get())
 def invoke_issue_detection_job(
     experiment_id: str,
     trace_ids: list[str] | None,
@@ -289,7 +293,7 @@ def _record_quiet_occurrence(
 
 
 @job(
-    name="scheduled_issue_detection",
+    name=SCHEDULED_ISSUE_DETECTION_JOB_NAME,
     # Sized separately from judge invocation: these occurrences are unattended and spend on a
     # cadence, so an operator may want to bound how many run at once without touching the
     # concurrency of judge calls a user is waiting on.

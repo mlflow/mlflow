@@ -78,9 +78,11 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.protos.issues_pb2 import (
+    CancelIssueDetectionRun,
     CreateIssue,
     DetectIssues,
     GetIssue,
+    GetIssueDetectionRun,
     SearchIssues,
     UpdateIssue,
 )
@@ -6001,9 +6003,21 @@ def validate_can_detect_issues():
     return _get_gateway_secret_permission(secret_id).can_use
 
 
+def validate_can_cancel_issue_detection_run():
+    """
+    Canceling ends the run and stops its detection job, so this requires UPDATE on the run, which
+    is EDIT on its experiment, whoever started it, as on Databricks. Unlike
+    ``PATCH /mlflow/jobs/cancel/<job_id>`` it doesn't also require having created the job: the
+    handler only cancels a detection job of the run's own experiment, which UPDATE there covers.
+    """
+    return _authorize_run("update")
+
+
 ISSUE_BEFORE_REQUEST_HANDLERS = {
     GetIssue: validate_can_read_issue,
     UpdateIssue: validate_can_update_issue,
+    GetIssueDetectionRun: validate_can_read_run,
+    CancelIssueDetectionRun: validate_can_cancel_issue_detection_run,
 }
 
 
