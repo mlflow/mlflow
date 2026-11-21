@@ -295,6 +295,40 @@ def test_a_refreshed_issue_keeps_the_triage_and_wording_a_user_gave_it():
     assert refreshed.last_seen_timestamp is not None
 
 
+def test_runs_publishing_at_once_can_each_file_a_finding_a_later_run_matches_once():
+    from mlflow.genai.discovery.pipeline import _build_issues
+    from mlflow.tracing.client import TracingClient
+
+    exp_id = mlflow.set_experiment("concurrent-publication").experiment_id
+    client = TracingClient()
+    finding = _finding("Refund falsely confirmed")
+    run_a, run_b, run_c = (mlflow.MlflowClient().create_run(exp_id).info.run_id for _ in range(3))
+
+    # Two runs in progress at once both read the reported issues before either publishes. Cross-run
+    # matching is best effort, so neither sees the issue the other files, and both file one.
+    first_candidates = read_match_candidates(exp_id)
+    second_candidates = read_match_candidates(exp_id)
+    assert first_candidates == second_candidates == []
+    first, _ = _build_issues(
+        [finding], [], exp_id, run_a, match_findings_to_existing_issues([finding], [])
+    )
+    second, _ = _build_issues(
+        [finding], [], exp_id, run_b, match_findings_to_existing_issues([finding], [])
+    )
+    filed = {first[0].issue_id, second[0].issue_id}
+    assert len(filed) == 2
+
+    # A run that starts after both have published is offered both, and refreshes the one the
+    # matcher picks instead of filing a third.
+    later_candidates = read_match_candidates(exp_id)
+    assert {issue.issue_id for issue in later_candidates} == filed
+    with _matcher({"matches": [{"finding_index": 0, "issue_id": first[0].issue_id}]}):
+        outcome = match_findings_to_existing_issues([finding], later_candidates)
+    later, _ = _build_issues([finding], [], exp_id, run_c, outcome)
+    assert [issue.issue_id for issue in later] == [first[0].issue_id]
+    assert {issue.issue_id for issue in client._search_issues(experiment_id=exp_id)} == filed
+
+
 def test_an_unmatched_finding_is_still_filed_as_a_new_issue():
     from mlflow.genai.discovery.pipeline import _build_issues
     from mlflow.tracing.client import TracingClient
