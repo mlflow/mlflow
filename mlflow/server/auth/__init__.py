@@ -3182,7 +3182,8 @@ def _get_role_workspace_from_request() -> str | None:
     if len(role_permission_ids) > 1:
         return None
     try:
-        for role_permission_id in role_permission_ids:
+        if role_permission_ids:
+            (role_permission_id,) = role_permission_ids
             role_ids.add(store.get_role_permission(role_permission_id).role_id)
         if len(role_ids) > 1:
             return None
