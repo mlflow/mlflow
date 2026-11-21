@@ -204,6 +204,10 @@ _SECRET_DECRYPTION_CALL_SITES = {
     ("mlflow/server/handlers.py", "_invoke_issue_detection_handler"): (
         "validate_can_invoke_issue_detection",
     ),
+    # The schedule tag's ``secretId``, used when a DetectIssues request names no ``model``.
+    ("mlflow/server/handlers.py", "_resolve_issue_detection_model"): (
+        "validate_can_detect_issues",
+    ),
     # ``secretId`` from the schedule tag, checked on the routes that store the tag.
     ("mlflow/genai/discovery/scheduler.py", "_provider_credentials"): (
         "validate_can_set_experiment_tag",
