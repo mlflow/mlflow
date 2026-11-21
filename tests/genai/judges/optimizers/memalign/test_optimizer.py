@@ -1,6 +1,7 @@
 import copy
 import json
 import pickle
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -9,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import dspy
 import numpy as np
 import pytest
+from dspy.clients.cache import Cache
 
 import mlflow
 from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
@@ -23,6 +25,7 @@ from mlflow.genai.judges.optimizers.memalign.optimizer import (
     _DEFAULT_EMBEDDING_BATCH_SIZE,
     MemoryAugmentedJudge,
     _build_embedder,
+    _litellm_embed,
 )
 from mlflow.genai.judges.optimizers.memalign.prompts import (
     EXAMPLES_SECTION_HEADER,
@@ -1175,6 +1178,80 @@ def test_build_embedder_non_databricks_has_no_api_base(monkeypatch):
     _, kwargs = mock_embedder_class.call_args
     assert "api_base" not in kwargs
     assert "api_key" not in kwargs
+
+
+@pytest.mark.parametrize(
+    ("embedding_model", "expected_model", "expected_api_base"),
+    [
+        (
+            "databricks:/databricks-gte-large-en",
+            "databricks/databricks-gte-large-en",
+            "https://my-workspace.databricks.com/serving-endpoints",
+        ),
+        ("openai:/text-embedding-3-small", "openai/text-embedding-3-small", None),
+    ],
+)
+def test_build_embedder_calls_litellm(
+    monkeypatch, embedding_model, expected_model, expected_api_base
+):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+    response = MagicMock()
+    response.data = [{"embedding": [0.1, 0.2, 0.3]}, {"embedding": [0.4, 0.5, 0.6]}]
+    with patch("litellm.embedding", return_value=response) as mock_embedding:
+        # Real dspy.Embedder: dspy>=3.5 rejects non-OpenAI model strings, so this must not raise.
+        embedder = _build_embedder(embedding_model, 3)
+        # Instance attribute, not the call arg: dspy 3.0/3.1 ignore ``caching=False`` per call.
+        embedder.caching = False
+        result = embedder(["a", "b"])
+
+    assert result.flatten().tolist() == pytest.approx([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    kwargs = mock_embedding.call_args.kwargs
+    assert kwargs["model"] == expected_model
+    assert kwargs["input"] == ["a", "b"]
+    assert kwargs["dimensions"] == 3
+    assert kwargs["drop_params"] is True
+    assert kwargs.get("api_base") == expected_api_base
+    assert kwargs.get("api_key") == ("dapi-test-token" if expected_api_base else None)
+
+
+@pytest.mark.parametrize(
+    ("model_a", "dim_a", "model_b", "dim_b"),
+    [
+        ("openai:/text-embedding-3-small", 3, "openai:/text-embedding-3-large", 3),
+        ("openai:/text-embedding-3-small", 3, "openai:/text-embedding-3-small", 4),
+    ],
+)
+def test_build_embedder_cache_is_not_shared_across_configs(
+    monkeypatch, model_a, dim_a, model_b, dim_b
+):
+    # In-memory cache only, so the real disk cache is never touched.
+    monkeypatch.setattr(
+        dspy,
+        "cache",
+        Cache(enable_disk_cache=False, enable_memory_cache=True, disk_cache_dir=None),
+    )
+    response = MagicMock()
+    response.data = [{"embedding": [0.1, 0.2, 0.3]}]
+    with patch("litellm.embedding", return_value=response) as mock_embedding:
+        embedder_a = _build_embedder(model_a, dim_a)
+        embedder_b = _build_embedder(model_b, dim_b)
+        embedder_a.caching = embedder_b.caching = True
+        embedder_a(["a"])
+        embedder_a(["a"])  # same config: served from cache
+        assert mock_embedding.call_count == 1
+        embedder_b(["a"])  # different config: must not hit embedder_a's cache entry
+
+    assert mock_embedding.call_count == 2
+
+
+def test_litellm_embed_raises_when_litellm_missing():
+    with patch.dict(sys.modules, {"litellm": None}):
+        with pytest.raises(MlflowException, match="pip install litellm") as exc_info:
+            _litellm_embed(["a"], "openai/text-embedding-3-small")
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 # =============================================================================

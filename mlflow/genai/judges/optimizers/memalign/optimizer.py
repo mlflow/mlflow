@@ -69,6 +69,18 @@ def _get_embedding_batch_size(litellm_model: str) -> int:
     return _DEFAULT_EMBEDDING_BATCH_SIZE
 
 
+def _litellm_embed(texts: list[str], embedding_model: str, **kwargs: Any) -> list[list[float]]:
+    try:
+        import litellm
+    except ImportError as e:
+        raise MlflowException.invalid_parameter_value(
+            "MemAlign embeddings require LiteLLM. Please install it using: `pip install litellm`"
+        ) from e
+
+    response = litellm.embedding(model=embedding_model, input=texts, **kwargs)
+    return [d["embedding"] for d in response.data]
+
+
 def _build_embedder(embedding_model: str, embedding_dim: int) -> "dspy.Embedder":
     """Create a ``dspy.Embedder``, routing Databricks models to the correct API surface.
 
@@ -76,6 +88,12 @@ def _build_embedder(embedding_model: str, embedding_dim: int) -> "dspy.Embedder"
     models we resolve the workspace ``api_base``/``api_key`` (Unity Catalog names go to the
     AI Gateway, simple names to legacy serving), so gateway-hosted embedding models resolve
     correctly instead of failing with ENDPOINT_NOT_FOUND.
+
+    DSPy >= 3.5 breaks the model-string path for every provider (non-OpenAI providers are
+    rejected, and OpenAI/Azure fail on the ``drop_params`` kwarg), so we hand it a
+    LiteLLM-backed callable instead. The model and options are passed as ``Embedder`` default
+    kwargs (not closed over) because DSPy keys its cache on the callable's source plus these
+    kwargs.
     """
     import dspy
 
@@ -83,10 +101,11 @@ def _build_embedder(embedding_model: str, embedding_dim: int) -> "dspy.Embedder"
     api_base, api_key = _get_api_base_key(embedding_model)
     extra_kwargs = {"api_base": api_base, "api_key": api_key} if api_base else {}
     return dspy.Embedder(
-        litellm_embedding_model,
+        _litellm_embed,
+        batch_size=_get_embedding_batch_size(litellm_embedding_model),
+        embedding_model=litellm_embedding_model,
         dimensions=embedding_dim,
         drop_params=True,
-        batch_size=_get_embedding_batch_size(litellm_embedding_model),
         **extra_kwargs,
     )
 
