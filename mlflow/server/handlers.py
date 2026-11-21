@@ -115,7 +115,11 @@ from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.discovery.checkpoint import MAX_SCHEDULED_SESSION_SAMPLE_SIZE
 from mlflow.genai.discovery.constants import SAMPLE_POOL_MULTIPLIER
-from mlflow.genai.discovery.schedule import read_detection_schedule, scheduled_detection_available
+from mlflow.genai.discovery.schedule import (
+    ScheduleModel,
+    read_detection_schedule,
+    scheduled_detection_available,
+)
 from mlflow.genai.discovery.settings import read_detection_settings
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
@@ -5925,6 +5929,38 @@ def _require_server_provider_credentials(provider: str) -> None:
         )
 
 
+# The `flask.g` attribute carrying the detection schedule model the auth plugin checked.
+_AUTHORIZED_DETECTION_MODEL_ATTR = "mlflow_issue_detection_authorized_model"
+
+
+def _remember_authorized_detection_model(
+    experiment_id: str, saved_model: ScheduleModel | None
+) -> None:
+    """
+    Record the schedule model the auth plugin checked for this request's DetectIssues.
+
+    The handler reads the experiment again after authorization, and a schedule edit in between
+    could swap in a secret the caller was never checked for. Recording what was checked lets the
+    handler run on exactly that.
+    """
+    setattr(g, _AUTHORIZED_DETECTION_MODEL_ATTR, (experiment_id, saved_model))
+
+
+def _saved_detection_model(experiment) -> ScheduleModel | None:
+    """
+    The schedule model a DetectIssues run without an explicit ``model`` uses.
+
+    That is the one the auth plugin checked, when it checked one for this experiment. Otherwise,
+    on a server without authentication or for an admin, whom it doesn't check, it's read from the
+    experiment.
+    """
+    authorized = getattr(g, _AUTHORIZED_DETECTION_MODEL_ATTR, None)
+    if authorized is not None and authorized[0] == experiment.experiment_id:
+        return authorized[1]
+    schedule = read_detection_schedule(experiment)
+    return schedule.model if schedule is not None else None
+
+
 def _resolve_issue_detection_model(
     store, experiment, model: str | None
 ) -> tuple[str, dict[str, str] | None]:
@@ -5934,7 +5970,8 @@ def _resolve_issue_detection_model(
     An explicit ``model`` runs on the server's own keys or, for ``gateway:/<endpoint>``, on the
     endpoint's. Without one, the run uses the model saved in the experiment's detection schedule,
     including the stored secret a direct provider selection records, so a caller can run
-    detection the way the experiment is configured. The auth plugin requires USE on that secret.
+    detection the way the experiment is configured. The auth plugin requires USE on that secret,
+    and the run uses the schedule model it checked.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials
 
@@ -5947,8 +5984,7 @@ def _resolve_issue_detection_model(
         # job see the same URI however the caller cased it.
         return f"{provider}:/{model_name}", None
 
-    schedule = read_detection_schedule(experiment)
-    saved = schedule.model if schedule is not None else None
+    saved = _saved_detection_model(experiment)
     if saved is None:
         raise MlflowException.invalid_parameter_value(
             "Specify `model`, or save a model in the experiment's issue detection schedule."
@@ -6037,11 +6073,13 @@ def _detect_issues():
     caller picked or a trace filter whose matching traces the run samples, and it analyzes them
     with the categories and instructions saved on the experiment. Unlike ``issues/invoke``, it
     starts a run while another of the experiment's runs is in progress, so callers can run
-    detection over different traces at once. Runs that overlap can refresh the same issues, and
-    a run in progress still counts for the scheduler and ``issues/invoke``: a due scheduled
-    occurrence waits for a later pass, and loses nothing, since its window still reaches back
-    over the traces it would have covered. A request with the ``idempotency_token`` of an earlier
-    one from the same caller returns the run that request started.
+    detection over different traces at once. Runs that overlap can refresh the same issues, and,
+    since neither sees the issues the other files, can each file one for the same finding:
+    cross-run matching is best effort. A run in progress still counts for the scheduler and
+    ``issues/invoke``: a due scheduled occurrence waits for a later pass, and loses nothing, since
+    its window still reaches back over the traces it would have covered. A request with the
+    ``idempotency_token`` of an earlier one from the same caller returns the run that request
+    started.
     """
     from mlflow.genai.discovery.job import _record_failure, invoke_issue_detection_job
     from mlflow.server.jobs import submit_job

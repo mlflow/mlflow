@@ -9450,6 +9450,37 @@ def test_detect_issues_requires_use_permission_on_the_schedule_secret(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_detect_issues_is_refused_under_an_assessment_deny(client):
+    # The job reads the traces' assessments and logs its own straight through the store, outside
+    # the HTTP routes that would check them, so EDIT on the experiment is not enough under an
+    # explicit DENY on assessments.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    editor, editor_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "assessment-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    grant_role_permission(base, editor, "experiment", exp_id, "EDIT")
+
+    url = f"{base}/api/3.0/mlflow/issues/detect"
+    payload = {"experiment_id": exp_id, "model": "gateway:/detector"}
+    # Job execution is off in this test server, so a request past the gate fails later, but not
+    # with a 403.
+    resp = requests.post(url, json=payload, auth=(editor, editor_pw))
+    assert resp.status_code != 403
+
+    grant_role_permission(base, editor, "assessment", "*", "DENY")
+    resp = requests.post(url, json=payload, auth=(editor, editor_pw))
+    assert resp.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_issue_detection_schedule_requires_use_permission_on_secret(client):
     # The schedule tag names a gateway secret the dispatcher decrypts later, so writing it must
     # require USE on that secret (same class as GHSA-2m86-c5q7-rxgr).

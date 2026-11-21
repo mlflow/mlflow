@@ -64,7 +64,9 @@ def _run_detect_issues(
     searches=None,
 ):
     secret_checks = []
-    monkeypatch.setattr(a, "_authorize_create_in_experiment", lambda eid, created: can_create)
+    monkeypatch.setattr(
+        a, "_authorize_create_in_experiment", lambda eid, created, extra=(): can_create
+    )
 
     def authorize_trace_search(experiment_ids, *filter_strings):
         if searches is not None:
@@ -149,3 +151,96 @@ def test_detect_issues_skips_the_secret_check_when_none_is_used(monkeypatch):
 
 def test_detect_issues_denies_a_missing_experiment(monkeypatch):
     assert _run_detect_issues(monkeypatch, {"experiment_id": "missing"}) == (False, [])
+
+
+def test_detect_issues_requires_that_assessments_are_not_denied(monkeypatch):
+    # The job reads and logs assessments through the store, so the run's create carries the
+    # assessment tier, inheriting the experiment when no assessment grant exists.
+    creates = []
+
+    def authorize_create(experiment_id, created_type, extra=()):
+        creates.append((experiment_id, created_type, list(extra)))
+        return True
+
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(a, "_authorize_create_in_experiment", authorize_create)
+    monkeypatch.setattr(a, "_authorize_trace_search", lambda *_: True)
+    app = flask.Flask(__name__)
+    body = json.dumps({"experiment_id": "e1", "model": "gateway:/e"})
+    with app.test_request_context(data=body, content_type="application/json"):
+        assert a.validate_can_detect_issues() is True
+    assert creates == [
+        (
+            "e1",
+            a.RESOURCE_TYPE_RUN,
+            [
+                a.Requirement(
+                    a.RESOURCE_TYPE_ASSESSMENT,
+                    "*",
+                    "read",
+                    fallback_if_no_grant=((a.RESOURCE_TYPE_EXPERIMENT, "e1"),),
+                )
+            ],
+        )
+    ]
+
+
+def test_detect_issues_hands_the_checked_schedule_model_to_the_handler(monkeypatch):
+    from mlflow.server.handlers import _saved_detection_model
+
+    checked = ScheduleModel(provider="openai", model="gpt-5", secret_id="s-1")
+    edited = ScheduleModel(provider="openai", model="gpt-5", secret_id="s-2")
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(a, "_authorize_create_in_experiment", lambda *_args: True)
+    monkeypatch.setattr(a, "_authorize_trace_search", lambda *_: True)
+    monkeypatch.setattr(
+        a, "_get_gateway_secret_permission", lambda _: SimpleNamespace(can_use=True)
+    )
+    experiment = SimpleNamespace(
+        experiment_id="e1", tags={MLFLOW_ISSUE_DETECTION_SCHEDULE: _schedule_json(checked)}
+    )
+    monkeypatch.setattr(
+        a, "_get_tracking_store", lambda: SimpleNamespace(get_experiment=lambda _: experiment)
+    )
+    app = flask.Flask(__name__)
+    with app.test_request_context(
+        data=json.dumps({"experiment_id": "e1"}), content_type="application/json"
+    ):
+        assert a.validate_can_detect_issues() is True
+        # A schedule edit landing after the check doesn't reach the run.
+        reread = SimpleNamespace(
+            experiment_id="e1", tags={MLFLOW_ISSUE_DETECTION_SCHEDULE: _schedule_json(edited)}
+        )
+        assert _saved_detection_model(reread).secret_id == "s-1"
+        # The record is bound to the experiment it was checked for.
+        other = SimpleNamespace(
+            experiment_id="e2", tags={MLFLOW_ISSUE_DETECTION_SCHEDULE: _schedule_json(edited)}
+        )
+        assert _saved_detection_model(other).secret_id == "s-2"
+
+
+def test_detect_issues_hands_the_handler_no_schedule_model_when_none_was_saved(monkeypatch):
+    from mlflow.server.handlers import _saved_detection_model
+
+    monkeypatch.setattr(a, "authenticate_request", lambda: SimpleNamespace(username="u"))
+    monkeypatch.setattr(a, "_authorize_create_in_experiment", lambda *_args: True)
+    monkeypatch.setattr(a, "_authorize_trace_search", lambda *_: True)
+    unscheduled = SimpleNamespace(experiment_id="e1", tags={})
+    monkeypatch.setattr(
+        a, "_get_tracking_store", lambda: SimpleNamespace(get_experiment=lambda _: unscheduled)
+    )
+    app = flask.Flask(__name__)
+    with app.test_request_context(
+        data=json.dumps({"experiment_id": "e1"}), content_type="application/json"
+    ):
+        assert a.validate_can_detect_issues() is True
+        # A schedule saved after the check doesn't reach the run, which is rejected instead.
+        scheduled = SimpleNamespace(
+            experiment_id="e1",
+            tags={
+                MLFLOW_ISSUE_DETECTION_SCHEDULE: _schedule_json(
+                    ScheduleModel(provider="openai", model="gpt-5", secret_id="s-2")
+                )
+            },
+        )
+        assert _saved_detection_model(scheduled) is None

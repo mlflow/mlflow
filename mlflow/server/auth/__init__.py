@@ -449,6 +449,7 @@ from mlflow.server.handlers import (
     _get_tracking_store,
     _get_validated_flask_request_json,
     _raw_request_has_field,
+    _remember_authorized_detection_model,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -5960,11 +5961,25 @@ def validate_can_detect_issues():
     explicit ``model``, the run uses the model saved in the experiment's detection schedule, and
     when the run would decrypt a stored gateway secret for it the caller also needs USE on it, as
     ``validate_can_invoke_issue_detection`` requires for a secret named in the request.
+
+    The job also reads the traces' assessments and logs its own straight through the store, so an
+    explicit DENY on assessments refuses the request. Absent an assessment grant the experiment
+    governs, as it does for the assessments a trace read returns.
+
+    The handler runs on the schedule model checked here rather than reading the schedule again,
+    so a schedule edit landing between this check and the handler can't swap in a secret the
+    caller was never checked for.
     """
     message = _get_request_message(DetectIssues())
     if not message.experiment_id:
         return False
-    if not _authorize_create_in_experiment(message.experiment_id, RESOURCE_TYPE_RUN):
+    experiment_resource = (RESOURCE_TYPE_EXPERIMENT, message.experiment_id)
+    # `read` also vetoes the job's assessment writes: every positive grant carries `can_read`, so
+    # only a DENY fails it, which is what a create checks.
+    assessments = Requirement(
+        RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment_resource,)
+    )
+    if not _authorize_create_in_experiment(message.experiment_id, RESOURCE_TYPE_RUN, [assessments]):
         return False
     if not _authorize_trace_search([message.experiment_id], message.filter_string):
         return False
@@ -5977,9 +5992,11 @@ def validate_can_detect_issues():
             return False
         raise
     schedule = read_detection_schedule(experiment)
-    if schedule is None or schedule.model is None:
+    saved_model = schedule.model if schedule is not None else None
+    _remember_authorized_detection_model(message.experiment_id, saved_model)
+    if saved_model is None:
         return True
-    if not (secret_id := schedule.model.credential_secret_id):
+    if not (secret_id := saved_model.credential_secret_id):
         return True
     return _get_gateway_secret_permission(secret_id).can_use
 
