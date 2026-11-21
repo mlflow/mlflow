@@ -412,6 +412,145 @@ def test_safe_extractall_blocks_symlink_escape(tmp_path):
     assert not (tmp_path.parent / "pwned.txt").exists()
 
 
+@pytest.mark.parametrize(
+    ("symlink_name", "symlink_target", "hardlink_target"),
+    [
+        ("link", "../outside", "link/secret.txt"),
+        ("link", "../outside/secret.txt", "link"),
+        # Dangling inside the destination, but points outside once re-extracted at "hardlink"
+        ("sub/link", "../outside/secret.txt", "sub/link"),
+    ],
+)
+def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
+    tmp_path, symlink_name, symlink_target, hardlink_target
+):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("secret")
+    secret.chmod(0o600)
+    original_mode = stat.S_IMODE(secret.stat().st_mode)
+
+    mal_tar = tmp_path / "hardlink_escape.tar"
+    with tarfile.open(mal_tar, "w") as tar:
+        link = tarfile.TarInfo(symlink_name)
+        link.type = tarfile.SYMTYPE
+        link.linkname = symlink_target
+        tar.addfile(link)
+        hardlink = tarfile.TarInfo("hardlink")
+        hardlink.type = tarfile.LNKTYPE
+        hardlink.linkname = hardlink_target
+        hardlink.mode = 0o666
+        tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    with pytest.raises(MlflowException, match="would be extracted outside"):
+        extract_archive_to_dir(mal_tar, dest)
+    assert not (dest / "hardlink").exists()
+    assert stat.S_IMODE(secret.stat().st_mode) == original_mode
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_mode"),
+    [
+        # Strips the setuid and group/other write bits
+        (0o4777, 0o755),
+        # Ensures the owner can read and write
+        (0o444, 0o644),
+        # Clears the executable bits when the owner can't execute
+        (0o055, 0o644),
+    ],
+)
+def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path, mode, expected_mode):
+    archive = tmp_path / "hardlinks.tar"
+    with tarfile.open(archive, "w") as tar:
+        subdir = tarfile.TarInfo("subdir")
+        subdir.type = tarfile.DIRTYPE
+        subdir.mode = 0o755
+        tar.addfile(subdir)
+        for name in ["data.txt", "subdir/file.txt"]:
+            info = tarfile.TarInfo(name)
+            data = name.encode()
+            info.size = len(data)
+            tar.addfile(info, fileobj=io.BytesIO(data))
+        link = tarfile.TarInfo("subdir_link")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "subdir"
+        tar.addfile(link)
+        for name, target in [("copy.txt", "data.txt"), ("via_link.txt", "subdir_link/file.txt")]:
+            hardlink = tarfile.TarInfo(name)
+            hardlink.type = tarfile.LNKTYPE
+            hardlink.linkname = target
+            hardlink.mode = mode
+            hardlink.mtime = 1_000_000
+            tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    extract_archive_to_dir(archive, dest)
+    assert (dest / "copy.txt").read_text() == "data.txt"
+    assert (dest / "copy.txt").samefile(dest / "data.txt")
+    assert (dest / "via_link.txt").read_text() == "subdir/file.txt"
+    assert (dest / "via_link.txt").samefile(dest / "subdir" / "file.txt")
+    for name in ["copy.txt", "via_link.txt"]:
+        link_stat = (dest / name).stat()
+        assert link_stat.st_mtime == 1_000_000
+        if not is_windows():
+            assert stat.S_IMODE(link_stat.st_mode) == expected_mode
+
+
+@pytest.mark.parametrize(
+    "hardlink_targets",
+    [
+        # The second link's path already exists, so `os.link` fails
+        ["d/r/s", "d/q/../s"],
+        # `Path` drops the trailing slash, but `os.link` fails on it
+        ["d/q/../s/"],
+    ],
+)
+def test_extract_archive_to_dir_hardlink_does_not_fall_back_to_member(tmp_path, hardlink_targets):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("secret")
+    secret.chmod(0o600)
+    original_mode = stat.S_IMODE(secret.stat().st_mode)
+
+    archive = tmp_path / "hardlink_fallback.tar"
+    with tarfile.open(archive, "w") as tar:
+        for name in ["d", "d/r", "d/r/t"]:
+            directory = tarfile.TarInfo(name)
+            directory.type = tarfile.DIRTYPE
+            directory.mode = 0o755
+            tar.addfile(directory)
+        regular = tarfile.TarInfo("d/r/s")
+        regular.size = 1
+        tar.addfile(regular, fileobj=io.BytesIO(b"x"))
+        # `d/q/../s` resolves to the regular file `d/r/s`, but normalizes to the
+        # symlink member `d/s`, which points outside when re-extracted at `h`
+        for name, target in [("d/s", "../outside/secret.txt"), ("d/q", "r/t")]:
+            link = tarfile.TarInfo(name)
+            link.type = tarfile.SYMTYPE
+            link.linkname = target
+            tar.addfile(link)
+        for target in hardlink_targets:
+            hardlink = tarfile.TarInfo("h")
+            hardlink.type = tarfile.LNKTYPE
+            hardlink.linkname = target
+            hardlink.mode = 0o666
+            tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    # Windows collapses `..` before following symlinks, so the target normalizes to the
+    # dangling symlink `d/s` and fails validation before `os.link` runs
+    with pytest.raises(
+        MlflowException,
+        match="would be extracted outside" if is_windows() else "Failed to extract hard link",
+    ):
+        extract_archive_to_dir(archive, dest)
+    assert not (dest / "h").is_symlink()
+    assert stat.S_IMODE(secret.stat().st_mode) == original_mode
+
+
 @pytest.fixture
 def file_utils_caplog(caplog, monkeypatch):
     # The "mlflow" logger disables propagation, so enable it for caplog to capture records
