@@ -58,10 +58,11 @@ Read both input files and `$trusted_checkout/.claude/skills/verify/payload.schem
 
 ## 1. Find candidates
 
-For every PR, run the first six angles below. Include Repository style when either of
-its guides applies. Launch the finders in parallel using the `Agent` tool, assigning a
-separate finder to each angle. While they work, identify the user flows the PR changes
-and relevant existing threads.
+Run the first six angles on every PR. Before launching the finders, use the changed files
+and skill descriptions in `$trusted_checkout/.claude/skills/` to decide which style guides
+apply. If you select any, give their paths to one Repository style finder. Launch the
+finders in parallel using the `Agent` tool, one per angle. While they work, identify the
+user flows the PR changes and relevant existing threads.
 
 - **Changed behavior.** Read each hunk and its enclosing function. Identify the input, state,
   or timing that makes the changed path produce a wrong result.
@@ -76,9 +77,8 @@ and relevant existing threads.
   the diff. Describe a simpler implementation that preserves the behavior.
 - **Efficiency.** Trace repeated computation or I/O, independent operations run in sequence,
   or resources held longer than needed. Identify what incurs the cost and how to avoid it.
-- **Repository style.** Check changed Python files against `python-style` and GitHub Actions
-  YAML against `github-actions-style`, both in `$trusted_checkout/.claude/skills/`.
-  Cite the rule and suggest a fix.
+- **Repository style.** Check the changed code against the selected guides. For each
+  violation, cite the rule and suggest a fix.
 
 Invoke the `Agent` tool with these arguments for each finder, naming its angle in `description`.
 For `<inputs>`, give the absolute paths of the trusted skill, PR checkout and temporary
