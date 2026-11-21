@@ -1,12 +1,14 @@
 import copy
 import logging
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 import mlflow
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
@@ -43,6 +45,7 @@ from mlflow.genai.utils.trace_utils import (
 from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.docstring_utils import format_docstring
+from mlflow.utils.thread_utils import map_with_context
 
 if TYPE_CHECKING:
     import dspy
@@ -511,14 +514,32 @@ class MemoryAugmentedJudge(Judge):
         return judge_copy
 
     def _reconstruct_episodic_memory(self) -> list["dspy.Example"]:
+        # Judges registered before IDs were deduped hold one entry per example.
+        trace_ids = list(dict.fromkeys(self._episodic_trace_ids))
+        if not trace_ids:
+            return []
+
         examples = []
         missing_ids = []
-        for trace_id in self._episodic_trace_ids:
-            trace = mlflow.get_trace(trace_id, silent=True)
-            if trace is not None:
-                examples.extend(trace_to_dspy_example(trace, self._base_judge))
-            else:
-                missing_ids.append(trace_id)
+        # Sequential fetches dominate load time for large memories (one REST round trip each).
+        # Same knob and default as the parallel get_trace refresh in the genai evaluation harness.
+        max_workers = max(1, min(len(trace_ids), MLFLOW_GENAI_EVAL_MAX_WORKERS.get()))
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="MLflowMemAlignTraceFetch"
+        ) as executor:
+            # map yields in input order, so examples stay in trace_ids order. Keep the iterator
+            # inline so an error while converting closes it and cancels the pending fetches.
+            for trace_id, trace in zip(
+                trace_ids,
+                map_with_context(
+                    executor, lambda tid: mlflow.get_trace(tid, silent=True), trace_ids
+                ),
+                strict=True,
+            ):
+                if trace is not None:
+                    examples.extend(trace_to_dspy_example(trace, self._base_judge))
+                else:
+                    missing_ids.append(trace_id)
 
         if missing_ids:
             _logger.warning(
@@ -526,7 +547,7 @@ class MemoryAugmentedJudge(Judge):
                 f"Missing trace IDs: {missing_ids[:5]}"
                 f"{'...' if len(missing_ids) > 5 else ''}. "
                 f"Judge will operate with partial memory "
-                f"({len(examples)}/{len(self._episodic_trace_ids)} traces)."
+                f"({len(trace_ids) - len(missing_ids)}/{len(trace_ids)} traces)."
             )
 
         return examples
@@ -735,7 +756,9 @@ class MemoryAugmentedJudge(Judge):
         """
         # Update episodic memory and trace IDs
         self._episodic_memory.extend(examples)
-        self._episodic_trace_ids.extend(ex._trace_id for ex in examples if hasattr(ex, "_trace_id"))
+        # One trace can yield several examples; store each trace ID once, in first-seen order.
+        new_ids = (ex._trace_id for ex in examples if hasattr(ex, "_trace_id"))
+        self._episodic_trace_ids = list(dict.fromkeys([*self._episodic_trace_ids, *new_ids]))
         self._build_episodic_memory()
 
         # Update semantic memory
@@ -773,7 +796,9 @@ class MemAlignOptimizer(AlignmentOptimizer):
         The number of parallel threads for LLM calls during guideline distillation can be
         configured via the ``MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS`` environment variable
         (default: 8). Increasing this value can speed up alignment when processing many
-        feedback examples, but may increase API rate limit errors.
+        feedback examples, but may increase API rate limit errors. A judge loaded from the
+        registry fetches its episodic-memory traces in parallel on first use, with up to
+        ``MLFLOW_GENAI_EVAL_MAX_WORKERS`` threads (default: 10).
 
     Example:
         .. code-block:: python
