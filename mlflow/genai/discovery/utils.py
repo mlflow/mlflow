@@ -25,22 +25,24 @@ from mlflow.tracing.provider import trace_disabled
 _logger = logging.getLogger(__name__)
 
 
-def in_flight_detection_run(store, experiment_id: str, now_ms: int | None = None) -> str | None:
+def in_flight_scheduled_detection_run(
+    store, experiment_id: str, now_ms: int | None = None
+) -> str | None:
     """
-    The id of a detection run still going in this experiment, or ``None``.
+    The id of a scheduled detection run still going in this experiment, or ``None``.
 
-    Ad-hoc and scheduled detection are kept from overlapping. Two runs over the same window
-    analyze the same traces and file the same findings: cross-run matching collapses the
-    duplicates afterwards, but both runs have already paid the model for the same work, and a
-    concurrent refresh of one issue from two runs is a race there is no reason to carry.
+    The scheduler waits on it, so an experiment has at most one scheduled run at a time. Ad-hoc
+    runs, from the Issues tab or ``DetectIssues``, don't count: they run alongside each other and
+    alongside a scheduled run, as on Databricks, and don't move the schedule's watermark.
+    Overlapping runs can each file an issue for the same finding, since cross-run matching only
+    sees what is already published.
 
-    Checked here rather than with the job engine's exclusive lock, which cannot express it: the
-    lock key is ``f"{job_name}:{params_hash}"`` and on the Huey engine it lives in a per-job-name
-    store, so it cannot span two job functions -- and its contention behaviour is to cancel the
-    loser, which would silently discard a run the user had just asked for.
+    Checked here as well as through the scheduled job's exclusive lock, so that an occurrence due
+    while the last one is still going stays unclaimed for a later pass, rather than queued behind
+    it with the window it was given.
 
     A run is only counted while its job could still be alive. Past the job engine's default
-    timeout the job is gone, so a run left RUNNING by a worker that died cannot block detection
+    timeout the job is gone, so a run left RUNNING by a worker that died cannot block the schedule
     for this experiment forever.
 
     Args:
@@ -51,7 +53,12 @@ def in_flight_detection_run(store, experiment_id: str, now_ms: int | None = None
             deciding about rather than with wall time.
     """
     from mlflow.environment_variables import MLFLOW_SERVER_JOB_DEFAULT_TIMEOUT
-    from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
+    from mlflow.utils.mlflow_tags import (
+        MLFLOW_ISSUE_DETECTION_TRIGGER,
+        MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE,
+        MLFLOW_RUN_TYPE,
+        MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+    )
     from mlflow.utils.time import get_current_time_millis
 
     now_ms = get_current_time_millis() if now_ms is None else now_ms
@@ -60,6 +67,8 @@ def in_flight_detection_run(store, experiment_id: str, now_ms: int | None = None
         experiment_ids=[experiment_id],
         filter_string=(
             f"tags.`{MLFLOW_RUN_TYPE}` = '{MLFLOW_RUN_TYPE_ISSUE_DETECTION}' "
+            f"AND tags.`{MLFLOW_ISSUE_DETECTION_TRIGGER}` = "
+            f"'{MLFLOW_ISSUE_DETECTION_TRIGGER_SCHEDULE}' "
             f"AND attributes.status = 'RUNNING' "
             f"AND attributes.start_time > {oldest_live_start_ms}"
         ),
