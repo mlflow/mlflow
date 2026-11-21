@@ -205,7 +205,6 @@ class GeminiAdapter(ProviderAdapter):
         system_message = None
 
         call_id_to_function_name_map = {}
-        call_id_to_thought_signature_map = {}
 
         for message in payload["messages"]:
             role = message["role"]
@@ -221,19 +220,14 @@ class GeminiAdapter(ProviderAdapter):
                             call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
                                 "name"
                             ]
-                            if sig := tool_call.get("thought_signature"):
-                                call_id_to_thought_signature_map[tool_call["id"]] = sig
-
                             fc = {
                                 "id": tool_call["id"],
                                 "name": tool_call["function"]["name"],
                                 "args": json.loads(tool_call["function"]["arguments"]),
                             }
                             part = {"functionCall": fc}
-                            if tool_call["id"] in call_id_to_thought_signature_map:
-                                part["thoughtSignature"] = call_id_to_thought_signature_map[
-                                    tool_call["id"]
-                                ]
+                            if sig := tool_call.get("thought_signature"):
+                                part["thoughtSignature"] = sig
 
                             gemini_function_calls.append(part)
                 if gemini_function_calls:
