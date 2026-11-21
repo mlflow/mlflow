@@ -11,6 +11,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import {
   DELETE_EXPERIMENT_TAG_API,
+  createExperimentApi,
   deleteExperimentTagApi,
   fetchMissingParents,
   fetchMissingParentsWithSearchRuns,
@@ -230,6 +231,28 @@ describe('createRun', () => {
         }),
       }),
     );
+  });
+});
+
+describe('createExperimentApi', () => {
+  beforeEach(() => {
+    jest.spyOn(MlflowService, 'createExperiment').mockImplementation(() => Promise.resolve({} as any));
+  });
+
+  afterEach(() => {
+    (MlflowService.createExperiment as any).mockRestore();
+  });
+
+  it('should call the service with the given tags', () => {
+    const tags = [{ key: 'mlflow.experimentKind', value: 'genai_development' }];
+
+    createExperimentApi('my-experiment', undefined, undefined, tags)(jest.fn() as any);
+
+    expect(MlflowService.createExperiment).toHaveBeenCalledWith({
+      name: 'my-experiment',
+      artifact_location: undefined,
+      tags,
+    });
   });
 });
 

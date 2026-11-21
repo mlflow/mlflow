@@ -8,6 +8,8 @@ meaning of these tags.
 MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
 MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
 MLFLOW_EXPERIMENT_IS_GATEWAY = "mlflow.experiment.isGateway"
+# The experiment's workflow, e.g. "genai_development" or "custom_model_development"
+MLFLOW_EXPERIMENT_KIND = "mlflow.experimentKind"
 MLFLOW_RUN_NAME = "mlflow.runName"
 MLFLOW_RUN_NOTE = "mlflow.note.content"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"

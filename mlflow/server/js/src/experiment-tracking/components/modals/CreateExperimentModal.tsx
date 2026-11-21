@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React, { Component } from 'react';
+import React, { Component, useMemo } from 'react';
 import { connect } from 'react-redux';
 import type { NavigateFunction } from '../../../common/utils/RoutingUtils';
 import debounce from 'lodash/debounce';
@@ -16,6 +16,10 @@ import { CreateExperimentForm, EXP_NAME_FIELD, ARTIFACT_LOCATION } from './Creat
 import { getExperimentNameValidator } from '../../../common/forms/validations';
 
 import { createExperimentApi } from '../../actions';
+import type { KeyValueEntity } from '../../../common/types';
+import { WorkflowType, useWorkflowType } from '../../../common/contexts/WorkflowTypeContext';
+import { ExperimentKind } from '../../constants';
+import { EXPERIMENT_KIND_TAG_KEY } from '../../utils/ExperimentKindUtils';
 import { getExperiments } from '../../reducers/Reducers';
 import { withRouterNext } from '../../../common/utils/withRouterNext';
 
@@ -26,6 +30,7 @@ type CreateExperimentModalImplProps = {
   createExperimentApi: (...args: any[]) => any;
   onExperimentCreated: () => void;
   navigate: NavigateFunction;
+  tags?: KeyValueEntity[];
 };
 
 type CreateExperimentModalImplState = {
@@ -58,7 +63,7 @@ export class CreateExperimentModalImpl extends Component<
 
     // createExperimentApi call needs to be fulfilled before redirecting the user to the newly
     // created experiment page (history.push())
-    const response = await this.props.createExperimentApi(experimentName, artifactLocation);
+    const response = await this.props.createExperimentApi(experimentName, artifactLocation, undefined, this.props.tags);
     this.props.onExperimentCreated();
 
     const {
@@ -109,4 +114,19 @@ const mapDispatchToProps = {
 
 const ConnectedCreateExperimentModal = connect(mapStateToProps, mapDispatchToProps)(CreateExperimentModalImpl);
 
-export const CreateExperimentModal = withRouterNext(ConnectedCreateExperimentModal);
+const CreateExperimentModalWithRouter = withRouterNext(ConnectedCreateExperimentModal);
+
+// Tags experiments created in the GenAI view so a GenAI-only experiment list can find them
+export const CreateExperimentModal = (
+  props: Omit<React.ComponentProps<typeof CreateExperimentModalWithRouter>, 'tags'>,
+) => {
+  const { workflowType } = useWorkflowType();
+  const tags = useMemo(
+    () =>
+      workflowType === WorkflowType.GENAI
+        ? [{ key: EXPERIMENT_KIND_TAG_KEY, value: ExperimentKind.GENAI_DEVELOPMENT }]
+        : undefined,
+    [workflowType],
+  );
+  return <CreateExperimentModalWithRouter {...props} tags={tags} />;
+};
