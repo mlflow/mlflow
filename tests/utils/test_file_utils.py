@@ -450,7 +450,18 @@ def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
     assert stat.S_IMODE(secret.stat().st_mode) == original_mode
 
 
-def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
+@pytest.mark.parametrize(
+    ("mode", "expected_mode"),
+    [
+        # Strips the setuid and group/other write bits
+        (0o4777, 0o755),
+        # Ensures the owner can read and write
+        (0o444, 0o644),
+        # Clears the executable bits when the owner can't execute
+        (0o055, 0o644),
+    ],
+)
+def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path, mode, expected_mode):
     archive = tmp_path / "hardlinks.tar"
     with tarfile.open(archive, "w") as tar:
         subdir = tarfile.TarInfo("subdir")
@@ -470,7 +481,7 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
             hardlink = tarfile.TarInfo(name)
             hardlink.type = tarfile.LNKTYPE
             hardlink.linkname = target
-            hardlink.mode = 0o4777
+            hardlink.mode = mode
             hardlink.mtime = 1_000_000
             tar.addfile(hardlink)
 
@@ -484,8 +495,7 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
         link_stat = (dest / name).stat()
         assert link_stat.st_mtime == 1_000_000
         if not is_windows():
-            # The `data` filter strips the setuid and group/other write bits
-            assert stat.S_IMODE(link_stat.st_mode) == 0o755
+            assert stat.S_IMODE(link_stat.st_mode) == expected_mode
 
 
 @pytest.mark.parametrize(
