@@ -273,9 +273,9 @@ export const AdminApi = {
   },
 
   // Cross-experiment ``ListScorers``: omitting ``experiment_id`` returns every
-  // scorer in the active workspace. The auth-side ``filter_list_scorers``
-  // ``AFTER_REQUEST_PATH_HANDLERS`` entry filters the response by the caller's
-  // experiment + scorer read predicates. ``resource_pattern`` is computed
+  // permitted scorer in the active workspace. Auth passes a private scope to
+  // the SQL tracking store, which excludes denied identities before payload
+  // retrieval. ``resource_pattern`` is computed
   // client-side via ``scorerResourcePattern`` to match
   // ``SqlAlchemyStore._scorer_pattern``.
   listScorersLite: (workspace?: string) => {
