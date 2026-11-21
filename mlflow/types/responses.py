@@ -2,7 +2,7 @@ import json
 import re
 from collections.abc import Sequence
 from itertools import tee
-from typing import Any, Generator, Iterator
+from typing import Any, Generator, Iterator, Literal, TypedDict
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, model_validator
@@ -172,7 +172,94 @@ def responses_agent_output_reducer(
     return ResponsesAgentResponse(output=output_items).model_dump(exclude_none=True)
 
 
-def create_text_delta(delta: str, item_id: str) -> dict[str, Any]:
+class TextDeltaEvent(TypedDict):
+    """Return type of :py:func:`create_text_delta`."""
+
+    type: Literal["response.output_text.delta"]
+    item_id: str
+    delta: str
+
+
+class AnnotationAddedEvent(TypedDict):
+    """Return type of :py:func:`create_annotation_added`."""
+
+    type: Literal["response.output_text.annotation.added"]
+    item_id: str
+    annotation_index: int | None
+    annotation: dict[str, Any]
+
+
+class OutputTextContent(TypedDict):
+    """A content part of a :py:class:`TextOutputItem`."""
+
+    text: str
+    type: Literal["output_text"]
+    annotations: list[dict[str, Any]]
+
+
+class TextOutputItem(TypedDict):
+    """Return type of :py:func:`create_text_output_item`."""
+
+    id: str
+    content: list[OutputTextContent]
+    role: Literal["assistant"]
+    type: Literal["message"]
+
+
+class ReasoningSummaryText(TypedDict):
+    """A summary part of a :py:class:`ReasoningItem`."""
+
+    type: Literal["summary_text"]
+    text: str
+
+
+class ReasoningItem(TypedDict):
+    """Return type of :py:func:`create_reasoning_item`."""
+
+    type: Literal["reasoning"]
+    summary: list[ReasoningSummaryText]
+    id: str
+
+
+class FunctionCallItem(TypedDict):
+    """Return type of :py:func:`create_function_call_item`."""
+
+    type: Literal["function_call"]
+    id: str
+    call_id: str
+    name: str
+    arguments: str
+
+
+class FunctionCallOutputItem(TypedDict):
+    """Return type of :py:func:`create_function_call_output_item`."""
+
+    type: Literal["function_call_output"]
+    call_id: str
+    output: str
+
+
+class McpApprovalRequestItem(TypedDict):
+    """Return type of :py:func:`create_mcp_approval_request_item`."""
+
+    type: Literal["mcp_approval_request"]
+    id: str
+    arguments: str
+    name: str
+    server_label: str
+
+
+class McpApprovalResponseItem(TypedDict):
+    """Return type of :py:func:`create_mcp_approval_response_item`."""
+
+    type: Literal["mcp_approval_response"]
+    id: str
+    approval_request_id: str
+    approve: bool
+    reason: str | None
+
+
+def create_text_delta(delta: str, item_id: str) -> TextDeltaEvent:
     """Helper method to create a dictionary conforming to the text delta schema for
     streaming.
 
@@ -187,7 +274,7 @@ def create_text_delta(delta: str, item_id: str) -> dict[str, Any]:
 
 def create_annotation_added(
     item_id: str, annotation: dict[str, Any], annotation_index: int | None = 0
-) -> dict[str, Any]:
+) -> AnnotationAddedEvent:
     """Helper method to create annotation added event."""
     return {
         "type": "response.output_text.annotation.added",
@@ -199,7 +286,7 @@ def create_annotation_added(
 
 def create_text_output_item(
     text: str, id: str, annotations: list[dict[str, Any]] | None = None
-) -> dict[str, Any]:
+) -> TextOutputItem:
     """Helper method to create a dictionary conforming to the text output item schema.
 
     Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
@@ -222,7 +309,7 @@ def create_text_output_item(
     }
 
 
-def create_reasoning_item(id: str, reasoning_text: str) -> dict[str, Any]:
+def create_reasoning_item(id: str, reasoning_text: str) -> ReasoningItem:
     """Helper method to create a dictionary conforming to the reasoning item schema.
 
     Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
@@ -239,7 +326,7 @@ def create_reasoning_item(id: str, reasoning_text: str) -> dict[str, Any]:
     }
 
 
-def create_function_call_item(id: str, call_id: str, name: str, arguments: str) -> dict[str, Any]:
+def create_function_call_item(id: str, call_id: str, name: str, arguments: str) -> FunctionCallItem:
     """Helper method to create a dictionary conforming to the function call item schema.
 
     Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
@@ -259,7 +346,7 @@ def create_function_call_item(id: str, call_id: str, name: str, arguments: str) 
     }
 
 
-def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any]:
+def create_function_call_output_item(call_id: str, output: str) -> FunctionCallOutputItem:
     """Helper method to create a dictionary conforming to the function call output item
     schema.
 
@@ -278,7 +365,7 @@ def create_function_call_output_item(call_id: str, output: str) -> dict[str, Any
 
 def create_mcp_approval_request_item(
     id: str, arguments: str, name: str, server_label: str
-) -> dict[str, Any]:
+) -> McpApprovalRequestItem:
     """Helper method to create a dictionary conforming to the MCP approval request item schema.
 
     Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
@@ -303,7 +390,7 @@ def create_mcp_approval_response_item(
     approval_request_id: str,
     approve: bool,
     reason: str | None = None,
-) -> dict[str, Any]:
+) -> McpApprovalResponseItem:
     """Helper method to create a dictionary conforming to the MCP approval response item schema.
 
     Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
