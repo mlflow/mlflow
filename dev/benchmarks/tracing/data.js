@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795223644250,
+  "lastUpdate": 1795224688968,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "145196704+anishmehta24@users.noreply.github.com",
-            "name": "Anish Mehta",
-            "username": "anishmehta24"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f639ef745fd8af54e11eb0d57ac369f8ccb3768d",
-          "message": "Fix `LoggedModel.to_proto` dropping `status_message` (#26244)\n\nSigned-off-by: Anish Mehta <mehtaanish111@gmail.com>",
-          "timestamp": "2026-09-29T09:48:27Z",
-          "tree_id": "496e07cd73a70c1e33c40102b1765ef27ac2d223",
-          "url": "https://github.com/mlflow/mlflow/commit/f639ef745fd8af54e11eb0d57ac369f8ccb3768d"
-        },
-        "date": 1790675497155,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 57.72883785000005,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 11.801055127660492,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 7.299712027777564,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 7.532654764152127,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 8.086345569892572,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 32.243927000004646,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.179843799996434,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "samrajmoorjani@gmail.com",
+            "name": "Samraj Moorjani",
+            "username": "smoorjani"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ec84ac3f8fa442e1cc78defc35585b6fe6dbf31",
+          "message": "Fix MemAlign embeddings on DSPy 3.5 by passing a LiteLLM-backed callable to `dspy.Embedder` (#27927)\n\nSigned-off-by: Samraj Moorjani <samraj.moorjani@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-11-21T01:27:50Z",
+          "tree_id": "ea15fd34a2679b2834b7cb72c9a4cc46fd6a955d",
+          "url": "https://github.com/mlflow/mlflow/commit/4ec84ac3f8fa442e1cc78defc35585b6fe6dbf31"
+        },
+        "date": 1795224685063,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 84.54063039999369,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.559972938281651,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.876500770053721,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.9284703526397218,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.30713085207577,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.9706118000140123,
             "unit": "ms"
           }
         ]
