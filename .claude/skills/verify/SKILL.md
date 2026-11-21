@@ -80,7 +80,7 @@ both calls to use the Action's prepared checkouts.
 ```json
 {
   "description": "Review changed caller contracts",
-  "prompt": "<inputs>. Follow the trust boundary and phase 1. Review <paths> for <assigned angle> using only file reads and read-only searches such as rg. Return the changed file and line, trigger, consequence and strongest evidence for each candidate.",
+  "prompt": "<inputs>. Follow the trust boundary and phase 1. Investigate <assigned angle> starting at <paths>. Leave runtime checks to the verifier. Return the changed file and line, trigger, consequence and strongest evidence for each candidate.",
   "subagent_type": "general-purpose",
   "model": "sonnet",
   "effort": "medium",
