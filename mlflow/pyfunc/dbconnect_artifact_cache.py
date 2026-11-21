@@ -156,9 +156,17 @@ def extract_archive_to_dir(archive_path, dest_dir):
 
 def _safe_extractall(tar, dest_dir):
     resolved_dest = Path(dest_dir).resolve()
+
+    def is_within_dest(path: Path) -> bool:
+        return path == resolved_dest or resolved_dest in path.parents
+
     for member in tar.getmembers():
         member_path = (resolved_dest / member.name).resolve()
-        if not (member_path == resolved_dest or resolved_dest in member_path.parents):
+        # A hard link is created on the file its target resolves to, following any symlink
+        # already extracted, so the resolved target must stay inside the destination too.
+        if not is_within_dest(member_path) or (
+            member.islnk() and not is_within_dest((resolved_dest / member.linkname).resolve())
+        ):
             raise MlflowException.invalid_parameter_value(
                 f"Tar archive member {member.name!r} would be extracted outside "
                 f"the destination directory."

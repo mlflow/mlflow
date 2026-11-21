@@ -412,6 +412,41 @@ def test_safe_extractall_blocks_symlink_escape(tmp_path):
     assert not (tmp_path.parent / "pwned.txt").exists()
 
 
+@pytest.mark.parametrize(
+    ("symlink_target", "hardlink_target"),
+    [
+        ("../outside", "link/secret.txt"),
+        ("../outside/secret.txt", "link"),
+    ],
+)
+def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
+    tmp_path, symlink_target, hardlink_target
+):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("secret")
+    secret.chmod(0o600)
+
+    mal_tar = tmp_path / "hardlink_escape.tar"
+    with tarfile.open(mal_tar, "w") as tar:
+        link = tarfile.TarInfo("link")
+        link.type = tarfile.SYMTYPE
+        link.linkname = symlink_target
+        tar.addfile(link)
+        hardlink = tarfile.TarInfo("hardlink")
+        hardlink.type = tarfile.LNKTYPE
+        hardlink.linkname = hardlink_target
+        hardlink.mode = 0o666
+        tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    with pytest.raises(MlflowException, match="would be extracted outside"):
+        extract_archive_to_dir(mal_tar, dest)
+    assert not (dest / "hardlink").exists()
+    assert stat.S_IMODE(secret.stat().st_mode) == 0o600
+
+
 @pytest.fixture
 def file_utils_caplog(caplog, monkeypatch):
     # The "mlflow" logger disables propagation, so enable it for caplog to capture records
