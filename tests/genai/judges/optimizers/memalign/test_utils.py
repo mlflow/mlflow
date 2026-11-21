@@ -422,6 +422,22 @@ def test_retrieve_relevant_examples_success():
     mock_retriever.assert_called_once_with("test query")
 
 
+@pytest.mark.parametrize(("retrieval_k", "expected"), [(5, [2, 0]), (1, [2])])
+def test_retrieve_relevant_examples_maps_corpus_positions_to_examples(retrieval_k, expected):
+    # examples[1] lacks the field, so the index holds examples 0 and 2 at corpus entries 0 and 1
+    examples = [MagicMock(_trace_id=f"trace_{i}") for i in range(3)]
+
+    results = retrieve_relevant_examples(
+        retrievers={"outputs": (_mock_retriever([1, 0]), [0, 2])},
+        examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
+        query_kwargs={"outputs": "test output"},
+        retrieval_k=retrieval_k,
+    )
+
+    assert results == [(examples[i], f"trace_{i}") for i in expected]
+
+
 @pytest.mark.parametrize(
     ("input_fields", "retrieval_fields", "expected"),
     [
