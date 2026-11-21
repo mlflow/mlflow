@@ -52,6 +52,7 @@ from mlflow.entities.gateway_guardrail import (
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.issue import Issue, IssueCategory, IssueSeverity, IssueStatus
+from mlflow.entities.issue_detection_run import IssueDetectionRun, IssueDetectionRunStatus
 from mlflow.entities.issue_evidence import IssueEvidence, IssueEvidenceStep
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.link import Link
@@ -136,6 +137,8 @@ __all__ = [
     "InputTag",
     "Issue",
     "IssueCategory",
+    "IssueDetectionRun",
+    "IssueDetectionRunStatus",
     "IssueEvidence",
     "IssueEvidenceStep",
     "IssueSeverity",
