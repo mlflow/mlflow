@@ -184,12 +184,17 @@ the judge's instructions. With multiple fields, examples are ranked by the sum o
 their per-field cosine similarities to the query, so the top examples are close on
 all fields; a field an example lacks contributes 0.
 Each field adds one embedding index and one query embedding per scoring call, so cost
-scales with the number of fields. When re-aligning an aligned judge, `None` keeps that
+scales with the number of fields.
+""",
+}
+_MODEL_API_DOC["optimizer_retrieval_fields"] = (
+    _MODEL_API_DOC["retrieval_fields"]
+    + """When re-aligning an aligned judge, `None` keeps that
 judge's `retrieval_fields`. If every trace is already in memory unchanged and the
 retrieval fields stay the same, the judge is returned as-is; otherwise the other
 settings come from the optimizer.
-""",
-}
+"""
+)
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -691,7 +696,12 @@ class MemoryAugmentedJudge(Judge):
                 k=self._retrieval_k,
             )
             retrievers[field] = (retriever, positions)
-            _logger.debug(f"Episodic memory corpus for {field!r} contains {len(corpus)} examples")
+
+        _logger.debug(
+            "Built episodic memory for %d examples; corpus sizes by field: %s",
+            len(episodic_memory),
+            {field: len(positions) for field, (_, positions) in retrievers.items()},
+        )
 
         # Publish after all indexes are built. These are two separate assignments; that is safe
         # because rebuilds only run on judges not yet shared, or during lazy init.
@@ -738,7 +748,7 @@ class MemAlignOptimizer(AlignmentOptimizer):
         retrieval_k: Number of similar examples to retrieve from episodic memory (default: 5)
         embedding_model: {{ embedding_model }}
         embedding_dim: Dimension of embeddings (default: 512)
-        retrieval_fields: {{ retrieval_fields }}
+        retrieval_fields: {{ optimizer_retrieval_fields }}
 
     Note:
         The number of parallel threads for LLM calls during guideline distillation can be
