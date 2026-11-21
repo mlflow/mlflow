@@ -178,17 +178,22 @@ def _safe_extractall(tar, dest_dir):
                 f"the destination directory."
             )
         if member.islnk():
-            _extract_hardlink(member, resolved_dest)
+            _extract_hardlink(tar, member, resolved_dest)
         else:
             tar.extract(member, path=resolved_dest)
 
 
-def _extract_hardlink(member, resolved_dest):
+def _extract_hardlink(tar, member, resolved_dest):
     # Create the link directly rather than through tarfile: when `os.link` fails (e.g. the
     # link path already exists, or the target has a trailing slash), tarfile falls back to
     # re-extracting the archive member named by the normalized target at the link path,
     # which can be a symlink that points outside the destination once relocated.
     link_path = os.path.join(resolved_dest, member.name)
+    # Like tarfile, restore the link header's mode and mtime, sanitized by the `data` filter
+    # (the default from Python 3.14) so the header can't set high or group/other write bits.
+    # Only take metadata from it: it also normalizes the paths, which would no longer match
+    # the validated target.
+    metadata = tarfile.data_filter(member, str(resolved_dest))
     os.makedirs(os.path.dirname(link_path), exist_ok=True)
     try:
         os.link(os.path.join(resolved_dest, member.linkname), link_path)
@@ -196,3 +201,10 @@ def _extract_hardlink(member, resolved_dest):
         raise MlflowException.invalid_parameter_value(
             f"Failed to extract hard link {member.name!r} -> {member.linkname!r}: {e}"
         ) from e
+    try:
+        tar.chmod(metadata, link_path)
+        tar.utime(metadata, link_path)
+    except tarfile.ExtractError:
+        # tarfile treats failing to restore metadata as non-fatal unless errorlevel > 1
+        if tar.errorlevel > 1:
+            raise

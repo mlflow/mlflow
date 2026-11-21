@@ -470,6 +470,8 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
             hardlink = tarfile.TarInfo(name)
             hardlink.type = tarfile.LNKTYPE
             hardlink.linkname = target
+            hardlink.mode = 0o4777
+            hardlink.mtime = 1_000_000
             tar.addfile(hardlink)
 
     dest = tmp_path / "extracted"
@@ -478,6 +480,12 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
     assert (dest / "copy.txt").samefile(dest / "data.txt")
     assert (dest / "via_link.txt").read_text() == "subdir/file.txt"
     assert (dest / "via_link.txt").samefile(dest / "subdir" / "file.txt")
+    for name in ["copy.txt", "via_link.txt"]:
+        link_stat = (dest / name).stat()
+        assert link_stat.st_mtime == 1_000_000
+        if not is_windows():
+            # The `data` filter strips the setuid and group/other write bits
+            assert stat.S_IMODE(link_stat.st_mode) == 0o755
 
 
 @pytest.mark.parametrize(
@@ -522,7 +530,12 @@ def test_extract_archive_to_dir_hardlink_does_not_fall_back_to_member(tmp_path, 
             tar.addfile(hardlink)
 
     dest = tmp_path / "extracted"
-    with pytest.raises(MlflowException, match="Failed to extract hard link"):
+    # Windows collapses `..` before following symlinks, so the target normalizes to the
+    # dangling symlink `d/s` and fails validation before `os.link` runs
+    with pytest.raises(
+        MlflowException,
+        match="would be extracted outside" if is_windows() else "Failed to extract hard link",
+    ):
         extract_archive_to_dir(archive, dest)
     assert not (dest / "h").is_symlink()
     assert stat.S_IMODE(secret.stat().st_mode) == original_mode
