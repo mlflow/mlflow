@@ -297,7 +297,6 @@ jobs:
           ANTHROPIC_BASE_URL: http://localhost:8080/anthropic
           ANTHROPIC_AUTH_TOKEN: ${{ steps.gateway-proxy.outputs.placeholder-token }}
           ANTHROPIC_CUSTOM_HEADERS: ${{ steps.gateway.outputs.custom-headers }}
-          ANTHROPIC_DEFAULT_OPUS_MODEL: databricks-claude-opus-5-5
           ANTHROPIC_DEFAULT_SONNET_MODEL: databricks-claude-sonnet-5-5
           MODEL: ${{ inputs.model || 'databricks-claude-opus-5-5' }}
           EFFORT: ${{ inputs.effort || 'high' }}
@@ -326,8 +325,7 @@ jobs:
           fi
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          TIMEFORMAT='Claude session wall time: %1lR'
-          time timeout --kill-after=10s 60m setsid bash -o pipefail -c '
+          timeout --kill-after=10s 60m setsid bash -o pipefail -c '
             echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
             printf -v skill_inputs "\"%s\" \"%s\" \"%s\"" \
               "$GITHUB_WORKSPACE/trusted" \

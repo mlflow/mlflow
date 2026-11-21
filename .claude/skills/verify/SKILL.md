@@ -18,8 +18,8 @@ hooks:
 
 # Review and verify a PR
 
-Use the `Agent` tool to launch the finders and verifier. Each worker returns its own report
-without further delegation. Only the verifier runs PR code.
+Use the `Agent` tool only for the source review in phase 1. Run the behavioral checks
+yourself in phase 2, then write the review in phase 3.
 
 ## Trust boundary
 
@@ -71,16 +71,14 @@ changes and relevant existing threads.
   convention findings.
 
 Invoke the `Agent` tool with these arguments for each finder, naming its angle in `description`.
-Replace the placeholders in both call examples.
 For `<inputs>`, give the absolute paths of the trusted skill, PR checkout and temporary
-directory, plus any relevant thread or file pointers. Each worker starts with fresh context,
-so point it to the trust boundary and its phase in the trusted skill. Omit `isolation` on
-both calls to use the Action's prepared checkouts.
+directory, plus any relevant thread or file pointers. Each finder starts with fresh context.
+Omit `isolation` to use the Action's prepared checkouts.
 
 ```json
 {
   "description": "Review changed caller contracts",
-  "prompt": "<inputs>. Follow the trust boundary and phase 1. Investigate <assigned angle> starting at <paths>. Leave runtime checks to the verifier. Return the changed file and line, trigger, consequence and strongest evidence for each candidate.",
+  "prompt": "<inputs>. Follow the trust boundary in the trusted skill. Investigate <assigned angle> starting at <paths> without running PR code or delegating. Return the changed file and line, trigger, consequence and strongest source evidence for each candidate.",
   "subagent_type": "general-purpose",
   "model": "sonnet",
   "effort": "medium",
@@ -89,29 +87,14 @@ both calls to use the Action's prepared checkouts.
 ```
 
 Collect the finder reports and merge candidates with the same root cause. Preserve distinct
-consequences and give the verifier the evidence needed to challenge each claim.
+consequences and the evidence for each claim.
 
 ## 2. Verify changed behavior
 
-Invoke the `Agent` tool once for the verifier, even when there are no candidates. Wait for its
-completion notification and use its report in phase 3. The verifier owns the PR and base
-processes, ports, browser session, data and media.
-Group checks that share setup and use fresh test data when earlier checks could affect the result.
-
-```json
-{
-  "description": "Verify changed PR behavior",
-  "prompt": "<inputs>. Follow the trust boundary and phase 2. Exercise <changed flows> and check <deduplicated claims with evidence>. Return observed outcomes, source evidence, media paths and any gaps.",
-  "subagent_type": "general-purpose",
-  "model": "opus",
-  "effort": "high",
-  "run_in_background": true
-}
-```
-
 List the flows the PR materially changes, including its stated purpose even if the code review
 found no issues. Start with the main flow and highest-impact claims. For each flow, identify
-an entry point, input, and observable result. Add a focused
+an entry point, input, and observable result. Group checks that share setup and use fresh test
+data when earlier checks could affect the result. Add a focused
 check for a candidate when a different input or caller would distinguish correct from broken
 behavior. For example, if a change adds a request field, try both the new client and an existing
 client that omits it.
@@ -161,13 +144,13 @@ result or a specific code path confirms or refutes it, or what remains inconclus
 
 ### Clean up
 
-Before returning your report, stop every server, browser, and child process you started using
+Before writing the review, stop every server, browser, and child process you started using
 the PIDs you recorded. Avoid broad `pkill`/`pgrep -f` patterns: they can match your own shell.
 Killing only a server's worker can make it respawn, so stop the parent.
 
 ## 3. Write the review
 
-Revisit changed paths in light of the verifier's report. Check for a missed
+Revisit changed paths in light of what you observed. Check for a missed
 caller or failure path, drop refuted claims, and combine source and runtime evidence for the
 same defect. Report unchecked locally exercisable flows as gaps and use `COMMENT` in that case.
 
