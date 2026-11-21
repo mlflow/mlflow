@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795224688968,
+  "lastUpdate": 1795225375100,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "145196704+anishmehta24@users.noreply.github.com",
-            "name": "Anish Mehta",
-            "username": "anishmehta24"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c8303cf9f610a372c7931a13f110ebc690f71b06",
-          "message": "Fix `PromptVersion` mutating the caller's tags dict (#26245)\n\nSigned-off-by: Anish Mehta <mehtaanish111@gmail.com>",
-          "timestamp": "2026-09-29T10:51:12Z",
-          "tree_id": "ecd860eb4ba17dbdded235ce8fd7da8475b9f764",
-          "url": "https://github.com/mlflow/mlflow/commit/c8303cf9f610a372c7931a13f110ebc690f71b06"
-        },
-        "date": 1790679281217,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 47.05695855000087,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 9.735701696429391,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 6.49186100000009,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.578507300813577,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.820584535715213,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 8.269913400002338,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 3.9706118000140123,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "samrajmoorjani@gmail.com",
+            "name": "Samraj Moorjani",
+            "username": "smoorjani"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be7cb98f3314cf487ce1029f9e149685629e18f5",
+          "message": "Add `agent_setup_script` telemetry to `setup.sh` (#27939)\n\nSigned-off-by: Samraj Moorjani <samraj.moorjani@databricks.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
+          "timestamp": "2026-11-21T01:39:42Z",
+          "tree_id": "a723069dc43295eb8b8f8abee6337bd6a06eddd5",
+          "url": "https://github.com/mlflow/mlflow/commit/be7cb98f3314cf487ce1029f9e149685629e18f5"
+        },
+        "date": 1795225371591,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 132.18432589999765,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.011526734374328,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.179007764708973,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.219238234483249,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.890108823532567,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 17.39289380000173,
             "unit": "ms"
           }
         ]
