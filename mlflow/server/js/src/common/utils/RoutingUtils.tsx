@@ -98,6 +98,7 @@ export const useLocationSelector = <T,>(selector: (location: Location) => T): T 
 export const useSearchParamSelector = <T,>(selector: (params: URLSearchParams) => T): [T, SetURLSearchParams] => {
   const router = useContext(UNSAFE_DataRouterContext)?.router;
   const { navigator, basename } = useContext(UNSAFE_NavigationContext);
+  // Only non-data routers need a location subscription to keep the setter's fallback current.
   const location = useLocationSelector((current) => (router ? null : current));
   const locationRef = useRef(location);
   locationRef.current = location;
