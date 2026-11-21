@@ -326,7 +326,8 @@ jobs:
           fi
           token=$(cat /proc/sys/kernel/random/uuid)
           echo "::stop-commands::$token"
-          timeout --kill-after=10s 60m setsid bash -o pipefail -c '
+          TIMEFORMAT='Claude session wall time: %1lR'
+          time timeout --kill-after=10s 60m setsid bash -o pipefail -c '
             echo "$$" > "$RUNNER_TEMP/verify-agent.pgid"
             printf -v skill_inputs "\"%s\" \"%s\" \"%s\"" \
               "$GITHUB_WORKSPACE/trusted" \
