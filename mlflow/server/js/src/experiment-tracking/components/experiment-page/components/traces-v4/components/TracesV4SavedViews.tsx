@@ -26,7 +26,7 @@ import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { copyToClipboard } from '@mlflow/mlflow/src/common/utils/copyToClipboard';
 import { getUUID } from '@mlflow/mlflow/src/common/utils/ActionUtils';
 import { textCompressDeflate } from '@mlflow/mlflow/src/common/utils/StringUtils';
-import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useTracesV4SearchParams } from '../hooks/useTracesV4SearchParams';
 import type { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
 import { deleteExperimentTagApi, setExperimentTagApi } from '@mlflow/mlflow/src/experiment-tracking/actions';
 import { useArrayMemo } from '@databricks/web-shared/model-trace-explorer';
@@ -147,7 +147,7 @@ export const useTracesV4SavedViews = ({
 }: UseTracesV4SavedViewsParams) => {
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useTracesV4SearchParams();
   const { data: experiment, refetch } = useGetExperimentQuery({ experimentId });
 
   // Validate a stored filter model against the live field set: drop clauses whose field/operator no

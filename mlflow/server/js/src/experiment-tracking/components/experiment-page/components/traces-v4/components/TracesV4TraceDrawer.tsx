@@ -8,7 +8,7 @@ import {
   useDesignSystemTheme,
   DangerIcon,
 } from '@databricks/design-system';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import {
   createTraceV4LongIdentifier,
@@ -138,6 +138,20 @@ export const TracesV4TraceDrawer = ({
   // With the new eval runs UI, `baselineTraceId` + `candidateTraceId` in the URL open the drawer as a
   // comparison of the two traces; the open trace is one side and its counterpart is loaded alongside it.
   const [searchParams, setSearchParams] = useSearchParams();
+  const onSelectSpan = useCallback(
+    (spanId?: string) => {
+      setSearchParams(
+        (params) => {
+          const next = new URLSearchParams(params);
+          if (spanId) next.set('spanId', spanId);
+          else next.delete('spanId');
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   const baselineTraceId = searchParams.get(BASELINE_TRACE_ID_PARAM) ?? undefined;
   const candidateTraceId = searchParams.get(CANDIDATE_TRACE_ID_PARAM) ?? undefined;
   const isComparisonMode = Boolean(
@@ -364,6 +378,7 @@ export const TracesV4TraceDrawer = ({
               <ModelTraceExplorer
                 modelTrace={traceData}
                 selectedSpanId={searchParams.get('spanId') ?? undefined}
+                onSelectSpan={onSelectSpan}
                 {...(session ? { collapseAssessmentPane: 'force-open' as const } : {})}
                 comparisonModelTrace={isComparisonMode ? counterpartTraceData : undefined}
                 comparisonRole={isComparisonMode ? comparisonRole : undefined}

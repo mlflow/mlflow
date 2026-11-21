@@ -13,6 +13,8 @@ import {
   generatePath,
   Route,
   UNSAFE_NavigationContext,
+  UNSAFE_DataRouterContext,
+  UNSAFE_LocationContext,
   Outlet as OutletDirect,
   Link as LinkDirect,
   useNavigate as useNavigateDirect,
@@ -29,6 +31,9 @@ import {
   type NavigateFunction,
   type Params,
   type PathMatch,
+  type SetURLSearchParams,
+  createSearchParams,
+  NavigationType,
 } from 'react-router-dom';
 
 /**
@@ -36,7 +41,9 @@ import {
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
 import type { ComponentProps } from 'react';
-import React, { useCallback, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef } from 'react';
+import { useSyncExternalStoreWithSelector } from 'use-sync-external-store/shim/with-selector';
+import { isEqual } from 'lodash';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
@@ -54,6 +61,72 @@ import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useSer
 const useLocation = useLocationDirect;
 
 const useSearchParams = useSearchParamsDirect;
+
+const UnusedLocationContext = createContext<React.ContextType<typeof UNSAFE_LocationContext>>({
+  location: { pathname: '/', search: '', hash: '', state: null, key: 'default' },
+  navigationType: NavigationType.Pop,
+});
+const subscribeToNothing = () => () => {};
+
+/** Read selected location state without subscribing to unrelated query-string changes. */
+export const useLocationSelector = <T,>(selector: (location: Location) => T): T => {
+  const dataRouter = useContext(UNSAFE_DataRouterContext);
+  const router = dataRouter?.router;
+  const basename = dataRouter?.basename ?? '/';
+  // Non-data routers (for example MemoryRouter) expose their location through context instead.
+  const fallback = useContext(router ? UnusedLocationContext : UNSAFE_LocationContext);
+  const getSnapshot = () => {
+    const location = router?.state.location ?? fallback?.location;
+    if (!location) throw new Error('Location selectors require a router.');
+    return location;
+  };
+  return useSyncExternalStoreWithSelector(
+    router?.subscribe ?? subscribeToNothing,
+    getSnapshot,
+    getSnapshot,
+    (current) =>
+      selector(
+        router && basename !== '/'
+          ? { ...current, pathname: current.pathname.slice(basename.replace(/\/$/, '').length) || '/' }
+          : current,
+      ),
+    isEqual,
+  );
+};
+
+export const useSearchParamSelector = <T,>(selector: (params: URLSearchParams) => T): [T, SetURLSearchParams] => {
+  const router = useContext(UNSAFE_DataRouterContext)?.router;
+  const { navigator, basename } = useContext(UNSAFE_NavigationContext);
+  const location = useLocationSelector((current) => (router ? null : current));
+  const locationRef = useRef(location);
+  locationRef.current = location;
+  const selected = useLocationSelector((current) => selector(new URLSearchParams(current.search)));
+  const setParams = useCallback<SetURLSearchParams>(
+    (next, options) => {
+      const current = router?.state.navigation.location ?? router?.state.location ?? locationRef.current;
+      if (!current) throw new Error('Search parameter setters require a router.');
+      const params = createSearchParams(typeof next === 'function' ? next(new URLSearchParams(current.search)) : next);
+      const pathname =
+        router && basename !== '/'
+          ? current.pathname.slice(basename.replace(/\/$/, '').length) || '/'
+          : current.pathname;
+      const target = { pathname, search: `?${params}`, hash: current.hash };
+      const nextOptions = { state: current.state, ...options };
+      if (router) {
+        void router.navigate(target, nextOptions);
+      } else {
+        locationRef.current = { ...current, ...target, state: nextOptions.state };
+        navigator[options?.replace ? 'replace' : 'push'](
+          { ...target, pathname: `${basename === '/' ? '' : basename.replace(/\/$/, '')}${target.pathname}` },
+          nextOptions.state,
+          options,
+        );
+      }
+    },
+    [router, navigator, basename],
+  );
+  return [selected, setParams];
+};
 
 const useParams = useParamsDirect;
 

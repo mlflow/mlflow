@@ -9,6 +9,8 @@ import { MockedReduxStoreProvider } from '@mlflow/mlflow/src/common/utils/TestUt
 import { SqlWarehouseContextProvider } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-page-tabs/SqlWarehouseContext';
 import { MonitoringConfigProvider } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringConfig';
 import { setLocalStorageItem } from '@databricks/web-shared/hooks';
+// eslint-disable-next-line no-restricted-imports
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
 const WAREHOUSE_STORAGE_PREFIX = 'mlflow_warehouse_experiment_';
 const WAREHOUSE_STORAGE_VERSION = 1;
@@ -39,6 +41,7 @@ export interface RenderTracesV4PageOptions {
   /** Seeded into `SqlWarehouseContextProvider`. Defaults to `'exp-1'`. */
   experimentId?: string;
   queryClient?: QueryClient;
+  dataRouter?: boolean;
 }
 
 export interface RenderTracesV4PageResult extends RenderResult {
@@ -67,8 +70,10 @@ export const renderTracesV4Page = ({
   history,
   experimentId = 'exp-1',
   queryClient,
+  dataRouter = false,
 }: RenderTracesV4PageOptions): RenderTracesV4PageResult => {
   const client = queryClient ?? createDefaultQueryClient();
+  const router = dataRouter ? createMemoryRouter(routes, { initialEntries: [initialUrl] }) : undefined;
 
   const result = render(
     <TestApolloProvider disableCache>
@@ -79,11 +84,15 @@ export const renderTracesV4Page = ({
               <Notification.Provider>
                 <SqlWarehouseContextProvider experimentId={experimentId}>
                   <MonitoringConfigProvider>
-                    <TestRouter
-                      routes={routes.map(({ element, path }) => testRoute(element, path))}
-                      history={history}
-                      initialEntries={[initialUrl]}
-                    />
+                    {router ? (
+                      <RouterProvider router={router} />
+                    ) : (
+                      <TestRouter
+                        routes={routes.map(({ element, path }) => testRoute(element, path))}
+                        history={history}
+                        initialEntries={[initialUrl]}
+                      />
+                    )}
                   </MonitoringConfigProvider>
                 </SqlWarehouseContextProvider>
                 <Notification.Viewport />

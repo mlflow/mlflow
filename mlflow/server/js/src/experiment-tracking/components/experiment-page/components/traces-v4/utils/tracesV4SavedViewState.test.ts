@@ -39,7 +39,7 @@ describe('captureV4ViewState', () => {
   test('captures the whitelisted URL view params and drops the transient ones', () => {
     const state = captureV4ViewState(
       params(
-        'q=refund&sort=duration&dir=asc&pageSize=50&page=3&traceId=abc123&startTimeLabel=LAST_7_DAYS&groupBy=session',
+        'q=refund&sort=duration&dir=asc&pageSize=50&page=3&traceId=abc123&spanId=child&startTimeLabel=LAST_7_DAYS&groupBy=session',
       ),
       ['start_time', 'input', 'duration'],
     );
@@ -56,6 +56,7 @@ describe('captureV4ViewState', () => {
     // Transient state is never part of a saved view.
     expect(out.get('page')).toBeNull();
     expect(out.get('traceId')).toBeNull();
+    expect(out.get('spanId')).toBeNull();
   });
 
   test('preserves repeatable tag filters in order', () => {
