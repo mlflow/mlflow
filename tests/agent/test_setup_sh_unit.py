@@ -946,7 +946,7 @@ def telemetry_calls(bin_dir: Path, timeout: float = 5) -> list[list[str]]:
         ("die boom", "failure"),
         ("kill -INT $$", "canceled"),
         ("kill -TERM $$", "canceled"),
-        ("telemetry_send canceled; die boom", "canceled"),
+        ("cancel boom", "canceled"),
         ("telemetry_send success; exec true", "success"),
     ],
 )

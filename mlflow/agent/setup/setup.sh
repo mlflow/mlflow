@@ -93,6 +93,11 @@ die() {
 	exit 1
 }
 
+cancel() {
+	telemetry_send canceled
+	die "$@"
+}
+
 telemetry_start=""
 telemetry_sent=""
 telemetry_flags=""
@@ -534,8 +539,7 @@ select_option() {
 		case "$key_code" in
 		3)
 			restore_terminal
-			telemetry_send canceled
-			die "Setup cancelled."
+			cancel "Setup cancelled."
 			;;
 		10 | 13)
 			selected_value=$(option_at "$selected_index")
@@ -726,6 +730,7 @@ usage() {
 
 parse_args() {
 	while [ "$#" -gt 0 ]; do
+		# Keep in sync with the option arms below; only these flag names are sent.
 		case "$1" in
 		--workspace-url | --profile | --tracking-uri | --experiment-id | --experiment-name | --uc-schema | --warehouse-id | --agent)
 			telemetry_flags="$telemetry_flags ${1#--}"
@@ -800,8 +805,7 @@ inspect_repository() {
 				"Exit and protect current changes" \
 				"Continue anyway"
 			if [ "$selected_index" -eq 0 ]; then
-				telemetry_send canceled
-				die "Setup cancelled. Commit or stash the changes, then rerun setup."
+				cancel "Setup cancelled. Commit or stash the changes, then rerun setup."
 			fi
 		fi
 		success "Repository detected" "$repo_root"
@@ -810,7 +814,7 @@ inspect_repository() {
 		repo_name=$(basename "$repo_root")
 		warning "Git repository not found" "The agent's edits cannot be reviewed or reverted with Git."
 		select_option "Continue with setup?" "Exit and initialize Git first" "Continue without Git"
-		[ "$selected_index" -eq 1 ] || { telemetry_send canceled; die "Setup cancelled."; }
+		[ "$selected_index" -eq 1 ] || cancel "Setup cancelled."
 	fi
 }
 
