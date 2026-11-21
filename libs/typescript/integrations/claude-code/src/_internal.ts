@@ -85,6 +85,10 @@ export function buildUsageDict(usage: TokenUsage): Record<string, number> {
   if (usage.cache_creation_input_tokens !== undefined) {
     usageDict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = usage.cache_creation_input_tokens;
   }
+  const cacheCreation1h = usage.cache_creation?.ephemeral_1h_input_tokens;
+  if (typeof cacheCreation1h === 'number') {
+    usageDict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = cacheCreation1h;
+  }
   return usageDict;
 }
 

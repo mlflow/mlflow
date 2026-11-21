@@ -46,6 +46,14 @@ export interface TokenUsage {
   output_tokens: number;
   cache_creation_input_tokens?: number;
   cache_read_input_tokens?: number;
+  /**
+   * How `cache_creation_input_tokens` splits by cache TTL. 1-hour cache writes
+   * are billed at a higher rate than 5-minute ones.
+   */
+  cache_creation?: {
+    ephemeral_5m_input_tokens?: number;
+    ephemeral_1h_input_tokens?: number;
+  };
 }
 
 // ============================================================================

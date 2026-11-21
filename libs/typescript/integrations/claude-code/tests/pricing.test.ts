@@ -25,6 +25,44 @@ describe('calculateCost', () => {
     expect(cost!.total_cost).toBeCloseTo(0.000792, 9);
   });
 
+  it('prices 1-hour cache writes at the 1-hour rate and the rest at the 5-minute rate', () => {
+    // claude-opus-4-8: cacheWrite=6.25/MTok (5-minute TTL), cacheWrite1h=10/MTok
+    const usage = (ephemeral_1h_input_tokens: number) => ({
+      input_tokens: 0,
+      output_tokens: 1,
+      cache_creation_input_tokens: 1_000_000,
+      cache_creation: {
+        ephemeral_5m_input_tokens: 1_000_000 - ephemeral_1h_input_tokens,
+        ephemeral_1h_input_tokens,
+      },
+    });
+    expect(calculateCost('claude-opus-4-8', usage(1_000_000))!.input_cost).toBeCloseTo(10, 9);
+    expect(calculateCost('claude-opus-4-8', usage(400_000))!.input_cost).toBeCloseTo(
+      0.6 * 6.25 + 0.4 * 10,
+      9,
+    );
+    expect(calculateCost('claude-opus-4-8', usage(0))!.input_cost).toBeCloseTo(6.25, 9);
+  });
+
+  it('prices cache writes at the 5-minute rate when the TTL split is missing', () => {
+    const cost = calculateCost('claude-opus-4-8', {
+      input_tokens: 0,
+      output_tokens: 1,
+      cache_creation_input_tokens: 1_000_000,
+    });
+    expect(cost!.input_cost).toBeCloseTo(6.25, 9);
+  });
+
+  it('never prices more 1-hour cache writes than the request wrote', () => {
+    const cost = calculateCost('claude-opus-4-8', {
+      input_tokens: 0,
+      output_tokens: 1,
+      cache_creation_input_tokens: 1_000_000,
+      cache_creation: { ephemeral_1h_input_tokens: 5_000_000 },
+    });
+    expect(cost!.input_cost).toBeCloseTo(10, 9);
+  });
+
   it('applies opus and haiku rates', () => {
     const opus = calculateCost('claude-opus-4-1-20250805', {
       input_tokens: 1_000_000,
@@ -95,6 +133,18 @@ describe('setModelRates', () => {
     expect(
       calculateCost('claude-sonnet-4-20250514', { input_tokens: 100, output_tokens: 0 }),
     ).not.toBeNull();
+  });
+
+  it('prices 1-hour cache writes at the cache-write rate when a model has no 1-hour rate', () => {
+    setModelRates({ 'custom-model': { input: 1, output: 2, cacheWrite: 3 } });
+
+    const cost = calculateCost('custom-model', {
+      input_tokens: 0,
+      output_tokens: 1,
+      cache_creation_input_tokens: 1_000_000,
+      cache_creation: { ephemeral_5m_input_tokens: 0, ephemeral_1h_input_tokens: 1_000_000 },
+    });
+    expect(cost!.input_cost).toBeCloseTo(3, 9);
   });
 });
 
