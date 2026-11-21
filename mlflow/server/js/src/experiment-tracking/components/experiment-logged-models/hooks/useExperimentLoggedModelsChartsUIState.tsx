@@ -9,6 +9,7 @@ import type {
 import { RunsChartType } from '../../runs-charts/runs-charts.types';
 import { isEmpty, uniq } from 'lodash';
 import type { RunsChartsUIConfigurationSetter } from '../../runs-charts/hooks/useRunsChartsUIConfiguration';
+import { getStorageItem, setStorageItem } from '../../../../common/utils/LocalStorageUtils';
 
 type UpdateChartStateAction = { type: 'UPDATE'; stateSetter: RunsChartsUIConfigurationSetter };
 type InitializeChartStateAction = { type: 'INITIALIZE'; initialConfig?: LoggedModelsChartsUIConfiguration };
@@ -137,8 +138,7 @@ const chartsUIStateReducer = (state: LoggedModelsChartsUIConfiguration, action: 
 
 const loadPersistedDataFromStorage = async (storeIdentifier: string) => {
   // This function is async on purpose to accommodate potential asynchoronous storage mechanisms (e.g. IndexedDB) in the future
-  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-  const serializedData = localStorage.getItem(createLocalStorageKey(storeIdentifier));
+  const serializedData = getStorageItem(localStorage, createLocalStorageKey(storeIdentifier));
   if (!serializedData) {
     return undefined;
   }
@@ -150,8 +150,7 @@ const loadPersistedDataFromStorage = async (storeIdentifier: string) => {
 };
 
 const saveDataToStorage = async (storeIdentifier: string, dataToPersist: LoggedModelsChartsUIConfiguration) => {
-  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-  localStorage.setItem(createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
+  setStorageItem(localStorage, createLocalStorageKey(storeIdentifier), JSON.stringify(dataToPersist));
 };
 
 export const useExperimentLoggedModelsChartsUIState = (
