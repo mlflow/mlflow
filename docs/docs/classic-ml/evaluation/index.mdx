@@ -283,7 +283,7 @@ with mlflow.start_run():
 - `targets`: Column name containing ground truth labels
 - `model_type`: Task type (`"classifier"` or `"regressor"`)
 
-Without a model, the classifier evaluator reads only the predicted labels, so metrics and plots that need class probabilities (ROC AUC, PR AUC, log loss, ROC and precision-recall curves) are not computed. Pass a model to get them.
+Without a model, the classifier evaluator reads only the predicted labels, so metrics and plots that need class probabilities (ROC AUC, PR AUC, log loss, ROC and precision-recall curves) are not computed. To get them, pass a model logged with the `sklearn`, `xgboost`, or `catboost` flavor whose underlying estimator exposes `predict_proba`, such as an sklearn classifier. Plain Python functions, such as the one in [Function Evaluation](#function-evaluation), and custom pyfunc models don't produce these metrics.
 
 ## Function Evaluation
 
