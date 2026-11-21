@@ -1658,14 +1658,30 @@ def test_remove_guidelines_then_register_then_load(sample_judge, sample_traces):
     assert loaded.guidelines == ["G1", "G2", "G4"]
 
 
+def test_remove_guidelines_while_lazy_init_in_progress_stays_deferred(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    restored = Scorer.model_validate(aligned.model_dump())
+    # Mimic another thread inside _lazy_init: embedder set, memory and retriever not yet built
+    restored._embedder = MagicMock()
+    assert restored._retriever is None
+
+    cleaned = restored.remove_guidelines([0])
+
+    assert cleaned._embedder is None
+    assert cleaned._retriever is None
+    assert cleaned.guidelines == ["G1", "G2", "G3", "G4"]
+
+
 def test_remove_guidelines_on_initialized_judge_without_episodic_examples(
     sample_judge, sample_traces
 ):
     with mock_apis(guidelines=_GUIDELINES):
         aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
     restored = Scorer.model_validate(aligned.model_dump())
-    # Every stored trace is gone, so _lazy_init finishes with no examples and no retriever
-    with patch("mlflow.get_trace", return_value=None), patch("dspy.Embedder"):
+    # No stored trace IDs, so _lazy_init finishes with no examples and no retriever
+    restored._episodic_trace_ids = []
+    with patch("dspy.Embedder"):
         restored._lazy_init()
     assert restored._embedder is not None
     assert restored._retriever is None

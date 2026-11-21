@@ -605,10 +605,12 @@ class MemoryAugmentedJudge(Judge):
 
         # Deferred judges stay deferred (no trace fetch or embedding). Fully initialized judges
         # share the embedder and retriever, which __call__ only reads, so nothing is re-embedded.
-        # Gate on _embedder, the same init-complete signal _lazy_init uses: a judge with no
-        # episodic examples is fully initialized but has no retriever.
+        # Share only when init is known complete: the retriever is built, or there were no trace IDs
+        # to load. Otherwise (e.g. another thread is mid-_lazy_init) the copy initializes itself.
         new_judge = self._create_copy()
-        if self._embedder is not None:
+        if self._retriever is not None or (
+            self._embedder is not None and not self._episodic_trace_ids
+        ):
             new_judge._base_signature = self._base_signature
             new_judge._embedder = self._embedder
             new_judge._retriever = self._retriever
