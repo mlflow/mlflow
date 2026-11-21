@@ -58,7 +58,7 @@ Read both input files and `$trusted_checkout/.claude/skills/verify/payload.schem
 
 ## 1. Find candidates
 
-For every PR, run the first seven angles below. Include Repository style when either of
+For every PR, run the first six angles below. Include Repository style when either of
 its guides applies. Launch the finders in parallel using the `Agent` tool, assigning a
 separate finder to each angle. While they work, identify the user flows the PR changes
 and relevant existing threads.
@@ -76,8 +76,6 @@ and relevant existing threads.
   the diff. Describe a simpler implementation that preserves the behavior.
 - **Efficiency.** Trace repeated computation or I/O, independent operations run in sequence,
   or resources held longer than needed. Identify what incurs the cost and how to avoid it.
-- **Root cause.** Trace the symptom to the code that causes it. If the patch fixes only one
-  path, identify another affected path and the shared change that would fix both.
 - **Repository style.** Give this finder the paths to all applicable guides under
   `$trusted_checkout/.claude/skills/`. Use `python-style/SKILL.md` for changed Python
   source or tests and `github-actions-style/SKILL.md` for changed workflow or action YAML
