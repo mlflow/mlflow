@@ -1,0 +1,44 @@
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v${MLFLOW_VERSION:-3.18.0}-full
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      MLFLOW_VERSION: ${MLFLOW_VERSION:-3.18.0}
+      OIDC_AUTH_VERSION: ${OIDC_AUTH_VERSION:-9.0.5}
+      MLFLOW_BACKEND_STORE_URI: sqlite:////data/tracking.db
+      MLFLOW_ARTIFACTS_DESTINATION: /data/artifacts
+      MLFLOW_SERVER_ALLOWED_HOSTS: localhost:5000,127.0.0.1:5000
+      MLFLOW_SERVER_CORS_ALLOWED_ORIGINS: http://localhost:5000,http://127.0.0.1:5000
+      OIDC_USERS_DB_URI: sqlite:////data/auth.db
+      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:?Set OIDC_DISCOVERY_URL in .env.oidc}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?Set OIDC_CLIENT_ID in .env.oidc}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?Set OIDC_CLIENT_SECRET in .env.oidc}
+      OIDC_REDIRECT_URI: http://localhost:5000/callback
+      OIDC_GROUPS_ATTRIBUTE: ${OIDC_GROUPS_ATTRIBUTE:-groups}
+      OIDC_GROUP_NAME: ${OIDC_GROUP_NAME:-example-users}
+      OIDC_ADMIN_GROUP_NAME: ${OIDC_ADMIN_GROUP_NAME:-example-admins}
+      OIDC_SCOPE: openid email profile
+      SECRET_KEY: ${SECRET_KEY:?Set a persistent random SECRET_KEY in .env.oidc}
+    volumes:
+      - oidc-data:/data
+    command:
+      - /bin/bash
+      - -ec
+      - |
+        python -m pip install --no-cache-dir \
+          "mlflow==$${MLFLOW_VERSION}" "mlflow-oidc-auth==$${OIDC_AUTH_VERSION}"
+        exec mlflow server --app-name oidc-auth --host 0.0.0.0 --port 5000 --serve-artifacts
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=3)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+
+volumes:
+  oidc-data:

@@ -79,6 +79,7 @@ docs/_build/
 env
 env3
 .env
+.env.oidc
 .venv
 env/
 venv/
