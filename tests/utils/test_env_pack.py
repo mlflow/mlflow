@@ -51,6 +51,33 @@ def test_tar_function_path_handling(tmp_path):
         assert names == {".", "./test.txt"}
 
 
+def test_tar_keeps_dir_symlinks_inside_root_as_symlinks(tmp_path):
+    env_dir = tmp_path / "env"
+    site_packages = env_dir / "lib" / "python3.12" / "site-packages"
+    (site_packages / "pkg").mkdir(parents=True)
+    (site_packages / "pkg" / "__init__.py").write_text("")
+    (env_dir / "lib64").symlink_to("lib")
+    base_python = tmp_path / "base" / "bin" / "python3.12"
+    base_python.parent.mkdir(parents=True)
+    base_python.write_text("")
+    (env_dir / "bin").mkdir()
+    (env_dir / "bin" / "python").symlink_to(base_python)
+
+    tar_path = tmp_path / "env.tar"
+    env_pack._tar(env_dir, tar_path)
+
+    with tarfile.open(tar_path) as tar:
+        members = {m.name: m for m in tar.getmembers()}
+
+    assert members["./lib64"].type == tarfile.SYMTYPE
+    assert members["./lib64"].linkname == "lib"
+    assert not any(name.startswith("./lib64/") for name in members)
+    assert [name for name in members if name.endswith("/pkg/__init__.py")] == [
+        "./lib/python3.12/site-packages/pkg/__init__.py"
+    ]
+    assert members["./bin/python"].isreg()
+
+
 def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_dbr_version):
     """Test that pack_env_for_databricks_model_serving correctly handles pip requirements
     installation.
