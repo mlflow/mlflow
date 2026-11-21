@@ -1518,3 +1518,54 @@ async def test_proxy_streaming():
     assert len(collected) == 2
     assert b"chatcmpl-1" in collected[0]
     assert b"[DONE]" in collected[1]
+
+
+def _cache_control_payload(stream: bool = False):
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral"}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "https://example.com/a.png"},
+                        "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                    },
+                ],
+            }
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+    return payload
+
+
+_MESSAGES_WITHOUT_CACHE_CONTROL = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Doc"},
+            {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+        ],
+    }
+]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_chat_does_not_send_cache_control(stream):
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    payload = chat.RequestPayload(**_cache_control_payload(stream))
+    if stream:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(chat_stream_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            [chunk async for chunk in provider.chat_stream(payload)]
+    else:
+        mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            await provider.chat(payload)
+
+    assert mock_client.post.call_args.kwargs["json"]["messages"] == _MESSAGES_WITHOUT_CACHE_CONTROL
+    # The caller's payload keeps its markers, e.g. for the next provider of a fallback route.
+    assert payload.messages[0].content[0].cache_control is not None

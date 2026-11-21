@@ -394,6 +394,18 @@ MLFLOW_SQLALCHEMYSTORE_POOLCLASS = _EnvironmentVariable(
     "MLFLOW_SQLALCHEMYSTORE_POOLCLASS", str, None
 )
 
+#: Specifies the maximum time, in seconds, that a trace search in the SQLAlchemy tracking store
+#: may spend in the database before it is cancelled and fails. On PostgreSQL, the limit is applied
+#: to the search transaction with ``SET LOCAL statement_timeout``, so each statement the search
+#: runs is bounded. On MySQL, it is applied to the search query with the ``MAX_EXECUTION_TIME``
+#: optimizer hint. Other databases (SQLite, MSSQL, and MariaDB, which does not support that hint)
+#: ignore it, and their searches stay unbounded. Zero, negative, and non-finite values mean no
+#: limit.
+#: (default: ``None``, no limit)
+MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS = _EnvironmentVariable(
+    "MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS", float, None
+)
+
 #: Specifies the ``timeout_seconds`` for MLflow Model dependency inference operations.
 #: (default: ``120``)
 MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT = _EnvironmentVariable(
@@ -1369,8 +1381,9 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 #: Maximum number of spans to export in a single batch. When set to larger than 1, MLflow will
 #: export spans in batches. This must be used together with `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`
 #: set to true (default).
-#: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
-#: spans immediately.
+#: Note: This setting applies when the trace destination is an MLflow experiment and
+#: ``MLFLOW_USE_BATCH_SPAN_PROCESSOR`` is enabled (default), and when it is a Unity Catalog
+#: location.
 #: (default: ``5`` - based on internal benchmarking results)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 5
@@ -1379,8 +1392,9 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE = _EnvironmentVariable(
 #: Maximum interval in milliseconds between two batches. When the interval is reached,
 #: MLflow will export the spans in the current batch regardless of the batch size.
 #: This interval only applies when the max batch size is set to larger than 1.
-#: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
-#: spans immediately.
+#: Note: This setting applies when the trace destination is an MLflow experiment and
+#: ``MLFLOW_USE_BATCH_SPAN_PROCESSOR`` is enabled (default), and when it is a Unity Catalog
+#: location.
 #: (default: ``5000`` = 5 seconds)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", int, 5000
@@ -1433,11 +1447,6 @@ MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS = _EnvironmentVariable(
     "MLFLOW_SQL_WAREHOUSE_AUTO_START_TIMEOUT_SECONDS", int, 1200
 )
 
-#: Specifies whether to export spans incrementally as they complete, in addition to
-#: exporting the full trace. When enabled, spans are written to the tracking store
-#: individually via ``log_spans`` as each span finishes. This provides real-time span
-#: visibility for long-running traces but adds extra DB round-trips that may increase
-#: latency under high concurrency. When disabled, spans are batch-written to the database
 #: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
 #: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
 #: (default: ``None`` (an active MLflow experiment will be used))
@@ -1445,9 +1454,9 @@ MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", 
 
 #: When set to ``True``, use OTel BatchSpanProcessor to export spans in a background thread
 #: instead of inline during on_end. This decouples trace export from request handling under
-#: concurrent load. Takes effect whenever async trace logging is active (i.e. when
-#: ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`` is ``True``, which is the default for OSS MLflow
-#: and Databricks non-notebook workloads).
+#: concurrent load. Takes effect when the trace destination is an MLflow experiment and async
+#: trace logging is active (i.e. when ``MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`` is ``True``, which is
+#: the default for OSS MLflow and Databricks non-notebook workloads).
 #: (default: ``True``)
 MLFLOW_USE_BATCH_SPAN_PROCESSOR = _BooleanEnvironmentVariable(
     "MLFLOW_USE_BATCH_SPAN_PROCESSOR", True
@@ -1966,8 +1975,13 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 #: Specifies whether to allow loading models that run code supplied by the model: pickle or
 #: cloudpickle artifacts, code directories logged with ``code_paths``, models from code, models
 #: on the Python path, Transformers custom code, LlamaIndex settings that name classes to
-#: construct, and all PyFunc models, because a PyFunc model names the Python module that loads
-#: it. Set it to ``false`` to refuse such models. Only set it to ``true`` for models you trust.
+#: construct, John Snow Labs models that start a Spark session with their own JARs and license,
+#: Keras models loaded with ``mlflow.tensorflow.load_model`` or ``load_checkpoint`` (Keras 2
+#: models saved in the H5 or SavedModel format, H5 models loaded with Keras earlier than 3.11.3,
+#: and models loaded with Keras 3 earlier than 3.11.0, which can contain ``Lambda`` layer
+#: bytecode; ``mlflow.keras.load_model`` with Keras 3 is not checked), and all PyFunc models,
+#: because a PyFunc model names the Python module that loads it. Set it to ``false`` to refuse
+#: such models. Only set it to ``true`` for models you trust.
 #: (default: ``True``)
 MLFLOW_ALLOW_MODEL_CODE_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_MODEL_CODE_EXECUTION", True

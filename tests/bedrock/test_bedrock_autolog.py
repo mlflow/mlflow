@@ -1290,6 +1290,45 @@ TOKEN_USAGE_EDGE_CASE_DATA = [
             "total_tokens": 20,
         },
     },
+    # 11. Converse API per-TTL breakdown of cache writes, with a 1-hour portion
+    {
+        "name": "converse_1h_cache_details",
+        "usage_data": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 1479,
+            "cacheReadInputTokens": 0,
+            "cacheWriteInputTokens": 1464,
+            "cacheDetails": [{"ttl": "1h", "inputTokens": 1000}, {"ttl": "5m", "inputTokens": 464}],
+        },
+        "expected_usage": {
+            "input_tokens": 1474,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1464,
+            "cache_creation_input_tokens_above_1hr": 1000,
+            "total_tokens": 1479,
+        },
+    },
+    # 12. Anthropic-native per-TTL breakdown of cache writes, with a 1-hour portion
+    {
+        "name": "anthropic_1h_cache_creation",
+        "usage_data": {
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1462,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 1462},
+        },
+        "expected_usage": {
+            "input_tokens": 1472,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1462,
+            "cache_creation_input_tokens_above_1hr": 1462,
+            "total_tokens": 1477,
+        },
+    },
 ]
 
 
@@ -1549,6 +1588,45 @@ STREAM_TOKEN_USAGE_EDGE_CASES = [
             "cache_read_input_tokens": 10000,
             "cache_creation_input_tokens": 300,
             "total_tokens": 11000,
+        },
+    },
+    # 8. The 1-hour cache write breakdown in message_start must survive buffering
+    {
+        "name": "1h_cache_creation_in_message_start",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {
+                        "input_tokens": 10,
+                        "output_tokens": 1,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 1464,
+                        "cache_creation": {
+                            "ephemeral_5m_input_tokens": 0,
+                            "ephemeral_1h_input_tokens": 1464,
+                        },
+                    },
+                },
+            },
+            {
+                "type": "message_delta",
+                "delta": {},
+                "usage": {"output_tokens": 5},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": {
+            "input_tokens": 1474,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1464,
+            "cache_creation_input_tokens_above_1hr": 1464,
+            "total_tokens": 1479,
         },
     },
 ]
