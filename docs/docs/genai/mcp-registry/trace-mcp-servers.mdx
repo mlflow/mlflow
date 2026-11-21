@@ -1,0 +1,183 @@
+---
+title: Trace FastMCP Servers
+description: Add MCP Registry identity to native FastMCP tool-call spans and view connected agent traces in MLflow.
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Trace FastMCP Servers
+
+:::warning[Experimental]
+
+This FastMCP integration is experimental. Its API and behavior may change in future releases.
+
+:::
+
+Opt in to recording an MCP Registry identity on each FastMCP server tool-call span. The helper adds the registered server name, the optional concrete deployment version, and the invoked tool name to FastMCP's native `tools/call` SERVER span as `mlflow.mcp.server.name`, `mlflow.mcp.server.version`, and `mlflow.mcp.tool.name` attributes. It does not look up the registry or require the agent to call `link_mcp_server()`.
+
+The server identity is configured for each server instance. The helper requires an
+initialized global OpenTelemetry SDK provider; see [Configure OpenTelemetry export](#configure-opentelemetry-export)
+before running the example.
+
+Server-side tracing requires FastMCP 3.4.8 or newer for its middleware and native telemetry
+APIs. The shared `mlflow[mcp]` extra still allows older FastMCP versions for client-side tool
+discovery. The server-specific install command appears in the export setup below.
+
+```python
+from fastmcp import FastMCP
+from mlflow.mcp.tracing import instrument_fastmcp
+
+# Configure a global OpenTelemetry SDK provider first; without one, instrument_fastmcp()
+# raises an error. See "Configure OpenTelemetry export" below for a complete example.
+
+server = FastMCP("Weather")
+
+
+@server.tool
+def forecast(city: str) -> str:
+    return f"Forecast for {city}: sunny"
+
+
+instrument_fastmcp(
+    server,
+    name="com.example/weather",
+    version="1.2.0",  # Optional concrete version running on this deployment.
+)
+
+server.run(transport="http", host="0.0.0.0", port=8000)
+```
+
+The name must be a registered MCP server name in the form `namespace/server-name`. The version is the concrete version deployed on this server; omit it when the deployment version is unknown. Call the helper once during startup, before serving requests. Repeating the call with the same server and identity is safe; trying to register the same server with a different identity raises an error.
+
+## Configure OpenTelemetry export
+
+FastMCP creates its native spans through the global OpenTelemetry provider. Configure an SDK provider and exporter before calling the helper. The agent and server can run in separate processes, but configure both to export to the same MLflow tracking server, experiment, and workspace.
+
+MLflow receives OTLP/HTTP protobuf at `/v1/traces`. The `x-mlflow-experiment-id` header selects the experiment; when workspaces are enabled, `X-MLFLOW-WORKSPACE` can select a workspace. Use the same routing headers for both exporters.
+
+Install the OTLP/HTTP exporter in both environments. For the FastMCP server:
+
+```bash
+pip install 'mlflow[mcp]' 'fastmcp>=3.4.8,<4' opentelemetry-exporter-otlp-proto-http
+```
+
+For the agent process, which only needs the FastMCP client:
+
+```bash
+pip install 'mlflow[mcp]' opentelemetry-exporter-otlp-proto-http
+```
+
+Configure the provider in the FastMCP server process:
+
+```python
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from fastmcp import FastMCP
+from mlflow.mcp.tracing import instrument_fastmcp
+
+tracking_uri = "http://localhost:5000"
+experiment_id = "123"
+workspace = None  # Set a workspace name only when workspaces are enabled.
+headers = {"x-mlflow-experiment-id": experiment_id}
+if workspace:
+    headers["X-MLFLOW-WORKSPACE"] = workspace
+
+provider = TracerProvider()
+provider.add_span_processor(
+    BatchSpanProcessor(
+        OTLPSpanExporter(
+            endpoint=f"{tracking_uri}/v1/traces",
+            headers=headers,
+        )
+    )
+)
+trace.set_tracer_provider(provider)
+
+server = FastMCP("Weather")
+
+
+@server.tool
+def forecast(city: str) -> str:
+    return f"Forecast for {city}: sunny"
+
+
+instrument_fastmcp(
+    server,
+    name="com.example/weather",
+    version="1.2.0",
+)
+server.run(transport="http", host="0.0.0.0", port=8000)
+```
+
+Configure the same OTLP endpoint and routing headers in the agent process. When a FastMCP client call runs inside an active agent span, FastMCP's W3C trace propagation sends the context with the MCP request. The server span then joins the agent trace.
+
+```python
+import asyncio
+
+from fastmcp import Client
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+tracking_uri = "http://localhost:5000"
+experiment_id = "123"
+workspace = None  # Set a workspace name only when workspaces are enabled.
+headers = {"x-mlflow-experiment-id": experiment_id}
+if workspace:
+    headers["X-MLFLOW-WORKSPACE"] = workspace
+
+provider = TracerProvider()
+provider.add_span_processor(
+    BatchSpanProcessor(
+        OTLPSpanExporter(
+            endpoint=f"{tracking_uri}/v1/traces",
+            headers=headers,
+        )
+    )
+)
+trace.set_tracer_provider(provider)
+
+
+async def run_agent():
+    async with Client("http://localhost:8000/mcp") as client:
+        with trace.get_tracer("weather-agent").start_as_current_span("agent.run"):
+            await client.call_tool("forecast", {"city": "Seattle"})
+
+
+asyncio.run(run_agent())
+```
+
+The helper only adds identity to the server span; it does not create trace context or configure sampling, authentication, or exporters.
+
+The linked-trace example relies on FastMCP's built-in client-to-server W3C trace
+propagation through MCP request metadata, available in FastMCP 3.4.8 and newer. If a
+request arrives without propagated context and no span is active on the server, FastMCP
+creates a separate server trace. If another span is active in the server process, the
+tool span follows that active context.
+
+## Search for the server trace
+
+Search by the registered server name, and optionally by its concrete version:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+traces = mlflow.search_traces(
+    experiment_ids=["123"],
+    filter_string="mcp_server = 'com.example/weather'",
+)
+versioned_traces = mlflow.search_traces(
+    experiment_ids=["123"],
+    filter_string=("mcp_server = 'com.example/weather' AND mcp_server.version = '1.2.0'"),
+)
+```
+
+See [OpenTelemetry trace ingestion](/genai/tracing/opentelemetry/ingest) for OTLP endpoint, authentication, and workspace configuration. For agent-side manual linking, see [Connect to MCP Servers](/genai/mcp-registry/connect-to-servers).
+
+<APILink fn="mlflow.mcp.tracing.instrument_fastmcp" />
