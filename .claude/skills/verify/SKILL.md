@@ -76,11 +76,9 @@ and relevant existing threads.
   the diff. Describe a simpler implementation that preserves the behavior.
 - **Efficiency.** Trace repeated computation or I/O, independent operations run in sequence,
   or resources held longer than needed. Identify what incurs the cost and how to avoid it.
-- **Repository style.** Give this finder the paths to all applicable guides under
-  `$trusted_checkout/.claude/skills/`. Use `python-style/SKILL.md` for changed Python
-  source or tests and `github-actions-style/SKILL.md` for changed workflow or action YAML
-  under `.github/workflows/` or `.github/actions/`. For each finding, cite the guide section,
-  identify the changed line that violates it, and give a correction consistent with the rule.
+- **Repository style.** Check changed Python files against `python-style` and GitHub Actions
+  YAML against `github-actions-style`, both in `$trusted_checkout/.claude/skills/`.
+  Cite the rule and suggest a fix.
 
 Invoke the `Agent` tool with these arguments for each finder, naming its angle in `description`.
 For `<inputs>`, give the absolute paths of the trusted skill, PR checkout and temporary
