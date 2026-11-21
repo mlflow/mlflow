@@ -655,6 +655,19 @@ const TracesV4PageContentBody = ({
   // Wait for the first page so the modal seeds from real traces, then strip the param via `replace`
   // so a refresh doesn't reopen it.
   const [searchParams, setSearchParams] = useTracesV4SearchParams();
+  const onSelectSpan = useCallback(
+    (spanId?: string) => {
+      setSearchParams(
+        (params) => {
+          if (spanId) params.set('spanId', spanId);
+          else params.delete('spanId');
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
   useEffect(() => {
     if (!shouldEnableIssueDetection() || searchParams.get('detectIssues') !== 'true' || page.isLoading) {
       return;
@@ -869,6 +882,7 @@ const TracesV4PageContentBody = ({
         experimentId,
         traces: page.traces,
         onSelectTrace: sessionDrawerEnabled ? selectDrawerTrace : url.setTraceId,
+        onSelectSpan,
         runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
         ...(drawerSessionProps ? { session: drawerSessionProps } : {}),
       }}

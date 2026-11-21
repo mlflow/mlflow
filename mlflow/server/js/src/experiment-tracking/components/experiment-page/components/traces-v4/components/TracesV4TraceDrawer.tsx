@@ -8,7 +8,7 @@ import {
   useDesignSystemTheme,
   DangerIcon,
 } from '@databricks/design-system';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import {
   createTraceV4LongIdentifier,
@@ -84,6 +84,8 @@ export interface TracesV4TraceDrawerProps {
   traces: ModelTraceInfoV3[];
   /** Writes the newly-selected trace's id to the URL (as a long id — see {@link idOf}). */
   onSelectTrace: (traceId: string) => void;
+  /** Optional span-selection navigation owned by the embedding page. */
+  onSelectSpan?: (spanId?: string) => void;
   /** Optional in-explorer run-judges config (enables "Run judge" from within a span's assessments). */
   runJudgeConfiguration?: NonNullable<TracesV4TraceActions['runJudges']>['runJudgeConfiguration'];
   /** Opens the drawer on a session instead of a single trace. Omit for trace-only drawers. */
@@ -116,6 +118,7 @@ export const TracesV4TraceDrawer = ({
   experimentId,
   traces,
   onSelectTrace,
+  onSelectSpan,
   runJudgeConfiguration,
   session,
   comparisonRunOptions,
@@ -138,20 +141,6 @@ export const TracesV4TraceDrawer = ({
   // With the new eval runs UI, `baselineTraceId` + `candidateTraceId` in the URL open the drawer as a
   // comparison of the two traces; the open trace is one side and its counterpart is loaded alongside it.
   const [searchParams, setSearchParams] = useSearchParams();
-  const onSelectSpan = useCallback(
-    (spanId?: string) => {
-      setSearchParams(
-        (params) => {
-          const next = new URLSearchParams(params);
-          if (spanId) next.set('spanId', spanId);
-          else next.delete('spanId');
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setSearchParams],
-  );
   const baselineTraceId = searchParams.get(BASELINE_TRACE_ID_PARAM) ?? undefined;
   const candidateTraceId = searchParams.get(CANDIDATE_TRACE_ID_PARAM) ?? undefined;
   const isComparisonMode = Boolean(

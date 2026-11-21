@@ -94,6 +94,7 @@ export const useLocationSelector = <T,>(selector: (location: Location) => T): T 
   );
 };
 
+/** Select query state; writes merge the latest params and retain hash/state. Only data routers skip unrelated renders. */
 export const useSearchParamSelector = <T,>(selector: (params: URLSearchParams) => T): [T, SetURLSearchParams] => {
   const router = useContext(UNSAFE_DataRouterContext)?.router;
   const { navigator, basename } = useContext(UNSAFE_NavigationContext);

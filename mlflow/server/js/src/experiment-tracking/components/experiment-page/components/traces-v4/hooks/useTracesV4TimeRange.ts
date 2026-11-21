@@ -50,8 +50,6 @@ export const useTracesV4TimeRange = (experimentId: string): UseTracesV4TimeRange
   const { dateNow } = useMonitoringConfig();
   const persistenceEnabled = shouldEnableTracesTableStatePersistence();
 
-  // OSS's `useSearchParams` is the raw react-router hook (no read-selector overload), so read each
-  // param off the `searchParams` object directly.
   const [searchParams, setSearchParams] = useTracesV4SearchParams();
   const urlLabelRaw = searchParams.get(START_TIME_LABEL_PARAM);
   const urlStartTime = searchParams.get(START_TIME_PARAM) ?? undefined;
