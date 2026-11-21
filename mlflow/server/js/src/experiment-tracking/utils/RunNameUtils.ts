@@ -31,7 +31,7 @@ export const generateRandomRunName = (separator = '-', integerScale = 3, maxLeng
 };
 
 export const getDuplicatedRunName = (originalRunName = '', alreadyExistingRunNames: string[] = []) => {
-  // Check if the the run name being copied is already suffixed with number
+  // Check if the run name being copied is already suffixed with number
   const match = originalRunName.match(/\s\((\d+)\)$/);
 
   const nameSegmentWithoutIndex = match
