@@ -47,8 +47,9 @@ def _parse_tools(tools) -> list[dict[str, Any]]:
             if data := tool.model_dumps(exclude_none=True):
                 result.append({"type": "function", "function": data})
         except Exception:
-            # Fallback to string representation
-            result.append({"name": str(tool)})
+            # Fallback to string representation. Callables are sanitized first because the repr
+            # of a bound method embeds its object, which can hold credentials.
+            result.append({"name": str(strip_credentials(tool))})
     return result
 
 
@@ -63,11 +64,11 @@ def _get_agent_attributes(instance) -> dict[str, Any]:
 
 
 def _get_tools_attribute(instance) -> dict[str, Any]:
-    return {
+    return strip_credentials({
         key: val
         for key, val in vars(instance.function).items()
         if not key.startswith("_") and val is not None
-    }
+    })
 
 
 def _set_span_inputs_attributes(span: LiveSpan, instance: Any, raw_inputs: dict[str, Any]) -> None:

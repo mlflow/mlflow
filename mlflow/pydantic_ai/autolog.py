@@ -10,6 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.pydantic_ai.utils import parse_usage as _parse_usage
 from mlflow.pydantic_ai.utils import serialize_output as _serialize_output
+from mlflow.pydantic_ai.utils import strip_credentials_from_inputs
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
 from mlflow.tracing.utils.redaction import strip_credentials
@@ -217,7 +218,7 @@ def _model_request_inputs(request_context) -> dict[str, Any]:
         "model_settings": getattr(request_context, "model_settings", None),
         "model_request_parameters": getattr(request_context, "model_request_parameters", None),
     }
-    return strip_credentials({k: v for k, v in inputs.items() if v is not None})
+    return strip_credentials_from_inputs({k: v for k, v in inputs.items() if v is not None})
 
 
 def patched_class_call(original, self, *args, **kwargs):
@@ -455,7 +456,7 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
         }
     except (ValueError, TypeError):
         inputs = kwargs
-    return strip_credentials(inputs)
+    return strip_credentials_from_inputs(inputs)
 
 
 def _get_agent_attributes(instance):

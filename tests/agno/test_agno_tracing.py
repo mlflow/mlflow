@@ -119,6 +119,37 @@ def test_run_does_not_record_model_api_key():
         assert "test-api-key" not in json.dumps(span.to_dict())
 
 
+class _SearchClient:
+    def __init__(self, api_key):
+        self.api_key = api_key
+
+    def __repr__(self):
+        return f"_SearchClient(api_key={self.api_key!r})"
+
+    def search(self, query: str) -> str:
+        return query
+
+
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
+def test_bound_method_tools_do_not_record_client_api_key():
+    mlflow.agno.autolog()
+    client = _SearchClient(api_key="test-api-key")
+    agent = Agent(model=Claude(id="claude-sonnet-4-20250514"), tools=[client.search])
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = _create_message("Paris")
+    with patch.object(Claude, "get_client", return_value=mock_client):
+        agent.run("Capital of France?")
+    fc = FunctionCall(function=Function.from_callable(client.search), arguments={"query": "q"})
+    fc.execute()
+
+    traces = get_traces()
+    assert len(traces) == 2
+    for t in traces:
+        for span in t.data.spans:
+            assert "test-api-key" not in json.dumps(span.to_dict())
+
+
 @pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 def test_run_failure_tracing(simple_agent):
     mlflow.agno.autolog()

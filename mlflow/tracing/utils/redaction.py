@@ -21,14 +21,18 @@ _CALLABLE_TYPES = (
 )
 
 # Matches credential-like keys such as `api_key`, `_api_key`, `x-api-key`, `client_secret`,
-# `Authorization`, `auth_token`, or `accessToken`. Credential keys end with `token`, so
-# `max_tokens`, `tokenizer`, and `token_usage` (legitimate LLM configuration and usage fields)
-# are kept.
+# `private_key`, `Authorization`, `Cookie`, `Set-Cookie`, `auth_token`, or `accessToken`.
+# Credential keys end with `token`, so `max_tokens`, `tokenizer`, and `token_usage` (legitimate
+# LLM configuration and usage fields) are kept.
 SENSITIVE_KEY_PATTERN = re.compile(
-    r"(?i:api[-_]?key|secret|password|authorization|credential)"  # anywhere in the key
+    r"(?i:api[-_]?key|private[-_]?key|secret|password|authorization|credential)"  # anywhere
+    r"|(?<![A-Za-z])(?i:cookies?)$"  # HTTP `Cookie` / `Set-Cookie` headers
     r"|(?<![A-Za-z])(?i:token)$"  # snake_case / standalone `token`
     r"|(?<=[a-z])Token$"  # camelCase `accessToken`
 )
+
+# JSON schema keywords that hold example or default values rather than describe a field.
+_SCHEMA_VALUE_KEYWORDS = frozenset({"default", "const", "enum", "examples", "example"})
 
 
 def strip_credentials(value: Any) -> Any:
@@ -62,8 +66,15 @@ def _strip_credentials(value: Any, ancestors: set[int]) -> Any:
     ancestors.add(id(value))
     try:
         if isinstance(value, Mapping):
+            is_object_schema = value.get("type") == "object" and isinstance(
+                value.get("properties"), Mapping
+            )
             return {
-                k: _strip_credentials(v, ancestors)
+                k: (
+                    _strip_schema_properties(v, ancestors)
+                    if is_object_schema and k == "properties"
+                    else _strip_credentials(v, ancestors)
+                )
                 for k, v in value.items()
                 if not (isinstance(k, str) and SENSITIVE_KEY_PATTERN.search(k))
             }
@@ -83,3 +94,19 @@ def _strip_credentials(value: Any, ancestors: set[int]) -> Any:
         return value
     finally:
         ancestors.discard(id(value))
+
+
+def _strip_schema_properties(properties: Mapping[Any, Any], ancestors: set[int]) -> dict[Any, Any]:
+    # Property names in a JSON schema (e.g. a tool's parameters) name fields rather than hold
+    # values, so they are kept to stay consistent with `required`. Value-bearing keywords on a
+    # credential-like property are dropped instead.
+    result = {}
+    for name, schema in properties.items():
+        if (
+            isinstance(name, str)
+            and SENSITIVE_KEY_PATTERN.search(name)
+            and isinstance(schema, Mapping)
+        ):
+            schema = {k: v for k, v in schema.items() if k not in _SCHEMA_VALUE_KEYWORDS}
+        result[name] = _strip_credentials(schema, ancestors)
+    return result

@@ -35,6 +35,10 @@ def test_strip_credentials_drops_credential_keys_but_keeps_config():
         "Authorization": "Bearer secret",
         "accessToken": "secret",
         "client_secret": "secret",
+        "private_key": "secret",
+        "privateKey": "secret",
+        "Cookie": "session=secret",
+        "Set-Cookie": "session=secret",
         "max_tokens": 10,
         "tokenizer": "gpt2",
         "token_usage": {"input_tokens": 1},
@@ -131,3 +135,29 @@ def test_strip_credentials_fails_closed(value, expected):
     ) as mock_strip:
         assert strip_credentials(value) == expected
     mock_strip.assert_called_once()
+
+
+def test_strip_credentials_keeps_json_schema_property_names():
+    value = {
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "api_key": {"type": "string", "default": "secret", "examples": ["secret"]},
+                "query": {"type": "string", "default": "cats"},
+            },
+            "required": ["api_key", "query"],
+        },
+        "properties": {"api_key": "secret"},
+    }
+
+    assert strip_credentials(value) == {
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "api_key": {"type": "string"},
+                "query": {"type": "string", "default": "cats"},
+            },
+            "required": ["api_key", "query"],
+        },
+        "properties": {},
+    }

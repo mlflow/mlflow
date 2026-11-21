@@ -451,6 +451,25 @@ def test_construct_full_inputs_drops_credentials():
     assert inputs == {"user_prompt": "hi", "model": {"model_name": "m"}}
 
 
+def test_construct_full_inputs_keeps_tool_call_arguments():
+    def call_tool(self, name, tool_args, run_context=None):
+        pass
+
+    inputs = _construct_full_inputs(
+        call_tool,
+        object(),
+        "list_files",
+        {"pageToken": "next"},
+        run_context={"model": {"api_key": "test-api-key"}},
+    )
+
+    assert inputs == {
+        "name": "list_files",
+        "tool_args": {"pageToken": "next"},
+        "run_context": {"model": {}},
+    }
+
+
 def test_get_model_attributes_drops_credentials():
     class Model:
         model_name = "gpt-4"

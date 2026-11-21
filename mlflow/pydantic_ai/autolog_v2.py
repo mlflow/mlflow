@@ -13,10 +13,10 @@ from mlflow.pydantic_ai.utils import (
     model_request_inputs,
     parse_usage,
     serialize_output,
+    strip_credentials_from_inputs,
 )
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
-from mlflow.tracing.utils.redaction import strip_credentials
 from mlflow.utils import autologging_utils
 from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
@@ -55,7 +55,7 @@ def _construct_inputs(func, *args, **kwargs) -> dict[str, Any]:
         }
     except (TypeError, ValueError):
         inputs = kwargs
-    return strip_credentials(inputs)
+    return strip_credentials_from_inputs(inputs)
 
 
 def _set_agent_attributes(span: LiveSpan, agent) -> None:

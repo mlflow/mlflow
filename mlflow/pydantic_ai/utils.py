@@ -8,6 +8,17 @@ from mlflow.tracing.utils.redaction import strip_credentials
 _logger = logging.getLogger(__name__)
 _SAFE_PRIMITIVE_TYPES = (str, int, float, bool)
 
+# Inputs holding conversation content (prompts, messages, and tool calls). They are recorded
+# verbatim because key-based redaction would drop legitimate tool arguments such as `pageToken`.
+_CONTENT_INPUT_KEYS = frozenset({
+    "user_prompt",
+    "messages",
+    "message_history",
+    "message",
+    "call",
+    "tool_args",
+})
+
 
 def is_safe_for_serialization(value: Any) -> bool:
     if value is None:
@@ -39,6 +50,20 @@ def extract_safe_attributes(instance: Any) -> dict[str, Any]:
     return strip_credentials(attributes)
 
 
+def strip_credentials_from_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
+    """
+    Drop credential-like keys from span inputs, leaving conversation content intact.
+    """
+    sanitized = strip_credentials({
+        key: value for key, value in inputs.items() if key not in _CONTENT_INPUT_KEYS
+    })
+    return {
+        key: value if key in _CONTENT_INPUT_KEYS else sanitized[key]
+        for key, value in inputs.items()
+        if key in _CONTENT_INPUT_KEYS or key in sanitized
+    }
+
+
 def model_request_inputs(request_context) -> dict[str, Any]:
     if request_context is None:
         return {}
@@ -47,7 +72,9 @@ def model_request_inputs(request_context) -> dict[str, Any]:
         "model_settings": getattr(request_context, "model_settings", None),
         "model_request_parameters": getattr(request_context, "model_request_parameters", None),
     }
-    return strip_credentials({key: value for key, value in inputs.items() if value is not None})
+    return strip_credentials_from_inputs({
+        key: value for key, value in inputs.items() if value is not None
+    })
 
 
 def serialize_output(result: Any) -> Any:
