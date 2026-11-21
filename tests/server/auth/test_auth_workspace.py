@@ -33,21 +33,29 @@ from mlflow.server.auth.requirements import ACTION_NOT_DENIED, Requirement
 from mlflow.server.auth.routes import (
     ADD_ROLE_PERMISSION,
     AJAX_ADD_ROLE_PERMISSION,
+    AJAX_ASSIGN_ROLE,
     AJAX_CREATE_ROLE,
     AJAX_REMOVE_ROLE_PERMISSION,
+    AJAX_UNASSIGN_ROLE,
+    AJAX_UPDATE_ROLE,
     AJAX_UPDATE_ROLE_PERMISSION,
+    ASSIGN_ROLE,
     CREATE_PROMPTLAB_RUN,
     CREATE_ROLE,
+    DELETE_ROLE,
     GET_ARTIFACT,
     GET_METRIC_HISTORY_BULK,
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
+    GET_ROLE,
     GET_TRACE_ARTIFACT,
     GET_TRACE_ARTIFACT_V3,
     INVOKE_GENAI_EVALUATE,
     INVOKE_ISSUE_DETECTION,
     REMOVE_ROLE_PERMISSION,
     SEARCH_DATASETS,
+    UNASSIGN_ROLE,
+    UPDATE_ROLE,
     UPDATE_ROLE_PERMISSION,
     UPLOAD_ARTIFACT,
 )
@@ -6095,6 +6103,121 @@ def test_validate_can_manage_roles_denies_role_permission_id_from_other_workspac
     }
     with auth_module.app.test_request_context(path, method="POST", json=body):
         assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize(
+    ("path", "method", "body"),
+    [
+        (ASSIGN_ROLE, "POST", {"username": "ws_admin_foo", "roleId": "bar", "workspace": "foo"}),
+        (
+            AJAX_ASSIGN_ROLE,
+            "POST",
+            {"username": "ws_admin_foo", "roleId": "bar", "workspace": "foo"},
+        ),
+        (
+            UNASSIGN_ROLE,
+            "DELETE",
+            {"username": "ws_admin_bar", "roleId": "bar", "workspace": "foo"},
+        ),
+        (
+            AJAX_UNASSIGN_ROLE,
+            "DELETE",
+            {"username": "ws_admin_bar", "roleId": "bar", "workspace": "foo"},
+        ),
+        (UPDATE_ROLE, "PATCH", {"roleId": "bar", "workspace": "foo", "name": "renamed"}),
+        (AJAX_UPDATE_ROLE, "PATCH", {"roleId": "bar", "workspace": "foo", "name": "renamed"}),
+        (DELETE_ROLE, "DELETE", {"roleId": "bar", "workspace": "foo"}),
+        (
+            ADD_ROLE_PERMISSION,
+            "POST",
+            {
+                "roleId": "bar",
+                "role_permission_id": "foo",
+                "resource_type": "experiment",
+                "resource_pattern": "*",
+                "permission": MANAGE.name,
+            },
+        ),
+        (
+            UPDATE_ROLE_PERMISSION,
+            "PATCH",
+            {"rolePermissionId": "bar", "workspace": "foo", "permission": MANAGE.name},
+        ),
+        (
+            AJAX_REMOVE_ROLE_PERMISSION,
+            "DELETE",
+            {"rolePermissionId": "bar", "role_id": "foo"},
+        ),
+        (UPDATE_ROLE, "PATCH", {"role_id": "foo", "roleId": "bar", "name": "renamed"}),
+    ],
+)
+def test_validate_can_manage_roles_denies_camel_case_id_from_other_workspace(
+    role_auth_setup, path, method, body
+):
+    # Handlers fall back to the camelCase alias of a missing snake_case ID, so a foo
+    # admin must not authorize against foo while the handler acts on a bar ID.
+    ids = {
+        "roleId": "role_{}_id",
+        "role_id": "role_{}_id",
+        "rolePermissionId": "role_permission_{}_id",
+        "role_permission_id": "role_permission_{}_id",
+    }
+    body = {k: role_auth_setup[ids[k].format(v)] if k in ids else v for k, v in body.items()}
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+def test_validate_can_view_roles_ignores_camel_case_id_on_get(role_auth_setup):
+    # GET handlers read only snake_case query keys, so a camelCase ID must not
+    # affect authorization.
+    query = {"role_id": role_auth_setup["role_foo_id"], "roleId": role_auth_setup["role_bar_id"]}
+    role_auth_setup["login_as"]("ws_member_foo")
+    with auth_module.app.test_request_context(GET_ROLE, method="GET", query_string=query):
+        assert auth_module.validate_can_view_roles() is True
+
+
+@pytest.mark.parametrize(
+    ("path", "method", "key", "fixture_key"),
+    [
+        (UPDATE_ROLE, "PATCH", "roleId", "role_foo_id"),
+        (UPDATE_ROLE_PERMISSION, "PATCH", "rolePermissionId", "role_permission_foo_id"),
+    ],
+)
+def test_validate_can_manage_roles_resolves_camel_case_id(
+    role_auth_setup, path, method, key, fixture_key
+):
+    body = {key: role_auth_setup[fixture_key], "name": "renamed", "permission": MANAGE.name}
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        assert auth_module.validate_can_manage_roles() is True
+    role_auth_setup["login_as"]("ws_admin_bar")
+    with auth_module.app.test_request_context(path, method=method, json=body):
+        assert auth_module.validate_can_manage_roles() is False
+
+
+@pytest.mark.parametrize("same_permission_id", [True, False])
+def test_validate_can_manage_roles_with_both_role_permission_id_aliases(
+    role_auth_setup, same_permission_id
+):
+    # Distinct permission IDs on the same role must still be denied: the handler may act
+    # on either spelling, so the caller must not pick which one gets authorized.
+    role_permission_id = role_auth_setup["role_permission_foo_id"]
+    camel_case_id = role_permission_id
+    if not same_permission_id:
+        camel_case_id = (
+            role_auth_setup["store"]
+            .add_role_permission(role_auth_setup["role_foo_id"], "experiment", "123", MANAGE.name)
+            .id
+        )
+    body = {
+        "role_permission_id": role_permission_id,
+        "rolePermissionId": camel_case_id,
+        "permission": MANAGE.name,
+    }
+    role_auth_setup["login_as"]("ws_admin_foo")
+    with auth_module.app.test_request_context(UPDATE_ROLE_PERMISSION, method="PATCH", json=body):
+        assert auth_module.validate_can_manage_roles() is same_permission_id
 
 
 @pytest.mark.parametrize("path", [CREATE_ROLE, AJAX_CREATE_ROLE])
