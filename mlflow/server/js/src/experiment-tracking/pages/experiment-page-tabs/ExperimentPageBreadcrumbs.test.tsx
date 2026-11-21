@@ -1,4 +1,4 @@
-import { describe, expect, jest, test } from '@jest/globals';
+import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -12,11 +12,12 @@ import {
   useSetExperimentBreadcrumbPairwiseReviewAction,
   useSetExperimentBreadcrumbTitle,
 } from './ExperimentPageRevampContext';
-import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentSettingsPage, shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableNewEvalRunsUi: jest.fn(() => false),
+  shouldEnableExperimentSettingsPage: jest.fn(() => false),
 }));
 
 const experiment: ExperimentEntity = {
@@ -70,6 +71,10 @@ const ReviewActionHarness = ({ action }: { action?: () => void }) => {
 };
 
 describe('ExperimentPageBreadcrumbs', () => {
+  afterEach(() => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
+  });
+
   const { history } = setupTestRouter();
 
   const renderAt = (entry: string, routePath: string, title?: string, routeAware = false, status?: string) =>
@@ -308,5 +313,13 @@ describe('ExperimentPageBreadcrumbs', () => {
     renderWithReviewAction(COMPARE_ENTRY, jest.fn());
     await screen.findByRole('navigation', { name: 'Breadcrumb' });
     expect(screen.queryByRole('button', { name: 'Review' })).not.toBeInTheDocument();
+  });
+
+  test('shows a Settings breadcrumb on the experiment Settings page', async () => {
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+    renderAt('/experiments/123/settings', '/experiments/:experimentId/settings');
+
+    const breadcrumb = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(breadcrumb).getByText('Settings')).toHaveAttribute('aria-current', 'page');
   });
 });

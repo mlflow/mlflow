@@ -1304,6 +1304,19 @@ module.exports = {
   "mlflow.experiment_runs.page_size": "",
   "mlflow.experiment_runs.page_size_help": "",
 
+  // -- mlflow.experiment_settings --
+  "mlflow.experiment_settings.copy_artifact_location": "",
+  "mlflow.experiment_settings.copy_experiment_id": "",
+  "mlflow.experiment_settings.delete": "",
+  "mlflow.experiment_settings.delete.tooltip": "",
+  "mlflow.experiment_settings.load_error": "",
+  "mlflow.experiment_settings.name": "",
+  "mlflow.experiment_settings.name_retry": "",
+  "mlflow.experiment_settings.permissions": "",
+  "mlflow.experiment_settings.permissions.tooltip": "",
+  "mlflow.experiment_settings.tags.edit": "",
+  "mlflow.experiment_settings.tags.edit_tooltip": "",
+
   // -- mlflow.experiment_side_nav --
   "mlflow.experiment_side_nav.assistant_beta_tag": "",
   "mlflow.experiment_side_nav.assistant_button": "",

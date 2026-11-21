@@ -17,6 +17,13 @@ interface Params {
   onSubmit: (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]) => Promise<any>;
   onSuccess?: () => void;
   onClose?: () => void;
+  /** Disables Save until the form is valid and differs from `initialTags`. */
+  disableSaveWithoutValidChanges?: boolean;
+  /**
+   * Catches a rejected `onSubmit` so it isn't reported as an unhandled rejection. The modal stays
+   * open on a rejection either way; callers show the failure through `error`.
+   */
+  catchSubmitError?: boolean;
 }
 
 const keyProperty = 'key' as const;
@@ -35,6 +42,8 @@ export const useTagAssignmentModal = ({
   onSubmit,
   onSuccess,
   onClose,
+  disableSaveWithoutValidChanges = false,
+  catchSubmitError = false,
 }: Params) => {
   const baseComponentId = `${componentIdPrefix}.tag-assignment-modal`;
 
@@ -54,8 +63,8 @@ export const useTagAssignmentModal = ({
     onClose?.();
   };
 
-  const handleSubmit = (data: FieldValues) => {
-    const tags: KeyValueEntity[] = data[formName].filter((tag: FieldValues) => Boolean(tag[keyProperty]));
+  const getTagChanges = (formTags: FieldValues[]) => {
+    const tags = formTags.filter((tag) => Boolean(tag[keyProperty])) as KeyValueEntity[];
 
     // Find tags that are new (not in initialTags at all based on key) or updated (key exists but value changed)
     const newTags =
@@ -67,10 +76,24 @@ export const useTagAssignmentModal = ({
     // Find tags that were deleted (in initialTags but not in current tags based on key)
     const deletedTags = initialTags?.filter((tag) => !tags.some((t) => t[keyProperty] === tag[keyProperty])) ?? [];
 
-    onSubmit(newTags, deletedTags).then(() => {
-      hideTagAssignmentModal();
-      onSuccess?.();
-    });
+    return { newTags, deletedTags };
+  };
+
+  const hasValidChanges = () => {
+    const { newTags, deletedTags } = getTagChanges(form.watch(formName) ?? []);
+    return form.formState.isValid && (newTags.length > 0 || deletedTags.length > 0);
+  };
+
+  const handleSubmit = (data: FieldValues) => {
+    const { newTags, deletedTags } = getTagChanges(data[formName]);
+
+    onSubmit(newTags, deletedTags).then(
+      () => {
+        hideTagAssignmentModal();
+        onSuccess?.();
+      },
+      catchSubmitError ? () => undefined : undefined,
+    );
   };
 
   const defaultTitleNode = (
@@ -98,7 +121,7 @@ export const useTagAssignmentModal = ({
             type="primary"
             onClick={form.handleSubmit(handleSubmit)}
             loading={isLoading}
-            disabled={isLoading}
+            disabled={isLoading || (disableSaveWithoutValidChanges && !hasValidChanges())}
           >
             <FormattedMessage defaultMessage="Save" description="Tag assignment modal > Save button" />
           </Button>

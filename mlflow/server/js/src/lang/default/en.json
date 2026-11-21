@@ -59,6 +59,10 @@
     "defaultMessage": "Show span tree",
     "description": "Accessible label for showing the span tree in the trace explorer"
   },
+  "+7iDNC": {
+    "defaultMessage": "Unable to save the experiment name: {reason}",
+    "description": "Inline error shown when an experiment rename fails, with the server's reason"
+  },
   "+7qu4I": {
     "defaultMessage": "Version {version}",
     "description": "Skill version list item label"
@@ -454,6 +458,10 @@
   "/TolHF": {
     "defaultMessage": "Please input a name for the new workspace.",
     "description": "Error message for name requirement in create workspace modal"
+  },
+  "/Tty+k": {
+    "defaultMessage": "Manage permissions",
+    "description": "Button that opens the admin page where experiment permissions are managed"
   },
   "/UWNW9": {
     "defaultMessage": "Query endpoint",
@@ -2199,6 +2207,10 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
+  "5HA2td": {
+    "defaultMessage": "Actions",
+    "description": "Heading for other experiment actions"
+  },
   "5JJwul": {
     "defaultMessage": "This file can't be previewed as text. Pull the skill to read it.",
     "description": "Skill file preview message for a binary file"
@@ -2262,6 +2274,10 @@
   "5SDHB3": {
     "defaultMessage": "Status:",
     "description": "Skill version stored status label"
+  },
+  "5SZJcB": {
+    "defaultMessage": "Retry",
+    "description": "Link-styled button to retry an experiment rename"
   },
   "5Sk9A1": {
     "defaultMessage": "Input cost",
@@ -2422,6 +2438,10 @@
   "5yjgeu": {
     "defaultMessage": "This key will be saved for reuse.",
     "description": "Text indicating API key will be saved for reuse"
+  },
+  "6+BpJY": {
+    "defaultMessage": "The unique identifier used by MLflow APIs.",
+    "description": "Description for the experiment ID setting"
   },
   "60b0vW": {
     "defaultMessage": "Always show spans with exceptions, regardless of filter conditions",
@@ -2982,6 +3002,10 @@
   "7ZHG+d": {
     "defaultMessage": "Identical:",
     "description": "MCP compare identical sections heading"
+  },
+  "7ZJrV5": {
+    "defaultMessage": "You do not have permission to edit tags on this experiment.",
+    "description": "Tooltip shown when the user cannot edit experiment tags in Settings"
   },
   "7ZcrHA": {
     "defaultMessage": "Source",
@@ -4571,6 +4595,10 @@
     "defaultMessage": "Local packages",
     "description": "MCP compare packages heading"
   },
+  "CKH7uA": {
+    "defaultMessage": "Unable to save the experiment name.",
+    "description": "Inline error shown when an experiment rename fails"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
@@ -4694,6 +4722,10 @@
   "CfP6QX": {
     "defaultMessage": "Add filter",
     "description": "Button to add a filter row in the eval-runs filter"
+  },
+  "Ch35p5": {
+    "defaultMessage": "Delete experiment",
+    "description": "Label for deleting the experiment"
   },
   "Chht41": {
     "defaultMessage": "Select at least 2 runs to compare",
@@ -5138,6 +5170,10 @@
   "ELI1bm": {
     "defaultMessage": "{reviewed} of {total} reviewed ({percentage}%)",
     "description": "Review focused view: queue progress summary"
+  },
+  "ELl1bW": {
+    "defaultMessage": "Deletes this experiment. Deleted experiments can be restored.",
+    "description": "Description for deleting the experiment in OSS MLflow, where deletion is a soft delete"
   },
   "EN0lUA": {
     "defaultMessage": "Columns",
@@ -6615,6 +6651,10 @@
     "defaultMessage": "Filters{numFilters}",
     "description": "Evaluation review > evaluations list > filter dropdown button"
   },
+  "JA+Gce": {
+    "defaultMessage": "The location where run artifacts are stored.",
+    "description": "Description for the experiment artifact location setting"
+  },
   "JBZ+Q+": {
     "defaultMessage": "Delete saved view",
     "description": "Title of the confirmation dialog for deleting a saved experiment view"
@@ -6622,6 +6662,10 @@
   "JBt+0g": {
     "defaultMessage": "Aliases:",
     "description": "MCP server version detail aliases label"
+  },
+  "JCIDap": {
+    "defaultMessage": "Experiment name",
+    "description": "Label for the experiment name setting"
   },
   "JCboZ7": {
     "defaultMessage": "Path copied",
@@ -7338,6 +7382,10 @@
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
     "description": "A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view"
+  },
+  "LUBoMz": {
+    "defaultMessage": "Key-value labels for organizing and finding this experiment.",
+    "description": "Description for the experiment tags setting"
   },
   "LWkwgO": {
     "defaultMessage": "Added {count, plural, one {# trace} other {# traces}} to review.",
@@ -8791,6 +8839,10 @@
     "defaultMessage": "Sort by created, {direction}",
     "description": "Accessible label for sorting evaluation runs by creation date in the dataset side panel"
   },
+  "PzhlAQ": {
+    "defaultMessage": "Experiment name is required.",
+    "description": "Inline error shown when the experiment name is empty"
+  },
   "PzytKT": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
     "description": "Tooltip explaining the trace parent span filter option"
@@ -8866,6 +8918,10 @@
   "QD6iZA": {
     "defaultMessage": "No parameters match the search filter",
     "description": "Run page > Overview > Parameters table > No results after filtering"
+  },
+  "QDRs8F": {
+    "defaultMessage": "Edit tags",
+    "description": "Accessible label and tooltip for the icon button that edits experiment tags in Settings"
   },
   "QEL+JO": {
     "defaultMessage": "This assessment is the root cause of the overall evaluation failure.",
@@ -10147,6 +10203,10 @@
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
   },
+  "UN4ej5": {
+    "defaultMessage": "Tags",
+    "description": "Label for the experiment tags setting"
+  },
   "UOhcg0": {
     "defaultMessage": "{count, number} traces scored",
     "description": "Hover summary of how many traces a high-cardinality numeric scorer evaluated"
@@ -10346,6 +10406,10 @@
   "V/EeFG": {
     "defaultMessage": "Flag for review",
     "description": "Assign traces to reviewers via a review queue action"
+  },
+  "V/m6G2": {
+    "defaultMessage": "Experiment load error: {errorMessage}",
+    "description": "Error shown when experiment Settings cannot load the experiment"
   },
   "V0/5Oy": {
     "defaultMessage": "Model: {model}",
@@ -10934,6 +10998,10 @@
   "Wio9LS": {
     "defaultMessage": "New icon theme",
     "description": "Registry icon editor label for the theme of an icon being added"
+  },
+  "WkjE8U": {
+    "defaultMessage": "Copy artifact location",
+    "description": "Accessible label for the button that copies the experiment artifact location in Settings"
   },
   "WlZLz9": {
     "defaultMessage": "Expectations Guidelines",
@@ -12051,6 +12119,10 @@
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
   },
+  "aRMF7x": {
+    "defaultMessage": "Artifact location",
+    "description": "Label for the experiment artifact location setting"
+  },
   "aS7m1u": {
     "defaultMessage": "Learn more",
     "description": "Link text to learn more about evaluation datasets"
@@ -12655,6 +12727,10 @@
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
   },
+  "cKPKvb": {
+    "defaultMessage": "Delete",
+    "description": "Button to delete the experiment"
+  },
   "cLpY3q": {
     "defaultMessage": "Review questions",
     "description": "Manage review questions modal title"
@@ -12698,6 +12774,10 @@
   "cTozIb": {
     "defaultMessage": "Something went wrong",
     "description": "Generic title used when a dataset action surfaces an unexpected error"
+  },
+  "cUGWrI": {
+    "defaultMessage": "Copy experiment ID",
+    "description": "Accessible label for the button that copies the experiment ID in Settings"
   },
   "cV8FpL": {
     "defaultMessage": "Trace from session",
@@ -13078,6 +13158,10 @@
   "dl3Yfr": {
     "defaultMessage": "No results match this search.",
     "description": "No results message in datasets drawer table"
+  },
+  "dm2rkF": {
+    "defaultMessage": "Experiment ID",
+    "description": "Label for the experiment ID setting"
   },
   "dmN/nA": {
     "defaultMessage": "Name",
@@ -13707,6 +13791,10 @@
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
   },
+  "fg5iwp": {
+    "defaultMessage": "Permissions",
+    "description": "Heading for experiment permission settings"
+  },
   "fgvfcZ": {
     "defaultMessage": "Baseline: missing",
     "description": "Label for an absent baseline value in a trace comparison diff"
@@ -14022,6 +14110,10 @@
   "gVz/1j": {
     "defaultMessage": "An endpoint with this name already exists",
     "description": "Error message when endpoint name already exists"
+  },
+  "gWXkY8": {
+    "defaultMessage": "Experiment permissions",
+    "description": "Label for the experiment permissions setting"
   },
   "gXCZjg": {
     "defaultMessage": "Active",
@@ -15438,6 +15530,10 @@
   "kNTkr+": {
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
+  },
+  "kNUsZ6": {
+    "defaultMessage": "You need Manage permission on this experiment to delete it.",
+    "description": "Tooltip shown when the user cannot delete the experiment in Settings"
   },
   "kQ9rmr": {
     "defaultMessage": "Operator",
@@ -16875,6 +16971,10 @@
     "defaultMessage": "Delete",
     "description": "Skill detail action that deletes the skill"
   },
+  "p0orPz": {
+    "defaultMessage": "Settings",
+    "description": "Label for the settings page in the MLflow experiment navbar"
+  },
   "p0zgPJ": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding scorer trace"
@@ -18071,6 +18171,10 @@
     "defaultMessage": "{subMessage}, go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
   },
+  "ssPytS": {
+    "defaultMessage": "Only admins can manage permissions. Ask an admin for access.",
+    "description": "Tooltip shown when the user cannot manage experiment permissions in Settings"
+  },
   "ssbzqa": {
     "defaultMessage": "({count})",
     "description": "Count shown beside the available chat tools section title"
@@ -18286,6 +18390,14 @@
   "tcQ02J": {
     "defaultMessage": "Delete",
     "description": "Confirm button label on the delete-custom-view modal"
+  },
+  "tcp8bC": {
+    "defaultMessage": "Controls who can view and manage this experiment. Permissions are granted to users and roles by an admin.",
+    "description": "Description for the experiment permissions setting on an MLflow server with authentication"
+  },
+  "tez9iz": {
+    "defaultMessage": "About",
+    "description": "Heading for experiment metadata in Settings"
   },
   "tgR0Io": {
     "defaultMessage": "Description",
@@ -18802,6 +18914,10 @@
   "vSI23W": {
     "defaultMessage": "Provider cannot be changed. Create a new key if a different provider is needed.",
     "description": "Tooltip explaining why provider field is disabled in drawer edit"
+  },
+  "vTr1H6": {
+    "defaultMessage": "Settings",
+    "description": "Link to the experiment settings page"
   },
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",

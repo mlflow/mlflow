@@ -16,6 +16,7 @@ import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentKind, ExperimentPageTabName, MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG } from '../../constants';
 import {
   shouldEnableExperimentOverviewTab,
+  shouldEnableExperimentSettingsPage,
   shouldEnableNewEvalRunsUi,
   shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
@@ -63,7 +64,13 @@ const ExperimentPageTabsImpl = () => {
   const isFileStore = useIsFileStore();
 
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
-  const activeTab = activeTabByRoute ?? coerceToEnum(ExperimentPageTabName, tabName, ExperimentPageTabName.Models);
+  const tabNameFromParams = coerceToEnum(ExperimentPageTabName, tabName, ExperimentPageTabName.Models);
+  // Without the Settings page, `settings` is not a known tab and falls back like any other unknown tab name.
+  const activeTab =
+    activeTabByRoute ??
+    (tabNameFromParams === ExperimentPageTabName.Settings && !shouldEnableExperimentSettingsPage()
+      ? ExperimentPageTabName.Models
+      : tabNameFromParams);
 
   invariant(experimentId, 'Experiment ID must be defined');
 

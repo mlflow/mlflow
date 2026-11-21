@@ -110,4 +110,35 @@ describe('useCanManageReviews / useCanEditReviews', () => {
     expect(canManage()).toBe(false);
     expect(canEdit()).toBe(true);
   });
+
+  it('grants a workspace manager everything in the active workspace', () => {
+    // The server treats (workspace, *, MANAGE) as MANAGE on every resource in that workspace.
+    mockPermissions = {
+      is_admin: false,
+      permissions: [
+        perm({ resource_type: 'workspace', resource_pattern: '*', permission: 'MANAGE', workspace: 'ws-a' }),
+      ],
+    };
+    expect(canManage()).toBe(true);
+    expect(canEdit()).toBe(true);
+  });
+
+  it('ignores a workspace manager grant from a different workspace', () => {
+    mockPermissions = {
+      is_admin: false,
+      permissions: [
+        perm({ resource_type: 'workspace', resource_pattern: '*', permission: 'MANAGE', workspace: 'ws-other' }),
+      ],
+    };
+    expect(canManage()).toBe(false);
+    expect(canEdit()).toBe(false);
+  });
+
+  it('does not treat a lower workspace-level grant as access to experiments', () => {
+    mockPermissions = {
+      is_admin: false,
+      permissions: [perm({ resource_type: 'workspace', resource_pattern: '*', permission: 'EDIT', workspace: 'ws-a' })],
+    };
+    expect(canEdit()).toBe(false);
+  });
 });
