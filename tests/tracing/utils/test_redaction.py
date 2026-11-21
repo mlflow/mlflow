@@ -161,3 +161,53 @@ def test_strip_credentials_keeps_json_schema_property_names():
         },
         "properties": {},
     }
+
+
+def test_strip_credentials_only_treats_schema_fields_as_schemas():
+    value = {
+        "config": {"type": "object", "properties": {"api_key": "secret"}},
+        "json_schema": {
+            "properties": {"api_key": {"type": "string"}, "token": "secret"},
+            "required": ["api_key"],
+        },
+    }
+
+    assert strip_credentials(value) == {
+        "config": {"type": "object", "properties": {}},
+        "json_schema": {"properties": {"api_key": {"type": "string"}}, "required": ["api_key"]},
+    }
+
+
+def test_strip_credentials_strips_values_in_nested_sensitive_schemas():
+    value = {
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "api_key": {"anyOf": [{"const": "secret"}, {"type": "null"}], "default": "secret"},
+                "auth": {"$ref": "#/$defs/Credentials"},
+                "mode": {"oneOf": [{"const": "fast"}, {"const": "slow"}]},
+            },
+            "$defs": {
+                "Credentials": {
+                    "type": "object",
+                    "properties": {"user": {"type": "string", "examples": ["secret"]}},
+                },
+            },
+            "definitions": {"Query": {"type": "string", "default": "cats"}},
+        },
+    }
+
+    assert strip_credentials(value) == {
+        "parameters_json_schema": {
+            "type": "object",
+            "properties": {
+                "api_key": {"anyOf": [{}, {"type": "null"}]},
+                "auth": {"$ref": "#/$defs/Credentials"},
+                "mode": {"oneOf": [{"const": "fast"}, {"const": "slow"}]},
+            },
+            "$defs": {
+                "Credentials": {"type": "object", "properties": {"user": {"type": "string"}}},
+            },
+            "definitions": {"Query": {"type": "string", "default": "cats"}},
+        },
+    }

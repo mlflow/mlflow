@@ -138,8 +138,10 @@ def test_bound_method_tools_do_not_record_client_api_key():
 
     mock_client = MagicMock()
     mock_client.messages.create.return_value = _create_message("Paris")
-    with patch.object(Claude, "get_client", return_value=mock_client):
+    with patch.object(Claude, "get_client", return_value=mock_client) as mock_get_client:
         agent.run("Capital of France?")
+    mock_get_client.assert_called()
+    mock_client.messages.create.assert_called_once()
     fc = FunctionCall(function=Function.from_callable(client.search), arguments={"query": "q"})
     fc.execute()
 

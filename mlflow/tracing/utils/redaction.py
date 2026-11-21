@@ -31,8 +31,48 @@ SENSITIVE_KEY_PATTERN = re.compile(
     r"|(?<=[a-z])Token$"  # camelCase `accessToken`
 )
 
+# Keys whose value is a JSON schema, such as pydantic-ai's `ToolDefinition.parameters_json_schema`
+# and `OutputObjectDefinition.json_schema` or an MCP tool's `inputSchema`. Property and definition
+# names in a schema name fields rather than hold values, so they are kept there.
+_SCHEMA_KEYS = frozenset({
+    "parameters_json_schema",
+    "json_schema",
+    "input_schema",
+    "inputSchema",
+    "output_schema",
+    "outputSchema",
+})
+
 # JSON schema keywords that hold example or default values rather than describe a field.
 _SCHEMA_VALUE_KEYWORDS = frozenset({"default", "const", "enum", "examples", "example"})
+
+# Keywords mapping names (properties or definitions) to subschemas.
+_SCHEMA_NAMED_SUBSCHEMA_KEYWORDS = frozenset({
+    "properties",
+    "patternProperties",
+    "$defs",
+    "definitions",
+    "dependentSchemas",
+})
+
+# Keywords holding a subschema or a list of subschemas.
+_SCHEMA_SUBSCHEMA_KEYWORDS = frozenset({
+    "items",
+    "prefixItems",
+    "additionalItems",
+    "additionalProperties",
+    "unevaluatedItems",
+    "unevaluatedProperties",
+    "propertyNames",
+    "contains",
+    "not",
+    "if",
+    "then",
+    "else",
+    "anyOf",
+    "oneOf",
+    "allOf",
+})
 
 
 def strip_credentials(value: Any) -> Any:
@@ -66,17 +106,14 @@ def _strip_credentials(value: Any, ancestors: set[int]) -> Any:
     ancestors.add(id(value))
     try:
         if isinstance(value, Mapping):
-            is_object_schema = value.get("type") == "object" and isinstance(
-                value.get("properties"), Mapping
-            )
             return {
                 k: (
-                    _strip_schema_properties(v, ancestors)
-                    if is_object_schema and k == "properties"
+                    _strip_schema(v, ancestors, sensitive=False)
+                    if k in _SCHEMA_KEYS
                     else _strip_credentials(v, ancestors)
                 )
                 for k, v in value.items()
-                if not (isinstance(k, str) and SENSITIVE_KEY_PATTERN.search(k))
+                if not _is_sensitive_key(k)
             }
         if isinstance(value, (list, tuple, set)):
             sanitized = [_strip_credentials(item, ancestors) for item in value]
@@ -96,17 +133,38 @@ def _strip_credentials(value: Any, ancestors: set[int]) -> Any:
         ancestors.discard(id(value))
 
 
-def _strip_schema_properties(properties: Mapping[Any, Any], ancestors: set[int]) -> dict[Any, Any]:
-    # Property names in a JSON schema (e.g. a tool's parameters) name fields rather than hold
-    # values, so they are kept to stay consistent with `required`. Value-bearing keywords on a
-    # credential-like property are dropped instead.
-    result = {}
-    for name, schema in properties.items():
-        if (
-            isinstance(name, str)
-            and SENSITIVE_KEY_PATTERN.search(name)
-            and isinstance(schema, Mapping)
-        ):
-            schema = {k: v for k, v in schema.items() if k not in _SCHEMA_VALUE_KEYWORDS}
-        result[name] = _strip_credentials(schema, ancestors)
-    return result
+def _is_sensitive_key(key: Any) -> bool:
+    return isinstance(key, str) and bool(SENSITIVE_KEY_PATTERN.search(key))
+
+
+def _strip_schema(schema: Any, ancestors: set[int], sensitive: bool) -> Any:
+    # `sensitive` is set below a credential-like property or definition, where value-bearing
+    # keywords (e.g. a secret `default`) are dropped from every nested subschema, including
+    # `anyOf` / `oneOf` / `allOf` branches.
+    if isinstance(schema, (list, tuple)):
+        return [_strip_schema(item, ancestors, sensitive) for item in schema]
+    if not isinstance(schema, Mapping):
+        return _strip_credentials(schema, ancestors)
+
+    if id(schema) in ancestors:
+        return type(schema).__name__
+    ancestors.add(id(schema))
+    try:
+        result = {}
+        for key, value in schema.items():
+            if sensitive and key in _SCHEMA_VALUE_KEYWORDS:
+                continue
+            if key in _SCHEMA_NAMED_SUBSCHEMA_KEYWORDS and isinstance(value, Mapping):
+                result[key] = {
+                    name: _strip_schema(sub, ancestors, sensitive or _is_sensitive_key(name))
+                    for name, sub in value.items()
+                    # A subschema is a mapping or a boolean; anything else may be a secret value
+                    if isinstance(sub, (Mapping, bool)) or not _is_sensitive_key(name)
+                }
+            elif key in _SCHEMA_SUBSCHEMA_KEYWORDS:
+                result[key] = _strip_schema(value, ancestors, sensitive)
+            elif not _is_sensitive_key(key):
+                result[key] = _strip_credentials(value, ancestors)
+        return result
+    finally:
+        ancestors.discard(id(schema))

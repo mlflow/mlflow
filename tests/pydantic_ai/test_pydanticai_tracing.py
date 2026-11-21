@@ -470,6 +470,25 @@ def test_construct_full_inputs_keeps_tool_call_arguments():
     }
 
 
+def test_construct_full_inputs_keeps_mcp_call_tool_args():
+    def call_tool(self, name, args, ctx=None):
+        pass
+
+    inputs = _construct_full_inputs(
+        call_tool,
+        object(),
+        "list_files",
+        {"pageToken": "next"},
+        ctx={"model": {"api_key": "test-api-key"}},
+    )
+
+    assert inputs == {
+        "name": "list_files",
+        "ctx": {"model": {}},
+        "args": {"pageToken": "next"},
+    }
+
+
 def test_get_model_attributes_drops_credentials():
     class Model:
         model_name = "gpt-4"

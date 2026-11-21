@@ -456,6 +456,11 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
         }
     except (ValueError, TypeError):
         inputs = kwargs
+    # `MCPServer.call_tool` passes the tool arguments as `args`, which are conversation content
+    # (e.g. a `pageToken`) rather than configuration.
+    if getattr(func, "__name__", None) == "call_tool" and "args" in inputs:
+        tool_args = inputs.pop("args")
+        return {**strip_credentials_from_inputs(inputs), "args": tool_args}
     return strip_credentials_from_inputs(inputs)
 
 
