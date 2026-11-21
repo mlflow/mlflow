@@ -447,6 +447,36 @@ def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
     assert stat.S_IMODE(secret.stat().st_mode) == 0o600
 
 
+def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
+    archive = tmp_path / "hardlinks.tar"
+    with tarfile.open(archive, "w") as tar:
+        subdir = tarfile.TarInfo("subdir")
+        subdir.type = tarfile.DIRTYPE
+        subdir.mode = 0o755
+        tar.addfile(subdir)
+        for name in ["data.txt", "subdir/file.txt"]:
+            info = tarfile.TarInfo(name)
+            data = name.encode()
+            info.size = len(data)
+            tar.addfile(info, fileobj=io.BytesIO(data))
+        link = tarfile.TarInfo("subdir_link")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "subdir"
+        tar.addfile(link)
+        for name, target in [("copy.txt", "data.txt"), ("via_link.txt", "subdir_link/file.txt")]:
+            hardlink = tarfile.TarInfo(name)
+            hardlink.type = tarfile.LNKTYPE
+            hardlink.linkname = target
+            tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    extract_archive_to_dir(archive, dest)
+    assert (dest / "copy.txt").read_text() == "data.txt"
+    assert (dest / "copy.txt").samefile(dest / "data.txt")
+    assert (dest / "via_link.txt").read_text() == "subdir/file.txt"
+    assert (dest / "via_link.txt").samefile(dest / "subdir" / "file.txt")
+
+
 @pytest.fixture
 def file_utils_caplog(caplog, monkeypatch):
     # The "mlflow" logger disables propagation, so enable it for caplog to capture records
