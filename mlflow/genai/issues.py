@@ -198,7 +198,8 @@ def detect_issues(
     The run analyzes the traces in the background and files what it finds as issues, using the
     categories and instructions saved on the experiment. Poll it with
     :py:func:`get_issue_detection_run`. An experiment can have several detection runs in progress
-    at once.
+    at once. On an MLflow tracking server, runs in progress at the same time don't see the issues
+    each other files, so each can file an issue for the same finding.
 
     On an MLflow tracking server, the run needs job execution enabled
     (``MLFLOW_SERVER_ENABLE_JOB_EXECUTION=true``). On Databricks, the experiment must store its
