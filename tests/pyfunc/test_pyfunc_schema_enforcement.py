@@ -661,6 +661,110 @@ def test_schema_enforcement_named_tensor_schema_multidimensional():
     assert expected_types == actual_types
 
 
+@pytest.mark.parametrize(
+    ("data", "input_schema"),
+    [
+        # float -> int with a fractional part
+        (
+            pd.DataFrame({"a": [1.7, -2.9, 3.5]}),
+            Schema([TensorSpec(np.dtype("int64"), (-1,), "a")]),
+        ),
+        # int -> int32 out of range (wraparound)
+        (
+            pd.DataFrame({"a": [2**31, 2**40 + 7]}),
+            Schema([TensorSpec(np.dtype("int32"), (-1,), "a")]),
+        ),
+        # finite float -> float32 overflow
+        (
+            pd.DataFrame({"a": [1e300]}),
+            Schema([TensorSpec(np.dtype("float32"), (-1,), "a")]),
+        ),
+        # -> bool with values other than 0/1
+        (
+            pd.DataFrame({"a": [0, 5, -3]}),
+            Schema([TensorSpec(np.dtype("bool"), (-1,), "a")]),
+        ),
+        # list-valued column with a value out of range for int32
+        (
+            pd.DataFrame({"a": [[1, 2**31], [3, 4]]}),
+            Schema([TensorSpec(np.dtype("int32"), (-1, 2), "a")]),
+        ),
+        # ndarray-valued column with a fractional float for an int32 spec
+        (
+            pd.DataFrame({"a": [np.array([1.5, 2.5])]}),
+            Schema([TensorSpec(np.dtype("int32"), (-1, 2), "a")]),
+        ),
+    ],
+)
+def test_tensor_schema_enforcement_rejects_unsafe_casts(data, input_schema):
+    m = Model()
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    with pytest.raises(
+        MlflowException, match="Incompatible input types for a. Can not safely convert"
+    ):
+        pyfunc_model.predict(data)
+
+
+@pytest.mark.parametrize(
+    ("data", "input_schema", "expected"),
+    [
+        # float64 -> float32 precision loss is allowed
+        (
+            pd.DataFrame({"a": [0.1]}),
+            Schema([TensorSpec(np.dtype("float32"), (-1,), "a")]),
+            np.array([0.1], dtype=np.float32),
+        ),
+        # integral floats -> int are allowed
+        (
+            pd.DataFrame({"a": [1.0, 2.0]}),
+            Schema([TensorSpec(np.dtype("int32"), (-1,), "a")]),
+            np.array([1, 2], dtype=np.int32),
+        ),
+        # int -> float is allowed
+        (
+            pd.DataFrame({"a": [[1, 2]]}),
+            Schema([TensorSpec(np.dtype("float32"), (-1, 2), "a")]),
+            np.array([[1.0, 2.0]], dtype=np.float32),
+        ),
+    ],
+)
+def test_tensor_schema_enforcement_allows_safe_casts(data, input_schema, expected):
+    m = Model()
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    result = pyfunc_model.predict(data)["a"]
+    assert result.dtype == expected.dtype
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize("format_key", ["inputs", "dataframe_split", "dataframe_records"])
+def test_tensor_schema_serving_rejects_unsafe_casts(format_key):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    signature = ModelSignature(inputs=Schema([TensorSpec(np.dtype("int32"), (-1,), "a")]))
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="test_model", python_model=MyModel(), signature=signature
+        )
+
+    if format_key == "inputs":
+        payload = {"inputs": {"a": [2**31, 2**40 + 7]}}
+    elif format_key == "dataframe_split":
+        payload = {"dataframe_split": {"columns": ["a"], "data": [[2**31], [2**40 + 7]]}}
+    else:
+        payload = {"dataframe_records": [{"a": 2**31}, {"a": 2**40 + 7}]}
+
+    response = score_model_in_process(
+        model_info.model_uri,
+        data=json.dumps(payload),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response.status_code == 400, response.content
+
+
 def test_missing_value_hint_is_displayed_when_it_should():
     m = Model()
     input_schema = Schema([ColSpec("integer", "a")])
