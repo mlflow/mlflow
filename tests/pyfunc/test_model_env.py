@@ -163,3 +163,38 @@ def test_prebuilt_env_python_runs(tmp_path, monkeypatch, env_manager, bundled_py
     result = json.loads(output)
     assert result["prediction"] == 42
     assert Path(result["prefix"]) == python_path.parent.parent
+
+
+def test_archive_directory_treats_option_like_filenames_as_data(tmp_path):
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "regular.txt").write_text("regular")
+    # A filename that GNU tar would interpret as a checkpoint-action option, running the
+    # command after "exec=" (archiving runs with cwd=input_dir, so the marker would land
+    # there), if entry names were not separated from options.
+    injection = "--checkpoint-action=exec=touch marker"
+    (input_dir / injection).write_text("")
+    (input_dir / "--checkpoint=1").write_text("")
+
+    archive_path = archive_directory(input_dir, tmp_path / "archive.tar.gz")
+
+    assert not (input_dir / "marker").exists()
+    with tarfile.open(archive_path) as archive:
+        names = set(archive.getnames())
+    assert "regular.txt" in names
+    assert "--checkpoint=1" in names
+    assert injection in names
+
+
+def test_archive_directory_does_not_decode_escaped_filenames(tmp_path):
+    (tmp_path / "secret.txt").write_text("secret")
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    escaped = r"\056\056\057secret.txt"
+    (input_dir / escaped).write_text("artifact")
+
+    archive_path = archive_directory(input_dir, tmp_path / "archive.tar.gz")
+
+    with tarfile.open(archive_path) as archive:
+        assert archive.getnames() == [escaped]
+        assert archive.extractfile(escaped).read() == b"artifact"

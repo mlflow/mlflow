@@ -16,6 +16,7 @@ import pytest
 import requests
 from cachetools import TTLCache
 from cryptography.fernet import Fernet
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 import mlflow
 from mlflow import MlflowClient
@@ -27,6 +28,7 @@ from mlflow.environment_variables import (
     MLFLOW_AUTH_ADMIN_PASSWORD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
     MLFLOW_WORKSPACE_STORE_URI,
@@ -74,6 +76,7 @@ from mlflow.tracking.request_auth.assistant_delegation_request_auth_provider imp
     ASSISTANT_DELEGATION_HEADER,
 )
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -2658,6 +2661,34 @@ def test_create_user_ui(client):
         assert "Successfully signed up user" in response.text
 
 
+def test_create_user_ui_as_workspace_admin(client):
+    # Workspace admins may create users, so the sign-up form has to work end to end for them
+    # too, not just open; a user without that grant is turned away before the form is read.
+    ws_admin, ws_admin_password = create_user(client.tracking_uri)
+    grant_role_permission(client.tracking_uri, ws_admin, "workspace", "*", "MANAGE")
+    with requests.Session() as session:
+        page = session.get(client.tracking_uri + "/signup", auth=(ws_admin, ws_admin_password))
+        match = re.search(r"name=\"csrf_token\" value=\"([\S]+)\"", page.text)
+        assert match is not None
+
+        response = session.post(
+            client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+            data={"username": random_str(), "password": random_str(), "csrf_token": match.group(1)},
+            auth=(ws_admin, ws_admin_password),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        assert "Successfully signed up user" in response.text
+
+    member, member_password = create_user(client.tracking_uri)
+    response = requests.post(
+        client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
+        data={"username": random_str(), "password": random_str()},
+        auth=(member, member_password),
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    assert response.status_code == 403
+
+
 def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -3173,6 +3204,48 @@ def test_graphql_get_experiment_authorization(client, monkeypatch):
     data = response.json()
     # With authorization denied, the result should be null
     assert data.get("data", {}).get("mlflowGetExperiment") is None
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.name: "yes",
+        }
+    ],
+    indirect=True,
+)
+def test_graphql_fails_closed_on_invalid_graphql_auth_flag(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_invalid_flag_exp")
+
+    query = """
+    query($expId: String!) {
+        mlflowGetExperiment(input: {experimentId: $expId}) {
+            experiment {
+                name
+            }
+        }
+    }
+    """
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": experiment_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 500
+    assert "graphql_invalid_flag_exp" not in response.text
+
+
+def test_get_graphql_authorization_middleware_skips_flag_when_auth_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.name, "yes")
+    monkeypatch.setattr(auth_module, "_auth_initialized", False)
+    assert auth_module.get_graphql_authorization_middleware() == []
 
 
 @pytest.mark.parametrize(
@@ -5861,6 +5934,41 @@ def test_otel_trace_ingestion_carries_the_trace_veto(fastapi_client, monkeypatch
         auth=(user2, password2),
     )
     assert response.status_code == 403
+
+
+def test_otel_run_link_requires_update_on_run(fastapi_client, monkeypatch):
+    owner, owner_password = create_user(fastapi_client.tracking_uri)
+    writer, writer_password = create_user(fastapi_client.tracking_uri)
+    with User(owner, owner_password, monkeypatch):
+        run_experiment_id = fastapi_client.create_experiment("otel_run_link_target")
+        run_id = fastapi_client.create_run(run_experiment_id).info.run_id
+    with User(writer, writer_password, monkeypatch):
+        trace_experiment_id = fastapi_client.create_experiment("otel_run_link_source")
+
+    request = ExportTraceServiceRequest()
+    span = request.resource_spans.add().scope_spans.add().spans.add()
+    span.trace_id = b"\x01" * 16
+    span.span_id = b"\x02" * 8
+    span.name = "root"
+
+    def post_spans():
+        return requests.post(
+            url=fastapi_client.tracking_uri + "/v1/traces",
+            headers={
+                "Content-Type": "application/x-protobuf",
+                "X-Mlflow-Experiment-Id": trace_experiment_id,
+                "X-Mlflow-Run-Id": run_id,
+            },
+            data=request.SerializeToString(),
+            auth=(writer, writer_password),
+        )
+
+    assert post_spans().status_code == 403
+
+    grant_role_permission(
+        fastapi_client.tracking_uri, writer, "experiment", run_experiment_id, EDIT.name
+    )
+    assert post_spans().status_code == 200
 
 
 def test_job_api_unauthenticated_access_denied(fastapi_client, monkeypatch):
@@ -9218,6 +9326,31 @@ def test_invoke_endpoints_require_experiment_update_permission(client):
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
+def test_issue_detection_schedule_state_requires_experiment_update(client):
+    # The route writes the schedule state onto the experiment as tags.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    other, other_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "schedule-state-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    url = f"{base}/ajax-api/3.0/mlflow/issues/schedule/state"
+
+    resp = requests.post(url, json={"experiment_id": exp_id}, auth=(other, other_pw))
+    assert resp.status_code == 403
+
+    resp = requests.post(url, json={"experiment_id": exp_id}, auth=(owner, owner_pw))
+    assert resp.status_code == 200
+    assert resp.json() == {"next_fire_time_ms": None}
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_issue_detection_invoke_requires_use_permission_on_secret(client):
     # issues/invoke decrypts the referenced gateway secret into the job environment, so
     # UPDATE on the caller's own experiment must not be enough to consume someone else's
@@ -9285,6 +9418,116 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
         url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
     )
     assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_issue_detection_schedule_requires_use_permission_on_secret(client):
+    # The schedule tag names a gateway secret the dispatcher decrypts later, so writing it must
+    # require USE on that secret (same class as GHSA-2m86-c5q7-rxgr).
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    attacker, attacker_pw = create_user(base)
+
+    resp = requests.post(
+        f"{base}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "owner-openai-key",
+            "secret_value": {"api_key": "sk-owner"},
+            "provider": "openai",
+        },
+        auth=(owner, owner_pw),
+    )
+    resp.raise_for_status()
+    secret_id = resp.json()["secret"]["secret_id"]
+
+    def create_experiment(name, auth, tags=None):
+        return requests.post(
+            f"{base}/api/2.0/mlflow/experiments/create",
+            json={"name": name} | ({"tags": tags} if tags else {}),
+            auth=auth,
+        )
+
+    def schedule(model, **overrides):
+        return json.dumps(
+            {"version": 1, "cadence": "daily", "timezone": "UTC", "paused": False, "model": model}
+            | overrides
+        )
+
+    def set_tag(value, auth, experiment_id, key=MLFLOW_ISSUE_DETECTION_SCHEDULE):
+        return requests.post(
+            f"{base}/api/2.0/mlflow/experiments/set-experiment-tag",
+            json={"experiment_id": experiment_id, "key": key, "value": value},
+            auth=auth,
+        )
+
+    def stored_tags(experiment_id, auth):
+        resp = requests.get(
+            f"{base}/api/2.0/mlflow/experiments/get",
+            params={"experiment_id": experiment_id},
+            auth=auth,
+        )
+        resp.raise_for_status()
+        return {tag["key"]: tag["value"] for tag in resp.json()["experiment"].get("tags", [])}
+
+    attacker_auth = (attacker, attacker_pw)
+    attacker_exp_id = create_experiment("attacker-exp", attacker_auth).json()["experiment_id"]
+    direct = {"provider": "openai", "model": "gpt-4o"}
+    with_owner_secret = schedule(direct | {"secretId": secret_id})
+
+    # UPDATE on the experiment alone is not enough, and nothing is stored.
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 403
+    assert MLFLOW_ISSUE_DETECTION_SCHEDULE not in stored_tags(attacker_exp_id, attacker_auth)
+
+    # Same for a paused schedule.
+    paused = schedule(direct | {"secretId": secret_id}, paused=True)
+    assert set_tag(paused, attacker_auth, attacker_exp_id).status_code == 403
+
+    # Same when the experiment is created with the tag.
+    resp = create_experiment(
+        "attacker-exp-born-scheduled",
+        attacker_auth,
+        tags=[{"key": MLFLOW_ISSUE_DETECTION_SCHEDULE, "value": with_owner_secret}],
+    )
+    assert resp.status_code == 403
+
+    # READ on the secret is not enough.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "READ")
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 403
+
+    # An unknown secret id fails closed.
+    unknown = schedule(direct | {"secretId": "s-does-not-exist"})
+    assert set_tag(unknown, attacker_auth, attacker_exp_id).status_code == 403
+
+    # No secret named, or another tag key: an ordinary tag write.
+    assert set_tag(schedule(direct), attacker_auth, attacker_exp_id).status_code == 200
+    assert (
+        set_tag(schedule({"endpointName": "ep"}), attacker_auth, attacker_exp_id).status_code == 200
+    )
+    assert (
+        set_tag(with_owner_secret, attacker_auth, attacker_exp_id, key="notes").status_code == 200
+    )
+
+    # USE on the secret allows both routes.
+    grant_role_permission(base, attacker, "gateway_secret", secret_id, "USE")
+    assert set_tag(with_owner_secret, attacker_auth, attacker_exp_id).status_code == 200
+    assert (
+        stored_tags(attacker_exp_id, attacker_auth)[MLFLOW_ISSUE_DETECTION_SCHEDULE]
+        == with_owner_secret
+    )
+    resp = create_experiment(
+        "attacker-exp-born-scheduled",
+        attacker_auth,
+        tags=[{"key": MLFLOW_ISSUE_DETECTION_SCHEDULE, "value": with_owner_secret}],
+    )
+    assert resp.status_code == 200
+
+    # The secret's owner can schedule on their own experiment.
+    owner_exp_id = create_experiment("owner-exp", (owner, owner_pw)).json()["experiment_id"]
+    assert set_tag(with_owner_secret, (owner, owner_pw), owner_exp_id).status_code == 200
 
 
 @pytest.mark.parametrize(

@@ -1,15 +1,63 @@
-# CI guard for the basic-auth dispatcher: every Flask route must resolve to an
-# authorization decision, or be listed in the debt list _KNOWN_UNGATED_ROUTE_MARKERS.
+# CI guard for the basic-auth dispatcher: every route the basic-auth server serves must
+# resolve to an authorization decision, or be listed in the debt list
+# _KNOWN_UNGATED_ROUTE_MARKERS.
 
+import ast
 import inspect
 import json
+import os
 import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from fastapi.routing import iter_route_contexts
+from flask import Flask
+from starlette.routing import Mount, Route
 
+import mlflow
+from mlflow.server import app as server_app
 from mlflow.server import auth as a
-from mlflow.server.handlers import get_endpoints
+from mlflow.server.auth.routes import CREATE_USER_UI
+from mlflow.server.handlers import _not_implemented
+
+
+@pytest.fixture(scope="module")
+def basic_auth_app():
+    # Build the app `mlflow server --app-name basic-auth` serves, so the guards walk what is
+    # actually registered rather than a hand-kept list. `create_app` gets a fresh Flask app so
+    # the auth routes it adds stay off the shared module-level one.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MLFLOW_FLASK_SERVER_SECRET_KEY", "coverage-guard")
+        mp.setenv("_MLFLOW_SGI_NAME", "uvicorn")
+        # Registering routes needs no auth database. `create_app` also flips the module's
+        # `_auth_initialized`; recording it here restores it when the context exits.
+        mp.setattr(a, "_init_store_for_app", lambda: None)
+        mp.setattr(a, "_auth_initialized", a._auth_initialized)
+        # No static folder, so this app adds no static route of its own.
+        auth_flask_app = Flask(__name__, static_folder=None)
+        fastapi_app = a.create_app(auth_flask_app)
+    return auth_flask_app, fastapi_app
+
+
+@pytest.fixture(scope="module")
+def flask_routes(basic_auth_app):
+    # The module-level app holds the handler endpoints, the plain `@app.route` views and Flask's
+    # static route; the auth app holds the routes `create_app` adds.
+    auth_flask_app, _ = basic_auth_app
+    routes = set()
+    for flask_app in (server_app, auth_flask_app):
+        for rule in flask_app.url_map.iter_rules():
+            if flask_app.view_functions[rule.endpoint] is _not_implemented:
+                continue
+            # Flask's own route over the React build directory (/build/<path:filename>). The UI
+            # loads those files from /static-files/, so nothing requests it, and it is left to the
+            # fail-closed net (see test_flask_static_route_is_left_to_the_fail_closed_net).
+            if rule.endpoint == "static":
+                continue
+            # Flask adds HEAD and OPTIONS to every rule.
+            routes.update((rule.rule, method) for method in rule.methods - {"HEAD", "OPTIONS"})
+    return sorted(routes)
 
 
 class _Req:
@@ -28,21 +76,10 @@ def _is_covered(path, method):
     )
 
 
-def _all_routes():
-    seen = set()
-    for path, handler, methods in get_endpoints():
-        if getattr(handler, "__name__", str(handler)) == "_not_implemented":
-            continue
-        for method in methods:
-            if (path, method) not in seen:
-                seen.add((path, method))
-                yield path, method
-
-
-def test_no_new_ungated_routes():
+def test_no_new_ungated_routes(flask_routes):
     uncovered = sorted(
         f"{method:6} {path}"
-        for path, method in _all_routes()
+        for path, method in flask_routes
         if not _is_covered(path, method) and not a._is_known_ungated_route(path)
     )
     assert not uncovered, (
@@ -53,26 +90,72 @@ def test_no_new_ungated_routes():
     )
 
 
-def test_all_dataset_routes_resolve_a_real_validator():
-    # Guard against a dataset route silently hitting the hard-deny lambda fallback in
-    # _find_validator (which test_no_new_ungated_routes would still count as gated).
-    real = set(a.DATASET_BEFORE_REQUEST_HANDLERS.values()) | set(
-        a.DATASET_EXACT_BEFORE_REQUEST_HANDLERS.values()
-    )
-    unresolved = sorted(
+def _routes_on_the_deny_fallback(routes):
+    # The dataset, job, issue and trace families deny a path they do not recognize.
+    # test_no_new_ungated_routes counts that denial as a decision, so a new route that is
+    # missing from its family's table passes it and only shows up as a runtime 403.
+    return sorted(
         f"{method:6} {path}"
-        for path, method in _all_routes()
-        if "/mlflow/datasets/" in path and a._find_validator(_Req(path, method)) not in real
+        for path, method in routes
+        if a._find_validator(_Req(path, method)) is a._deny_unmatched_route
     )
+
+
+def test_no_route_falls_through_to_a_family_deny_fallback(flask_routes):
+    unresolved = _routes_on_the_deny_fallback(flask_routes)
     assert not unresolved, (
-        "Dataset routes that fall through to the hard-deny fallback instead of a real "
-        "validator (add them to DATASET_BEFORE_REQUEST_HANDLERS):\n" + "\n".join(unresolved)
+        "Routes that resolve only to the fail-closed fallback of their route family, not to "
+        "a real validator. Register a handler for each one in the family's table (for "
+        "example DATASET_BEFORE_REQUEST_HANDLERS, ISSUE_BEFORE_REQUEST_HANDLERS, "
+        "JOB_BEFORE_REQUEST_VALIDATORS or BEFORE_REQUEST_VALIDATORS):\n" + "\n".join(unresolved)
     )
 
 
-def test_known_ungated_markers_are_not_stale():
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/2.0/mlflow/datasets/<dataset_id>/new-route",
+        "/ajax-api/3.0/mlflow/jobs/<job_id>/new-route",
+        "/api/3.0/mlflow/issues/<issue_id>/new-route",
+        "/api/3.0/mlflow/traces/<trace_id>/new-route",
+    ],
+)
+def test_new_route_missing_from_its_family_table_fails_the_guard(flask_routes, path):
+    assert (path, "POST") not in flask_routes
+    assert _routes_on_the_deny_fallback([(path, "POST")]) == [f"POST   {path}"]
+
+
+@pytest.mark.parametrize(
+    ("marker", "table"),
+    [
+        ("/mlflow/datasets/", "DATASET_BEFORE_REQUEST_VALIDATORS"),
+        ("/mlflow/jobs/", "JOB_BEFORE_REQUEST_VALIDATORS"),
+        ("/mlflow/issues/", "ISSUE_BEFORE_REQUEST_VALIDATORS"),
+        ("/mlflow/traces/", "TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS"),
+    ],
+)
+def test_registered_route_with_its_validator_removed_fails_the_guard(
+    flask_routes, monkeypatch, marker, table
+):
+    family_routes = [(p, m) for p, m in flask_routes if marker in p and "<" in p]
+    assert family_routes
+    assert not _routes_on_the_deny_fallback(family_routes)
+
+    monkeypatch.setattr(a, table, {})
+    # Parameterized trace routes also match their template in the exact-match table.
+    monkeypatch.setattr(
+        a,
+        "BEFORE_REQUEST_VALIDATORS",
+        {k: v for k, v in a.BEFORE_REQUEST_VALIDATORS.items() if k not in family_routes},
+    )
+    assert _routes_on_the_deny_fallback(family_routes) == sorted(
+        f"{m:6} {p}" for p, m in family_routes
+    )
+
+
+def test_known_ungated_markers_are_not_stale(flask_routes):
     matched = set()
-    for path, method in _all_routes():
+    for path, method in flask_routes:
         if _is_covered(path, method):
             continue
         for marker in a._KNOWN_UNGATED_ROUTE_MARKERS:
@@ -104,6 +187,139 @@ def test_gateway_secret_selector_inert_routes_still_drop_the_field():
         )
 
 
+# Functions that decrypt a stored gateway secret.
+_SECRET_DECRYPTION_FUNCTIONS = frozenset({
+    "_decrypt_secret",
+    "_get_decrypted_secret",
+    "_fetch_provider_credentials",
+})
+
+# Every function in ``mlflow/`` allowed to reference one, with the validators that check the
+# caller's permission on the secret. Empty for a pass-through layer, whose callers are listed too.
+_SECRET_DECRYPTION_CALL_SITES = {
+    ("mlflow/store/tracking/sqlalchemy_store.py", "<module>"): (),
+    ("mlflow/store/tracking/sqlalchemy_store.py", "_get_decrypted_secret"): (),
+    ("mlflow/genai/discovery/job.py", "_fetch_provider_credentials"): (),
+    # ``secret_id`` from the request body.
+    ("mlflow/server/handlers.py", "_invoke_issue_detection_handler"): (
+        "validate_can_invoke_issue_detection",
+    ),
+    # ``secretId`` from the schedule tag, checked on the routes that store the tag.
+    ("mlflow/genai/discovery/scheduler.py", "_provider_credentials"): (
+        "validate_can_set_experiment_tag",
+        "validate_can_create_experiment",
+    ),
+    # The gateway decrypts the secret a model definition binds, not one the caller names.
+    ("mlflow/store/tracking/gateway/config_resolver.py", "<module>"): (),
+    ("mlflow/store/tracking/gateway/config_resolver.py", "get_resource_endpoint_configs"): (
+        "validate_can_create_gateway_model_definition",
+        "validate_can_update_gateway_model_definition",
+    ),
+    ("mlflow/store/tracking/gateway/config_resolver.py", "get_endpoint_config"): (
+        "validate_can_create_gateway_model_definition",
+        "validate_can_update_gateway_model_definition",
+        "_validate_gateway_use_permission",
+    ),
+}
+
+
+class _SecretDecryptionReferences(ast.NodeVisitor):
+    def __init__(self):
+        self._scope = ["<module>"]
+        self.functions = set()
+        self.renamed = []
+
+    def _record(self, name):
+        if name in _SECRET_DECRYPTION_FUNCTIONS:
+            self.functions.add(self._scope[-1])
+
+    def visit_FunctionDef(self, node):
+        self._scope.append(node.name)
+        self.generic_visit(node)
+        self._scope.pop()
+
+    visit_AsyncFunctionDef = visit_FunctionDef
+
+    def visit_Name(self, node):
+        self._record(node.id)
+
+    def visit_Attribute(self, node):
+        self._record(node.attr)
+        self.generic_visit(node)
+
+    def visit_Constant(self, node):
+        # e.g. ``getattr(store, "_get_decrypted_secret")``
+        if isinstance(node.value, str):
+            self._record(node.value)
+
+    def visit_alias(self, node):
+        name = node.name.rpartition(".")[2]
+        self._record(name)
+        if name in _SECRET_DECRYPTION_FUNCTIONS and node.asname not in (None, name):
+            self.renamed.append(f"{name} as {node.asname}")
+
+
+def _secret_decryption_references():
+    package = Path(mlflow.__file__).parent
+    call_sites = set()
+    renamed = []
+    for directory, subdirectories, filenames in os.walk(package):
+        subdirectories[:] = [d for d in subdirectories if d not in ("js", "node_modules")]
+        for filename in filenames:
+            if not filename.endswith(".py"):
+                continue
+            path = Path(directory, filename)
+            source = path.read_text(encoding="utf-8")
+            # Only parse the few files that mention one of the names.
+            if not any(name in source for name in _SECRET_DECRYPTION_FUNCTIONS):
+                continue
+            references = _SecretDecryptionReferences()
+            references.visit(ast.parse(source))
+            relative_path = path.relative_to(package.parent).as_posix()
+            call_sites.update((relative_path, function) for function in references.functions)
+            renamed.extend(f"{relative_path}: {entry}" for entry in references.renamed)
+    return call_sites, sorted(renamed)
+
+
+def test_secret_decryption_call_sites_are_all_accounted_for():
+    """A gateway secret is decrypted by id with no user attached, so each path that reaches
+    decryption must check the caller itself. A new reference fails here until it is listed with
+    the check that covers it.
+    """
+    call_sites, renamed = _secret_decryption_references()
+
+    assert not renamed, (
+        "Import these under their own names so this guard can follow them: " + ", ".join(renamed)
+    )
+
+    unlisted = sorted(call_sites - _SECRET_DECRYPTION_CALL_SITES.keys())
+    assert not unlisted, (
+        "New code decrypts a stored gateway secret:\n"
+        + "\n".join(f"  {path}::{function}" for path, function in unlisted)
+        + "\nIf the secret id can come from a client (a request field, a tag, any stored "
+        "config a user can write), require USE on that secret from the user who supplied it -- "
+        "at write time if it is used later with no request to authorize -- and add a regression "
+        "test. Then list the call site in _SECRET_DECRYPTION_CALL_SITES with that validator."
+    )
+
+    stale = sorted(_SECRET_DECRYPTION_CALL_SITES.keys() - call_sites)
+    assert not stale, (
+        "These no longer reference a decryption function; remove them from "
+        f"_SECRET_DECRYPTION_CALL_SITES: {stale}"
+    )
+
+    missing = sorted(
+        validator
+        for validators in _SECRET_DECRYPTION_CALL_SITES.values()
+        for validator in validators
+        if not callable(getattr(a, validator, None))
+    )
+    assert not missing, (
+        "_SECRET_DECRYPTION_CALL_SITES names validators that no longer exist in "
+        f"mlflow.server.auth, so those call sites have no check on record: {missing}"
+    )
+
+
 def test_unknown_issue_subpath_fails_closed():
     # An unrecognized /mlflow/issues/ path resolves to a denying validator (not None), so
     # it is denied even with MLFLOW_BASIC_AUTH_FAIL_CLOSED off, matching the dataset/trace
@@ -117,59 +333,51 @@ def test_unknown_issue_subpath_fails_closed():
     assert a._is_known_ungated_route(invoke) or (invoke, "POST") in a.BEFORE_REQUEST_VALIDATORS
 
 
-def _fastapi_native_routes():
-    # Routers served directly by FastAPI (Flask is mounted separately and authorized by
-    # _before_request, so it is out of scope for this guard).
-    from mlflow.server.fastapi_app import (
-        artifact_router,
-        assistant_router,
-        gateway_router,
-        job_api_router,
-        mcp_server_router,
-        otel_router,
-        server_info_router,
-    )
-
-    def _methods(route):
-        return [
-            m
-            for m in sorted(getattr(route, "methods", None) or ["GET"])
-            if m not in ("HEAD", "OPTIONS")
-        ]
-
-    for router in (
-        artifact_router,
-        assistant_router,
-        gateway_router,
-        job_api_router,
-        otel_router,
-        server_info_router,
-    ):
-        for route in router.routes:
-            for method in _methods(route):
-                yield route.path, method
-    # The MCP router is mounted under versioned prefixes; prepend one to form full paths.
-    mcp_prefix = next(iter(a.get_mcp_server_api_route_prefixes())).rstrip("/")
-    for route in mcp_server_router.routes:
-        for method in _methods(route):
-            yield mcp_prefix + route.path, method
+def _fastapi_native_routes(basic_auth_app):
+    # Every route served directly by FastAPI, with its router prefix applied. The mounted
+    # Flask app is authorized by _before_request, so it is out of scope for these guards.
+    auth_flask_app, fastapi_app = basic_auth_app
+    for route in iter_route_contexts(fastapi_app.routes):
+        original = route.original_route
+        if isinstance(original, Mount) and getattr(original.app, "app", None) is auth_flask_app:
+            continue
+        yield route
 
 
-def test_no_ungated_fastapi_native_routes():
-    # The FastAPI permission middleware is fail-open for routes with no validator; this
-    # guard makes a new native route without one a failing test rather than a silent hole.
+def test_no_ungated_fastapi_native_routes(basic_auth_app):
+    # The FastAPI permission middleware denies a native route with no validator; this guard
+    # makes a new one a failing test rather than a 403 first seen in production.
     uncovered = sorted(
-        f"{method:6} {path}"
-        for path, method in _fastapi_native_routes()
-        if a._find_fastapi_validator(path, method) is None
-        and not a.is_unprotected_route(path)
-        and not a._matches_route_suffix(a._strip_static_prefix(path), a._PUBLIC_ROUTE_SUFFIXES)
-        and not any(m in path for m in a._KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
+        f"{method:6} {route.path}"
+        for route in _fastapi_native_routes(basic_auth_app)
+        if isinstance(route.original_route, Route)
+        for method in route.methods - {"HEAD", "OPTIONS"}
+        if a._find_fastapi_validator(route.path, method) is None
+        and not a.is_unprotected_route(route.path)
+        and not a._matches_route_suffix(
+            a._strip_static_prefix(route.path), a._PUBLIC_ROUTE_SUFFIXES
+        )
+        and not any(m in route.path for m in a._KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS)
     )
     assert not uncovered, (
         "Native FastAPI routes with no authorization validator that are not documented in "
         "_KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS. Add a validator branch in "
         "_find_fastapi_validator, or document the exemption:\n" + "\n".join(uncovered)
+    )
+
+
+def test_fastapi_native_routes_are_http_routes(basic_auth_app):
+    # The permission middleware only sees HTTP requests, and its fail-closed check passes
+    # through any path no native route matches as if Flask served it. A WebSocket route or
+    # another mounted app would therefore be served with no authorization at all.
+    unauthorized = sorted(
+        f"{type(route.original_route).__name__} {route.path}"
+        for route in _fastapi_native_routes(basic_auth_app)
+        if not isinstance(route.original_route, Route)
+    )
+    assert not unauthorized, (
+        "Native FastAPI routes that the permission middleware cannot authorize:\n"
+        + "\n".join(unauthorized)
     )
 
 
@@ -366,6 +574,21 @@ def test_demo_routes_gating():
     dele = a._find_validator(_Req("/ajax-api/3.0/mlflow/demo/delete", "POST"))
     assert gen is a._allow_authenticated
     assert dele is a.sender_is_admin
+
+
+def test_signup_form_submit_takes_the_create_user_check():
+    # /signup renders a form that posts to create-ui. Without the same check as the page and the
+    # JSON create route, a workspace admin could open the form but never submit it.
+    assert a._find_validator(_Req("/signup", "GET")) is a.validate_can_create_user
+    assert a._find_validator(_Req(CREATE_USER_UI, "POST")) is a.validate_can_create_user
+
+
+def test_flask_static_route_is_left_to_the_fail_closed_net():
+    # The guards skip Flask's static route on the premise that nothing authorizes it, so the
+    # fail-closed net denies it to non-admins. A decision keyed on its /build/ prefix would also
+    # catch every route under `--static-prefix /build`.
+    assert server_app.static_url_path == "/build"
+    assert not _is_covered("/build/index.html", "GET")
 
 
 def _graphql_schema_field_names():

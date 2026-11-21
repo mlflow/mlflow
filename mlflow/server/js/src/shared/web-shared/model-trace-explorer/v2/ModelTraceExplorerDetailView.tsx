@@ -20,11 +20,12 @@ import { ModelTraceExplorerRightPaneTabs, RIGHT_PANE_MIN_WIDTH } from './right-p
 import { TimelineTree } from './timeline-tree/TimelineTree';
 import {
   DEFAULT_EXPAND_DEPTH,
-  getModelTraceSpanNodeDepth,
+  getMaxModelTraceSpanNodeDepth,
   getTimelineTreeNodesMap,
   SPAN_INDENT_WIDTH,
 } from './timeline-tree/TimelineTree.utils';
 import { DEFAULT_WORKFLOW_LAYOUT_CONFIG, EXPANDED_WORKFLOW_LAYOUT_CONFIG } from '../graph-view/GraphView.types';
+import type { WorkflowLayout } from '../graph-view/GraphView.types';
 import { computeWorkflowPathToRoot } from '../graph-view/GraphView.utils';
 import { computeWorkflowLayout } from '../graph-view/GraphView.workflow';
 import { GraphViewSpanNavigator } from '../graph-view/GraphViewSpanNavigator';
@@ -87,6 +88,7 @@ const ResizeHandle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLD
 );
 
 const GRAPH_NAVIGATOR_HEIGHT = 36;
+const EMPTY_WORKFLOW_LAYOUT: WorkflowLayout = { nodes: [], edges: [], width: 0, height: 0 };
 
 export const ModelTraceExplorerDetailView = ({
   modelTraceInfo,
@@ -153,9 +155,12 @@ export const ModelTraceExplorerDetailView = ({
   } = useModelTraceExplorerViewState();
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
+  // Every root span produces a graph node, so availability does not require laying it out.
+  const graphAvailable = enableGraphView && Boolean(rootNode);
+  const hasGraph = showGraph && graphAvailable;
   const workflowLayout = useMemo(
-    () => computeWorkflowLayout(rootNode, activeLayoutConfig),
-    [rootNode, activeLayoutConfig],
+    () => (hasGraph ? computeWorkflowLayout(rootNode, activeLayoutConfig) : EMPTY_WORKFLOW_LAYOUT),
+    [hasGraph, rootNode, activeLayoutConfig],
   );
 
   const {
@@ -187,9 +192,6 @@ export const ModelTraceExplorerDetailView = ({
     },
     [setSelectedNode, setActiveTab],
   );
-
-  const graphAvailable = enableGraphView && Boolean(rootNode) && workflowLayout.nodes.length > 0;
-  const hasGraph = showGraph && graphAvailable;
 
   const onSizeRatioChange = useCallback(
     (ratio: number) => {
@@ -350,7 +352,7 @@ export const ModelTraceExplorerDetailView = ({
 
   const leftPaneMinWidth = useMemo(() => {
     const minWidthForSpans =
-      Math.max(...filteredTreeNodes.map(getModelTraceSpanNodeDepth)) * SPAN_INDENT_WIDTH +
+      getMaxModelTraceSpanNodeDepth(filteredTreeNodes) * SPAN_INDENT_WIDTH +
       LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS * theme.spacing.lg;
     return Math.max(LEFT_PANE_HEADER_MIN_WIDTH_PX, minWidthForSpans);
   }, [filteredTreeNodes, theme.spacing.lg]);

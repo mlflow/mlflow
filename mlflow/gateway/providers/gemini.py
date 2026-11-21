@@ -827,6 +827,9 @@ class GeminiAdapter(ProviderAdapter):
 class GeminiProvider(BaseProvider):
     DISPLAY_NAME = "Gemini"
     CONFIG_TYPE = GeminiConfig
+    # Gemini thinking models need each function call's signature sent back on later turns:
+    # https://ai.google.dev/gemini-api/docs/thought-signatures
+    SUPPORTS_THOUGHT_SIGNATURES = True
 
     PASSTHROUGH_PROVIDER_PATHS = {
         PassthroughAction.GEMINI_GENERATE_CONTENT: "{model}:generateContent",

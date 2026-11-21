@@ -67,6 +67,7 @@ from mlflow.environment_variables import (
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
+from mlflow.genai.discovery.schedule import scheduled_detection_secret_id
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -419,6 +420,7 @@ from mlflow.server.auth.routes import (
     SEARCH_DATASETS,
     SERVER_VERSION,
     SIGNUP,
+    SYNC_ISSUE_DETECTION_SCHEDULE_STATE,
     UI_TELEMETRY,
     UNASSIGN_ROLE,
     UPDATE_ROLE,
@@ -503,6 +505,7 @@ from mlflow.store.tracking.skill_registry.artifact_paths import (
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_SCHEDULE
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import (
@@ -2038,6 +2041,26 @@ def validate_can_update_experiment():
     return _get_permission_from_experiment_id().can_update
 
 
+def _can_use_secret_named_by_experiment_tag(key: str, value: str) -> bool:
+    """USE on the gateway secret an issue-detection schedule tag names, if it names one.
+
+    The dispatcher decrypts that secret later with no request to authorize, so the tag write is
+    the only place the caller can be checked.
+    """
+    if key != MLFLOW_ISSUE_DETECTION_SCHEDULE:
+        return True
+    if not (secret_id := scheduled_detection_secret_id(value)):
+        return True
+    return _get_gateway_secret_permission(secret_id).can_use
+
+
+def validate_can_set_experiment_tag():
+    if not _get_permission_from_experiment_id().can_update:
+        return False
+    msg = _get_request_message(SetExperimentTag())
+    return _can_use_secret_named_by_experiment_tag(msg.key, msg.value)
+
+
 # Every experiment-scoped tier. A soft delete marks only the experiment and its runs, but the rest
 # become unreachable with their experiment, so the delete reaches them all the same -- and
 # ``_hard_delete_experiment`` (``mlflow gc``) destroys them outright through the scorers and
@@ -2145,12 +2168,16 @@ def _run_requirement(
     ]
 
 
-def _authorize_run_id(run_id: str, action: str) -> bool:
+def _authorize_run_id_as(username: str, run_id: str, action: str) -> bool:
     resolved = _run_requirement(run_id, action)
     if resolved is None:
         return False
     anchor, requirements = resolved
-    return authorize(authenticate_request().username, anchor, requirements)
+    return authorize(username, anchor, requirements)
+
+
+def _authorize_run_id(run_id: str, action: str) -> bool:
+    return _authorize_run_id_as(authenticate_request().username, run_id, action)
 
 
 def _authorize_run(action: str) -> bool:
@@ -2830,9 +2857,15 @@ def _workspace_create_not_denied(created_type: str, resource_id: str = "*") -> b
 
 
 def validate_can_create_experiment() -> bool:
-    return _user_can_create_in_workspace() and _workspace_create_not_denied(
-        RESOURCE_TYPE_EXPERIMENT
-    )
+    if not (
+        _user_can_create_in_workspace() and _workspace_create_not_denied(RESOURCE_TYPE_EXPERIMENT)
+    ):
+        return False
+    if not has_request_context():
+        return True
+    # An experiment can be created already carrying a schedule tag.
+    msg = _get_request_message(CreateExperiment())
+    return all(_can_use_secret_named_by_experiment_tag(tag.key, tag.value) for tag in msg.tags)
 
 
 def validate_can_create_registered_model() -> bool:
@@ -5326,7 +5359,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteExperiment: validate_can_delete_experiment,
     RestoreExperiment: validate_can_delete_experiment,
     UpdateExperiment: validate_can_update_experiment,
-    SetExperimentTag: validate_can_update_experiment,
+    SetExperimentTag: validate_can_set_experiment_tag,
     DeleteExperimentTag: validate_can_update_experiment,
     # Routes for runs
     CreateRun: validate_can_create_run,
@@ -5548,6 +5581,8 @@ BEFORE_REQUEST_VALIDATORS = {
 # Auth-related routes
 BEFORE_REQUEST_VALIDATORS.update({
     (SIGNUP, "GET"): validate_can_create_user,
+    # The /signup form submits here, so it takes the same check as CREATE_USER.
+    (CREATE_USER_UI, "POST"): validate_can_create_user,
     (GET_USER, "GET"): validate_can_read_user,
     (AJAX_GET_USER, "GET"): validate_can_read_user,
     # /current returns only the authenticated user's own identity — any
@@ -5633,6 +5668,9 @@ BEFORE_REQUEST_VALIDATORS.update({
     (INVOKE_SCORER, "POST"): validate_can_invoke_scorer,
     # Issue detection may also consume a gateway secret -> additionally require USE on it.
     (INVOKE_ISSUE_DETECTION, "POST"): validate_can_invoke_issue_detection,
+    # The schedule dialog calls this right after writing the schedule as experiment tags, and
+    # it writes the schedule state back as tags, so it takes the same check as SetExperimentTag.
+    (SYNC_ISSUE_DETECTION_SCHEDULE_STATE, "POST"): validate_can_update_experiment,
     (INVOKE_GENAI_EVALUATE, "POST"): validate_can_invoke_genai_evaluate,
     # Demo: generate is open to any authenticated user; delete is admin-only.
     (DEMO_GENERATE, "POST"): _allow_authenticated,
@@ -5646,10 +5684,8 @@ BEFORE_REQUEST_VALIDATORS.update({
     # The web UI itself, for any signed-in user: the SPA shell, the server version
     # string the bundle reads, and the UI's own telemetry config. None carries
     # tenant-scoped data, and none has a permission that could sensibly be checked.
-    # These are plain Flask routes on ``app`` rather than handler endpoints, so
-    # ``get_endpoints`` never surfaced them to the coverage guard and no decision was
-    # registered; the fail-closed net then denies them, and a non-admin's browser gets
-    # "Permission denied" instead of MLflow. ``/static-files/<path>`` already serves
+    # Without an entry here the fail-closed net denies them, and a non-admin's browser
+    # gets "Permission denied" instead of MLflow. ``/static-files/<path>`` already serves
     # that same shell unauthenticated via ``_UNPROTECTED_PATH_PREFIXES``.
     #
     # HOME and SERVER_VERSION are bare paths and take the static prefix here;
@@ -6083,6 +6119,12 @@ JOB_BEFORE_REQUEST_VALIDATORS = {
 }
 
 
+def _deny_unmatched_route() -> bool:
+    # One named object, so the coverage guard can tell a route that only hit a family's
+    # fail-closed fallback from a route with a real validator.
+    return False
+
+
 def _find_validator(req: Request) -> Callable[[], bool] | None:
     """
     Finds the validator matching the request path and method.
@@ -6136,7 +6178,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-        return validator if validator is not None else lambda: False
+        return validator if validator is not None else _deny_unmatched_route
 
     # Job routes (/mlflow/jobs/<job_id>, cancel), ownership-gated. The /mlflow/jobs/ substring
     # is a coarse gate: any path under it that isn't a real job route (including a crafted
@@ -6151,7 +6193,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-        return route_validator if route_validator is not None else lambda: False
+        return route_validator if route_validator is not None else _deny_unmatched_route
 
     # Whole /mlflow/issues/ family; unknown paths fail closed, except the not-yet-gated
     # routes tracked in _KNOWN_UNGATED_ROUTE_MARKERS (e.g. invoke), which fall through.
@@ -6167,7 +6209,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         if validator is not None:
             return validator
         if not _is_known_ungated_route(req.path):
-            return lambda: False
+            return _deny_unmatched_route
 
     # Trace routes with path parameters (e.g. /mlflow/traces/<request_id>/tags).
     # Unknown paths under this prefix are denied (fail-closed) rather than skipped.
@@ -6180,12 +6222,12 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             ),
             None,
         )
-        return validator if validator is not None else lambda: False
+        return validator if validator is not None else _deny_unmatched_route
 
     return None
 
 
-# Fail-closed net (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED).
+# Fail-closed net: on by default; MLFLOW_BASIC_AUTH_FAIL_CLOSED=false restores fail-open.
 _PUBLIC_ROUTE_SUFFIXES = (
     # Public capability discovery. No login. Do not add tenant data here.
     "/mlflow/server-info",
@@ -6198,13 +6240,13 @@ _HANDLER_INTERNAL_AUTHZ_SUFFIXES = (
     "/graphql",
 )
 
-# Empty: every route family is gated, so the fail-closed flag can be flipped on. Add
-# an entry only as a temporary, tracked exception for a route awaiting a validator.
+# Empty: every route family is gated. Add an entry only as a temporary, tracked
+# exception for a route awaiting a validator.
 _KNOWN_UNGATED_ROUTE_MARKERS = ()
 
 # Native FastAPI routes (served by the FastAPI permission middleware, not _before_request)
 # that lack an authorization validator. Empty today — a coverage test asserts every native
-# route resolves a validator. Runtime fail-closed enforcement for FastAPI is a follow-up.
+# route resolves a validator.
 _KNOWN_UNGATED_FASTAPI_ROUTE_MARKERS = ()
 
 
@@ -8640,9 +8682,9 @@ def get_graphql_authorization_middleware():
         A list containing the middleware instance if auth is enabled,
         empty list otherwise. Suitable for passing to schema.execute(middleware=...).
     """
-    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
-        return []
     if not is_auth_enabled():
+        return []
+    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
         return []
     return [GraphQLAuthorizationMiddleware()]
 
@@ -9526,7 +9568,12 @@ def _get_otel_validator(
             )
         # The handler persists the submitted spans, so this is a trace create and carries the
         # same veto as StartTrace / StartTraceV3.
-        return _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE)
+        if not _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE):
+            return False
+        # The handler also links the ingested traces to this run, which LinkTracesToRun gates on
+        # UPDATE on the run.
+        run_id = request.headers.get("x-mlflow-run-id")
+        return not run_id or _authorize_run_id_as(username, run_id, "update")
 
     return validator
 
@@ -9886,7 +9933,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # Find validator for this route
         validator = _find_fastapi_validator(path, request.method)
         if validator is None:
-            # Fail-closed (opt-in via MLFLOW_BASIC_AUTH_FAIL_CLOSED): deny a native FastAPI
+            # Fail-closed (MLFLOW_BASIC_AUTH_FAIL_CLOSED, on by default): deny a native FastAPI
             # route with no validator. Flask-delegated paths pass through (authorized by Flask).
             if (
                 MLFLOW_BASIC_AUTH_FAIL_CLOSED.get()

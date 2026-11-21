@@ -1,8 +1,40 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
-import { getSpanTokenUsage } from './ModelTraceTokenUsage.utils';
+import { formatCompactNumber, getSpanTokenUsage } from './ModelTraceTokenUsage.utils';
+
+describe('formatCompactNumber', () => {
+  it.each([0, 999, 1000, 12345, 1234567, -12345, NaN, Infinity])('preserves compact formatting for %s', (value) => {
+    expect(formatCompactNumber(value)).toBe(
+      new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value),
+    );
+  });
+
+  it('does not construct a formatter for each rendered token count', () => {
+    const spy = jest.spyOn(Intl, 'NumberFormat');
+    try {
+      for (let index = 0; index < 1000; index++) formatCompactNumber(index);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
 
 describe('getSpanTokenUsage', () => {
+  it.each(['unavailable', 'falsehood', 'nullish', '"not an object"', '{'])(
+    'falls back to OTel counts for an invalid usage blob %j',
+    (value) => {
+      expect(
+        getSpanTokenUsage({
+          attributes: {
+            'mlflow.chat.tokenUsage': value,
+            'gen_ai.usage.input_tokens': 4,
+            'gen_ai.usage.output_tokens': 6,
+          },
+        }),
+      ).toEqual({ input_tokens: 4, output_tokens: 6, total_tokens: 10 });
+    },
+  );
   it('returns the precomputed span.tokenUsage as-is when present', () => {
     const tokenUsage = { input_tokens: 1, output_tokens: 2, total_tokens: 3 };
 

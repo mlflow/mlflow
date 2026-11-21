@@ -169,7 +169,7 @@
     "gpt-5.6-luna": {
       "mode": "responses",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "capabilities": {
@@ -179,12 +179,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-18"
     },
     "gpt-5.6-sol": {
       "mode": "responses",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "capabilities": {
@@ -194,12 +194,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-18"
     },
     "gpt-5.6-terra": {
       "mode": "responses",
       "context_window": {
-        "max_input": 1050000,
+        "max_input": 922000,
         "max_output": 128000
       },
       "capabilities": {
@@ -209,7 +209,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-18"
     },
     "gpt-6-astra": {
       "mode": "responses",
@@ -315,6 +315,51 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "gpt-6.2-astra": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "gpt-6.2-astra-law": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-17"
+    },
+    "gpt-6.2-sol": {
+      "mode": "responses",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-17"
     },
     "gpt-rosalind-discovery": {
       "mode": "responses",

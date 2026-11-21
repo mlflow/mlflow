@@ -11,6 +11,7 @@ import { useAssistant } from './AssistantContext';
 import { updateConfig } from './AssistantService';
 import { GATEWAY_PROVIDER_ID } from './constants';
 import { SecretInput } from '../gateway/components/secrets/SecretInput';
+import { containsNonAsciiCharacters } from '../gateway/utils/secretUtils';
 
 const PROVIDER_KEY_PLACEHOLDERS = {
   openai: 'sk-...',
@@ -43,8 +44,15 @@ export const ApiKeyPrompt = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const trimmedApiKey = apiKey.trim();
+  // Check the trimmed value since that is what gets saved; `trim()` also strips non-ASCII
+  // whitespace such as NBSP that often comes along when pasting a key. `SecretInput` checks the raw
+  // value, so only enable its inline error when the trimmed key is affected.
+  const trimmedKeyHasNonAscii = containsNonAsciiCharacters(trimmedApiKey);
+  const isApiKeyValid = Boolean(trimmedApiKey) && !trimmedKeyHasNonAscii;
+
   const handleSave = useCallback(async () => {
-    if (!apiKey.trim()) {
+    if (!isApiKeyValid) {
       return;
     }
     setIsSaving(true);
@@ -55,14 +63,14 @@ export const ApiKeyPrompt = ({
           providers: {
             [GATEWAY_PROVIDER_ID]: {
               gateway_vendor: gatewayVendor,
-              api_key: apiKey.trim(),
+              api_key: trimmedApiKey,
               model: providerModel ?? undefined,
               selected: true,
             },
           },
         });
       } else {
-        await updateConfig({ providers: { [providerId]: { api_key: apiKey.trim() } } });
+        await updateConfig({ providers: { [providerId]: { api_key: trimmedApiKey } } });
       }
       setIsSaving(false);
       onSaved();
@@ -70,7 +78,7 @@ export const ApiKeyPrompt = ({
       setError(err instanceof Error ? err.message : 'Failed to save the API key');
       setIsSaving(false);
     }
-  }, [apiKey, gatewayVendor, providerId, providerModel, onSaved]);
+  }, [trimmedApiKey, isApiKeyValid, gatewayVendor, providerId, providerModel, onSaved]);
 
   const containerCss = {
     border: `1px solid ${theme.colors.borderWarning}`,
@@ -125,6 +133,7 @@ export const ApiKeyPrompt = ({
         }}
         placeholder={keyPlaceholderFor(gatewayVendor ?? providerId)}
         allowClear={false}
+        asciiOnly={trimmedKeyHasNonAscii}
       />
 
       <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm - 1 }}>
@@ -146,7 +155,7 @@ export const ApiKeyPrompt = ({
           type="primary"
           onClick={handleSave}
           loading={isSaving}
-          disabled={!apiKey.trim()}
+          disabled={!isApiKeyValid}
         >
           <FormattedMessage
             defaultMessage="Continue"
