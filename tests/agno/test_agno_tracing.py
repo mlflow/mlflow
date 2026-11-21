@@ -1,3 +1,4 @@
+import json
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -97,6 +98,23 @@ def test_run_simple_autolog(simple_agent):
     with patch.object(Claude, "get_client", return_value=mock_client):
         simple_agent.run("Again?")
     assert get_traces() == []
+
+
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
+def test_run_does_not_record_model_api_key():
+    mlflow.agno.autolog()
+    agent = Agent(model=Claude(id="claude-sonnet-4-20250514", api_key="test-api-key"))
+
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = _create_message("Paris")
+    with patch.object(Claude, "get_client", return_value=mock_client):
+        agent.run("Capital of France?")
+
+    spans = get_traces()[0].data.spans
+    assert spans[0].name == "Agent.run"
+    assert spans[0].attributes["model"]["id"] == "claude-sonnet-4-20250514"
+    for span in spans:
+        assert "test-api-key" not in json.dumps(span.to_dict())
 
 
 @pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")

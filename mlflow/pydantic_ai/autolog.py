@@ -12,6 +12,7 @@ from mlflow.pydantic_ai.utils import parse_usage as _parse_usage
 from mlflow.pydantic_ai.utils import serialize_output as _serialize_output
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
+from mlflow.tracing.utils.redaction import strip_credentials
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ def _extract_safe_attributes(instance: Any) -> dict[str, Any]:
         safe_value = _safe_get_attribute(instance, key)
         if safe_value is not None:
             attrs[key] = safe_value
-    return attrs
+    return strip_credentials(attrs)
 
 
 def _set_span_attributes(span: LiveSpan, instance):
@@ -447,13 +448,14 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
         bound.pop("self", None)
         bound.pop("deps", None)
 
-        return {
+        inputs = {
             k: (v.__dict__ if hasattr(v, "__dict__") else v)
             for k, v in bound.items()
             if v is not None
         }
     except (ValueError, TypeError):
-        return kwargs
+        inputs = kwargs
+    return strip_credentials(inputs)
 
 
 def _get_agent_attributes(instance):

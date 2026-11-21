@@ -3,6 +3,7 @@ from dataclasses import asdict, is_dataclass
 from typing import Any
 
 from mlflow.tracing.constant import TokenUsageKey
+from mlflow.tracing.utils.redaction import strip_credentials
 
 _logger = logging.getLogger(__name__)
 _SAFE_PRIMITIVE_TYPES = (str, int, float, bool)
@@ -35,7 +36,7 @@ def extract_safe_attributes(instance: Any) -> dict[str, Any]:
             attributes[key] = value.__name__
         elif is_safe_for_serialization(value):
             attributes[key] = value
-    return attributes
+    return strip_credentials(attributes)
 
 
 def model_request_inputs(request_context) -> dict[str, Any]:

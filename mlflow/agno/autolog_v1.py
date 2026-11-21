@@ -10,6 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import construct_full_inputs
+from mlflow.tracing.utils.redaction import strip_credentials
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 FLAVOR_NAME = "agno"
@@ -58,7 +59,7 @@ def _get_agent_attributes(instance) -> dict[str, Any]:
             value = _parse_tools(value)
         if value is not None:
             agent_attr[key] = value
-    return agent_attr
+    return strip_credentials(agent_attr)
 
 
 def _get_tools_attribute(instance) -> dict[str, Any]:

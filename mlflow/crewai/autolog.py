@@ -1,7 +1,6 @@
 import inspect
 import json
 import logging
-import re
 import warnings
 from contextlib import contextmanager, nullcontext
 from typing import Any
@@ -14,18 +13,10 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils.redaction import SENSITIVE_KEY_PATTERN
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
-
-# Matches credential-like keys such as `api_key`, `client_secret`, `Authorization`,
-# `auth_token`, or `accessToken`. Credential keys end with `token`, so `max_tokens`,
-# `tokenizer`, and `token_usage` (legitimate LLM configuration and usage fields) are kept.
-_SENSITIVE_KEY_PATTERN = re.compile(
-    r"(?i:api_?key|secret|password|authorization|credential)"  # anywhere in the key
-    r"|(?<![A-Za-z])(?i:token)$"  # snake_case / standalone `token`
-    r"|(?<=[a-z])Token$"  # camelCase `accessToken`
-)
 
 
 def patched_standalone_call(original, *args, **kwargs):
@@ -394,7 +385,7 @@ def _set_span_attributes(span: LiveSpan, instance):
 def _set_sanitized_attribute(span: LiveSpan, key: str, value: Any):
     # The key itself may name a credential (e.g. a provider's `auth_token` field), in which
     # case the value is a plain string that `_sanitize_value` cannot recognize.
-    if _SENSITIVE_KEY_PATTERN.search(key):
+    if SENSITIVE_KEY_PATTERN.search(key):
         return
     value = _sanitize_value(value)
     span.set_attribute(key, str(value) if isinstance(value, list) else value)
@@ -403,7 +394,7 @@ def _set_sanitized_attribute(span: LiveSpan, key: str, value: Any):
 def _get_agent_attributes(instance):
     agent = {}
     for key, value in instance.__dict__.items():
-        if _SENSITIVE_KEY_PATTERN.search(key):
+        if SENSITIVE_KEY_PATTERN.search(key):
             continue
         if key == "tools":
             value = _parse_tools(value)
@@ -419,7 +410,7 @@ def _get_agent_attributes(instance):
 def _get_task_attributes(instance):
     task = {}
     for key, value in instance.__dict__.items():
-        if value is None or _SENSITIVE_KEY_PATTERN.search(key):
+        if value is None or SENSITIVE_KEY_PATTERN.search(key):
             continue
         if key == "tools":
             value = _parse_tools(value)
@@ -434,7 +425,7 @@ def _get_task_attributes(instance):
 def _get_llm_attributes(instance):
     llm = {SpanAttributeKey.MESSAGE_FORMAT: "crewai"}
     for key, value in instance.__dict__.items():
-        if value is None or _SENSITIVE_KEY_PATTERN.search(key):
+        if value is None or SENSITIVE_KEY_PATTERN.search(key):
             continue
         elif key == "callbacks":
             # Skip callbacks until how they should be logged are decided
@@ -547,7 +538,7 @@ def _sanitize_value_impl(val, ancestors: set[int]):
             return {
                 k: _sanitize_value_impl(v, ancestors)
                 for k, v in val.items()
-                if not (isinstance(k, str) and _SENSITIVE_KEY_PATTERN.search(k))
+                if not (isinstance(k, str) and SENSITIVE_KEY_PATTERN.search(k))
             }
         if isinstance(val, (list, tuple, set)):
             sanitized = [_sanitize_value_impl(item, ancestors) for item in val]

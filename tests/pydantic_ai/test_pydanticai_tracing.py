@@ -23,6 +23,7 @@ from mlflow.pydantic_ai import (
     _tool_manager_uses_execute_tool_call,
 )
 from mlflow.pydantic_ai.autolog import (
+    _construct_full_inputs,
     _get_agent_attributes,
     _get_mcp_server_attributes,
     _get_model_attributes,
@@ -433,6 +434,20 @@ def test_attribute_getter_excludes_private_attrs(
         assert attrs[key] == value
     for key in excluded_attrs:
         assert key not in attrs
+
+
+def test_construct_full_inputs_drops_credentials():
+    class Model:
+        def __init__(self):
+            self.model_name = "m"
+            self._api_key = "test-api-key"
+
+    def run_sync(self, user_prompt, *, model=None, deps=None):
+        pass
+
+    inputs = _construct_full_inputs(run_sync, object(), "hi", model=Model(), deps=object())
+
+    assert inputs == {"user_prompt": "hi", "model": {"model_name": "m"}}
 
 
 def test_autolog_auto_enables_instrument():
