@@ -480,6 +480,54 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
     assert (dest / "via_link.txt").samefile(dest / "subdir" / "file.txt")
 
 
+@pytest.mark.parametrize(
+    "hardlink_targets",
+    [
+        # The second link's path already exists, so `os.link` fails
+        ["d/r/s", "d/q/../s"],
+        # `Path` drops the trailing slash, but `os.link` fails on it
+        ["d/q/../s/"],
+    ],
+)
+def test_extract_archive_to_dir_hardlink_does_not_fall_back_to_member(tmp_path, hardlink_targets):
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("secret")
+    secret.chmod(0o600)
+    original_mode = stat.S_IMODE(secret.stat().st_mode)
+
+    archive = tmp_path / "hardlink_fallback.tar"
+    with tarfile.open(archive, "w") as tar:
+        for name in ["d", "d/r", "d/r/t"]:
+            directory = tarfile.TarInfo(name)
+            directory.type = tarfile.DIRTYPE
+            directory.mode = 0o755
+            tar.addfile(directory)
+        regular = tarfile.TarInfo("d/r/s")
+        regular.size = 1
+        tar.addfile(regular, fileobj=io.BytesIO(b"x"))
+        # `d/q/../s` resolves to the regular file `d/r/s`, but normalizes to the
+        # symlink member `d/s`, which points outside when re-extracted at `h`
+        for name, target in [("d/s", "../outside/secret.txt"), ("d/q", "r/t")]:
+            link = tarfile.TarInfo(name)
+            link.type = tarfile.SYMTYPE
+            link.linkname = target
+            tar.addfile(link)
+        for target in hardlink_targets:
+            hardlink = tarfile.TarInfo("h")
+            hardlink.type = tarfile.LNKTYPE
+            hardlink.linkname = target
+            hardlink.mode = 0o666
+            tar.addfile(hardlink)
+
+    dest = tmp_path / "extracted"
+    with pytest.raises(MlflowException, match="Failed to extract hard link"):
+        extract_archive_to_dir(archive, dest)
+    assert not (dest / "h").is_symlink()
+    assert stat.S_IMODE(secret.stat().st_mode) == original_mode
+
+
 @pytest.fixture
 def file_utils_caplog(caplog, monkeypatch):
     # The "mlflow" logger disables propagation, so enable it for caplog to capture records

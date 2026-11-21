@@ -177,4 +177,22 @@ def _safe_extractall(tar, dest_dir):
                 f"Tar archive member {member.name!r} would be extracted outside "
                 f"the destination directory."
             )
-        tar.extract(member, path=resolved_dest)
+        if member.islnk():
+            _extract_hardlink(member, resolved_dest)
+        else:
+            tar.extract(member, path=resolved_dest)
+
+
+def _extract_hardlink(member, resolved_dest):
+    # Create the link directly rather than through tarfile: when `os.link` fails (e.g. the
+    # link path already exists, or the target has a trailing slash), tarfile falls back to
+    # re-extracting the archive member named by the normalized target at the link path,
+    # which can be a symlink that points outside the destination once relocated.
+    link_path = os.path.join(resolved_dest, member.name)
+    os.makedirs(os.path.dirname(link_path), exist_ok=True)
+    try:
+        os.link(os.path.join(resolved_dest, member.linkname), link_path)
+    except OSError as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Failed to extract hard link {member.name!r} -> {member.linkname!r}: {e}"
+        ) from e
