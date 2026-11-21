@@ -76,9 +76,16 @@ def test_strip_credentials_handles_reference_cycles():
     assert strip_credentials(value) == {"name": "a", "self": "dict"}
 
 
-def test_strip_credentials_fails_closed():
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ({"a": 1}, {}),
+        ([1], "<list: omitted, sanitization failed>"),
+    ],
+)
+def test_strip_credentials_fails_closed(value, expected):
     with mock.patch(
         "mlflow.tracing.utils.redaction._strip_credentials", side_effect=RuntimeError("boom")
     ) as mock_strip:
-        assert strip_credentials({"a": 1}) == "<dict: omitted, sanitization failed>"
+        assert strip_credentials(value) == expected
     mock_strip.assert_called_once()

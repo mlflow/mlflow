@@ -26,13 +26,16 @@ def strip_credentials(value: Any) -> Any:
     objects (e.g. a model client's ``api_key`` field) are dropped too. Other objects are returned
     as-is.
 
-    Fails closed: if sanitization raises, the value is replaced with a placeholder rather than
-    logged unsanitized.
+    Fails closed: if sanitization raises, the value is replaced rather than logged unsanitized.
+    Dicts become an empty dict so callers that merge the result into span attributes keep
+    working; other values become a placeholder string.
     """
     try:
         return _strip_credentials(value, set())
     except Exception as e:
         _logger.debug("Failed to sanitize %s for span logging: %s", type(value).__name__, e)
+        if isinstance(value, dict):
+            return {}
         return f"<{type(value).__name__}: omitted, sanitization failed>"
 
 

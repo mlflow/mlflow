@@ -450,6 +450,19 @@ def test_construct_full_inputs_drops_credentials():
     assert inputs == {"user_prompt": "hi", "model": {"model_name": "m"}}
 
 
+def test_get_model_attributes_drops_credentials():
+    class Model:
+        model_name = "gpt-4"
+        api_key = "test-api-key"
+        settings = {"api_key": "test-api-key", "max_tokens": 10}
+
+    attrs = _get_model_attributes(Model())
+
+    assert attrs["model_name"] == "gpt-4"
+    assert attrs["settings"] == {"max_tokens": 10}
+    assert "api_key" not in attrs
+
+
 def test_autolog_auto_enables_instrument():
     mlflow.pydantic_ai.autolog(log_traces=True)
 
