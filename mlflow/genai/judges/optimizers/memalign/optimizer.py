@@ -597,7 +597,7 @@ class MemoryAugmentedJudge(Judge):
         filtered_memory = []
         corpus = []
         for example in self._episodic_memory:
-            if value := getattr(example, query_field, None):
+            if value := example.get(query_field):
                 query = truncate_to_token_limit(
                     value_to_embedding_text(value), self._embedding_model, model_type="embedding"
                 )
