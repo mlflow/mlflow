@@ -89,7 +89,7 @@ Omit `isolation` to use the Action's prepared checkouts.
   "prompt": "<inputs>. Follow the trust boundary and the phase 1 instructions for <assigned angle> in the trusted skill. Start at <paths> without running PR code or delegating. For each candidate, return the changed file and line, trigger, concrete failure or cost, and strongest source evidence. Return no candidates if you find none.",
   "subagent_type": "general-purpose",
   "model": "sonnet",
-  "effort": "medium",
+  "effort": "high",
   "run_in_background": true
 }
 ```
