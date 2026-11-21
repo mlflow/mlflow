@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795274083827,
+  "lastUpdate": 1795281387372,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sourcehatchery@gmail.com",
-            "name": "Cheolhee Lee",
-            "username": "iamhuman-cheolheelee"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "60c0735c3f1972fc77a58f42f7f73f6e3c4ca110",
-          "message": "End OpenAI autolog stream span with `ERROR` status when the stream raises mid-iteration (#26305)\n\nSigned-off-by: chlee <sourcehatchery@gmail.com>",
-          "timestamp": "2026-09-30T15:31:49Z",
-          "tree_id": "c0f60ecf505ef28a68bb97810c3e5e5eaf329b4b",
-          "url": "https://github.com/mlflow/mlflow/commit/60c0735c3f1972fc77a58f42f7f73f6e3c4ca110"
-        },
-        "date": 1790782674550,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 84.30160024999864,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 8.148835507042971,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 5.024026717949372,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 5.001226122581028,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.207017645390462,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.215777666668032,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.973843000002034,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "atwkdeveloper@gmail.com",
+            "name": "Aaron Teo",
+            "username": "aaronteo-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "626002c4dd0d21ab60bf2572b838e7001bdae47e",
+          "message": "Drop Gemini `thought_signature` before forwarding chat requests to non-Gemini AI Gateway providers (#28020)\n\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-21T17:12:53Z",
+          "tree_id": "017e939e5d10e3f5f5efa180d3a213439383c448",
+          "url": "https://github.com/mlflow/mlflow/commit/626002c4dd0d21ab60bf2572b838e7001bdae47e"
+        },
+        "date": 1795281383921,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 24.53561139999927,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 3.4682014356437323,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 2.959526715447201,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 2.927983078838234,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 3.2516976666667152,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 2.961200428570367,
             "unit": "ms"
           }
         ]
