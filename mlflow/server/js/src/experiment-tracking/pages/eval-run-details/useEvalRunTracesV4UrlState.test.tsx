@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
 import { act, renderHook } from '@testing-library/react';
-import { useLocation } from '../../../common/utils/RoutingUtils';
+import { useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
 import {
   setupTestRouter,
   TestRouter,
@@ -15,9 +15,12 @@ describe('useEvalRunTracesV4UrlState', () => {
   let lastSearch = '';
   let lastHash = '';
   let lastState: unknown;
+  let navigateBack: () => void;
 
   const LocationSpy = () => {
     const { search, hash, state } = useLocation();
+    const navigate = useNavigate();
+    navigateBack = () => navigate(-1);
     useEffect(() => {
       lastSearch = search;
       lastHash = hash;
@@ -78,7 +81,7 @@ describe('useEvalRunTracesV4UrlState', () => {
   test('writes the selected span without changing table parameters', async () => {
     const { result } = await mountHook({
       pathname: '/p',
-      search: '?page=3&selectedEvaluationId=trace-1',
+      search: '?page=3&selectedEvaluationId=trace-1&spanId=old-span',
       hash: '#section',
       state: { retained: true },
     });
@@ -88,6 +91,8 @@ describe('useEvalRunTracesV4UrlState', () => {
     expect(param('page')).toBe('3');
     expect(lastHash).toBe('#section');
     expect(lastState).toEqual({ retained: true });
+    act(() => navigateBack());
+    expect(param('spanId')).toBe('span-1');
 
     act(() => result.current.setSpanId(undefined));
     expect(param('spanId')).toBeNull();
