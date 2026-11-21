@@ -1,13 +1,15 @@
 import { useCallback } from 'react';
-import { useSearchParams } from '../../../common/utils/RoutingUtils';
 import {
   useTracesV4UrlState,
   type TracesV4UrlState,
 } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UrlState';
+import {
+  SPAN_ID_PARAM,
+  useTracesV4SearchParams,
+} from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4SearchParams';
 
 const LEGACY_TRACE_ID_PARAM = 'selectedEvaluationId';
 const TRACE_ID_PARAM = 'traceId';
-const SPAN_ID_PARAM = 'spanId';
 
 /**
  * Eval-run URL state keeps the legacy drawer deep link canonical while accepting links copied from
@@ -18,7 +20,7 @@ export const useEvalRunTracesV4UrlState = (): TracesV4UrlState & {
   setSpanId: (next: string | undefined) => void;
 } => {
   const base = useTracesV4UrlState();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useTracesV4SearchParams();
   const selectedEvaluationId = searchParams.get(LEGACY_TRACE_ID_PARAM) ?? undefined;
 
   const setSpanId = useCallback(
