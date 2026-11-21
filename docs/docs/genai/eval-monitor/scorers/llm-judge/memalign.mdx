@@ -124,9 +124,22 @@ print(aligned_judge.instructions)
 #   - Use neutral, descriptive language..."
 ```
 
+## Correcting What the Judge Learned
+
+MemAlign offers two ways to correct an aligned judge. Choose based on whether the problem is a distilled rule or the feedback itself:
+
+| Situation                                                                                               | Method                       | Effect on the returned judge                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The feedback examples are still useful, but a distilled rule is incorrect, too broad, or contradictory. | `remove_guidelines(indices)` | Removes exactly the selected rules. Keeps all episodic examples available for retrieval, and preserves the remaining guidelines' source-trace mappings.                                    |
+| Particular traces contain incorrect or outdated feedback that should no longer be used as examples.     | `unalign(traces)`            | Removes those traces' examples from episodic memory. Drops a guideline when all of its recorded source traces are included in the removal; guidelines shared with other traces can remain. |
+
+For example, correctly labeled polite replies might produce an overly broad rule such as "Every polite reply must start with Hello". Use `remove_guidelines()` to drop that rule while keeping the useful examples. If a rude reply was incorrectly labeled polite, use `unalign()` to remove that trace's examples instead. If an unwanted guideline survives because it also has other source traces, remove that guideline explicitly too.
+
+Both methods return a judge, so use the returned judge (and register it if you want to keep the change). Neither method deletes the stored MLflow traces or their assessments; they only change what the judge keeps in memory.
+
 ## Removing Specific Guidelines
 
-To list the learned guidelines, use `guidelines`. To drop specific ones (for example, contradictory guidelines), pass their 0-based positions to `remove_guidelines`. It returns a new judge and leaves the original unchanged. Examples and MemAlign settings (reflection model, retrieval size, and embedding model) are kept.
+To list the learned guidelines, use `guidelines`. To drop specific ones (for example, contradictory guidelines), pass their 0-based positions to `remove_guidelines`. It returns a new judge and leaves the original unchanged. Examples, MemAlign settings (reflection model, retrieval size, and embedding model), and scorer settings such as `timeout` and `aggregations` are kept.
 
 ```python
 for i, guideline in enumerate(aligned_judge.guidelines):
@@ -140,7 +153,7 @@ Indices refer to the current list, so call `guidelines` again on the new judge b
 
 ## Removing Feedback (Unalignment)
 
-If requirements change or feedback was incorrect, you can selectively remove learned knowledge:
+If requirements change or feedback was incorrect, you can remove the feedback from specific traces:
 
 ```python
 import mlflow
@@ -151,7 +164,7 @@ traces_to_forget: list[mlflow.entities.Trace] = mlflow.search_traces(
     return_type="list",
 )
 
-# Remove knowledge derived from those traces
+# Remove those traces' examples, plus any guideline whose source traces are all in this list
 updated_judge = aligned_judge.unalign(traces=traces_to_forget)
 ```
 
