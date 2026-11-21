@@ -182,6 +182,25 @@ Only set it to `true` for models from sources you trust. The default is `true` f
 In Databricks Runtime and Databricks Model Serving, these checks are skipped: PyFunc models, models serialized with `pickle` or `cloudpickle`, models with a code directory, Models From Code, models inside a directory on the Python path, Keras models refused by the Keras version or format checks, and John Snow Labs models that start a Spark session with their own JARs and license always load, regardless of `MLFLOW_ALLOW_MODEL_CODE_EXECUTION` or `MLFLOW_ALLOW_PICKLE_DESERIALIZATION`. This is because Databricks uses a managed MLflow artifact store that protects model artifacts from unauthorized modification. By ensuring artifact integrity, the platform mitigates the risk of executing malicious code supplied by a model. Pickle-based evaluation artifacts are the exception: they are refused in these environments too when either variable is `false`.
 :::
 
+### Module and class names stored in a model
+
+Several flavors store the name of a Python module or class in the model and import it when the model is loaded. If that name resolves to a file shipped with the model, loading the model runs that file, even though no pickle file is involved.
+
+Since MLflow 3.18.0, setting `MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false` prevents this for every name listed below. MLflow refuses the model before its code directory, or the directory the model is stored in, can be used to resolve the name.
+
+| Flavor                                           | Name stored in the model                                      | Behavior when the variable is `false`                                                                                                                       |
+| ------------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PyFunc                                           | `loader_module` in the `MLmodel` file                         | All PyFunc models are refused, so the module is never imported.                                                                                             |
+| Models From Code (PyFunc, LangChain, LlamaIndex) | `model_code_path` in the `MLmodel` file                       | The model is refused before its Python file runs.                                                                                                           |
+| XGBoost                                          | `model_class` in the `MLmodel` file                           | A model with a code directory, or stored inside a directory on the Python path, is refused. Otherwise the class is imported from the installed environment. |
+| Spark                                            | `model_class` in the `MLmodel` file (Spark Connect ML models) | Same as XGBoost.                                                                                                                                            |
+| TensorFlow and Keras                             | `keras_module` in the `MLmodel` file                          | Same as XGBoost.                                                                                                                                            |
+| TensorFlow and Keras                             | `keras_module.txt` stored with the model                      | This file is read only by the PyFunc loader, which is refused.                                                                                              |
+| PyTorch                                          | `pickle_module_info.txt` stored with the model                | A model saved with pickle is refused before the named module is imported. Models saved with `serialization_format="pt2"` do not use this file.              |
+| LlamaIndex                                       | `object_constructor` entries in the model's `settings.json`   | A model whose settings file names any class is refused.                                                                                                     |
+
+With the default (`true`), these names are imported as before, including from a code directory logged with the model. `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=false` on its own does not change how these names are resolved, except for PyTorch, where it also refuses the model before the module named in `pickle_module_info.txt` is imported.
+
 ## Summary
 
 | Flavor              | Pickle-free option             | Notes                                                                                                                          | Impact when becoming default                                                                       |
