@@ -15,6 +15,10 @@ AZURE_ANNOTATIONS = "AZURE_ANNOTATIONS"
 EMPTY_STREAM = "EMPTY_STREAM"
 ERROR_MID_STREAM = "ERROR_MID_STREAM"
 TOOL_CALL_STREAM = "TOOL_CALL_STREAM"
+MULTI_CHOICE_STREAM = "MULTI_CHOICE_STREAM"
+REFUSAL_STREAM = "REFUSAL_STREAM"
+MISSING_INDEX_STREAM = "MISSING_INDEX_STREAM"
+NULL_DELTA_STREAM = "NULL_DELTA_STREAM"
 
 app = fastapi.FastAPI()
 
@@ -159,7 +163,7 @@ async def chat_response_stream(include_usage: bool = False):
     yield _make_chat_stream_chunk(" world", include_usage=include_usage)
 
 
-def _make_chat_stream_delta_chunk(delta, finish_reason=None):
+def _make_chat_stream_delta_chunk(delta, finish_reason=None, index=0):
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion.chunk",
@@ -168,7 +172,7 @@ def _make_chat_stream_delta_chunk(delta, finish_reason=None):
         "system_fingerprint": "fp_44709d6fcb",
         "choices": [
             {
-                "index": 0,
+                "index": index,
                 "delta": delta,
                 "finish_reason": finish_reason,
             }
@@ -198,6 +202,53 @@ async def chat_response_stream_with_tool_calls(include_usage: bool = False):
     yield _make_chat_stream_delta_chunk({}, finish_reason="tool_calls")
     if include_usage:
         yield _make_chat_stream_usage_chunk()
+
+
+async def chat_response_stream_with_multiple_choices():
+    # With `n > 1`, OpenAI interleaves the chunks of all choices, each carrying its choice `index`
+    yield _make_chat_stream_delta_chunk({"role": "assistant", "content": "Hello"}, index=0)
+    yield _make_chat_stream_delta_chunk(
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "index": 0,
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "get_weather", "arguments": ""},
+                }
+            ],
+        },
+        index=1,
+    )
+    yield _make_chat_stream_delta_chunk({"content": " world"}, index=0)
+    yield _make_chat_stream_delta_chunk(
+        {"tool_calls": [{"index": 0, "function": {"arguments": '{"city": "Paris"}'}}]}, index=1
+    )
+    # A chunk can carry more than one choice
+    chunk = _make_chat_stream_delta_chunk({}, finish_reason="stop", index=0)
+    chunk["choices"].append({"index": 1, "delta": {}, "finish_reason": "tool_calls"})
+    yield chunk
+
+
+async def chat_response_stream_with_refusal():
+    yield _make_chat_stream_delta_chunk({"role": "assistant", "content": None, "refusal": ""})
+    yield _make_chat_stream_delta_chunk({"refusal": "I'm sorry, "})
+    yield _make_chat_stream_delta_chunk({"refusal": "I can't help with that."})
+    yield _make_chat_stream_delta_chunk({}, finish_reason="stop")
+
+
+async def chat_response_stream_without_index():
+    for chunk in [_make_chat_stream_chunk("Hello"), _make_chat_stream_chunk(" world")]:
+        del chunk["choices"][0]["index"]
+        yield chunk
+
+
+async def chat_response_stream_with_null_delta():
+    yield _make_chat_stream_chunk("Hello")
+    yield _make_chat_stream_chunk(" world")
+    yield _make_chat_stream_delta_chunk(None)
 
 
 async def chat_response_stream_empty_choices():
@@ -260,6 +311,23 @@ async def chat(payload: ChatCompletionRequest):
                 async for d in chat_response_stream_with_list_content(
                     include_usage=(payload.stream_options or {}).get("include_usage", False)
                 )
+            )
+        elif MULTI_CHOICE_STREAM == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream_with_multiple_choices()
+            )
+        elif REFUSAL_STREAM == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_with_refusal()
+            )
+        elif MISSING_INDEX_STREAM == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_without_index()
+            )
+        elif NULL_DELTA_STREAM == payload.messages[0].content:
+            content = (
+                f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_with_null_delta()
             )
         else:
             content = (
