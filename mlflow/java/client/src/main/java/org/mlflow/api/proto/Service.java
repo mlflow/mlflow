@@ -223697,7 +223697,9 @@ public final class Service {
 
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -223706,7 +223708,9 @@ public final class Service {
     int getAuthConfigCount();
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -223722,7 +223726,9 @@ public final class Service {
     getAuthConfig();
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -223732,7 +223738,9 @@ public final class Service {
     getAuthConfigMap();
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -223744,7 +223752,9 @@ public final class Service {
         java.lang.String defaultValue);
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -224801,7 +224811,9 @@ public final class Service {
     }
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -224824,7 +224836,9 @@ public final class Service {
     }
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -224837,7 +224851,9 @@ public final class Service {
     }
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -224855,7 +224871,9 @@ public final class Service {
     }
     /**
      * <pre>
-     * Optional new auth configuration.
+     * Optional new auth configuration. Setting api_base to a different hostname requires
+     * a non-empty secret_value in the same request. Clearing api_base and edits to
+     * the path, scheme, or port do not require it.
      * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
      * </pre>
      *
@@ -225664,7 +225682,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * Optional new auth configuration.
+       * Optional new auth configuration. Setting api_base to a different hostname requires
+       * a non-empty secret_value in the same request. Clearing api_base and edits to
+       * the path, scheme, or port do not require it.
        * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
        * </pre>
        *
@@ -225687,7 +225707,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * Optional new auth configuration.
+       * Optional new auth configuration. Setting api_base to a different hostname requires
+       * a non-empty secret_value in the same request. Clearing api_base and edits to
+       * the path, scheme, or port do not require it.
        * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
        * </pre>
        *
@@ -225700,7 +225722,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * Optional new auth configuration.
+       * Optional new auth configuration. Setting api_base to a different hostname requires
+       * a non-empty secret_value in the same request. Clearing api_base and edits to
+       * the path, scheme, or port do not require it.
        * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
        * </pre>
        *
@@ -225718,7 +225742,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * Optional new auth configuration.
+       * Optional new auth configuration. Setting api_base to a different hostname requires
+       * a non-empty secret_value in the same request. Clearing api_base and edits to
+       * the path, scheme, or port do not require it.
        * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
        * </pre>
        *
@@ -225744,7 +225770,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * Optional new auth configuration.
+       * Optional new auth configuration. Setting api_base to a different hostname requires
+       * a non-empty secret_value in the same request. Clearing api_base and edits to
+       * the path, scheme, or port do not require it.
        * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
        * </pre>
        *
@@ -225768,7 +225796,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * Optional new auth configuration.
+       * Optional new auth configuration. Setting api_base to a different hostname requires
+       * a non-empty secret_value in the same request. Clearing api_base and edits to
+       * the path, scheme, or port do not require it.
        * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
        * </pre>
        *
@@ -225788,7 +225818,9 @@ public final class Service {
       }
       /**
        * <pre>
-       * Optional new auth configuration.
+       * Optional new auth configuration. Setting api_base to a different hostname requires
+       * a non-empty secret_value in the same request. Clearing api_base and edits to
+       * the path, scheme, or port do not require it.
        * For multi-auth providers, include "auth_mode" key (e.g., {"auth_mode": "access_keys", "aws_region_name": "us-east-1"})
        * </pre>
        *
