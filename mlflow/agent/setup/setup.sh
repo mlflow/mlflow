@@ -111,6 +111,11 @@ end = time.time()  # Before the slow mlflow import.
 if "" in sys.path:
     sys.path.remove("")  # Never import modules from the working directory.
 
+import os
+
+if not os.environ.get("MLFLOW_TRACKING_URI", "").startswith("databricks"):
+    os.environ.pop("MLFLOW_TRACKING_URI", None)  # Only route to Databricks; never probe other servers.
+
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.events import Event
 from mlflow.telemetry.schemas import Status
@@ -146,7 +151,7 @@ telemetry_send() {
 		# The client's server-info probe must not send credentials, possibly over plain HTTP.
 		unset MLFLOW_TRACKING_TOKEN MLFLOW_TRACKING_USERNAME MLFLOW_TRACKING_PASSWORD
 		MLFLOW_TRACKING_URI="${TRACKING_URI:-${MLFLOW_TRACKING_URI:-}}" python3 -c "$telemetry_python" \
-			"$1" "$telemetry_start" "$agent_choice" "$backend" "$telemetry_flags"
+			"$1" "$telemetry_start" "${agent_choice:-$AGENT_NAME}" "$backend" "$telemetry_flags"
 	) </dev/null >/dev/null 2>&1 &
 }
 
@@ -730,52 +735,54 @@ usage() {
 
 parse_args() {
 	while [ "$#" -gt 0 ]; do
-		# Keep in sync with the option arms below; only these flag names are sent.
-		case "$1" in
-		--workspace-url | --profile | --tracking-uri | --experiment-id | --experiment-name | --uc-schema | --warehouse-id | --agent)
-			telemetry_flags="$telemetry_flags ${1#--}"
-			;;
-		esac
 		case "$1" in
 		--workspace-url)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags workspace-url"
 			WORKSPACE_URL=$2
 			WORKSPACE_URL_EXPLICIT="true"
 			shift 2
 			;;
 		--profile)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags profile"
 			PROFILE=$2
 			PROFILE_EXPLICIT="true"
 			shift 2
 			;;
 		--tracking-uri)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags tracking-uri"
 			TRACKING_URI=$2
 			shift 2
 			;;
 		--experiment-id)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags experiment-id"
 			EXPERIMENT_ID=$2
 			shift 2
 			;;
 		--experiment-name)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags experiment-name"
 			EXPERIMENT_NAME=$2
 			shift 2
 			;;
 		--uc-schema)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags uc-schema"
 			UC_SCHEMA=$2
 			shift 2
 			;;
 		--warehouse-id)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags warehouse-id"
 			WAREHOUSE_ID=$2
 			shift 2
 			;;
 		--agent)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags agent"
 			AGENT_NAME=$2
 			shift 2
 			;;

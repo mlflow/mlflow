@@ -1046,7 +1046,12 @@ def test_telemetry_records_flag_names_not_values():
     assert result.stdout.split() == ["agent", "tracking-uri"]
 
 
-def test_telemetry_python_records_event(tmp_path: Path, monkeypatch):
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected"),
+    [("http://user:secret@host:5000", None), ("databricks://profile", "databricks://profile")],
+)
+def test_telemetry_python_records_event(tmp_path: Path, monkeypatch, tracking_uri, expected):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", tracking_uri)
     snippet = tmp_path / "telemetry.py"
     snippet.write_text(run_shell('printf "%s" "$telemetry_python"').stdout)
     start = int(time.time()) - 2
@@ -1066,3 +1071,4 @@ def test_telemetry_python_records_event(tmp_path: Path, monkeypatch):
     assert kwargs["duration_ms"] >= 2000
     client.flush.assert_called_once_with()
     assert "" not in sys.path
+    assert os.environ.get("MLFLOW_TRACKING_URI") == expected
