@@ -19,6 +19,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
+    INVALID_PARAMETER_VALUE,
     NOT_FOUND,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
@@ -332,6 +333,18 @@ def _register_model(
                 model_version=create_version_response.version,
             )
         except Exception as e:
+            # INVALID_PARAMETER_VALUE means the model can't be served as logged (for example, an
+            # unsupported architecture), so retrying at deploy time won't help.
+            if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
+                INVALID_PARAMETER_VALUE
+            ):
+                reason = getattr(e, "json", {}).get("message") or e.message
+                raise MlflowException(
+                    f"Model '{create_version_response.name}' version "
+                    f"'{create_version_response.version}' was registered, but Databricks Model "
+                    f"Serving rejected it: {reason}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
             eprint(
                 f"Failed to stage model for Databricks Model Serving: {e!s}. "
                 "The model was registered successfully and is available for serving, but may take "

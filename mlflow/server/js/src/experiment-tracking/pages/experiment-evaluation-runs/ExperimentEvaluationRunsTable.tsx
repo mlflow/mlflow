@@ -311,6 +311,32 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
       // Header identities are stable while only column sizing changes.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [table, columns, enableNewEvalRunsUi]);
+    // Group rows leave every column empty except the run name and the metric averages, so the group
+    // label spans the run-name column and the empty columns after it, up to the first metric column.
+    const groupLabelSpan = useMemo(() => {
+      if (!columnStyles) {
+        return undefined;
+      }
+      const columnIds = leafHeaders.map((header) => header.column.id);
+      const start = columnIds.indexOf(EvalRunsTableColumnId.runName);
+      if (start < 0) {
+        return undefined;
+      }
+      let end = start + 1;
+      while (end < columnIds.length && !columnIds[end].startsWith(`${EvalRunsTableKeyedColumnPrefix.METRIC}.`)) {
+        end++;
+      }
+      const width = `calc(${columnIds
+        .slice(start, end)
+        .map((_, offset) => `var(${EVAL_RUNS_COLUMN_SIZING.columnSizeVariable(start + offset)})`)
+        .join(' + ')})`;
+      return {
+        columnIds: new Set(columnIds.slice(start, end)),
+        style: { flexGrow: 0, flexShrink: 0, flexBasis: width, maxWidth: width },
+      };
+      // Same dependencies as `columnStyles`: header identities are stable while only sizing changes.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [columnStyles]);
 
     const newUiHeaderCss = {
       '&& .table-header-text, && .table-header-text *': {
@@ -438,6 +464,7 @@ export const ExperimentEvaluationRunsTable = forwardRef<HTMLDivElement, Experime
                   isGrouped={isGrouped}
                   enableImprovedComparison={enableImprovedComparison}
                   columnStyles={columnStyles}
+                  groupLabelSpan={groupLabelSpan}
                   rowWidthStyle={rowWidthStyle}
                   showGroupSummaries={Boolean(enableNewEvalRunsUi)}
                   {...(enableNewEvalRunsUi ? { fillerCellStyle: EVAL_RUNS_COLUMN_SIZING.fillerCellStyle } : {})}

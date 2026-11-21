@@ -26,6 +26,7 @@ from mlflow.entities.issue_evidence import (
 )
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.discovery.constants import (
     EVIDENCE_GENERATION_SYSTEM_PROMPT,
     SPAN_CONTENT_TRUNCATION,
@@ -254,6 +255,7 @@ def generate_trace_evidence(
         ],
         response_format=_GeneratedEvidence,
         token_counter=token_counter,
+        gateway_caller=GatewayCaller.ISSUE_DETECTION,
     )
     content = (response.choices[0].message.content or "").strip()
     generated = _GeneratedEvidence(**json.loads(content))

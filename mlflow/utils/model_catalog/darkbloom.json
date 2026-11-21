@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.03,
@@ -19,14 +18,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-24"
+      "last_updated_at": "2026-10-27"
     },
     "gpt-oss-20b": {
       "mode": "chat",
       "context_window": {
         "max_input": 131072,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.0145,
@@ -39,7 +37,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

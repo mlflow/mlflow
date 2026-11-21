@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.10"
+# requires-python = ">=3.11"
 # dependencies = ["aiohttp>=3.13.3,<4", "psycopg2-binary>=2.9,<3", "rich>=14.3.3,<15"]
 # ///
 """MLflow AI Gateway benchmark runner.

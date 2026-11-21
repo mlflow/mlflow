@@ -1,5 +1,3 @@
-import importlib.metadata
-
 import dspy
 import pandas as pd
 import pytest
@@ -9,10 +7,11 @@ from packaging.version import Version
 import mlflow
 from mlflow.tracing.constant import TraceMetadataKey
 
+from tests.dspy.helper import DSPY_VERSION, REASONING_LM_FIELD
 from tests.openai.test_openai_evaluate import purge_traces
 from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 
-if Version(importlib.metadata.version("dspy")) < Version("2.5.17"):
+if DSPY_VERSION < Version("2.5.17"):
     pytest.skip("Evaluation test requires dspy>=2.5.17", allow_module_level=True)
 
 _EVAL_DATA = pd.DataFrame({
@@ -32,11 +31,11 @@ def get_fake_model():
         lm=DummyLM({
             "What is MLflow?": {
                 "answer": "MLflow is an open-source platform to manage the ML lifecycle.",
-                "reasoning": "No reasoning provided.",
+                REASONING_LM_FIELD: "No reasoning provided.",
             },
             "What is Spark?": {
                 "answer": "Spark is a unified analytics engine for big data processing.",
-                "reasoning": "No reasoning provided.",
+                REASONING_LM_FIELD: "No reasoning provided.",
             },
         })
     )

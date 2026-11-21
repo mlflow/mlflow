@@ -9,7 +9,7 @@ from typing import Any
 import pydantic
 
 import mlflow
-from mlflow.entities import SpanStatus, SpanType
+from mlflow.entities import SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.gateway.config import GatewayRequestType
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
@@ -189,6 +189,19 @@ def _maybe_create_distributed_span(
         _logger.debug("Failed to create distributed trace span for gateway call", exc_info=True)
 
 
+def _maybe_set_stream_status(
+    stream_status_resolver: Callable[[list[Any]], SpanStatus | None],
+    chunks: list[Any],
+) -> None:
+    try:
+        if (status := stream_status_resolver(chunks)) and (
+            span := mlflow.get_current_active_span()
+        ):
+            span.set_status(status)
+    except Exception:
+        _logger.debug("Failed to resolve gateway stream status", exc_info=True)
+
+
 def maybe_traced_gateway_call(
     func: Callable[..., Any],
     endpoint_config: GatewayEndpointConfig,
@@ -198,6 +211,7 @@ def maybe_traced_gateway_call(
     request_type: GatewayRequestType | None = None,
     on_complete: Callable[[], None] | None = None,
     message_format: str | None = None,
+    stream_status_resolver: Callable[[list[Any]], SpanStatus | None] | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a gateway function with tracing.
@@ -215,6 +229,10 @@ def maybe_traced_gateway_call(
         message_format: Optional message format string (e.g. ``"anthropic"``,
             ``"gemini"``) stored as ``mlflow.message.format`` on the span so the
             UI can render the Chat tab for provider-native response shapes.
+        stream_status_resolver: For streaming calls, a function that receives all chunks
+            once the stream completes and returns a status to set on the gateway span, or
+            ``None`` to keep the default. Use it when a provider reports a failure inside
+            the stream rather than through an HTTP error, so nothing raises.
 
     Returns:
         A traced version of the function.
@@ -251,9 +269,14 @@ def maybe_traced_gateway_call(
         async def wrapper(*args, **kwargs):
             mlflow.update_current_trace(metadata=combined_metadata)
             _maybe_unwrap_single_arg_input(args, kwargs)
+            chunks = []
             try:
                 async for item in func(*args, **kwargs):
+                    if stream_status_resolver:
+                        chunks.append(item)
                     yield item
+                if stream_status_resolver:
+                    _maybe_set_stream_status(stream_status_resolver, chunks)
             finally:
                 if on_complete:
                     try:
@@ -394,8 +417,9 @@ def aggregate_anthropic_messages_stream_chunks(
 
     Processes the following Anthropic streaming event types:
     - ``message_start``: extracts id, model, role, and input token usage
-    - ``content_block_start``: initialises text or tool_use content blocks
-    - ``content_block_delta``: appends text deltas and tool input JSON deltas
+    - ``content_block_start``: initialises text, thinking, redacted_thinking, tool_use, or server
+      tool (e.g. ``server_tool_use``, ``web_search_tool_result``) content blocks
+    - ``content_block_delta``: appends text, thinking, signature, and tool input JSON deltas
     - ``message_delta``: extracts stop_reason, stop_sequence, and output token usage
 
     Returns a dict matching the Anthropic Messages API non-streaming response shape::
@@ -458,7 +482,9 @@ def aggregate_anthropic_messages_stream_chunks(
                         "_input_json": "",
                     }
                 else:
-                    content_blocks[index] = {"type": "text", "text": block.get("text", "")}
+                    # Copy the block as-is so text, thinking, and redacted_thinking blocks
+                    # keep their type and fields (e.g. redacted_thinking ``data``).
+                    content_blocks[index] = dict(block)
             case {
                 "type": "content_block_delta",
                 "index": int(index),
@@ -470,6 +496,10 @@ def aggregate_anthropic_messages_stream_chunks(
                 match delta.get("type"):
                     case "text_delta":
                         block["text"] = block.get("text", "") + delta.get("text", "")
+                    case "thinking_delta":
+                        block["thinking"] = block.get("thinking", "") + delta.get("thinking", "")
+                    case "signature_delta":
+                        block["signature"] = block.get("signature", "") + delta.get("signature", "")
                     case "input_json_delta":
                         block["_input_json"] = block.get("_input_json", "") + delta.get(
                             "partial_json", ""
@@ -487,8 +517,8 @@ def aggregate_anthropic_messages_stream_chunks(
     # Finalise content blocks: parse accumulated tool input JSON
     content: list[dict[str, Any]] = []
     for block in (content_blocks[i] for i in sorted(content_blocks)):
-        if block["type"] == "tool_use":
-            raw_json = block.pop("_input_json", "")
+        # tool_use and server tool blocks (e.g. server_tool_use) stream their input as JSON deltas.
+        if (raw_json := block.pop("_input_json", None)) is not None:
             try:
                 block["input"] = json.loads(raw_json) if raw_json else {}
             except json.JSONDecodeError:
@@ -603,14 +633,22 @@ def aggregate_gemini_stream_generate_content_chunks(
     return result
 
 
+_OPENAI_RESPONSES_TERMINAL_EVENT_TYPES = frozenset({
+    "response.completed",
+    "response.incomplete",
+    "response.failed",
+})
+
+
 def aggregate_openai_responses_stream_chunks(
     chunks: list[bytes],
 ) -> dict[str, Any] | None:
     """
     Aggregate raw OpenAI Responses API SSE streaming chunks into a single response object.
 
-    The OpenAI Responses streaming API emits a ``response.completed`` event that contains
-    the fully-assembled response object — including all output items, content parts, and
+    The OpenAI Responses streaming API ends with a terminal event (``response.completed``,
+    ``response.incomplete``, or ``response.failed``) that contains the fully-assembled
+    response object — including all output items, content parts, status details, and
     token usage. This function locates that event and returns its ``response`` field,
     giving the same shape as a non-streaming Responses API call::
 
@@ -629,7 +667,7 @@ def aggregate_openai_responses_stream_chunks(
             ...
         }
 
-    Returns ``None`` if *chunks* is empty or contains no ``response.completed`` event.
+    Returns ``None`` if *chunks* is empty or contains no terminal event.
     """
     if not chunks:
         return None
@@ -646,13 +684,29 @@ def aggregate_openai_responses_stream_chunks(
         leftover = lines[-1]
         complete = b"\n".join(lines[:-1]) + b"\n"
         for event in parse_sse_lines(complete):
-            if event.get("type") == "response.completed":
+            if event.get("type") in _OPENAI_RESPONSES_TERMINAL_EVENT_TYPES:
                 return event.get("response")
 
     # Flush any remaining bytes that were not followed by a newline.
     if leftover:
         for event in parse_sse_lines(leftover):
-            if event.get("type") == "response.completed":
+            if event.get("type") in _OPENAI_RESPONSES_TERMINAL_EVENT_TYPES:
                 return event.get("response")
 
     return None
+
+
+def openai_responses_stream_status(chunks: list[bytes]) -> SpanStatus | None:
+    """
+    Return an ERROR status if an OpenAI Responses API stream ended with ``response.failed``.
+
+    The upstream request still succeeds with HTTP 200 in that case, so the span would
+    otherwise be marked OK. ``response.incomplete`` (e.g. ``max_output_tokens``) is a normal
+    outcome, like ``finish_reason="length"`` in Chat Completions, and keeps the default status.
+    """
+    response = aggregate_openai_responses_stream_chunks(chunks)
+    if not response or response.get("status") != "failed":
+        return None
+    error = response.get("error") or {}
+    description = ": ".join(filter(None, (error.get("code"), error.get("message"))))
+    return SpanStatus(SpanStatusCode.ERROR, description=description)

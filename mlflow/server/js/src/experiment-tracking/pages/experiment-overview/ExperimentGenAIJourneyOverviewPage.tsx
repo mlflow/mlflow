@@ -15,7 +15,7 @@ import {
 import { shouldEnableExperimentIssuesTab, shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import { generatePath, useLocation, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes, { RoutePaths } from '../../routes';
-import { ExperimentPageTabName, RunPageTabName } from '../../constants';
+import { ExperimentPageTabName } from '../../constants';
 import { useAssistant } from '../../../assistant';
 import { useGenAIOverviewTraceState } from './hooks/useGenAIOverviewState';
 import { useGenAIOverviewAnalyzeState } from './hooks/useGenAIOverviewAnalyzeState';
@@ -384,9 +384,7 @@ export const ExperimentGenAIJourneyOverviewPage = () => {
         });
   const latestIssueDetectionRunRoute =
     analyzeState.status === 'completed'
-      ? isExperimentIssuesTabEnabled
-        ? Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues)
-        : Routes.getIssueDetectionRunDetailsTabRoute(experimentId, analyzeState.runUuid, RunPageTabName.ISSUES)
+      ? Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Issues)
       : undefined;
   const startIssueDetection = () => {
     if (isIssueDetectionEnabled) {

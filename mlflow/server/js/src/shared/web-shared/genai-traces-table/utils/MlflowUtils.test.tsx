@@ -289,6 +289,17 @@ test('formatSource & renderSource', () => {
   `);
 });
 
+test('getGitRepoUrl rejects non-http(s) URLs', () => {
+  expect(MlflowUtils.getGitRepoUrl('https://git.custom.in/repo/dir#file/dir')).toEqual(
+    'https://git.custom.in/repo/dir/tree/master/file/dir',
+  );
+
+  /* eslint-disable no-script-url */
+  expect(MlflowUtils.getGitRepoUrl('javascript:alert(1)//git/a')).toBeNull();
+  expect(MlflowUtils.getGitRepoUrl('JavaScript:alert(1)//git/a')).toBeNull();
+  /* eslint-enable no-script-url */
+});
+
 test('setQueryParams', () => {
   expect(MlflowUtils.setQueryParams('http://localhost/foo', '?o=123')).toEqual('http://localhost/foo?o=123');
   expect(MlflowUtils.setQueryParams('http://localhost/foo?param=val', '?o=123')).toEqual('http://localhost/foo?o=123');

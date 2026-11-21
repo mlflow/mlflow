@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 98304,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -19,13 +18,12 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-embedding": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 4096,
-        "max_tokens": 4096
+        "max_input": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -38,13 +36,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-embedding-large": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 4096,
-        "max_tokens": 4096
+        "max_input": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -57,13 +54,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-embedding-large-text-240915": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 4096,
-        "max_tokens": 4096
+        "max_input": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -76,13 +72,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-embedding-large-text-250515": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 4096,
-        "max_tokens": 4096
+        "max_input": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -95,13 +90,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-embedding-text-240715": {
       "mode": "embedding",
       "context_window": {
-        "max_input": 4096,
-        "max_tokens": 4096
+        "max_input": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -114,14 +108,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seed-2-0-code-preview-260215": {
       "mode": "chat",
       "context_window": {
         "max_input": 256000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "capabilities": {
         "function_calling": true,
@@ -130,14 +123,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seed-2-0-lite-260215": {
       "mode": "chat",
       "context_window": {
         "max_input": 256000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "capabilities": {
         "function_calling": true,
@@ -146,14 +138,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seed-2-0-mini-260215": {
       "mode": "chat",
       "context_window": {
         "max_input": 256000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "capabilities": {
         "function_calling": true,
@@ -162,14 +153,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seed-2-0-pro-260215": {
       "mode": "chat",
       "context_window": {
         "max_input": 256000,
-        "max_output": 128000,
-        "max_tokens": 128000
+        "max_output": 128000
       },
       "capabilities": {
         "function_calling": true,
@@ -178,14 +168,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seed-2-1-lite-260915": {
       "mode": "chat",
       "context_window": {
         "max_input": 1024000,
-        "max_output": 256000,
-        "max_tokens": 256000
+        "max_output": 256000
       },
       "pricing": {
         "input_per_million_tokens": 0.115,
@@ -205,14 +194,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-21"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seed-2-1-pro-260628": {
       "mode": "chat",
       "context_window": {
         "max_input": 256000,
-        "max_output": 256000,
-        "max_tokens": 256000
+        "max_output": 256000
       },
       "pricing": {
         "input_per_million_tokens": 0.8625,
@@ -226,14 +214,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seed-2-1-pro-260915": {
       "mode": "chat",
       "context_window": {
         "max_input": 1024000,
-        "max_output": 256000,
-        "max_tokens": 256000
+        "max_output": 256000
       },
       "pricing": {
         "input_per_million_tokens": 0.8625,
@@ -247,14 +234,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-21"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seed-2-1-turbo-260628": {
       "mode": "chat",
       "context_window": {
         "max_input": 256000,
-        "max_output": 256000,
-        "max_tokens": 256000
+        "max_output": 256000
       },
       "pricing": {
         "input_per_million_tokens": 0.43125,
@@ -268,7 +254,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-09-17"
+      "last_updated_at": "2026-10-27"
     },
     "doubao-seedance-2-0-260128": {
       "mode": "video_generation",
@@ -318,8 +304,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 204800,
-        "max_output": 131072,
-        "max_tokens": 131072
+        "max_output": 131072
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -332,14 +317,13 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "kimi-k2-thinking-251104": {
       "mode": "chat",
       "context_window": {
         "max_input": 229376,
-        "max_output": 32768,
-        "max_tokens": 32768
+        "max_output": 32768
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -352,7 +336,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

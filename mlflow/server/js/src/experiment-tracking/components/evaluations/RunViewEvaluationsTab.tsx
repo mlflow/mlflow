@@ -395,6 +395,7 @@ const RunViewEvaluationsTabInner = ({
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
+        experimentId={experimentId}
       >
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
           <GenAITracesTableProvider

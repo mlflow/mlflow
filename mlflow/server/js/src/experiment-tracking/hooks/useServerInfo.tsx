@@ -36,6 +36,7 @@ interface ServerInfoResponse {
  */
 export const SERVER_FEATURE_KEYS = {
   GATEWAY: 'gateway',
+  SCHEDULED_ISSUE_DETECTION: 'scheduled_issue_detection',
 } as const;
 
 export type FeatureKey = (typeof SERVER_FEATURE_KEYS)[keyof typeof SERVER_FEATURE_KEYS];

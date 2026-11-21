@@ -355,6 +355,26 @@ async def test_chat_stream_tool_calling_omits_function_call_id():
     assert "id" not in _find_part(contents, "functionResponse")
 
 
+@pytest.mark.asyncio
+async def test_chat_stream_raises_on_in_band_error():
+    provider = _make_provider()
+    stream_resp = [
+        b'data: {"candidates": [{"content": {"parts": [{"text": "a"}]}}]}\n\n',
+        b'data: {"error": {"code": 500, "message": "Internal error", "status": "INTERNAL"}}\n\n',
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(stream_resp))
+    payload = {"messages": [{"role": "user", "content": "Hi"}], "stream": True}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        first = await anext(stream)
+        with pytest.raises(
+            AIGatewayException, match="Vertex AI returned INTERNAL while streaming: Internal error"
+        ):
+            await anext(stream)
+    assert first.choices[0].delta.content == "a"
+
+
 def test_adapter_class_matches_the_active_delegate():
     # adapter_class must follow the delegate: Claude/MaaS models are formatted by their
     # own adapters (get_endpoint_url points at the delegate's endpoint), not the Gemini one.
@@ -464,6 +484,42 @@ def test_anthropic_betas_config(value, expected):
 def test_custom_location():
     config = VertexAIConfig(vertex_project="my-project", vertex_location="europe-west4")
     assert config.vertex_location == "europe-west4"
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "",
+        "global",
+        "us",
+        "eu",
+        "us-central1",
+        "us-east5",
+        "europe-west4",
+        "asia-southeast1",
+    ],
+)
+def test_vertex_location_valid(location):
+    config = VertexAIConfig(vertex_project="my-project", vertex_location=location)
+    assert config.vertex_location == location
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "evil.example",
+        "evil.example/#",
+        "x.evil.example?",
+        "example.com",
+        "https://example.com",
+        "example/path",
+        "location@host",
+        "us-central1\n",
+    ],
+)
+def test_vertex_location_invalid(location):
+    with pytest.raises(ValidationError, match="vertex_location"):
+        VertexAIConfig(vertex_project="my-project", vertex_location=location)
 
 
 def test_global_endpoint_when_no_location():
@@ -1161,3 +1217,83 @@ def test_credentials_with_adc():
         headers = provider.headers
         mock_default.assert_called_once()
         assert headers == {"Authorization": "Bearer mock-access-token"}
+
+
+def _cache_control_messages():
+    return [
+        {
+            "role": "system",
+            "content": [{"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral", "ttl": "1h"}}
+            ],
+        },
+    ]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_claude_chat_sends_cache_control(stream):
+    provider = _make_claude_provider()
+    if stream:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(_claude_stream_data()))
+    else:
+        mock_client = mock_http_client(MockAsyncResponse(_claude_chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(messages=_cache_control_messages(), stream=stream)
+        if stream:
+            [chunk async for chunk in provider.chat_stream(payload)]
+        else:
+            await provider.chat(payload)
+
+    body = mock_client.post.call_args.kwargs["json"]
+    assert body["system"] == [
+        {"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}}
+    ]
+    assert body["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral", "ttl": "1h"}}
+            ],
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_maas_chat_does_not_send_cache_control():
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    mock_client = mock_http_client(MockAsyncResponse(_maas_chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(messages=_cache_control_messages()))
+
+    assert mock_client.post.call_args.kwargs["json"]["messages"] == [
+        {"role": "system", "content": [{"type": "text", "text": "Rules"}]},
+        {"role": "user", "content": [{"type": "text", "text": "Doc"}]},
+    ]
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        ("claude-sonnet-4-5@20251101", True),
+        ("gemini-2.0-flash", False),
+        ("meta/llama-3.1-405b-instruct-maas", False),
+    ],
+)
+def test_supports_cache_control_only_for_claude(model_name, expected):
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": model_name,
+            "config": {"vertex_project": "my-gcp-project", "vertex_location": "us-central1"},
+        },
+    )
+    assert VertexAIProvider(endpoint_config)._supports_cache_control() is expected

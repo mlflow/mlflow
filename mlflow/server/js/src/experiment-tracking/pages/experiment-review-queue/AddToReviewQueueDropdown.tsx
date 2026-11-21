@@ -20,7 +20,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
-import Utils from '../../../common/utils/Utils';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
@@ -33,6 +32,8 @@ import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import type { ReviewQueue } from './types';
+import type { TracesV4NotifyApi } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4Notifications';
+import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 
 const CID = 'mlflow.experiment-review-queue.add-to-queue';
 
@@ -70,7 +71,7 @@ export const AddToReviewQueueDropdown = ({
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
   popoverAlign = 'end',
-  onCloseDrawer,
+  notify = undefined,
 }: {
   experimentId: string;
   selectedTraceInfos: ModelTraceInfoV3[];
@@ -78,7 +79,7 @@ export const AddToReviewQueueDropdown = ({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   popoverAlign?: 'start' | 'end';
-  onCloseDrawer?: () => void;
+  notify?: TracesV4NotifyApi;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -96,12 +97,6 @@ export const AddToReviewQueueDropdown = ({
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : internalOpen;
-  const hasRequestedDrawerCloseRef = useRef(false);
-  useEffect(() => {
-    if (!isOpen) {
-      hasRequestedDrawerCloseRef.current = false;
-    }
-  }, [isOpen]);
   const setOpen = useCallback(
     (next: boolean) => {
       if (isControlled) {
@@ -271,12 +266,8 @@ export const AddToReviewQueueDropdown = ({
   const showSuccessToast = useCallback(
     (queueId: string) => {
       const reviewQueuePath = getReviewQueuePageRoute(experimentId, queueId);
-      if (onCloseDrawer && !hasRequestedDrawerCloseRef.current) {
-        hasRequestedDrawerCloseRef.current = true;
-        onCloseDrawer();
-      }
-      Utils.displayGlobalInfoNotification(
-        <span css={{ whiteSpace: 'nowrap' }}>
+      const message = (
+        <span>
           {intl.formatMessage(
             {
               defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
@@ -290,25 +281,33 @@ export const AddToReviewQueueDropdown = ({
               description: 'Add to review queue: success toast link to the review queue page',
             })}
           </Link>
-        </span>,
-        3,
+        </span>
       );
+      if (notify) {
+        notify.success(message);
+      } else {
+        Utils.displayGlobalInfoNotification(message, 3);
+      }
     },
-    [experimentId, itemIds.length, intl, onCloseDrawer],
+    [notify, experimentId, itemIds.length, intl],
   );
 
   const showErrorToast = useCallback(
-    (e: unknown) =>
-      Utils.displayGlobalErrorNotification(
-        intl.formatMessage(
-          {
-            defaultMessage: 'Failed to update the review queue: {error}',
-            description: 'Add to review queue: error toast when adding or removing traces fails',
-          },
-          { error: e instanceof Error ? e.message : String(e) },
-        ),
-      ),
-    [intl],
+    (e: unknown) => {
+      const message = intl.formatMessage(
+        {
+          defaultMessage: 'Failed to update the review queue: {error}',
+          description: 'Add to review queue: error toast when adding or removing traces fails',
+        },
+        { error: e instanceof Error ? e.message : String(e) },
+      );
+      if (notify) {
+        notify.error(undefined, message);
+      } else {
+        Utils.displayGlobalErrorNotification(message);
+      }
+    },
+    [intl, notify],
   );
 
   const markBusy = (id: string) => setBusyIds((prev) => new Set(prev).add(id));

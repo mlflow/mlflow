@@ -5,8 +5,7 @@
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 4028,
-        "max_tokens": 4028
+        "max_output": 4028
       },
       "capabilities": {
         "function_calling": true,
@@ -15,14 +14,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "Llama-3.3-8B-Instruct": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
-        "max_output": 4028,
-        "max_tokens": 4028
+        "max_output": 4028
       },
       "capabilities": {
         "function_calling": true,
@@ -31,14 +29,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "Llama-4-Maverick-17B-128E-Instruct-FP8": {
       "mode": "chat",
       "context_window": {
         "max_input": 1000000,
-        "max_output": 4028,
-        "max_tokens": 4028
+        "max_output": 4028
       },
       "capabilities": {
         "function_calling": true,
@@ -47,14 +44,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "Llama-4-Scout-17B-16E-Instruct-FP8": {
       "mode": "chat",
       "context_window": {
         "max_input": 10000000,
-        "max_output": 4028,
-        "max_tokens": 4028
+        "max_output": 4028
       },
       "capabilities": {
         "function_calling": true,
@@ -63,7 +59,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

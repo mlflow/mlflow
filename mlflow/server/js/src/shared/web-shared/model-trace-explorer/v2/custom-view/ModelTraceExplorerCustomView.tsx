@@ -129,11 +129,14 @@ const CustomViewGeneratingSkeleton = () => {
 export interface ModelTraceExplorerCustomViewProps {
   modelTraceInfo: ModelTrace['info'];
   enableFeedback?: boolean;
+  // Who feedback written from the view is attributed to; defaults to `getUser()`.
+  feedbackSourceId?: string;
 }
 
 export const ModelTraceExplorerCustomView = ({
   modelTraceInfo,
   enableFeedback = true,
+  feedbackSourceId,
 }: ModelTraceExplorerCustomViewProps): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -307,7 +310,7 @@ export const ModelTraceExplorerCustomView = ({
           assessment: {
             assessment_name: entry.name,
             trace_id: traceId,
-            source: { source_type: 'HUMAN', source_id: getUser() ?? '' },
+            source: { source_type: 'HUMAN', source_id: feedbackSourceId ?? getUser() ?? '' },
             ...(entry.spanId ? { span_id: entry.spanId } : {}),
             ...feedbackValue,
             ...(hasRationale ? { rationale: entry.rationale } : {}),
@@ -1172,6 +1175,7 @@ export const ModelTraceExplorerCustomView = ({
                 value={{
                   enabled: enableFeedback,
                   traceId,
+                  sourceId: feedbackSourceId,
                   hasStagedFeedback,
                   submitStagedFeedback,
                   getStagedFeedbackValue,

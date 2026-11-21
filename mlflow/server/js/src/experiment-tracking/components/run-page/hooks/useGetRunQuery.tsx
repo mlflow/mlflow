@@ -2,7 +2,7 @@ import { type ApolloError, type ApolloQueryResult, gql } from '@mlflow/mlflow/sr
 import type { GetRun, GetRunVariables } from '../../../../graphql/__generated__/graphql';
 import { useQuery, useLazyQuery } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
-const GET_RUN_QUERY = gql`
+export const GET_RUN_QUERY = gql`
   query GetRun($data: MlflowGetRunInput!) @component(name: "MLflow.ExperimentRunTracking") {
     mlflowGetRun(input: $data) {
       apiError {

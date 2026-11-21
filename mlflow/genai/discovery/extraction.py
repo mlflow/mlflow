@@ -9,6 +9,7 @@ from mlflow.entities.span import Span, SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.discovery.constants import (
     FAILURE_LABEL_SYSTEM_PROMPT,
 )
@@ -273,6 +274,7 @@ def extract_failure_labels(
                 {"role": "user", "content": rationale},
             ],
             token_counter=token_counter,
+            gateway_caller=GatewayCaller.ISSUE_DETECTION,
         )
         content = response.choices[0].message.content.strip()
         symptoms = [

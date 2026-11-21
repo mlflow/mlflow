@@ -233,6 +233,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/cloudflare-agents',
+                  label: 'Cloudflare Agents',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/crewai',
                   label: 'CrewAI',
                 },
@@ -240,6 +245,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/dspy',
                   label: 'DSPy',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/flue',
+                  label: 'Flue',
                 },
                 {
                   type: 'doc',

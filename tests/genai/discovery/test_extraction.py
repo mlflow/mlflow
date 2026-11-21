@@ -280,3 +280,23 @@ def test_collect_session_rationales_deduplicates(make_trace):
     result = collect_session_rationales([trace], rationale_map, "scorer_a")
 
     assert result.count("same text") == 1
+
+
+def test_extract_failure_labels_attributes_llm_calls_to_issue_detection():
+    from mlflow.gateway.constants import GatewayCaller
+
+    analyses = [
+        _ConversationAnalysis(
+            full_rationale="The assistant failed to provide weather data",
+            affected_trace_ids=["t1"],
+            execution_path="weather_tool > api_call",
+        ),
+    ]
+
+    with mock.patch(
+        "mlflow.genai.discovery.extraction._call_llm",
+        return_value=_make_llm_response("didn't provide weather data"),
+    ) as mock_llm:
+        extract_failure_labels(analyses, "gateway:/my-endpoint")
+
+    assert mock_llm.call_args.kwargs["gateway_caller"] == GatewayCaller.ISSUE_DETECTION

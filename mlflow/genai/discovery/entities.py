@@ -100,6 +100,9 @@ class DiscoverIssuesResult:
     summary: str
     total_traces_analyzed: int
     total_cost_usd: float | None = None
+    # How many of `issues` this run filed; the rest were already reported and were refreshed
+    # rather than duplicated.
+    new_issue_count: int = 0
 
 
 _SIGNAL_SEPARATOR = "; "

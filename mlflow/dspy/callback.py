@@ -28,7 +28,7 @@ from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
-from mlflow.version import IS_TRACING_SDK_ONLY
+from mlflow.version import HAS_MODEL_LOGGING_DEPS
 
 _logger = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -154,9 +154,9 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_lm_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
-        span_type = (
-            SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
-        )
+        # Only "text" is a plain completion API. "chat", "responses" and "auto" (the default
+        # since DSPy 3.5) are treated as chat models.
+        span_type = SpanType.LLM if instance.model_type == "text" else SpanType.CHAT_MODEL
 
         filtered_kwargs = sanitize_params(instance.kwargs)
         attributes = {
@@ -219,7 +219,9 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_tool_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
-        # DSPy uses the special "finish" tool to signal the end of the agent.
+        # DSPy < 3.5 uses the special "finish" tool only to signal the end of the agent. DSPy 3.5+
+        # replaced it with a "submit" tool, which is traced because it validates and returns the
+        # final outputs, and its errors are fed back to the LM.
         if instance.name == "finish":
             return
 
@@ -347,7 +349,7 @@ class MlflowCallback(BaseCallback):
         inputs: dict[str, Any],
         attributes: dict[str, Any],
     ):
-        if not IS_TRACING_SDK_ONLY:
+        if HAS_MODEL_LOGGING_DEPS:
             from mlflow.pyfunc.context import get_prediction_context
 
             prediction_context = get_prediction_context()

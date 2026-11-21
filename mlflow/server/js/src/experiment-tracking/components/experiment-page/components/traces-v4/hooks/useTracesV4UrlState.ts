@@ -187,6 +187,7 @@ export const useTracesV4UrlState = (): TracesV4UrlState => {
       setSearchParams((params) => {
         // Always drop the legacy alias so it doesn't shadow future canonical writes or linger in the URL.
         params.delete(LEGACY_TRACE_ID_PARAM);
+        params.delete('spanId');
         if (next) {
           params.set(TRACE_ID_PARAM, next);
         } else {

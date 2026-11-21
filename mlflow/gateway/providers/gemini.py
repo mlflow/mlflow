@@ -14,6 +14,7 @@ from mlflow.gateway.providers.base import (
     _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    _error_detail,
     parse_base64_data_url,
     proxy_root_url,
     rename_payload_keys,
@@ -54,6 +55,15 @@ GENERATION_CONFIGS = [
     "frequencyPenalty",
     "presencePenalty",
 ]
+
+
+def _get_prompt_tokens(usage_metadata: dict[str, Any]) -> int | None:
+    prompt_tokens = usage_metadata.get("promptTokenCount")
+    # Content fetched by built-in tools (Google Search, URL context) is part of the input but
+    # reported separately from the prompt tokens.
+    if (tool_use_tokens := usage_metadata.get("toolUsePromptTokenCount")) is not None:
+        prompt_tokens = (prompt_tokens or 0) + tool_use_tokens
+    return prompt_tokens
 
 
 def _get_completion_tokens(usage_metadata: dict[str, Any]) -> int | None:
@@ -302,11 +312,14 @@ class GeminiAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                function_declarations.append({
-                    "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "parametersJsonSchema": tool_function["parameters"],
-                })
+                # `description` and `parameters` are optional in both OpenAI tool
+                # definitions and Gemini function declarations.
+                function_declaration = {"name": tool_function["name"]}
+                if description := tool_function.get("description"):
+                    function_declaration["description"] = description
+                if parameters := tool_function.get("parameters"):
+                    function_declaration["parametersJsonSchema"] = parameters
+                function_declarations.append(function_declaration)
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
@@ -437,7 +450,7 @@ class GeminiAdapter(ProviderAdapter):
             )
         return chat_schema.ChatUsage(
             **extra,
-            prompt_tokens=usage_metadata.get("promptTokenCount"),
+            prompt_tokens=_get_prompt_tokens(usage_metadata),
             completion_tokens=_get_completion_tokens(usage_metadata),
             total_tokens=usage_metadata.get("totalTokenCount"),
             prompt_tokens_details=prompt_tokens_details,
@@ -672,7 +685,7 @@ class GeminiAdapter(ProviderAdapter):
             model=config.model.name,
             choices=choices,
             usage=completions_schema.CompletionsUsage(
-                prompt_tokens=usage_metadata.get("promptTokenCount", None),
+                prompt_tokens=_get_prompt_tokens(usage_metadata),
                 completion_tokens=_get_completion_tokens(usage_metadata),
                 total_tokens=usage_metadata.get("totalTokenCount", None),
             ),
@@ -940,6 +953,16 @@ class GeminiProvider(BaseProvider):
 
         return self.adapter_class.model_to_completions(resp, self.config)
 
+    def _raise_for_stream_error(self, resp: dict[str, Any]) -> None:
+        # Gemini can report an error inside a stream that already returned 200. Raise it so the
+        # stream ends with an error instead of looking complete.
+        if error := resp.get("error"):
+            raise AIGatewayException(
+                status_code=502,
+                detail=f"{self.DISPLAY_NAME} returned {error.get('status')} while streaming: "
+                f"{_error_detail(resp)}",
+            )
+
     async def _completions_stream(
         self, payload: completions_schema.RequestPayload
     ) -> AsyncIterable[completions_schema.StreamResponsePayload]:
@@ -967,6 +990,7 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
+            self._raise_for_stream_error(resp)
             yield self.adapter_class.model_to_completions_streaming(resp, self.config)
 
     async def _chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
@@ -1014,6 +1038,7 @@ class GeminiProvider(BaseProvider):
             if data == "[DONE]":
                 break
             resp = json.loads(data)
+            self._raise_for_stream_error(resp)
             yield self.adapter_class.model_to_chat_streaming(resp, self.config, tool_call_counts)
             for pos, cand in enumerate(resp.get("candidates", [])):
                 idx = cand.get("index", pos)
@@ -1045,6 +1070,7 @@ class GeminiProvider(BaseProvider):
         if usage_metadata:
             usage_metadata = {
                 **usage_metadata,
+                "promptTokenCount": _get_prompt_tokens(usage_metadata),
                 "candidatesTokenCount": _get_completion_tokens(usage_metadata),
             }
         return self._extract_token_usage_from_dict(

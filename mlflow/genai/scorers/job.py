@@ -22,7 +22,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.entities import EvalItem
-from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
 from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     get_first_trace_in_session,
@@ -430,6 +429,8 @@ def _plan_invoke_scorer_job_for_docker(
     scorer_version = params.get("scorer_version")
 
     def finalize(value: Any) -> dict[str, Any]:
+        from mlflow.genai.evaluation.harness import _log_assessments
+
         if not isinstance(value, dict) or not set(value) <= set(trace_map):
             raise MlflowException("The job container returned results for traces outside this job.")
         # Check every entry before logging any, so a malformed entry cannot leave the job partly
@@ -562,6 +563,8 @@ def _score_session_traces(
     log_assessments: bool,
 ) -> dict[str, TraceResult]:
     """Run a session-level scorer on already-fetched traces, in conversation order."""
+    from mlflow.genai.evaluation.harness import _log_assessments
+
     if scorer.session_level is not None:
         warn_session_level_unsupported_online(scorer.name)
     session_items = [EvalItem.from_trace(t) for t in traces]
@@ -641,6 +644,9 @@ def _score_single_turn_traces(
     log_assessments: bool,
 ) -> dict[str, TraceResult]:
     """Run a single-turn scorer on each already-fetched trace in parallel."""
+    # Import here, in the calling thread before the pool starts, so the harness's optional
+    # dependency imports (e.g. litellm) never run concurrently in worker threads.
+    from mlflow.genai.evaluation.harness import _compute_eval_scores, _log_assessments
 
     def process_trace(trace_id: str, trace: Trace) -> tuple[str, TraceResult]:
         eval_item = EvalItem.from_trace(trace)

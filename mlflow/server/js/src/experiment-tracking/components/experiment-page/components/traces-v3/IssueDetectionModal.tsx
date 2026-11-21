@@ -17,7 +17,11 @@ import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { SelectTracesModal } from '../../../SelectTracesModal';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
-import { ALL_ISSUE_CATEGORIES } from './IssueDetectionCategories';
+import { useIssueDetectionSettings } from '../../../../pages/experiment-issues/useIssueDetectionSettings';
+import {
+  noFocusAreaSelected,
+  selectedDetectionCategories,
+} from '../../../../pages/experiment-issues/issueDetectionSettings';
 import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 import { recordSubmittedIssueDetectionJob } from './IssueDetectionJobNotifications';
 import { estimateIssueDetectionCostUsd, formatEstimatedCostUsd } from './issueDetectionCostEstimate';
@@ -67,6 +71,24 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
 
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+
+  // Read here rather than taking them as props, so every entry point into detection -- the
+  // Issues tab and both Traces tabs -- honours the same saved settings.
+  const {
+    data: detectionSettings,
+    isLoading: isLoadingDetectionSettings,
+    error: detectionSettingsError,
+  } = useIssueDetectionSettings(experimentId ?? '', Boolean(experimentId));
+  // A run submitted before the settings arrive would silently use the defaults and drop the
+  // saved priorities, which is worse than waiting: it is an expensive run whose results
+  // quietly ignore the experiment's configuration.
+  const isWaitingForDetectionSettings = Boolean(
+    experimentId && isLoadingDetectionSettings && !detectionSettings && !detectionSettingsError,
+  );
+  // The one case where what is stored and what is sent differ, so it is disclosed here as well
+  // as in the settings modal: this is where the run is actually started, and someone who saved
+  // the setting a week ago is not looking at that modal now.
+  const savedSettingsSelectNothing = noFocusAreaSelected(detectionSettings);
 
   // Default to the first gateway endpoint, else the first core provider
   useEffect(() => {
@@ -119,6 +141,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
 
   const isFormValid =
     selectedTraceIds.length > 0 &&
+    !isWaitingForDetectionSettings &&
     Boolean(
       selection && (selection.mode === 'endpoint' ? selection.endpointName : selection.provider && selection.model),
     );
@@ -130,7 +153,8 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       {
         experimentId,
         traceIds: selectedTraceIds,
-        categories: ALL_ISSUE_CATEGORIES,
+        categories: selectedDetectionCategories(detectionSettings),
+        instructions: detectionSettings?.instructions || undefined,
         provider: selection.provider,
         model: selection.model,
         secret_id: selection.mode === 'direct' ? (secretIdOverride ?? existingSecrets[0]?.secret_id) : undefined,
@@ -282,6 +306,52 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           )}
         </div>
       </div>
+      {savedSettingsSelectNothing && (
+        <Alert
+          componentId="mlflow.traces.issue-detection-modal.no-focus-area-selected"
+          type="info"
+          css={{ marginTop: theme.spacing.md }}
+          message={intl.formatMessage({
+            defaultMessage:
+              "This experiment's issue detection settings have no focus area selected, so this run considers all of them.",
+            description: 'Note in the issue detection modal shown when the saved settings deselect every focus area',
+          })}
+          closable={false}
+        />
+      )}
+      {detectionSettingsError && !detectionSettings && (
+        // Blocking the run on a tag read would strand a feature that worked before settings
+        // existed; running without saying so would hide that the configuration was ignored.
+        <Alert
+          componentId="mlflow.traces.issue-detection-modal.settings-unavailable"
+          type="warning"
+          css={{ marginTop: theme.spacing.md }}
+          message={intl.formatMessage({
+            defaultMessage:
+              "This experiment's issue detection settings could not be read, so this run will use the defaults: all focus areas and no saved priorities.",
+            description:
+              'Warning in the issue detection modal shown when the saved detection settings could not be loaded',
+          })}
+          closable={false}
+        />
+      )}
+      {detectionSettingsError && detectionSettings && (
+        // A refresh that fails over settings already loaded is a different situation, and saying
+        // "the defaults will be used" here would be false: the run is submitted with these
+        // values, so what it says has to be what is sent.
+        <Alert
+          componentId="mlflow.traces.issue-detection-modal.settings-not-refreshed"
+          type="warning"
+          css={{ marginTop: theme.spacing.md }}
+          message={intl.formatMessage({
+            defaultMessage:
+              "This experiment's issue detection settings could not be refreshed, so this run uses the last ones loaded. Reopen this dialog to try again.",
+            description:
+              'Warning in the issue detection modal shown when the saved detection settings could not be refreshed and the previously loaded ones are used',
+          })}
+          closable={false}
+        />
+      )}
       {showLowTraceWarning && (
         <div
           data-testid="low-trace-warning"

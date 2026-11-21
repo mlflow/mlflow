@@ -2,6 +2,7 @@ import type { QueryFunctionContext } from '../../query-client/queryClient';
 import { useQuery } from '../../query-client/queryClient';
 
 import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
+import { isIssueDetectionRun } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/hooks/useExperimentEvaluationRunsData';
 
 type UseExperimentRunsForTraceComparisonQueryKey = ['EXPERIMENT_RUNS_FOR_TRACE_COMPARISON', { experimentId: string }];
 
@@ -16,6 +17,9 @@ type RawSearchRunsResponse = {
       run_uuid?: string;
       run_name?: string;
       start_time?: number | string | null;
+    };
+    data?: {
+      tags?: Array<{ key: string; value: string }>;
     };
   }[];
 };
@@ -59,18 +63,20 @@ export const useGenAiExperimentRunsForComparison = (
     staleTime: Infinity,
   });
 
-  const runInfos = data?.runs?.map((run) => {
-    const startTime = run.info?.start_time;
-    const parsedStartTime =
-      startTime === undefined || startTime === null || (typeof startTime === 'string' && startTime.trim() === '')
-        ? undefined
-        : Number(startTime);
-    return {
-      runUuid: run.info?.run_uuid,
-      runName: run.info?.run_name,
-      startTime: parsedStartTime !== undefined && Number.isFinite(parsedStartTime) ? parsedStartTime : undefined,
-    };
-  });
+  const runInfos = data?.runs
+    ?.filter((run) => !isIssueDetectionRun(run))
+    .map((run) => {
+      const startTime = run.info?.start_time;
+      const parsedStartTime =
+        startTime === undefined || startTime === null || (typeof startTime === 'string' && startTime.trim() === '')
+          ? undefined
+          : Number(startTime);
+      return {
+        runUuid: run.info?.run_uuid,
+        runName: run.info?.run_name,
+        startTime: parsedStartTime !== undefined && Number.isFinite(parsedStartTime) ? parsedStartTime : undefined,
+      };
+    });
 
   return {
     requestError: error,

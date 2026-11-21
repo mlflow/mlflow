@@ -31,8 +31,17 @@ jest.mock('@databricks/web-shared/model-trace-explorer/custom-view', () => ({
   ),
   // The shared renderer has its own coverage (ModelTraceExplorerCustomView.test.tsx and
   // ReviewQueueCustomViewContent.test.tsx); this test isolates the review panel's view switching.
-  ModelTraceExplorerCustomViewRenderer: ({ enableFeedback }: { enableFeedback?: boolean }) => (
-    <div>{enableFeedback ? 'Rendered saved custom view' : 'Rendered read-only saved custom view'}</div>
+  ModelTraceExplorerCustomViewRenderer: ({
+    enableFeedback,
+    feedbackSourceId,
+  }: {
+    enableFeedback?: boolean;
+    feedbackSourceId?: string;
+  }) => (
+    <div>
+      {enableFeedback ? 'Rendered saved custom view' : 'Rendered read-only saved custom view'}
+      <span data-testid="feedback-source">{feedbackSourceId}</span>
+    </div>
   ),
 }));
 
@@ -81,11 +90,13 @@ const maxSavedViews = Array.from({ length: MAX_CUSTOM_VIEWS_PER_EXPERIMENT }, (_
 const FocusedReviewHost = ({
   views,
   canReview,
+  isSettingStatus,
   initialDisplayMode,
   onCreateCustomView,
 }: {
   views: CustomView[];
   canReview: boolean;
+  isSettingStatus: boolean;
   initialDisplayMode: ModelTraceExplorerDisplayMode;
   onCreateCustomView?: () => void;
 }) => {
@@ -101,7 +112,7 @@ const FocusedReviewHost = ({
         items={[firstItem, secondItem]}
         schemas={[]}
         completedBy="tester"
-        isSettingStatus={false}
+        isSettingStatus={isSettingStatus}
         canReview={canReview}
         traceViewDisplayMode={displayMode}
         onTraceViewDisplayModeChange={setDisplayMode}
@@ -117,11 +128,13 @@ const FocusedReviewHost = ({
 const renderFocusedReview = ({
   views = [],
   canReview = true,
+  isSettingStatus = false,
   initialDisplayMode = 'default',
   onCreateCustomView,
 }: {
   views?: CustomView[];
   canReview?: boolean;
+  isSettingStatus?: boolean;
   initialDisplayMode?: ModelTraceExplorerDisplayMode;
   onCreateCustomView?: () => void;
 } = {}) =>
@@ -132,6 +145,7 @@ const renderFocusedReview = ({
           <FocusedReviewHost
             views={views}
             canReview={canReview}
+            isSettingStatus={isSettingStatus}
             initialDisplayMode={initialDisplayMode}
             onCreateCustomView={onCreateCustomView}
           />
@@ -208,6 +222,25 @@ describe('FocusedReview saved custom views', () => {
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Reviewer view' }));
 
     expect(await screen.findByText('The full trace could not be loaded for this custom view.')).toBeInTheDocument();
+  });
+
+  it('credits feedback in a saved view to the reviewer', async () => {
+    renderFocusedReview({ views: [savedView] });
+
+    await openPicker();
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Reviewer view' }));
+
+    expect(await screen.findByText('Rendered saved custom view')).toBeInTheDocument();
+    expect(screen.getByTestId('feedback-source')).toHaveTextContent('tester');
+  });
+
+  it('holds feedback in a saved view while the reviewer identity is resolving', async () => {
+    renderFocusedReview({ views: [savedView], isSettingStatus: true });
+
+    await openPicker();
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Reviewer view' }));
+
+    expect(await screen.findByText('Rendered read-only saved custom view')).toBeInTheDocument();
   });
 
   it('renders saved custom views without feedback writes when the reviewer cannot review', async () => {

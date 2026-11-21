@@ -31,4 +31,5 @@ jobs:
         (github.event.review.user.type == 'Bot' && contains(fromJSON('["mlflow-app[bot]", "nailaopus[bot]"]'), github.event.review.user.login))
       )
     steps:
-      - run: echo "Approved, triggering rerun.yml"
+      - run: |
+          echo "Approved, triggering rerun.yml"

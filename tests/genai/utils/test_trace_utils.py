@@ -4,12 +4,12 @@ from collections import OrderedDict
 from typing import Any
 from unittest import mock
 
-import httpx
 import numpy as np
 import openai
 import pandas as pd
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities.assessment import Expectation
@@ -37,6 +37,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
+    extract_tools_called_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
     parse_tool_call_messages_from_trace,
@@ -50,6 +51,12 @@ from mlflow.types.chat import ChatTool, FunctionToolDefinition
 from mlflow.types.responses import ResponsesAgentResponse
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
+
+# openai>=3 sends requests through `httpx2` instead of `httpx`.
+if Version(openai.__version__).major >= 3:
+    import httpx2 as httpx
+else:
+    import httpx
 
 
 def httpx_send_patch(request, *args, **kwargs):
@@ -82,11 +89,12 @@ def get_openai_predict_fn(with_tracing=False):
         mlflow.openai.autolog()
 
     def predict_fn(request):
-        with mock.patch("httpx.Client.send", side_effect=httpx_send_patch):
+        with mock.patch.object(httpx.Client, "send", side_effect=httpx_send_patch) as mock_send:
             response = openai.OpenAI().chat.completions.create(
                 messages=request["messages"],
                 model="gpt-4o-mini",
             )
+            mock_send.assert_called_once()
             return response.choices[0].message.content
 
     return predict_fn
@@ -1247,6 +1255,32 @@ def test_extract_tool_name_from_span_extracts_from_call_tool_name():
     tool_spans = trace.search_spans(span_type=SpanType.TOOL)
 
     assert _extract_tool_name_from_span(tool_spans[0]) == "list_client"
+
+
+def test_extract_tool_name_from_span_extracts_from_genai_semconv_tool_name():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_attribute("gen_ai.tool.name", "log_food")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    assert _extract_tool_name_from_span(tool_spans[0]) == "log_food"
+    assert [call.name for call in extract_tools_called_from_trace(trace)] == ["log_food"]
+
+
+def test_extract_tools_called_from_trace_skips_google_adk_merged_tool_span():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "log_food")
+            span.set_inputs({"food": "bread"})
+        with mlflow.start_span(name="execute_tool (merged)", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "(merged tools)")
+            span.set_inputs("N/A")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+
+    assert [call.name for call in extract_tools_called_from_trace(trace)] == ["log_food"]
 
 
 def test_resolve_conversation_from_session():

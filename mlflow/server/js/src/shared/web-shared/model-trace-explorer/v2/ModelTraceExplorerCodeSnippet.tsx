@@ -1,5 +1,4 @@
-import { isString } from 'lodash';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ChevronDownIcon, DropdownMenu, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
@@ -62,8 +61,8 @@ export function ModelTraceExplorerCodeSnippet({
   /** When true, the per-snippet render mode dropdown is hidden (e.g. for aggregated table view). */
   hideRenderModeDropdown?: boolean;
 }): React.ReactElement | null {
-  const parsedData = useMemo(() => JSON.parse(data), [data]);
-  const dataIsString = isString(parsedData);
+  // The body parses the value; choosing its display mode only needs the first JSON token.
+  const dataIsString = /^[\t\n\r ]*"/.test(data);
   const { theme } = useDesignSystemTheme();
   // string data can be rendered in multiple formats
   const [renderMode, setRenderMode] = useState<CodeSnippetRenderMode>(

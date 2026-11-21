@@ -14,6 +14,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
+from mlflow.types.chat import ImageContentPart, TextContentPart
 from mlflow.utils.annotations import developer_stable
 
 
@@ -102,6 +103,31 @@ def _get_nested(d: dict[str, Any], key: str) -> Any:
             return d.get(key)
 
 
+def _strip_cache_control(payload: chat.RequestPayload) -> chat.RequestPayload:
+    """Return ``payload`` without ``cache_control`` on its text and image content parts.
+
+    The payload is copied before it is changed, because ``FallbackProvider`` hands the same
+    payload to the next provider, which may support prompt caching.
+    """
+
+    def _marked_parts(messages):
+        for message in messages:
+            if isinstance(message.content, list):
+                for part in message.content:
+                    if (
+                        isinstance(part, (TextContentPart, ImageContentPart))
+                        and part.cache_control is not None
+                    ):
+                        yield part
+
+    if next(_marked_parts(payload.messages), None) is None:
+        return payload
+    payload = payload.model_copy(deep=True)
+    for part in _marked_parts(payload.messages):
+        part.cache_control = None
+    return payload
+
+
 @developer_stable
 class BaseProvider(ABC):
     """
@@ -116,6 +142,10 @@ class BaseProvider(ABC):
     SUPPORTED_ROUTE_TYPES: tuple[str, ...]
     CONFIG_TYPE: type[ConfigModel]
     PASSTHROUGH_PROVIDER_PATHS: dict[PassthroughAction, str] = {}
+    # Whether the chat routes forward `cache_control` (prompt caching markers) on content
+    # parts. When False, the markers are removed before the request is built, so a backend
+    # that does not know the field never receives it.
+    SUPPORTS_CACHE_CONTROL: bool = False
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
         if self.DISPLAY_NAME == "":
@@ -208,6 +238,13 @@ class BaseProvider(ABC):
             detail=f"The proxy endpoint is not implemented for {self.DISPLAY_NAME} models.",
         )
 
+    def _supports_cache_control(self) -> bool:
+        """Whether the chat routes forward `cache_control` markers on content parts.
+
+        Override this when support depends on the configured model.
+        """
+        return self.SUPPORTS_CACHE_CONTROL
+
     # -------------------------------------------------------------------------
     # Public methods (with optional tracing)
     # -------------------------------------------------------------------------
@@ -215,6 +252,8 @@ class BaseProvider(ABC):
     async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
+        if not self._supports_cache_control():
+            payload = _strip_cache_control(payload)
         async for chunk in self._maybe_trace_stream_method(
             "chat_stream", self._chat_stream, payload
         ):
@@ -222,6 +261,8 @@ class BaseProvider(ABC):
             yield chunk
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        if not self._supports_cache_control():
+            payload = _strip_cache_control(payload)
         result = await self._maybe_trace_method("chat", self._chat, payload)
         result.provider = self._provider_name
         return result
@@ -592,6 +633,7 @@ class BaseProvider(ABC):
                 accumulated_usage.update(chunk_usage)
                 yield chunk
         finally:
+            accumulated_usage = self._normalize_streaming_token_usage(accumulated_usage)
             # Calculate total if we have input and output but no total
             if (
                 TokenUsageKey.INPUT_TOKENS in accumulated_usage
@@ -603,6 +645,10 @@ class BaseProvider(ABC):
                     + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
                 )
             self._set_span_token_usage(accumulated_usage)
+
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        """Normalize provider-specific counts after merging all streaming usage updates."""
+        return token_usage
 
     def _extract_streaming_token_usage(self, chunk: Any) -> dict[str, int]:
         """Extract token usage from a streaming chunk.

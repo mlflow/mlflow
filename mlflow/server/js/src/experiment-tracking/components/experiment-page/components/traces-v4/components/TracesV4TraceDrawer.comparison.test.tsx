@@ -12,8 +12,8 @@ import {
   BASELINE_TRACE_ID_PARAM,
   CANDIDATE_TRACE_ID_PARAM,
   PAIRWISE_REVIEW_MODE_PARAM,
-  useTracesV4UrlState,
 } from '../hooks/useTracesV4UrlState';
+import { useTracesV4DrawerSessionUrlState } from '../hooks/useTracesV4DrawerSessionUrlState';
 import { renderTracesV4Page } from '../test-utils/renderTracesV4Page';
 import { makeTaggedTrace } from '../test-utils/mockTraces';
 
@@ -168,14 +168,14 @@ describe('TracesV4TraceDrawer trace comparison', () => {
   test('clears the trace and the comparison from the URL when the drawer closes', async () => {
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
     const user = userEvent.setup();
-    // Close the drawer the way the Traces page does (`url.setTraceId(undefined)`), so the test covers
-    // the real URL update instead of a mock that never touches the URL.
+    // Close the drawer the way the Traces page does (the session hook's `closeDrawer`), so the test
+    // covers the real URL update instead of a mock that never touches the URL.
     const DrawerWithPageClose = () => {
-      const url = useTracesV4UrlState();
+      const { closeDrawer } = useTracesV4DrawerSessionUrlState();
       return (
         <TracesV4TraceDrawer
           traceId={CANDIDATE_LONG_ID}
-          onClose={() => url.setTraceId(undefined)}
+          onClose={closeDrawer}
           experimentId={EXPERIMENT_ID}
           traces={[BASELINE_TRACE, CANDIDATE_TRACE]}
           onSelectTrace={() => {}}
@@ -222,13 +222,14 @@ describe('TracesV4TraceDrawer trace comparison', () => {
 });
 
 const renderReviewWithPageClose = () => {
-  // Close the drawer the way the Traces page does, so the real URL update is covered.
+  // Close the drawer the way the Traces page does (the session hook's `closeDrawer`), so the real URL
+  // update is covered.
   const DrawerWithPageClose = () => {
-    const url = useTracesV4UrlState();
+    const { closeDrawer } = useTracesV4DrawerSessionUrlState();
     return (
       <TracesV4TraceDrawer
         traceId={CANDIDATE_LONG_ID}
-        onClose={() => url.setTraceId(undefined)}
+        onClose={closeDrawer}
         experimentId={EXPERIMENT_ID}
         traces={[BASELINE_TRACE, CANDIDATE_TRACE]}
         onSelectTrace={() => {}}
