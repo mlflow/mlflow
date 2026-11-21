@@ -6,6 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.skill_registry.artifact_paths import (
     SkillArtifactIdentity,
     artifact_path_from_uri,
+    is_skill_upload_namespace,
     new_skill_upload_path,
     owned_skill_upload_path,
     parse_skill_upload_path,
@@ -157,3 +158,20 @@ def test_parse_skill_upload_path_round_trips_new_paths():
     assert parse_skill_upload_path(new_skill_upload_path("linter")) == SkillArtifactIdentity(
         "", "linter"
     )
+
+
+@pytest.mark.parametrize(
+    ("artifact_path", "expected"),
+    [
+        ("skills/reviewer", True),
+        ("SKILLS/reviewer", True),
+        ("skill\u017f/reviewer", True),
+        ("workspaces/team-a/skills/reviewer", True),
+        ("WORKSPACES/team-a/skill\u017f/reviewer", True),
+        ("work\u017fpaces/team-a/skills/reviewer", True),
+        ("skillz/reviewer", False),
+        ("1/models/m-1", False),
+    ],
+)
+def test_is_skill_upload_namespace(artifact_path, expected):
+    assert is_skill_upload_namespace(artifact_path) is expected
