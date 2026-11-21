@@ -413,24 +413,27 @@ def test_safe_extractall_blocks_symlink_escape(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("symlink_target", "hardlink_target"),
+    ("symlink_name", "symlink_target", "hardlink_target"),
     [
-        ("../outside", "link/secret.txt"),
-        ("../outside/secret.txt", "link"),
+        ("link", "../outside", "link/secret.txt"),
+        ("link", "../outside/secret.txt", "link"),
+        # Dangling inside the destination, but points outside once re-extracted at "hardlink"
+        ("sub/link", "../outside/secret.txt", "sub/link"),
     ],
 )
 def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
-    tmp_path, symlink_target, hardlink_target
+    tmp_path, symlink_name, symlink_target, hardlink_target
 ):
     outside = tmp_path / "outside"
     outside.mkdir()
     secret = outside / "secret.txt"
     secret.write_text("secret")
     secret.chmod(0o600)
+    original_mode = stat.S_IMODE(secret.stat().st_mode)
 
     mal_tar = tmp_path / "hardlink_escape.tar"
     with tarfile.open(mal_tar, "w") as tar:
-        link = tarfile.TarInfo("link")
+        link = tarfile.TarInfo(symlink_name)
         link.type = tarfile.SYMTYPE
         link.linkname = symlink_target
         tar.addfile(link)
@@ -444,7 +447,7 @@ def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
     with pytest.raises(MlflowException, match="would be extracted outside"):
         extract_archive_to_dir(mal_tar, dest)
     assert not (dest / "hardlink").exists()
-    assert stat.S_IMODE(secret.stat().st_mode) == 0o600
+    assert stat.S_IMODE(secret.stat().st_mode) == original_mode
 
 
 def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
