@@ -570,8 +570,7 @@ def _fuse_similarity_scores(
         similarities = np.asarray(retriever.corpus_embeddings) @ query_embedding
         for position, similarity in zip(positions, similarities.tolist()):
             scores[position] = scores.get(position, 0.0) + similarity
-    # sorted() is stable, so ties keep the episodic order of sorted(scores)
-    return sorted(sorted(scores), key=lambda position: -scores[position])[:k]
+    return sorted(scores, key=lambda position: (-scores[position], position))[:k]
 
 
 def retrieve_relevant_examples(
@@ -613,7 +612,7 @@ def retrieve_relevant_examples(
         if queries:
             [(field, query)] = queries.items()
             retriever, positions = retrievers[field]
-            indices = [positions[int(i)] for i in retriever(query).indices]
+            indices = [positions[int(i)] for i in retriever(query).indices[:retrieval_k]]
     else:
         indices = _fuse_similarity_scores(retrievers, queries, retrieval_k)
 
