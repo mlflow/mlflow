@@ -10,6 +10,7 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import construct_full_inputs
+from mlflow.tracing.utils.redaction import strip_credentials
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 FLAVOR_NAME = "agno"
@@ -46,8 +47,9 @@ def _parse_tools(tools) -> list[dict[str, Any]]:
             if data := tool.model_dumps(exclude_none=True):
                 result.append({"type": "function", "function": data})
         except Exception:
-            # Fallback to string representation
-            result.append({"name": str(tool)})
+            # Fallback to string representation. Callables are sanitized first because the repr
+            # of a bound method embeds its object, which can hold credentials.
+            result.append({"name": str(strip_credentials(tool))})
     return result
 
 
@@ -58,15 +60,15 @@ def _get_agent_attributes(instance) -> dict[str, Any]:
             value = _parse_tools(value)
         if value is not None:
             agent_attr[key] = value
-    return agent_attr
+    return strip_credentials(agent_attr)
 
 
 def _get_tools_attribute(instance) -> dict[str, Any]:
-    return {
+    return strip_credentials({
         key: val
         for key, val in vars(instance.function).items()
         if not key.startswith("_") and val is not None
-    }
+    })
 
 
 def _set_span_inputs_attributes(span: LiveSpan, instance: Any, raw_inputs: dict[str, Any]) -> None:

@@ -13,6 +13,7 @@ from mlflow.pydantic_ai.utils import (
     model_request_inputs,
     parse_usage,
     serialize_output,
+    strip_credentials_from_inputs,
 )
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import with_active_span
@@ -47,13 +48,14 @@ def _construct_inputs(func, *args, **kwargs) -> dict[str, Any]:
         bound = inspect.signature(func).bind_partial(*args, **kwargs).arguments
         bound.pop("self", None)
         bound.pop("deps", None)
-        return {
+        inputs = {
             key: (value.__dict__ if hasattr(value, "__dict__") else value)
             for key, value in bound.items()
             if value is not None
         }
     except (TypeError, ValueError):
-        return kwargs
+        inputs = kwargs
+    return strip_credentials_from_inputs(inputs)
 
 
 def _set_agent_attributes(span: LiveSpan, agent) -> None:

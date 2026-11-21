@@ -1,4 +1,6 @@
 import importlib.metadata
+import json
+from dataclasses import dataclass, field
 from unittest.mock import MagicMock
 
 import pytest
@@ -167,6 +169,57 @@ def test_run_sync_preserves_run_nesting():
     ]
     assert spans[1].parent_id == spans[0].span_id
     assert spans[2].parent_id == spans[1].span_id
+
+
+@dataclass(init=False)
+class _TestModelWithApiKey(TestModel):
+    # Mirrors models that keep the provider's API key on the model as a `repr=False` field
+    _api_key: str | None = field(repr=False)
+
+    def __init__(self, api_key: str, **kwargs):
+        super().__init__(**kwargs)
+        self._api_key = api_key
+
+
+@pytest.mark.parametrize("model_override", [False, True])
+def test_agent_spans_do_not_record_model_api_key(model_override):
+    mlflow.pydantic_ai.autolog()
+    model = _TestModelWithApiKey(api_key="test-api-key", custom_output_text="hello")
+
+    if model_override:
+        result = Agent(TestModel()).run_sync("hi", model=model)
+    else:
+        result = Agent(model).run_sync("hi")
+
+    assert result.output == "hello"
+    spans = get_traces()[0].data.spans
+    assert [span.name for span in spans][:2] == ["Agent.run_sync", "Agent.run"]
+    for span in spans:
+        assert "test-api-key" not in json.dumps(span.to_dict())
+    assert spans[0].inputs["user_prompt"] == "hi"
+
+
+def test_model_request_span_does_not_record_credential_headers():
+    mlflow.pydantic_ai.autolog()
+    agent = Agent(TestModel(custom_output_text="hello"))
+
+    result = agent.run_sync(
+        "hi",
+        model_settings={
+            "max_tokens": 10,
+            "extra_headers": {"Authorization": "Bearer test-api-key", "X-Trace": "1"},
+        },
+    )
+
+    assert result.output == "hello"
+    spans = get_traces()[0].data.spans
+    for span in spans:
+        assert "test-api-key" not in json.dumps(span.to_dict())
+    model_span = next(span for span in spans if span.span_type == SpanType.LLM)
+    assert model_span.inputs["model_settings"] == {
+        "max_tokens": 10,
+        "extra_headers": {"X-Trace": "1"},
+    }
 
 
 def test_model_request_span_records_model_attributes():
