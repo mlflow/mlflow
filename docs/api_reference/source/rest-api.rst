@@ -10779,9 +10779,9 @@ SearchLoggedModels
 |                |                                                    | SQL that supports ANDing together binary operations Example: ``params.alpha < 0.3 AND metrics.accuracy > 0.9``.                |
 +----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
 | datasets       | An array of :ref:`mlflowsearchloggedmodelsdataset` | List of datasets on which to apply the metrics filter clauses. For example, a filter with `metrics.accuracy > 0.9` and dataset |
-|                |                                                    | info with name "test_dataset" means we will return all logged models with accuracy > 0.9 on the test_dataset. Metric values    |
-|                |                                                    | from ANY dataset matching the criteria are considered. If no datasets are specified, then metrics across all datasets are      |
-|                |                                                    | considered in the filter.                                                                                                      |
+|                |                                                    | info with name "test_dataset" means we will return all logged models whose latest accuracy on the test_dataset is > 0.9. On    |
+|                |                                                    | SQL-backed tracking stores, a metric is compared by its latest value (highest step, then latest timestamp) among the rows      |
+|                |                                                    | logged on the listed datasets, or across all datasets if none are specified.                                                   |
 +----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
 | max_results    | ``INT32``                                          | Maximum number of Logged Models to return. Max threshold is 50.                                                                |
 +----------------+----------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------+
