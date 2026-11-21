@@ -58,8 +58,9 @@ Read both input files and `$trusted_checkout/.claude/skills/verify/payload.schem
 
 ## 1. Find candidates
 
-Launch up to three read-only finders together, one per angle below. Combine angles for a small
-diff. While they work, identify the user flows the PR changes and relevant existing threads.
+For every PR, invoke the `Agent` tool once per angle below. Launch the finders in parallel
+and assign each finder exactly one angle. While they work, identify the user flows the PR
+changes and relevant existing threads.
 
 - **Changed behavior.** Inspect each hunk for failure inputs, lost guards, removed guarantees,
   and language or framework pitfalls.
@@ -79,7 +80,7 @@ both calls to use the Action's prepared checkouts.
 ```json
 {
   "description": "Review changed caller contracts",
-  "prompt": "<inputs>. Follow the trust boundary and phase 1. Inspect <assigned angles and paths> using only file reads and read-only searches such as rg. Return the changed file and line, trigger, consequence and strongest evidence for each candidate.",
+  "prompt": "<inputs>. Follow the trust boundary and phase 1. Review <paths> for <assigned angle> using only file reads and read-only searches such as rg. Return the changed file and line, trigger, consequence and strongest evidence for each candidate.",
   "subagent_type": "general-purpose",
   "model": "sonnet",
   "effort": "medium",
