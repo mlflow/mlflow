@@ -4,8 +4,13 @@ Translation utilities for OpenInference semantic conventions.
 Reference: https://github.com/Arize-ai/openinference/blob/main/python/openinference-semantic-conventions/
 """
 
+import json
+import re
+from typing import Any
+
 from mlflow.entities.span import SpanType
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.utils import dump_span_attribute_value
 
 
 class OpenInferenceTranslator(OtelSchemaTranslator):
@@ -57,3 +62,83 @@ class OpenInferenceTranslator(OtelSchemaTranslator):
     ]
     # https://github.com/Arize-ai/openinference/blob/c80c81b8d6fa564598bd359cdd7313f4472ceca8/python/openinference-semantic-conventions/src/openinference/semconv/trace/__init__.py#L49
     LLM_PROVIDER_KEY = "llm.provider"
+
+    # A retriever span's documents are emitted as flattened, indexed attributes
+    # ``retrieval.documents.{i}.document.{content|id|score|metadata}`` (from the
+    # SpanAttributes.RETRIEVAL_DOCUMENTS + DocumentAttributes conventions), not a single value.
+    # Reference: https://github.com/Arize-ai/openinference/blob/main/python/openinference-semantic-conventions/src/openinference/semconv/trace/__init__.py
+    _RETRIEVAL_DOCUMENT_ATTRIBUTE = re.compile(
+        r"^retrieval\.documents\.(\d+)\.document\.(content|id|score|metadata)$"
+    )
+
+    def get_retrieval_documents(self, attributes: dict[str, Any]) -> Any:
+        """
+        Reassemble OpenInference retriever documents into MLflow ``Document``-shaped dicts.
+
+        OpenInference flattens each retrieved document into ``retrieval.documents.{i}.document.*``
+        attributes. Without this, only the span-level ``output.value`` blob is captured, so
+        ``extract_retrieval_context_from_trace`` finds no per-document text and retrieval-grounded
+        scorers silently see empty context.
+        """
+        documents_by_index: dict[int, dict[str, Any]] = {}
+        for key, value in attributes.items():
+            if match := self._RETRIEVAL_DOCUMENT_ATTRIBUTE.match(key):
+                index = int(match.group(1))
+                field = match.group(2)
+                documents_by_index.setdefault(index, {})[field] = value
+
+        if not documents_by_index:
+            return None
+
+        documents = []
+        for index in sorted(documents_by_index):
+            fields = documents_by_index[index]
+            # Retrieved content can itself be JSON text; preserve it as a string.
+            content = self._decode_string_attribute(fields.get("content")) or ""
+            metadata = self._coerce_document_metadata(
+                self._try_decode_if_json(fields.get("metadata"))
+            )
+            if (score := self._try_decode_if_json(fields.get("score"))) is not None:
+                # MLflow's Document has no score field; preserve it under metadata. The dedicated
+                # ``document.score`` attribute is authoritative and wins over any metadata["score"].
+                metadata = {**metadata, "score": score}
+            documents.append({
+                "page_content": content,
+                "id": self._decode_string_attribute(fields.get("id")),
+                "metadata": metadata,
+            })
+        # Use MLflow's canonical span-attribute serializer (TraceJSONEncoder) rather than a raw
+        # ``json.dumps``: ``document.metadata`` may carry non-JSON-native values, and this keeps
+        # serialization consistent with how every other OUTPUTS attribute is stored and read back.
+        return dump_span_attribute_value(documents)
+
+    @staticmethod
+    def _decode_string_attribute(value: Any) -> str | None:
+        # Undo the JSON encoding MLflow applies to string attributes ('"abc"' -> 'abc') without
+        # parsing the text itself: '{"a": 1}' stays '{"a": 1}'.
+        if value is None:
+            return None
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except json.JSONDecodeError:
+                return value
+            if decoded is None:
+                return None
+            return decoded if isinstance(decoded, str) else value
+        return str(value)
+
+    @staticmethod
+    def _coerce_document_metadata(value: Any) -> dict[str, Any]:
+        # ``document.metadata`` is spec'd as a JSON-string dict; tolerate already-decoded dicts
+        # and malformed/non-dict payloads (return ``{}`` rather than raising).
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, str) and value:
+            try:
+                loaded = json.loads(value)
+            except (json.JSONDecodeError, ValueError):
+                return {}
+            if isinstance(loaded, dict):
+                return loaded
+        return {}
