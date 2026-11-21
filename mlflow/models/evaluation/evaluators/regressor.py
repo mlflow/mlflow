@@ -87,7 +87,7 @@ def _get_regressor_metrics(y, y_pred, sample_weights):
             sample_weight=sample_weights,
         ),
         "sum_on_target": sum_on_target,
-        "mean_on_target": sum_on_target / len(y),
+        "mean_on_target": np.average(y, weights=sample_weights),
         "r2_score": sk_metrics.r2_score(y, y_pred, sample_weight=sample_weights),
         "max_error": sk_metrics.max_error(y, y_pred),
         "mean_absolute_percentage_error": sk_metrics.mean_absolute_percentage_error(
