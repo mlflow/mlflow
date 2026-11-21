@@ -58,9 +58,10 @@ Read both input files and `$trusted_checkout/.claude/skills/verify/payload.schem
 
 ## 1. Find candidates
 
-For every PR, invoke the `Agent` tool once per angle in the following list. Launch the
-finders in parallel and assign each finder exactly one angle. While they work, identify
-the user flows the PR changes and relevant existing threads.
+For every PR, run the first seven angles below. Include Repository style when either of
+its guides applies. Launch the finders in parallel using the `Agent` tool, assigning a
+separate finder to each angle. While they work, identify the user flows the PR changes
+and relevant existing threads.
 
 - **Changed behavior.** Read each hunk and its enclosing function. Identify the input, state,
   or timing that makes the changed path produce a wrong result.
@@ -77,16 +78,11 @@ the user flows the PR changes and relevant existing threads.
   or resources held longer than needed. Identify what incurs the cost and how to avoid it.
 - **Root cause.** Trace the symptom to the code that causes it. If the patch fixes only one
   path, identify another affected path and the shared change that would fix both.
-
-Add one **Repository style** finder when either guide applies. Give it the paths to all
-applicable guides from `$trusted_checkout/.claude/skills/`.
-
-- For changed Python source or tests, use `python-style/SKILL.md`.
-- For changed workflow or action YAML under `.github/workflows/` or `.github/actions/`,
-  use `github-actions-style/SKILL.md`.
-
-For each style finding, cite the guide section, identify the changed line that violates it,
-and give a correction consistent with the rule.
+- **Repository style.** Give this finder the paths to all applicable guides under
+  `$trusted_checkout/.claude/skills/`. Use `python-style/SKILL.md` for changed Python
+  source or tests and `github-actions-style/SKILL.md` for changed workflow or action YAML
+  under `.github/workflows/` or `.github/actions/`. For each finding, cite the guide section,
+  identify the changed line that violates it, and give a correction consistent with the rule.
 
 Invoke the `Agent` tool with these arguments for each finder, naming its angle in `description`.
 For `<inputs>`, give the absolute paths of the trusted skill, PR checkout and temporary
