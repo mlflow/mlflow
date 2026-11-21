@@ -1569,3 +1569,35 @@ async def test_chat_does_not_send_cache_control(stream):
     assert mock_client.post.call_args.kwargs["json"]["messages"] == _MESSAGES_WITHOUT_CACHE_CONTROL
     # The caller's payload keeps its markers, e.g. for the next provider of a fallback route.
     assert payload.messages[0].content[0].cache_control is not None
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_chat_does_not_send_thought_signature(stream):
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+    payload = chat.RequestPayload(
+        messages=[
+            {"role": "user", "content": "What's the weather in Paris?"},
+            {"role": "assistant", "tool_calls": [{**tool_call, "thought_signature": "sig_1"}]},
+            {"role": "tool", "tool_call_id": "call_1", "content": '{"temperature": 20}'},
+        ],
+        stream=stream,
+    )
+    if stream:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(chat_stream_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            [chunk async for chunk in provider.chat_stream(payload)]
+    else:
+        mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            await provider.chat(payload)
+
+    sent_messages = mock_client.post.call_args.kwargs["json"]["messages"]
+    assert sent_messages[1] == {"role": "assistant", "tool_calls": [tool_call]}
+    # The caller's payload keeps the signature, e.g. for a Gemini fallback provider.
+    assert payload.messages[1].tool_calls[0].thought_signature == "sig_1"

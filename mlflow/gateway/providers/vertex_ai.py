@@ -367,6 +367,11 @@ class VertexAIProvider(GeminiProvider):
         # Gemini and MaaS models get them removed.
         return self._model_type == "claude"
 
+    def _supports_thought_signatures(self) -> bool:
+        # Only Gemini models go through the Gemini adapter, which sends the signatures back as
+        # `thoughtSignature`. Claude and MaaS models get them removed.
+        return self._model_type == "gemini"
+
     @property
     def adapter_class(self):
         # Claude/MaaS models are formatted by their delegate's adapter; only Gemini
