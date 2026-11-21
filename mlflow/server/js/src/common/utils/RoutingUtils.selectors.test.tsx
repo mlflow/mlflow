@@ -66,6 +66,17 @@ const mount = (kind: 'data' | 'memory') => {
 };
 
 describe.each(['data', 'memory'] as const)('%s router selected query params', (kind) => {
+  test('explicit undefined state clears retained state', async () => {
+    const page = mount(kind);
+    await act(async () => {
+      page.selected[1]({ q: 'cleared' }, { state: undefined });
+    });
+    expect(page.selected[0]).toBe('cleared');
+    expect(page.location.state).toBeNull();
+    expect(page.location.pathname).toBe('/p');
+    expect(page.location.hash).toBe('#section');
+  });
+
   test('a retained setter merges latest writes and preserves basename, hash, state and repeated params', async () => {
     const page = mount(kind);
     const setParams = page.selected[1];

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useTracesV4SearchParams } from './useTracesV4SearchParams';
+import { SPAN_ID_PARAM, useTracesV4SearchParams } from './useTracesV4SearchParams';
 import {
   TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
   TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
@@ -12,7 +12,6 @@ import {
 } from './useTracesV4UrlState';
 
 const LEGACY_TRACE_ID_PARAM = 'selectedEvaluationId';
-const SPAN_ID_PARAM = 'spanId';
 const SESSION_VIEW_MODE = 'session';
 
 export type TracesV4DrawerViewMode = 'trace' | 'session';

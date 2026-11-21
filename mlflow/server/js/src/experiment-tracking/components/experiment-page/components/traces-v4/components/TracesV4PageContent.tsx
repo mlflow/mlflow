@@ -45,7 +45,7 @@ import { useExperimentPageLayoutContainer } from '@mlflow/mlflow/src/experiment-
 import { AssistantAwareActionBar } from '@mlflow/mlflow/src/common/components/AssistantAwareActionBar';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { useNavigate, useLocationSelector, type To } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { useTracesV4SearchParams, selectTracesV4PageLocation } from '../hooks/useTracesV4SearchParams';
+import { SPAN_ID_PARAM, useTracesV4SearchParams, selectTracesV4PageLocation } from '../hooks/useTracesV4SearchParams';
 import { shouldEnableIssueDetection, shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import {
   SELECTED_TRACE_ID_QUERY_PARAM,
@@ -83,7 +83,7 @@ interface TracesV4PageContentProps {
 // Drawer parameters a session link drops: the destination opens the session's own drawer state.
 const SESSION_LINK_DROPPED_PARAMS = [
   'traceId',
-  'spanId',
+  SPAN_ID_PARAM,
   'selectedEvaluationId',
   SELECTED_TRACE_ID_QUERY_PARAM,
   TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
@@ -656,8 +656,8 @@ const TracesV4PageContentBody = ({
     (spanId?: string) => {
       setSearchParams(
         (params) => {
-          if (spanId) params.set('spanId', spanId);
-          else params.delete('spanId');
+          if (spanId) params.set(SPAN_ID_PARAM, spanId);
+          else params.delete(SPAN_ID_PARAM);
           return params;
         },
         { replace: true },
