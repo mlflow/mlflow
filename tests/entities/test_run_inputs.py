@@ -1,5 +1,8 @@
+import json
+
 from mlflow.entities import RunInputs
 from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.logged_model_input import LoggedModelInput
 
 
 def _check_inputs(run_datasets, datasets):
@@ -42,3 +45,16 @@ def test_creation_and_hydration(run_inputs):
     run_inputs2 = RunInputs.from_proto(proto)
     _check(run_inputs2, datasets)
     assert isinstance(run_inputs2.dataset_inputs[0], DatasetInput)
+
+
+def test_to_dictionary_with_model_inputs():
+    run_inputs = RunInputs(
+        dataset_inputs=[],
+        model_inputs=[LoggedModelInput(model_id="m-1"), LoggedModelInput(model_id="m-2")],
+    )
+    as_dict = run_inputs.to_dictionary()
+    assert as_dict == {
+        "dataset_inputs": [],
+        "model_inputs": [{"model_id": "m-1"}, {"model_id": "m-2"}],
+    }
+    assert json.loads(json.dumps(as_dict)) == as_dict
