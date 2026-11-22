@@ -60,6 +60,7 @@ from mlflow.entities.trace_metrics import (
     MetricViewType,
 )
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.workspace import Workspace
 from mlflow.environment_variables import (
     MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES,
     MLFLOW_ENABLE_WORKSPACES,
@@ -3207,13 +3208,15 @@ def test_create_model_version_rejects_host_addressed_source(
 
 
 def test_create_model_version_accepts_source_on_default_artifact_root_host(
-    mock_get_request_message, mock_model_registry_store, monkeypatch
+    mock_get_request_message, mock_model_registry_store, mock_tracking_store, monkeypatch
 ):
     # `mlflow.register_model("runs:/...")` resolves the run's artifact URI client-side, so a
     # deployment whose default artifact root is HDFS registers `hdfs://...` sources.
     monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "hdfs://namenode:8020/mlflow")
     run_id = uuid.uuid4().hex
-    source = f"hdfs://namenode:8020/mlflow/1/{run_id}/artifacts/model"
+    run_root = f"hdfs://namenode:8020/mlflow/1/{run_id}/artifacts"
+    mock_tracking_store.get_run.return_value.info.artifact_uri = run_root
+    source = f"{run_root}/model"
     mock_get_request_message.return_value = CreateModelVersion(
         name="model_1", source=source, run_id=run_id
     )
@@ -3420,6 +3423,97 @@ def test_validate_source_run_preserves_external_sources(source):
     with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
         _validate_source_run(source, uuid.uuid4().hex)
     get_store.assert_not_called()
+
+
+@pytest.fixture(params=[ARTIFACT_ROOT_ENV_VAR, ARTIFACTS_DESTINATION_ENV_VAR])
+def server_storage_root(request, monkeypatch):
+    monkeypatch.setenv(request.param, "s3://mlflow-bucket/root")
+    return "s3://mlflow-bucket/root"
+
+
+def test_validate_source_run_binds_source_in_server_artifact_storage(server_storage_root):
+    run_root = f"{server_storage_root}/1/{uuid.uuid4().hex}/artifacts"
+    other_run_root = f"{server_storage_root}/1/{uuid.uuid4().hex}/artifacts"
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_run.return_value.info.artifact_uri = run_root
+        _validate_source_run(f"{run_root}/model", uuid.uuid4().hex)
+        for source in [f"{other_run_root}/model", f"{server_storage_root}/other/model"]:
+            with pytest.raises(MlflowException, match="must identify the resource that contains"):
+                _validate_source_run(source, uuid.uuid4().hex)
+            with pytest.raises(MlflowException, match="run_id request parameter"):
+                _validate_source_run(source, "")
+
+
+def test_validate_source_model_binds_source_in_server_artifact_storage(server_storage_root):
+    model_root = f"{server_storage_root}/1/models/m-{uuid.uuid4().hex}/artifacts"
+    other_model_root = f"{server_storage_root}/1/models/m-{uuid.uuid4().hex}/artifacts"
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        get_store.return_value.get_logged_model.return_value.artifact_location = model_root
+        _validate_source_model(f"{model_root}/model", f"m-{uuid.uuid4().hex}")
+        with pytest.raises(MlflowException, match="must identify the resource that contains"):
+            _validate_source_model(f"{other_model_root}/model", f"m-{uuid.uuid4().hex}")
+        with pytest.raises(MlflowException, match="model_id request parameter"):
+            _validate_source_model(f"{other_model_root}/model", "")
+
+
+@pytest.mark.parametrize(
+    ("root", "source"),
+    [
+        ("s3://mlflow-bucket", "s3://mlflow-bucket/1/run/artifacts/model"),
+        ("s3://mlflow-bucket/root", "S3://MLFLOW-BUCKET/root/1/run/artifacts/model"),
+        ("s3://mlflow-bucket/root", "s3://mlflow-bucket//root/1/run/artifacts/model"),
+        ("s3://mlflow-bucket/root", "s3://mlflow-bucket/root/1%2Frun/artifacts/model"),
+        ("hdfs://namenode:8020/mlflow", "hdfs://namenode/mlflow/1/run/artifacts/model"),
+        ("hdfs://namenode/mlflow", "hdfs://namenode:9000/mlflow/1/run/artifacts/model"),
+    ],
+)
+def test_validate_source_run_treats_aliases_of_server_artifact_storage_as_managed(
+    monkeypatch, root, source
+):
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, root)
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_store,
+        pytest.raises(MlflowException, match="run_id request parameter"),
+    ):
+        _validate_source_run(source, "")
+    get_store.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "s3://other-bucket/root/1/run/artifacts/model",
+        "s3://mlflow-bucket/root-sibling/1/run/artifacts/model",
+        "gs://mlflow-bucket/root/1/run/artifacts/model",
+    ],
+)
+def test_validate_source_run_preserves_sources_outside_server_artifact_storage(monkeypatch, source):
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "s3://mlflow-bucket/root")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://mlflow-bucket/root")
+    with mock.patch("mlflow.server.handlers._get_tracking_store") as get_store:
+        _validate_source_run(source, "")
+    get_store.assert_not_called()
+
+
+def test_validate_source_run_binds_source_in_another_workspace_artifact_root(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    monkeypatch.setenv(ARTIFACT_ROOT_ENV_VAR, "s3://mlflow-bucket")
+    run_root = f"s3://mlflow-bucket/workspaces/team-a/1/{uuid.uuid4().hex}/artifacts"
+    team_b_source = f"s3://team-b-artifacts/1/{uuid.uuid4().hex}/artifacts/model"
+    workspaces = [
+        Workspace(name="team-a"),
+        Workspace(name="team-b", default_artifact_root="s3://team-b-artifacts"),
+    ]
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as get_store,
+        mock.patch("mlflow.server.handlers._get_workspace_store") as get_workspace_store,
+        WorkspaceContext("team-a"),
+    ):
+        get_workspace_store.return_value.list_workspaces.return_value = workspaces
+        get_store.return_value.get_run.return_value.info.artifact_uri = run_root
+        with pytest.raises(MlflowException, match="must identify the resource that contains"):
+            _validate_source_run(team_b_source, uuid.uuid4().hex)
+        _validate_source_run("s3://unrelated-bucket/model", "")
 
 
 def test_validate_source_run_uses_active_workspace_for_source_lookup():

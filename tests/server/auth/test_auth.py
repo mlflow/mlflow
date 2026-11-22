@@ -63,6 +63,7 @@ from mlflow.server.auth.routes import (
     LIST_USERS,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
 from mlflow.server.mcp_server_api import (
     get_mcp_server,
@@ -2208,6 +2209,64 @@ def test_create_model_version_camelcase_alias_requires_read_on_source(
         auth=(username2, password2),
     )
     assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            ARTIFACT_ROOT_ENV_VAR: "s3://mlflow-test-bucket/root",
+        }
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize("source_kind", ["run", "model"])
+def test_create_model_version_binds_source_in_server_artifact_storage(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch, source_kind: str
+):
+    # The server reads a version's artifacts with its own storage credentials, so a source in its
+    # artifact storage must belong to a run or logged model the caller can read. Otherwise any
+    # user could register another user's artifacts and download them via their own model.
+    owner, owner_password = create_user(client.tracking_uri)
+    attacker, attacker_password = create_user(client.tracking_uri)
+    id_key = "run_id" if source_kind == "run" else "model_id"
+
+    def create_source(exp_id):
+        if source_kind == "run":
+            run = client.create_run(exp_id)
+            return run.info.run_id, run.info.artifact_uri
+        model = client.create_logged_model(experiment_id=exp_id)
+        return model.model_id, model.artifact_location
+
+    with User(owner, owner_password, monkeypatch):
+        owner_exp = client.create_experiment(f"storage-{source_kind}-owner-{random_str()}")
+        _, victim_root = create_source(owner_exp)
+
+    with User(attacker, attacker_password, monkeypatch):
+        attacker_exp = client.create_experiment(f"storage-{source_kind}-attacker-{random_str()}")
+        own_id, own_root = create_source(attacker_exp)
+        rm = client.create_registered_model(f"storage-{source_kind}-model-{random_str()}")
+
+    grant_role_permission(client.tracking_uri, attacker, "experiment", attacker_exp, "READ")
+    assert victim_root.startswith("s3://mlflow-test-bucket/root/")
+
+    def create_version(source, source_id):
+        return _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/model-versions/create",
+            json_payload={"name": rm.name, "source": source, **source_id},
+            auth=(attacker, attacker_password),
+        )
+
+    for source_id in [{}, {id_key: own_id}]:
+        response = create_version(f"{victim_root}/model", source_id)
+        assert response.status_code == 400, response.text
+        assert "must identify the resource that contains the source" in response.text
+
+    response = create_version(f"{own_root}/model", {id_key: own_id})
+    assert response.status_code == 200, response.text
+    assert response.json()["model_version"]["source"] == f"{own_root}/model"
 
 
 @pytest.fixture
