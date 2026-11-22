@@ -1,6 +1,7 @@
 import asyncio
 import threading
 import uuid
+import weakref
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -14,6 +15,15 @@ RETRIEVER_ENGINE_NAME = "retriever"
 SUPPORTED_ENGINES = {CHAT_ENGINE_NAME, QUERY_ENGINE_NAME, RETRIEVER_ENGINE_NAME}
 
 _CHAT_MESSAGE_HISTORY_PARAMETER_NAME = "chat_history"
+
+_EVENT_LOOP_LOCK = threading.Lock()
+
+
+def _run_event_loop(loop: asyncio.AbstractEventLoop) -> None:
+    try:
+        loop.run_forever()
+    finally:
+        loop.close()
 
 
 def _convert_llm_input_data_with_unwrapping(data):
@@ -170,6 +180,10 @@ class RetrieverEngineWrapper(_LlamaIndexModelWrapperBase):
 
 
 class WorkflowWrapper(_LlamaIndexModelWrapperBase):
+    def __init__(self, llama_model, model_config: dict[str, Any] | None = None):
+        super().__init__(llama_model, model_config)
+        self._event_loop: asyncio.AbstractEventLoop | None = None
+
     @property
     def index(self):
         raise NotImplementedError("LlamaIndex Workflow does not have an index")
@@ -212,52 +226,30 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
         """
         A utility function to run async tasks in a blocking manner.
 
-        If there is no event loop running already, for example, in a model serving endpoint,
-        we can simply create a new event loop and run the task there. However, in a notebook
-        environment (or pytest with asyncio decoration), there is already an event loop running
-        at the root level and we cannot start a new one.
+        Every call runs on the same long-lived event loop in a background thread. Async clients
+        cached by the workflow (e.g. the ``AsyncOpenAI`` client of a LlamaIndex ``OpenAI`` LLM)
+        bind their connection pools to the loop that first used them, so running each call on a
+        new event loop breaks them on the second call. Running the loop in a separate thread
+        also works when an event loop is already running in the caller thread, e.g. in a
+        notebook, where ``run_until_complete`` cannot be used. ``nest_asyncio`` is not an option
+        because ``nest_asyncio.apply()`` breaks the async OpenAI client.
         """
-        if not self._is_event_loop_running():
-            return asyncio.new_event_loop().run_until_complete(task)
-        else:
-            # NB: The popular way to run async task where an event loop is already running is to
-            # use nest_asyncio. However, nest_asyncio.apply() breaks the async OpenAI client
-            # somehow, which is used for the most of LLM calls in LlamaIndex including Databricks
-            # LLMs. Therefore, we use a hacky workaround that creates a new thread and run the
-            # new event loop there. This may degrade the performance compared to the native
-            # asyncio, but it should be fine because this is only used in the notebook env.
-            results = None
-            exception = None
+        return asyncio.run_coroutine_threadsafe(task, self._get_event_loop()).result()
 
-            def _run():
-                nonlocal results, exception
-
-                try:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    results = loop.run_until_complete(task)
-                except Exception as e:
-                    exception = e
-                finally:
-                    loop.close()
-
-            thread = threading.Thread(
-                target=_run, name=f"mlflow_llamaindex_async_task_runner_{uuid.uuid4().hex[:8]}"
-            )
-            thread.start()
-            thread.join()
-
-            if exception:
-                raise exception
-
-            return results
-
-    def _is_event_loop_running(self) -> bool:
-        try:
-            loop = asyncio.get_running_loop()
-            return loop is not None
-        except Exception:
-            return False
+    def _get_event_loop(self) -> asyncio.AbstractEventLoop:
+        with _EVENT_LOOP_LOCK:
+            if self._event_loop is None:
+                loop = asyncio.new_event_loop()
+                threading.Thread(
+                    target=_run_event_loop,
+                    args=(loop,),
+                    name=f"mlflow_llamaindex_async_task_runner_{uuid.uuid4().hex[:8]}",
+                    daemon=True,
+                ).start()
+                # Stop the loop and its thread once this wrapper is garbage collected.
+                weakref.finalize(self, loop.call_soon_threadsafe, loop.stop)
+                self._event_loop = loop
+            return self._event_loop
 
 
 def create_pyfunc_wrapper(

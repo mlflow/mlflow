@@ -1,3 +1,8 @@
+import asyncio
+import contextvars
+import gc
+import time
+
 import llama_index.core
 import numpy as np
 import pandas as pd
@@ -321,3 +326,92 @@ async def test_wrap_workflow_raise_exception():
         match="Expected error",
     ):
         wrapper.predict({"name": "Alice"})
+
+
+def _create_workflow_with_loop_bound_state():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    class MyWorkflow(Workflow):
+        # Mimics an async client (e.g. AsyncOpenAI) cached on the workflow, whose state is
+        # bound to the event loop that first used it.
+        event = None
+
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            if self.event is None:
+                self.event = asyncio.Event()
+            self.event.clear()
+            asyncio.get_running_loop().call_soon(self.event.set)
+            await self.event.wait()
+            return StopEvent(result=f"Hi, {ev.name}!")
+
+    return MyWorkflow(timeout=10, verbose=False)
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+def test_wrap_workflow_repeated_predict_with_loop_bound_state():
+    wrapper = create_pyfunc_wrapper(_create_workflow_with_loop_bound_state())
+
+    assert wrapper.predict({"name": "Alice"}) == "Hi, Alice!"
+    assert wrapper.predict({"name": "Bob"}) == "Hi, Bob!"
+    assert wrapper.predict([{"name": "Charlie"}, {"name": "David"}]) == [
+        "Hi, Charlie!",
+        "Hi, David!",
+    ]
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_wrap_workflow_repeated_predict_with_loop_bound_state_in_running_loop():
+    wrapper = create_pyfunc_wrapper(_create_workflow_with_loop_bound_state())
+
+    assert wrapper.predict({"name": "Alice"}) == "Hi, Alice!"
+    assert wrapper.predict({"name": "Bob"}) == "Hi, Bob!"
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+def test_wrap_workflow_propagates_context():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    var = contextvars.ContextVar("var", default=None)
+
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            return StopEvent(result=var.get())
+
+    wrapper = create_pyfunc_wrapper(MyWorkflow(timeout=10, verbose=False))
+
+    token = var.set("value")
+    try:
+        assert wrapper.predict({"name": "Alice"}) == "value"
+    finally:
+        var.reset(token)
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+def test_wrap_workflow_stops_event_loop_on_garbage_collection():
+    wrapper = create_pyfunc_wrapper(_create_workflow_with_loop_bound_state())
+    assert wrapper.predict({"name": "Alice"}) == "Hi, Alice!"
+    loop = wrapper._event_loop
+    assert loop.is_running()
+
+    del wrapper
+    gc.collect()
+
+    deadline = time.monotonic() + 5
+    while not loop.is_closed() and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert loop.is_closed()
