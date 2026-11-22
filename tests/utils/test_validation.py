@@ -37,6 +37,7 @@ from mlflow.utils.validation import (
     _validate_model_name,
     _validate_model_renaming,
     _validate_param_name,
+    _validate_prompt_optimizer_config,
     _validate_public_https_url,
     _validate_run_id,
     _validate_tag_name,
@@ -1382,6 +1383,58 @@ def test_validate_judge_inference_params_rejects_non_region_names(make_scorer, f
 )
 def test_validate_judge_inference_params_accepts_benign_payloads(serialized_scorer):
     _validate_judge_inference_params(serialized_scorer)
+
+
+@pytest.mark.parametrize("key", sorted(GATEWAY_DESTINATION_KEYS))
+@pytest.mark.parametrize(
+    "make_config",
+    [
+        lambda key: {"reflection_model": "openai:/gpt-4o", "lm_kwargs": {key: "x"}},
+        lambda key: {"reflection_model": "openai:/gpt-4o", "gepa_kwargs": {key: "x"}},
+        lambda key: {"gepa_kwargs": {"reflection_lm_kwargs": {key: "x"}}},
+        lambda key: {"lm_kwargs": {"extra_body": [[key, "x"]]}},
+        lambda key: {key: "x"},
+    ],
+)
+def test_validate_prompt_optimizer_config_rejects_destination_keys(make_config, key):
+    with pytest.raises(
+        MlflowException, match=f"optimizer_config_json must not contain '{key}'"
+    ) as exc:
+        _validate_prompt_optimizer_config(make_config(key))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("key", sorted(GATEWAY_REGION_KEYS))
+@pytest.mark.parametrize("value", ["us-east-1.example.com", "US-EAST-1", 1])
+def test_validate_prompt_optimizer_config_rejects_non_region_names(key, value):
+    with pytest.raises(MlflowException, match=f"optimizer_config_json '{key}' must contain only"):
+        _validate_prompt_optimizer_config({"lm_kwargs": {key: value}})
+
+
+@pytest.mark.parametrize("config", [[], "openai:/gpt-4o", 1])
+def test_validate_prompt_optimizer_config_rejects_non_object_config(config):
+    with pytest.raises(MlflowException, match="optimizer_config_json must be a JSON object"):
+        _validate_prompt_optimizer_config(config)
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        None,
+        {},
+        {"reflection_model": "openai:/gpt-4o"},
+        {"reflection_model": "openai:/gpt-4o", "lm_kwargs": {"temperature": 1.0, "max_tokens": 64}},
+        {"reflection_model": "gateway:/my-endpoint", "guidelines": "Be concise."},
+        {"reflection_model": "bedrock:/m", "lm_kwargs": {"aws_region_name": "us-east-1"}},
+        {
+            "reflection_model": "openai:/gpt-4o",
+            "max_metric_calls": 10,
+            "gepa_kwargs": {"reflection_lm_kwargs": {"temperature": 0.5}},
+        },
+    ],
+)
+def test_validate_prompt_optimizer_config_accepts_benign_configs(config):
+    _validate_prompt_optimizer_config(config)
 
 
 def test_validate_gateway_secret_auth_config_rejects_private_api_base():

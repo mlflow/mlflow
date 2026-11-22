@@ -474,6 +474,7 @@ from mlflow.utils.validation import (
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
     _validate_judge_inference_params,
+    _validate_prompt_optimizer_config,
     _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
@@ -8779,6 +8780,7 @@ def _create_prompt_optimization_job():
                 f"Invalid JSON in optimizer_config_json: {e}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        _validate_prompt_optimizer_config(optimizer_config)
 
     # Create MLflow run upfront so run_id is immediately available
     # The job will resume this run when it starts executing

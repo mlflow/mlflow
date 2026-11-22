@@ -1422,6 +1422,36 @@ def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
         _validate_gateway_region_keys(params, f"{field}.inference_params")
 
 
+def _validate_prompt_optimizer_config(optimizer_config: Any) -> None:
+    """Reject prompt optimizer options that set where the reflection model's requests are sent.
+
+    The optimization job forwards ``lm_kwargs`` (MetaPrompt) and ``gepa_kwargs`` (GEPA, including
+    its ``reflection_lm_kwargs``) into the reflection model's ``litellm.completion()`` kwargs, where
+    they take precedence over the endpoint the server configured and travel with the server's
+    provider credentials. As for judge ``inference_params``, the gateway destination keys are
+    rejected at any nesting depth and the region keys must be bare region names.
+    """
+    if optimizer_config is None:
+        return
+    # The job reads options with `config.get(...)`, so only a mapping (or null) is a valid shape.
+    if not isinstance(optimizer_config, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"optimizer_config_json must be a JSON object, got {type(optimizer_config).__name__}."
+        )
+    if found := sorted(_find_destination_keys(optimizer_config)):
+        raise MlflowException.invalid_parameter_value(
+            f"optimizer_config_json must not contain {', '.join(map(repr, found))}: these "
+            "options choose where the reflection model's LLM client sends requests. Configure "
+            "the reflection model endpoint on the server instead, for example through a gateway "
+            "endpoint ('gateway:/<name>') or the provider's environment variables."
+        )
+    for key, value in _iter_region_key_values(optimizer_config):
+        try:
+            _validate_region_name(value, f"optimizer_config_json {key!r}")
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(str(e)) from None
+
+
 def _validate_icon_url(url: str) -> None:
     """Validate a registry icon URL on write/update requests.
 
