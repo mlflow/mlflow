@@ -1,6 +1,6 @@
 import { isEqual } from 'lodash';
 
-import { type CapturedV4ViewState } from './tracesV4SavedViewState';
+import { hasV4ViewTimeRange, type CapturedV4ViewState } from './tracesV4SavedViewState';
 import { assessmentColumnId, isAssessmentColumnId } from './assessmentColumns';
 import { DEFAULT_TRACES_V4_TIME_LABEL } from './timeRange';
 
@@ -33,7 +33,8 @@ const COLS_KEY = 'cols';
 /**
  * Canonicalize a captured view's `single`/`multi` params into a stable, comparable query string:
  * drop the recomputed absolute bounds for relative time ranges, normalize the default label, and
- * sort by key so param order never spuriously reads as dirty.
+ * sort by key so param order never spuriously reads as dirty. When `includeTimeRange` is false,
+ * drop the label and bounds entirely because the stored view does not own them.
  */
 const canonicalViewQuery = (state: CapturedV4ViewState, includeTimeRange = true): string => {
   const params = new URLSearchParams();
@@ -124,7 +125,7 @@ const customVisibilityEqual = (a: Record<string, boolean> = {}, b: Record<string
 
 /** True when the live captured state matches the stored view (i.e. not dirty). */
 export const capturedV4StatesMatch = (live: CapturedV4ViewState, stored: CapturedV4ViewState): boolean => {
-  const includeTimeRange = Boolean(stored.single?.startTimeLabel);
+  const includeTimeRange = hasV4ViewTimeRange(stored.single?.startTimeLabel);
   return (
     canonicalViewQuery(live, includeTimeRange) === canonicalViewQuery(stored, includeTimeRange) &&
     columnListsEqual(colsOf(live), colsOf(stored)) &&

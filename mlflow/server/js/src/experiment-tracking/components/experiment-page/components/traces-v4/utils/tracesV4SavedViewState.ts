@@ -153,9 +153,11 @@ export const buildV4ViewQuery = (state: CapturedV4ViewState, viewId: string): st
   return params.toString();
 };
 
+export const hasV4ViewTimeRange = (label: string | null | undefined): boolean => Boolean(label);
+
 /** A view without its own time label keeps the range the user is browsing. */
 export const applyV4ViewQuery = (current: URLSearchParams, saved: URLSearchParams): URLSearchParams => {
-  if (!saved.get('startTimeLabel')) {
+  if (!hasV4ViewTimeRange(saved.get('startTimeLabel'))) {
     for (const key of ['startTimeLabel', 'startTime', 'endTime']) {
       saved.delete(key);
       const value = current.get(key);

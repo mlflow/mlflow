@@ -2,6 +2,7 @@ import { describe, expect, test } from '@jest/globals';
 import { FilterOp, TRACE_COLUMN_IDS } from '@databricks/web-shared/traces-table';
 import {
   applyV4ViewQuery,
+  hasV4ViewTimeRange,
   captureV4ViewState,
   buildV4ViewQuery,
   decodeViewColumns,
@@ -15,6 +16,17 @@ import {
 } from './tracesV4SavedViewState';
 
 const params = (query: string) => new URLSearchParams(query);
+
+test.each([
+  ['ALL', true],
+  ['CUSTOM', true],
+  ['LAST_HOUR', true],
+  ['', false],
+  [undefined, false],
+  [null, false],
+] as const)('a view owns a time range only with a non-empty label: %s', (label, expected) => {
+  expect(hasV4ViewTimeRange(label)).toBe(expected);
+});
 
 describe('applyV4ViewQuery', () => {
   test.each(['sort=duration', 'startTimeLabel=&startTime=old&endTime=old'])(
