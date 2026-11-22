@@ -18,6 +18,7 @@ export const fetchAPI = async (
   method: 'POST' | 'GET' | 'PATCH' | 'DELETE' = 'GET',
   body?: any,
   signal?: AbortSignal,
+  parseResponse: (response: Response) => Promise<any> = (response) => response.json(),
 ) => {
   const options: RequestInit = {
     method,
@@ -46,7 +47,7 @@ export const fetchAPI = async (
       throw predefinedError;
     }
   }
-  return response.json();
+  return parseResponse(response);
 };
 
 export const getAjaxUrl = (relativeUrl: any) => {
