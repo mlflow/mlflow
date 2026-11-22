@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795359057795,
+  "lastUpdate": 1795360974358,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "dr.anuragkr@gmail.com",
-            "name": "Anurag Singh",
-            "username": "Anurag-M1"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "481da7a6fd607c2507ad1602bb7c0d106fbc2e2b",
-          "message": "Honor `MLFLOW_S3_IGNORE_TLS` in multipart artifact download (#26004)\n\nSigned-off-by: Anurag Singh <dr.anuragkr@gmail.com>",
-          "timestamp": "2026-10-01T06:20:59Z",
-          "tree_id": "541718e8f65e54764624f17c27d0c6fc9d8d5d36",
-          "url": "https://github.com/mlflow/mlflow/commit/481da7a6fd607c2507ad1602bb7c0d106fbc2e2b"
-        },
-        "date": 1790836639123,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 50.481372999996665,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 9.857268245286402,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 6.556071180331155,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.637923780488571,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.927815596332706,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 12.073259400017378,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 4.80979459999844,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "atnikhil06@gmail.com",
+            "name": "NIKHIL",
+            "username": "Nikhi00718"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd5eb7f2a78ca1102d753fe10a5cee915ec58d35",
+          "message": "Fix deferred trace export race in `MlflowV3SpanExporter` (#26692)\n\nSigned-off-by: NIKHIL <atnikhil06@gmail.com>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
+          "timestamp": "2026-11-22T15:18:29Z",
+          "tree_id": "6b57057a46fc1ba022548fcecf56ea9408aa6e3e",
+          "url": "https://github.com/mlflow/mlflow/commit/cd5eb7f2a78ca1102d753fe10a5cee915ec58d35"
+        },
+        "date": 1795360970866,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.08065619999945,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.559503475609422,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.8950308704664645,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.094756206349096,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.664006409090933,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.8398010000008753,
             "unit": "ms"
           }
         ]
