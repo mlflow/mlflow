@@ -1,14 +1,24 @@
+import json
 import logging
+import weakref
 from typing import Any
 
 import mlflow.anthropic
 from mlflow.anthropic.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.span_status import SpanStatusCode
+from mlflow.tracing.constant import (
+    STREAM_CHUNK_EVENT_NAME_FORMAT,
+    STREAM_CHUNK_EVENT_VALUE_KEY,
+    SpanAttributeKey,
+    TokenUsageKey,
+)
 from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
+    TraceJSONEncoder,
     construct_full_inputs,
     set_span_chat_tools,
     set_span_model_attribute,
@@ -73,108 +83,51 @@ def patched_claude_sdk_init(original, self, options=None):
 
 
 def patched_class_call(original, self, *args, **kwargs):
-    from anthropic import Stream
-
     with TracingSession(original, self, args, kwargs) as manager:
         _inject_tracing_headers(kwargs, manager.span)
         output = original(self, *args, **kwargs)
-        if isinstance(output, Stream) and manager.span is not None:
-            # The span must stay open until the caller consumes or closes the stream.
-            manager.defer_end = True
-            _trace_stream(manager, output)
-        else:
-            manager.output = output
+        manager.set_output(output)
         return output
-
-
-def _trace_stream(manager: "TracingSession", stream: Any):
-    events = []
-    finished = False
-
-    def _finish(error=None):
-        nonlocal finished
-        if finished:
-            return
-        finished = True
-        if error is not None:
-            manager.span.record_exception(error)
-        else:
-            manager.output = _reconstruct_message(events)
-        manager.end_span()
-
-    original_close = stream.close
-    original_iterator = stream._iterator
-
-    def _stream_output_logging_hook(iterator):
-        try:
-            for event in iterator:
-                events.append(event)
-                yield event
-        except Exception as e:
-            _finish(e)
-            raise
-        finally:
-            _finish()
-
-    def _close():
-        try:
-            return original_close()
-        finally:
-            _finish()
-
-    stream._iterator = _stream_output_logging_hook(original_iterator)
-    stream.close = _close
-
-
-def _reconstruct_message(events: list[Any]):
-    from anthropic.types import TextBlock
-
-    message = None
-    text_parts = []
-    stop_reason = None
-    output_tokens = None
-    for event in events:
-        if event.type == "message_start":
-            message = event.message
-        elif event.type == "content_block_delta" and event.delta.type == "text_delta":
-            text_parts.append(event.delta.text)
-        elif event.type == "message_delta":
-            stop_reason = event.delta.stop_reason
-            output_tokens = event.usage.output_tokens
-
-    if message is None:
-        return None
-
-    usage = message.usage.model_copy(update={"output_tokens": output_tokens or 0})
-    return message.model_copy(
-        update={
-            "content": [TextBlock(type="text", text="".join(text_parts))],
-            "stop_reason": stop_reason,
-            "usage": usage,
-        }
-    )
 
 
 async def async_patched_class_call(original, self, *args, **kwargs):
     async with TracingSession(original, self, args, kwargs) as manager:
         _inject_tracing_headers(kwargs, manager.span)
         output = await original(self, *args, **kwargs)
-        manager.output = output
+        manager.set_output(output)
         return output
+
+
+def patched_stream_call(original, self, *args, **kwargs):
+    with TracingSession(original, self, args, kwargs) as session:
+        _inject_tracing_headers(kwargs, session.span)
+        stream_manager = original(self, *args, **kwargs)
+        if session.span is None:
+            return stream_manager
+        # `stream()` only prepares the request, which is sent once the returned manager is
+        # entered. The span stays open and goes to a stand-in that follows the stream from there.
+        session.deferred = True
+        if hasattr(stream_manager, "__aenter__"):
+            return _TracedAsyncStreamManager(stream_manager, session)
+        return _TracedStreamManager(stream_manager, session)
 
 
 class TracingSession:
     """Context manager for handling MLflow spans in both sync and async contexts."""
 
     def __init__(self, original, instance, args, kwargs):
-        self.original = original
-        self.instance = instance
+        # `original` is not kept: it holds on to what the call returned. When that is a stream,
+        # the session lives as long as the stream does and would keep a dropped stream alive.
+        self.name = f"{instance.__class__.__name__}.{original.__name__}"
+        self.span_type = _get_span_type(original.__name__)
         self.inputs = construct_full_inputs(original, instance, *args, **kwargs)
 
         # These attributes are set outside the constructor.
         self.span = None
         self.output = None
-        self.defer_end = False
+        # Set when the response is streamed, so that the span outlives the patched call.
+        self.deferred = False
+        self.ended = False
 
     def __enter__(self):
         return self._enter_impl()
@@ -193,8 +146,8 @@ class TracingSession:
 
         if config.log_traces:
             self.span = start_span_no_context(
-                name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
-                span_type=_get_span_type(self.original.__name__),
+                name=self.name,
+                span_type=self.span_type,
                 inputs=self.inputs,
                 attributes={SpanAttributeKey.MESSAGE_FORMAT: "anthropic"},
             )
@@ -203,12 +156,37 @@ class TracingSession:
         return self
 
     def _exit_impl(self, exc_type, exc_val, exc_tb) -> None:
-        if self.span and not self.defer_end:
-            if exc_val:
-                self.span.record_exception(exc_val)
-            self.end_span()
+        if self.span and not self.deferred:
+            self.end(exc_val)
 
-    def end_span(self) -> None:
+    def set_output(self, output: Any) -> None:
+        from anthropic import AsyncStream, Stream
+
+        if self.span and isinstance(output, (Stream, AsyncStream)):
+            # `create(stream=True)` returns before any event is read.
+            self.trace_stream(output)
+        else:
+            self.output = output
+
+    def trace_stream(self, stream: Any) -> None:
+        """Keep the span open until ``stream`` ends, then record the message it delivered."""
+        _trace_stream(self, stream)
+        self.deferred = True
+
+    def end(self, error: BaseException | None = None) -> None:
+        # A stream can end in several ways, e.g. it is read to the end and then closed.
+        if self.ended:
+            return
+        self.ended = True
+
+        if isinstance(error, Exception):
+            self.span.record_exception(error)
+        elif error is not None:
+            # `record_exception` rejects errors that are not an `Exception`, such as the
+            # `asyncio.CancelledError` of a stream that is cancelled.
+            self.span.add_event(SpanEvent.from_exception(error))
+            self.span.set_status(SpanStatusCode.ERROR)
+
         set_span_model_attribute(self.span, self.inputs)
         # Client-side cost computation (used for Databricks backends) resolves
         # litellm pricing by provider; without it, Claude model names don't
@@ -218,6 +196,235 @@ class TracingSession:
         self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "anthropic")
         _set_token_usage_attribute(self.span, self.output)
         self.span.end(outputs=self.output)
+
+
+class _TracedStreamManager:
+    """
+    Stands in for the manager that ``Messages.stream()`` returns, to trace the stream it opens.
+    """
+
+    def __init__(self, manager: Any, session: TracingSession):
+        self._manager = manager
+        self._session = session
+
+    def __enter__(self):
+        try:
+            stream = self._manager.__enter__()
+        except BaseException as e:
+            _end_span(self._session, e)
+            raise
+        _trace_helper_stream(self._session, stream)
+        return stream
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return self._manager.__exit__(exc_type, exc_val, exc_tb)
+
+
+class _TracedAsyncStreamManager:
+    """
+    Stands in for the manager that ``AsyncMessages.stream()`` returns, to trace the stream it
+    opens.
+    """
+
+    def __init__(self, manager: Any, session: TracingSession):
+        self._manager = manager
+        self._session = session
+
+    async def __aenter__(self):
+        try:
+            stream = await self._manager.__aenter__()
+        except BaseException as e:
+            _end_span(self._session, e)
+            raise
+        _trace_helper_stream(self._session, stream)
+        return stream
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        return await self._manager.__aexit__(exc_type, exc_val, exc_tb)
+
+
+class _StreamRecorder:
+    """Records the events of a streamed response and ends the span once the stream is over."""
+
+    def __init__(self, session: TracingSession):
+        self._session = session
+        self._events = []
+
+    def iterate(self, iterator):
+        try:
+            for event in iterator:
+                self._record(event)
+                yield event
+        except Exception as e:
+            self.finish(e)
+            raise
+        finally:
+            # Also reached when the caller stops reading and the generator is closed.
+            self.finish()
+
+    async def aiterate(self, iterator):
+        try:
+            async for event in iterator:
+                self._record(event)
+                yield event
+        except GeneratorExit:
+            raise
+        except BaseException as e:
+            # Includes `asyncio.CancelledError`, raised when the task reading the stream is
+            # cancelled.
+            self.finish(e)
+            raise
+        finally:
+            self.finish()
+
+    def _record(self, event: Any) -> None:
+        try:
+            self._session.span.add_event(
+                SpanEvent(
+                    name=STREAM_CHUNK_EVENT_NAME_FORMAT.format(index=len(self._events)),
+                    attributes={
+                        STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(event, cls=TraceJSONEncoder)
+                    },
+                )
+            )
+        except Exception:
+            _logger.debug("Failed to record an Anthropic stream event", exc_info=True)
+        self._events.append(event)
+
+    def finish(self, error: BaseException | None = None) -> None:
+        if self._session.ended:
+            return
+        try:
+            self._session.output = _accumulate_message(self._events)
+        except Exception:
+            _logger.warning("Failed to assemble the message of an Anthropic stream", exc_info=True)
+        _end_span(self._session, error)
+
+
+def _end_span(session: TracingSession, error: BaseException | None = None) -> None:
+    # Streams end their span after the patched call has returned, where an error raised here
+    # would surface in the caller's own code.
+    try:
+        session.end(error)
+    except Exception:
+        _logger.warning("Failed to end the span of an Anthropic stream", exc_info=True)
+
+
+def _trace_stream(session: TracingSession, stream: Any) -> None:
+    """
+    Keep the span open until ``stream`` is read to the end, closed, dropped or fails, then end
+    it with the message assembled from the streamed events. ``stream`` is the SDK's ``Stream``
+    or ``AsyncStream``.
+    """
+    recorder = _StreamRecorder(session)
+    # `close` is taken from the class and called through a weak reference. Keeping the bound
+    # method instead would tie the stream into a reference cycle, and a stream that is dropped
+    # without being closed would stay open, like its span, until the garbage collector runs.
+    close = type(stream).close
+    stream_ref = weakref.ref(stream)
+
+    if hasattr(stream, "__aiter__"):
+
+        async def traced_close():
+            try:
+                await close(stream_ref())
+            except BaseException as e:
+                recorder.finish(e)
+                raise
+            recorder.finish()
+
+        stream._iterator = recorder.aiterate(stream._iterator)
+    else:
+
+        def traced_close():
+            try:
+                close(stream_ref())
+            except BaseException as e:
+                recorder.finish(e)
+                raise
+            recorder.finish()
+
+        stream._iterator = recorder.iterate(stream._iterator)
+
+    stream.close = traced_close
+    # A stream can also be dropped before it is read to the end or closed.
+    weakref.finalize(stream, recorder.finish)
+
+
+def _trace_helper_stream(session: TracingSession, stream: Any) -> None:
+    if session.ended:
+        # The manager was entered before, and the span covered the stream it opened then.
+        return
+    try:
+        # The stream that `stream()` opens reads its events from a raw stream, the kind that
+        # `create(stream=True)` returns.
+        session.trace_stream(stream._raw_stream)
+    except Exception:
+        _logger.warning("Failed to trace an Anthropic stream", exc_info=True)
+        _end_span(session)
+
+
+def _accumulate_message(events: list[Any]) -> Any:
+    """
+    Fold the events of a stream into the ``Message`` that a non-streaming call would have
+    returned. A stream that stopped early gives the message as far as it was received.
+    """
+    message = None
+    blocks = {}
+    partial_inputs = {}
+    for event in events:
+        match event.type:
+            case "message_start":
+                message = event.message.model_copy(deep=True)
+            case "content_block_start":
+                blocks[event.index] = event.content_block.model_copy(deep=True)
+            case "content_block_delta" if (block := blocks.get(event.index)) is not None:
+                delta = event.delta
+                match delta.type:
+                    case "text_delta":
+                        block.text += delta.text
+                    case "thinking_delta":
+                        block.thinking += delta.thinking
+                    case "signature_delta":
+                        block.signature = delta.signature
+                    case "citations_delta":
+                        block.citations = [*(block.citations or []), delta.citation]
+                    case "input_json_delta":
+                        partial_inputs[event.index] = (
+                            partial_inputs.get(event.index, "") + delta.partial_json
+                        )
+            case "message_delta" if message is not None:
+                _merge(message, event.delta)
+                _merge(message.usage, event.usage)
+
+    if message is None:
+        return None
+
+    for index, partial_json in partial_inputs.items():
+        if partial_json:
+            blocks[index].input = _parse_tool_input(partial_json, default=blocks[index].input)
+    message.content = [blocks[index] for index in sorted(blocks)]
+    return message
+
+
+def _merge(target: Any, update: Any) -> None:
+    # `message_delta` carries the final values but leaves out the ones that did not change,
+    # e.g. the input token count. Those keep what `message_start` reported.
+    for name, value in update:
+        if value is not None and name in type(target).model_fields:
+            setattr(target, name, value)
+
+
+def _parse_tool_input(partial_json: str, default: Any) -> Any:
+    # jiter is installed with the SDK, whose own stream helper parses tool inputs the same way.
+    # The partial mode keeps what was received of an input that was cut off, e.g. by
+    # `max_tokens` or because the stream was closed early.
+    from jiter import from_json
+
+    try:
+        return from_json(partial_json.encode(), partial_mode=True)
+    except ValueError:
+        return default
 
 
 def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan | None):
@@ -236,6 +443,7 @@ def _get_span_type(task_name: str) -> str:
     # Once they are stable, we can add them to the mapping.
     span_type_mapping = {
         "create": SpanType.CHAT_MODEL,
+        "stream": SpanType.CHAT_MODEL,
     }
     return span_type_mapping.get(task_name, SpanType.UNKNOWN)
 

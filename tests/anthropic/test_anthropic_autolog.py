@@ -1,13 +1,16 @@
 import asyncio
+import gc
+import inspect
 import json
 import re
+from contextlib import AsyncExitStack
 from typing import Any
 from unittest.mock import ANY, patch
 
 import anthropic
-import httpx2
 import pytest
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
+from packaging.version import Version
 
 import mlflow.anthropic
 from mlflow.entities import SpanLogLevel
@@ -16,6 +19,12 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
+
+# anthropic 1.0 switched its HTTP client from `httpx` to `httpx2`.
+if Version(anthropic.__version__).major >= 1:
+    import httpx2 as httpx
+else:
+    import httpx
 
 DUMMY_CREATE_MESSAGE_REQUEST = {
     "model": "test_model",
@@ -566,114 +575,515 @@ def test_tracing_headers_preserve_user_extra_headers(is_async):
     assert span.inputs.get("extra_headers", {}).get("X-Custom") == "my-value"
 
 
-def _sse_event(event: str, data: dict[str, Any]) -> str:
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+STREAM_EVENTS = [
+    {
+        "type": "message_start",
+        "message": {
+            "id": "test_id",
+            "type": "message",
+            "role": "assistant",
+            "model": "test_model",
+            "content": [],
+            "stop_reason": None,
+            "stop_sequence": None,
+            "usage": {"input_tokens": 10, "output_tokens": 1},
+        },
+    },
+    {"type": "content_block_start", "index": 0, "content_block": {"type": "text", "text": ""}},
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "Hello"}},
+    {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": " world"}},
+    {"type": "content_block_stop", "index": 0},
+    {
+        "type": "message_delta",
+        "delta": {"stop_reason": "end_turn", "stop_sequence": None},
+        "usage": {"output_tokens": 18},
+    },
+    {"type": "message_stop"},
+]
 
-
-STREAM_SSE_BODY = "".join([
-    _sse_event(
-        "message_start",
-        {
-            "type": "message_start",
-            "message": {
-                "id": "test_id",
-                "type": "message",
-                "role": "assistant",
-                "model": "test_model",
-                "content": [],
-                "stop_reason": None,
-                "stop_sequence": None,
-                "usage": {"input_tokens": 10, "output_tokens": 1},
+STREAM_WITH_TOOLS_EVENTS = [
+    {
+        "type": "message_start",
+        "message": {
+            "id": "test_id",
+            "type": "message",
+            "role": "assistant",
+            "model": "test_model",
+            "content": [],
+            "stop_reason": None,
+            "stop_sequence": None,
+            "usage": {
+                "input_tokens": 40,
+                "output_tokens": 1,
+                "cache_creation_input_tokens": 15,
+                "cache_read_input_tokens": 25,
             },
         },
-    ),
-    _sse_event(
-        "content_block_start",
-        {
-            "type": "content_block_start",
-            "index": 0,
-            "content_block": {"type": "text", "text": ""},
-        },
-    ),
-    _sse_event(
-        "content_block_delta",
-        {
-            "type": "content_block_delta",
-            "index": 0,
-            "delta": {"type": "text_delta", "text": "Hello"},
-        },
-    ),
-    _sse_event(
-        "content_block_delta",
-        {
-            "type": "content_block_delta",
-            "index": 0,
-            "delta": {"type": "text_delta", "text": " world"},
-        },
-    ),
-    _sse_event("content_block_stop", {"type": "content_block_stop", "index": 0}),
-    _sse_event(
-        "message_delta",
-        {
-            "type": "message_delta",
-            "delta": {"stop_reason": "end_turn", "stop_sequence": None},
-            "usage": {"output_tokens": 2},
-        },
-    ),
-    _sse_event("message_stop", {"type": "message_stop"}),
-])
+    },
+    {
+        "type": "content_block_start",
+        "index": 0,
+        "content_block": {"type": "thinking", "thinking": "", "signature": ""},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": {"type": "thinking_delta", "thinking": "I need to "},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": {"type": "thinking_delta", "thinking": "use get_weather."},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 0,
+        "delta": {"type": "signature_delta", "signature": "ABC"},
+    },
+    {"type": "content_block_stop", "index": 0},
+    {"type": "content_block_start", "index": 1, "content_block": {"type": "text", "text": ""}},
+    {
+        "type": "content_block_delta",
+        "index": 1,
+        "delta": {"type": "text_delta", "text": "Let me check."},
+    },
+    {"type": "content_block_stop", "index": 1},
+    {
+        "type": "content_block_start",
+        "index": 2,
+        "content_block": {"type": "tool_use", "id": "tool_456", "name": "get_weather", "input": {}},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 2,
+        "delta": {"type": "input_json_delta", "partial_json": ""},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 2,
+        "delta": {"type": "input_json_delta", "partial_json": '{"location": "San Fran'},
+    },
+    {
+        "type": "content_block_delta",
+        "index": 2,
+        "delta": {"type": "input_json_delta", "partial_json": 'cisco", "unit": "celsius"}'},
+    },
+    {"type": "content_block_stop", "index": 2},
+    {
+        "type": "message_delta",
+        "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+        # The final input token count replaces the one in `message_start`, and the cache
+        # counts, which are left out here, keep their value.
+        "usage": {"input_tokens": 50, "output_tokens": 20},
+    },
+    {"type": "message_stop"},
+]
+
+STREAM_ERROR_EVENT = {
+    "type": "error",
+    "error": {"type": "overloaded_error", "message": "Overloaded"},
+}
 
 
-def _create_streaming_message():
-    transport = httpx2.MockTransport(
-        lambda request: httpx2.Response(
-            200,
-            headers={"content-type": "text/event-stream"},
-            content=STREAM_SSE_BODY.encode(),
+def _sse_response(events: list[dict[str, Any]]):
+    body = "".join(f"event: {event['type']}\ndata: {json.dumps(event)}\n\n" for event in events)
+    return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body.encode())
+
+
+def _mock_client(is_async: bool, handler):
+    transport = httpx.MockTransport(handler)
+    if is_async:
+        return anthropic.AsyncAnthropic(
+            api_key="test_key", max_retries=0, http_client=httpx.AsyncClient(transport=transport)
         )
+    return anthropic.Anthropic(
+        api_key="test_key", max_retries=0, http_client=httpx.Client(transport=transport)
     )
-    client = anthropic.Anthropic(api_key="test_key", http_client=httpx2.Client(transport=transport))
-    return client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST, stream=True)
 
 
-def test_messages_autolog_stream():
+def _streaming_client(is_async: bool, events: list[dict[str, Any]]):
+    return _mock_client(is_async, lambda request: _sse_response(events))
+
+
+async def _open_stream(stack: AsyncExitStack, client, use_helper: bool):
+    """Opens a stream with `stream()` or `create(stream=True)`. Leaving `stack` closes it."""
+    if use_helper:
+        stream = client.messages.stream(**DUMMY_CREATE_MESSAGE_REQUEST)
+    else:
+        stream = client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST, stream=True)
+        if inspect.isawaitable(stream):
+            stream = await stream
+    if hasattr(stream, "__aenter__"):
+        return await stack.enter_async_context(stream)
+    return stack.enter_context(stream)
+
+
+async def _next_event(stream):
+    if hasattr(stream, "__anext__"):
+        return await anext(stream)
+    return next(stream)
+
+
+async def _read_all(stream):
+    if hasattr(stream, "__aiter__"):
+        return [event async for event in stream]
+    return list(stream)
+
+
+async def _close(stream):
+    if inspect.isawaitable(result := stream.close()):
+        await result
+
+
+def _get_text(outputs: dict[str, Any]) -> str:
+    return "".join(block["text"] for block in outputs["content"] if block["type"] == "text")
+
+
+@pytest.fixture(params=[False, True], ids=["create", "stream"])
+def use_helper(request):
+    return request.param
+
+
+@pytest.mark.asyncio
+async def test_messages_autolog_streaming(is_async, use_helper, mock_litellm_cost):
+    mlflow.anthropic.autolog()
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return _sse_response(STREAM_EVENTS)
+
+    client = _mock_client(is_async, handler)
+    async with AsyncExitStack() as stack:
+        stream = await _open_stream(stack, client, use_helper)
+        # The span stays open until the stream is consumed.
+        assert get_traces() == []
+        events = await _read_all(stream)
+        assert len(get_traces()) == 1
+
+    text_deltas = [e.delta.text for e in events if e.type == "content_block_delta"]
+    assert text_deltas == ["Hello", " world"]
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    method = "stream" if use_helper else "create"
+    assert span.name == (f"AsyncMessages.{method}" if is_async else f"Messages.{method}")
+    assert span.span_type == SpanType.CHAT_MODEL
+    if use_helper:
+        assert span.inputs == DUMMY_CREATE_MESSAGE_REQUEST
+    else:
+        assert span.inputs == {**DUMMY_CREATE_MESSAGE_REQUEST, "stream": True}
+
+    # The output has the shape of a non-streaming response.
+    assert span.outputs["id"] == "test_id"
+    assert span.outputs["role"] == "assistant"
+    assert _get_text(span.outputs) == "Hello world"
+    assert span.outputs["stop_reason"] == "end_turn"
+    assert [event.name for event in span.events] == [
+        f"mlflow.chunk.item.{i}" for i in range(len(STREAM_EVENTS))
+    ]
+    first_chunk = json.loads(span.events[0].attributes["mlflow.chunk.value"])
+    assert first_chunk["type"] == "message_start"
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+    assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+    # The request carries the trace context of the span.
+    span_ctx = span._span.get_span_context()
+    trace_id = format(span_ctx.trace_id, "032x")
+    span_id = format(span_ctx.span_id, "016x")
+    assert requests[0].headers["traceparent"].startswith(f"00-{trace_id}-{span_id}-")
+
+    mlflow.anthropic.autolog(disable=True)
+    async with AsyncExitStack() as stack:
+        stream = await _open_stream(stack, client, use_helper)
+        await _read_all(stream)
+
+    # No new trace should be created
+    assert len(get_traces()) == 1
+
+
+@pytest.mark.asyncio
+async def test_messages_autolog_stream_helper_final_message(is_async):
     mlflow.anthropic.autolog()
 
-    stream = _create_streaming_message()
-    # The span must stay open until the stream is consumed.
-    assert get_traces() == []
+    client = _streaming_client(is_async, STREAM_EVENTS)
+    if is_async:
+        async with client.messages.stream(**DUMMY_CREATE_MESSAGE_REQUEST) as stream:
+            text = "".join([text async for text in stream.text_stream])
+            message = await stream.get_final_message()
+    else:
+        with client.messages.stream(**DUMMY_CREATE_MESSAGE_REQUEST) as stream:
+            text = "".join(stream.text_stream)
+            message = stream.get_final_message()
 
-    text = "".join(event.delta.text for event in stream if event.type == "content_block_delta")
     assert text == "Hello world"
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert _get_text(span.outputs) == message.content[0].text == "Hello world"
+    assert span.outputs["stop_reason"] == message.stop_reason == "end_turn"
+    assert span.outputs["usage"]["input_tokens"] == message.usage.input_tokens == 10
+    assert span.outputs["usage"]["output_tokens"] == message.usage.output_tokens == 18
+
+
+@pytest.mark.asyncio
+async def test_messages_autolog_streaming_tool_use_and_thinking(is_async, use_helper):
+    mlflow.anthropic.autolog()
+
+    client = _streaming_client(is_async, STREAM_WITH_TOOLS_EVENTS)
+    async with AsyncExitStack() as stack:
+        stream = await _open_stream(stack, client, use_helper)
+        await _read_all(stream)
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     span = traces[0].data.spans[0]
-    assert span.outputs["content"][0]["text"] == "Hello world"
-    assert span.outputs["stop_reason"] == "end_turn"
+    thinking, text, tool_use = span.outputs["content"]
+    assert thinking["type"] == "thinking"
+    assert thinking["thinking"] == "I need to use get_weather."
+    assert thinking["signature"] == "ABC"
+    assert text["type"] == "text"
+    assert text["text"] == "Let me check."
+    assert tool_use["type"] == "tool_use"
+    assert tool_use["id"] == "tool_456"
+    assert tool_use["name"] == "get_weather"
+    assert tool_use["input"] == {"location": "San Francisco", "unit": "celsius"}
+    assert span.outputs["stop_reason"] == "tool_use"
+
+    # Anthropic's input_tokens (50) excludes cache tokens. After normalization:
+    # input_tokens = 50 + 25 (cache_read) + 15 (cache_creation) = 90
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        "input_tokens": 10,
-        "output_tokens": 2,
-        "total_tokens": 12,
-    }
-    assert traces[0].info.token_usage == {
-        "input_tokens": 10,
-        "output_tokens": 2,
-        "total_tokens": 12,
+        TokenUsageKey.INPUT_TOKENS: 90,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 110,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }
 
 
-def test_messages_autolog_stream_closed_early():
+@pytest.mark.asyncio
+async def test_messages_autolog_streaming_truncated_tool_input(is_async):
     mlflow.anthropic.autolog()
 
-    stream = _create_streaming_message()
-    for event in stream:
-        if event.type == "content_block_delta":
-            break
-    stream.close()
+    events = [
+        *STREAM_WITH_TOOLS_EVENTS[:12],
+        {
+            "type": "content_block_delta",
+            "index": 2,
+            "delta": {"type": "input_json_delta", "partial_json": 'cisco", "unit": "cel'},
+        },
+        {"type": "content_block_stop", "index": 2},
+        {
+            "type": "message_delta",
+            "delta": {"stop_reason": "max_tokens", "stop_sequence": None},
+            "usage": {"output_tokens": 20},
+        },
+        {"type": "message_stop"},
+    ]
+    client = _streaming_client(is_async, events)
+    async with AsyncExitStack() as stack:
+        stream = await _open_stream(stack, client, use_helper=False)
+        await _read_all(stream)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.outputs["stop_reason"] == "max_tokens"
+    # The input is recorded as far as it was received.
+    assert span.outputs["content"][2]["input"] == {"location": "San Francisco"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("num_events", [0, 3])
+async def test_messages_autolog_streaming_close(is_async, use_helper, num_events):
+    mlflow.anthropic.autolog()
+
+    client = _streaming_client(is_async, STREAM_EVENTS)
+    async with AsyncExitStack() as stack:
+        stream = await _open_stream(stack, client, use_helper)
+        for _ in range(num_events):
+            await _next_event(stream)
+        assert get_traces() == []
+    await _close(stream)
+
+    assert stream.response.is_closed
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == num_events
+    if num_events == 0:
+        assert span.outputs is None
+    else:
+        assert _get_text(span.outputs) == "Hello"
+        assert span.outputs["stop_reason"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("num_events", [0, 3])
+async def test_messages_autolog_streaming_dropped(is_async, num_events):
+    mlflow.anthropic.autolog()
+
+    client = _streaming_client(is_async, STREAM_EVENTS)
+    stream = client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST, stream=True)
+    if is_async:
+        stream = await stream
+    for _ in range(num_events):
+        await _next_event(stream)
+    assert get_traces() == []
+
+    # The stream is neither read to the end nor closed.
+    del stream
+    gc.collect()
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert traces[0].data.spans[0].outputs["content"][0]["text"] == "Hello"
+    span = traces[0].data.spans[0]
+    assert len(span.events) == num_events
+    if num_events == 0:
+        assert span.outputs is None
+    else:
+        assert _get_text(span.outputs) == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_messages_autolog_streaming_error_mid_stream(is_async, use_helper):
+    mlflow.anthropic.autolog()
+
+    client = _streaming_client(is_async, [*STREAM_EVENTS[:3], STREAM_ERROR_EVENT])
+    async with AsyncExitStack() as stack:
+        stream = await _open_stream(stack, client, use_helper)
+        with pytest.raises(anthropic.APIError, match="Overloaded") as exc:
+            await _read_all(stream)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert [event.name for event in span.events] == [
+        "mlflow.chunk.item.0",
+        "mlflow.chunk.item.1",
+        "mlflow.chunk.item.2",
+        "exception",
+    ]
+    assert span.events[-1].attributes["exception.type"] == type(exc.value).__name__
+    # What was received before the error is still recorded.
+    assert _get_text(span.outputs) == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_messages_autolog_streaming_request_error(is_async, use_helper):
+    mlflow.anthropic.autolog()
+
+    error = {"type": "error", "error": {"type": "invalid_request_error", "message": "Bad request"}}
+    client = _mock_client(is_async, lambda request: httpx.Response(400, json=error))
+    async with AsyncExitStack() as stack:
+        with pytest.raises(anthropic.BadRequestError, match="Bad request"):
+            await _open_stream(stack, client, use_helper)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.outputs is None
+    assert [event.name for event in span.events] == ["exception"]
+    assert span.events[0].attributes["exception.type"] == "BadRequestError"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_type", [RuntimeError, asyncio.CancelledError])
+async def test_messages_autolog_streaming_close_error(is_async, error_type):
+    mlflow.anthropic.autolog()
+
+    client = _streaming_client(is_async, STREAM_EVENTS)
+    stream = client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST, stream=True)
+    if is_async:
+        stream = await stream
+    await _next_event(stream)
+
+    error = error_type("Close failed")
+    with patch.object(stream.response, "aclose" if is_async else "close", side_effect=error):
+        with pytest.raises(error_type, match="Close failed") as exc:
+            await _close(stream)
+    await _close(stream)
+
+    assert exc.value is error
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert [event.name for event in span.events] == ["mlflow.chunk.item.0", "exception"]
+    assert span.events[-1].attributes["exception.type"] == error_type.__name__
+    assert span.events[-1].attributes["exception.message"] == "Close failed"
+
+
+@pytest.mark.asyncio
+async def test_messages_autolog_streaming_cancelled():
+    mlflow.anthropic.autolog()
+    reading = asyncio.Event()
+
+    async def events():
+        reading.set()
+        await asyncio.Future()
+        yield
+
+    client = _streaming_client(True, STREAM_EVENTS)
+    with patch.object(anthropic.AsyncStream, "__stream__", return_value=events()):
+        stream = await client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST, stream=True)
+        task = asyncio.create_task(anext(stream))
+        await asyncio.wait_for(reading.wait(), timeout=5)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError, match="^$"):
+            await task
+        await stream.close()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert [event.name for event in span.events] == ["exception"]
+    assert span.events[0].attributes["exception.type"] == "CancelledError"
+
+
+@pytest.mark.asyncio
+async def test_messages_autolog_streaming_without_traces(is_async, use_helper):
+    mlflow.anthropic.autolog(log_traces=False)
+
+    client = _streaming_client(is_async, STREAM_EVENTS)
+    async with AsyncExitStack() as stack:
+        stream = await _open_stream(stack, client, use_helper)
+        events = await _read_all(stream)
+
+    text_deltas = [e.delta.text for e in events if e.type == "content_block_delta"]
+    assert text_deltas == ["Hello", " world"]
+    assert get_traces() == []

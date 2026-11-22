@@ -143,6 +143,55 @@ To request support for additional APIs, please open a [feature request](https://
 MLflow automatically captures images sent to Anthropic models and normalizes them to the standard trace format. See [Multimodal Content and Attachments in Traces](/genai/tracing/observe-with-traces/multimodal) for examples.
 :::
 
+## Streaming
+
+MLflow Tracing supports the streaming API of the Anthropic Python SDK, both `client.messages.stream()` and `client.messages.create(stream=True)`, as well as their async counterparts. With the same set up of auto tracing, MLflow automatically traces the streaming response and renders the assembled message and its token usage in the span UI. The actual events in the response stream can be found in the `Event` tab as well. The trace is logged once the stream is read to the end or closed.
+
+<Tabs>
+  <TabItem value="stream" label="messages.stream()" default>
+    ```python
+    import anthropic
+    import mlflow
+
+    # Enable trace logging
+    mlflow.anthropic.autolog()
+
+    client = anthropic.Anthropic()
+
+    with client.messages.stream(
+        model="claude-sonnet-5-5",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": "Hello, Claude"}],
+    ) as stream:
+        for text in stream.text_stream:
+            print(text, end="", flush=True)
+    ```
+
+  </TabItem>
+  <TabItem value="create" label="messages.create(stream=True)">
+    ```python
+    import anthropic
+    import mlflow
+
+    # Enable trace logging
+    mlflow.anthropic.autolog()
+
+    client = anthropic.Anthropic()
+
+    stream = client.messages.create(
+        model="claude-sonnet-5-5",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": "Hello, Claude"}],
+        stream=True,  # Enable streaming response
+    )
+    for event in stream:
+        if event.type == "content_block_delta" and event.delta.type == "text_delta":
+            print(event.delta.text, end="", flush=True)
+    ```
+
+  </TabItem>
+</Tabs>
+
 ## Async
 
 MLflow Tracing has supported the asynchronous API of the Anthropic SDK since MLflow 2.21.0. Its usage is the same as the synchronous API.
@@ -276,7 +325,7 @@ Token usage and cost tracking is supported for the following Anthropic APIs:
 
 | Chat Completion | Function Calling | Streaming |  Async   | Image | Batch |
 | :-------------: | :--------------: | :-------: | :------: | :---: | :---: |
-|       ✅        |        ✅        |     -     | ✅ (\*1) |   -   |   -   |
+|       ✅        |        ✅        |    ✅     | ✅ (\*1) |   -   |   -   |
 
 <div style={{ fontSize: '0.9em', marginTop: '10px' }}>
 

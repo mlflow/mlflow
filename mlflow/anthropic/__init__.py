@@ -4,6 +4,7 @@ from mlflow.anthropic.autolog import (
     async_patched_class_call,
     patched_class_call,
     patched_claude_sdk_init,
+    patched_stream_call,
 )
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
@@ -21,7 +22,8 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from Anthropic to MLflow.
-    Only synchronous calls and asynchronous APIs are supported. Streaming is not recorded.
+    Both the synchronous and the asynchronous APIs are supported, including streaming with
+    ``messages.create(stream=True)`` and ``messages.stream()``.
 
     This also enables tracing for Claude Code SDK if available.
 
@@ -47,6 +49,17 @@ def autolog(
         "create",
         async_patched_class_call,
     )
+
+    # `stream()` does not go through `create()`. On both classes it is a regular function that
+    # returns a manager, which the patch replaces with one that traces the stream.
+    for cls in (Messages, AsyncMessages):
+        safe_patch(
+            FLAVOR_NAME,
+            cls,
+            "stream",
+            patched_stream_call,
+            return_patch_result=True,
+        )
 
     # Patch Claude Code SDK if available
     try:
