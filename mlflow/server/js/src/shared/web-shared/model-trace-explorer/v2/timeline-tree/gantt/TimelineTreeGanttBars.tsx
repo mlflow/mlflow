@@ -6,7 +6,7 @@ import { useResizeObserver } from '../../../../hooks/useResizeObserver';
 import { TimelineTreeGanttNode } from './TimelineTreeGanttNode';
 import type { ModelTraceSpanNode } from '../../ModelTrace.types';
 import { SPAN_ROW_HEIGHT, spanTimeFormatter, TimelineTreeZIndex } from '../TimelineTree.utils';
-import { TIMELINE_TREE_VIRTUALIZATION_MIN_ROWS, useTimelineTreeRowVirtualizer } from '../useTimelineTreeRowVirtualizer';
+import { useTimelineTreeRowVirtualizer } from '../useTimelineTreeRowVirtualizer';
 
 // the amount of space required to accomodate the collapse buttons
 const TIMELINE_BAR_LEFT_OFFSET = 32;
@@ -91,10 +91,13 @@ export const TimelineTreeGanttBars = ({
   const xTicks = initialXTicks.slice(0, -1);
 
   const scaleDurationToTreeWidth = (value: number) => scaleX(value, left, right, treeElementWidth);
-  const virtualizer = useTimelineTreeRowVirtualizer(nodes, scrollElement, selectedKey, SPAN_ROW_HEIGHT);
-  const virtualRows = virtualizer.getVirtualItems();
-  const virtualized = nodes.length >= TIMELINE_TREE_VIRTUALIZATION_MIN_ROWS;
-  const rows = virtualized ? virtualRows : nodes.map((_, index) => ({ index, start: index * SPAN_ROW_HEIGHT }));
+  const { rowVirtualizer, virtualized } = useTimelineTreeRowVirtualizer(
+    nodes,
+    scrollElement,
+    selectedKey,
+    SPAN_ROW_HEIGHT,
+  );
+  const virtualRows = rowVirtualizer.getVirtualItems();
 
   return (
     <div
@@ -172,33 +175,49 @@ export const TimelineTreeGanttBars = ({
         </div>
       </div>
       {/* colored horizontal gantt bars */}
-      <div
-        css={{ position: 'relative', flexShrink: 0 }}
-        style={{ height: virtualized ? virtualizer.getTotalSize() : nodes.length * SPAN_ROW_HEIGHT }}
-      >
-        {rows.map(({ index, start }) => {
-          const node = nodes[index];
+      {virtualized ? (
+        <div css={{ position: 'relative', flexShrink: 0 }} style={{ height: rowVirtualizer.getTotalSize() }}>
+          {virtualRows.map(({ index, start }) => {
+            const node = nodes[index];
+            const leftOffset = scaleDurationToTreeWidth(node.start);
+            const width = scaleDurationToTreeWidth(node.end) - leftOffset;
+            return (
+              <div
+                key={node.key}
+                css={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
+                style={{ transform: `translateY(${start}px)` }}
+              >
+                <TimelineTreeGanttNode
+                  selectedKey={selectedKey}
+                  onSelect={onSelect}
+                  node={node}
+                  leftOffset={leftOffset}
+                  width={width}
+                  expandedKeys={expandedKeys}
+                  setExpandedKeys={setExpandedKeys}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        nodes.map((node) => {
           const leftOffset = scaleDurationToTreeWidth(node.start);
           const width = scaleDurationToTreeWidth(node.end) - leftOffset;
           return (
-            <div
+            <TimelineTreeGanttNode
               key={node.key}
-              css={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
-              style={{ transform: `translateY(${start}px)` }}
-            >
-              <TimelineTreeGanttNode
-                selectedKey={selectedKey}
-                onSelect={onSelect}
-                node={node}
-                leftOffset={leftOffset}
-                width={width}
-                expandedKeys={expandedKeys}
-                setExpandedKeys={setExpandedKeys}
-              />
-            </div>
+              selectedKey={selectedKey}
+              onSelect={onSelect}
+              node={node}
+              leftOffset={leftOffset}
+              width={width}
+              expandedKeys={expandedKeys}
+              setExpandedKeys={setExpandedKeys}
+            />
           );
-        })}
-      </div>
+        })
+      )}
     </div>
   );
 };

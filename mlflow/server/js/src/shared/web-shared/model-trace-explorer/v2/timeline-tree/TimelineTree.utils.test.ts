@@ -27,14 +27,37 @@ describe('TimelineTree.utils', () => {
   });
 
   test('flattens only expanded rows and retains hierarchy state', () => {
-    const leaf = (key: string): ModelTraceSpanNode => ({ key, title: key, start: 0, end: 1 });
-    const first = { ...leaf('first'), children: [leaf('first-child'), leaf('first-sibling')] };
-    const second = { ...leaf('second'), children: [leaf('selected')] };
-    const rows = getTimelineTreeExpandedRows([first, second], new Set(['first', 'second']), 'selected');
+    const leaf = (key: string): ModelTraceSpanNode => ({
+      key,
+      title: key,
+      start: 0,
+      end: 1,
+      traceId: 'trace',
+      assessments: [],
+    });
+    const first: ModelTraceSpanNode = {
+      ...leaf('first'),
+      children: [leaf('first-child'), leaf('first-sibling')],
+    };
+    const second: ModelTraceSpanNode = {
+      ...leaf('second'),
+      children: [leaf('second-child'), leaf('selected')],
+    };
+    const collapsed: ModelTraceSpanNode = { ...leaf('collapsed'), children: [leaf('collapsed-child')] };
+    const rows = getTimelineTreeExpandedRows([first, second, collapsed], new Set(['first', 'second']), 'selected');
 
-    expect(rows.map(({ node }) => node.key)).toEqual(['first', 'first-child', 'first-sibling', 'second', 'selected']);
+    expect(rows.map(({ node }) => node.key)).toEqual([
+      'first',
+      'first-child',
+      'first-sibling',
+      'second',
+      'second-child',
+      'selected',
+      'collapsed',
+    ]);
     expect(rows[1].linesToRender).toEqual([{ shouldRender: true, isActive: false }]);
-    expect(rows[4].linesToRender).toEqual([{ shouldRender: false, isActive: false }]);
+    expect(rows[4].linesToRender).toEqual([{ shouldRender: true, isActive: true }]);
+    expect(rows[5].linesToRender).toEqual([{ shouldRender: false, isActive: false }]);
   });
 });
 

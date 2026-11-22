@@ -3,19 +3,14 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import {
-  getTimelineTreeExpandedNodesList,
-  getTimelineTreeExpandedRows,
-  SPAN_ROW_HEIGHT,
-  SPAN_ROW_HEIGHT_WITH_METADATA,
-} from './TimelineTree.utils';
+import { getTimelineTreeExpandedRows, SPAN_ROW_HEIGHT, SPAN_ROW_HEIGHT_WITH_METADATA } from './TimelineTree.utils';
 import { TimelineTreeHeader } from './TimelineTreeHeader';
 import { TimelineTreeNode } from './TimelineTreeNode';
 import { TimelineTreeGanttBars } from './gantt/TimelineTreeGanttBars';
 import type { ModelTraceSpanNode, SpanFilterState } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
-import { TIMELINE_TREE_VIRTUALIZATION_MIN_ROWS, useTimelineTreeRowVirtualizer } from './useTimelineTreeRowVirtualizer';
+import { useTimelineTreeRowVirtualizer } from './useTimelineTreeRowVirtualizer';
 
 export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: NodeType[] }>({
   rootNodes,
@@ -60,38 +55,42 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
 
   const { showTimelineTreeGantt: showTimelineInfo, setShowTimelineTreeGantt: setShowTimelineInfo } =
     useModelTraceExplorerViewState();
+  const { timelineTreeMetrics } = useModelTraceExplorerPreferences();
+  const rowHeight = timelineTreeMetrics.length > 1 ? SPAN_ROW_HEIGHT_WITH_METADATA : SPAN_ROW_HEIGHT;
+  const expandedRows = useMemo(
+    () => getTimelineTreeExpandedRows(rootNodes, expandedKeys, selectedNode?.key),
+    [rootNodes, expandedKeys, selectedNode?.key],
+  );
+  const expandedNodesList = useMemo(() => expandedRows.map(({ node }) => node), [expandedRows]);
   const setShowTimelineInfoPreservingScroll = useCallback(
     (show: boolean) => {
-      scrollTopBeforeViewChange.current = scrollElement?.scrollTop;
+      if (show === showTimelineInfo) {
+        scrollTopBeforeViewChange.current = undefined;
+        return;
+      }
+      const currentRowHeight = showTimelineInfo ? SPAN_ROW_HEIGHT : rowHeight;
+      const targetRowHeight = show ? SPAN_ROW_HEIGHT : rowHeight;
+      scrollTopBeforeViewChange.current = scrollElement
+        ? (scrollElement.scrollTop / currentRowHeight) * targetRowHeight
+        : undefined;
       setShowTimelineInfo(show);
     },
-    [scrollElement, setShowTimelineInfo],
+    [rowHeight, scrollElement, setShowTimelineInfo, showTimelineInfo],
   );
+  const { rowVirtualizer, virtualized } = useTimelineTreeRowVirtualizer(
+    expandedNodesList,
+    scrollElement,
+    selectedNode?.key ?? '',
+    rowHeight,
+    !showTimelineInfo,
+  );
+  const virtualRows = rowVirtualizer.getVirtualItems();
   useLayoutEffect(() => {
     if (scrollElement && scrollTopBeforeViewChange.current !== undefined) {
       scrollElement.scrollTop = scrollTopBeforeViewChange.current;
       scrollTopBeforeViewChange.current = undefined;
     }
   }, [scrollElement, showTimelineInfo]);
-
-  const expandedNodesList = useMemo(
-    () => getTimelineTreeExpandedNodesList(rootNodes, expandedKeys),
-    [rootNodes, expandedKeys],
-  );
-  const expandedRows = useMemo(
-    () => getTimelineTreeExpandedRows(rootNodes, expandedKeys, selectedNode?.key),
-    [rootNodes, expandedKeys, selectedNode?.key],
-  );
-  const { timelineTreeMetrics } = useModelTraceExplorerPreferences();
-  const rowHeight = timelineTreeMetrics.length > 1 ? SPAN_ROW_HEIGHT_WITH_METADATA : SPAN_ROW_HEIGHT;
-  const rowVirtualizer = useTimelineTreeRowVirtualizer(
-    expandedNodesList,
-    scrollElement,
-    selectedNode?.key ?? '',
-    rowHeight,
-  );
-  const virtualRows = rowVirtualizer.getVirtualItems();
-  const virtualized = expandedRows.length >= TIMELINE_TREE_VIRTUALIZATION_MIN_ROWS;
 
   const treeElement = useMemo(
     () => (
@@ -124,6 +123,8 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
               return (
                 <div
                   key={row.node.key}
+                  ref={rowVirtualizer.measureElement}
+                  data-index={index}
                   css={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
                   style={{ transform: `translateY(${start}px)` }}
                 >

@@ -17,16 +17,19 @@ export const useTimelineTreeRowVirtualizer = (
   scrollElement: HTMLElement | null,
   selectedKey: string | number,
   rowHeight: number,
+  enabled = true,
 ) => {
   const selectedIndex = useMemo(() => nodes.findIndex((node) => node.key === selectedKey), [nodes, selectedKey]);
   const rangeExtractor = useCallback((range: Range) => mergePinnedRowIndex(range, selectedIndex), [selectedIndex]);
-  return useVirtualizer({
+  const virtualized = enabled && nodes.length >= TIMELINE_TREE_VIRTUALIZATION_MIN_ROWS;
+  const rowVirtualizer = useVirtualizer({
     count: nodes.length,
     getScrollElement: () => scrollElement,
     estimateSize: () => rowHeight,
     getItemKey: (index) => nodes[index].key,
     rangeExtractor,
     overscan: 8,
-    enabled: nodes.length >= TIMELINE_TREE_VIRTUALIZATION_MIN_ROWS,
+    enabled: virtualized,
   });
+  return { rowVirtualizer, virtualized };
 };
