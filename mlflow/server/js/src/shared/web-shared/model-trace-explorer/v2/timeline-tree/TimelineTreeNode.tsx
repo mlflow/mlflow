@@ -112,7 +112,7 @@ export const TimelineTreeNode = ({
   const nodeComparisonRole = comparisonNodeRoleMap[String(node.key)];
 
   const isActive = selectedKey === node.key;
-  const activeChildIndex = getActiveChildIndex(node, String(selectedKey));
+  const activeChildIndex = getActiveChildIndex(node, selectedKey);
   // true if a span has active children OR is the active span
   const isInActiveChain = activeChildIndex > -1;
 

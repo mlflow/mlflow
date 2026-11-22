@@ -48,22 +48,12 @@ export const getTimelineTreeExpandedRows = <T extends TimelineTreeNode & { child
   expandedKeys: Set<string | number>,
   selectedKey?: string | number,
 ): TimelineTreeExpandedRow<T>[] => {
-  const activePath = new Set<string | number>();
-  const findSelected = (node: T): boolean => {
-    if (node.key === selectedKey || node.children?.some(findSelected)) {
-      activePath.add(node.key);
-      return true;
-    }
-    return false;
-  };
-  nodes.some(findSelected);
-
   const rows: TimelineTreeExpandedRow<T>[] = [];
   const visit = (node: T, linesToRender: HierarchyBar[]) => {
     rows.push({ node, linesToRender });
     const children = node.children as T[] | undefined;
     if (expandedKeys.has(node.key) && children?.length) {
-      const activeChildIndex = children.findIndex((child) => activePath.has(child.key));
+      const activeChildIndex = selectedKey === undefined ? -1 : getActiveChildIndex(node, selectedKey);
       children.forEach((child, index) =>
         visit(child, [
           ...linesToRender,
@@ -206,7 +196,7 @@ export const formatExecutionDuration = (value: string): string => {
     : spanTimeFormatter(numericValue * multiplier);
 };
 
-export const getActiveChildIndex = (node: ModelTraceSpanNode, activeNodeId: string): number => {
+export const getActiveChildIndex = (node: TimelineTreeNode, activeNodeId: string | number): number => {
   if (node.key === activeNodeId) {
     return 0;
   }
