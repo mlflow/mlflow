@@ -19,11 +19,14 @@ const traceStringChars = new WeakMap<ModelTrace, number>();
 const traceAccessOrder = new WeakMap<Query, number>();
 let nextTraceAccessOrder = 0;
 
+const isDrawerTraceQuery = ({ queryKey }: Pick<Query, 'queryKey'>): boolean =>
+  queryKey.length === 3 && queryKey[0] === 'getTrace';
+
 const getDrawerTraceQueries = (queryClient: QueryClient): Query[] =>
   queryClient
     .getQueryCache()
     .findAll({ queryKey: ['getTrace'] })
-    .filter(({ queryKey }) => queryKey.length === 3);
+    .filter(isDrawerTraceQuery);
 
 const countTraceStringChars = (trace: ModelTrace): number => {
   const cached = traceStringChars.get(trace);
@@ -78,17 +81,20 @@ export const subscribeToTraceCachePruning = (queryClient: QueryClient): (() => v
     if (!traceAccessOrder.has(query)) traceAccessOrder.set(query, ++nextTraceAccessOrder);
   }
 
-  return queryClient.getQueryCache().subscribe((event) => {
-    if (event.query.queryKey.length !== 3 || event.query.queryKey[0] !== 'getTrace') return;
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+    if (!isDrawerTraceQuery(event.query)) return;
 
     if (event.type === 'observerAdded' || event.type === 'observerRemoved') {
       traceAccessOrder.set(event.query, ++nextTraceAccessOrder);
-      if (event.type === 'observerRemoved') pruneTraceCache(queryClient);
     } else if (event.type === 'updated' && event.action.type === 'success') {
       if (!traceAccessOrder.has(event.query)) traceAccessOrder.set(event.query, ++nextTraceAccessOrder);
       pruneTraceCache(queryClient);
     }
   });
+  return () => {
+    unsubscribe();
+    pruneTraceCache(queryClient);
+  };
 };
 
 /**

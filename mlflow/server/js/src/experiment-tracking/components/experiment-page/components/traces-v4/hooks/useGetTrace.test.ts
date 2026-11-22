@@ -89,22 +89,24 @@ describe('pruneTraceCache', () => {
     expect(queryClient.getQueryData(sharedQueryKey)).toBeDefined();
   });
 
-  test('keeps a re-accessed trace instead of evicting it by load time', () => {
+  test('keeps the newly observed trace when an observer moves between cached keys', () => {
     const queryClient = new QueryClient();
     for (let index = 0; index < 6; index++) {
       setTrace(queryClient, `trace-${index}`, createTrace(['small']), index + 1);
     }
     const unsubscribeCache = subscribeToTraceCachePruning(queryClient);
     const observer = new QueryObserver(queryClient, {
-      queryKey: ['getTrace', 'trace-0', undefined],
+      queryKey: ['getTrace', 'trace-5', undefined],
       enabled: false,
     });
 
     const unsubscribeObserver = observer.subscribe(() => {});
-    unsubscribeObserver();
+    observer.setOptions({ queryKey: ['getTrace', 'trace-0', undefined], enabled: false });
+    pruneTraceCache(queryClient);
 
     expect(queryClient.getQueryData(['getTrace', 'trace-0', undefined])).toBeDefined();
     expect(queryClient.getQueryData(['getTrace', 'trace-1', undefined])).toBeUndefined();
+    unsubscribeObserver();
     unsubscribeCache();
   });
 
@@ -131,5 +133,20 @@ describe('pruneTraceCache', () => {
 
     expect(queryClient.getQueryData(queryKey)).toBeUndefined();
     unsubscribeCache();
+  });
+
+  test('prunes the final closed trace when the subscription is removed', () => {
+    const queryClient = new QueryClient();
+    const queryKey = ['getTrace', 'last', undefined];
+    setTrace(queryClient, 'last', createTrace(Array(65).fill('x'.repeat(1024 * 1024))), 1);
+    const unsubscribeCache = subscribeToTraceCachePruning(queryClient);
+    const observer = new QueryObserver(queryClient, { queryKey, enabled: false });
+    const unsubscribeObserver = observer.subscribe(() => {});
+
+    unsubscribeObserver();
+    expect(queryClient.getQueryData(queryKey)).toBeDefined();
+    unsubscribeCache();
+
+    expect(queryClient.getQueryData(queryKey)).toBeUndefined();
   });
 });
