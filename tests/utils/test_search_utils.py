@@ -499,6 +499,41 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
 
 
 @pytest.mark.parametrize(
+    ("search_utils", "filter_string"),
+    [
+        (SearchUtils, "params.p IN ('a', 'b')"),
+        (SearchUtils, "params.p NOT IN ('a')"),
+        (SearchUtils, "tags.t IN ('a', 'b')"),
+        (SearchUtils, "metrics.m IN (1, 2)"),
+        (SearchUtils, "params.p in ('a')"),
+        (SearchExperimentsUtils, "tags.t IN ('a', 'b')"),
+        (SearchModelUtils, "tags.t IN ('a', 'b')"),
+        (SearchModelVersionUtils, "tags.t IN ('a', 'b')"),
+    ],
+)
+def test_in_comparator_rejected_for_unsupported_entity_types(search_utils, filter_string):
+    with pytest.raises(
+        MlflowException, match=r"^Invalid comparator '(NOT )?IN' not one of '\{.*\}'$"
+    ):
+        search_utils.parse_search_filter(filter_string)
+
+
+def test_invalid_comparator_message_lists_allowed_comparators():
+    with pytest.raises(
+        MlflowException,
+        match=r"^Invalid comparator 'IN' not one of '\{.*\}'$",
+    ) as exc:
+        SearchUtils.is_numeric_attribute("attribute", "start_time", "IN")
+    assert "LIKE" not in str(exc.value)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"^Invalid comparator '>' not one of '\{.*\}'$",
+    ):
+        SearchUtils.is_dataset("dataset", ">")
+
+
+@pytest.mark.parametrize(
     ("filter_string", "matching_runs"),
     [
         (None, [0, 1, 2]),
@@ -1166,6 +1201,11 @@ def test_sql_expression_comparison_func_binds_lists_on_mysql(comparator):
     assert "binary(" in _mysql_sql(comparator, _collated_column(), ["active", "draft"])
 
 
+def test_sql_expression_comparison_func_supports_rlike_on_mysql():
+    sql = _mysql_sql("RLIKE", _collated_column(), "^Act")
+    assert "AS BINARY) REGEXP binary(" in sql
+
+
 @pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mssql"])
 @pytest.mark.parametrize("comparator", ["=", "LIKE", "ILIKE"])
 def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, comparator):
@@ -1173,3 +1213,20 @@ def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, com
     expression_func = SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
     column_func = SearchUtils.get_sql_comparison_func(comparator, dialect)
     assert expression_func(column, "act%").compare(column_func(column, "act%"))
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE"])
+def test_json_pattern_comparison_decodes_strings_with_openjson_on_mssql(comparator):
+    from sqlalchemy.dialects import mssql
+
+    from mlflow.store.tracking.dbmodels.models import SqlAssessments
+
+    func = SearchTraceUtils._get_sql_json_comparison_func(comparator, "mssql")
+    query = sa.select(SqlAssessments.trace_id).where(func(SqlAssessments.value, "go%"))
+    sql = str(query.compile(dialect=mssql.dialect()))
+    # JSON_VALUE truncates to 4000 characters (NULL in lax mode), OPENJSON doesn't
+    assert "json_value" not in sql.lower()
+    assert "openjson" in sql.lower()
+    assert "COLLATE" in sql
+    # The OPENJSON subquery is correlated with the outer assessments table
+    assert sql.count("FROM assessments") == 1

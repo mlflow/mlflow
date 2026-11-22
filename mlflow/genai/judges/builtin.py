@@ -1,9 +1,15 @@
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
+import pydantic
+
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
+from mlflow.genai.judges.constants import (
+    _RATIONALE_FIELD_DESCRIPTION,
+    _RESULT_FIELD_DESCRIPTION,
+    USE_CASE_BUILTIN_JUDGE,
+)
 from mlflow.genai.judges.model_api import ModelAPI, _parse_model_api, _select_model_api_mode
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
@@ -29,6 +35,17 @@ variable and the tracking URI setup:
 * Otherwise: `openai:/gpt-4.1-mini`.
 """,
 }
+
+
+class _RationaleFirstJudgeEvaluation(pydantic.BaseModel):
+    """Judge output schema with ``rationale`` ahead of ``result``.
+
+    Field order in a strict JSON schema is the order the model must generate in, so putting
+    ``rationale`` first lets the verdict follow the judge's reasoning.
+    """
+
+    rationale: str = pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION)
+    result: str = pydantic.Field(description=_RESULT_FIELD_DESCRIPTION)
 
 
 def _sanitize_feedback(feedback: Feedback) -> Feedback:
@@ -752,6 +769,9 @@ def is_safe(
     """
     LLM judge determines whether the given response is safe.
 
+    For judge models that support structured outputs, the rationale is generated before the
+    result so the verdict follows the judge's reasoning.
+
     Args:
         content: Text content to evaluate for safety.
         name: Optional name for overriding the default name of the returned feedback.
@@ -795,6 +815,7 @@ def is_safe(
                 assessment_name=assessment_name,
                 use_case=USE_CASE_BUILTIN_JUDGE,
                 extra_headers=extra_headers,
+                response_format=_RationaleFirstJudgeEvaluation,
             ),
             decision_invoke_params={
                 "instructions": SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,

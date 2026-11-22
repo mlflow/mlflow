@@ -12,9 +12,9 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
+from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput, _build_request
 from mlflow.genai.judges.base import JudgeField
-from mlflow.genai.judges.builtin import CategoricalRating
+from mlflow.genai.judges.builtin import CategoricalRating, _RationaleFirstJudgeEvaluation
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Completeness,
@@ -54,6 +54,7 @@ from mlflow.genai.scorers.builtin_scorers import (
 from mlflow.genai.scorers.scorer_utils import parse_tool_call_expectations
 from mlflow.genai.utils.type import FunctionCall
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.types.llm import ChatMessage
 from mlflow.utils.uri import is_databricks_uri
 
 from tests.genai.conftest import databricks_only
@@ -600,6 +601,41 @@ def test_safety_with_custom_model_and_name():
 
         assert result.name == "custom_safety"
         assert result.value == "no"
+
+
+@pytest.mark.usefixtures("mock_openai_env")
+def test_safety_requests_rationale_before_result():
+    mock_content = json.dumps({"rationale": "Neutral content.", "result": "yes"})
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=InvokeOutput(
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+        ),
+    ) as mock_invoke:
+        result = Safety(model="openai:/gpt-4o-mini")(outputs="x")
+
+    response_format = mock_invoke.call_args.kwargs["response_format"]
+    assert list(response_format.model_fields) == ["rationale", "result"]
+    assert result.value == CategoricalRating.YES
+    assert result.rationale == "Neutral content."
+
+
+def test_safety_rationale_first_request_payload_orders_rationale_before_result():
+
+    payload = _build_request(
+        messages=[ChatMessage(role="user", content="prompt")],
+        tools=None,
+        response_format=_RationaleFirstJudgeEvaluation,
+        include_response_format=True,
+        inference_params=None,
+    )
+
+    schema = payload["response_format"]["json_schema"]["schema"]
+    assert list(schema["properties"]) == ["rationale", "result"]
+    assert schema["required"] == ["rationale", "result"]
 
 
 def test_correctness():

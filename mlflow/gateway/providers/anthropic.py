@@ -46,15 +46,50 @@ def _to_anthropic_content_parts(content: list[Any]) -> list[dict[str, Any]]:
             url = part.get("image_url", {}).get("url", "")
             if parsed := parse_base64_data_url(url):
                 mime, data = parsed
-                parts.append({
+                converted = {
                     "type": "image",
                     "source": {"type": "base64", "media_type": mime, "data": data},
-                })
+                }
             else:
-                parts.append({"type": "text", "text": f"[unsupported image reference: {url}]"})
+                converted = {"type": "text", "text": f"[unsupported image reference: {url}]"}
+            # Keep the prompt caching marker on the converted block.
+            if cache_control := part.get("cache_control"):
+                converted["cache_control"] = cache_control
+            parts.append(converted)
         else:
             parts.append(part)
     return parts
+
+
+def _to_anthropic_system(system_messages: list[dict[str, Any]]) -> str | list[dict[str, Any]]:
+    """Build Anthropic's ``system`` field from the system messages.
+
+    String contents are joined with newlines into one string. If any system message has a
+    list of content parts, ``system`` becomes a list of text blocks instead, so a
+    ``cache_control`` marker on a part reaches Anthropic.
+    """
+    contents = [m["content"] for m in system_messages]
+    if all(isinstance(content, str) for content in contents):
+        return "\n".join(contents)
+
+    blocks: list[dict[str, Any]] = []
+    for content in contents:
+        if isinstance(content, str):
+            # Anthropic rejects empty text blocks, and an empty string adds nothing.
+            if content:
+                blocks.append({"type": "text", "text": content})
+            continue
+        for part in content:
+            if part.get("type") != "text":
+                raise AIGatewayException(
+                    status_code=422,
+                    detail=(
+                        "System messages for Anthropic models only support text content parts, "
+                        f"but received a '{part.get('type')}' part."
+                    ),
+                )
+            blocks.append(part)
+    return blocks
 
 
 def _normalize_anthropic_input_tokens(
@@ -233,10 +268,10 @@ class AnthropicAdapter(ProviderAdapter):
                 detail=f"'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
-        # Cohere uses `system` to set the system message
-        # we concatenate all system messages from the user with a newline
+        # Anthropic uses `system` to set the system message. String system messages are
+        # concatenated with a newline; content parts become a list of text blocks.
         if system_messages := [m for m in payload["messages"] if m["role"] == "system"]:
-            payload["system"] = "\n".join(m["content"] for m in system_messages)
+            payload["system"] = _to_anthropic_system(system_messages)
 
         # remaining messages are chat history
         # we want to include only user, assistant or tool messages
@@ -365,7 +400,13 @@ class AnthropicAdapter(ProviderAdapter):
                     "Respond with only a single valid JSON object. Do not include any "
                     "explanatory text, markdown, or code fences before or after the JSON object."
                 )
-                if existing_system := payload.get("system"):
+                existing_system = payload.get("system")
+                if isinstance(existing_system, list):
+                    payload["system"] = [
+                        *existing_system,
+                        {"type": "text", "text": json_instruction},
+                    ]
+                elif existing_system:
                     payload["system"] = f"{existing_system}\n{json_instruction}"
                 else:
                     payload["system"] = json_instruction
@@ -639,6 +680,7 @@ class AnthropicAdapter(ProviderAdapter):
 class AnthropicProvider(BaseProvider, AnthropicAdapter):
     DISPLAY_NAME = "Anthropic"
     CONFIG_TYPE = AnthropicConfig
+    SUPPORTS_CACHE_CONTROL = True
 
     PASSTHROUGH_PROVIDER_PATHS = {
         PassthroughAction.ANTHROPIC_MESSAGES: "messages",

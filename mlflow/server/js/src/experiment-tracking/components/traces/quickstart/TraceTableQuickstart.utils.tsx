@@ -107,7 +107,7 @@ const client = tracedAnthropic(new Anthropic());
 
 // Invoke the client as usual
 const message = await client.messages.create({
-  model: 'claude-sonnet-4-5',
+  model: 'claude-sonnet-5-5',
   max_tokens: 1024,
   messages: [{ role: 'user', content: 'Hello, Claude' }],
 });`,
@@ -431,7 +431,7 @@ client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 # Inputs and outputs of API calls will be logged as a trace
 message = client.messages.create(
-    model="claude-sonnet-4-5",
+    model="claude-sonnet-5-5",
     max_tokens=1024,
     messages=[
         {"role": "user", "content": "Hello, Claude"},
@@ -459,7 +459,7 @@ bedrock = boto3.client(
     region_name="<REPLACE_WITH_YOUR_AWS_REGION>",
 )
 
-model = "anthropic.claude-sonnet-4-5-20250929-v1:0"
+model = "anthropic.claude-sonnet-5-5"
 messages = [{ "role": "user", "content": [{"text": "Hello!"}]}]
 
 # All intermediate executions within the chat session will be logged

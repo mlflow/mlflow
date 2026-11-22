@@ -98,10 +98,10 @@ client = anthropic.Anthropic(
 # Make API calls - traces will be captured automatically
 response = client.messages.create(
     max_tokens=1000,
-    model="claude-sonnet-4-5",
+    model="claude-sonnet-5-5",
     messages=[{"role": "user", "content": "Hello world"}],
 )
-print(response.content[0].text)
+print(response.content[-1].text)
 ```
 
   </TabItem>

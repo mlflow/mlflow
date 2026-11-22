@@ -968,6 +968,33 @@ test('getNotebookSourceUrl rejects dangerous workspaceUrl', () => {
   /* eslint-enable no-script-url */
 });
 
+test('getGitRepoUrl and getGitCommitUrl reject non-http(s) URLs', () => {
+  expect(Utils.getGitRepoUrl('https://git.custom.in/repo/dir#file/dir')).toEqual(
+    'https://git.custom.in/repo/dir/tree/master/file/dir',
+  );
+  expect(Utils.getGitCommitUrl('https://git.custom.in/repo/dir#file/dir', 'abc123')).toEqual(
+    'https://git.custom.in/repo/dir/tree/abc123/file/dir',
+  );
+
+  /* eslint-disable no-script-url */
+  expect(Utils.getGitRepoUrl('javascript:alert(1)//git/a')).toBeNull();
+  expect(Utils.getGitRepoUrl('JavaScript:alert(1)//git/a')).toBeNull();
+  expect(Utils.getGitCommitUrl('javascript:alert(1)//git/a', 'abc123')).toBeNull();
+  /* eslint-enable no-script-url */
+});
+
+test('renderSource and renderSourceVersion render plain text for non-http(s) git URLs', () => {
+  /* eslint-disable no-script-url */
+  const tags = {
+    'mlflow.source.name': { value: 'javascript:alert(1)//git/a' },
+    'mlflow.source.type': { value: 'PROJECT' },
+  };
+  // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
+  expect(Utils.renderSource(tags)).toEqual('a');
+  expect(Utils.renderSourceVersion('abc123', 'javascript:alert(1)//git/a', 'PROJECT')).toEqual('abc123');
+  /* eslint-enable no-script-url */
+});
+
 test('renderJobSource renders plain text for dangerous workspaceUrl', () => {
   expect(Utils.renderJobSource(null, '123', '456', 'my job', null)).toEqual(
     <a title="my job" href="http://localhost/#job/123/run/456" target="_top">
