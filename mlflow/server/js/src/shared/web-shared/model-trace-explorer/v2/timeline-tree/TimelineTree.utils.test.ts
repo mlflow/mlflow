@@ -1,6 +1,11 @@
 import { describe, test, expect } from '@jest/globals';
 
-import { formatExecutionDuration, getSpanNodeParentIds, getTimelineTreeNodesMap } from './TimelineTree.utils';
+import {
+  formatExecutionDuration,
+  getSpanNodeParentIds,
+  getTimelineTreeExpandedRows,
+  getTimelineTreeNodesMap,
+} from './TimelineTree.utils';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { MOCK_TRACE } from '../../ModelTraceExplorer.test-utils';
 import { parseModelTraceToTree } from '../ModelTraceExplorer.utils';
@@ -19,6 +24,17 @@ describe('TimelineTree.utils', () => {
     const rephraseChat = (generateResponse?.children ?? [])[0] as ModelTraceSpanNode;
     const childParentIds = getSpanNodeParentIds(rephraseChat, nodeMap);
     expect(childParentIds).toEqual(new Set(['document-qa-chain', '_generate_response']));
+  });
+
+  test('flattens only expanded rows and retains hierarchy state', () => {
+    const leaf = (key: string): ModelTraceSpanNode => ({ key, title: key, start: 0, end: 1 });
+    const first = { ...leaf('first'), children: [leaf('first-child'), leaf('first-sibling')] };
+    const second = { ...leaf('second'), children: [leaf('selected')] };
+    const rows = getTimelineTreeExpandedRows([first, second], new Set(['first', 'second']), 'selected');
+
+    expect(rows.map(({ node }) => node.key)).toEqual(['first', 'first-child', 'first-sibling', 'second', 'selected']);
+    expect(rows[1].linesToRender).toEqual([{ shouldRender: true, isActive: false }]);
+    expect(rows[4].linesToRender).toEqual([{ shouldRender: false, isActive: false }]);
   });
 });
 

@@ -1,14 +1,21 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { getTimelineTreeExpandedNodesList } from './TimelineTree.utils';
+import {
+  getTimelineTreeExpandedNodesList,
+  getTimelineTreeExpandedRows,
+  SPAN_ROW_HEIGHT,
+  SPAN_ROW_HEIGHT_WITH_METADATA,
+} from './TimelineTree.utils';
 import { TimelineTreeHeader } from './TimelineTreeHeader';
 import { TimelineTreeNode } from './TimelineTreeNode';
 import { TimelineTreeGanttBars } from './gantt/TimelineTreeGanttBars';
 import type { ModelTraceSpanNode, SpanFilterState } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
+import { TIMELINE_TREE_VIRTUALIZATION_MIN_ROWS, useTimelineTreeRowVirtualizer } from './useTimelineTreeRowVirtualizer';
 
 export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: NodeType[] }>({
   rootNodes,
@@ -38,6 +45,8 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
   className?: string;
 }): React.ReactElement => {
   const { theme } = useDesignSystemTheme();
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
+  const scrollTopBeforeViewChange = useRef<number>();
 
   const onSpanClick = useCallback(
     (node: ModelTraceSpanNode) => {
@@ -51,15 +60,43 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
 
   const { showTimelineTreeGantt: showTimelineInfo, setShowTimelineTreeGantt: setShowTimelineInfo } =
     useModelTraceExplorerViewState();
+  const setShowTimelineInfoPreservingScroll = useCallback(
+    (show: boolean) => {
+      scrollTopBeforeViewChange.current = scrollElement?.scrollTop;
+      setShowTimelineInfo(show);
+    },
+    [scrollElement, setShowTimelineInfo],
+  );
+  useLayoutEffect(() => {
+    if (scrollElement && scrollTopBeforeViewChange.current !== undefined) {
+      scrollElement.scrollTop = scrollTopBeforeViewChange.current;
+      scrollTopBeforeViewChange.current = undefined;
+    }
+  }, [scrollElement, showTimelineInfo]);
 
   const expandedNodesList = useMemo(
     () => getTimelineTreeExpandedNodesList(rootNodes, expandedKeys),
     [rootNodes, expandedKeys],
   );
+  const expandedRows = useMemo(
+    () => getTimelineTreeExpandedRows(rootNodes, expandedKeys, selectedNode?.key),
+    [rootNodes, expandedKeys, selectedNode?.key],
+  );
+  const { timelineTreeMetrics } = useModelTraceExplorerPreferences();
+  const rowHeight = timelineTreeMetrics.length > 1 ? SPAN_ROW_HEIGHT_WITH_METADATA : SPAN_ROW_HEIGHT;
+  const rowVirtualizer = useTimelineTreeRowVirtualizer(
+    expandedNodesList,
+    scrollElement,
+    selectedNode?.key ?? '',
+    rowHeight,
+  );
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const virtualized = expandedRows.length >= TIMELINE_TREE_VIRTUALIZATION_MIN_ROWS;
 
   const treeElement = useMemo(
     () => (
       <div
+        ref={setScrollElement}
         css={{
           flex: 1,
           overflow: 'auto',
@@ -78,7 +115,33 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
             traceEndTime={traceEndTime}
             expandedKeys={expandedKeys}
             setExpandedKeys={setExpandedKeys}
+            scrollElement={scrollElement}
           />
+        ) : virtualized ? (
+          <div css={{ position: 'relative', flexShrink: 0 }} style={{ height: rowVirtualizer.getTotalSize() }}>
+            {virtualRows.map(({ index, start }) => {
+              const row = expandedRows[index];
+              return (
+                <div
+                  key={row.node.key}
+                  css={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
+                  style={{ transform: `translateY(${start}px)` }}
+                >
+                  <TimelineTreeNode
+                    node={row.node}
+                    expandedKeys={expandedKeys}
+                    setExpandedKeys={setExpandedKeys}
+                    selectedKey={selectedNode?.key ?? ''}
+                    traceStartTime={traceStartTime}
+                    traceEndTime={traceEndTime}
+                    onSelect={onSpanClick}
+                    linesToRender={row.linesToRender}
+                    renderChildren={false}
+                  />
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <>
             {rootNodes.map((node) => (
@@ -108,6 +171,11 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
       rootNodes,
       expandedKeys,
       setExpandedKeys,
+      scrollElement,
+      virtualRows,
+      virtualized,
+      rowVirtualizer,
+      expandedRows,
     ],
   );
 
@@ -132,7 +200,7 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
         <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <TimelineTreeHeader
             showTimelineInfo={showTimelineInfo}
-            setShowTimelineInfo={setShowTimelineInfo}
+            setShowTimelineInfo={setShowTimelineInfoPreservingScroll}
             spanFilterState={spanFilterState}
             setSpanFilterState={setSpanFilterState}
             showGraph={showGraph}

@@ -12,7 +12,12 @@ import {
 import { useIntl } from '@databricks/i18n';
 
 import type { HierarchyBar } from './TimelineTree.types';
-import { getActiveChildIndex, SPAN_ROW_HEIGHT, TimelineTreeZIndex } from './TimelineTree.utils';
+import {
+  getActiveChildIndex,
+  SPAN_ROW_HEIGHT,
+  SPAN_ROW_HEIGHT_WITH_METADATA,
+  TimelineTreeZIndex,
+} from './TimelineTree.utils';
 import { TimelineTreeHierarchyBars } from './TimelineTreeHierarchyBars';
 import { TimelineTreeSpanTooltip } from './TimelineTreeSpanTooltip';
 import { type ModelTraceSpanNode } from '../ModelTrace.types';
@@ -26,7 +31,6 @@ import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferenc
 import { getTimelineTreeComparisonMetricValues, getTimelineTreeMetricValue } from './TimelineTreeMetrics';
 
 const ROW_HEIGHT = SPAN_ROW_HEIGHT;
-const ROW_HEIGHT_WITH_METADATA = 48;
 const MetadataItem = ({
   children,
   icon,
@@ -82,6 +86,7 @@ export const TimelineTreeNode = ({
   traceEndTime,
   onSelect,
   linesToRender,
+  renderChildren = true,
 }: {
   node: ModelTraceSpanNode;
   selectedKey: string | number;
@@ -94,6 +99,7 @@ export const TimelineTreeNode = ({
   // connecting line is supposed to in at the `i`th spacer. see
   // TimelineTreeHierarchyBars for more details.
   linesToRender: Array<HierarchyBar>;
+  renderChildren?: boolean;
 }): React.ReactElement => {
   const expanded = expandedKeys.has(node.key);
   const assessmentCount = getNonIssueAssessmentCount(node.assessments);
@@ -146,7 +152,7 @@ export const TimelineTreeNode = ({
       });
   const inlineMetric = timelineTreeMetrics.length === 1 ? metricValues[0] : undefined;
   const hasMetricRow = timelineTreeMetrics.length > 1 && metricValues.length > 0;
-  const rowHeight = hasMetricRow ? ROW_HEIGHT_WITH_METADATA : ROW_HEIGHT;
+  const rowHeight = hasMetricRow ? SPAN_ROW_HEIGHT_WITH_METADATA : ROW_HEIGHT;
   const rowTopPadding = (rowHeight - 24) / 2;
 
   const backgroundColor = isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent';
@@ -403,7 +409,8 @@ export const TimelineTreeNode = ({
           </div>
         </div>
       </TimelineTreeSpanTooltip>
-      {expanded &&
+      {renderChildren &&
+        expanded &&
         node.children?.map((child, idx) => (
           <TimelineTreeNode
             key={child.key}
