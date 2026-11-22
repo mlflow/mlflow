@@ -1,16 +1,16 @@
 $schema: https://json-schema.org/draft/2020-12/schema
-title: PR Behavior Verification Review
+title: PR Code Review and Runtime Verification
 description: |
   Write the review payload as a JSON object matching this schema. Do not request changes,
   create a review, or approve the PR yourself. Avoid @-mentions.
 
   Save screenshots or recordings in the supplied temporary directory's out/media folder.
-  When they support an issue or verification gap, cite their absolute paths in that inline
+  When they support a finding or verification gap, cite their absolute paths in that inline
   comment, for example:
   ![Observed behavior](/absolute/path/to/out/media/observed.png)
   When they show verified behavior working as expected (for example, base vs. PR), cite them
   in the body's evidence section instead.
-  Put video citations on their own lines. Do not upload media yourself.
+  Put recording citations on their own lines. Do not upload media yourself.
 type: object
 additionalProperties: false
 required:
@@ -29,21 +29,22 @@ allOf:
 properties:
   event:
     description: >-
-      Choose APPROVE when every flow you could exercise behaves as expected. Behavior that cannot
-      be exercised here by nature (it needs a real external service, credentials, hardware, or
-      scale) does not block approval; state in the body what was not exercised and what it needs.
-      Choose COMMENT if you find behavioral problems, a check that should work here still fails,
-      or you could not exercise any behavior.
-      Behavior covered only by unit or integration tests remains unverified.
-      Choosing COMMENT does not waive required runtime checks or recovery attempts.
+      Choose APPROVE after reviewing the code and exercising at least one affected entry point,
+      when you have verified all affected behavior you can exercise locally and no material finding remains.
+      Disclose any behavior you could verify only with an unavailable external service, credentials,
+      hardware, or scale. Choose COMMENT for a material code finding, a behavioral regression,
+      locally exercisable behavior left unchecked or inconclusive, or no runtime evidence beyond tests.
+      An existing thread can already cover the finding that warrants COMMENT.
     type: string
     enum:
       - APPROVE
       - COMMENT
   body:
     description: |
-      Brief verification summary. Do not repeat findings here; put findings and their media in
-      inline comments. Keep the summary within a few sentences.
+      Summarize the code reviewed, the entry points and inputs exercised, the observed outcomes,
+      and any verification gaps in a few sentences. Distinguish runtime observations from findings
+      established by tracing the code. When a finding has no relevant diff line or is already
+      covered by an existing thread, mention it here and omit a duplicate inline comment.
 
       To show media of verified behavior, end the body with a collapsed section, giving each
       citation a short caption saying what it shows. Keep the blank lines around the content
@@ -70,11 +71,10 @@ properties:
     pattern: ^[0-9a-f]{40}$
   comments:
     description: >-
-      Comment only on behavioral issues or verification gaps, with supporting evidence, on the most
-      relevant diff line. Do not add evidence-only comments; use an empty array when there are no
-      issues or gaps.
-      For issues outside the diff, use the most relevant diff line and identify the affected
-      location.
+      Anchor each new material finding or locally exercisable verification gap to the most
+      relevant diff line. For a consequence in a caller outside the diff, anchor to the change
+      responsible and identify the caller. Include source or runtime evidence. Prioritize distinct
+      findings by impact. Use an empty array when there is nothing new to anchor.
     type: array
     maxItems: 10
     items:
@@ -105,7 +105,7 @@ $defs:
           For fixable findings, use this format, including a `suggestion` block when possible:
 
           ````markdown
-          **🐛 Issue:** <Trigger, expected vs. actual behavior, and concrete consequence.>
+          **🐛 Issue:** <Trigger and consequence. Give the observed result or trace the specific code path.>
 
           **🔧 Fix:** <Recommended change.>
 
