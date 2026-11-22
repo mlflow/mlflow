@@ -37,6 +37,19 @@ describe('YAML collection previews', () => {
     });
   });
 
+  it.each(['word '.repeat(5000), 'line\n'.repeat(5000)])(
+    'bounds large scalar strings while preserving the preview',
+    (value) => {
+      const data = JSON.stringify(value);
+      const preview = getYamlCollectionPreview(data, 10, 300);
+      const dumpedValue = jest.mocked(dump).mock.calls.at(-1)?.[0];
+
+      expect(preview?.isComplete).toBe(false);
+      expect(typeof dumpedValue === 'string' && dumpedValue.length).toBeLessThanOrEqual(600);
+      expect(prefix(preview!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+    },
+  );
+
   it('keeps the existing invalid-JSON fallback', () => {
     expect(getYamlCollectionPreview('{invalid', 10, 300)).toBeUndefined();
     expect(formatJsonStringAsYaml('{invalid')).toBe('{invalid');

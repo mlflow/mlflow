@@ -10,7 +10,7 @@ export function formatJsonStringAsYaml(data: string): string {
   }
 }
 
-/** Dump only the collection entries needed to fill a collapsed preview. */
+/** Dump only the content needed to fill a collapsed preview. */
 export function getYamlCollectionPreview(
   data: string,
   maxLines: number,
@@ -22,15 +22,26 @@ export function getYamlCollectionPreview(
   } catch {
     return undefined;
   }
-  // shortcut: Scalar strings keep js-yaml's complete formatting; bound them once exact scalar-prefix formatting is available.
   for (let budget = maxLines + 1; budget <= maxLines * 64; budget *= 2) {
     let remaining = budget;
+    let remainingChars = maxChars * 2;
     let cut = false;
+    let stringsCut = false;
     const arrayCuts: unknown[][] = [];
     const objectCuts: Record<string, unknown>[] = [];
     const strings: string[] = [];
     const prune = (node: unknown): unknown => {
-      if (typeof node === 'string') strings.push(node);
+      if (typeof node === 'string') {
+        strings.push(node);
+        if (node.length > remainingChars) {
+          stringsCut = true;
+          const prefix = node.slice(0, remainingChars);
+          remainingChars = 0;
+          return prefix;
+        }
+        remainingChars -= node.length;
+        return node;
+      }
       if (Array.isArray(node)) {
         const items: unknown[] = [];
         for (const item of node) {
@@ -73,7 +84,7 @@ export function getYamlCollectionPreview(
       for (const entries of objectCuts) entries[marker] = null;
       for (const items of arrayCuts) items[items.length - 1] = marker;
       const text = dump(pruned, OPTIONS).trimEnd();
-      if (!cut) return { text, isComplete: true };
+      if (!cut) return { text, isComplete: !stringsCut };
       const lineStart = text.lastIndexOf('\n', text.indexOf(marker));
       const prefix = lineStart === -1 ? '' : text.slice(0, lineStart);
       let lines = 1;
