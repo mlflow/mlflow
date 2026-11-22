@@ -118,7 +118,9 @@ def _create_optimizer(
         An instantiated optimizer.
 
     Raises:
-        MlflowException: If optimizer type is not supported.
+        MlflowException: If optimizer type is not supported, a required option is missing, or
+            ``optimizer_config`` is not a JSON object or contains options that choose where the
+            reflection model's requests are sent (see ``_validate_prompt_optimizer_config``).
     """
     # Validate here as well as in the REST handler so jobs submitted through the generic job API,
     # or queued before the handler check existed, follow the same policy.

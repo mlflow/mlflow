@@ -1367,6 +1367,21 @@ def test_validate_judge_inference_params_rejects_non_region_names(make_scorer, f
 
 
 @pytest.mark.parametrize(
+    "inference_params",
+    [
+        {"extra_body": {"aws_region_name": "us-east-1.example.com"}},
+        {"extra_body": [["aws_region_name", "us-east-1.example.com"]]},
+    ],
+)
+def test_validate_judge_inference_params_rejects_nested_non_region_names(inference_params):
+    with pytest.raises(
+        MlflowException,
+        match="instructions_judge_pydantic_data.inference_params 'aws_region_name' must contain",
+    ):
+        _validate_judge_inference_params(_instructions_judge(inference_params))
+
+
+@pytest.mark.parametrize(
     "serialized_scorer",
     [
         _instructions_judge(None),
