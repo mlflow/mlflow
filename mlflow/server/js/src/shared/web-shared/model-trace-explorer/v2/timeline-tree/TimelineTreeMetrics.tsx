@@ -1,7 +1,7 @@
 import { ClockIcon, TokenIcon } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
 
-import type { ModelTraceSpanNode } from '../ModelTrace.types';
+import type { ModelTraceComparisonRole, ModelTraceSpanNode } from '../ModelTrace.types';
 import type { TimelineTreeMetric } from '../ModelTraceExplorerPreferencesContext';
 import { formatCompactNumber, getSpanTokenUsage } from '../ModelTraceTokenUsage.utils';
 import { formatCostUSD, formatEstimatedCostUSD } from '../../CostUtils';
@@ -191,5 +191,22 @@ export const getTimelineTreeMetricValue = (
         ),
       };
     }
+  }
+};
+
+export const hasTimelineTreeMetricValue = (
+  metric: TimelineTreeMetric,
+  node: ModelTraceSpanNode,
+  comparisonSpan: ModelTraceSpanNode | undefined,
+  comparisonRole: ModelTraceComparisonRole | undefined,
+): boolean => {
+  const spans = comparisonRole ? [node, comparisonSpan] : [node];
+  switch (metric) {
+    case 'duration':
+      return true;
+    case 'tokens':
+      return spans.some((span) => getTotalTokens(span) !== undefined);
+    case 'cost':
+      return spans.some((span) => span?.cost?.total_cost !== undefined);
   }
 };

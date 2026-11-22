@@ -5,7 +5,7 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { getTimelineTreeExpandedRows, SPAN_ROW_HEIGHT, SPAN_ROW_HEIGHT_WITH_METADATA } from './TimelineTree.utils';
 import { TimelineTreeHeader } from './TimelineTreeHeader';
-import { TimelineTreeNode } from './TimelineTreeNode';
+import { getTimelineTreeRowHeight, TimelineTreeNode } from './TimelineTreeNode';
 import { TimelineTreeGanttBars } from './gantt/TimelineTreeGanttBars';
 import type { ModelTraceSpanNode, SpanFilterState } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
@@ -53,8 +53,12 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
     ],
   );
 
-  const { showTimelineTreeGantt: showTimelineInfo, setShowTimelineTreeGantt: setShowTimelineInfo } =
-    useModelTraceExplorerViewState();
+  const {
+    showTimelineTreeGantt: showTimelineInfo,
+    setShowTimelineTreeGantt: setShowTimelineInfo,
+    comparisonNodeMap,
+    comparisonNodeRoleMap,
+  } = useModelTraceExplorerViewState();
   const { timelineTreeMetrics } = useModelTraceExplorerPreferences();
   const rowHeight = timelineTreeMetrics.length > 1 ? SPAN_ROW_HEIGHT_WITH_METADATA : SPAN_ROW_HEIGHT;
   const expandedRows = useMemo(
@@ -62,6 +66,16 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
     [rootNodes, expandedKeys, selectedNode?.key],
   );
   const expandedNodesList = useMemo(() => expandedRows.map(({ node }) => node), [expandedRows]);
+  const getRowHeight = useCallback(
+    (node: ModelTraceSpanNode) =>
+      getTimelineTreeRowHeight(
+        node,
+        timelineTreeMetrics,
+        comparisonNodeMap[String(node.key)],
+        comparisonNodeRoleMap[String(node.key)],
+      ),
+    [comparisonNodeMap, comparisonNodeRoleMap, timelineTreeMetrics],
+  );
   const setShowTimelineInfoPreservingScroll = useCallback(
     (show: boolean) => {
       if (show === showTimelineInfo) {
@@ -81,7 +95,7 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
     expandedNodesList,
     scrollElement,
     selectedNode?.key ?? '',
-    rowHeight,
+    getRowHeight,
     !showTimelineInfo,
   );
   const virtualRows = rowVirtualizer.getVirtualItems();

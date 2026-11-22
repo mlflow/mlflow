@@ -16,7 +16,7 @@ export const useTimelineTreeRowVirtualizer = (
   nodes: ModelTraceSpanNode[],
   scrollElement: HTMLElement | null,
   selectedKey: string | number,
-  rowHeight: number,
+  getRowHeight: (node: ModelTraceSpanNode) => number,
   enabled = true,
 ) => {
   const selectedIndex = useMemo(() => nodes.findIndex((node) => node.key === selectedKey), [nodes, selectedKey]);
@@ -25,7 +25,7 @@ export const useTimelineTreeRowVirtualizer = (
   const rowVirtualizer = useVirtualizer({
     count: nodes.length,
     getScrollElement: () => scrollElement,
-    estimateSize: () => rowHeight,
+    estimateSize: (index) => getRowHeight(nodes[index]),
     getItemKey: (index) => nodes[index].key,
     rangeExtractor,
     overscan: 8,

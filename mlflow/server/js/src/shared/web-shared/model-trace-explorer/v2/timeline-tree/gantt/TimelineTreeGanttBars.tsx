@@ -95,7 +95,7 @@ export const TimelineTreeGanttBars = ({
     nodes,
     scrollElement,
     selectedKey,
-    SPAN_ROW_HEIGHT,
+    () => SPAN_ROW_HEIGHT,
   );
   const virtualRows = rowVirtualizer.getVirtualItems();
 

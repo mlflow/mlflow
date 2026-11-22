@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
-import { TimelineTreeNode } from './TimelineTreeNode';
+import { getTimelineTreeRowHeight, TimelineTreeNode } from './TimelineTreeNode';
 import { ModelSpanType, type ModelTraceSpanNode } from '../ModelTrace.types';
 import {
   ModelTraceExplorerPreferencesContext,
@@ -159,6 +159,20 @@ describe('TimelineTreeNode', () => {
     expect(titleRow).not.toContainElement(screen.getByText('3.20s'));
     expect(metricRow).toContainElement(screen.getByText('3.20s'));
     expect(screen.queryByText('2K')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { metrics: ['duration', 'tokens'] as TimelineTreeMetric[], node: { ...METRICS_NODE, tokenUsage: undefined } },
+    { metrics: ['tokens', 'cost'] as TimelineTreeMetric[], node: METRICS_NODE },
+    {
+      metrics: ['tokens', 'cost'] as TimelineTreeMetric[],
+      node: { ...METRICS_NODE, tokenUsage: undefined },
+    },
+  ])('estimates the rendered metric row height for $metrics', ({ metrics, node }) => {
+    render(<TestWrapper node={node} metrics={metrics} />);
+
+    const hasMetricRow = screen.queryByTestId(`span-metric-row-${node.key}`) !== null;
+    expect(getTimelineTreeRowHeight(node, metrics, undefined, undefined)).toBe(hasMetricRow ? 48 : 32);
   });
 
   it('stops the active connector below the selected span', async () => {
