@@ -155,7 +155,7 @@ export const buildV4ViewQuery = (state: CapturedV4ViewState, viewId: string): st
 
 export const hasV4ViewTimeRange = (label: string | null | undefined): boolean => Boolean(label);
 
-/** A view without its own time label keeps the range the user is browsing. */
+/** Mutates and returns `saved`, keeping the browsing range when the view has no time label. */
 export const applyV4ViewQuery = (current: URLSearchParams, saved: URLSearchParams): URLSearchParams => {
   if (!hasV4ViewTimeRange(saved.get('startTimeLabel'))) {
     for (const key of ['startTimeLabel', 'startTime', 'endTime']) {
