@@ -43,6 +43,8 @@ const getTotalTokens = (node: ModelTraceSpanNode | undefined): number | undefine
   return totalTokensCache.get(node);
 };
 
+const getTotalCost = (node: ModelTraceSpanNode | undefined): number | undefined => node?.cost?.total_cost;
+
 export const getTimelineTreeComparisonMetricValues = (
   baselineNode: ModelTraceSpanNode | undefined,
   candidateNode: ModelTraceSpanNode | undefined,
@@ -75,8 +77,8 @@ export const getTimelineTreeComparisonMetricValues = (
     {
       key: 'cost',
       label: intl.formatMessage({ defaultMessage: 'Estimated cost', description: 'Trace comparison metric label' }),
-      baseline: baselineNode?.cost?.total_cost,
-      candidate: candidateNode?.cost?.total_cost,
+      baseline: getTotalCost(baselineNode),
+      candidate: getTotalCost(candidateNode),
       format: (value) => formatCostUSD(value, 4),
     },
   ];
@@ -161,12 +163,13 @@ export const getTimelineTreeMetricValue = (
           };
     }
     case 'cost': {
-      if (!node.cost) {
+      const totalCost = getTotalCost(node);
+      if (totalCost === undefined) {
         return undefined;
       }
       if (shouldEnableNewEvalRunsUi()) {
         // The new eval runs UI rounds span costs to 4 decimal places and marks them as estimated.
-        const estimatedCost = formatEstimatedCostUSD(node.cost.total_cost, 4);
+        const estimatedCost = formatEstimatedCostUSD(totalCost, 4);
         return {
           key: metric,
           value: estimatedCost,
@@ -181,7 +184,7 @@ export const getTimelineTreeMetricValue = (
           ),
         };
       }
-      const cost = formatCostUSD(node.cost.total_cost);
+      const cost = formatCostUSD(totalCost);
       return {
         key: metric,
         value: cost,
@@ -207,6 +210,6 @@ export const hasTimelineTreeMetricValue = (
     case 'tokens':
       return spans.some((span) => getTotalTokens(span) !== undefined);
     case 'cost':
-      return spans.some((span) => span?.cost?.total_cost !== undefined);
+      return spans.some((span) => getTotalCost(span) !== undefined);
   }
 };
