@@ -37,7 +37,7 @@ describe('YAML collection previews', () => {
     });
   });
 
-  it.each(['word '.repeat(5000), 'line\n'.repeat(5000)])(
+  it.each(['word '.repeat(5000), 'line\n'.repeat(5000) + 'tail\n', 'line\n'.repeat(5000) + 'tail'])(
     'bounds large scalar strings while preserving the preview',
     (value) => {
       const data = JSON.stringify(value);
@@ -45,10 +45,33 @@ describe('YAML collection previews', () => {
       const dumpedValue = jest.mocked(dump).mock.calls.at(-1)?.[0];
 
       expect(preview?.isComplete).toBe(false);
-      expect(typeof dumpedValue === 'string' && dumpedValue.length).toBeLessThanOrEqual(600);
+      expect(typeof dumpedValue === 'string' && dumpedValue.length).toBeLessThanOrEqual(422);
       expect(prefix(preview!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
     },
   );
+
+  it.each([
+    { nested: { value: 'line\n'.repeat(5000) + 'tail\n' } },
+    Array.from({ length: 20 }, (_, index) => `value_${index}_${'x'.repeat(50)}`),
+    { [`key_${'x'.repeat(5000)}`]: true },
+  ])('bounds nested strings and keys while preserving the preview %#', (value) => {
+    const data = JSON.stringify(value);
+    const preview = getYamlCollectionPreview(data, 10, 300);
+    const dumpedValue = jest.mocked(dump).mock.calls.at(-1)?.[0];
+    const dumpedStrings = JSON.stringify(dumpedValue);
+
+    expect(preview?.isComplete).toBe(false);
+    expect(dumpedStrings.length).toBeLessThan(1200);
+    expect(prefix(preview!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+  });
+
+  it('keeps the full formatter for scalar styles that cannot be truncated safely', () => {
+    const value = 'line\n'.repeat(5000) + '\x07';
+    const data = JSON.stringify(value);
+
+    expect(prefix(getYamlCollectionPreview(data, 10, 300)!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+    expect(jest.mocked(dump).mock.calls.at(-2)?.[0]).toBe(value);
+  });
 
   it('keeps the existing invalid-JSON fallback', () => {
     expect(getYamlCollectionPreview('{invalid', 10, 300)).toBeUndefined();
