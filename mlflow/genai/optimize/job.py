@@ -28,6 +28,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import set_experiment, start_run
 from mlflow.utils.validation import (
     _validate_judge_inference_params,
+    _validate_prompt_optimizer_config,
     _validate_third_party_scorer_data,
 )
 
@@ -119,6 +120,9 @@ def _create_optimizer(
     Raises:
         MlflowException: If optimizer type is not supported.
     """
+    # Validate here as well as in the REST handler so jobs submitted through the generic job API,
+    # or queued before the handler check existed, follow the same policy.
+    _validate_prompt_optimizer_config(optimizer_config)
     config = optimizer_config or {}
     optimizer_type_lower = optimizer_type.lower() if optimizer_type else ""
 

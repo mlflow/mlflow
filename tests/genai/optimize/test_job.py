@@ -55,6 +55,24 @@ def test_create_metaprompt_optimizer_missing_reflection_model():
         _create_optimizer("metaprompt", config)
 
 
+@pytest.mark.parametrize(
+    ("optimizer_type", "config"),
+    [
+        ("metaprompt", {"reflection_model": "openai:/gpt-4o", "lm_kwargs": {"api_base": "x"}}),
+        (
+            "gepa",
+            {
+                "reflection_model": "openai:/gpt-4o",
+                "gepa_kwargs": {"reflection_lm_kwargs": {"base_url": "x"}},
+            },
+        ),
+    ],
+)
+def test_create_optimizer_rejects_destination_keys(optimizer_type, config):
+    with pytest.raises(MlflowException, match="optimizer_config_json must not contain"):
+        _create_optimizer(optimizer_type, config)
+
+
 def test_create_optimizer_unsupported_type():
     with pytest.raises(MlflowException, match="Unsupported optimizer type: 'invalid'"):
         _create_optimizer("invalid", None)
