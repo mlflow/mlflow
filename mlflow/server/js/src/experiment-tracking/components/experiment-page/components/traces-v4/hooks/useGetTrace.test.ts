@@ -91,12 +91,12 @@ describe('pruneTraceCache', () => {
 
   test('keeps the newly observed trace when an observer moves between cached keys', () => {
     const queryClient = new QueryClient();
-    for (let index = 0; index < 6; index++) {
+    for (let index = 0; index < 7; index++) {
       setTrace(queryClient, `trace-${index}`, createTrace(['small']), index + 1);
     }
     const unsubscribeCache = subscribeToTraceCachePruning(queryClient);
     const observer = new QueryObserver(queryClient, {
-      queryKey: ['getTrace', 'trace-5', undefined],
+      queryKey: ['getTrace', 'trace-6', undefined],
       enabled: false,
     });
 
