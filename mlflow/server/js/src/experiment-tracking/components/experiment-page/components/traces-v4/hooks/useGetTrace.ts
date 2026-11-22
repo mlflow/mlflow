@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo } from 'react';
-import { type QueryClient, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useCallback, useMemo } from 'react';
+import { type Query, type QueryClient, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import {
   shouldUseTracesV4API,
@@ -16,6 +16,14 @@ import {
 const MAX_CACHED_TRACES = 5;
 const MAX_CACHED_TRACE_CHARS = 64 * 1024 * 1024;
 const traceStringChars = new WeakMap<ModelTrace, number>();
+const traceAccessOrder = new WeakMap<Query, number>();
+let nextTraceAccessOrder = 0;
+
+const getDrawerTraceQueries = (queryClient: QueryClient): Query[] =>
+  queryClient
+    .getQueryCache()
+    .findAll({ queryKey: ['getTrace'] })
+    .filter(({ queryKey }) => queryKey.length === 3);
 
 const countTraceStringChars = (trace: ModelTrace): number => {
   const cached = traceStringChars.get(trace);
@@ -37,23 +45,23 @@ const countTraceStringChars = (trace: ModelTrace): number => {
 };
 
 export const pruneTraceCache = (queryClient: QueryClient): void => {
-  const traces = queryClient
-    .getQueryCache()
-    .findAll({ queryKey: ['getTrace'] })
-    .flatMap((query) => {
-      const trace = query.state.data as ModelTrace | undefined;
-      return trace
-        ? [
-            {
-              queryKey: query.queryKey,
-              chars: countTraceStringChars(trace),
-              updatedAt: query.state.dataUpdatedAt,
-              active: query.getObserversCount() > 0,
-            },
-          ]
-        : [];
-    });
-  const cachedTraces = traces.filter((trace) => !trace.active).sort((left, right) => left.updatedAt - right.updatedAt);
+  const traces = getDrawerTraceQueries(queryClient).flatMap((query) => {
+    const trace = query.state.data as ModelTrace | undefined;
+    return trace
+      ? [
+          {
+            queryKey: query.queryKey,
+            chars: countTraceStringChars(trace),
+            accessOrder: traceAccessOrder.get(query) ?? 0,
+            updatedAt: query.state.dataUpdatedAt,
+            active: query.getObserversCount() > 0,
+          },
+        ]
+      : [];
+  });
+  const cachedTraces = traces
+    .filter((trace) => !trace.active)
+    .sort((left, right) => left.accessOrder - right.accessOrder || left.updatedAt - right.updatedAt);
   let totalChars = traces.reduce((total, trace) => total + trace.chars, 0);
   while (cachedTraces.length > MAX_CACHED_TRACES || totalChars > MAX_CACHED_TRACE_CHARS) {
     const oldest = cachedTraces.shift();
@@ -61,6 +69,26 @@ export const pruneTraceCache = (queryClient: QueryClient): void => {
     queryClient.removeQueries({ queryKey: oldest.queryKey, exact: true });
     totalChars -= oldest.chars;
   }
+};
+
+export const subscribeToTraceCachePruning = (queryClient: QueryClient): (() => void) => {
+  for (const query of getDrawerTraceQueries(queryClient).sort(
+    (left, right) => left.state.dataUpdatedAt - right.state.dataUpdatedAt,
+  )) {
+    if (!traceAccessOrder.has(query)) traceAccessOrder.set(query, ++nextTraceAccessOrder);
+  }
+
+  return queryClient.getQueryCache().subscribe((event) => {
+    if (event.query.queryKey.length !== 3 || event.query.queryKey[0] !== 'getTrace') return;
+
+    if (event.type === 'observerAdded' || event.type === 'observerRemoved') {
+      traceAccessOrder.set(event.query, ++nextTraceAccessOrder);
+      if (event.type === 'observerRemoved') pruneTraceCache(queryClient);
+    } else if (event.type === 'updated' && event.action.type === 'success') {
+      if (!traceAccessOrder.has(event.query)) traceAccessOrder.set(event.query, ++nextTraceAccessOrder);
+      pruneTraceCache(queryClient);
+    }
+  });
 };
 
 /**
@@ -73,7 +101,6 @@ export const pruneTraceCache = (queryClient: QueryClient): void => {
  * consumer here.
  */
 export function useGetTrace(traceId: string, selectedSqlWarehouseId?: string, rowTraceInfo?: ModelTraceInfoV3) {
-  const queryClient = useQueryClient();
   // V4 format is "trace:/catalog.schema/trace_id"; V3 is the bare id.
   const parsedTrace = useMemo(() => {
     if (!traceId) return null;
@@ -91,27 +118,21 @@ export function useGetTrace(traceId: string, selectedSqlWarehouseId?: string, ro
   const fetchTrace = useCallback(async (): Promise<ModelTrace | undefined> => {
     if (!parsedTrace) return undefined;
 
-    let trace: ModelTrace | undefined;
     if (shouldUseTracesV4API() && parsedTrace.trace_location && selectedSqlWarehouseId) {
       const location = createTraceLocationForDestinationPath(parsedTrace.trace_location);
       // Spread `rowTraceInfo` first so the parsed id and recomputed location win; the row contributes
       // only timing (`request_time`/`execution_duration`), which `getTraceV4` uses to derive time hints.
-      trace = await getTraceV4({ ...rowTraceInfo, ...parsedTrace, trace_location: location } as ModelTraceInfoV3);
-    } else {
-      // Forward the row's trace info so OSS's `getTrace` can read its spans-location tag and take the
-      // tracking-store `get-trace` path (rather than falling through to the artifact route).
-      trace = await getTraceV3(parsedTrace.trace_id, rowTraceInfo);
+      return getTraceV4({ ...rowTraceInfo, ...parsedTrace, trace_location: location } as ModelTraceInfoV3);
     }
 
-    // The next task runs after React Query stores the result, including when the drawer closed mid-request.
-    setTimeout(() => pruneTraceCache(queryClient), 0);
-    return trace;
-  }, [parsedTrace, getTraceV4, selectedSqlWarehouseId, rowTraceInfo, queryClient]);
+    // Forward the row's trace info so OSS's `getTrace` can read its spans-location tag and take the
+    // tracking-store `get-trace` path (rather than falling through to the artifact route).
+    return getTraceV3(parsedTrace.trace_id, rowTraceInfo);
+  }, [parsedTrace, getTraceV4, selectedSqlWarehouseId, rowTraceInfo]);
 
   const enabled = Boolean(traceId);
-  const queryKey = useMemo(() => ['getTrace', traceId, selectedSqlWarehouseId], [traceId, selectedSqlWarehouseId]);
   const result = useQuery({
-    queryKey,
+    queryKey: ['getTrace', traceId, selectedSqlWarehouseId],
     queryFn: fetchTrace,
     enabled,
     staleTime: 5 * 60 * 1000,
@@ -119,14 +140,6 @@ export function useGetTrace(traceId: string, selectedSqlWarehouseId?: string, ro
     retry: 3,
     refetchOnWindowFocus: false,
   });
-
-  useEffect(
-    () => () => {
-      // Let the query observer detach before pruning inactive entries.
-      queueMicrotask(() => pruneTraceCache(queryClient));
-    },
-    [queryClient, queryKey],
-  );
 
   return {
     ...result,

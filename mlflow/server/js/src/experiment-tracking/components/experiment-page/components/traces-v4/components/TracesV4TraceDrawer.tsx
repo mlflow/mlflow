@@ -36,7 +36,7 @@ import { getChatSessionsFilter } from '@mlflow/mlflow/src/experiment-tracking/pa
 // Not re-exported from the genai-traces-table barrel in OSS — import from its module.
 import { EvaluationsReviewDetailsHeader } from '@databricks/web-shared/genai-traces-table/components/EvaluationsReviewDetails';
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import { useGetTrace } from '../hooks/useGetTrace';
+import { subscribeToTraceCachePruning, useGetTrace } from '../hooks/useGetTrace';
 import type { TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import {
   BASELINE_TRACE_ID_PARAM,
@@ -122,6 +122,8 @@ export const TracesV4TraceDrawer = ({
   comparisonNavigation,
 }: TracesV4TraceDrawerProps) => {
   const { theme } = useDesignSystemTheme();
+  const queryClient = useQueryClient();
+  useEffect(() => subscribeToTraceCachePruning(queryClient), [queryClient]);
   // A session's turns in order (URL ids), reported by `SessionTurnsLoader` while one of its traces is open.
   const [sessionTurnIds, setSessionTurnIds] = useState<string[]>();
 
@@ -164,7 +166,6 @@ export const TracesV4TraceDrawer = ({
 
   // "Edit" (key/value tags) reuses the shared unified tag modal. On save, refresh both the list rows
   // and the open drawer body so the new tags show without a manual reload.
-  const queryClient = useQueryClient();
   const { showTagAssignmentModal, TagAssignmentModal } = useUnifiedTraceTagsModal({
     componentIdPrefix: 'mlflow.traces-v4',
     onSuccess: () => {

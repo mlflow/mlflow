@@ -3,7 +3,7 @@ import { describe, expect, test } from '@jest/globals';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { QueryClient, QueryObserver } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
-import { pruneTraceCache } from './useGetTrace';
+import { pruneTraceCache, subscribeToTraceCachePruning } from './useGetTrace';
 
 const createTrace = (payloads: string[]): ModelTrace =>
   ({
@@ -77,5 +77,59 @@ describe('pruneTraceCache', () => {
     expect(queryClient.getQueryData(queryKey)).toBeDefined();
     expect(queryClient.getQueryData(['getTrace', 'inactive', undefined])).toBeUndefined();
     unsubscribe();
+  });
+
+  test('does not prune shared two-part getTrace queries', () => {
+    const queryClient = new QueryClient();
+    const sharedQueryKey = ['getTrace', 'shared'];
+    queryClient.setQueryData(sharedQueryKey, createTrace(Array(65).fill('x'.repeat(1024 * 1024))));
+
+    pruneTraceCache(queryClient);
+
+    expect(queryClient.getQueryData(sharedQueryKey)).toBeDefined();
+  });
+
+  test('keeps a re-accessed trace instead of evicting it by load time', () => {
+    const queryClient = new QueryClient();
+    for (let index = 0; index < 6; index++) {
+      setTrace(queryClient, `trace-${index}`, createTrace(['small']), index + 1);
+    }
+    const unsubscribeCache = subscribeToTraceCachePruning(queryClient);
+    const observer = new QueryObserver(queryClient, {
+      queryKey: ['getTrace', 'trace-0', undefined],
+      enabled: false,
+    });
+
+    const unsubscribeObserver = observer.subscribe(() => {});
+    unsubscribeObserver();
+
+    expect(queryClient.getQueryData(['getTrace', 'trace-0', undefined])).toBeDefined();
+    expect(queryClient.getQueryData(['getTrace', 'trace-1', undefined])).toBeUndefined();
+    unsubscribeCache();
+  });
+
+  test('prunes a trace that finishes loading after its observer is removed', async () => {
+    const queryClient = new QueryClient();
+    const queryKey = ['getTrace', 'late', undefined];
+    const oversizedTrace = createTrace(Array(65).fill('x'.repeat(1024 * 1024)));
+    let resolveTrace!: (trace: ModelTrace) => void;
+    const tracePromise = new Promise<ModelTrace>((resolve) => {
+      resolveTrace = resolve;
+    });
+    const unsubscribeCache = subscribeToTraceCachePruning(queryClient);
+    const observer = new QueryObserver(queryClient, {
+      queryKey,
+      queryFn: () => tracePromise,
+      enabled: false,
+    });
+    const unsubscribeObserver = observer.subscribe(() => {});
+
+    const fetch = observer.refetch();
+    unsubscribeObserver();
+    resolveTrace(oversizedTrace);
+    await fetch;
+
+    expect(queryClient.getQueryData(queryKey)).toBeUndefined();
+    unsubscribeCache();
   });
 });
