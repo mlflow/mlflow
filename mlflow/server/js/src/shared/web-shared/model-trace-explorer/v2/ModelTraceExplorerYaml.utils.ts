@@ -11,7 +11,7 @@ const truncateYamlScalar = (value: string, limit: number, isKey: boolean): strin
   if (PLAIN_SAFE_SCALAR.test(value)) return prefix;
   if (isKey) return undefined;
 
-  const isStableLiteral = value.includes('\n') && !/(?:^|\n)[^ \n][^\n]{40}/.test(value);
+  const isStableLiteral = prefix.includes('\n') && !/(?:^|\n)[^ \n][^\n]{40}/.test(value);
   const isStableFolded = /(?:^|\n)[^ \n][^\n]{120}/.test(prefix);
   if (!isStableLiteral && !isStableFolded) return undefined;
 
@@ -91,6 +91,7 @@ export function getYamlCollectionPreview(
           }
           strings.push(key);
           let previewKey = key;
+          let keyWasCut = false;
           if (key.length > remainingChars) {
             // js-yaml switches keys over 1024 characters to explicit-key syntax.
             const keyLimit = key.length > 1024 ? Math.max(remainingChars, 1025) : remainingChars;
@@ -100,12 +101,13 @@ export function getYamlCollectionPreview(
               return node;
             }
             stringsCut = true;
+            keyWasCut = true;
             previewKey = prefix;
             remainingChars = 0;
           } else {
             remainingChars -= key.length;
           }
-          entries[previewKey] = remainingChars === 0 ? null : prune((node as Record<string, unknown>)[key]);
+          entries[previewKey] = keyWasCut ? null : prune((node as Record<string, unknown>)[key]);
         }
         return entries;
       }
