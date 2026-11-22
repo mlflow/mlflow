@@ -20,10 +20,13 @@ def test_model_graded_fact_end_to_end_through_mlflow_backend():
     from mlflow.genai.scorers.inspect_ai import ModelGradedFact
 
     def grade(messages, **kwargs):
+        # Inspect owns the grading template and its field markers change between
+        # releases, so check the data it carries rather than the labels around it.
         prompt = messages[-1]["content"]
-        assert "[Question]: What is the capital of France?" in prompt
-        assert "[Expert]: Paris" in prompt
-        assert "[Submission]: Paris is the capital of France." in prompt
+        assert "What is the capital of France?" in prompt
+        assert "Paris" in prompt
+        assert "Paris is the capital of France." in prompt
+        assert "GRADE:" in prompt
         return "The submission states the expert answer.\nGRADE: C"
 
     with patch(_COMPLETE, side_effect=grade) as mock_complete:

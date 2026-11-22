@@ -59,7 +59,7 @@ _DEFAULT_THRESHOLD = 0.5
 _NOT_RUN_ERROR_CODE = "INSPECT_AI_SCORER_NOT_RUN"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 @format_docstring(_MODEL_API_DOC)
 class InspectAIScorer(Scorer):
     """
@@ -277,7 +277,7 @@ class InspectAIScorer(Scorer):
             )
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
@@ -327,7 +327,7 @@ def get_scorer(
     )
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 class ExactMatch(InspectAIScorer):
     """
     Wraps Inspect's ``exact`` scorer.
@@ -345,7 +345,7 @@ class ExactMatch(InspectAIScorer):
     metric_name: ClassVar[str] = "ExactMatch"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 class Includes(InspectAIScorer):
     """
     Wraps Inspect's ``includes`` scorer.
@@ -368,7 +368,7 @@ class Includes(InspectAIScorer):
     metric_name: ClassVar[str] = "Includes"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 class Match(InspectAIScorer):
     """
     Wraps Inspect's ``match`` scorer.
@@ -392,7 +392,7 @@ class Match(InspectAIScorer):
     metric_name: ClassVar[str] = "Match"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 class Pattern(InspectAIScorer):
     """
     Wraps Inspect's ``pattern`` scorer.
@@ -415,7 +415,7 @@ class Pattern(InspectAIScorer):
     metric_name: ClassVar[str] = "Pattern"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 class F1(InspectAIScorer):
     """
     Wraps Inspect's ``f1`` scorer.
@@ -437,7 +437,7 @@ class F1(InspectAIScorer):
     metric_name: ClassVar[str] = "F1"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 class Answer(InspectAIScorer):
     """
     Wraps Inspect's ``answer`` scorer.
@@ -459,7 +459,7 @@ class Answer(InspectAIScorer):
     metric_name: ClassVar[str] = "Answer"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 @format_docstring(_MODEL_API_DOC)
 class ModelGradedFact(InspectAIScorer):
     """
@@ -491,7 +491,7 @@ class ModelGradedFact(InspectAIScorer):
     metric_name: ClassVar[str] = "ModelGradedFact"
 
 
-@experimental(version="3.18.0")
+@experimental(version="3.19.0")
 @format_docstring(_MODEL_API_DOC)
 class ModelGradedQA(InspectAIScorer):
     """
