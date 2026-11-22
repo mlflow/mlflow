@@ -894,6 +894,20 @@ def test_deferred_root_span_export(monkeypatch):
         mock_upload_trace_data.assert_called_once()
 
 
+class _ContentionSignalingLock:
+    def __init__(self, on_contention):
+        self._lock = threading.Lock()
+        self._on_contention = on_contention
+
+    def __enter__(self):
+        if not self._lock.acquire(blocking=False):
+            self._on_contention()
+            self._lock.acquire()
+
+    def __exit__(self, *exc_info):
+        self._lock.release()
+
+
 @pytest.mark.parametrize(
     "spans_location", [SpansLocation.ARTIFACT_REPO, SpansLocation.TRACKING_STORE]
 )
@@ -917,7 +931,10 @@ def test_deferred_root_span_export_when_child_ends_during_deferral(
     manager.register_span(LiveSpan(child, trace_id))
     exporter = MlflowV3SpanExporter()
     root_checked = threading.Event()
-    child_exported = threading.Event()
+    resume_root = threading.Event()
+    # A serialized child export blocks on the lock the root holds. Resume the root as soon as
+    # that happens, rather than after a timeout.
+    exporter._trace_export_lock = _ContentionSignalingLock(on_contention=resume_root.set)
     has_open_spans = manager.has_open_spans
 
     def check_open_spans(otel_trace_id):
@@ -925,9 +942,9 @@ def test_deferred_root_span_export_when_child_ends_during_deferral(
         if result:
             # Finish the child after the root checks for open spans, before it is deferred.
             root_checked.set()
-            # A serialized child export waits for root deferral; an unsynchronized one
-            # completes here and misses the root. Resume the root in either case.
-            child_exported.wait(5)
+            # Resume once the child export either blocks on the export lock (serialized) or
+            # finishes without seeing the root (unserialized).
+            assert resume_root.wait(5)
         return result
 
     with (
@@ -943,11 +960,11 @@ def test_deferred_root_span_export_when_child_ends_during_deferral(
             child._end_time = time.time_ns()
             if not child_exports_first:
                 # End time is visible before incremental collection; keep the mapping alive.
-                child_exported.set()
+                resume_root.set()
                 root_export.result(timeout=10)
             exporter.export([child])
         finally:
-            child_exported.set()
+            resume_root.set()
         root_export.result(timeout=10)
         if async_logging_enabled:
             exporter._async_queue.flush(terminate=True)
