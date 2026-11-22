@@ -2,6 +2,8 @@ import asyncio
 import concurrent.futures
 import contextvars
 import gc
+import multiprocessing
+import sys
 import threading
 import time
 from unittest import mock
@@ -450,3 +452,100 @@ def test_wrap_workflow_cancels_task_when_wait_is_interrupted():
     assert cancelled.wait(5)
     # The shared loop is still usable after the interrupted call.
     assert wrapper.predict({"name": "Alice"}) == "Hi, Alice!"
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+def test_wrap_workflow_cancels_other_items_when_one_fails():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    cancelled = threading.Event()
+
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            if ev.name == "fail":
+                raise ValueError("Expected error")
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+    wrapper = create_pyfunc_wrapper(MyWorkflow(timeout=10, verbose=False))
+
+    with pytest.raises(Exception, match="Expected error"):
+        wrapper.predict([{"name": "wait"}, {"name": "fail"}])
+
+    assert cancelled.wait(5)
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+def test_wrap_workflow_cancels_steps_when_wait_is_interrupted():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+    wrapper = create_pyfunc_wrapper(MyWorkflow(timeout=10, verbose=False))
+
+    def interrupted_result(self, timeout=None):
+        started.wait(5)
+        raise KeyboardInterrupt("interrupted")
+
+    with (
+        mock.patch.object(concurrent.futures.Future, "result", interrupted_result),
+        pytest.raises(KeyboardInterrupt, match="interrupted"),
+    ):
+        wrapper.predict({"name": "Alice"})
+
+    assert cancelled.wait(5)
+
+
+def _predict_in_child(wrapper, queue):
+    queue.put(wrapper.predict({"name": "Bob"}))
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.skipif(sys.platform == "win32", reason="fork is not available on Windows")
+def test_wrap_workflow_predict_after_fork():
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            return StopEvent(result=f"Hi, {ev.name}!")
+
+    wrapper = create_pyfunc_wrapper(MyWorkflow(timeout=10, verbose=False))
+    assert wrapper.predict({"name": "Alice"}) == "Hi, Alice!"
+
+    ctx = multiprocessing.get_context("fork")
+    queue = ctx.Queue()
+    process = ctx.Process(target=_predict_in_child, args=(wrapper, queue))
+    process.start()
+    try:
+        assert queue.get(timeout=30) == "Hi, Bob!"
+    finally:
+        process.join(timeout=10)
+        if process.is_alive():
+            process.kill()
+    assert process.exitcode == 0
+    assert wrapper.predict({"name": "Charlie"}) == "Hi, Charlie!"
