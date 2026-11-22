@@ -6,13 +6,17 @@ import https from "node:https";
 
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
-let token = "";
+let credentials = "";
 for await (const chunk of process.stdin) {
-  token += chunk.toString("utf8");
-  if (token.length > 16_384) throw new Error("Telemetry bearer is too large");
+  credentials += chunk.toString("utf8");
+  if (credentials.length > 16_384) {
+    throw new Error("Telemetry proxy credentials are too large");
+  }
 }
-token = token.trimEnd();
-if (!token) throw new Error("Telemetry bearer is missing");
+const [token, proxyToken, ...extra] = credentials.trimEnd().split("\n");
+if (!token?.trim()) throw new Error("Telemetry bearer is missing");
+if (!proxyToken?.trim()) throw new Error("Proxy bearer is missing");
+if (extra.length) throw new Error("Unexpected telemetry proxy credentials");
 delete process.env.TELEMETRY_TOKEN;
 
 const host = new URL(process.env.DATABRICKS_HOST);
@@ -41,6 +45,10 @@ function handle(request, response) {
   }
   if (local.pathname === "/healthz") {
     response.writeHead(200).end();
+    return;
+  }
+  if (request.headers.authorization !== "Bearer " + proxyToken) {
+    response.writeHead(401, { "WWW-Authenticate": "Bearer" }).end();
     return;
   }
   const route = routes[local.pathname];

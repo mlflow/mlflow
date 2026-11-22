@@ -99,7 +99,7 @@ services:
       - /bin/bash
       - -c
       - |
-        pip install --no-cache-dir psycopg2-binary boto3
+        pip install --no-cache-dir "psycopg[binary]" psycopg2-binary boto3
         mlflow server \
           --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \
           --artifacts-destination "${MLFLOW_ARTIFACTS_DESTINATION}" \

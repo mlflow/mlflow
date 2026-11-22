@@ -1,12 +1,171 @@
 {
   "schema_version": "1.0",
   "models": {
+    "morph-dsv41flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.8,
+        "cache_read_per_million_tokens": 0.008
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-28"
+    },
+    "morph-dsv41flash-1017": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.12,
+        "output_per_million_tokens": 0.8,
+        "cache_read_per_million_tokens": 0.008
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-28"
+    },
+    "morph-dsv41flash-abliterated": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-28"
+    },
+    "morph-dsv4flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.141953125,
+        "output_per_million_tokens": 0.399625,
+        "cache_read_per_million_tokens": 0.0359375
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-28"
+    },
+    "morph-glm53-744b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.19,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.1955
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-28"
+    },
+    "morph-glm53flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.7,
+        "cache_read_per_million_tokens": 0.04
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-28"
+    },
+    "morph-kimik3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 14.0,
+        "cache_read_per_million_tokens": 0.29
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-28"
+    },
+    "morph-kimik3-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 6.0,
+        "output_per_million_tokens": 22.5,
+        "cache_read_per_million_tokens": 0.6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-10-28"
+    },
     "morph-v3-fast": {
       "mode": "chat",
       "context_window": {
         "max_input": 16000,
-        "max_output": 16000,
-        "max_tokens": 16000
+        "max_output": 16000
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
@@ -19,14 +178,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "morph-v3-large": {
       "mode": "chat",
       "context_window": {
         "max_input": 16000,
-        "max_output": 16000,
-        "max_tokens": 16000
+        "max_output": 16000
       },
       "pricing": {
         "input_per_million_tokens": 0.9,
@@ -39,7 +197,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

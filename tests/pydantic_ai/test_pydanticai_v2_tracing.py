@@ -8,13 +8,21 @@ if Version(importlib.metadata.version("pydantic_ai")).major < 2:
     pytest.skip("Pydantic AI 2.x tracing tests", allow_module_level=True)
 
 from pydantic import BaseModel, ValidationError
-from pydantic_ai import Agent, ModelRetry
+from pydantic_ai import Agent, ModelRetry, RunContext
+from pydantic_ai.capabilities import ProcessHistory
 from pydantic_ai.capabilities.instrumentation import Instrumentation
 from pydantic_ai.mcp import MCPToolset
-from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import ToolDefinition
+from pydantic_ai.usage import RunUsage
 
 import mlflow
 import mlflow.pydantic_ai.autolog_v2
@@ -173,6 +181,37 @@ def test_model_request_span_records_model_attributes():
     assert model_span.attributes[SpanAttributeKey.MESSAGE_FORMAT] == "pydantic_ai"
 
 
+@pytest.mark.parametrize("fail", [False, True])
+def test_model_request_span_records_processed_history(fail: bool):
+    mlflow.pydantic_ai.autolog()
+    received = []
+
+    def model_function(messages, info):
+        received.append(messages)
+        if fail:
+            raise RuntimeError("model failed")
+        return ModelResponse(parts=[TextPart("hello")])
+
+    def compact(messages):
+        return [
+            ModelRequest(parts=[UserPromptPart("processed")]) if isinstance(m, ModelRequest) else m
+            for m in messages
+        ]
+
+    agent = Agent(FunctionModel(model_function), capabilities=[ProcessHistory(compact)])
+    if fail:
+        with pytest.raises(RuntimeError, match="model failed"):
+            agent.run_sync("original")
+    else:
+        agent.run_sync("original")
+
+    assert received[0][0].parts[0].content == "processed"
+    model_span = next(s for s in get_traces()[0].data.spans if s.span_type == SpanType.LLM)
+    assert model_span.status.status_code == ("ERROR" if fail else "OK")
+    [message] = model_span.inputs["messages"]
+    assert message["parts"][0]["content"] == "processed"
+
+
 def test_tool_span_uses_logical_tool_payload():
     mlflow.pydantic_ai.autolog()
 
@@ -211,7 +250,7 @@ async def test_tool_validation_failure_is_traced(error_type):
 
     with pytest.raises(type(error)):
         await instrumentation.on_tool_validate_error(
-            None,
+            RunContext(deps=None, model=TestModel(), usage=RunUsage(), tool_name=call.tool_name),
             call=call,
             tool_def=tool_def,
             args=call.args,

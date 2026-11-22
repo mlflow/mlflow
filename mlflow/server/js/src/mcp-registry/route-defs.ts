@@ -8,7 +8,7 @@ export const getMCPRegistryRouteDefs = () => {
       path: MCPRegistryRoutePaths.mcpRegistryPage,
       element: createLazyRouteElement(() => import('./pages/MCPRegistryPage')),
       pageId: MCPRegistryPageId.mcpRegistryPage,
-      handle: { getPageTitle: () => 'MCP Registry' } satisfies DocumentTitleHandle,
+      handle: { getPageTitle: () => 'MCP' } satisfies DocumentTitleHandle,
     },
     {
       path: MCPRegistryRoutePaths.mcpServerDetailPage,

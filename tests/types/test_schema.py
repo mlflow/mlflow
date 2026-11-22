@@ -271,6 +271,14 @@ def test_schema_inference_on_pandas_series():
         assert len(_infer_schema(s).input_names()) == 1
 
 
+def test_schema_inference_on_unnamed_pandas_series_with_missing_values():
+    # Unnamed optional inputs are not allowed, so an unnamed Series is always required
+    schema = _infer_schema(pd.Series([1, None, 3]))
+    assert schema == Schema([ColSpec(DataType.double)])
+    schema = _infer_schema(pd.Series(np.array(["a", None], dtype=object)))
+    assert schema == Schema([ColSpec(DataType.string)])
+
+
 def test_schema_inference_on_pandas_string_dtype():
     # pandas 3.0 infers string columns as the dedicated StringDtype by default
     # instead of numpy object. Schema inference must still map it to DataType.string.
@@ -952,6 +960,15 @@ def test_param_spec_to_and_from_dict():
         "type": "datetime",
         "default": ["2023-06-26T00:00:00", "2023-06-27T00:00:00"],
         "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec("datetime_none", DataType.datetime, None, None)
+    assert spec.to_dict() == {
+        "name": "datetime_none",
+        "type": "datetime",
+        "default": None,
+        "shape": None,
     }
     assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
 

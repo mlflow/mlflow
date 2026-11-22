@@ -9,13 +9,8 @@ import { getSpanExceptionCount } from '../../spanExceptionEvents';
 
 // expand all nodes by default
 export const DEFAULT_EXPAND_DEPTH: number = Infinity;
-export const SPAN_INDENT_WIDTH = 16;
 export const SPAN_ROW_HEIGHT = 32;
-export const TimelineTreeZIndex = {
-  HIGH: 5,
-  NORMAL: 3,
-  LOW: 1,
-};
+export { SPAN_INDENT_WIDTH, TimelineTreeZIndex } from '../../hierarchyLineStyles';
 
 interface TimelineTreeSpanConstraints {
   min: number;
@@ -154,6 +149,40 @@ export const spanTimeFormatter = (executionTimeUs: number): string => {
   }
 };
 
+/** Formats a unit-suffixed duration string (e.g. a trace's `execution_duration`, "0.071573s") like `spanTimeFormatter`. */
+export const formatExecutionDuration = (value: string): string => {
+  const match = value.match(/^(-?\d+(?:\.\d+)?)(.*)$/);
+  if (!match) {
+    return value;
+  }
+
+  const numericValue = Number(match[1]);
+  if (!Number.isFinite(numericValue)) {
+    return value;
+  }
+
+  let multiplier: number | undefined;
+  switch (match[2]) {
+    case 'm':
+      multiplier = 60 * 1e6;
+      break;
+    case 's':
+      multiplier = 1e6;
+      break;
+    case 'ms':
+      multiplier = 1e3;
+      break;
+    case 'us':
+    case 'µs':
+      multiplier = 1;
+      break;
+  }
+
+  return multiplier === undefined
+    ? `${numericValue.toFixed(2)}${match[2]}`
+    : spanTimeFormatter(numericValue * multiplier);
+};
+
 export const getActiveChildIndex = (node: ModelTraceSpanNode, activeNodeId: string): number => {
   if (node.key === activeNodeId) {
     return 0;
@@ -167,9 +196,16 @@ export const getModelTraceSpanNodeDepth = (node: ModelTraceSpanNode): number => 
     return 0;
   }
 
-  const childDepths = node.children.map(getModelTraceSpanNodeDepth);
-  return Math.max(...childDepths) + 1;
+  return getMaxModelTraceSpanNodeDepth(node.children) + 1;
 };
+
+export function getMaxModelTraceSpanNodeDepth(nodes: ModelTraceSpanNode[]): number {
+  let depth = -Infinity;
+  for (const node of nodes) {
+    depth = Math.max(depth, getModelTraceSpanNodeDepth(node));
+  }
+  return depth;
+}
 
 export const getSpanNodeParentIds = (
   node: ModelTraceSpanNode,

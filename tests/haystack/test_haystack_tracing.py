@@ -6,6 +6,9 @@ from haystack import Document, Pipeline, component
 from haystack.components.rankers import LostInTheMiddleRanker
 from haystack.components.retrievers import InMemoryBM25Retriever
 from haystack.document_stores.in_memory import InMemoryDocumentStore
+from opentelemetry import trace as otel_trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import mlflow
 from mlflow.entities import SpanType
@@ -215,6 +218,42 @@ def test_haystack_autolog_shared_provider_no_recursion(monkeypatch):
     assert spans[0].span_type == SpanType.CHAIN
     assert spans[0].inputs == {"adder": {"a": 1, "b": 2}}
     assert spans[0].outputs == {"adder": {"sum": 3}}
+
+
+@pytest.mark.parametrize("init_tracing_before_autolog", [False, True])
+def test_haystack_autolog_shared_provider_exports_each_span_once(
+    monkeypatch, init_tracing_before_autolog
+):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    if init_tracing_before_autolog:
+        # Registers MLflow's span processor on the shared provider before Haystack's processor.
+        with mlflow.start_span(name="warmup"):
+            pass
+
+    mlflow.haystack.autolog()
+
+    # Every processor on the shared provider sees what MLflow's processor sees, so an
+    # in-memory exporter there records each span once per dispatch.
+    exporter = InMemorySpanExporter()
+    otel_trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(exporter))
+
+    pipe = Pipeline()
+    pipe.add_component("adder", Add())
+    pipe.run({"adder": {"a": 1, "b": 2}})
+
+    span_ids = [span.context.span_id for span in exporter.get_finished_spans()]
+    assert span_ids
+    assert len(span_ids) == len(set(span_ids))
+
+    pipeline_trace = next(
+        t for t in get_traces() if t.data.spans[0].name == "haystack.pipeline.run"
+    )
+    spans = pipeline_trace.data.spans
+    assert spans[0].span_type == SpanType.CHAIN
+    assert spans[1].span_type == SpanType.TOOL
+    assert spans[1].name == "Add"
+    assert spans[1].inputs == {"a": 1, "b": 2}
 
 
 def test_get_opentelemetry_tracer_class_error_when_unavailable(monkeypatch):

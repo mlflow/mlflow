@@ -1,8 +1,11 @@
 import numpy as np
 import pandas as pd
+import pytest
 
+import mlflow
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.genai.evaluation.entities import EvalItem, EvaluationResult
+from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.judges import CategoricalRating
 
 
@@ -93,9 +96,11 @@ def test_unrecognized_string_gets_pass_if_hint():
     assert "pass_if" in result.reason
 
 
-def test_none_result_df():
+def test_none_result_df_fails():
+    # Without per-row results there is nothing to check, so the run must not pass.
     result = EvaluationResult(run_id="r1", metrics={}, result_df=None)
-    assert result.passed
+    assert not result.passed
+    assert "per-row results are unavailable" in result.reason
 
 
 def test_categorical_rating_value():
@@ -189,3 +194,98 @@ def test_sparse_columns_are_skipped():
     ])
     result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
     assert result.passed, result.reason
+
+
+@pytest.mark.parametrize(
+    ("metrics", "expected_reason"),
+    [
+        ({"latency/p90": 1.5}, ""),
+        ({"latency/p90": 2.0}, ""),
+        ({"latency/p90": 4.35}, "quality criteria latency/p90 <= 2: got 4.35"),
+        ({"latency/p90": 2.0000004}, "quality criteria latency/p90 <= 2: got 2.0000004"),
+        ({}, "quality criteria latency/p90 <= 2: this evaluation produced no such metric"),
+    ],
+)
+def test_quality_criteria_gate_passed(metrics, expected_reason):
+    df = pd.DataFrame([{"latency/value": 1.0}, {"latency/value": 4.5}])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics=metrics,
+        result_df=df,
+        pass_criteria={"latency": lambda v: v <= 5},
+        quality_criteria=[QualityCriteriaRule("latency", "p90", "<=", 2.0)],
+    )
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+
+
+def test_quality_criteria_failures_are_listed_with_row_failures():
+    df = pd.DataFrame([{"correctness/value": False}])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics={"correctness/mean": 0.0},
+        result_df=None,
+        quality_criteria=[QualityCriteriaRule("correctness", "mean", ">=", 0.9)],
+    )
+    assert not result.passed
+    assert "per-row results are unavailable" in result.reason
+    assert "quality criteria correctness/mean >= 0.9: got 0" in result.reason
+
+    result.result_df = df
+    assert not result.passed
+    assert result.reason.startswith("2 assertions failed:")
+    assert "quality criteria correctness/mean >= 0.9: got 0" in result.reason
+
+
+def test_no_scored_cells_fails():
+    # Every cell is NaN: no scorer produced a value, so there is nothing to pass on.
+    df = pd.DataFrame([
+        {"scorer_a/value": np.nan, "scorer_a/rationale": None},
+        {"scorer_a/value": None, "scorer_a/rationale": None},
+    ])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "no scorer produced a value" in result.reason
+
+
+def test_no_value_columns_fails():
+    # A scorer that returns None for every row leaves no /value column at all.
+    df = pd.DataFrame([{"request": "q1"}, {"request": "q2"}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "no scorer produced a value" in result.reason
+
+
+def test_one_scored_cell_is_enough_evidence():
+    df = pd.DataFrame([
+        {"scorer_a/value": True},
+        {"scorer_a/value": np.nan},
+    ])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert result.passed, result.reason
+
+
+def test_eval_item_from_trace_takes_inputs_and_outputs_from_the_root_span():
+    with mlflow.start_span(name="root") as span:
+        span.set_inputs({"question": "q"})
+        span.set_outputs({"answer": "a"})
+    trace = mlflow.get_trace(span.trace_id)
+
+    eval_item = EvalItem.from_trace(trace)
+
+    assert eval_item.request_id == trace.info.trace_id
+    assert eval_item.inputs == {"question": "q"}
+    assert eval_item.outputs == {"answer": "a"}
+    assert eval_item.trace is trace
+
+
+def test_eval_item_from_trace_without_spans_has_no_inputs_or_outputs():
+    with mlflow.start_span(name="root") as span:
+        span.set_inputs({"question": "q"})
+    trace = mlflow.get_trace(span.trace_id)
+    trace.data.spans.clear()
+
+    eval_item = EvalItem.from_trace(trace)
+
+    assert eval_item.inputs is None
+    assert eval_item.outputs is None

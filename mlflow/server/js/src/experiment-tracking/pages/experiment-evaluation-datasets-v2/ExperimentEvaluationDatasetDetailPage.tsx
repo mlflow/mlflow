@@ -8,9 +8,14 @@ import { ExperimentEvaluationDatasetsPageWrapper } from '../experiment-evaluatio
 import { useGetDatasetQuery } from './hooks/useDatasetsQueries';
 import { DatasetDetailPageContent } from './components/DatasetDetailPageContent';
 import { DatasetsBreadcrumbs } from './components/DatasetsBreadcrumbs';
+import {
+  useExperimentPageRevampContext,
+  useSetExperimentBreadcrumbTitle,
+} from '../experiment-page-tabs/ExperimentPageRevampContext';
 
 const DatasetDetailLoadingSkeleton = () => {
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
   return (
     <div
       css={{
@@ -20,12 +25,12 @@ const DatasetDetailLoadingSkeleton = () => {
         minHeight: 0,
         // Outer wrappers (PageWrapper + ExperimentPageTabs) already contribute spacing
         // on the right (24px) and bottom (8px); only top and left need padding here.
-        paddingTop: theme.spacing.md,
-        paddingLeft: theme.spacing.md,
+        paddingTop: revampEnabled ? 0 : theme.spacing.md,
+        paddingLeft: revampEnabled ? 0 : theme.spacing.md,
         gap: theme.spacing.md,
       }}
     >
-      <ParagraphSkeleton seed="dataset-breadcrumbs" style={{ width: 220 }} />
+      {!revampEnabled && <ParagraphSkeleton seed="dataset-breadcrumbs" style={{ width: 220 }} />}
       <TitleSkeleton seed="dataset-title" style={{ width: 320 }} loadingDescription="DatasetDetailPage" />
       <ParagraphSkeleton seed="dataset-toolbar" style={{ width: '100%' }} />
       {Array.from({ length: 6 }, (_, i) => (
@@ -41,6 +46,7 @@ const ExperimentEvaluationDatasetDetailPageImpl = () => {
   invariant(datasetId, 'Dataset ID must be defined');
 
   const { theme } = useDesignSystemTheme();
+  const { enabled: revampEnabled } = useExperimentPageRevampContext();
 
   // Fetch the dataset here (not inside the page/controller) so loading / error / 404 can be
   // handled at the page boundary. Downstream components receive a fully-loaded `Dataset` and
@@ -48,6 +54,7 @@ const ExperimentEvaluationDatasetDetailPageImpl = () => {
   // 404/deleted-dataset path — we surface a friendly error UI immediately rather than spending
   // ~7s on exponential-backoff retries.
   const datasetQuery = useGetDatasetQuery(datasetId, { retry: false });
+  useSetExperimentBreadcrumbTitle(datasetQuery.data?.name);
 
   if (datasetQuery.isLoading) {
     return <DatasetDetailLoadingSkeleton />;
@@ -64,12 +71,12 @@ const ExperimentEvaluationDatasetDetailPageImpl = () => {
           minHeight: 0,
           // Outer wrappers (PageWrapper + ExperimentPageTabs) already contribute spacing
           // on the right (24px) and bottom (8px); only top and left need padding here.
-          paddingTop: theme.spacing.md,
-          paddingLeft: theme.spacing.md,
+          paddingTop: revampEnabled ? 0 : theme.spacing.md,
+          paddingLeft: revampEnabled ? 0 : theme.spacing.md,
           gap: theme.spacing.md,
         }}
       >
-        <DatasetsBreadcrumbs experimentId={experimentId} />
+        {!revampEnabled && <DatasetsBreadcrumbs experimentId={experimentId} />}
         <div
           css={{
             display: 'flex',

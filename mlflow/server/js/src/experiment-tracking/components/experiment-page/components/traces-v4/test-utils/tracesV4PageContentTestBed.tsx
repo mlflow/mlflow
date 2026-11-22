@@ -63,6 +63,9 @@ export const state: ServerState = {
 export const env = {
   lastSearch: '',
   metricsTotalCount: 42,
+  sessionsTotalCount: 7,
+  // `metric_name` of each trace-metrics request, in call order.
+  metricsCalls: [] as string[],
 };
 
 const LocationSpy = () => {
@@ -94,8 +97,11 @@ export const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) =
 };
 
 // Trace ID is hidden by default, so locate a row by its linked Input cell (a default-visible column).
-export const findTraceRow = (traceId: string) => screen.findByRole('link', { name: `Open trace ${traceId} — input` });
-export const queryTraceRow = (traceId: string) => screen.queryByRole('link', { name: `Open trace ${traceId} — input` });
+// Label queries avoid computing the accessible name of every link in the full table on each poll.
+export const findTraceRow = (traceId: string) =>
+  screen.findByLabelText(`Open trace ${traceId} — input`, { selector: 'a' });
+export const queryTraceRow = (traceId: string) =>
+  screen.queryByLabelText(`Open trace ${traceId} — input`, { selector: 'a' });
 
 // AntD's `onPressEnter` (wired to commit the search) is gated on the legacy `keyCode === 13`, which
 // userEvent's keyboard synthesis doesn't set — fire keyDown directly to exercise that path.
@@ -107,8 +113,9 @@ export const pressEnter = (input: HTMLElement) =>
 // Radix submenus open on click of their SubTrigger (role="menuitem"). The Sort and Row-height triggers
 // append their current value as a hint (e.g. "SortTime"), so match by the leading label via regex.
 export const openDisplaySubmenu = async (user: ReturnType<typeof userEvent.setup>, submenu: RegExp) => {
-  await user.click(screen.getByRole('button', { name: 'Display' }));
-  await user.click(await screen.findByRole('menuitem', { name: submenu }));
+  await user.click(screen.getByLabelText('Display', { selector: 'button' }));
+  const menu = await screen.findByRole('menu', { name: 'Display' });
+  await user.click(within(menu).getByRole('menuitem', { name: submenu }));
 };
 
 // Click a checkbox/radio item inside an open Display submenu. Radix menu items in a SubContent don't
@@ -126,6 +133,15 @@ export const sortByTime = async (
   const timeHeader = screen.getByRole('columnheader', { name: 'Time' });
   await user.click(within(timeHeader).getByRole('button', { name: 'Column options' }));
   await user.click(await screen.findByRole('menuitem', { name: `Sort ${direction}` }));
+};
+
+// Answers with the session total for `session_count` (grouped-by-session footer) and the trace total
+// otherwise, recording which metric each request asked for.
+const metricsHandler: Parameters<typeof rest.post>[1] = async (req, res, ctx) => {
+  const { metric_name: metricName = '' } = (await req.json()) as { metric_name?: string };
+  env.metricsCalls.push(metricName);
+  const count = metricName === 'session_count' ? env.sessionsTotalCount : env.metricsTotalCount;
+  return res(ctx.json({ data_points: [{ metric_name: metricName, values: { COUNT: count } }] }));
 };
 
 export const server = setupServer(
@@ -147,12 +163,8 @@ export const server = setupServer(
   // The footer "{n} of {total}" count reads the total from the trace-metrics endpoint. The endpoint
   // version depends on `shouldUseTracesV4API()` (3.0 when off, 4.0 when on), so mock both — the V4
   // tab uses 4.0 when the flag is enabled.
-  rest.post('/ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) =>
-    res(ctx.json({ data_points: [{ metric_name: 'trace_count', values: { COUNT: env.metricsTotalCount } }] })),
-  ),
-  rest.post('/ajax-api/4.0/mlflow/traces/metrics', (_req, res, ctx) =>
-    res(ctx.json({ data_points: [{ metric_name: 'trace_count', values: { COUNT: env.metricsTotalCount } }] })),
-  ),
+  rest.post('/ajax-api/3.0/mlflow/traces/metrics', metricsHandler),
+  rest.post('/ajax-api/4.0/mlflow/traces/metrics', metricsHandler),
 );
 
 export const { history } = setupTestRouter();
@@ -174,6 +186,8 @@ beforeEach(() => {
   state.searchShouldFail = false;
   state.searchErrorMessage = 'search boom';
   env.metricsTotalCount = 42;
+  env.sessionsTotalCount = 7;
+  env.metricsCalls = [];
 });
 
 afterEach(() => {

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ColumnApi } from '@ag-grid-community/core';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLegacyNotification } from '@databricks/design-system';
+import type { CursorPaginationProps } from '@databricks/design-system';
 import type {
   DatasetSummary,
   ExperimentEntity,
@@ -61,6 +62,7 @@ export interface ExperimentViewRunsProps extends ExperimentViewRunsOwnProps {
   moreRunsAvailable: boolean;
   requestError: ErrorWrapper | Error | null;
   refreshRuns: () => void;
+  pageSizeSelect: NonNullable<CursorPaginationProps['pageSizeSelect']>;
 }
 
 /**
@@ -89,6 +91,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     moreRunsAvailable,
     requestError,
     refreshRuns,
+    pageSizeSelect,
   } = props;
 
   const isComparingExperiments = experiments.length > 1;
@@ -271,6 +274,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
         rowsData={visibleRuns}
         loadMoreRunsFunc={loadMoreRunsCallback}
         moreRunsAvailable={moreRunsAvailable}
+        pageSizeSelect={pageSizeSelect}
         onDatasetSelected={datasetSelected}
         expandRows={expandRows}
         uiState={uiState}

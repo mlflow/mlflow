@@ -174,6 +174,34 @@ def test_adapter_none_content_becomes_empty_string():
     assert template[0]["content"] == ""
 
 
+def test_adapter_keeps_tool_call_fields_and_drops_unsupported_keys():
+    config = _make_endpoint_config()
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_trace_info", "arguments": "{}"},
+    }
+    payload = {
+        "messages": [
+            {"role": "user", "content": "Judge this trace."},
+            {"role": "assistant", "tool_calls": [tool_call]},
+            {
+                "role": "tool",
+                "content": '{"spans": 3}',
+                "tool_call_id": "call_1",
+                "name": "get_trace_info",
+            },
+        ]
+    }
+    result = SapAiCoreAdapter.chat_to_model(payload, config)
+
+    assert result["config"]["modules"]["prompt_templating"]["prompt"]["template"] == [
+        {"role": "user", "content": "Judge this trace."},
+        {"role": "assistant", "content": "", "tool_calls": [tool_call]},
+        {"role": "tool", "content": '{"spans": 3}', "tool_call_id": "call_1"},
+    ]
+
+
 # ---------------------------------------------------------------------------
 # SapAiCoreAdapter — response decoding
 # ---------------------------------------------------------------------------

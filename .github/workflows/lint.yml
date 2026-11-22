@@ -49,9 +49,11 @@ jobs:
           persist-credentials: false
           fetch-depth: 2
       - uses: ./.github/actions/untracked
+      # TODO: Restore parallel setup once the runner fix is deployed to hosted runners.
+      # https://github.com/actions/runner/issues/4789
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
       - parallel:
-          - uses: ./.github/actions/setup-python
-          - uses: ./.github/actions/setup-node
           - name: Cache action pins
             uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
             with:

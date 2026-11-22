@@ -7,6 +7,7 @@ import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { MemoryRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
+import { shouldEnableExperimentOverviewTab } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('./ExperimentTraceLocationPath', () => ({
   ExperimentTraceLocationPath: () => null,
@@ -55,6 +56,7 @@ describe('ExperimentPageSideNav', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(shouldEnableExperimentOverviewTab).mockReturnValue(true);
   });
 
   test.each([ExperimentKind.GENAI_DEVELOPMENT, ExperimentKind.GENAI_DEVELOPMENT_INFERRED])(
@@ -68,6 +70,7 @@ describe('ExperimentPageSideNav', () => {
       // Check observability section
       expect(screen.getByText('Observability')).toBeInTheDocument();
       expect(screen.getByText('Traces')).toBeInTheDocument();
+      expect(screen.getByText('Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Sessions')).toBeInTheDocument();
 
       // Check evaluation section
@@ -84,6 +87,17 @@ describe('ExperimentPageSideNav', () => {
     renderTestComponent(ExperimentKind.CUSTOM_MODEL_DEVELOPMENT, ExperimentPageTabName.Runs);
     expect(screen.queryByText('Sessions')).not.toBeInTheDocument();
     expect(screen.queryByText('Overview')).not.toBeInTheDocument();
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+  });
+
+  test('should hide both overview surfaces when overview is disabled', () => {
+    jest.mocked(shouldEnableExperimentOverviewTab).mockReturnValue(false);
+
+    renderTestComponent(ExperimentKind.GENAI_DEVELOPMENT, ExperimentPageTabName.Traces);
+
+    expect(screen.queryByText('Overview')).not.toBeInTheDocument();
+    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
+    expect(screen.getByText('Traces')).toBeInTheDocument();
   });
 
   test.each([

@@ -18,8 +18,8 @@ import {
 } from '@mlflow/core';
 
 // NB: 'Completions' represents chat.completions
-const SUPPORTED_MODULES = ['Completions', 'Responses', 'Embeddings'];
-const SUPPORTED_METHODS = ['create']; // chat.completions.create, embeddings.create, responses.create
+const SUPPORTED_MODULES = ['Completions', 'Responses', 'Embeddings', 'Decisions'];
+const SUPPORTED_METHODS = ['create'];
 
 type OpenAIUsage = CompletionUsage | ResponseUsage;
 const MAX_ACCUMULATED_LENGTH = 10000;
@@ -38,6 +38,7 @@ type AccumulatedChoice = {
   message: {
     role: string;
     content: string;
+    refusal?: string;
     tool_calls?: Array<{
       id?: string;
       type: string;
@@ -152,15 +153,32 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
     return withSpan(
       async (span: LiveSpan) => {
         span.setInputs(args[0]);
+        if (moduleName === 'Decisions') {
+          span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai_decisions');
+          span.setAttribute('mlflow.llm.provider', 'openai');
+          const model = (args[0] as { model?: unknown } | undefined)?.model;
+          if (typeof model === 'string') {
+            span.setAttribute('mlflow.llm.model', model);
+          }
+        }
 
         const result = await fn.apply(this, args);
 
         // TODO: Handle Responses API streaming responses
         span.setOutputs(result);
+        if (moduleName === 'Decisions') {
+          const model = (result as { model?: unknown } | undefined)?.model;
+          if (typeof model === 'string' && model) {
+            span.setAttribute('mlflow.llm.model', model);
+          }
+        }
 
         // Add token usage
         try {
-          const usage = extractTokenUsage(result);
+          const usage =
+            moduleName === 'Decisions'
+              ? extractDecisionTokenUsage(result)
+              : extractTokenUsage(result);
           if (usage) {
             span.setAttribute(SpanAttributeKey.TOKEN_USAGE, usage);
           }
@@ -168,7 +186,9 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
           console.debug('Error extracting token usage', error);
         }
 
-        span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
+        if (moduleName !== 'Decisions') {
+          span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
+        }
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
@@ -271,6 +291,12 @@ async function* wrapChatCompletionIterator(
         if (delta.content) {
           accumulated.message.content = appendBounded(accumulated.message.content, delta.content);
         }
+        if (delta.refusal) {
+          accumulated.message.refusal = appendBounded(
+            accumulated.message.refusal ?? '',
+            delta.refusal,
+          );
+        }
         if (delta.tool_calls) {
           accumulated.message.tool_calls ??= [];
           for (const toolCall of delta.tool_calls) {
@@ -341,6 +367,7 @@ function getSpanType(moduleName: string): SpanType | undefined {
     case 'Completions':
       return SpanType.LLM;
     case 'Responses':
+    case 'Decisions':
       return SpanType.LLM;
     case 'Embeddings':
       return SpanType.EMBEDDING;
@@ -352,7 +379,7 @@ function getSpanType(moduleName: string): SpanType | undefined {
 
 /**
  * Extract token usage information from OpenAI response
- * Supports both ChatCompletion API format and Responses API format
+ * Supports Chat Completions, Responses, and Decisions usage formats.
  */
 function extractTokenUsage(response: any): TokenUsage | undefined {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -381,4 +408,28 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
   }
 
   return undefined;
+}
+
+function extractDecisionTokenUsage(response: unknown): TokenUsage | undefined {
+  const usage = extractTokenUsage(response);
+  if (!usage) {
+    return undefined;
+  }
+
+  const details = (
+    response as
+      | {
+          usage?: {
+            input_tokens_details?: { cached_tokens?: unknown; cache_write_tokens?: unknown };
+          };
+        }
+      | undefined
+  )?.usage?.input_tokens_details;
+  if (typeof details?.cached_tokens === 'number') {
+    usage.cache_read_input_tokens = details.cached_tokens;
+  }
+  if (typeof details?.cache_write_tokens === 'number') {
+    usage.cache_creation_input_tokens = details.cache_write_tokens;
+  }
+  return usage;
 }

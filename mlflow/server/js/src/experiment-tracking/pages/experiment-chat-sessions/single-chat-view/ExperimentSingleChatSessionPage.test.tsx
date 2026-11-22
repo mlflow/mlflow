@@ -7,6 +7,15 @@ import { CustomViewDefinitionProvider } from '@databricks/web-shared/model-trace
 
 import ExperimentSingleChatSessionPage from './ExperimentSingleChatSessionPage';
 
+// These tests cover the session page itself, with the new eval runs UI off; with it on the route
+// redirects to the Traces tab drawer (ExperimentSingleChatSessionPage.redirect.test.tsx).
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+
 const mockExperimentCustomViewProvider = jest.fn(
   ({ children, experimentId }: { children: React.ReactNode; experimentId?: string }) => (
     <div data-testid="custom-view-provider" data-experiment-id={experimentId}>

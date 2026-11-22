@@ -1,3 +1,8 @@
+import {
+  DEFAULT_TRACES_V4_TIME_LABEL,
+  getStartEndForLabel,
+} from '../../../components/experiment-page/components/traces-v4/utils/timeRange';
+
 export enum TimeUnit {
   Second = 'second',
   Minute = 'minute',
@@ -19,6 +24,32 @@ export const TIME_UNIT_SECONDS: Record<TimeUnit, number> = {
 
 // Maximum number of data points allowed for charts rendering
 export const MAX_DATA_POINTS = 1000;
+
+const GENAI_OVERVIEW_LEGACY_DAY_COUNT = 30;
+
+export interface GenAIOverviewTimeRange {
+  startTimeMs: number;
+  endTimeMs: number;
+}
+
+export function createGenAIOverviewTimeRange(dateNow: Date, useRollingSevenDayRange: boolean): GenAIOverviewTimeRange {
+  if (useRollingSevenDayRange) {
+    const { startTime, endTime } = getStartEndForLabel(dateNow, DEFAULT_TRACES_V4_TIME_LABEL);
+    if (!startTime || !endTime) {
+      throw new Error('The default Traces time range must have start and end times');
+    }
+    return {
+      startTimeMs: new Date(startTime).getTime(),
+      endTimeMs: new Date(endTime).getTime(),
+    };
+  }
+
+  const endTimeMs = Date.UTC(dateNow.getUTCFullYear(), dateNow.getUTCMonth(), dateNow.getUTCDate(), 23, 59, 59, 999);
+  return {
+    startTimeMs: endTimeMs - GENAI_OVERVIEW_LEGACY_DAY_COUNT * TIME_UNIT_SECONDS[TimeUnit.Day] * 1000 + 1,
+    endTimeMs,
+  };
+}
 
 /**
  * Calculate the expected number of data points for a given time range and unit

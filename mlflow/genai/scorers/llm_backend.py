@@ -18,11 +18,13 @@ from typing import Any, Literal
 import pydantic
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_caller_headers
 from mlflow.metrics.genai.model_utils import (
     _call_llm_provider_api,
     _get_provider_instance,
@@ -233,12 +235,19 @@ class ScorerLLMClient:
         **kwargs: Any,
     ) -> str:
         response_format_dict = self._convert_response_format(response_format)
+        gateway_kwargs = (
+            # Scorer packages are judges; the simulator sets its own caller around its calls.
+            {"extra_headers": get_gateway_caller_headers(default=GatewayCaller.JUDGE)}
+            if self._provider == "gateway"
+            else {}
+        )
         return _call_llm_provider_api(
             self._provider,
             self._model_name,
             messages=messages,
             eval_parameters=kwargs or None,
             response_format=response_format_dict,
+            **gateway_kwargs,
         )
 
     def _complete_litellm(

@@ -167,6 +167,11 @@ def register(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) ->
         action="store_true",
         help="Report unresolvable references and exit non-zero, without uploading anything",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero instead of stripping a citation whose media did not upload",
+    )
     parser.set_defaults(func=run)
 
 
@@ -229,6 +234,10 @@ def run(args: argparse.Namespace) -> None:
                 print(f"  uploaded {path.name} -> {urls[str(path)]}", file=sys.stderr)
 
     unavailable = [str(p) for p in referenced if str(p) not in urls] + stray
+
+    if args.strict and unavailable:
+        print(f"ERROR: {len(unavailable)} cited media did not upload", file=sys.stderr)
+        sys.exit(1)
 
     sys.stdout.write(substitute(text, urls, unavailable))
     print(f"Embedded {len(urls)} of {len(referenced)} referenced file(s)", file=sys.stderr)

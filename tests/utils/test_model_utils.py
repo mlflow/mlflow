@@ -126,3 +126,139 @@ def test_env_var_tracker(monkeypatch):
     with env_var_tracker() as env:
         os.environ.get("API_KEY")
         assert env == set()
+
+
+@pytest.mark.parametrize(
+    ("model_code", "pickle", "expected"),
+    [
+        (None, None, True),
+        ("false", None, False),
+        (None, "false", False),
+        ("true", "false", False),
+        ("false", "true", False),
+        ("true", "true", True),
+    ],
+)
+def test_is_pickle_loading_allowed(monkeypatch, model_code, pickle, expected):
+    for name, value in [
+        ("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", model_code),
+        ("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", pickle),
+    ]:
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    assert mlflow_model_utils._is_pickle_loading_allowed() is expected
+
+
+def test_is_pickle_loading_allowed_warns_on_deprecated_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "true")
+    with pytest.warns(FutureWarning, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
+        assert mlflow_model_utils._is_pickle_loading_allowed()
+
+
+@pytest.mark.parametrize(
+    "databricks_env_fn", ["is_in_databricks_runtime", "is_in_databricks_model_serving_environment"]
+)
+def test_is_pickle_loading_allowed_in_databricks(monkeypatch, databricks_env_fn):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with mock.patch(f"mlflow.utils.model_utils.{databricks_env_fn}", return_value=True):
+        assert mlflow_model_utils._is_pickle_loading_allowed()
+        assert not mlflow_model_utils._is_pickle_loading_allowed(allow_in_databricks=False)
+
+
+@pytest.mark.parametrize(
+    ("model_code", "pickle", "expected"),
+    [
+        (None, None, True),
+        ("false", None, False),
+        # The deprecated variable keeps refusing only pickle, as before.
+        (None, "false", True),
+        ("true", "false", True),
+    ],
+)
+def test_is_model_code_loading_allowed(monkeypatch, model_code, pickle, expected):
+    for name, value in [
+        ("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", model_code),
+        ("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", pickle),
+    ]:
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    assert mlflow_model_utils._is_model_code_loading_allowed() is expected
+
+
+@pytest.mark.parametrize(
+    ("pickle", "mentions_deprecated_variable"),
+    [(None, False), ("true", False), ("false", True)],
+)
+def test_deprecated_pickle_variable_hint(monkeypatch, pickle, mentions_deprecated_variable):
+    if pickle is None:
+        monkeypatch.delenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", raising=False)
+    else:
+        monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", pickle)
+    hint = mlflow_model_utils._deprecated_pickle_variable_hint()
+    assert ("MLFLOW_ALLOW_PICKLE_DESERIALIZATION" in hint) is mentions_deprecated_variable
+
+
+def test_add_code_refuses_code_directory_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "code").mkdir()
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    sys_path = list(sys.path)
+    with pytest.raises(MlflowException, match="a model with a code directory"):
+        mlflow_model_utils._add_code_from_conf_to_system_path(str(tmp_path), {"code": "code"})
+    assert sys.path == sys_path
+
+
+def test_add_code_refuses_model_on_python_path_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch
+):
+    # Without a code directory, a model can still import its own files when the model directory
+    # is under a `sys.path` entry, such as the current directory.
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="on the Python path"):
+        mlflow_model_utils._add_code_from_conf_to_system_path(str(model_dir), {})
+
+
+def test_load_model_from_code_refused_when_model_code_execution_disallowed(tmp_path, monkeypatch):
+    marker = tmp_path / "marker"
+    code_file = tmp_path / "model.py"
+    code_file.write_text(
+        "import mlflow\n"
+        f"open({str(marker)!r}, 'w').close()\n"
+        "mlflow.models.set_model(lambda model_input: model_input)\n"
+    )
+    model_dir = tmp_path / "model"
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    # Saving runs the user's own code, so it stays allowed.
+    mlflow.pyfunc.save_model(model_dir, python_model=str(code_file), pip_requirements=["mlflow"])
+    marker.unlink()
+
+    with pytest.raises(MlflowException, match="Loading PyFunc models is disallowed"):
+        mlflow.pyfunc.load_model(str(model_dir))
+    # Inferring pip requirements loads the model in a subprocess that skips the PyFunc load check.
+    mlflow.models.infer_pip_requirements(str(model_dir), "python_function", fallback=[])
+    assert not marker.exists()
+
+
+def test_save_model_with_infer_code_paths_refused_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch
+):
+    code_file = tmp_path / "model.py"
+    code_file.write_text(
+        "import mlflow\nmlflow.models.set_model(lambda model_input: model_input)\n"
+    )
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="infer_code_paths=True"):
+        mlflow.pyfunc.save_model(
+            tmp_path / "model",
+            python_model=str(code_file),
+            pip_requirements=["mlflow"],
+            infer_code_paths=True,
+        )

@@ -1,12 +1,23 @@
+import base64
+import json
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
 
 import pytest
 
-from mlflow.entities import IssueSeverity, IssueStatus, TraceState
-from mlflow.entities.assessment import IssueReference
+from mlflow.entities import Issue, IssueSeverity, IssueStatus, TraceState
+from mlflow.entities.assessment import Feedback, IssueReference
+from mlflow.entities.issue_evidence import (
+    ISSUE_EVIDENCE_METADATA_KEY,
+    IssueEvidence,
+    IssueEvidenceStep,
+)
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.models import SqlIssue
+from mlflow.utils.issue_utils import issue_page_token
 from mlflow.utils.time import get_current_time_millis
 
 DEFAULT_EXPERIMENT_ID = "0"
@@ -86,7 +97,7 @@ def test_create_issue_invalid_experiment(store):
 def test_create_issue_invalid_run(store):
     exp_id = DEFAULT_EXPERIMENT_ID
 
-    with pytest.raises(MlflowException, match=r"FOREIGN KEY constraint failed"):
+    with pytest.raises(MlflowException, match="Run with id=nonexistent-run-id not found"):
         store.create_issue(
             experiment_id=exp_id,
             source_run_id="nonexistent-run-id",
@@ -1050,3 +1061,554 @@ def test_search_issues_sorted_by_trace_count_within_severity(store):
     assert result[2].trace_count == 2
     assert result[3].issue_id == issue_medium_0_traces.issue_id
     assert result[3].trace_count == 0
+
+
+def test_issue_extended_contract_and_partial_updates(store):
+    issue = store.create_issue(
+        "0",
+        "Latency",
+        "Details",
+        issue_id="iss-caller-chosen",
+        last_seen_timestamp=0,
+        created_by="author",
+        categories=["latency", "cost"],
+        metadata={"keep": "1", "change": "old", "remove": "old"},
+        root_causes=["Legacy cause"],
+    )
+    assert issue.last_seen_timestamp == 0
+    assert issue.last_updated_by == "author"
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.create_issue("0", "Retry", "", issue_id=issue.issue_id)
+    assert exc.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    updated = store.update_issue(
+        issue.issue_id,
+        description="",
+        categories=[],
+        last_seen_timestamp=10,
+        last_updated_by="editor",
+        metadata={"change": "new"},
+        delete_metadata_keys=["remove"],
+    )
+    assert updated.metadata == {"keep": "1", "change": "new"}
+    assert updated.description == ""
+    assert updated.categories is None
+    assert updated.root_causes == ["Legacy cause"]
+    assert updated.created_by == "author"
+    assert updated.last_updated_by == "editor"
+    assert updated.created_timestamp == issue.created_timestamp
+    assert store.update_issue(issue.issue_id, last_seen_timestamp=5).last_seen_timestamp == 10
+    assert store.update_issue(issue.issue_id, name="New name").last_seen_timestamp == 10
+    assert store.search_issues(categories=["cost"]) == []
+
+
+@pytest.mark.parametrize("actor", ["", "a" * 255], ids=["empty", "max-length"])
+def test_issue_create_actor(store, actor):
+    issue = store.create_issue("0", "Issue", "", created_by=actor)
+    for result in (issue, store.get_issue(issue.issue_id)):
+        assert result.created_by == actor
+        assert result.last_updated_by == actor
+
+
+@pytest.mark.parametrize("actor", ["", "a" * 255], ids=["empty", "max-length"])
+def test_issue_update_actor(store, actor):
+    issue = store.create_issue("0", "Issue", "", created_by="author")
+    updated = store.update_issue(issue.issue_id, last_updated_by=actor)
+    for result in (updated, store.get_issue(issue.issue_id)):
+        assert result.created_by == "author"
+        assert result.last_updated_by == actor
+
+
+@pytest.mark.parametrize("actor", [123, "a" * 256], ids=["non-string", "too-long"])
+def test_issue_update_actor_validation_is_atomic(store, actor):
+    issue = store.create_issue("0", "Original", "", created_by="author")
+    with pytest.raises(MlflowException, match="Invalid last_updated_by") as exc:
+        store.update_issue(issue.issue_id, name="Changed", last_updated_by=actor)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    unchanged = store.get_issue(issue.issue_id)
+    assert unchanged.name == "Original"
+    assert unchanged.last_updated_by == "author"
+
+
+@pytest.mark.parametrize("categories", [None, [], ["cost"]])
+def test_issue_empty_categories_match_create_and_clear(store, categories):
+    issue = store.create_issue("0", "Issue", "", categories=categories)
+    assert issue.categories == (categories or None)
+    unchanged = store.update_issue(issue.issue_id, name="Renamed", categories=None)
+    assert unchanged.categories == issue.categories
+    matching_ids = [result.issue_id for result in store.search_issues(categories=["cost"])]
+    assert matching_ids == ([issue.issue_id] if categories else [])
+
+    cleared = store.update_issue(issue.issue_id, categories=[])
+    for result in (cleared, store.get_issue(issue.issue_id), *store.search_issues()):
+        assert result.categories is None
+        assert Issue.from_proto(result.to_proto()).categories is None
+    filtered = store.search_issues(categories=["cost"], include_total_count=True)
+    assert filtered == []
+    assert filtered.total_count == 0
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"name": ""},
+        {"issue_id": "invalid"},
+        {"last_seen_timestamp": -1},
+        {"last_seen_timestamp": True},
+        {"metadata": {"key": 123}},
+        {"categories": "cost"},
+        {"status": "invalid"},
+        {"severity": "critical"},
+        {"created_by": 123},
+        {"created_by": "a" * 256},
+    ],
+)
+def test_issue_create_validation(store, kwargs):
+    with pytest.raises(MlflowException, match=".+") as exc:
+        store.create_issue(**{"experiment_id": "0", "name": "Issue", "description": "", **kwargs})
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_issue_patch_validation_is_atomic(store):
+    issue = store.create_issue("0", "Original", "", metadata={"owner": "team"})
+    with pytest.raises(MlflowException, match="same key"):
+        store.update_issue(
+            issue.issue_id,
+            name="Changed",
+            metadata={"owner": "other"},
+            delete_metadata_keys=["owner"],
+        )
+    assert store.get_issue(issue.issue_id).name == "Original"
+    with pytest.raises(MlflowException, match="at most 100"):
+        store.update_issue(
+            issue.issue_id, name="Changed", metadata={str(i): "v" for i in range(100)}
+        )
+    assert store.get_issue(issue.issue_id).metadata == {"owner": "team"}
+    assert store.get_issue(issue.issue_id).name == "Original"
+
+
+@pytest.mark.parametrize("value", ["x" * 1000, "\x00" * 1000], ids=["ascii", "json-escaped"])
+def test_issue_large_metadata_round_trip(store, value):
+    metadata = {str(index): value for index in range(70)}
+    issue = store.create_issue("0", "Large metadata", "", metadata=metadata)
+    assert store.get_issue(issue.issue_id).metadata == metadata
+    patch = {str(index): value for index in range(70, 100)}
+    store.update_issue(issue.issue_id, metadata=patch)
+    assert store.get_issue(issue.issue_id).metadata == metadata | patch
+
+
+def test_issue_name_search_treats_brackets_literally(store):
+    issue = store.create_issue("0", "Error [500]", "")
+    store.create_issue("0", "Error 5", "")
+    results = store.search_issues(name="error [500]", include_total_count=True)
+    assert [result.issue_id for result in results] == [issue.issue_id]
+    assert results.total_count == 1
+
+
+@pytest.mark.parametrize("category", ["Cost", "CustomerSupport", "Café"])
+@pytest.mark.parametrize("include_trace_count", [False, True])
+def test_issue_category_search_ignores_case_and_surrounding_whitespace(
+    store, category, include_trace_count
+):
+    categories = [category, category.upper(), f" {category.lower()} "]
+    issue = store.create_issue("0", "Issue", "", categories=categories)
+    store.create_issue("0", "Different category", "", categories=[f"{category}Extra"])
+    assert store.get_issue(issue.issue_id).categories == categories
+
+    options = {"include_total_count": True, "include_trace_count": include_trace_count}
+    results = store.search_issues(categories=[f" {category.upper()} "], **options)
+    assert [result.issue_id for result in results] == [issue.issue_id]
+    assert results.total_count == 1
+
+    # Reuse the index entry when only the spelling changes, including repeated updates.
+    for replacement in ([category.upper()], [f" {category.lower()} ", category]):
+        assert store.update_issue(issue.issue_id, categories=replacement).categories == replacement
+        results = store.search_issues(categories=[category.lower()], **options)
+        assert [result.issue_id for result in results] == [issue.issue_id]
+        assert results.total_count == 1
+
+    store.update_issue(issue.issue_id, categories=["replacement"])
+    assert store.search_issues(categories=[category], **options).total_count == 0
+    store.update_issue(issue.issue_id, categories=[])
+    assert store.search_issues(categories=["REPLACEMENT"], **options).total_count == 0
+
+
+def test_issue_category_paging_accepts_equivalent_filters(store):
+    for index in range(3):
+        store.create_issue("0", "Issue", "", issue_id=f"iss-{index}", categories=["Cost", "COST"])
+    options = {"max_results": 1, "include_total_count": True}
+    first = store.search_issues(categories=["cost"], **options)
+    second = store.search_issues(categories=[" COST "], page_token=first.token, **options)
+    third = store.search_issues(categories=["cost", "Cost"], page_token=second.token, **options)
+    assert [issue.issue_id for issue in first + second + third] == ["iss-2", "iss-1", "iss-0"]
+    assert first.total_count == second.total_count == third.total_count == 3
+    assert third.token is None
+
+
+def test_issue_source_run_ownership(store):
+    experiment_id = store.create_experiment("other")
+    run = store.create_run(experiment_id, "user", 1, [], "run")
+    with pytest.raises(MlflowException, match="belong"):
+        store.create_issue("0", "Issue", "", source_run_id=run.info.run_id)
+    issue = store.create_issue(experiment_id, "Issue", "", source_run_id=run.info.run_id)
+    assert issue.source_run_id == run.info.run_id
+    assert store.update_issue(issue.issue_id, name="Updated").source_run_id == run.info.run_id
+
+
+def test_issue_search_facets_pagination_and_projection(store):
+    for index in range(5):
+        store.create_issue(
+            "0",
+            f"Latency 100%_{index}",
+            "Large description",
+            issue_id=f"iss-{index}",
+            severity=IssueSeverity.HIGH,
+            categories=["latency", "cost"],
+            metadata={"evidence": "large"},
+            root_causes=["Legacy cause"],
+            last_seen_timestamp=100,
+        )
+    store.create_issue("0", "Latency 100xxx", "", severity=IssueSeverity.LOW)
+    options = {
+        "experiment_id": "0",
+        "name": "LATENCY 100%_",
+        "statuses": ["pending", "resolved"],
+        "severities": ["high"],
+        "categories": ["cost", "other"],
+        "order_by": ["last_seen_timestamp DESC"],
+        "include_total_count": True,
+        "include_trace_count": True,
+        "view": "basic",
+        "max_results": 2,
+    }
+    first = store.search_issues(**options)
+    assert [issue.issue_id for issue in first] == ["iss-4", "iss-3"]
+    assert first.total_count == 5
+    assert first[0].trace_count == 0
+    assert first[0].description == ""
+    assert first[0].root_causes is None
+    assert first[0].metadata is None
+    second = store.search_issues(**options, page_token=first.token)
+    third = store.search_issues(**options, page_token=second.token)
+    assert [issue.issue_id for issue in second + third] == ["iss-2", "iss-1", "iss-0"]
+    assert third.token is None
+    full = store.get_issue("iss-0")
+    assert full.description == "Large description"
+    assert full.metadata == {"evidence": "large"}
+    for changed in [
+        {"name": "different"},
+        {"view": "full"},
+        {"order_by": ["name ASC"]},
+        {"experiment_id": "123"},
+    ]:
+        with pytest.raises(MlflowException, match="page token"):
+            store.search_issues(**(options | changed), page_token=first.token)
+    store.update_issue("iss-4", categories=["other"], status=IssueStatus.RESOLVED)
+    filtered = store.search_issues(
+        statuses=["resolved"], categories=["other"], include_total_count=True
+    )
+    assert [issue.issue_id for issue in filtered] == ["iss-4"]
+    assert filtered.total_count == 1
+
+
+@pytest.mark.parametrize("include_trace_count", [False, True])
+def test_issue_default_and_explicit_sort_use_same_tiebreaker(store, include_trace_count):
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=100
+    ) as clock:
+        for issue_id in ["iss-b", "iss-c", "iss-a"]:
+            store.create_issue(
+                "0", "Same title", "", issue_id=issue_id, severity=IssueSeverity.HIGH
+            )
+        assert clock.call_count == 3
+    for order_by in [None, ["severity DESC", "created_timestamp DESC"]]:
+        results = []
+        token = None
+        while True:
+            page = store.search_issues(
+                order_by=order_by,
+                include_trace_count=include_trace_count,
+                max_results=1,
+                page_token=token,
+            )
+            results.extend(issue.issue_id for issue in page)
+            if not (token := page.token):
+                break
+        assert results == ["iss-c", "iss-b", "iss-a"]
+
+
+@pytest.mark.parametrize(
+    ("order_by", "expected"),
+    [
+        (["severity DESC"], ["iss-high", "iss-low", "iss-null"]),
+        (["status ASC"], ["iss-low", "iss-null", "iss-high"]),
+        (["name DESC"], ["iss-null", "iss-low", "iss-high"]),
+        (["last_seen_timestamp ASC"], ["iss-null", "iss-low", "iss-high"]),
+    ],
+)
+def test_issue_explicit_ordering(store, order_by, expected):
+    store.create_issue(
+        "0",
+        "A",
+        "",
+        issue_id="iss-high",
+        severity=IssueSeverity.HIGH,
+        status=IssueStatus.RESOLVED,
+        last_seen_timestamp=3,
+    )
+    store.create_issue(
+        "0", "B", "", issue_id="iss-low", severity=IssueSeverity.LOW, last_seen_timestamp=2
+    )
+    store.create_issue(
+        "0", "C", "", issue_id="iss-null", status=IssueStatus.REJECTED, last_seen_timestamp=1
+    )
+    assert [issue.issue_id for issue in store.search_issues(order_by=order_by)] == expected
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"name": 1},
+        {"statuses": "pending"},
+        {"severities": ["critical"]},
+        {"order_by": "name DESC"},
+        {"order_by": ["unknown DESC"]},
+        {"order_by": ["name DESC extra"]},
+        {"view": "invalid"},
+        {"page_token": "not base64"},
+        {"page_token": "bnVsbA=="},
+        {"page_token": "W10="},
+        {"page_token": "eyJvZmZzZXQiOi0xfQ=="},
+    ],
+)
+def test_issue_search_validation(store, options):
+    with pytest.raises(MlflowException, match=".+") as exc:
+        store.search_issues(**options)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_issue_concurrent_metadata_patches_preserve_unrelated_keys(store):
+    issue = store.create_issue("0", "Issue", "", last_seen_timestamp=0)
+
+    def patch(index):
+        store.update_issue(
+            issue.issue_id, metadata={str(index): "value"}, last_seen_timestamp=index
+        )
+
+    with ThreadPoolExecutor(max_workers=4, thread_name_prefix="issue-patch") as executor:
+        list(executor.map(patch, range(12)))
+    updated = store.get_issue(issue.issue_id)
+    assert updated.metadata == {str(index): "value" for index in range(12)}
+    assert updated.last_seen_timestamp == 11
+
+
+@pytest.mark.parametrize(
+    "order_by",
+    [
+        ["status ASC", "severity DESC", "last_seen_timestamp DESC"],
+        ["last_seen_timestamp DESC"],
+        ["created_timestamp DESC"],
+        ["last_updated_timestamp DESC"],
+        ["name ASC", "severity DESC"],
+    ],
+)
+@pytest.mark.parametrize("mutation", ["insert", "triage", "delete_anchor", "update_anchor"])
+@pytest.mark.parametrize("include_trace_count", [False, True])
+def test_issue_keyset_pages_survive_list_mutations(store, order_by, mutation, include_trace_count):
+    for index in range(6):
+        with mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis",
+            return_value=100 + index,
+        ) as clock:
+            store.create_issue(
+                "0",
+                f"Issue {index}",
+                "",
+                issue_id=f"iss-cursor-{index}",
+                severity=IssueSeverity.HIGH if index % 2 else IssueSeverity.LOW,
+                last_seen_timestamp=1000 + index,
+            )
+            clock.assert_called_once()
+    options = {
+        "experiment_id": "0",
+        "statuses": ["pending"],
+        "order_by": order_by,
+        "include_total_count": True,
+        "include_trace_count": include_trace_count,
+        "view": "basic",
+    }
+    expected = [issue.issue_id for issue in store.search_issues(**options)]
+    first = store.search_issues(**options, max_results=2)
+    token = json.loads(base64.b64decode(first.token))
+    assert token["version"] == 2
+    assert "offset" not in token
+    if mutation == "insert":
+        with mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=9000
+        ) as clock:
+            store.create_issue(
+                "0", "AAA", "", severity=IssueSeverity.HIGH, last_seen_timestamp=9000
+            )
+            clock.assert_called_once()
+    elif mutation == "triage":
+        store.update_issue(first[0].issue_id, status=IssueStatus.RESOLVED)
+    elif mutation == "delete_anchor":
+        with store.ManagedSessionMaker() as session:
+            session.query(SqlIssue).filter(SqlIssue.issue_id == first[-1].issue_id).delete()
+    else:
+        store.update_issue(first[-1].issue_id, last_seen_timestamp=9000, name="AAA")
+    remaining = []
+    next_token = first.token
+    while next_token:
+        page = store.search_issues(**options, max_results=2, page_token=next_token)
+        assert page.total_count == 6 + (mutation == "insert") - (
+            mutation in {"triage", "delete_anchor"}
+        )
+        remaining.extend(issue.issue_id for issue in page)
+        next_token = page.token
+    assert remaining == expected[2:]
+
+
+@pytest.mark.parametrize(
+    "order_by",
+    [
+        ["severity ASC", "status DESC", "last_seen_timestamp ASC"],
+        ["name ASC"],
+        ["last_seen_timestamp DESC"],
+    ],
+)
+def test_issue_keyset_ties_nulls_and_legacy_tokens(store, order_by):
+    with mock.patch(
+        "mlflow.store.tracking.sqlalchemy_store.get_current_time_millis", return_value=100
+    ) as clock:
+        for index in range(5):
+            store.create_issue(
+                "0",
+                "Same title",
+                "",
+                issue_id=f"iss-tie-{index}",
+                severity=IssueSeverity.LOW if index % 2 else None,
+                status=IssueStatus.RESOLVED if index % 2 else IssueStatus.PENDING,
+            )
+        assert clock.call_count == 5
+    with store.ManagedSessionMaker() as session:
+        session.query(SqlIssue).update({SqlIssue.last_seen_timestamp: None})
+    options = {"order_by": order_by, "include_trace_count": True, "include_total_count": True}
+    expected = [issue.issue_id for issue in store.search_issues(**options)]
+    first = store.search_issues(**options, max_results=1)
+    fingerprint = json.loads(base64.b64decode(first.token))["query"]
+    # A token issued before the cursor rollout is accepted, then upgraded on the next page.
+    second = store.search_issues(
+        **options, max_results=1, page_token=issue_page_token(1, fingerprint)
+    )
+    assert second[0].issue_id == expected[1]
+    assert json.loads(base64.b64decode(second.token))["version"] == 2
+    remaining = list(second)
+    token = second.token
+    while token:
+        page = store.search_issues(**options, max_results=1, page_token=token)
+        remaining.extend(page)
+        token = page.token
+    assert [issue.issue_id for issue in first + remaining] == expected
+    for malformed in [
+        {"version": 3},
+        {"after": []},
+        {"after": [True, "iss-tie-0"]},
+        {"after": [None, "iss-tie-0"]},
+        {"after": [[], "iss-tie-0"]},
+        {"after": [100]},
+        {"query": "another-query"},
+        {"after": [2**100, "iss-tie-0"]},
+    ]:
+        data = json.loads(base64.b64decode(first.token)) | malformed
+        token = base64.b64encode(json.dumps(data).encode()).decode()
+        with pytest.raises(MlflowException, match="page token"):
+            store.search_issues(**options, max_results=1, page_token=token)
+
+
+def _trace(store, exp_id):
+    return store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+
+def test_evidence_metadata_round_trips_and_leaves_counts_and_search_intact(store):
+    exp_id = store.create_experiment("test")
+    issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Empty retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    with_evidence = _trace(store, exp_id)
+    rationale_only = _trace(store, exp_id)
+    unrelated = _trace(store, exp_id)
+
+    evidence = IssueEvidence(
+        summary="The agent answered from an empty context",
+        steps=[
+            IssueEvidenceStep(
+                span_id="span-1",
+                text="The retriever returned 0 documents",
+                highlights=["0 documents"],
+                highlight_tone="error",
+            )
+        ],
+        primary_span_id="span-1",
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue.issue_id,
+            issue_name=issue.name,
+            trace_id=with_evidence.request_id,
+            rationale=evidence.summary,
+            span_id="span-1",
+            metadata={ISSUE_EVIDENCE_METADATA_KEY: evidence.to_metadata_value()},
+        )
+    )
+    # A reference written before structured evidence stays readable alongside the new one.
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue.issue_id,
+            issue_name=issue.name,
+            trace_id=rationale_only.request_id,
+            rationale="Only a rationale",
+        )
+    )
+    # Feedback is a separate assessment type and is not an issue association.
+    store.create_assessment(
+        Feedback(name="quality", value=False, trace_id=unrelated.request_id, rationale="Unrelated")
+    )
+
+    (searched,) = store.search_issues(experiment_id=exp_id, include_trace_count=True)
+    assert searched.trace_count == 2
+
+    stored = {
+        assessment.trace_id: assessment
+        for assessment in store.get_trace_info(with_evidence.request_id).assessments
+    }
+    restored = IssueEvidence.from_assessment(stored[with_evidence.request_id])
+    assert restored.steps == evidence.steps
+    assert restored.primary_span_id == "span-1"
+
+    legacy_assessment = store.get_trace_info(rationale_only.request_id).assessments[0]
+    assert IssueEvidence.from_assessment(legacy_assessment) is None
+    assert legacy_assessment.rationale == "Only a rationale"
+
+    traces = store.search_traces(
+        experiment_ids=[exp_id], filter_string=f"issue.id = '{issue.issue_id}'"
+    )[0]
+    assert {trace.trace_id for trace in traces} == {
+        with_evidence.request_id,
+        rationale_only.request_id,
+    }

@@ -515,6 +515,34 @@ def test_schema_enforcement_single_unnamed_tensor_schema():
         pyfunc_model.predict(input_df)
 
 
+@pytest.mark.parametrize("named", [False, True])
+@pytest.mark.parametrize("index", [range(2), [10, 20], ["left", "right"], [0, 0]])
+@pytest.mark.parametrize(
+    ("values", "shape"),
+    [
+        ([1.0, 2.0], (-1,)),
+        ([1.0, 2.0], (-1, 1)),
+        ([[1.0, 2.0], [3.0, 4.0]], (-1, 2)),
+        ([np.array([1.0, 2.0]), np.array([3.0, 4.0])], (-1, 2)),
+    ],
+)
+def test_tensor_schema_enforcement_dataframe_row_index(named, index, values, shape):
+    df = pd.DataFrame({"x": values}, index=index)
+    original = df.copy(deep=True)
+    model = Model()
+    model.signature = ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float64"), shape, "x" if named else None)])
+    )
+    pyfunc_model = PyFuncModel(model_meta=model, model_impl=TestModel())
+
+    result = pyfunc_model.predict(df)
+    if named:
+        result = result["x"]
+    np.testing.assert_array_equal(result, np.array(values).reshape(shape))
+    assert result.dtype == np.dtype("float64")
+    pd.testing.assert_frame_equal(df, original)
+
+
 def test_schema_enforcement_named_tensor_schema_1d():
     m = Model()
     input_schema = Schema([
@@ -652,6 +680,22 @@ def test_missing_value_hint_is_displayed_when_it_should():
     with pytest.raises(MlflowException, match=match) as ex:
         pyfunc_model.predict(pdf)
     assert hint not in str(ex.value.message)
+
+
+@pytest.mark.parametrize("dtype", [None, object, "string"])
+def test_column_schema_enforcement_datetime_from_strings(dtype):
+    m = Model()
+    m.signature = ModelSignature(inputs=Schema([ColSpec("datetime", "d")]))
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    expected = [pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-02 03:04:05")]
+    # pandas 3 infers the default column as StringDtype; object is what pandas 2 infers.
+    # "string" gives StringDtype on both.
+    pdf = pd.DataFrame({"d": ["2024-01-01", "2024-01-02 03:04:05"]}, dtype=dtype)
+    res = pyfunc_model.predict(pdf)
+    assert res["d"].dtype == np.dtype("datetime64[ns]")
+    assert res["d"].tolist() == expected
+    with pytest.raises(MlflowException, match="Failed to convert column d"):
+        pyfunc_model.predict(pd.DataFrame({"d": ["not a date"]}, dtype=dtype))
 
 
 def test_column_schema_enforcement_no_col_names():
@@ -2800,6 +2844,28 @@ def test_loaded_pyfunc_model_preserves_nondefault_dataframe_index(tmp_path, name
     )
 
     pd.testing.assert_frame_equal(mlflow.pyfunc.load_model(model_path).predict(df), df)
+
+
+def test_loaded_pyfunc_model_preserves_datetime_lists(tmp_path):
+    class CalendarModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return [value.year for value in model_input.iloc[0]["dates"]]
+
+    data = pd.DataFrame({"dates": [[datetime.datetime(2025, 1, 2), datetime.datetime(2025, 1, 3)]]})
+    model = CalendarModel()
+    signature = infer_signature(data)
+    assert signature.inputs == Schema([ColSpec(Array(DataType.datetime), name="dates")])
+    assert model.predict(None, data) == [2025, 2025]
+
+    model_path = tmp_path / "model"
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=model,
+        signature=signature,
+        pip_requirements=[],
+    )
+
+    assert mlflow.pyfunc.load_model(model_path).predict(data) == [2025, 2025]
 
 
 @pytest.mark.parametrize(

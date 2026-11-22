@@ -51,6 +51,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.gateway import GatewayStoreMixin
 from mlflow.store.tracking.mcp_server_registry import MCPServerRegistryMixin
+from mlflow.store.tracking.skill_registry import SkillRegistryMixin
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
@@ -60,7 +61,7 @@ from mlflow.utils.async_logging.run_operations import RunOperations
 
 
 @developer_stable
-class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
+class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixin):
     """
     Abstract class for Backend Storage.
     This class defines the API interface for front ends to connect with various types of backends.
@@ -706,6 +707,10 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         source_run_id: str | None = None,
         categories: list[str] | None = None,
         created_by: str | None = None,
+        *,
+        issue_id: str | None = None,
+        last_seen_timestamp: int | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Issue:
         """
         Create a new issue.
@@ -720,6 +725,9 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             source_run_id: Optional MLflow run ID that discovered this issue.
             categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
+            issue_id: Optional iss-* ID (at most 36 characters); reuse returns a conflict.
+            last_seen_timestamp: Latest observation in milliseconds; defaults to creation time.
+            metadata: String metadata map (at most 100 entries).
 
         Returns:
             The created Issue entity.
@@ -745,6 +753,12 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         name: str | None = None,
         description: str | None = None,
         severity: IssueSeverity | None = None,
+        *,
+        categories: list[str] | None = None,
+        last_seen_timestamp: int | None = None,
+        last_updated_by: str | None = None,
+        metadata: dict[str, str] | None = None,
+        delete_metadata_keys: list[str] | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -755,6 +769,11 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             name: Optional new name for the issue.
             description: Optional new description.
             severity: Optional new severity level.
+            categories: Replacement categories; [] clears them and None leaves them unchanged.
+            last_seen_timestamp: Latest observation in milliseconds; never moves backwards.
+            last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
+            metadata: Entries to merge with existing metadata.
+            delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
 
         Returns:
             The updated Issue entity.
@@ -768,6 +787,14 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
         max_results: int | None = None,
         page_token: str | None = None,
         include_trace_count: bool = False,
+        *,
+        name: str | None = None,
+        statuses: list[str] | None = None,
+        severities: list[str] | None = None,
+        categories: list[str] | None = None,
+        order_by: list[str] | None = None,
+        include_total_count: bool = False,
+        view: Literal["basic", "full"] | None = None,
     ) -> PagedList[Issue]:
         """
         Search for issues matching the given filters.
@@ -778,6 +805,16 @@ class AbstractStore(MCPServerRegistryMixin, GatewayStoreMixin):
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
             include_trace_count: Whether to include the count of traces impacted by each issue.
+            name: Case-insensitive literal substring of the name (not a wildcard pattern).
+            statuses: Accepted status values, ORed within the list.
+            severities: Accepted severity values, ORed within the list.
+            categories: Match any category, ignoring case and surrounding whitespace.
+                Different filter fields are ANDed.
+            order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
+                Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
+            include_total_count: Return the matching count before pagination in total_count.
+            view: "basic" returns an empty description and omits root_causes and metadata.
+                The default is "full".
 
         Returns:
             A PagedList of Issue entities.

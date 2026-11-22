@@ -11,7 +11,9 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
 from matplotlib.figure import Figure
+from packaging.version import Version
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
@@ -849,6 +851,131 @@ def test_get_multiclass_classifier_metrics(use_sample_weights):
         y_true=y, y_pred=y_pred, y_proba=y_probs, labels=[0, 1, 2], sample_weights=sample_weights
     )
     assert_dict_equal(metrics, expected_metrics, 1e-3)
+
+
+@pytest.mark.skipif(
+    Version(sklearn.__version__) < Version("1.6"),
+    reason="Older scikit-learn raises ValueError when a class is absent from y_true",
+)
+@pytest.mark.parametrize(
+    ("average", "expected_roc_auc"),
+    [("weighted", 1.0), ("macro", np.nan)],
+)
+def test_get_multiclass_classifier_metrics_with_class_absent_from_y_true(average, expected_roc_auc):
+    # Class 1 is predicted but absent from y_true, so y_proba has more columns than
+    # y_true has classes.
+    y = [0, 0, 2, 2]
+    y_pred = [0, 1, 2, 2]
+    y_probs = [
+        [0.8, 0.1, 0.1],
+        [0.4, 0.5, 0.1],
+        [0.1, 0.2, 0.7],
+        [0.2, 0.1, 0.7],
+    ]
+
+    metrics = _get_multiclass_classifier_metrics(
+        y_true=y, y_pred=y_pred, y_proba=y_probs, labels=[0, 1, 2], average=average
+    )
+
+    np.testing.assert_allclose(metrics["roc_auc"], expected_roc_auc)
+    assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
+
+
+def test_get_multiclass_classifier_metrics_suppresses_roc_auc_error(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "true")
+    with mock.patch(
+        "mlflow.models.evaluation.evaluators.classifier.sk_metrics.roc_auc_score",
+        side_effect=ValueError("boom"),
+    ) as mock_roc_auc_score:
+        metrics = _get_multiclass_classifier_metrics(
+            y_true=[0, 0, 2, 2],
+            y_pred=[0, 1, 2, 2],
+            y_proba=[
+                [0.8, 0.1, 0.1],
+                [0.4, 0.5, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.2, 0.1, 0.7],
+            ],
+            labels=[0, 1, 2],
+        )
+
+    mock_roc_auc_score.assert_called_once()
+    assert mock_roc_auc_score.call_args.kwargs["labels"] == [0, 1, 2]
+    assert "roc_auc" not in metrics
+    assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
+
+
+@pytest.mark.skipif(
+    Version(sklearn.__version__) < Version("1.6"),
+    reason="Older scikit-learn reports NaN ROC AUC whenever a class is absent from y_true",
+)
+@pytest.mark.parametrize(
+    ("average", "expected_roc_auc"),
+    [("weighted", 1.0), ("macro", np.nan)],
+)
+def test_multi_classifier_evaluation_with_class_absent_from_targets(average, expected_roc_auc):
+    X, y = load_iris(return_X_y=True)
+    model = LogisticRegression(max_iter=300).fit(X, y)
+    # Class 1 is absent from the targets, but the model still predicts it for some rows
+    mask = y != 1
+    assert 1 in model.predict(X[mask])
+    with mlflow.start_run() as run:
+        model_info = mlflow.sklearn.log_model(model, name="model")
+        result = evaluate(
+            model_info.model_uri,
+            X[mask],
+            model_type="classifier",
+            targets=y[mask],
+            evaluators="default",
+            evaluator_config={"average": average},
+        )
+
+    np.testing.assert_allclose(result.metrics["roc_auc"], expected_roc_auc)
+    assert result.metrics["log_loss"] == pytest.approx(0.0889, rel=1e-3)
+    per_class_metrics = pd.read_csv(
+        mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id, artifact_path="per_class_metrics.csv"
+        )
+    ).set_index("positive_class")
+    assert np.isnan(per_class_metrics.loc[1, "roc_auc"])
+    assert per_class_metrics.loc[[0, 2], "roc_auc"].notna().all()
+
+
+def test_multi_classifier_evaluation_when_roc_auc_raises_for_absent_class(
+    multiclass_logistic_regressor_model_uri,
+):
+    # scikit-learn < 1.6 raises this error when a class is absent from y_true.
+    X, y = load_iris(return_X_y=True)
+    mask = y != 1
+    with (
+        mock.patch(
+            "mlflow.models.evaluation.evaluators.classifier.sk_metrics.roc_auc_score",
+            side_effect=ValueError(
+                "Only one class present in y_true. ROC AUC score is not defined in that case."
+            ),
+        ) as mock_roc_auc_score,
+        mlflow.start_run() as run,
+    ):
+        result = evaluate(
+            multiclass_logistic_regressor_model_uri,
+            X[mask],
+            model_type="classifier",
+            targets=y[mask],
+            evaluators="default",
+        )
+
+    # One aggregate call plus one per-class ROC curve call for each of the 3 labels
+    assert mock_roc_auc_score.call_count == 4
+    assert np.isnan(result.metrics["roc_auc"])
+    assert result.metrics["log_loss"] > 0
+    _, _, _, artifacts = get_run_data(run.info.run_id)
+    assert {"roc_curve_plot.png", "per_class_metrics.csv"} <= set(artifacts)
+    per_class_metrics = pd.read_csv(
+        mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id, artifact_path="per_class_metrics.csv"
+        )
+    )
+    assert per_class_metrics["roc_auc"].isna().all()
 
 
 def test_gen_binary_precision_recall_curve_no_sample_weights():

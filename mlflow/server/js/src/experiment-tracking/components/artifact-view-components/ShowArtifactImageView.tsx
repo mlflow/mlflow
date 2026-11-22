@@ -6,12 +6,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { LegacySkeleton } from '@databricks/design-system';
-import {
-  getArtifactBytesContent,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
+import { ArtifactViewErrorState } from './ArtifactViewErrorState';
+import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 import { ImagePreviewGroup, Image } from '../../../shared/building_blocks/Image';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
@@ -23,54 +20,60 @@ type Props = {
 } & LoggedModelArtifactViewerProps;
 
 const ShowArtifactImageView = ({
-  experimentId,
+  artifactRootUri,
   runUuid,
   path,
   getArtifact = getArtifactBytesContent,
   isLoggedModelsMode,
   loggedModelId,
-  entityTags,
 }: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [imageUrl, setImageUrl] = useState(null);
+  const [imageUrl, setImageUrl] = useState<string>();
+  const [error, setError] = useState<Error>();
 
   useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | undefined;
     setIsLoading(true);
-
-    // Download image contents using XHR so all necessary
-    // HTTP headers will be automatically added
+    setError(undefined);
+    setImageUrl(undefined);
     fetchArtifactUnified(
       {
         runUuid,
         path,
+        artifactRootUri,
         isLoggedModelsMode,
         loggedModelId,
-        experimentId,
-        entityTags,
       },
       getArtifact,
-    ).then((result: any) => {
-      const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
-      // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
-      setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
-      setIsLoading(false);
-    });
-  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
+    )
+      .then((result: any) => {
+        if (cancelled) return;
+        const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
+        objectUrl = URL.createObjectURL(new Blob([new Uint8Array(result)], options));
+        setImageUrl(objectUrl);
+        setIsLoading(false);
+      })
+      .catch((error: Error) => {
+        if (cancelled) return;
+        setError(error);
+        setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, artifactRootUri]);
 
   return (
-    imageUrl && (
-      <div css={{ flex: 1 }}>
+    <div css={{ flex: 1 }}>
+      {isLoading && <ArtifactViewSkeleton />}
+      {error && <ArtifactViewErrorState error={error} />}
+      {imageUrl && (
         <div css={classNames.imageOuterContainer}>
-          {isLoading && <LegacySkeleton active />}
-          <div css={isLoading ? classNames.hidden : classNames.imageWrapper}>
-            <img
-              alt={path}
-              css={classNames.image}
-              src={imageUrl}
-              onLoad={() => setIsLoading(false)}
-              onClick={() => setPreviewVisible(true)}
-            />
+          <div css={classNames.imageWrapper}>
+            <img alt={path} css={classNames.image} src={imageUrl} onClick={() => setPreviewVisible(true)} />
           </div>
           <div css={[classNames.hidden]}>
             <ImagePreviewGroup visible={previewVisible} onVisibleChange={setPreviewVisible}>
@@ -78,8 +81,8 @@ const ShowArtifactImageView = ({
             </ImagePreviewGroup>
           </div>
         </div>
-      </div>
-    )
+      )}
+    </div>
   );
 };
 

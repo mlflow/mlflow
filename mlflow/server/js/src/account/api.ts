@@ -32,6 +32,14 @@ const defaultErrorHandler = async ({
 };
 
 export const AccountApi = {
+  getUserPermission: (username: string, resourceType: string, resourceId: string) => {
+    const params = new URLSearchParams({ username, resource_type: resourceType, resource_id: resourceId });
+    return fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/users/permissions/get?${params}`,
+      error: defaultErrorHandler,
+    }) as Promise<{ allowed: boolean; permission: string }>;
+  },
+
   getCurrentUser: () => {
     return fetchEndpoint({
       relativeUrl: 'ajax-api/2.0/mlflow/users/current',

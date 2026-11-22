@@ -15,16 +15,18 @@
  */
 import type { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
 import { type ParsedQs, stringify as queryStringStringify } from 'qs';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import {
   defaultResponseParser,
   deleteJson,
   fetchEndpoint,
+  getAjaxUrl,
   getJson,
   HTTPMethods,
   patchJson,
   postJson,
 } from '../../common/utils/FetchUtils';
-import type { RunInfoEntity } from '../types';
+import type { LoggedModelProto, RunInfoEntity } from '../types';
 import {
   transformGetExperimentResponse,
   transformGetRunResponse,
@@ -45,13 +47,51 @@ type GetCredentialsForLoggedModelArtifactReadResult = {
       type: string;
       signed_uri: string;
       path: string;
+      headers?: Record<string, string> | { name: string; value: string }[];
     };
   }[];
+};
+
+export type MultipartUploadCredential = {
+  url: string;
+  part_number: number;
+  headers?: Record<string, string>;
+};
+
+export type MultipartUploadPart = {
+  part_number: number;
+  etag?: string;
+  url?: string;
 };
 
 const searchRunsPath = () => 'ajax-api/2.0/mlflow/runs/search';
 
 const encodePathForRoute = (path: string) => path.split('/').map(encodeURIComponent).join('/');
+
+const getMlflowArtifactsUrl = (action: string, path: string, artifactServiceBaseUrl?: string) => {
+  const route = `${artifactServiceBaseUrl ? 'api' : 'ajax-api'}/2.0/mlflow-artifacts/${action}/${encodePathForRoute(
+    path,
+  )}`;
+  return artifactServiceBaseUrl ? new URL(route, artifactServiceBaseUrl).toString() : route;
+};
+
+const getMlflowArtifactsRequest = (action: string, path: string, artifactServiceBaseUrl?: string) => {
+  const relativeUrl = getMlflowArtifactsUrl(action, path, artifactServiceBaseUrl);
+  if (new URL(relativeUrl, document.baseURI).origin !== window.location.origin) {
+    // Artifact roots may be controlled by another user. Sending tracking credentials
+    // is unsafe, while omitting them loses the artifact server's auth/workspace context.
+    throw new ErrorWrapper(
+      {
+        error_code: 'PERMISSION_DENIED',
+        message:
+          'The MLflow UI cannot access an artifact server on a different origin. Configure a reverse proxy so the artifact server shares the MLflow UI origin.',
+        external_artifact_service: true,
+      },
+      403,
+    );
+  }
+  return { relativeUrl };
+};
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class MlflowService {
@@ -111,15 +151,82 @@ export class MlflowService {
       file_size?: number;
     }>;
 
+  static getModelVersionPresignedDownloadUrl = (data: { name: string; version: string; path: string }) =>
+    getJson({ relativeUrl: 'model-versions/get-artifact', data: { ...data, presigned: 'true' } }) as Promise<{
+      url?: string;
+      headers?: Record<string, string>;
+    }>;
+
+  /**
+   * Create a presigned URL for uploading directly to a run or logged-model artifact store.
+   */
+  static createPresignedUploadUrl = (data: { run_id?: string; model_id?: string; path: string }) =>
+    postJson({
+      relativeUrl: 'ajax-api/2.0/mlflow/artifacts/presigned-upload-url',
+      data,
+      retries: 0,
+    }) as Promise<{
+      presigned_url?: string;
+      headers?: Record<string, string>;
+    }>;
+
   /**
    * Create a presigned URL for downloading an artifact served through the mlflow-artifacts proxy.
    */
-  static getMlflowArtifactsPresignedDownloadUrl = (path: string) =>
-    getJson({ relativeUrl: `ajax-api/2.0/mlflow-artifacts/presigned/${encodePathForRoute(path)}` }) as Promise<{
+  static getMlflowArtifactsPresignedDownloadUrl = async (path: string, artifactServiceBaseUrl?: string) =>
+    getJson(getMlflowArtifactsRequest('presigned', path, artifactServiceBaseUrl)) as Promise<{
       url?: string;
       headers?: Record<string, string>;
       file_size?: number;
     }>;
+
+  static getMlflowArtifactsProxyUrl = (path: string, artifactServiceBaseUrl?: string) =>
+    getAjaxUrl(getMlflowArtifactsRequest('artifacts', path, artifactServiceBaseUrl).relativeUrl);
+
+  static uploadMlflowArtifact = async (path: string, body: BodyInit, artifactServiceBaseUrl?: string) =>
+    fetchEndpoint({
+      ...getMlflowArtifactsRequest('artifacts', path, artifactServiceBaseUrl),
+      method: HTTPMethods.PUT,
+      body,
+      success: defaultResponseParser,
+      retries: 0,
+    });
+
+  static createMlflowArtifactsMultipartUpload = async (
+    artifactPath: string,
+    data: { path: string; num_parts: number },
+    artifactServiceBaseUrl?: string,
+  ) =>
+    postJson({
+      ...getMlflowArtifactsRequest('mpu/create', artifactPath, artifactServiceBaseUrl),
+      data,
+      retries: 0,
+    }) as Promise<{
+      upload_id?: string;
+      credentials?: MultipartUploadCredential[];
+    }>;
+
+  static completeMlflowArtifactsMultipartUpload = async (
+    artifactPath: string,
+    data: { path: string; upload_id?: string; parts: MultipartUploadPart[] },
+    artifactServiceBaseUrl?: string,
+  ) =>
+    postJson({
+      ...getMlflowArtifactsRequest('mpu/complete', artifactPath, artifactServiceBaseUrl),
+      data,
+      retries: 0,
+    });
+
+  static abortMlflowArtifactsMultipartUpload = async (
+    artifactPath: string,
+    data: { path: string; upload_id?: string },
+    artifactServiceBaseUrl?: string,
+  ) =>
+    postJson({
+      ...getMlflowArtifactsRequest('mpu/abort', artifactPath, artifactServiceBaseUrl),
+      data,
+      retries: 0,
+    });
 
   /**
    * Search datasets used in experiments
@@ -172,6 +279,17 @@ export class MlflowService {
       relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/directories`,
       data: path ? { artifact_directory_path: path } : {},
     });
+
+  static getLoggedModel = (loggedModelId: string) =>
+    getJson({ relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}` }) as Promise<{
+      model: LoggedModelProto;
+    }>;
+
+  static getLoggedModelPresignedDownloadUrl = ({ loggedModelId, path }: { loggedModelId: string; path: string }) =>
+    getJson({
+      relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/files`,
+      data: { artifact_file_path: path, presigned: 'true' },
+    }) as Promise<{ url?: string; headers?: Record<string, string> }>;
 
   static getCredentialsForLoggedModelArtifactRead = ({
     loggedModelId,
