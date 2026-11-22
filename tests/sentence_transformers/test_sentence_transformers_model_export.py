@@ -126,7 +126,9 @@ def test_model_save_and_load(model_path, basic_model):
 
 def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
     mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)
-    model_data_path = model_path.joinpath("model.sentence_transformer")
+    model_data_path = model_path.joinpath(
+        mlflow.sentence_transformers.SENTENCE_TRANSFORMERS_DATA_PATH
+    )
     assert model_data_path.joinpath("modeling_custom.py").exists()
     assert model_data_path.joinpath("configuration_custom.py").exists()
 
