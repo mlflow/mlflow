@@ -186,7 +186,6 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
       params.delete(BASELINE_TRACE_ID_PARAM);
       params.delete(CANDIDATE_TRACE_ID_PARAM);
       params.delete(PAIRWISE_REVIEW_MODE_PARAM);
-      params.delete('spanId');
       return `${location.pathname}?${params.toString()}${location.hash}`;
     },
     [location],

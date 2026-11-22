@@ -297,7 +297,6 @@ export const EvalRunTracesV4Table = ({
       const searchParams = new URLSearchParams(traceLinkLocation.search);
       searchParams.set('selectedEvaluationId', traceId);
       searchParams.delete('traceId');
-      searchParams.delete('spanId');
       return `${traceLinkLocation.pathname}?${searchParams.toString()}${traceLinkLocation.hash}`;
     },
     [traceLinkLocation],
