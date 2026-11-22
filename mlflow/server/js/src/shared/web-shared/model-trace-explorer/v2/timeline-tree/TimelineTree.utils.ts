@@ -37,26 +37,6 @@ export const getTimelineTreeSpanConstraints = (
   return constraints;
 };
 
-// Gets a flat list of all expanded nodes in the tree
-export const getTimelineTreeExpandedNodesList = <T extends TimelineTreeNode & { children?: T[] }>(
-  nodes: T[],
-  expandedKeys: Set<string | number>,
-): T[] => {
-  const expandedNodesFlat: T[] = [];
-  const traverseExpanded = (traversedNode: T | undefined) => {
-    if (!traversedNode) {
-      return;
-    }
-    expandedNodesFlat.push(traversedNode);
-    if (expandedKeys.has(traversedNode.key)) {
-      traversedNode.children?.forEach(traverseExpanded);
-    }
-  };
-
-  nodes.forEach(traverseExpanded);
-  return expandedNodesFlat;
-};
-
 export interface TimelineTreeExpandedRow<T extends TimelineTreeNode> {
   node: T;
   linesToRender: HierarchyBar[];

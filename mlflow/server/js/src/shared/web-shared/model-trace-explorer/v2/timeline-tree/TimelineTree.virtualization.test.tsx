@@ -40,16 +40,19 @@ jest.mock('@tanstack/react-virtual', () => {
   };
 });
 
-const nodes: ModelTraceSpanNode[] = Array.from({ length: 120 }, (_, index) => ({
-  key: `span-${index}`,
-  title: `span ${index}`,
-  start: index,
-  end: index + 1,
-  traceId: 'trace',
-  assessments: [],
-}));
+const makeNodes = (count: number): ModelTraceSpanNode[] =>
+  Array.from({ length: count }, (_, index) => ({
+    key: `span-${index}`,
+    title: `span ${index}`,
+    start: index,
+    end: index + 1,
+    traceId: 'trace',
+    assessments: [],
+  }));
 
-const TestTree = () => {
+const nodes = makeNodes(120);
+
+const TestTree = ({ rootNodes = nodes }: { rootNodes?: ModelTraceSpanNode[] }) => {
   const [expandedKeys, setExpandedKeys] = useState(new Set<string | number>());
   const [spanFilterState, setSpanFilterState] = useState(TEST_SPAN_FILTER_STATE);
   const [queryClient] = useState(() => new QueryClient());
@@ -61,11 +64,11 @@ const TestTree = () => {
             <ModelTraceExplorerPreferencesProvider>
               <ModelTraceExplorerViewStateProvider modelTrace={MOCK_TRACE} assessmentsPaneEnabled={false}>
                 <TimelineTree
-                  rootNodes={nodes}
-                  selectedNode={nodes.at(-1)}
+                  rootNodes={rootNodes}
+                  selectedNode={rootNodes.at(-1)}
                   setSelectedNode={() => {}}
                   traceStartTime={0}
-                  traceEndTime={120}
+                  traceEndTime={rootNodes.length}
                   expandedKeys={expandedKeys}
                   setExpandedKeys={setExpandedKeys}
                   spanFilterState={spanFilterState}
@@ -98,8 +101,22 @@ describe('TimelineTree virtualization', () => {
     scrollElement.scrollTop = 480;
     await userEvent.click(screen.getByRole('button', { name: 'Show execution timeline' }));
     expect(scrollElement.scrollTop).toBe(320);
+    expect(screen.getAllByTestId(/^timeline-tree-gantt-node-/)).toHaveLength(2);
 
     await userEvent.click(screen.getByRole('button', { name: 'Hide execution timeline' }));
     expect(scrollElement.scrollTop).toBe(480);
+  });
+
+  test.each([
+    [99, 99],
+    [100, 2],
+  ])('mounts %i Gantt rows at the virtualization boundary', async (count, mountedRows) => {
+    render(<TestTree rootNodes={makeNodes(count)} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show execution timeline' }));
+
+    expect(screen.getAllByTestId(/^timeline-tree-gantt-node-/)).toHaveLength(mountedRows);
+    expect(screen.getByTestId('timeline-tree-gantt-node-span-0')).toBeInTheDocument();
+    expect(screen.getByTestId(`timeline-tree-gantt-node-span-${count - 1}`)).toBeInTheDocument();
   });
 });

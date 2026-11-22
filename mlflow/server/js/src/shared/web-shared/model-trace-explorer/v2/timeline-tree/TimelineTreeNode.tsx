@@ -30,7 +30,6 @@ import { Link } from '../../RoutingUtils';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 import { getTimelineTreeComparisonMetricValues, getTimelineTreeMetricValue } from './TimelineTreeMetrics';
 
-const ROW_HEIGHT = SPAN_ROW_HEIGHT;
 const MetadataItem = ({
   children,
   icon,
@@ -152,7 +151,7 @@ export const TimelineTreeNode = ({
       });
   const inlineMetric = timelineTreeMetrics.length === 1 ? metricValues[0] : undefined;
   const hasMetricRow = timelineTreeMetrics.length > 1 && metricValues.length > 0;
-  const rowHeight = hasMetricRow ? SPAN_ROW_HEIGHT_WITH_METADATA : ROW_HEIGHT;
+  const rowHeight = hasMetricRow ? SPAN_ROW_HEIGHT_WITH_METADATA : SPAN_ROW_HEIGHT;
   const rowTopPadding = (rowHeight - 24) / 2;
 
   const backgroundColor = isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent';
