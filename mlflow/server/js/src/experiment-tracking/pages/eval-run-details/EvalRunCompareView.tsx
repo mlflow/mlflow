@@ -9,7 +9,7 @@ import type { EvalRunComparisonTraceFilter } from './EvalRunComparisonDelta';
 import { normalizeComparisonRunUuids } from './evalRunComparisonData';
 import { useEvalRunComparisonBaseline } from './useEvalRunComparisonBaseline';
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
-import { useSearchParams } from '../../../common/utils/RoutingUtils';
+import { useSearchParamSelector } from '../../../common/utils/RoutingUtils';
 import {
   BASELINE_TRACE_ID_PARAM,
   CANDIDATE_TRACE_ID_PARAM,
@@ -50,12 +50,15 @@ export const EvalRunCompareView = ({
     [baselineRunUuid, compareRunUuids],
   );
   const comparisonKey = JSON.stringify([experimentId, runUuids]);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const isPairwiseReviewMode = searchParams.get(PAIRWISE_REVIEW_MODE_PARAM) === 'true';
-  // A link to a trace comparison (e.g. a shared review) opens on Details, where its drawer lives.
-  const hasTraceComparisonParams = Boolean(
-    searchParams.get(BASELINE_TRACE_ID_PARAM) && searchParams.get(CANDIDATE_TRACE_ID_PARAM),
+  const [[isPairwiseReviewMode, hasTraceComparisonParams, isTraceOpen], setSearchParams] = useSearchParamSelector(
+    (params) =>
+      [
+        params.get(PAIRWISE_REVIEW_MODE_PARAM) === 'true',
+        Boolean(params.get(BASELINE_TRACE_ID_PARAM) && params.get(CANDIDATE_TRACE_ID_PARAM)),
+        params.has(TRACE_ID_PARAM) || params.has('selectedEvaluationId'),
+      ] as const,
   );
+  // A link to a trace comparison (e.g. a shared review) opens on Details, where its drawer lives.
   const [activeTab, setActiveTab] = useState<EvalRunCompareTab>(
     hasTraceComparisonParams ? EvalRunCompareTab.TraceView : EvalRunCompareTab.Overview,
   );
@@ -104,7 +107,6 @@ export const EvalRunCompareView = ({
 
   // R starts pairwise review, or leaves it while reviewing; typing in a field doesn't count. An open trace
   // drawer owns R (it toggles review in a comparison and flags a single trace), so the page skips it then.
-  const isTraceOpen = searchParams.has(TRACE_ID_PARAM) || searchParams.has('selectedEvaluationId');
   useEffect(() => {
     if (!enablePairwiseReview || isTraceOpen) {
       return;

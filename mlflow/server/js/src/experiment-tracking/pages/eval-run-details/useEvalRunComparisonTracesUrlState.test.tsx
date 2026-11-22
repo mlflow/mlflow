@@ -1,8 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
 import { useEffect } from 'react';
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
+// eslint-disable-next-line no-restricted-imports
+import { createMemoryRouter } from 'react-router-dom';
 import { FilterOp, type TraceFilterModel } from '@databricks/web-shared/traces-table';
-import { useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
+import { RouterProvider, useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '../../../common/utils/RoutingTestUtils';
 import { useEvalRunComparisonTracesUrlState } from './useEvalRunComparisonTracesUrlState';
 
@@ -113,6 +115,25 @@ describe('useEvalRunComparisonTracesUrlState', () => {
     expect(result.current.search).toBe('first');
     act(() => navigate(1));
     expect(result.current.search).toBe('second');
+  });
+
+  it('does not rerender when unrelated drawer state changes', async () => {
+    let renders = 0;
+    const Consumer = () => {
+      const state = useEvalRunComparisonTracesUrlState();
+      renders++;
+      return <output>{state.search}</output>;
+    };
+    const router = createMemoryRouter([{ path: '/p', element: <Consumer /> }], {
+      initialEntries: ['/p?compareRuns=candidate&comparisonQ=first'],
+    });
+    const view = render(<RouterProvider router={router} />);
+    expect(view.getByText('first')).toBeInTheDocument();
+    expect(renders).toBe(1);
+
+    await act(() => router.navigate('/p?compareRuns=candidate&comparisonQ=first&spanId=child'));
+    expect(router.state.location.search).toContain('spanId=child');
+    expect(renders).toBe(1);
   });
 
   it.each([

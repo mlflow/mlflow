@@ -23,7 +23,7 @@ import {
 } from '@databricks/web-shared/traces-table';
 import { AssistantAwareDrawer } from '../../../common/components/AssistantAwareDrawer';
 import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
-import { useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
+import { useLocationSelector, useNavigate } from '../../../common/utils/RoutingUtils';
 import { useRegisterSelectedIds } from '../../../assistant';
 import Routes from '../../routes';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../constants';
@@ -60,6 +60,7 @@ import {
   hasCollapsibleAssessmentChart,
 } from './EvalRunAssessmentColumnHeader';
 import { useTableHorizontalScrollAnchor } from './useTableHorizontalScrollAnchor';
+import { selectTracesV4PageLocation } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4SearchParams';
 
 export interface EvalRunTracesV4TableProps {
   experimentId: string;
@@ -103,7 +104,7 @@ export const EvalRunTracesV4Table = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const navigate = useNavigate();
-  const traceLinkLocation = useLocation();
+  const traceLinkLocation = useLocationSelector(selectTracesV4PageLocation);
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
   const { notify, notificationContainer } = useTracesV4Notifications();
