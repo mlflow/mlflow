@@ -16,7 +16,6 @@ export const installTraceCacheBudget = (client: QueryClient): void => {
   const isDrawerTrace = (key: readonly unknown[]) => key[0] === 'getTrace' && key.length === 3;
   const prune = () => {
     let totalChars = 0;
-    const now = Date.now();
     const entries = cache
       .findAll({ queryKey: ['getTrace'], type: 'inactive' })
       .filter(
@@ -34,7 +33,9 @@ export const installTraceCacheBudget = (client: QueryClient): void => {
           chars = trace?.data?.spans?.reduce((sum, span) => sum + countTraceSpanAttributeChars(span), 0) ?? 0;
           if (trace) sizes.set(trace, chars);
         }
-        if (chars > MAX_ATTRIBUTE_CHARS || now - query.state.dataUpdatedAt >= TRACE_CACHE_TIME_MS) {
+        // Logical characters are conservative: escaped compact strings may count higher than their
+        // engine-specific one-byte storage, so the budget never assumes a particular JS representation.
+        if (chars > MAX_ATTRIBUTE_CHARS) {
           cache.remove(query);
           return false;
         }

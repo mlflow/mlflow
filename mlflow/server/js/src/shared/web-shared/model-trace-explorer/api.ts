@@ -23,6 +23,8 @@ import {
 
 let traceResponseParser: ReturnType<typeof createTraceResponseParser> | undefined;
 const fetchTraceJSON = (url: string, signal?: AbortSignal, options?: TraceResponseParseOptions) => {
+  // Bulk consumers need raw payload strings and should not queue behind the drawer worker.
+  if (!options?.compactPayloads) return fetchAPI(url, 'GET', undefined, signal);
   if (!traceResponseParser) {
     traceResponseParser = createTraceResponseParser();
     window.addEventListener(

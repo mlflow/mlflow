@@ -59,12 +59,12 @@ describe('drawer cache budgets', () => {
     expect(client.getQueryData(key(shape))).toBeUndefined();
   });
 
-  it('expires a completed trace at the age limit and leaves other trace query families alone', () => {
+  it('leaves fetch age to cacheTime and ignores other trace query families', () => {
     const old = Date.now() - TRACE_CACHE_TIME_MS;
     client.setQueryData(['getTrace', 'shared-table'], MOCK_V3_TRACE, { updatedAt: old });
     client.setQueryData(['GET_TRACE_BY_ID', 'shared-explorer'], MOCK_V3_TRACE, { updatedAt: old });
     client.setQueryData(key('expired'), MOCK_V3_TRACE, { updatedAt: old });
-    expect(client.getQueryData(key('expired'))).toBeUndefined();
+    expect(client.getQueryData(key('expired'))).toBe(MOCK_V3_TRACE);
     expect(client.getQueryData(['getTrace', 'shared-table'])).toBe(MOCK_V3_TRACE);
     expect(client.getQueryData(['GET_TRACE_BY_ID', 'shared-explorer'])).toBe(MOCK_V3_TRACE);
   });

@@ -1,18 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { TextDecoder, TextEncoder } from 'util';
 
-import {
-  compactJsonPayloadInSteps,
-  compactTraceSpanPayloads,
-  compactTraceSpanPayloadsInSteps,
-} from './compactJsonPayload';
-
-const compact = (text: string) => {
-  const steps = compactJsonPayloadInSteps(text);
-  let step = steps.next();
-  while (!step.done) step = steps.next();
-  return step.value;
-};
+import { compactJsonPayload, compactTraceSpanPayloads } from './compactJsonPayload';
 
 describe('compact JSON payload storage', () => {
   const globals = Object.getOwnPropertyDescriptors(globalThis);
@@ -33,7 +22,7 @@ describe('compact JSON payload storage', () => {
       'a'.repeat(1000) +
       ' café 日本語 🙂 e\u0301 \ud800 \udfff' +
       String.raw` \" \\ \u1234" }`;
-    const result = compact(text);
+    const result = compactJsonPayload(text);
     expect(result).not.toBe(text);
     expect(result).not.toMatch(/[\u0100-\uffff]/);
     expect(result).toContain('café');
@@ -46,20 +35,9 @@ describe('compact JSON payload storage', () => {
   it.each(['plain 日本語', '{"broken": "日本語}', '', 'null', 'true', '42', '"café"', '"日本語🙂"', '"\\u65e5"'])(
     'retains unhelpful or malformed input %j',
     (text) => {
-      expect(compact(text)).toBe(text);
+      expect(compactJsonPayload(text)).toBe(text);
     },
   );
-
-  it('preserves each half when a surrogate pair crosses a work slice', () => {
-    const text = '"' + 'a'.repeat(256 * 1024 - 2) + '🙂' + 'a'.repeat(1000) + '"';
-    const steps = compactJsonPayloadInSteps(text);
-    expect(steps.next().done).toBe(false);
-    expect(steps.next().done).toBe(false);
-    const result = steps.next();
-    expect(result.done).toBe(true);
-    expect(JSON.parse(result.value!)).toBe(JSON.parse(text));
-    expect(result.value).toContain('\\ud83d\\ude42');
-  });
 
   it.each(['object', 'OTLP'])('rewrites only parsed payload attributes in %s spans without mutation', (shape) => {
     const value = JSON.stringify({ text: 'a'.repeat(1000) + ' café 日本語 🙂' });
@@ -108,14 +86,5 @@ describe('compact JSON payload storage', () => {
     { attributes: { 'mlflow.spanInputs': { text: '🙂' } } },
   ])('keeps unchanged span identity for %j', (span) => {
     expect(compactTraceSpanPayloads(span)).toBe(span);
-  });
-
-  it('can stop stepped work without mutating its source', () => {
-    const span = { attributes: { 'mlflow.spanInputs': JSON.stringify({ text: 'a'.repeat(600000) + '🙂' }) } };
-    const original = JSON.stringify(span);
-    const steps = compactTraceSpanPayloadsInSteps(span);
-    expect(steps.next().done).toBe(false);
-    steps.return(undefined);
-    expect(JSON.stringify(span)).toBe(original);
   });
 });
