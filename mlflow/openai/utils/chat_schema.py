@@ -2,6 +2,8 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
+from pydantic import ValidationError
+
 from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
 from mlflow.tracing import set_span_chat_tools
@@ -29,7 +31,7 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
     try:
         if tools := _parse_tools(inputs):
             set_span_chat_tools(span, tools)
-    except MlflowException:
+    except (MlflowException, ValidationError):
         _logger.debug("Failed to set chat tools on span", exc_info=True)
 
     # Set model name if available
@@ -178,6 +180,15 @@ def _parse_model(output: Any) -> str | None:
     except ImportError:
         pass
 
+    # Handle OpenAI Decisions API
+    try:
+        from openai.types.decision import Decision
+
+        if isinstance(output, Decision) and (model := output.model):
+            return model
+    except ImportError:
+        pass
+
     return None
 
 
@@ -216,6 +227,25 @@ def _parse_usage(output: Any) -> dict[str, Any] | None:
             if details := getattr(usage, "input_tokens_details", None):
                 if (cached := getattr(details, "cached_tokens", None)) is not None:
                     usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            return usage_dict
+    except ImportError:
+        pass
+
+    # Handle OpenAI Decisions API
+    try:
+        from openai.types.decision import Decision
+
+        if isinstance(output, Decision) and (usage := output.usage):
+            usage_dict = {
+                TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+            }
+            if details := getattr(usage, "input_tokens_details", None):
+                if (cached := getattr(details, "cached_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+                if (created := getattr(details, "cache_write_tokens", None)) is not None:
+                    usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
             return usage_dict
     except ImportError:
         pass

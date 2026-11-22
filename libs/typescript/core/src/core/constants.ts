@@ -143,6 +143,12 @@ export const DATABRICKS_UC_TABLE_HEADER = 'X-Databricks-UC-Table-Name';
 export const MLFLOW_EXPERIMENT_ID_HEADER = 'x-mlflow-experiment-id';
 
 /**
+ * Maximum byte size of a single OTLP span-ingestion request. The WAL IPC
+ * submit envelope uses the same budget (see `exporters/wal/ipc.ts`).
+ */
+export const MAX_OTLP_REQUEST_BYTES = 32 * 1024 * 1024;
+
+/**
  * The default name for spans if the name is not provided when starting a span
  */
 export const DEFAULT_SPAN_NAME = 'span';

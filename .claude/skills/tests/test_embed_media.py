@@ -165,6 +165,45 @@ def test_cli_strips_local_path_when_upload_unavailable(
     assert out == "evidence: the bug"
 
 
+@pytest.mark.parametrize("missing_token", [False, True])
+def test_cli_strict_exits_nonzero_when_cited_media_did_not_upload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    missing_token: bool,
+) -> None:
+    media = make_media(tmp_path)
+    args = build_args(media)
+    args.strict = True
+    with (
+        mock.patch.object(
+            embed_media, "resolve_github_token", return_value=None if missing_token else "t"
+        ),
+        mock.patch.object(
+            embed_media, "upload_asset", side_effect=uploads.UploadFailed("shot.png: boom")
+        ),
+        pytest.raises(SystemExit, match="1"),
+    ):
+        run_cli(args, f"![the bug]({media / 'shot.png'})", monkeypatch, capsys)
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert "1 cited media did not upload" in err
+
+
+def test_cli_strict_embeds_media_that_uploaded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    media = make_media(tmp_path)
+    args = build_args(media)
+    args.strict = True
+    with (
+        mock.patch.object(embed_media, "resolve_github_token", return_value="t"),
+        mock.patch.object(embed_media, "upload_asset", return_value=URL),
+    ):
+        out, _ = run_cli(args, f"![the bug]({media / 'shot.png'})", monkeypatch, capsys)
+    assert out == f"![the bug]({URL})"
+
+
 def test_cli_never_reads_a_symlink(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

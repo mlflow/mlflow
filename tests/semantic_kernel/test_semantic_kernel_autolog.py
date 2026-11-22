@@ -4,6 +4,9 @@ from unittest import mock
 import openai
 import pytest
 import pytest_asyncio
+from opentelemetry import trace as otel_trace
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from semantic_kernel import Kernel
 from semantic_kernel.agents import AgentResponseItem
 from semantic_kernel.connectors.ai.open_ai import OpenAIChatCompletion
@@ -520,3 +523,32 @@ async def test_sk_shared_provider_no_recursion(monkeypatch, mock_openai):
     spans = traces[0].data.spans
     assert len(spans) >= 3
     assert spans[0].name == "Kernel.invoke_prompt"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("init_tracing_before_autolog", [False, True])
+async def test_sk_shared_provider_exports_each_span_once(
+    monkeypatch, mock_openai, init_tracing_before_autolog
+):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    if init_tracing_before_autolog:
+        # Registers MLflow's span processor on the shared provider before the SK processor.
+        with mlflow.start_span(name="warmup"):
+            pass
+
+    mlflow.semantic_kernel.autolog()
+
+    # Every processor on the shared provider sees what MLflow's processor sees, so an
+    # in-memory exporter there records each span once per dispatch.
+    exporter = InMemorySpanExporter()
+    otel_trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(exporter))
+
+    await _create_and_invoke_kernel_simple(mock_openai)
+
+    span_ids = [span.context.span_id for span in exporter.get_finished_spans()]
+    assert span_ids
+    assert len(span_ids) == len(set(span_ids))
+
+    sk_trace = next(t for t in get_traces() if t.data.spans[0].name == "Kernel.invoke_prompt")
+    assert any(span.span_type == SpanType.CHAT_MODEL for span in sk_trace.data.spans)

@@ -7,7 +7,9 @@ import {
   assessmentNameFromColumnId,
   computeAssessmentColumns,
   extractTraceIssues,
+  getAssessmentColumnSourceType,
   getAssessmentColumnType,
+  getSessionAssessmentNames,
 } from '../utils/assessmentColumns';
 import { buildAssessmentColumnDefs, type AssessmentColumn } from '../utils/buildAssessmentColumnDefs';
 import { buildIssuesColumnDef } from '../utils/buildIssuesColumnDef';
@@ -45,6 +47,17 @@ export interface TracesV4AssessmentColumns {
   reset: () => void;
 }
 
+export interface TracesV4AssessmentColumnsOptions {
+  /** Names that keep a column when the page's traces don't carry them, e.g. every scorer of a run. */
+  seededNames?: readonly string[];
+  /**
+   * Also offer columns for session-level assessments: shown once per session row when grouped, and on
+   * the trace they are attached to otherwise. The evaluation run view sets this; the Traces tab doesn't.
+   */
+  includeSessionAssessments?: boolean;
+  isGroupedBySession?: boolean;
+}
+
 /**
  * Assessment-column selection for the V4 traces tab: a thin sibling of `useTracesV4Columns`. Persists
  * per-column opt-in/opt-out overrides per experiment (default visible), and derives the visible
@@ -53,6 +66,7 @@ export interface TracesV4AssessmentColumns {
 export const useTracesV4AssessmentColumns = (
   experimentId: string,
   traces: ModelTraceInfoV3[],
+  { seededNames, includeSessionAssessments = false, isGroupedBySession = false }: TracesV4AssessmentColumnsOptions = {},
 ): TracesV4AssessmentColumns => {
   const [overrides, setOverrides] = useLocalStorage<Record<string, boolean>>({
     key: `${TRACE_ASSESSMENT_COLUMN_STORAGE_KEY_PREFIX}.${experimentId}`,
@@ -60,7 +74,10 @@ export const useTracesV4AssessmentColumns = (
     initialValue: {},
   });
 
-  const selection = useMemo(() => computeAssessmentColumns(traces, overrides), [traces, overrides]);
+  const selection = useMemo(
+    () => computeAssessmentColumns(traces, overrides, { seededNames, includeSessionAssessments }),
+    [traces, overrides, seededNames, includeSessionAssessments],
+  );
   // Stabilize the derived name arrays by content so the column defs (and thus the memoized table)
   // don't churn when a recompute yields the same names.
   const candidateNames = useArrayMemo(selection.candidateNames);
@@ -69,13 +86,27 @@ export const useTracesV4AssessmentColumns = (
   // The dedicated Issues column shows only when the current page carries detected issues (data-driven,
   // like the Session column) and renders ahead of the assessment columns, matching the prior tab.
   const hasIssuesOnPage = useMemo(() => traces.some((trace) => extractTraceIssues(trace).length > 0), [traces]);
+  const sessionAssessmentNames = useMemo(
+    () => (includeSessionAssessments ? getSessionAssessmentNames(traces) : undefined),
+    [includeSessionAssessments, traces],
+  );
   const assessmentColumns = useMemo<AssessmentColumn[]>(
-    () => visibleNames.map((name) => ({ name, type: getAssessmentColumnType(traces, name) })),
-    [visibleNames, traces],
+    () =>
+      visibleNames.map((name) => ({
+        name,
+        type: getAssessmentColumnType(traces, name, { includeSessionAssessments }),
+        sourceType: getAssessmentColumnSourceType(traces, name, {
+          isSessionAssessment: sessionAssessmentNames?.has(name),
+        }),
+      })),
+    [visibleNames, traces, includeSessionAssessments, sessionAssessmentNames],
   );
   const columnDefs = useMemo(
-    () => [...(hasIssuesOnPage ? [buildIssuesColumnDef()] : []), ...buildAssessmentColumnDefs(assessmentColumns)],
-    [hasIssuesOnPage, assessmentColumns],
+    () => [
+      ...(hasIssuesOnPage ? [buildIssuesColumnDef()] : []),
+      ...buildAssessmentColumnDefs(assessmentColumns, { sessionAssessmentNames, isGroupedBySession }),
+    ],
+    [hasIssuesOnPage, assessmentColumns, sessionAssessmentNames, isGroupedBySession],
   );
   const visibleIds = useMemo(() => visibleNames.map(assessmentColumnId), [visibleNames]);
   const selectorOptions = useMemo<GenericColumnOption[]>(

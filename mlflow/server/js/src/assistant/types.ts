@@ -277,6 +277,12 @@ export interface AssistantAgentState {
   pendingClientToolCall: PendingClientToolCall | null;
   /** Whether the Assistant can be used from this client, considering server-side remote-access settings */
   canUseAssistant: boolean;
+  /**
+   * Whether the caller may change server-wide settings (project paths, skills, API keys, full access):
+   * only from the server host, and on a server with auth and the sandbox on, only as an admin.
+   * Reported by the server.
+   */
+  canEditServerSettings: boolean;
   /** Cumulative token usage for the session (best-effort; only some providers report it) */
   tokenUsage: TokenUsage;
 }
@@ -374,6 +380,8 @@ export interface AssistantConfig {
   skills_location?: string;
   /** Whether the currently selected provider can be used from a non-localhost client */
   remote_access_allowed?: boolean;
+  /** Whether the caller may change server-wide settings (projects, skills, API keys, full access) */
+  can_edit_server_settings?: boolean;
 }
 
 /**

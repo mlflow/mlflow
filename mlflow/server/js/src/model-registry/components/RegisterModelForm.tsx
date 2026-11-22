@@ -72,7 +72,11 @@ export class RegisterModelForm extends React.Component<Props, State> {
       />
     );
 
-    return <p className="modal-explanatory-text">{explanation}</p>;
+    return (
+      <p className="modal-explanatory-text" css={(theme) => ({ color: theme.colors.textSecondary })}>
+        {explanation}
+      </p>
+    );
   }
 
   renderModel(model: any) {

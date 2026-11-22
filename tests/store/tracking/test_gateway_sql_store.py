@@ -1592,6 +1592,114 @@ def test_get_gateway_endpoint_config_nonexistent_endpoint_raises(store: SqlAlche
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+@pytest.mark.parametrize(
+    ("keyless_primary_count", "keyed_fallback"),
+    [(1, False), (1, True), (2, False)],
+    ids=["one-keyless-primary", "keyed-fallback-left", "two-keyless-primaries"],
+)
+def test_get_gateway_endpoint_config_raises_when_no_primary_model_has_api_key(
+    store: SqlAlchemyStore, keyless_primary_count, keyed_fallback
+):
+    deleted_secret = store.create_gateway_secret(
+        secret_name="deleted-key", secret_value={"api_key": "deleted"}
+    )
+    model_configs = []
+    for i in range(keyless_primary_count):
+        keyless_model = store.create_gateway_model_definition(
+            name=f"keyless-model-{i}",
+            secret_id=deleted_secret.secret_id,
+            provider="openai",
+            model_name="gpt-4",
+        )
+        model_configs.append(
+            GatewayEndpointModelConfig(
+                model_definition_id=keyless_model.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            )
+        )
+    if keyed_fallback:
+        kept_secret = store.create_gateway_secret(
+            secret_name="kept-key", secret_value={"api_key": "kept"}
+        )
+        fallback_model = store.create_gateway_model_definition(
+            name="fallback-model",
+            secret_id=kept_secret.secret_id,
+            provider="openai",
+            model_name="gpt-4o",
+        )
+        model_configs.append(
+            GatewayEndpointModelConfig(
+                model_definition_id=fallback_model.model_definition_id,
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                weight=1.0,
+                fallback_order=0,
+            )
+        )
+    endpoint = store.create_gateway_endpoint(name="keyless-endpoint", model_configs=model_configs)
+    store.delete_gateway_secret(deleted_secret.secret_id)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"none of its PRIMARY model definitions has an API key \(secret\) attached",
+    ) as exc:
+        get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    assert "keyless-model" not in exc.value.message
+
+
+@pytest.mark.parametrize(
+    ("linkage_type", "fallback_order"),
+    [(GatewayModelLinkageType.PRIMARY, None), (GatewayModelLinkageType.FALLBACK, 0)],
+)
+def test_get_gateway_endpoint_config_skips_keyless_model_when_a_primary_has_a_key(
+    store: SqlAlchemyStore, linkage_type, fallback_order
+):
+    kept_secret = store.create_gateway_secret(
+        secret_name="kept-key", secret_value={"api_key": "kept"}
+    )
+    deleted_secret = store.create_gateway_secret(
+        secret_name="deleted-key", secret_value={"api_key": "deleted"}
+    )
+    kept_model = store.create_gateway_model_definition(
+        name="kept-model", secret_id=kept_secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+    keyless_model = store.create_gateway_model_definition(
+        name="keyless-model",
+        secret_id=deleted_secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="partly-keyless-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=kept_model.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+            GatewayEndpointModelConfig(
+                model_definition_id=keyless_model.model_definition_id,
+                linkage_type=linkage_type,
+                weight=1.0,
+                fallback_order=fallback_order,
+            ),
+        ],
+    )
+    store.delete_gateway_secret(deleted_secret.secret_id)
+
+    with mock.patch("mlflow.store.tracking.gateway.config_resolver._logger.warning") as warning:
+        config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+
+    assert [m.model_definition_id for m in config.models] == [kept_model.model_definition_id]
+    warning.assert_called_once()
+    assert warning.call_args.args[1:] == (
+        linkage_type.value,
+        keyless_model.model_definition_id,
+        endpoint.name,
+    )
+
+
 def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="exp-id-test-key", secret_value={"api_key": "value"}

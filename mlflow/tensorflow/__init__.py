@@ -13,6 +13,7 @@ import logging
 import os
 import shutil
 import tempfile
+import zipfile
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -26,7 +27,7 @@ from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.tensorflow_dataset import from_tensorflow
 from mlflow.entities import LoggedModelInput
-from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
+from mlflow.environment_variables import MLFLOW_ALLOW_MODEL_CODE_EXECUTION
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -51,10 +52,6 @@ from mlflow.utils.checkpoint_utils import (
     _WEIGHT_ONLY_CHECKPOINT_SUFFIX,
     download_checkpoint_artifact,
 )
-from mlflow.utils.databricks_utils import (
-    is_in_databricks_model_serving_environment,
-    is_in_databricks_runtime,
-)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -71,7 +68,10 @@ from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
     _copy_extra_files,
+    _deprecated_pickle_variable_hint,
     _get_flavor_configuration,
+    _is_model_code_loading_allowed,
+    _is_pickle_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -562,20 +562,46 @@ def _load_custom_objects(path, file_name):
         if os.path.isfile(os.path.join(path, file_name)):
             custom_objects_path = os.path.join(path, file_name)
     if custom_objects_path is not None:
-        if (
-            not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
-            and not is_in_databricks_runtime()
-            and not is_in_databricks_model_serving_environment()
-        ):
+        if not _is_pickle_loading_allowed():
             raise MlflowException(
                 "Deserializing custom objects using cloudpickle is disallowed, but this model "
                 "was saved with custom objects in pickle format. To address this issue, you need "
-                "to set environment variable 'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
+                "to set environment variable 'MLFLOW_ALLOW_MODEL_CODE_EXECUTION' to 'true'."
+                + _deprecated_pickle_variable_hint()
             )
         import cloudpickle
 
         with open(custom_objects_path, "rb") as f:
             return cloudpickle.load(f)
+
+
+def _check_keras_model_loading_allowed(keras_module, model_path):
+    # Keras 3.11.3+ refuses `Lambda` layer bytecode by default (`safe_mode=True`) in every format
+    # it loads. Earlier Keras 3 releases ignore `safe_mode` in the H5 loader (CVE-2025-9905), and
+    # releases before 3.11.0 also have `safe_mode` bypasses in the `.keras` loader (CVE-2025-1550,
+    # CVE-2025-9906). Keras 2 (e.g. `tf_keras`) applies `safe_mode` only to the zipped `.keras`
+    # format; its H5 and SavedModel loaders deserialize `Lambda` layer bytecode unconditionally.
+    if _is_model_code_loading_allowed():
+        return
+    keras_version = getattr(keras_module, "__version__", None)
+    keras_version = Version(keras_version) if keras_version is not None else None
+    if keras_version is not None and keras_version >= Version("3.11.3"):
+        return
+    keras_zip_is_safe = (
+        keras_version is None or keras_version.major < 3 or keras_version >= Version("3.11.0")
+    )
+    if keras_zip_is_safe and model_path.endswith(".keras") and zipfile.is_zipfile(model_path):
+        return
+    raise MlflowException(
+        "Loading this Keras model is disallowed because it can run code supplied by the model, "
+        "such as `Lambda` layers. Keras 2 runs such code in models saved in the H5 or SavedModel "
+        "format, Keras earlier than 3.11.3 in the H5 format, and Keras 3 earlier than 3.11.0 in "
+        "every format. If you trust this model, set environment variable "
+        f"'{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to load it. Otherwise, re-save "
+        "the model in the zipped `.keras` format, which Keras 2 and Keras 3.11.0 or later load "
+        "with `safe_mode=True`. For H5 models, loading with Keras 3.11.3 or later instead of a "
+        "legacy module such as `tf_keras` is another option."
+    )
 
 
 def _load_keras_model(model_path, keras_module, save_format, **kwargs):
@@ -601,6 +627,8 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
     # for older versions of TF.
     elif os.path.exists(model_path + ".keras"):
         model_path += ".keras"
+
+    _check_keras_model_loading_allowed(keras_module, model_path)
 
     import tensorflow as tf
 
@@ -1532,4 +1560,5 @@ def load_checkpoint(model=None, run_id=None, epoch=None, global_step=None):
                 )
             model.load_weights(downloaded_checkpoint_filepath)
             return model
+        _check_keras_model_loading_allowed(tf.keras, downloaded_checkpoint_filepath)
         return tf.keras.models.load_model(downloaded_checkpoint_filepath)

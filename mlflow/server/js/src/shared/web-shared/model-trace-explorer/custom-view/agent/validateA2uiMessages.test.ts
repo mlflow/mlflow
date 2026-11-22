@@ -263,7 +263,7 @@ describe('validateTemplate feedback form pairing', () => {
 describe('validateAndPrepareMessages catalog allowlist', () => {
   it('accepts valid basic and custom catalog components', () => {
     const result = prepare([
-      { id: 'root', component: 'Column', children: ['row', 'txt', 'image'], align: 'stretch' },
+      { id: 'root', component: 'Column', children: ['row', 'txt', 'image', 'audio'], align: 'stretch' },
       { id: 'row', component: 'Row', children: ['stat'], align: 'stretch' },
       { id: 'stat', component: 'StatCard', value: '14', label: 'Tool calls', icon: 'wrench', weight: 1 },
       { id: 'txt', component: 'Text', text: 'Summary', variant: 'h4', weight: 1 },
@@ -272,6 +272,13 @@ describe('validateAndPrepareMessages catalog allowlist', () => {
         component: 'TraceImage',
         uri: 'mlflow-attachment://image-id?content_type=image%2Fjpeg&trace_id=tr-123',
         title: 'Generated image',
+      },
+      {
+        id: 'audio',
+        component: 'TraceAudio',
+        uri: 'mlflow-attachment://audio-id?content_type=audio%2Fwav&trace_id=tr-123',
+        title: 'Input clip',
+        weight: 1,
       },
     ]);
     expect(result).toEqual({ ok: true, messages: expect.any(Array) });
@@ -326,6 +333,18 @@ describe('validateAndPrepareMessages catalog allowlist', () => {
       ok: false,
       error: expect.stringContaining('invalid props'),
     });
+  });
+
+  it('rejects an unlisted prop on TraceAudio at render time', () => {
+    const result = prepare([
+      {
+        id: 'root',
+        component: 'TraceAudio',
+        uri: 'mlflow-attachment://audio-id?content_type=audio%2Fwav&trace_id=tr-123',
+        autoplay: true,
+      },
+    ]);
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining('invalid props') });
   });
 
   it('rejects an unlisted prop on a custom component', () => {
@@ -426,6 +445,41 @@ describe('validateTemplate catalog allowlist', () => {
           id: 'root',
           component: 'TraceImage',
           uri: 'mlflow-attachment://image-id?content_type=image%2Fjpeg&trace_id=tr-123',
+        },
+      ]),
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('must bind "uri" to a valid spanField marker'),
+    });
+  });
+
+  it('accepts a TraceAudio whose uri holds a spanField binding marker', () => {
+    const result = validateTemplate(
+      templateWith([
+        {
+          id: 'root',
+          component: 'TraceAudio',
+          title: 'Input clip',
+          uri: {
+            $source: 'spanField',
+            spanRef: 'root',
+            field: 'inputs',
+            path: ['contents', 0, 'parts', 1, 'inline_data', 'data'],
+          },
+        },
+      ]),
+    );
+    expect(result).toEqual({ ok: true, messages: expect.any(Array) });
+  });
+
+  it('rejects a TraceAudio whose uri is a literal attachment URI', () => {
+    const result = validateTemplate(
+      templateWith([
+        {
+          id: 'root',
+          component: 'TraceAudio',
+          uri: 'mlflow-attachment://audio-id?content_type=audio%2Fwav&trace_id=tr-123',
         },
       ]),
     );

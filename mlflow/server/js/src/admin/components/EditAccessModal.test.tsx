@@ -199,3 +199,39 @@ describe('EditAccessModal — workspace targeting on direct grants and revokes',
     expect(mockRevokePermissionMutateAsync.mock.calls[0][0].workspace).toBe('team-a');
   });
 });
+
+describe('EditAccessModal — skill grants', () => {
+  beforeEach(() => {
+    mockUseUserRolesQuery.mockReset();
+    mockRevokePermissionMutateAsync.mockReset();
+  });
+
+  it('pre-fills an existing skill grant so it can be revoked', async () => {
+    mockUseUserRolesQuery.mockReturnValue({
+      data: {
+        roles: [
+          {
+            id: 99,
+            name: '__user_1__',
+            workspace: 'default',
+            permissions: [{ resource_type: 'skill', resource_pattern: '@acme/code-review', permission: 'EDIT' }],
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+    });
+    mockRevokePermissionMutateAsync.mockResolvedValue({});
+    const onClose = jest.fn();
+    renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove skill @acme/code-review' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mockRevokePermissionMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ resource_type: 'skill', resource_id: '@acme/code-review', username: 'alice' }),
+    );
+  });
+});

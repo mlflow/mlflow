@@ -1,0 +1,39 @@
+name: "mint-telemetry-token"
+description: "Mint a Databricks token for MLflow telemetry"
+inputs:
+  host:
+    description: "Databricks workspace URL"
+    required: true
+  client-id:
+    description: "OAuth client ID of the service principal"
+    required: true
+  client-secret:
+    description: "OAuth client secret of the service principal"
+    required: true
+outputs:
+  token:
+    description: "Short-lived token for MLflow telemetry"
+    value: ${{ steps.telemetry.outputs.token }}
+runs:
+  using: "composite"
+  steps:
+    - id: telemetry
+      shell: bash
+      env:
+        DATABRICKS_HOST: ${{ inputs.host }}
+        DATABRICKS_CLIENT_ID: ${{ inputs.client-id }}
+        DATABRICKS_CLIENT_SECRET: ${{ inputs.client-secret }}
+      run: |
+        # The OTLP ingest endpoint requires all-apis. The proxy only forwards to the OTLP routes,
+        # so the agent can't use the token elsewhere.
+        response=$(curl -sS --max-time 15 \
+          -u "$DATABRICKS_CLIENT_ID:$DATABRICKS_CLIENT_SECRET" \
+          -d grant_type=client_credentials -d scope=all-apis \
+          "$DATABRICKS_HOST/oidc/v1/token")
+        token=$(jq -r '.access_token // empty' <<< "$response")
+        if [ -z "$token" ]; then
+          echo "::error::Telemetry token exchange failed: $(jq -r '.error_description // .error // "no access_token"' <<< "$response")"
+          exit 1
+        fi
+        echo "::add-mask::$token"
+        echo "token=$token" >> "$GITHUB_OUTPUT"

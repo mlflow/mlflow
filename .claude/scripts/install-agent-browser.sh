@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Installs the agent-browser binary from its GitHub release. The npm package only wraps
 # these same per-platform binaries, so downloading one directly avoids needing Node.
-# Upstream publishes no checksum manifest, so the digest below is pinned here and must
-# be recomputed when VERSION changes.
+# Upstream publishes no checksum manifest, so the digests below are pinned here and must
+# be recomputed for every platform when VERSION changes.
 set -euo pipefail
 
 if [ "${CI:-}" != "true" ]; then
@@ -10,9 +10,21 @@ if [ "${CI:-}" != "true" ]; then
   exit 1
 fi
 
-VERSION="0.38.1"
-PLATFORM="linux-x64"
-CHECKSUM="5100149a1903211c889de4e545bf36d90803740cea4f99aa22651649f9205ea1"
+VERSION="0.43.0"
+case "$(uname -m)" in
+  x86_64)
+    PLATFORM="linux-x64"
+    CHECKSUM="8e69c9fb662514c9cf36e4911e94e913742ba066e55102486350e049dd847612"
+    ;;
+  aarch64 | arm64)
+    PLATFORM="linux-arm64"
+    CHECKSUM="34be55c2b92d8d199fb9d1d62a905ee5b6ac5b1f3e8c24e5b20597f370d905e5"
+    ;;
+  *)
+    echo "Error: unsupported architecture $(uname -m)" >&2
+    exit 1
+    ;;
+esac
 
 URL="https://github.com/vercel-labs/agent-browser/releases/download/v$VERSION/agent-browser-$PLATFORM"
 

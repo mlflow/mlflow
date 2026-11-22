@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { trace, Tracer } from '@opentelemetry/api';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
@@ -8,6 +9,7 @@ import {
   DatabricksUCTableSpanProcessor,
 } from '../exporters/uc_table';
 import { MlflowWalSpanExporter } from '../exporters/wal';
+import { resolveDaemonEntry } from '../exporters/wal/supervisor';
 import { getConfig, getAuthProvider, type UnityCatalogLocationOptions } from './config';
 import type { UnityCatalogLocation } from './entities/trace_location';
 import { asyncExportEnabled } from './utils/env';
@@ -53,17 +55,31 @@ export function initializeSDK(): void {
       const ucExporter = new DatabricksUCTableSpanExporter(client);
       processor = new DatabricksUCTableSpanProcessor(ucExporter, ucLocation);
     } else {
+      let useWal = false;
       if (asyncExportEnabled()) {
         // WAL path: the hook submits records to a daemon over IPC; the
-        // bundled daemon performs the actual auth setup, fsyncs the
-        // record to `queue.log`, and runs the HTTP upload in a separate
-        // process. The IPC client spawns the daemon on first use, so no
-        // client construction or supervisor wiring is needed here.
-        const mlflowWalExporter = new MlflowWalSpanExporter();
-        processor = new MlflowSpanProcessor(mlflowWalExporter);
+        // bundled daemon performs auth setup, fsyncs the record to
+        // `queue.log`, and uploads in a separate process. If the daemon
+        // entry can't be resolved (broken plugin install, missing bundle
+        // copy), fall back to synchronous export so traces are uploaded
+        // instead of silently dropped.
+        try {
+          useWal = existsSync(resolveDaemonEntry());
+        } catch {
+          useWal = false;
+        }
+      }
+
+      if (useWal) {
+        processor = new MlflowSpanProcessor(new MlflowWalSpanExporter());
       } else {
-        const exporter = new MlflowSpanExporter(client);
-        processor = new MlflowSpanProcessor(exporter);
+        if (asyncExportEnabled()) {
+          console.warn(
+            '[mlflow] MLFLOW_ENABLE_ASYNC_TRACE_LOGGING is enabled, but the trace-upload ' +
+              'daemon could not be resolved; falling back to synchronous trace export.',
+          );
+        }
+        processor = new MlflowSpanProcessor(new MlflowSpanExporter(client));
       }
     }
 

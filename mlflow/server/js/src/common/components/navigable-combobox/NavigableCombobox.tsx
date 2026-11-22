@@ -4,6 +4,7 @@ import {
   TypeaheadComboboxInput,
   TypeaheadComboboxMenu,
   TypeaheadComboboxMenuItem,
+  TypeaheadComboboxSectionHeader,
   useComboboxState,
   useDesignSystemTheme,
   FormUI,
@@ -376,20 +377,13 @@ export function NavigableCombobox<T = string>({
     const menuItem = item as ComboboxMenuItem<T>;
 
     if (isSectionHeader(menuItem)) {
-      return (
-        <div
-          key={menuItem.key}
-          css={{
-            padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-            borderBottom: `1px solid ${theme.colors.borderDecorative}`,
-            marginBottom: theme.spacing.xs,
-          }}
-        >
-          <Typography.Text bold color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-            {menuItem.label}
-          </Typography.Text>
-        </div>
-      );
+      // The design system's own header, and deliberately with no `css` prop on it: the menu
+      // inspects each direct child for `__EMOTION_TYPE_PLEASE_DO_NOT_USE__.defaultProps._type`,
+      // and a styled DOM element puts the tag name ('div') there, whose `defaultProps` is
+      // undefined -- so the menu throws as it opens. A component without a `css` prop carries no
+      // emotion marker and the menu reads `props._type` instead. Not reproducible under jest,
+      // whose transform does not add that marker; only in a real build.
+      return <TypeaheadComboboxSectionHeader key={menuItem.key}>{menuItem.label}</TypeaheadComboboxSectionHeader>;
     }
 
     if (isNavigationItem(menuItem)) {

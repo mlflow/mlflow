@@ -22,7 +22,10 @@ from mlflow.assistant.custom_view import (
     is_custom_view_request,
     parse_custom_view_response,
 )
-from mlflow.assistant.providers._subprocess_stream import SubprocessLineStream
+from mlflow.assistant.providers._subprocess_stream import (
+    SubprocessLineStream,
+    assistant_subprocess_env,
+)
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -30,6 +33,7 @@ from mlflow.assistant.providers.base import (
     assistant_sandbox_enabled,
     load_config_or_default,
 )
+from mlflow.assistant.providers.tool_executor import restrict_permissions_for_remote
 from mlflow.assistant.types import (
     ContentBlock,
     Event,
@@ -396,9 +400,11 @@ class ClaudeCodeProvider(AssistantProvider):
 
     @property
     def allows_remote_access(self) -> bool:
-        # In local mode the CLI runs on the host, so it must stay localhost-only. In sandbox mode
-        # it runs isolated in a container, so it can safely serve remote clients.
-        return assistant_sandbox_enabled()
+        # Local-only. The Claude Code CLI authenticates with host-side credentials (an interactive
+        # login or ANTHROPIC_API_KEY on the server) that belong to the operator, not the remote
+        # caller. Even when sandboxed there is no per-user credential to run it as, so it must never
+        # serve remote clients; only the Gateway provider does.
+        return False
 
     def is_available(self) -> bool:
         # In sandbox mode the CLI runs inside the operator-provided image, not on the host, so
@@ -443,6 +449,7 @@ class ClaudeCodeProvider(AssistantProvider):
                 capture_output=True,
                 text=True,
                 timeout=30,
+                env=assistant_subprocess_env(),
             )
 
             if result.returncode == 0:
@@ -542,8 +549,9 @@ class ClaudeCodeProvider(AssistantProvider):
         if structured_custom_view:
             cmd.extend(["--json-schema", json.dumps(CUSTOM_VIEW_RESPONSE_SCHEMA)])
 
-        # Handle permission mode
-        if config.permissions.full_access:
+        # Handle permission mode. A remote caller is capped at the restricted profile, so its
+        # configured full_access does not unlock the CLI's bypass-permissions mode.
+        if restrict_permissions_for_remote(config.permissions).full_access:
             # Full access mode - bypass all permission checks
             cmd.extend(["--permission-mode", "bypassPermissions"])
         else:
@@ -582,7 +590,7 @@ class ClaudeCodeProvider(AssistantProvider):
                 cmd,
                 input_bytes=user_message.encode("utf-8"),
                 cwd=cwd,
-                env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
+                env=assistant_subprocess_env(MLFLOW_TRACKING_URI=tracking_uri),
             )
 
             # Save PID for cancellation support
@@ -722,7 +730,9 @@ class ClaudeCodeProvider(AssistantProvider):
         ]
         if structured_custom_view:
             cmd.extend(["--json-schema", json.dumps(CUSTOM_VIEW_RESPONSE_SCHEMA)])
-        if config.permissions.full_access:
+        # A remote caller is capped at the restricted profile even inside the sandbox container, so
+        # its configured full_access does not unlock the CLI's bypass-permissions mode.
+        if restrict_permissions_for_remote(config.permissions).full_access:
             cmd.extend(["--permission-mode", "bypassPermissions"])
         else:
             allowed_tools = list(BASE_ALLOWED_TOOLS)

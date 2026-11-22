@@ -1,9 +1,19 @@
 import json
 import os
+import runpy
 import subprocess
+import sys
+import time
 from pathlib import Path
+from unittest import mock
 
 import pytest
+
+from mlflow.telemetry.schemas import Status
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="setup.sh tests are flaky on Windows"
+)
 
 SETUP_SCRIPT = Path(__file__).parents[2] / "mlflow" / "agent" / "setup" / "setup.sh"
 
@@ -103,7 +113,8 @@ def test_choose_agent_without_prompting(tmp_path: Path, installed, requested, ex
 
     result = run_shell(
         """
-PATH=$1
+# Use the POSIX form so a Windows drive colon (C:) does not split PATH.
+PATH=$(cd "$1" && pwd)
 shift
 parse_args "$@"
 validate_agent_name
@@ -125,7 +136,8 @@ printf '%s\\n' "$agent_choice"
 def test_choose_agent_rejects_missing_explicit_agent(tmp_path: Path, agent: str):
     result = run_shell(
         """
-PATH=$1
+# Use the POSIX form so a Windows drive colon (C:) does not split PATH.
+PATH=$(cd "$1" && pwd)
 shift
 parse_args "$@"
 validate_agent_name
@@ -901,3 +913,162 @@ authenticate_databricks
     assert calls_path.read_text().strip() == (
         "auth login --host https://workspace.example.com --profile DEFAULT"
     )
+
+
+@pytest.fixture
+def fake_python(tmp_path: Path) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    # Records the MLFLOW_* env, then the argv after `-c <snippet>` joined with "|".
+    script = bin_dir / "python3"
+    script.write_text(
+        '#!/bin/sh\nenv | grep "^MLFLOW_" > "$0.env"\nshift 2\nIFS="|"\n'
+        'printf "%s\\n" "$*" >> "$0.calls"\n'
+    )
+    script.chmod(0o755)
+    return bin_dir
+
+
+def telemetry_calls(bin_dir: Path, timeout: float = 5) -> list[list[str]]:
+    calls = bin_dir / "python3.calls"
+    deadline = time.monotonic() + timeout
+    while not calls.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    # Give a duplicate send time to land.
+    time.sleep(0.3)
+    return [line.split("|") for line in calls.read_text().splitlines()] if calls.exists() else []
+
+
+@pytest.mark.parametrize(
+    ("body", "status"),
+    [
+        ("exit 0", "success"),
+        ("die boom", "failure"),
+        ("kill -INT $$", "canceled"),
+        ("kill -TERM $$", "canceled"),
+        ("cancel boom", "canceled"),
+        ("telemetry_send success; exec true", "success"),
+    ],
+)
+def test_telemetry_exit_paths_send_once(fake_python: Path, body: str, status: str):
+    run_shell(
+        f"""
+PATH=$1:$PATH
+telemetry_start=123 agent_choice=claude backend=remote telemetry_flags=" agent"
+{body}
+""",
+        str(fake_python),
+    )
+
+    assert telemetry_calls(fake_python) == [[status, "123", "claude", "remote", " agent"]]
+
+
+def test_telemetry_child_drops_credentials(fake_python: Path):
+    run_shell(
+        """
+PATH=$1:$PATH
+export MLFLOW_TRACKING_TOKEN=t MLFLOW_TRACKING_USERNAME=u MLFLOW_TRACKING_PASSWORD=p
+TRACKING_URI=http://mlflow.example.com telemetry_start=123
+telemetry_send failure
+""",
+        str(fake_python),
+    )
+
+    assert len(telemetry_calls(fake_python)) == 1
+    env = dict(
+        line.split("=", 1) for line in (fake_python / "python3.env").read_text().splitlines()
+    )
+    assert env["MLFLOW_TRACKING_URI"] == "http://mlflow.example.com"
+    assert not {"MLFLOW_TRACKING_TOKEN", "MLFLOW_TRACKING_USERNAME", "MLFLOW_TRACKING_PASSWORD"} & (
+        env.keys()
+    )
+
+
+def test_inspect_repository_exit_sends_canceled(fake_python: Path, tmp_path: Path):
+    (tmp_path / "not-a-repo").mkdir()
+    result = run_shell(
+        """
+PATH=$1:$PATH
+cd "$2"
+GIT_CEILING_DIRECTORIES=$3
+export GIT_CEILING_DIRECTORIES
+telemetry_start=123
+select_option() { selected_index=0; }
+inspect_repository
+""",
+        str(fake_python),
+        str(tmp_path / "not-a-repo"),
+        str(tmp_path),
+    )
+
+    assert result.returncode == 1
+    assert "Setup cancelled." in result.stderr
+    assert [call[0] for call in telemetry_calls(fake_python)] == ["canceled"]
+
+
+def test_launch_agent_sends_success_before_exec(fake_python: Path, tmp_path: Path):
+    # The agent fails, so a success event can only come from before exec replaced the shell.
+    agent = fake_python / "claude"
+    agent.write_text("#!/bin/sh\nexit 7\n")
+    agent.chmod(0o755)
+    result = run_shell(
+        """
+PATH=$1:$PATH
+repo_root=$2 telemetry_start=123 agent_choice=claude agent_display=Claude
+build_agent_prompt() { printf prompt; }
+launch_agent
+""",
+        str(fake_python),
+        str(tmp_path),
+    )
+
+    assert result.returncode == 7
+    assert [call[0] for call in telemetry_calls(fake_python)] == ["success"]
+
+
+def test_telemetry_not_sent_before_start(fake_python: Path):
+    result = run_shell("PATH=$1:$PATH\nmain --help", str(fake_python))
+
+    assert result.returncode == 0, result.stderr
+    assert telemetry_calls(fake_python, timeout=1) == []
+
+
+def test_telemetry_records_flag_names_not_values():
+    result = run_shell(
+        'parse_args "$@"\nprintf "%s" "$telemetry_flags"',
+        "--agent",
+        "codex",
+        "--tracking-uri",
+        "--profile",
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.split() == ["agent", "tracking-uri"]
+
+
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected"),
+    [("http://user:secret@host:5000", None), ("databricks://profile", "databricks://profile")],
+)
+def test_telemetry_python_records_event(tmp_path: Path, monkeypatch, tracking_uri, expected):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", tracking_uri)
+    snippet = tmp_path / "telemetry.py"
+    snippet.write_text(run_shell('printf "%s" "$telemetry_python"').stdout)
+    start = int(time.time()) - 2
+    monkeypatch.setattr(sys, "path", ["", *sys.path])
+    monkeypatch.setattr(sys, "argv", ["-c", "failure", str(start), "", "remote", " a b a"])
+    client = mock.Mock()
+    with (
+        mock.patch("mlflow.telemetry.track._record_event", autospec=True) as record_event,
+        mock.patch("mlflow.telemetry.client.get_telemetry_client", return_value=client),
+    ):
+        runpy.run_path(str(snippet))
+
+    (event, params), kwargs = record_event.call_args
+    assert event.name == "agent_setup_script"
+    assert params == {"agent": None, "backend": "oss", "flags": ["a", "b"]}
+    assert kwargs["status"] == Status.FAILURE
+    assert kwargs["duration_ms"] >= 2000
+    client.flush.assert_called_once_with()
+    assert "" not in sys.path
+    assert os.environ.get("MLFLOW_TRACKING_URI") == expected

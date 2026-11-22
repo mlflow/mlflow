@@ -24,7 +24,7 @@ note the existing value in the final summary.
 
 ### 3. Instrument with `mlflow.autolog`
 
-Consult the `instrumenting-with-mlflow-tracing` skill in `{{ skills_dir }}/` for
+Consult the `mlflow-trace-instrumentation` skill in `{{ skills_dir }}/` for
 the supported libraries and per-integration setup. That skill is the source
 of truth for what `mlflow.autolog()` covers.
 

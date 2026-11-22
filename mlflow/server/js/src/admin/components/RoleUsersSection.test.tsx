@@ -4,6 +4,7 @@ import userEventGlobal from '@testing-library/user-event';
 import React from 'react';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { RoleUsersSection } from './RoleUsersSection';
+import { useUsersQuery } from '../hooks';
 
 // DialogCombobox masks pointer-event hit detection on its overlay; disable
 // the check so userEvent.click can reach the trigger.
@@ -12,7 +13,7 @@ const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheck
 // ``jest.mock`` is hoisted above imports by the Jest transformer, so this
 // mock applies before ``./RoleUsersSection`` reaches in to ``../hooks``.
 jest.mock('../hooks', () => ({
-  useUsersQuery: () => ({
+  useUsersQuery: jest.fn(() => ({
     data: {
       users: [
         { id: 1, username: 'alice', is_admin: false, roles: [] },
@@ -22,8 +23,15 @@ jest.mock('../hooks', () => ({
     },
     isLoading: false,
     error: null,
-  }),
+  })),
 }));
+
+describe('RoleUsersSection — workspace', () => {
+  it("offers the given workspace's roster", () => {
+    renderWithDesignSystem(<RoleUsersSection value={[]} onChange={() => {}} workspace="team-a" />);
+    expect(useUsersQuery).toHaveBeenCalledWith('team-a');
+  });
+});
 
 describe('RoleUsersSection — multi-select trigger', () => {
   // Regression for #23399: see ``RoleAssignmentForm.test.tsx`` for the bug

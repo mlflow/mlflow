@@ -7,7 +7,7 @@ This README covers information about the main MLflow documentation. The API refe
 **Necessary**
 
 - NodeJS >= 18.0 (see the [NodeJS documentation](https://nodejs.org/en/download) for installation instructions)
-- (For building MDX files from `.ipynb` files) Python 3.9+, [nbconvert](https://pypi.org/project/nbconvert/), [nbformat](https://pypi.org/project/nbformat/) and [pyyml](https://pypi.org/project/pyyml/)
+- (For building MDX files from `.ipynb` files) Python 3.11+, [nbconvert](https://pypi.org/project/nbconvert/), [nbformat](https://pypi.org/project/nbformat/) and [pyyml](https://pypi.org/project/pyyml/)
 
 **Optional**
 
