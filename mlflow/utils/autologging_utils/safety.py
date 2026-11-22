@@ -962,6 +962,20 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
         "http_headers",
     ),
     ValidationExemptArgument(
+        "mistral",
+        "stream",
+        lambda x: x is None or isinstance(x, Mapping),
+        None,
+        "http_headers",
+    ),
+    ValidationExemptArgument(
+        "mistral",
+        "stream_async",
+        lambda x: x is None or isinstance(x, Mapping),
+        None,
+        "http_headers",
+    ),
+    ValidationExemptArgument(
         "groq", "create", lambda x: x is None or isinstance(x, Mapping), None, "extra_headers"
     ),
     # Gemini header injection goes through config.http_options.headers. Config can be

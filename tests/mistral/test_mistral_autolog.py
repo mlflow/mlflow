@@ -1,4 +1,6 @@
+import json
 from importlib.metadata import version
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -388,3 +390,278 @@ async def test_tracing_headers_parent_gateway_span_without_double_counting(is_as
     assert aggregate_usage_from_spans([span, gateway_span]) == span.get_attribute(
         SpanAttributeKey.CHAT_USAGE
     )
+
+
+def _make_sse_response(chunks: list[dict[str, Any] | str]) -> httpx.Response:
+    lines = [c if isinstance(c, str) else json.dumps(c) for c in chunks]
+    body = "".join(f"data: {line}\n\n" for line in [*lines, "[DONE]"])
+    return httpx.Response(
+        status_code=200,
+        headers={"Content-Type": "text/event-stream"},
+        content=body.encode(),
+    )
+
+
+def _chunk(delta: dict[str, Any], finish_reason: str | None = None, **kwargs) -> dict[str, Any]:
+    return {
+        "id": "test_id",
+        "object": "chat.completion.chunk",
+        "created": 1736200000,
+        "model": "test_model",
+        "choices": [{"index": 0, "delta": delta, "finish_reason": finish_reason}],
+        **kwargs,
+    }
+
+
+DUMMY_STREAM_CHUNKS = [
+    _chunk({"role": "assistant", "content": ""}),
+    _chunk({"content": "test"}),
+    _chunk(
+        {"content": " answer"},
+        finish_reason="stop",
+        usage={"prompt_tokens": 10, "completion_tokens": 18, "total_tokens": 28},
+    ),
+]
+
+DUMMY_STREAM_OUTPUT = {
+    "id": "test_id",
+    "object": "chat.completion",
+    "model": "test_model",
+    "created": 1736200000,
+    "choices": [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "test answer"},
+            "finish_reason": "stop",
+        }
+    ],
+}
+
+
+def _assert_stream_trace(span_name: str):
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == span_name
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
+    assert span.outputs == DUMMY_STREAM_OUTPUT
+    assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 18,
+        TokenUsageKey.TOTAL_TOKENS: 28,
+    }
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 18,
+        TokenUsageKey.TOTAL_TOKENS: 28,
+    }
+
+
+def test_chat_stream_autolog():
+    with patch(
+        CHAT_DO_REQUEST_PATH, return_value=_make_sse_response(DUMMY_STREAM_CHUNKS)
+    ) as mock_request:
+        mlflow.mistral.autolog()
+        client = Mistral(api_key="test_key")
+        stream = client.chat.stream(**DUMMY_CHAT_COMPLETION_REQUEST)
+        # The span stays open until the stream is consumed.
+        assert get_traces() == []
+        text = "".join(event.data.choices[0].delta.content for event in stream)
+
+    mock_request.assert_called_once()
+    assert text == "test answer"
+    _assert_stream_trace("Chat.stream")
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_async_autolog():
+    with patch(
+        CHAT_DO_REQUEST_ASYNC_PATH, return_value=_make_sse_response(DUMMY_STREAM_CHUNKS)
+    ) as mock_request:
+        mlflow.mistral.autolog()
+        client = Mistral(api_key="test_key")
+        stream = await client.chat.stream_async(**DUMMY_CHAT_COMPLETION_REQUEST)
+        text = "".join([event.data.choices[0].delta.content async for event in stream])
+
+    mock_request.assert_called_once()
+    assert text == "test answer"
+    _assert_stream_trace("Chat.stream_async")
+
+
+def test_chat_stream_autolog_tool_calling():
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_unit", "arguments": '{"location": "Paris"}'},
+        "index": 0,
+    }
+    parallel_call = {
+        "id": "call_2",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"location": "Paris", '},
+        "index": 1,
+    }
+    # A follow-up chunk without an ID continues the arguments of the previous tool call.
+    continuation = {"function": {"name": "", "arguments": '"unit": "celsius"}'}, "index": 1}
+    chunks = [
+        _chunk({"role": "assistant", "content": ""}),
+        _chunk({"tool_calls": [tool_call, parallel_call]}),
+        _chunk({"tool_calls": [continuation]}, finish_reason="tool_calls"),
+    ]
+    with patch(CHAT_DO_REQUEST_PATH, return_value=_make_sse_response(chunks)) as mock_request:
+        mlflow.mistral.autolog()
+        client = Mistral(api_key="test_key")
+        list(client.chat.stream(**DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST))
+
+    mock_request.assert_called_once()
+    span = get_traces()[0].data.spans[0]
+    choice = span.outputs["choices"][0]
+    assert choice["finish_reason"] == "tool_calls"
+    assert choice["message"]["tool_calls"] == [
+        {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "get_unit", "arguments": '{"location": "Paris"}'},
+        },
+        {
+            "id": "call_2",
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "arguments": '{"location": "Paris", "unit": "celsius"}',
+            },
+        },
+    ]
+    assert [
+        tool["function"]["name"] for tool in span.get_attribute(SpanAttributeKey.CHAT_TOOLS)
+    ] == [
+        "get_unit",
+        "get_weather",
+    ]
+
+
+def test_chat_stream_autolog_reasoning_content():
+    def thinking(text):
+        return {"type": "thinking", "thinking": [{"type": "text", "text": text}]}
+
+    chunks = [
+        _chunk({"role": "assistant", "content": [thinking("Let me ")]}),
+        _chunk({"content": [thinking("think.")]}),
+        _chunk({"content": [{"type": "text", "text": "The answer"}]}),
+        _chunk({"content": " is 42."}, finish_reason="stop"),
+    ]
+    with patch(CHAT_DO_REQUEST_PATH, return_value=_make_sse_response(chunks)) as mock_request:
+        mlflow.mistral.autolog()
+        client = Mistral(api_key="test_key")
+        list(client.chat.stream(**DUMMY_CHAT_COMPLETION_REQUEST))
+
+    mock_request.assert_called_once()
+    message = get_traces()[0].data.spans[0].outputs["choices"][0]["message"]
+    assert message["content"] == [
+        thinking("Let me think."),
+        {"type": "text", "text": "The answer is 42."},
+    ]
+
+
+def test_chat_stream_autolog_closed_early():
+    with patch(
+        CHAT_DO_REQUEST_PATH, return_value=_make_sse_response(DUMMY_STREAM_CHUNKS)
+    ) as mock_request:
+        mlflow.mistral.autolog()
+        client = Mistral(api_key="test_key")
+        # Leaving the ``with`` block closes the HTTP response before the stream is exhausted.
+        with client.chat.stream(**DUMMY_CHAT_COMPLETION_REQUEST) as stream:
+            next(stream)
+            next(stream)
+
+    mock_request.assert_called_once()
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    message = traces[0].data.spans[0].outputs["choices"][0]["message"]
+    assert message == {"role": "assistant", "content": "test"}
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_async_autolog_closed_early():
+    with patch(
+        CHAT_DO_REQUEST_ASYNC_PATH, return_value=_make_sse_response(DUMMY_STREAM_CHUNKS)
+    ) as mock_request:
+        mlflow.mistral.autolog()
+        client = Mistral(api_key="test_key")
+        async with await client.chat.stream_async(**DUMMY_CHAT_COMPLETION_REQUEST) as stream:
+            await anext(stream)
+            await anext(stream)
+
+    mock_request.assert_called_once()
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    message = traces[0].data.spans[0].outputs["choices"][0]["message"]
+    assert message == {"role": "assistant", "content": "test"}
+
+
+def test_chat_stream_autolog_unknown_stream_internals():
+    class OpaqueStream:
+        def __init__(self, response, *args, **kwargs):
+            self._events = iter([])
+
+        def __iter__(self):
+            return self._events
+
+    event_stream_path = CHAT_DO_REQUEST_PATH.replace("chat.Chat.do_request", "utils.eventstreaming")
+    with (
+        patch(
+            CHAT_DO_REQUEST_PATH, return_value=_make_sse_response(DUMMY_STREAM_CHUNKS)
+        ) as mock_request,
+        patch(f"{event_stream_path}.EventStream", OpaqueStream),
+    ):
+        mlflow.mistral.autolog()
+        client = Mistral(api_key="test_key")
+        stream = client.chat.stream(**DUMMY_CHAT_COMPLETION_REQUEST)
+
+    mock_request.assert_called_once()
+    assert isinstance(stream, OpaqueStream)
+    # The stream is returned untouched, and the span ends when ``stream()`` returns.
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+
+def test_chat_stream_autolog_error_mid_stream():
+    chunks = [_chunk({"role": "assistant", "content": "test"}), "{not json"]
+    with patch(CHAT_DO_REQUEST_PATH, return_value=_make_sse_response(chunks)) as mock_request:
+        mlflow.mistral.autolog()
+        client = Mistral(api_key="test_key")
+        stream = client.chat.stream(**DUMMY_CHAT_COMPLETION_REQUEST)
+        with pytest.raises(Exception):  # noqa: PT011
+            list(stream)
+
+    mock_request.assert_called_once()
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "ERROR"
+    span = traces[0].data.spans[0]
+    assert span.status.status_code == "ERROR"
+    assert span.events[0].name == "exception"
+
+
+def test_chat_stream_autolog_disabled_traces():
+    with patch(
+        CHAT_DO_REQUEST_PATH, return_value=_make_sse_response(DUMMY_STREAM_CHUNKS)
+    ) as mock_request:
+        mlflow.mistral.autolog(log_traces=False)
+        client = Mistral(api_key="test_key")
+        text = "".join(
+            event.data.choices[0].delta.content
+            for event in client.chat.stream(**DUMMY_CHAT_COMPLETION_REQUEST)
+        )
+
+    mock_request.assert_called_once()
+    assert text == "test answer"
+    assert get_traces() == []
