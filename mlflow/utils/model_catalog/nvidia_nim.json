@@ -482,7 +482,7 @@
     "openai/gpt-oss-20b": {
       "mode": "chat",
       "context_window": {
-        "max_output": 4096
+        "max_output": 32768
       },
       "capabilities": {
         "function_calling": true,
@@ -491,7 +491,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-18"
+      "last_updated_at": "2026-11-22"
     },
     "poolside/laguna-xs-2.1": {
       "mode": "chat",

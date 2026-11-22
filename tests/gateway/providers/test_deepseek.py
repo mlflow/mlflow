@@ -74,3 +74,26 @@ async def test_chat():
     result = jsonable_encoder(response)
     assert result["id"] == "chatcmpl-deepseek-123"
     assert result["choices"][0]["message"]["content"] == "Hello from DeepSeek!"
+
+
+@pytest.mark.asyncio
+async def test_chat_does_not_send_cache_control():
+    provider = _make_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral"}}
+                    ],
+                }
+            ],
+        )
+        await provider.chat(payload)
+
+    assert mock_client.post.call_args.kwargs["json"]["messages"] == [
+        {"role": "user", "content": [{"type": "text", "text": "Doc"}]}
+    ]
