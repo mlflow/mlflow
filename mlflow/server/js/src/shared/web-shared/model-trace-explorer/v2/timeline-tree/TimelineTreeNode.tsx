@@ -165,8 +165,8 @@ export const TimelineTreeNode = ({
         return value ? [value] : [];
       });
   const inlineMetric = timelineTreeMetrics.length === 1 ? metricValues[0] : undefined;
-  const hasMetricRow = timelineTreeMetrics.length > 1 && metricValues.length > 0;
   const rowHeight = getTimelineTreeRowHeight(node, timelineTreeMetrics, comparisonSpan, nodeComparisonRole);
+  const hasMetricRow = rowHeight === SPAN_ROW_HEIGHT_WITH_METADATA;
   const rowTopPadding = (rowHeight - 24) / 2;
 
   const backgroundColor = isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent';
