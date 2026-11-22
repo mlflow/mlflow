@@ -73,6 +73,19 @@ def test_create_optimizer_rejects_destination_keys(optimizer_type, config):
         _create_optimizer(optimizer_type, config)
 
 
+@pytest.mark.parametrize(
+    ("optimizer_type", "config"),
+    [
+        ("metaprompt", {"lm_kwargs": {"model": "openai/denied"}}),
+        ("gepa", {"gepa_kwargs": {"reflection_lm_kwargs": {"model": "openai/denied"}}}),
+    ],
+)
+def test_create_optimizer_rejects_reflection_model_override(optimizer_type, config):
+    config = {"reflection_model": "gateway:/allowed", **config}
+    with pytest.raises(MlflowException, match="must not contain 'model'"):
+        _create_optimizer(optimizer_type, config)
+
+
 def test_create_optimizer_unsupported_type():
     with pytest.raises(MlflowException, match="Unsupported optimizer type: 'invalid'"):
         _create_optimizer("invalid", None)

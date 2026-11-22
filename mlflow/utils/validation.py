@@ -1281,11 +1281,11 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
     _validate_gateway_region_keys(secret_value, "secret_value", show_value=False)
 
 
-def _find_destination_keys(value: Any) -> set[str]:
+def _find_destination_keys(value: Any, keys: frozenset[str] = GATEWAY_DESTINATION_KEYS) -> set[str]:
     if isinstance(value, dict):
-        found = GATEWAY_DESTINATION_KEYS & set(value)
+        found = keys & set(value)
         for nested in value.values():
-            found |= _find_destination_keys(nested)
+            found |= _find_destination_keys(nested, keys)
         return found
     if isinstance(value, list):
         found: set[str] = set()
@@ -1293,8 +1293,8 @@ def _find_destination_keys(value: Any) -> set[str]:
             # `dict()` also accepts a list of two-item pairs, which is how nested option maps
             # such as trulens' `completion_kwargs` are materialized.
             if isinstance(nested, list) and len(nested) == 2 and isinstance(nested[0], str):
-                found |= GATEWAY_DESTINATION_KEYS & {nested[0]}
-            found |= _find_destination_keys(nested)
+                found |= keys & {nested[0]}
+            found |= _find_destination_keys(nested, keys)
         return found
     return set()
 
@@ -1450,6 +1450,22 @@ def _validate_prompt_optimizer_config(optimizer_config: Any) -> None:
     _validate_llm_client_kwargs(
         optimizer_config, "optimizer_config_json", client="reflection model"
     )
+    # These kwargs are merged over the model resolved from `reflection_model`, which is the
+    # endpoint the auth plugin authorizes, so a `model` key (or `extra_body.model`) would send the
+    # request to a different model or gateway endpoint than the one checked.
+    gepa_kwargs = optimizer_config.get("gepa_kwargs")
+    reflection_kwargs = {
+        "lm_kwargs": optimizer_config.get("lm_kwargs"),
+        "gepa_kwargs.reflection_lm_kwargs": (
+            gepa_kwargs.get("reflection_lm_kwargs") if isinstance(gepa_kwargs, dict) else None
+        ),
+    }
+    for field, kwargs in reflection_kwargs.items():
+        if _find_destination_keys(kwargs, frozenset({"model"})):
+            raise MlflowException.invalid_parameter_value(
+                f"optimizer_config_json {field} must not contain 'model': set the reflection "
+                "model with 'reflection_model' instead."
+            )
 
 
 def _validate_icon_url(url: str) -> None:

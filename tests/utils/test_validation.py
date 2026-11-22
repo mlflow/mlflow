@@ -1426,6 +1426,31 @@ def test_validate_prompt_optimizer_config_rejects_non_region_names(key, value):
         _validate_prompt_optimizer_config({"lm_kwargs": {key: value}})
 
 
+@pytest.mark.parametrize(
+    ("config", "field"),
+    [
+        ({"lm_kwargs": {"model": "openai/denied"}}, "lm_kwargs"),
+        ({"lm_kwargs": [["model", "openai/denied"]]}, "lm_kwargs"),
+        ({"lm_kwargs": {"extra_body": {"model": "denied"}}}, "lm_kwargs"),
+        (
+            {"gepa_kwargs": {"reflection_lm_kwargs": {"model": "openai/denied"}}},
+            "gepa_kwargs.reflection_lm_kwargs",
+        ),
+        (
+            {"gepa_kwargs": {"reflection_lm_kwargs": [["model", "openai/denied"]]}},
+            "gepa_kwargs.reflection_lm_kwargs",
+        ),
+    ],
+)
+def test_validate_prompt_optimizer_config_rejects_reflection_model_override(config, field):
+    config = {"reflection_model": "gateway:/allowed", **config}
+    with pytest.raises(
+        MlflowException, match=f"optimizer_config_json {field} must not contain 'model'"
+    ) as exc:
+        _validate_prompt_optimizer_config(config)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 @pytest.mark.parametrize("config", [[], "openai:/gpt-4o", 1])
 def test_validate_prompt_optimizer_config_rejects_non_object_config(config):
     with pytest.raises(MlflowException, match="optimizer_config_json must be a JSON object"):
