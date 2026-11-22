@@ -11,6 +11,7 @@ from sqlalchemy.pool.impl import QueuePool
 from mlflow.exceptions import MlflowException
 from mlflow.store.db import utils
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from mlflow.utils.time import get_current_time_millis
 
 
@@ -30,6 +31,32 @@ def test_create_sqlalchemy_engine_inject_pool_options(monkeypatch):
             pool_recycle=3600,
             echo=True,
             poolclass=QueuePool,
+        )
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        (
+            {"MLFLOW_SQLALCHEMYSTORE_POOL_SIZE": "1", "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW": "0"},
+            {"pool_size": 1, "max_overflow": 0},
+        ),
+        ({"MLFLOW_SQLALCHEMYSTORE_POOL_SIZE": "0"}, {"pool_size": 0}),
+    ],
+)
+def test_create_sqlalchemy_engine_zero_pool_options(monkeypatch, env, expected):
+    for name in [
+        "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE",
+        "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW",
+        "MLFLOW_SQLALCHEMYSTORE_POOLCLASS",
+    ]:
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+        utils.create_sqlalchemy_engine("mydb://host:port/")
+        mock_create_engine.assert_called_once_with(
+            "mydb://host:port/", pool_pre_ping=True, **expected
         )
 
 
@@ -183,6 +210,15 @@ def test_make_parent_dirs_if_sqlite(tmp_path: Path) -> None:
     assert not nested_path.parent.exists()
     utils._make_parent_dirs_if_sqlite(db_uri)
     assert nested_path.parent.exists()
+
+
+def test_create_sqlalchemy_engine_with_retry_creates_literal_sqlite_path(tmp_path: Path) -> None:
+    db_path = tmp_path / "a%2Bb" / "nested" / "mlflow.db"
+    engine = utils.create_sqlalchemy_engine_with_retry(path_to_local_sqlite_uri(db_path))
+    engine.dispose()
+
+    assert db_path.exists()
+    assert not (tmp_path / "a+b").exists()
 
 
 def test_make_parent_dirs_if_sqlite_skips_memory_db() -> None:

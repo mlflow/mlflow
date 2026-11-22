@@ -155,6 +155,21 @@ def test_is_telemetry_disabled(monkeypatch, bypass_env_check):
         assert is_telemetry_disabled() is True
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("true", True),
+        ("TRUE", True),
+        ("1", True),
+        ("false", False),
+        ("0", False),
+    ],
+)
+def test_is_telemetry_disabled_do_not_track_values(monkeypatch, bypass_env_check, value, expected):
+    monkeypatch.setenv("DO_NOT_TRACK", value)
+    assert is_telemetry_disabled() is expected
+
+
 def test_is_telemetry_disabled_does_not_disable_in_databricks(monkeypatch, bypass_env_check):
     # Running inside DBR / model serving must not disable telemetry — events
     # are routed to the workspace via _forward_to_databricks. The OSS branch

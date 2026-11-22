@@ -26,11 +26,8 @@ class OpenAIChatCompletionConverter(GenAiSemconvConverter):
             return None
         parts = []
         for m in messages:
-            if m.get("role") != "system":
-                continue
-            content = m.get("content")
-            if isinstance(content, str):
-                parts.append({"type": "text", "content": content})
+            if m.get("role") == "system":
+                parts.extend(_convert_content(m.get("content")))
         return parts or None
 
     def convert_outputs(self, outputs: dict[str, Any]) -> list[dict[str, Any]] | None:

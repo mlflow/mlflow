@@ -5,7 +5,9 @@ import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.typ
 import { useSearchParams } from '../utils/RoutingUtils';
 import { doesTraceSupportV4API } from '../utils/TraceLocationUtils';
 
-const QUERY_PARAM_KEY = 'selectedEvaluationId';
+/** Exported so a page that writes a trace selection alongside other params can do it in one update. */
+export const SELECTED_EVALUATION_ID_PARAM = 'selectedEvaluationId';
+const QUERY_PARAM_KEY = SELECTED_EVALUATION_ID_PARAM;
 
 type SetSelectedEvaluationIdFn = (selectedEvaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
 

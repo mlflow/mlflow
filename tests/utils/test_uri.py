@@ -1,6 +1,7 @@
 import os
 import pathlib
 import posixpath
+from unittest import mock
 
 import pytest
 
@@ -8,6 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.os import is_windows
 from mlflow.utils.uri import (
+    _strip_extended_length_prefix,
     add_databricks_profile_info_to_artifact_uri,
     append_to_uri_path,
     append_to_uri_query_params,
@@ -325,6 +327,12 @@ def test_append_to_uri_throws_for_malicious_query_string_in_uri(uri):
             "",
             [("new_param", "new_value")],
             "s3://bucket/key?existing_param=existing_value&new_param=new_value",
+        ),
+        (
+            "https://example.com?flag=&key=value",
+            "",
+            [("new_key", "new_value")],
+            "https://example.com?flag=&key=value&new_key=new_value",
         ),
     ],
 )
@@ -786,16 +794,122 @@ def test_validate_path_is_safe_good(path):
     validate_path_is_safe(path)
 
 
-@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
 @pytest.mark.parametrize(
     "path",
     [
-        # relative path from current directory of C: drive
+        "",
+        ".",
+        "./path/to/file.txt",
+        "path/./to/file.txt",
+        "path with spaces/to/file.v2.txt",
+        "path/to/.hidden",
+        "path/to/model~draft.txt",
+        "path/to/model.txt~",
+        "path/to/model~1draft.txt",
+    ],
+)
+def test_validate_path_is_safe_windows_good(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    assert validate_path_is_safe(path, validate_windows_aliases=True) == path
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "folder.",
+        "folder /file.txt",
+        "FOLDER~1/file.txt",
+        "folder/file:stream",
         ".../...//",
     ],
 )
-def test_validate_path_is_safe_windows_good(path):
-    validate_path_is_safe(path)
+def test_validate_path_is_safe_windows_aliases_disabled(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    assert validate_path_is_safe(path) == path
+    assert validate_path_is_safe(path, validate_windows_aliases=False) == path
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"validate_windows_aliases": False}])
+def test_validate_path_is_safe_file_uri_conversion_with_aliases_disabled(kwargs, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    # Python versions differ in whether a relative file: URI normalizes to an absolute path.
+    monkeypatch.setattr("mlflow.utils.file_utils.local_file_uri_to_path", lambda _: "stream")
+    assert validate_path_is_safe("file:stream", **kwargs) == "stream"
+
+    monkeypatch.setattr("mlflow.utils.file_utils.local_file_uri_to_path", lambda _: "/stream")
+    with pytest.raises(MlflowException, match="^Invalid path$"):
+        validate_path_is_safe("file:stream", **kwargs)
+
+
+@pytest.mark.parametrize("path", ["../file.txt", "folder/../file.txt"])
+def test_validate_path_is_safe_windows_parent_component_error(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="^Invalid path$"):
+        validate_path_is_safe(path, validate_windows_aliases=True)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "folder.",
+        "folder /file.txt",
+        "folder.../file.txt",
+        "folder/file.txt.",
+        "folder/file.txt ",
+        "folder/file.txt. ",
+        "folder%2e/file.txt",
+        "folder%20/file.txt",
+        "FOLDER~1",
+        "folder~123/file.txt",
+        "folder/AB12CD~2.TXT",
+        "folder/AB12CD%7e2.TXT",
+        "folder/file:stream",
+        "file:stream",
+        "file%3astream",
+        "folder:stream/file.txt",
+        ".../...//",
+    ],
+)
+def test_validate_path_is_safe_rejects_windows_aliases(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path") as exc:
+        validate_path_is_safe(path, validate_windows_aliases=True)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "folder./file.txt",
+        "folder /file.txt",
+        "folder/file.txt.",
+        "FOLDER~1/file.txt",
+        "folder/file:stream",
+    ],
+)
+def test_validate_path_is_safe_preserves_posix_names(path, monkeypatch):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: False)
+    assert validate_path_is_safe(path, validate_windows_aliases=True) == path
+
+
+@pytest.mark.parametrize(
+    ("path", "component", "rule"),
+    [
+        ("folder/file.txt.", "file.txt.", "ends with a dot or space"),
+        (r"folder.\file.txt", "folder.", "ends with a dot or space"),
+        ("run:1.txt", "run:1.txt", "alternate data stream"),
+        ("models/x~1.csv", "x~1.csv", "DOS short-name"),
+    ],
+)
+def test_validate_path_is_safe_windows_alias_error_names_component(
+    path, component, rule, monkeypatch
+):
+    monkeypatch.setattr("mlflow.utils.uri.is_windows", lambda: True)
+    with pytest.raises(MlflowException, match="Invalid path") as exc:
+        validate_path_is_safe(path, validate_windows_aliases=True)
+    message = str(exc.value)
+    assert repr(component) in message
+    assert rule in message
 
 
 @pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")
@@ -981,6 +1095,69 @@ def test_validate_path_within_directory_allows_internal_symlink(tmp_path):
     os.symlink(str(real_file), str(symlink_path))
     result = validate_path_within_directory(str(base_dir), str(symlink_path))
     assert result == str(symlink_path)
+
+
+def test_validate_path_within_directory_tolerates_extended_length_prefix(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "skills" / "@acme" / "reviewer" / "abc"
+    original_resolve = pathlib.Path.resolve
+
+    def resolve_with_prefix(self, strict=False):
+        # Mimics Windows' non-strict realpath keeping the prefix for a missing directory
+        # when a concurrent mkdir changes the error code of its re-check.
+        resolved = original_resolve(self, strict=strict)
+        return resolved if self.exists() else type(resolved)("\\\\?\\" + str(resolved))
+
+    with mock.patch.object(
+        pathlib.Path, "resolve", autospec=True, side_effect=resolve_with_prefix
+    ) as resolve:
+        result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    resolve.assert_called()
+    assert result == str(constructed_path)
+
+
+@pytest.mark.parametrize("escapes", [False, True])
+def test_validate_path_within_directory_symlink_with_extended_length_prefix(tmp_path, escapes):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    link_target = tmp_path / "external" if escapes else base_dir / "internal"
+    link_target.mkdir()
+    os.symlink(str(link_target), str(base_dir / "link"))
+    constructed_path = base_dir / "link" / "new_dir" / "abc"
+    original_resolve = pathlib.Path.resolve
+
+    def resolve_with_prefix(self, strict=False):
+        # Only the missing parent comes back prefixed, so the forms differ as in the Windows
+        # race. The internal link is accepted only after stripping, and stripping must not
+        # let the external link through.
+        resolved = original_resolve(self, strict=strict)
+        return resolved if self.exists() else type(resolved)("\\\\?\\" + str(resolved))
+
+    with mock.patch.object(pathlib.Path, "resolve", autospec=True, side_effect=resolve_with_prefix):
+        if escapes:
+            with pytest.raises(
+                MlflowException, match="resolved path is outside the artifact directory"
+            ):
+                validate_path_within_directory(str(base_dir), str(constructed_path))
+        else:
+            result = validate_path_within_directory(str(base_dir), str(constructed_path))
+            assert result == str(constructed_path)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("\\\\?\\C:\\artifacts\\a", "C:\\artifacts\\a"),
+        ("\\\\?\\UNC\\server\\share\\a", "\\\\server\\share\\a"),
+        ("C:\\artifacts\\a", "C:\\artifacts\\a"),
+        ("\\\\server\\share\\a", "\\\\server\\share\\a"),
+    ],
+)
+def test_strip_extended_length_prefix(path, expected):
+    assert _strip_extended_length_prefix(pathlib.PureWindowsPath(path)) == (
+        pathlib.PureWindowsPath(expected)
+    )
 
 
 def test_validate_path_within_directory_allows_base_dir_itself(tmp_path):

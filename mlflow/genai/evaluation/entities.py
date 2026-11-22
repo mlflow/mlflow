@@ -14,7 +14,9 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
 from mlflow.genai.evaluation.context import get_context
+from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.evaluation.utils import is_none_or_nan
+from mlflow.genai.utils.trace_utils import extract_inputs_from_trace, extract_outputs_from_trace
 
 
 def _assertion_outcome(
@@ -111,12 +113,14 @@ class EvalItem:
             trace: The trace to create an EvalItem from.
 
         Returns:
-            An EvalItem with the trace set and request_id from the trace.
+            An EvalItem with the trace set, request_id from the trace, and the inputs and outputs
+            of the trace's root span, as ``mlflow.genai.evaluate`` takes them from a trace.
+            Unlike ``mlflow.genai.evaluate``, it does not take expectations from the trace.
         """
         return cls(
             request_id=trace.info.trace_id,
-            inputs=None,
-            outputs=None,
+            inputs=extract_inputs_from_trace(trace),
+            outputs=extract_outputs_from_trace(trace),
             expectations=None,
             trace=trace,
         )
@@ -260,6 +264,8 @@ class EvaluationResult:
     # Per-scorer ``pass_if`` predicates, keyed by scorer name. Populated by the
     # evaluation harness from the scorers that declare one. In-process only.
     pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
+    # Run-level conditions parsed from ``evaluate(quality_criteria=...)``. In-process only.
+    quality_criteria: list[QualityCriteriaRule] = field(default_factory=list)
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -279,10 +285,13 @@ class EvaluationResult:
 
     @property
     def passed(self) -> bool:
-        """``True`` when every scorer passed for every row.
+        """``True`` when every scorer passed for every row and every condition in
+        ``quality_criteria`` holds.
 
         A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
         Declare ``@scorer(pass_if=...)`` to define passing for other values.
+        A run does not pass when its per-row results are unavailable or when no
+        scorer produced a value for any row.
 
         Usage::
 
@@ -305,14 +314,23 @@ class EvaluationResult:
         return f"{len(failures)} assertions failed:\n" + "\n".join(f"  - {f}" for f in failures)
 
     def _failures(self) -> list[str]:
+        failures = self._row_failures()
+        for rule in self.quality_criteria:
+            if failure := rule.check(self.metrics):
+                failures.append(failure)
+        return failures
+
+    def _row_failures(self) -> list[str]:
         if self.result_df is None:
-            return []
+            return [
+                "per-row results are unavailable (the result table could not be built), "
+                "so the run cannot be checked"
+            ]
 
         value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
-        if not value_cols:
-            return []
 
         failures: list[str] = []
+        num_scored = 0
         for _, row in self.result_df.iterrows():
             for col in value_cols:
                 scorer_name = col.removesuffix("/value")
@@ -322,6 +340,7 @@ class EvaluationResult:
                 # Skip cells a scorer did not produce for this row.
                 if error_msg is None and is_none_or_nan(value):
                     continue
+                num_scored += 1
                 rationale = row.get(f"{scorer_name}/rationale")
                 rationale = None if is_none_or_nan(rationale) else rationale
                 passed, detail = _assertion_outcome(
@@ -329,6 +348,13 @@ class EvaluationResult:
                 )
                 if not passed:
                     failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
+        # Skipping a single missing cell is fine, but a run where no scorer produced a
+        # value for any row has no evidence to pass on.
+        if num_scored == 0:
+            failures.append(
+                "no scorer produced a value for any row; check that the scorers return a "
+                "value and receive the inputs they need"
+            )
         return failures
 
     # For backwards compatibility

@@ -173,7 +173,9 @@ def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
 
 
 def _handle_dataframe_nans(df: pd.DataFrame):
-    return df.where(df.notnull(), None)
+    # Cast to object first: float and datetime columns cannot hold `None`, so `where` would
+    # put `NaN`/`NaT` back, which serialize to invalid JSON (`NaN`) or the string "NaT".
+    return df.astype(object).where(df.notnull(), None)
 
 
 def _coerce_to_pandas_df(input_ex):
@@ -799,9 +801,14 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
                 f"datetime objects. Error: {e}"
             )
 
-    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
+    if t == DataType.datetime and (
+        values.dtype == object
+        or isinstance(values.dtype, pd.StringDtype)
+        or values.dtype == t.to_python()
+    ):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
+        # pandas 3 infers columns of date strings as StringDtype rather than object.
         try:
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
@@ -1005,7 +1012,8 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             f"of {'input ' + name if name else 'the unnamed input'} is {tensor_spec.shape}."
         )
 
-    if np.isscalar(pd_series[0]):
+    first_value = pd_series.iloc[0]
+    if np.isscalar(first_value):
         for shape in [(-1,), (-1, 1)]:
             if tensor_spec.shape == shape:
                 return _enforce_tensor_spec(
@@ -1017,7 +1025,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
             f"shape of {tensor_spec.shape}.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    elif isinstance(pd_series[0], list) and np.isscalar(pd_series[0][0]):
+    elif isinstance(first_value, list) and np.isscalar(first_value[0]):
         # If the pandas column contains list type values,
         # in this case, the shape and type information is lost,
         # so do not enforce the shape and type, instead,
@@ -1039,7 +1047,7 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         if len(reshaped_numpy_arr) != len(pd_series):
             raise MlflowException(reshape_err_msg, error_code=INVALID_PARAMETER_VALUE)
         return reshaped_numpy_arr
-    elif isinstance(pd_series[0], np.ndarray):
+    elif isinstance(first_value, np.ndarray):
         reshape_err_msg = (
             f"The value in the Input DataFrame column '{name}' could not be converted to the "
             f"expected shape of: '{tensor_spec.shape}'. Ensure that each of the input numpy "
@@ -1398,7 +1406,12 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
         data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
     if isinstance(data, list) and isinstance(data_enforced, np.ndarray):
-        data_enforced = data_enforced.tolist()
+        # NumPy's tolist() converts datetime64[ns] values to integers.
+        data_enforced = (
+            pd.Series(data_enforced).tolist()
+            if arr.dtype == DataType.datetime
+            else data_enforced.tolist()
+        )
     elif isinstance(data, np.ndarray) and isinstance(data_enforced, list):
         data_enforced = np.array(data_enforced)
 

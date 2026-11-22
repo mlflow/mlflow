@@ -1566,6 +1566,17 @@ def test_search_registered_model_pagination(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.parametrize("max_results", [0, -1])
+def test_search_registered_models_rejects_non_positive_max_results(store, max_results):
+    _rm_maker(store, "RM-A")
+    _rm_maker(store, "RM-B")
+    with pytest.raises(
+        MlflowException, match=r"Invalid value for max_results\. It must be a positive integer"
+    ) as exception_context:
+        store.search_registered_models(max_results=max_results)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 def test_search_registered_model_order_by(store):
     rms = []
     # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
@@ -1842,6 +1853,27 @@ def test_get_model_version_uses_validated_version(store, monkeypatch):
     # Pass "1" but the patched validator returns 2; the fix must query on the returned value.
     mv = store.get_model_version(name, "1")
     assert mv.version == 2
+
+
+def test_transition_model_version_stage_archive_uses_validated_version(store, monkeypatch):
+    # The archive query must filter on the version returned by ``_validate_model_version``.
+    # Filtering on the raw string fails on PostgreSQL (integer <> character varying), but
+    # SQLite tolerates it, so patch the validator to make a regression observable here.
+    name = "TransitionStageValidatedVersion_TestMod"
+    _rm_maker(store, name)
+    mv1 = _mv_maker(store, name)
+    _mv_maker(store, name)
+    store.transition_model_version_stage(name, mv1.version, "Production", False)
+
+    with monkeypatch.context() as m:
+        m.setattr(
+            "mlflow.store.model_registry.sqlalchemy_store._validate_model_version",
+            lambda version: 2,
+        )
+        store.transition_model_version_stage(name, "1", "Production", True)
+
+    assert store.get_model_version(name, 1).current_stage == "Archived"
+    assert store.get_model_version(name, 2).current_stage == "Production"
 
 
 def test_delete_model_version_tag(store):

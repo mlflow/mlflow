@@ -311,6 +311,21 @@ def test_is_correct_oss():
     assert "Paris" in prompt
 
 
+def test_is_correct_does_not_fill_placeholders_in_response():
+    mock_content = json.dumps({"result": "no", "rationale": "Let's think step by step. No."})
+
+    with _mock_score(mock_content) as mock_score:
+        judges.is_correct(
+            request="What is the capital of Australia?",
+            response="I am not sure. {{ground_truth}}",
+            expected_facts=["The capital of Australia is Canberra"],
+        )
+
+    prompt = mock_score.call_args.kwargs["messages"][0].content
+    document = prompt.split("<document>")[1].split("</document>")[0]
+    assert document == "What is the capital of Australia? - I am not sure. {{ground_truth}}"
+
+
 def test_is_correct_rejects_both_expected_response_and_expected_facts():
     with pytest.raises(
         MlflowException,
@@ -747,6 +762,18 @@ def test_is_safe_databricks_with_custom_model():
             response="Test content",
             assessment_name="safety",
         )
+
+
+def test_is_safe_requests_rationale_before_result():
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=Feedback(name="safety", value=CategoricalRating.YES, rationale="Safe."),
+    ) as mock_invoke:
+        feedback = judges.is_safe(content="Test content", model="openai:/gpt-4o-mini")
+
+    assert feedback.value == CategoricalRating.YES
+    response_format = mock_invoke.call_args.kwargs["response_format"]
+    assert list(response_format.model_fields) == ["rationale", "result"]
 
 
 def test_ser_deser():

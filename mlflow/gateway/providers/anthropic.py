@@ -17,6 +17,7 @@ from mlflow.gateway.providers.base import (
     _drop_client_auth_headers,
 )
 from mlflow.gateway.providers.utils import (
+    _error_detail,
     parse_base64_data_url,
     proxy_root_url,
     rename_payload_keys,
@@ -45,15 +46,50 @@ def _to_anthropic_content_parts(content: list[Any]) -> list[dict[str, Any]]:
             url = part.get("image_url", {}).get("url", "")
             if parsed := parse_base64_data_url(url):
                 mime, data = parsed
-                parts.append({
+                converted = {
                     "type": "image",
                     "source": {"type": "base64", "media_type": mime, "data": data},
-                })
+                }
             else:
-                parts.append({"type": "text", "text": f"[unsupported image reference: {url}]"})
+                converted = {"type": "text", "text": f"[unsupported image reference: {url}]"}
+            # Keep the prompt caching marker on the converted block.
+            if cache_control := part.get("cache_control"):
+                converted["cache_control"] = cache_control
+            parts.append(converted)
         else:
             parts.append(part)
     return parts
+
+
+def _to_anthropic_system(system_messages: list[dict[str, Any]]) -> str | list[dict[str, Any]]:
+    """Build Anthropic's ``system`` field from the system messages.
+
+    String contents are joined with newlines into one string. If any system message has a
+    list of content parts, ``system`` becomes a list of text blocks instead, so a
+    ``cache_control`` marker on a part reaches Anthropic.
+    """
+    contents = [m["content"] for m in system_messages]
+    if all(isinstance(content, str) for content in contents):
+        return "\n".join(contents)
+
+    blocks: list[dict[str, Any]] = []
+    for content in contents:
+        if isinstance(content, str):
+            # Anthropic rejects empty text blocks, and an empty string adds nothing.
+            if content:
+                blocks.append({"type": "text", "text": content})
+            continue
+        for part in content:
+            if part.get("type") != "text":
+                raise AIGatewayException(
+                    status_code=422,
+                    detail=(
+                        "System messages for Anthropic models only support text content parts, "
+                        f"but received a '{part.get('type')}' part."
+                    ),
+                )
+            blocks.append(part)
+    return blocks
 
 
 def _normalize_anthropic_input_tokens(
@@ -83,7 +119,8 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
             "input_tokens": int,
             "output_tokens": int,
             "cache_read_input_tokens": int,
-            "cache_creation_input_tokens": int
+            "cache_creation_input_tokens": int,
+            "cache_creation": {"ephemeral_1h_input_tokens": int, ...}
         }
     }
     """
@@ -94,7 +131,36 @@ def _extract_anthropic_passthrough_token_usage(result: dict[str, Any]) -> dict[s
         cache_read_key="cache_read_input_tokens",
         cache_creation_key="cache_creation_input_tokens",
     )
+    if token_usage:
+        _collect_anthropic_1h_cache_creation(result["usage"], token_usage)
     return _normalize_anthropic_input_tokens(token_usage)
+
+
+def _get_anthropic_1h_cache_creation(usage: dict[str, Any]) -> int | None:
+    """Return the 1-hour TTL part of the cache-write tokens, a subset of
+    ``cache_creation_input_tokens`` that is priced higher than 5-minute writes.
+    """
+    match usage.get("cache_creation"):
+        case {"ephemeral_1h_input_tokens": int(above_1hr)}:
+            return above_1hr
+    return None
+
+
+def _collect_anthropic_input_usage(source: dict[str, Any], usage: dict[str, int]) -> None:
+    """Copy the input and cache token counts that `source` reports into `usage`."""
+    if isinstance(input_tokens := source.get("input_tokens"), int):
+        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+    if isinstance(cached := source.get("cache_read_input_tokens"), int):
+        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+    if isinstance(created := source.get("cache_creation_input_tokens"), int):
+        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+
+
+def _collect_anthropic_1h_cache_creation(source: dict[str, Any], usage: dict[str, int]) -> None:
+    # Kept out of `_collect_anthropic_input_usage`, which the chat stream also uses, so the chat
+    # usage does not gain a key that its non-streaming counterpart lacks.
+    if (above_1hr := _get_anthropic_1h_cache_creation(source)) is not None:
+        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
 
 
 def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
@@ -102,12 +168,14 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
     Extract token usage from an Anthropic Messages streaming chunk.
 
     Anthropic streaming format:
-    - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
-    - message_delta event: {"usage": {"output_tokens": Y}}
+    - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}; the usage may
+      include {"cache_creation": {"ephemeral_1h_input_tokens": Z, ...}}
+    - message_delta event: {"usage": {"output_tokens": Y}}; the usage is cumulative, and with
+      server tools it also carries the final input and cache token counts
 
     Returns:
-        A dictionary with token usage found in this chunk.
-        Total is calculated by the base class after accumulation.
+        A dictionary with raw token usage found in this chunk.
+        Normalization and total calculation happen after accumulation.
     """
     usage: dict[str, int] = {}
     for data in parse_sse_lines(chunk):
@@ -116,16 +184,16 @@ def _extract_anthropic_streaming_token_usage(chunk: bytes) -> dict[str, int]:
                 "type": "message_start",
                 "message": {"usage": dict(msg_usage)},
             }:
-                if (input_tokens := msg_usage.get("input_tokens")) is not None:
-                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
-                if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
-                    usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
-                if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
-                    usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
-            case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
-                usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-    # Anthropic's input_tokens excludes cache tokens; normalize to include them.
-    return _normalize_anthropic_input_tokens(usage) or usage
+                _collect_anthropic_input_usage(msg_usage, usage)
+                _collect_anthropic_1h_cache_creation(msg_usage, usage)
+            case {"type": "message_delta", "usage": dict(delta_usage)}:
+                # The usage of message_delta is cumulative and replaces the one from
+                # message_start: with server tools it holds the final input and cache counts.
+                _collect_anthropic_input_usage(delta_usage, usage)
+                _collect_anthropic_1h_cache_creation(delta_usage, usage)
+                if isinstance(output_tokens := delta_usage.get("output_tokens"), int):
+                    usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+    return usage
 
 
 class _UnsupportedSchemaError(Exception):
@@ -193,16 +261,17 @@ class AnthropicAdapter(ProviderAdapter):
             )
         payload["max_tokens"] = max_tokens
 
-        if payload.pop("n", 1) != 1:
+        n = payload.pop("n", 1)
+        if n != 1:
             raise AIGatewayException(
                 status_code=422,
-                detail="'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
+                detail=f"'n' must be '1' for the Anthropic provider. Received value: '{n}'.",
             )
 
-        # Cohere uses `system` to set the system message
-        # we concatenate all system messages from the user with a newline
+        # Anthropic uses `system` to set the system message. String system messages are
+        # concatenated with a newline; content parts become a list of text blocks.
         if system_messages := [m for m in payload["messages"] if m["role"] == "system"]:
-            payload["system"] = "\n".join(m["content"] for m in system_messages)
+            payload["system"] = _to_anthropic_system(system_messages)
 
         # remaining messages are chat history
         # we want to include only user, assistant or tool messages
@@ -266,11 +335,16 @@ class AnthropicAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                converted_tools.append({
+                # `description` and `parameters` are optional in OpenAI tool definitions,
+                # but Anthropic requires `input_schema`, so default to a no-argument schema.
+                converted_tool = {
                     "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "input_schema": tool_function["parameters"],
-                })
+                    "input_schema": tool_function.get("parameters")
+                    or {"type": "object", "properties": {}},
+                }
+                if description := tool_function.get("description"):
+                    converted_tool["description"] = description
+                converted_tools.append(converted_tool)
 
             payload["tools"] = converted_tools
 
@@ -287,6 +361,12 @@ class AnthropicAdapter(ProviderAdapter):
                     payload["tool_choice"] = {"type": "any"}
                 case {"type": "function", "function": {"name": name}}:
                     payload["tool_choice"] = {"type": "tool", "name": name}
+
+        # Anthropic controls parallel tool use through tool_choice, not a top-level field.
+        if payload.pop("parallel_tool_calls", None) is False:
+            tool_choice = payload.get("tool_choice")
+            if isinstance(tool_choice, dict) and tool_choice.get("type") in ("auto", "any", "tool"):
+                tool_choice["disable_parallel_tool_use"] = True
 
         # Transform response_format for Anthropic structured outputs
         # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
@@ -320,7 +400,13 @@ class AnthropicAdapter(ProviderAdapter):
                     "Respond with only a single valid JSON object. Do not include any "
                     "explanatory text, markdown, or code fences before or after the JSON object."
                 )
-                if existing_system := payload.get("system"):
+                existing_system = payload.get("system")
+                if isinstance(existing_system, list):
+                    payload["system"] = [
+                        *existing_system,
+                        {"type": "text", "text": json_instruction},
+                    ]
+                elif existing_system:
                     payload["system"] = f"{existing_system}\n{json_instruction}"
                 else:
                     payload["system"] = json_instruction
@@ -443,7 +529,12 @@ class AnthropicAdapter(ProviderAdapter):
 
     @classmethod
     def _to_finish_reason(cls, stop_reason):
-        return {"max_tokens": "length", "tool_use": "tool_calls"}.get(stop_reason, "stop")
+        return {
+            "max_tokens": "length",
+            "model_context_window_exceeded": "length",
+            "tool_use": "tool_calls",
+            "refusal": "content_filter",
+        }.get(stop_reason, "stop")
 
     @classmethod
     def chat_streaming_to_model(cls, payload, config):
@@ -589,6 +680,7 @@ class AnthropicAdapter(ProviderAdapter):
 class AnthropicProvider(BaseProvider, AnthropicAdapter):
     DISPLAY_NAME = "Anthropic"
     CONFIG_TYPE = AnthropicConfig
+    SUPPORTS_CACHE_CONTROL = True
 
     PASSTHROUGH_PROVIDER_PATHS = {
         PassthroughAction.ANTHROPIC_MESSAGES: "messages",
@@ -700,6 +792,17 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             # See https://docs.anthropic.com/claude/reference/messages-streaming
             resp = json.loads(content.decode("utf-8"))
 
+            # Anthropic can report an error, such as `overloaded_error`, inside a stream that
+            # already returned 200. Raise it so the stream ends with an error instead of
+            # looking complete.
+            if resp["type"] == "error":
+                raise AIGatewayException(
+                    status_code=502,
+                    detail=f"{self.DISPLAY_NAME} returned {resp.get('error', {}).get('type')} "
+                    "while streaming: "
+                    f"{_error_detail(resp)}",
+                )
+
             # response id and model are only present in `message_start`
             # Also extract input_tokens from message_start
             if resp["type"] == "message_start":
@@ -707,11 +810,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                 metadata["model"] = resp["message"]["model"]
                 # Capture input_tokens and cache tokens from message_start
                 if message_usage := resp["message"].get("usage"):
-                    usage_data["input_tokens"] = message_usage.get("input_tokens")
-                    if (cached := message_usage.get("cache_read_input_tokens")) is not None:
-                        usage_data["cache_read_input_tokens"] = cached
-                    if (created := message_usage.get("cache_creation_input_tokens")) is not None:
-                        usage_data["cache_creation_input_tokens"] = created
+                    _collect_anthropic_input_usage(message_usage, usage_data)
                 continue
 
             if resp["type"] not in (
@@ -731,9 +830,11 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
             resp.update(metadata)
             if resp["type"] == "message_delta":
-                # Capture output_tokens from message_delta
+                # message_delta usage is cumulative: take output_tokens, and the final input and
+                # cache counts, which with server tools only arrive here
                 if delta_usage := resp.get("usage"):
                     usage_data["output_tokens"] = delta_usage.get("output_tokens")
+                    _collect_anthropic_input_usage(delta_usage, usage_data)
                 # Include accumulated usage in the response
                 resp["_usage_data"] = usage_data
                 yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
@@ -796,6 +897,9 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         return _extract_anthropic_streaming_token_usage(chunk)
+
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        return _normalize_anthropic_input_tokens(token_usage)
 
     async def _proxy(
         self,

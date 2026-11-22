@@ -117,7 +117,12 @@ export const ImageGridMultipleKeyPlot = ({
                         },
                       }}
                     >
-                      <ImagePlotWithHistory metadataByStep={metadataByStep} step={cardConfig.step} runUuid={run.uuid} />
+                      <ImagePlotWithHistory
+                        metadataByStep={metadataByStep}
+                        step={cardConfig.step}
+                        runUuid={run.uuid}
+                        artifactRootUri={run.runInfo?.artifactUri ?? undefined}
+                      />
                     </TableCell>
                   );
                 }

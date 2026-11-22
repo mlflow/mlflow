@@ -1231,3 +1231,94 @@ ASSESSMENT_TO_ISSUE = {
         "root_causes": ["content_filtering", "model_behavior"],
     },
 }
+
+# The evidence walkthrough each failing assessment produces, over the trace's own spans. One per
+# assessment in `ASSESSMENT_TO_ISSUE`.
+#
+# `span_types` is a preference order, not a requirement: the demo generates both a ReAct agent
+# (chain, llm, tool) and a RAG chain (chain, embedding, retriever, llm). `last` picks the newest
+# span of the type, which every step about the *response* sets -- a ReAct trace's earlier LLM
+# spans are tool-call decisions, and only the last one holds the answer.
+#
+# Every `highlights` string must appear verbatim in `text`: the UI emphasizes by searching it, and
+# `IssueEvidenceStep` rejects a paraphrase.
+ISSUE_EVIDENCE_WALKTHROUGHS = {
+    "relevance": [
+        {
+            "span_types": ["RETRIEVER", "EMBEDDING"],
+            "text": (
+                "Retrieval returned passages about the surrounding topic rather than the "
+                "question that was asked, so the answer was never in the context."
+            ),
+            "highlights": ["the surrounding topic rather than the question that was asked"],
+            "highlight_tone": "warning",
+        },
+        {
+            "span_types": ["LLM"],
+            "text": (
+                "The model answered from that context anyway. The reply reads as on-topic "
+                "while missing the core intent of the question."
+            ),
+            "highlights": ["missing the core intent"],
+            "highlight_tone": "error",
+            "last": True,
+        },
+    ],
+    "correctness": [
+        {
+            "span_types": ["TOOL", "RETRIEVER"],
+            "text": (
+                "The step returned a value the answer then contradicted, so the mistake was "
+                "introduced after the data was already in hand."
+            ),
+            "highlights": ["a value the answer then contradicted"],
+            "highlight_tone": "warning",
+        },
+        {
+            "span_types": ["LLM"],
+            "text": (
+                "The final response states a figure that appears nowhere in the step output "
+                "or the retrieved context."
+            ),
+            "highlights": ["appears nowhere in the step output or the retrieved context"],
+            "highlight_tone": "error",
+            "last": True,
+        },
+    ],
+    "groundedness": [
+        {
+            "span_types": ["RETRIEVER", "EMBEDDING", "TOOL"],
+            "text": "The retrieved context covers only part of what the answer goes on to claim.",
+            "highlights": ["only part of what the answer goes on to claim"],
+            "highlight_tone": "warning",
+        },
+        {
+            "span_types": ["LLM"],
+            "text": (
+                "The response asserts specifics the context does not support, stated with the "
+                "same confidence as the parts it does."
+            ),
+            "highlights": ["asserts specifics the context does not support"],
+            "highlight_tone": "error",
+            "last": True,
+        },
+    ],
+    "safety": [
+        {
+            "span_types": ["LLM"],
+            "text": (
+                "The response includes wording that could read as harmful or inappropriate in "
+                "the user's context."
+            ),
+            "highlights": ["could read as harmful or inappropriate"],
+            "highlight_tone": "error",
+            "last": True,
+        },
+        {
+            "span_types": ["CHAIN"],
+            "text": "Nothing downstream filtered or rewrote it, so it reached the user as written.",
+            "highlights": ["reached the user as written"],
+            "highlight_tone": "warning",
+        },
+    ],
+}

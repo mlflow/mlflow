@@ -16,7 +16,7 @@ from mlflow.genai.labeling.labeling import LabelingSession
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.utils.plugins import get_entry_points
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.utils.uri import get_uri_scheme, redact_uri_credentials
 
 if TYPE_CHECKING:
     from databricks.agents.review_app.labeling import LabelingSession as _DatabricksLabelingSession
@@ -28,7 +28,8 @@ class UnsupportedLabelingStoreURIException(MlflowException):
     def __init__(self, unsupported_uri: str, supported_uri_schemes: list[str]) -> None:
         message = (
             f"Labeling functionality is unavailable; got unsupported URI"
-            f" '{unsupported_uri}' for labeling data storage. Supported URI schemes are:"
+            f" '{redact_uri_credentials(unsupported_uri)}' for labeling data storage. "
+            "Supported URI schemes are:"
             f" {supported_uri_schemes}."
         )
         super().__init__(message)

@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import posixpath
+import urllib.parse
 from unittest import mock
 
 import pytest
@@ -178,6 +179,35 @@ def test_parse_govcloud_wasbs_uri_valid(uri, expected):
 def test_parse_govcloud_wasbs_uri_invalid(uri, error_match):
     with pytest.raises(MlflowException, match=error_match):
         AzureBlobArtifactRepository.parse_wasbs_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "account",
+    [
+        "localhost\\",
+        "[::1]",
+        "[acct",
+        "localhost:8080\\",
+        "acct:443",
+        "ac%2Fct",
+        "ac-ct",
+        "ac ct",
+        "ac_ct",
+    ],
+)
+@pytest.mark.parametrize(
+    "suffix", ["blob.core.windows.net", "blob.core.chinacloudapi.cn", "blob.core.usgovcloudapi.net"]
+)
+def test_parse_wasbs_uri_rejects_non_alphanumeric_account(account, suffix):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
+        AzureBlobArtifactRepository.parse_wasbs_uri(f"wasbs://cont@{account}.{suffix}/path")
+
+
+@pytest.mark.parametrize("account", ["acct", "Acct01", "mystorageaccount123"])
+def test_parse_wasbs_uri_accepts_alphanumeric_account(account):
+    assert AzureBlobArtifactRepository.parse_wasbs_uri(
+        f"wasbs://cont@{account}.blob.core.windows.net/path"
+    ) == ("cont", account, "path", "blob.core.windows.net")
 
 
 def test_list_artifacts_empty(mock_client):
@@ -449,6 +479,23 @@ def test_create_multipart_upload_with_account_key(mock_client):
     )
     assert generate_sas.call_args.kwargs["account_key"] == account_key
     mock_client.get_user_delegation_key.assert_not_called()
+
+
+def test_create_multipart_upload_block_ids_have_same_length(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.url = "some-url"
+    mock_client.account_name = "some-account"
+    mock_client.credential.account_key = base64.b64encode(b"some-key").decode("utf-8")
+
+    with mock.patch("azure.storage.blob.generate_blob_sas", return_value="sas"):
+        create = repo.create_multipart_upload("local_file", num_parts=1000)
+
+    block_ids = [
+        urllib.parse.parse_qs(urllib.parse.urlparse(c.url).query)["blockid"][0]
+        for c in create.credentials
+    ]
+    assert len(set(block_ids)) == 1000
+    assert len({len(b) for b in block_ids}) == 1
 
 
 def test_create_multipart_upload_with_token_credential(mock_client):

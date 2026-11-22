@@ -1,10 +1,18 @@
+import contextvars
+import copy
 import json
+import pickle
+import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
+import dspy
+import numpy as np
 import pytest
+from dspy.clients.cache import Cache
 
 import mlflow
 from mlflow.entities.assessment import Assessment, AssessmentSource, Feedback
@@ -19,6 +27,7 @@ from mlflow.genai.judges.optimizers.memalign.optimizer import (
     _DEFAULT_EMBEDDING_BATCH_SIZE,
     MemoryAugmentedJudge,
     _build_embedder,
+    _litellm_embed,
 )
 from mlflow.genai.judges.optimizers.memalign.prompts import (
     EXAMPLES_SECTION_HEADER,
@@ -496,7 +505,7 @@ def test_memory_augmented_judge_from_serialized(sample_judge, sample_traces):
 
         # Verify deferred components are None
         assert restored._base_signature is None
-        assert restored._retriever is None
+        assert restored._retrievers is None
 
 
 def test_scorer_model_validate_routes_to_memory_augmented_judge(sample_judge, sample_traces):
@@ -1037,7 +1046,9 @@ def test_concurrent_calls_do_not_leak_retrieved_examples_across_rows(sample_judg
             rationale="Test",
         )
 
-    aligned_judge._retriever = MagicMock(side_effect=retriever_side_effect)
+    aligned_judge._retrievers = {
+        "inputs": (MagicMock(side_effect=retriever_side_effect), [0, 1, 2])
+    }
 
     with (
         patch(
@@ -1057,6 +1068,60 @@ def test_concurrent_calls_do_not_leak_retrieved_examples_across_rows(sample_judg
     for row, system_message in prompts.items():
         assert expected_example_text[row] in system_message
         assert other_example_text[row] not in system_message
+
+
+def test_concurrent_first_call_on_deferred_multi_field_judge_does_not_raise(sample_judge):
+    # A second call that lands while the first is still building the per-field indexes must
+    # not iterate a half-built retriever dict. As on master, it may retrieve nothing.
+    building = threading.Event()
+    release = threading.Event()
+    errors = []
+
+    class FakeEmbeddings:
+        def __init__(self, embedder, corpus, k):
+            self.embedder = lambda texts: np.ones((len(texts), 1))
+            self.corpus_embeddings = np.ones((len(corpus), 1))
+            if "answer" in corpus[0]:  # the second field's index: hold the first call here
+                building.set()
+                assert release.wait(timeout=30)
+
+    def first_call():
+        try:
+            judge(inputs="q", outputs="a")
+        except Exception as e:
+            errors.append(e)
+
+    examples = [dspy.Example(inputs="question", outputs="answer", result="yes", rationale="r")]
+    with (
+        patch("dspy.retrievers.Embeddings", FakeEmbeddings),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder"),
+        patch.object(MemoryAugmentedJudge, "_reconstruct_episodic_memory", return_value=examples),
+        patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={})),
+    ):
+        judge = MemoryAugmentedJudge(
+            sample_judge, retrieval_fields=["inputs", "outputs"], _defer_init=True
+        )
+        judge._episodic_trace_ids = ["t1"]
+        first = threading.Thread(target=first_call, name="memalign-first-call")
+        first.start()
+        assert building.wait(timeout=30)
+        try:
+            judge(inputs="q", outputs="a")  # the first call is mid-build: indexes unpublished
+            assert judge._retrievers is None
+        finally:
+            release.set()
+            first.join(timeout=30)
+
+    assert errors == []
+    assert list(judge._retrievers) == ["inputs", "outputs"]
+
+
+def test_deferred_judge_from_deserialization_supports_deepcopy_and_pickle(sample_judge):
+    deferred = MemoryAugmentedJudge(sample_judge, retrieval_fields=["inputs"], _defer_init=True)
+    restored = Scorer.model_validate(deferred.model_dump())
+
+    assert copy.deepcopy(restored)._retrieval_fields == ["inputs"]
+    assert pickle.loads(pickle.dumps(restored))._retrieval_fields == ["inputs"]
 
 
 @pytest.mark.parametrize(
@@ -1115,6 +1180,80 @@ def test_build_embedder_non_databricks_has_no_api_base(monkeypatch):
     _, kwargs = mock_embedder_class.call_args
     assert "api_base" not in kwargs
     assert "api_key" not in kwargs
+
+
+@pytest.mark.parametrize(
+    ("embedding_model", "expected_model", "expected_api_base"),
+    [
+        (
+            "databricks:/databricks-gte-large-en",
+            "databricks/databricks-gte-large-en",
+            "https://my-workspace.databricks.com/serving-endpoints",
+        ),
+        ("openai:/text-embedding-3-small", "openai/text-embedding-3-small", None),
+    ],
+)
+def test_build_embedder_calls_litellm(
+    monkeypatch, embedding_model, expected_model, expected_api_base
+):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+    response = MagicMock()
+    response.data = [{"embedding": [0.1, 0.2, 0.3]}, {"embedding": [0.4, 0.5, 0.6]}]
+    with patch("litellm.embedding", return_value=response) as mock_embedding:
+        # Real dspy.Embedder: dspy>=3.5 rejects non-OpenAI model strings, so this must not raise.
+        embedder = _build_embedder(embedding_model, 3)
+        # Instance attribute, not the call arg: dspy 3.0/3.1 ignore ``caching=False`` per call.
+        embedder.caching = False
+        result = embedder(["a", "b"])
+
+    assert result.flatten().tolist() == pytest.approx([0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+    kwargs = mock_embedding.call_args.kwargs
+    assert kwargs["model"] == expected_model
+    assert kwargs["input"] == ["a", "b"]
+    assert kwargs["dimensions"] == 3
+    assert kwargs["drop_params"] is True
+    assert kwargs.get("api_base") == expected_api_base
+    assert kwargs.get("api_key") == ("dapi-test-token" if expected_api_base else None)
+
+
+@pytest.mark.parametrize(
+    ("model_a", "dim_a", "model_b", "dim_b"),
+    [
+        ("openai:/text-embedding-3-small", 3, "openai:/text-embedding-3-large", 3),
+        ("openai:/text-embedding-3-small", 3, "openai:/text-embedding-3-small", 4),
+    ],
+)
+def test_build_embedder_cache_is_not_shared_across_configs(
+    monkeypatch, model_a, dim_a, model_b, dim_b
+):
+    # In-memory cache only, so the real disk cache is never touched.
+    monkeypatch.setattr(
+        dspy,
+        "cache",
+        Cache(enable_disk_cache=False, enable_memory_cache=True, disk_cache_dir=None),
+    )
+    response = MagicMock()
+    response.data = [{"embedding": [0.1, 0.2, 0.3]}]
+    with patch("litellm.embedding", return_value=response) as mock_embedding:
+        embedder_a = _build_embedder(model_a, dim_a)
+        embedder_b = _build_embedder(model_b, dim_b)
+        embedder_a.caching = embedder_b.caching = True
+        embedder_a(["a"])
+        embedder_a(["a"])  # same config: served from cache
+        assert mock_embedding.call_count == 1
+        embedder_b(["a"])  # different config: must not hit embedder_a's cache entry
+
+    assert mock_embedding.call_count == 2
+
+
+def test_litellm_embed_raises_when_litellm_missing():
+    with patch.dict(sys.modules, {"litellm": None}):
+        with pytest.raises(MlflowException, match="pip install litellm") as exc_info:
+            _litellm_embed(["a"], "openai/text-embedding-3-small")
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 # =============================================================================
@@ -1485,3 +1624,582 @@ def test_align_with_partial_no_feedback_traces_raises(sample_judge, sample_trace
         optimizer = MemAlignOptimizer()
         with pytest.raises(MlflowException, match="No valid feedback records found"):
             optimizer.align(sample_judge, [no_feedback_trace, sample_traces[0]])
+
+
+def test_memory_augmented_judge_round_trip_preserves_base_judge_session_level():
+    # The wrapper itself is single-turn, but the wrapped judge's session_level must
+    # survive a dump/restore cycle through the nested base-judge payload.
+    base_judge = make_judge(
+        name="conversation_judge",
+        instructions="Evaluate whether the {{ conversation }} addresses the user's requests.",
+        model="openai:/gpt-4",
+        session_level="episode",
+    )
+    aligned = MemoryAugmentedJudge(base_judge=base_judge, _defer_init=True)
+
+    dumped = aligned.model_dump()
+    base_judge_data = dumped["memory_augmented_judge_data"]["base_judge"]
+    assert base_judge_data["session_level"] == "episode"
+
+    restored = Scorer.model_validate(dumped)
+    assert isinstance(restored, MemoryAugmentedJudge)
+    assert restored._base_judge.session_level == "episode"
+
+
+# =============================================================================
+# retrieval_fields tests
+# =============================================================================
+
+
+def _last_corpus(mocks):
+    return mocks["embeddings_class"].call_args.kwargs["corpus"]
+
+
+def _mock_base_judge_call():
+    return patch.object(InstructionsJudge, "__call__", return_value=MagicMock(metadata={}))
+
+
+@pytest.mark.parametrize(
+    ("retrieval_fields", "match"),
+    [
+        (["context"], "unsupported value 'context'. Allowed values: inputs, outputs, expectations"),
+        (["conversation"], "unsupported value 'conversation'"),
+        ([], "non-empty list"),
+        ("inputs", "non-empty list"),
+        (["inputs", "inputs"], "duplicates"),
+        ([1], "unsupported value 1"),
+    ],
+)
+def test_retrieval_fields_validation(sample_judge, retrieval_fields, match):
+    with pytest.raises(MlflowException, match=match) as exc_info:
+        MemAlignOptimizer(retrieval_fields=retrieval_fields)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+    with pytest.raises(MlflowException, match=match) as exc_info:
+        MemoryAugmentedJudge(sample_judge, retrieval_fields=retrieval_fields, _defer_init=True)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_retrieval_fields_not_in_instructions_raises_at_align(sample_traces):
+    judge = make_judge(
+        name="test_judge", instructions="Is {{ inputs }} polite?", model="openai:/gpt-4"
+    )
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer(retrieval_fields=["outputs"])
+        with pytest.raises(
+            MlflowException,
+            match="retrieval_fields includes 'outputs' but the judge's instructions only "
+            "reference: inputs",
+        ) as exc_info:
+            optimizer.align(judge, sample_traces[:2])
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+    # Deferred construction (e.g. deserialization) validates too, before any first call
+    with pytest.raises(MlflowException, match="retrieval_fields includes 'outputs'") as exc_info:
+        MemoryAugmentedJudge(judge, retrieval_fields=["outputs"], _defer_init=True)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_retrieval_fields_single_field_builds_corpus_and_queries_that_field(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+        optimizer = MemAlignOptimizer(retrieval_fields=["outputs"])
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+
+        corpus = _last_corpus(mocks)
+        assert len(corpus) == 3
+        assert all("output_" in text and "input_" not in text for text in corpus)
+        assert list(aligned_judge._retrievers) == ["outputs"]
+
+        with _mock_base_judge_call():
+            aligned_judge(inputs="the finding", outputs="the reply")
+        mocks["search"].assert_called_once_with("the reply")
+
+
+def test_retrieval_fields_multi_field_builds_one_index_per_field(sample_judge):
+    with mock_apis(guidelines=[]) as mocks:
+        judge = MemoryAugmentedJudge(sample_judge, retrieval_fields=["inputs", "outputs"])
+        judge._episodic_memory = [
+            dspy.Example(inputs="in_0", outputs="out_0"),
+            dspy.Example(inputs="in_1", outputs=None),
+            dspy.Example(inputs=None, outputs="out_2"),
+            dspy.Example(inputs=None, outputs=None),
+        ]
+        judge._build_episodic_memory()
+
+        corpora = [c.kwargs["corpus"] for c in mocks["embeddings_class"].call_args_list]
+        assert corpora == [["in_0", "in_1"], ["out_0", "out_2"]]
+        # The example with neither field is dropped; positions map corpus -> memory index
+        assert len(judge._episodic_memory) == 3
+        assert {field: positions for field, (_, positions) in judge._retrievers.items()} == {
+            "inputs": [0, 1],
+            "outputs": [0, 2],
+        }
+
+
+def _reply_embedder(texts):
+    # Findings ("finding_<i>") sit at angle 0.1 * i in dims 0-1; replies are orthogonal one-hots
+    # in dims 2-3, so every repeated reply embeds identically.
+    vectors = []
+    for text in texts:
+        if text.startswith("finding_"):
+            angle = 0.1 * int(text.removeprefix("finding_"))
+            vectors.append([np.cos(angle), np.sin(angle), 0.0, 0.0])
+        else:
+            vectors.append([0.0, 0.0, float(text == "Fixed"), float(text == "Won't fix")])
+    return np.array(vectors)
+
+
+def test_multi_field_retrieval_matches_all_fields_with_repeated_values(sample_judge):
+    # Labels follow the reply. The "Won't fix" findings are the closest to the query finding,
+    # so a judge that only interleaves per-field rankings retrieves opposite-reply examples.
+    replies = ["Won't fix"] * 6 + ["Fixed"] * 6
+    examples = [
+        dspy.Example(
+            inputs=f"finding_{i}",
+            outputs=reply,
+            result="no" if reply == "Won't fix" else "yes",
+            rationale="r",
+        )
+        for i, reply in enumerate(replies)
+    ]
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer._build_embedder",
+            return_value=_reply_embedder,
+        ),
+        _mock_base_judge_call(),
+    ):
+        judge = MemoryAugmentedJudge(
+            sample_judge, retrieval_k=5, retrieval_fields=["inputs", "outputs"]
+        )
+        judge._episodic_memory = list(examples)
+        judge._build_episodic_memory()
+        assessment = judge(inputs="finding_0", outputs="Fixed")
+
+    retrieved = [
+        int(trace_id.removeprefix("example_"))
+        for trace_id in assessment.metadata["retrieved_example_trace_ids"]
+    ]
+    assert len(retrieved) == 5
+    assert [replies[i] for i in retrieved] == ["Fixed"] * 5
+    # Among same-reply examples, the closest findings win
+    assert retrieved == [6, 7, 8, 9, 10]
+
+
+def _build_single_field_index_and_score(judge, field, example, **call_kwargs):
+    with mock_apis(guidelines=[]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+        memory_judge = MemoryAugmentedJudge(judge, retrieval_fields=[field])
+        memory_judge._episodic_memory = [example]
+        memory_judge._build_episodic_memory()
+        assert list(memory_judge._retrievers) == [field]
+        with _mock_base_judge_call():
+            memory_judge(**call_kwargs)
+    return _last_corpus(mocks), mocks["search"]
+
+
+def test_retrieval_fields_expectations_builds_corpus_and_query():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Does {{ outputs }} match {{ expectations }}?",
+        model="openai:/gpt-4",
+    )
+    example = dspy.Example(outputs="out_0", expectations={"answer": "42"})
+    corpus, search = _build_single_field_index_and_score(
+        judge, "expectations", example, outputs="out_q", expectations={"answer": "7"}
+    )
+    assert corpus == ["{'answer': '42'}"]
+    search.assert_called_once_with("{'answer': '7'}")
+
+
+def test_retrieval_fields_trace_builds_corpus_and_query(sample_traces):
+    judge = make_judge(
+        name="test_judge", instructions="Evaluate {{ trace }}", model="openai:/gpt-4"
+    )
+    trace = sample_traces[0]
+    corpus, search = _build_single_field_index_and_score(
+        judge, "trace", dspy.Example(trace=trace), trace=trace
+    )
+    assert len(corpus) == 1
+    assert "input_0" in corpus[0]
+    search.assert_called_once_with(corpus[0])
+
+
+def test_retrieval_fields_corpus_uses_truncation(sample_judge):
+    with (
+        mock_apis(guidelines=[]) as mocks,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.optimizer.truncate_to_token_limit",
+            side_effect=lambda text, model, model_type: text[:3],
+        ) as mock_truncate,
+    ):
+        judge = MemoryAugmentedJudge(sample_judge, retrieval_fields=["outputs"])
+        judge._episodic_memory = [dspy.Example(inputs="in_0", outputs="long output")]
+        judge._build_episodic_memory()
+
+    mock_truncate.assert_called_once_with(
+        "long output", "openai:/text-embedding-3-small", model_type="embedding"
+    )
+    assert _last_corpus(mocks) == ["lon"]
+
+
+def test_retrieval_fields_serialization_round_trip(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer(retrieval_fields=["outputs", "inputs"])
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:2])
+
+    dumped = aligned_judge.model_dump()
+    assert dumped["memory_augmented_judge_data"]["retrieval_fields"] == ["outputs", "inputs"]
+    restored = Scorer.model_validate(dumped)
+    assert restored._retrieval_fields == ["outputs", "inputs"]
+    assert restored._create_copy()._retrieval_fields == ["outputs", "inputs"]
+
+    # Payloads written before retrieval_fields existed load with the default
+    del dumped["memory_augmented_judge_data"]["retrieval_fields"]
+    assert Scorer.model_validate(dumped)._retrieval_fields is None
+
+
+def test_deserialized_judge_builds_configured_index_on_first_call(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        aligned_judge = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
+            sample_judge, sample_traces[:2]
+        )
+    restored = Scorer.model_validate(aligned_judge.model_dump())
+    assert restored._retrievers is None
+
+    examples = [dspy.Example(inputs="question", outputs="answer", result="yes", rationale="r")]
+    with (
+        mock_apis(guidelines=[]) as mocks,
+        patch.object(MemoryAugmentedJudge, "_reconstruct_episodic_memory", return_value=examples),
+        _mock_base_judge_call(),
+    ):
+        mocks["search"].return_value = MagicMock(indices=[0])
+        restored(inputs="q", outputs="a")
+
+    assert list(restored._retrievers) == ["outputs"]
+    assert _last_corpus(mocks) == ["answer"]
+
+
+def test_unalign_preserves_retrieval_fields(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer(retrieval_fields=["outputs"])
+        aligned_judge = optimizer.align(sample_judge, sample_traces[:3])
+        unaligned = aligned_judge.unalign(sample_traces[:1])
+    assert unaligned._retrieval_fields == ["outputs"]
+    assert list(unaligned._retrievers) == ["outputs"]
+
+
+def test_realign_unchanged_traces_with_new_retrieval_fields_rebuilds_index(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=["Guideline A"]) as mocks:
+        judge_v1 = MemAlignOptimizer().align(sample_judge, sample_traces[:3])
+        assert list(judge_v1._retrievers) == ["inputs"]
+        lm_calls = mocks["lm"].call_count
+
+        # Identical config keeps today's skip: the input judge is returned unchanged
+        assert MemAlignOptimizer().align(judge_v1, sample_traces[:3]) is judge_v1
+
+        judge_v2 = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
+            judge_v1, sample_traces[:3]
+        )
+
+    assert judge_v2 is not judge_v1
+    assert judge_v2._retrieval_fields == ["outputs"]
+    assert list(judge_v2._retrievers) == ["outputs"]
+    assert all("output_" in text for text in _last_corpus(mocks))
+    assert len(judge_v2._episodic_memory) == len(judge_v1._episodic_memory)
+    assert [g.guideline_text for g in judge_v2._semantic_memory] == ["Guideline A"]
+    # Memory is unchanged, so no re-distillation
+    assert mocks["lm"].call_count == lm_calls
+
+
+@pytest.mark.parametrize(
+    "realign",
+    [
+        lambda judge, traces: MemAlignOptimizer().align(judge, traces),
+        # Judge.align with no optimizer goes through get_default_optimizer()
+        lambda judge, traces: judge.align(traces=traces),
+    ],
+    ids=["default_optimizer", "judge_align"],
+)
+def test_default_realign_keeps_retrieval_fields(sample_judge, sample_traces, realign):
+    with mock_apis(guidelines=[]):
+        aligned = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
+            sample_judge, sample_traces[:2]
+        )
+        # Unchanged traces: the input judge comes back as-is
+        assert realign(aligned, sample_traces[:2]) is aligned
+        realigned = realign(aligned, sample_traces[:4])
+
+    assert realigned._retrieval_fields == ["outputs"]
+    assert list(realigned._retrievers) == ["outputs"]
+
+
+@pytest.mark.parametrize("num_traces", [2, 4], ids=["skip_unchanged", "add_new"])
+def test_explicit_optimizer_retrieval_fields_override_judge_fields(
+    sample_judge, sample_traces, num_traces
+):
+    with mock_apis(guidelines=[]) as mocks:
+        aligned = MemAlignOptimizer(retrieval_fields=["outputs"]).align(
+            sample_judge, sample_traces[:2]
+        )
+        realigned = MemAlignOptimizer(retrieval_fields=["inputs"]).align(
+            aligned, sample_traces[:num_traces]
+        )
+
+    assert realigned is not aligned
+    assert realigned._retrieval_fields == ["inputs"]
+    assert list(realigned._retrievers) == ["inputs"]
+    corpus = _last_corpus(mocks)
+    assert len(corpus) == num_traces
+    assert all("input_" in text and "output_" not in text for text in corpus)
+    assert aligned._retrieval_fields == ["outputs"]
+
+
+def test_realign_unchanged_traces_with_explicit_default_field_skips_rebuild(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=[]) as mocks:
+        judge_v1 = MemAlignOptimizer().align(sample_judge, sample_traces[:3])
+        index_builds = mocks["embeddings_class"].call_count
+
+        # sample_judge's default field is "inputs", so explicit ["inputs"] is not a change
+        same = MemAlignOptimizer(retrieval_fields=["inputs"]).align(judge_v1, sample_traces[:3])
+
+    assert same is judge_v1
+    assert mocks["embeddings_class"].call_count == index_builds
+
+
+def _deferred_judge(sample_judge, trace_ids):
+    judge = MemoryAugmentedJudge(sample_judge, _defer_init=True)
+    judge._episodic_trace_ids = list(trace_ids)
+    return judge
+
+
+_GET_TRACE_PATH = "mlflow.genai.judges.optimizers.memalign.optimizer.mlflow.get_trace"
+_TO_EXAMPLE_PATH = "mlflow.genai.judges.optimizers.memalign.optimizer.trace_to_dspy_example"
+
+
+def test_reconstruct_episodic_memory_preserves_order_when_fetches_finish_out_of_order(
+    sample_judge, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
+    trace_ids = ["t0", "t1", "t2"]
+    last_fetched = threading.Event()
+
+    def fake_get_trace(tid, **kwargs):
+        # t0 returns only after t2 has returned, so completion order differs from input order.
+        if tid == "t0":
+            assert last_fetched.wait(timeout=10)
+        elif tid == "t2":
+            last_fetched.set()
+        return tid
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [f"{trace}-a", f"{trace}-b"]),
+    ):
+        examples = judge._reconstruct_episodic_memory()
+
+    assert examples == ["t0-a", "t0-b", "t1-a", "t1-b", "t2-a", "t2-b"]
+    assert sorted(c.args[0] for c in mock_get_trace.call_args_list) == trace_ids
+    assert all(c.kwargs == {"silent": True} for c in mock_get_trace.call_args_list)
+
+
+def test_reconstruct_episodic_memory_fetches_concurrently(sample_judge, monkeypatch):
+    n = 4
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(n))
+    # Every fetch blocks until all n are in flight; a sequential loop would time out.
+    barrier = threading.Barrier(n, timeout=10)
+
+    def fake_get_trace(tid, **kwargs):
+        barrier.wait()
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(n)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == [f"t{i}" for i in range(n)]
+
+
+def test_reconstruct_episodic_memory_respects_max_workers(sample_judge, monkeypatch):
+    max_workers = 2
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(max_workers))
+    lock = threading.Lock()
+    in_flight = 0
+    peak = 0
+    # Forces pairs of fetches to overlap, so a pool larger than max_workers would be observable.
+    barrier = threading.Barrier(max_workers, timeout=10)
+
+    def fake_get_trace(tid, **kwargs):
+        nonlocal in_flight, peak
+        with lock:
+            in_flight += 1
+            peak = max(peak, in_flight)
+        barrier.wait()
+        with lock:
+            in_flight -= 1
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(8)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == [f"t{i}" for i in range(8)]
+
+    assert peak == max_workers
+
+
+def test_reconstruct_episodic_memory_propagates_caller_context(sample_judge, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
+    var = contextvars.ContextVar("memalign_test_var", default=None)
+    var.set("caller-value")
+    seen = []
+
+    def fake_get_trace(tid, **kwargs):
+        seen.append(var.get())
+        return tid
+
+    judge = _deferred_judge(sample_judge, [f"t{i}" for i in range(4)])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        judge._reconstruct_episodic_memory()
+
+    assert seen == ["caller-value"] * 4
+
+
+def test_reconstruct_episodic_memory_reports_missing_traces(sample_judge, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "4")
+    trace_ids = [f"t{i}" for i in range(8)]
+    found = {"t1", "t4"}
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: tid if tid in found else None),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
+    ):
+        examples = judge._reconstruct_episodic_memory()
+
+    assert examples == ["t1", "t4"]
+    mock_logger.warning.assert_called_once_with(
+        "Could not find 6 traces for episodic memory reconstruction. "
+        "Missing trace IDs: ['t0', 't2', 't3', 't5', 't6'].... "
+        "Judge will operate with partial memory (2/8 traces)."
+    )
+
+
+def test_reconstruct_episodic_memory_warning_counts_traces_not_examples(sample_judge):
+    judge = _deferred_judge(sample_judge, ["t0", "t1", "t2"])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: None if tid == "t2" else tid),
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace] * 3),
+        patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger") as mock_logger,
+    ):
+        assert len(judge._reconstruct_episodic_memory()) == 6
+
+    assert "(2/3 traces)" in mock_logger.warning.call_args.args[0]
+
+
+def test_reconstruct_episodic_memory_with_no_trace_ids(sample_judge):
+    judge = _deferred_judge(sample_judge, [])
+    with patch(_GET_TRACE_PATH) as mock_get_trace:
+        assert judge._reconstruct_episodic_memory() == []
+    mock_get_trace.assert_not_called()
+
+
+def test_multi_assessment_trace_is_stored_and_fetched_once(sample_judge):
+    trace_id = _start_test_trace("multi_assessment_trace")
+    _log_human_feedback(trace_id, value="yes", rationale="ra")
+    _log_human_feedback(trace_id, value="yes", rationale="rb")
+    trace = mlflow.get_trace(trace_id)
+
+    with mock_apis(guidelines=[]):
+        judge = MemAlignOptimizer().align(sample_judge, [trace])
+        assert len(judge._episodic_memory) == 2
+        assert judge._episodic_trace_ids == [trace_id]
+
+        restored = MemoryAugmentedJudge._from_serialized(SerializedScorer(**judge.model_dump()))
+        with patch(_GET_TRACE_PATH, wraps=mlflow.get_trace) as mock_get_trace:
+            examples = restored._reconstruct_episodic_memory()
+
+    assert len(examples) == 2
+    assert mock_get_trace.call_count == 1
+
+
+def test_reconstruct_episodic_memory_dedupes_legacy_duplicate_trace_ids(sample_judge):
+    judge = _deferred_judge(sample_judge, ["t0", "t0", "t1", "t0"])
+    with (
+        patch(_GET_TRACE_PATH, side_effect=lambda tid, **kwargs: tid) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=lambda trace, base_judge: [trace]),
+    ):
+        assert judge._reconstruct_episodic_memory() == ["t0", "t1"]
+    assert [c.args[0] for c in mock_get_trace.call_args_list] == ["t0", "t1"]
+
+
+def test_realign_does_not_duplicate_stored_trace_ids(sample_judge):
+    trace_id = _start_test_trace("realign_trace")
+    _log_human_feedback(trace_id, value="yes", rationale="ra")
+    _log_human_feedback(trace_id, value="yes", rationale="rb")
+    trace = mlflow.get_trace(trace_id)
+    other_id = _start_test_trace("other_trace")
+    _log_human_feedback(other_id, value="yes", rationale="rc")
+    other = mlflow.get_trace(other_id)
+
+    with mock_apis(guidelines=[]):
+        optimizer = MemAlignOptimizer()
+        judge_v1 = optimizer.align(sample_judge, [trace])
+        judge_v2 = optimizer.align(judge_v1, [trace, other])
+
+    assert judge_v2._episodic_trace_ids == [trace_id, other_id]
+
+
+@pytest.mark.parametrize("failing_step", ["fetch", "convert"])
+def test_reconstruct_episodic_memory_propagates_error_and_cancels_pending(
+    sample_judge, monkeypatch, failing_step
+):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "2")
+    trace_ids = [f"t{i}" for i in range(50)]
+
+    def fake_get_trace(tid, **kwargs):
+        if failing_step == "fetch" and tid == "t0":
+            raise RuntimeError("boom")
+        # Slow enough that the error reaches the caller and cancels the queue before a busy
+        # worker picks up another fetch; without cancellation all 50 fetches would run.
+        time.sleep(0.2)
+        return tid
+
+    def fake_to_example(trace, base_judge):
+        if failing_step == "convert" and trace == "t0":
+            raise RuntimeError("boom")
+        return [trace]
+
+    judge = _deferred_judge(sample_judge, trace_ids)
+    with (
+        patch(_GET_TRACE_PATH, side_effect=fake_get_trace) as mock_get_trace,
+        patch(_TO_EXAMPLE_PATH, side_effect=fake_to_example),
+        pytest.raises(RuntimeError, match="boom"),
+    ):
+        judge._reconstruct_episodic_memory()
+
+    assert mock_get_trace.call_count < len(trace_ids)
+
+
+def test_default_inputs_corpus_embeds_only_the_inputs_value(sample_judge, sample_traces):
+    # getattr(example, "inputs") is dspy.Example's bound ``inputs`` method, whose repr would
+    # leak the whole example (including the human label and rationale) into the corpus.
+    with mock_apis(guidelines=[]) as mocks:
+        MemAlignOptimizer().align(sample_judge, sample_traces[:2])
+
+    corpus = _last_corpus(mocks)
+    assert corpus == ["{'inputs': 'input_0'}", "{'inputs': 'input_1'}"]

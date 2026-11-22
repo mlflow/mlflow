@@ -11,11 +11,10 @@ from abc import ABCMeta, abstractmethod
 from base64 import urlsafe_b64encode
 from collections.abc import Callable
 from functools import partial
-from typing import TYPE_CHECKING, Any, NoReturn, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, NoReturn, Optional, Self, TypeVar, cast
 from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, ValidationError
-from typing_extensions import Self
 
 from mlflow.entities import LifecycleStage, ScorerVersion
 from mlflow.exceptions import MlflowException, RestException
@@ -39,7 +38,7 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.rest_utils import http_request, verify_rest_response
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.utils.uri import get_uri_scheme, redact_uri_credentials
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
@@ -150,7 +149,8 @@ class UnsupportedScorerStoreURIException(MlflowException):
     def __init__(self, unsupported_uri, supported_uri_schemes):
         message = (
             f"Scorer registration functionality is unavailable; got unsupported URI"
-            f" '{unsupported_uri}' for scorer data storage. Supported URI schemes are:"
+            f" '{redact_uri_credentials(unsupported_uri)}' for scorer data storage. "
+            "Supported URI schemes are:"
             f" {supported_uri_schemes}."
         )
         super().__init__(message)
@@ -456,8 +456,8 @@ class MlflowTrackingStore(AbstractScorerStore):
 class DatabricksStore(AbstractScorerStore):
     """
     Databricks store that provides scorer functionality through the Databricks API.
-    This store delegates current scorer operations to the Databricks agents API and uses the
-    managed-evals API for versioned operations.
+    This store uses the managed-evals API for scorer operations, and delegates deleting all
+    versions of a scorer to the Databricks agents API.
     """
 
     # TODO: Extract managed-evals request and pagination handling into a shared
@@ -729,28 +729,22 @@ class DatabricksStore(AbstractScorerStore):
         configs[index] = _DatabricksScheduledScorerConfig.model_validate(registered_payload)
         return configs
 
-    # Private functions for internal use by Scorer methods
-    @staticmethod
-    def list_scheduled_scorers(experiment_id):
-        try:
-            from databricks.agents.scorers import list_scheduled_scorers
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        return list_scheduled_scorers(experiment_id=experiment_id)
-
-    @staticmethod
-    def get_scheduled_scorer(name, experiment_id):
-        try:
-            from databricks.agents.scorers import get_scheduled_scorer
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
-
-        return get_scheduled_scorer(
-            scheduled_scorer_name=name,
+    def _scorer_from_current_config(
+        self, experiment_id: str, config: _DatabricksScheduledScorerConfig
+    ) -> Scorer:
+        return Scorer.model_validate_json(config.serialized_scorer)._set_registration_metadata(
+            backend=SCORER_BACKEND_DATABRICKS,
             experiment_id=experiment_id,
+            sampling_config=ScorerSamplingConfig(
+                sample_rate=config.sample_rate,
+                filter_string=config.filter_string,
+            ),
+            scorer_version=self._scheduled_scorer_version(config),
+            canonical_resource_name=self._canonical_resource_name(experiment_id, config),
+            canonical_resource_name_type=self._canonical_resource_name_type(config),
         )
 
+    # Private functions for internal use by Scorer methods
     @staticmethod
     def delete_scheduled_scorer(experiment_id, name):
         try:
@@ -790,19 +784,7 @@ class DatabricksStore(AbstractScorerStore):
 
         for config in self._patch_current_scorer_configs(experiment_id, configs):
             if config.name == name:
-                return Scorer.model_validate_json(
-                    config.serialized_scorer
-                )._set_registration_metadata(
-                    backend=SCORER_BACKEND_DATABRICKS,
-                    experiment_id=experiment_id,
-                    sampling_config=ScorerSamplingConfig(
-                        sample_rate=config.sample_rate,
-                        filter_string=config.filter_string,
-                    ),
-                    scorer_version=self._scheduled_scorer_version(config),
-                    canonical_resource_name=self._canonical_resource_name(experiment_id, config),
-                    canonical_resource_name_type=self._canonical_resource_name_type(config),
-                )
+                return self._scorer_from_current_config(experiment_id, config)
         raise MlflowException(f"Updated scheduled scorer response did not include '{name}'.")
 
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
@@ -836,27 +818,9 @@ class DatabricksStore(AbstractScorerStore):
 
     def list_scorers(self, experiment_id) -> list["Scorer"]:
         experiment_id = self._resolve_experiment_id(experiment_id)
-        # Get scheduled scorers from the server
-        scheduled_scorers = self.list_scheduled_scorers(experiment_id)
+        configs = self._list_current_scorer_configs(experiment_id)
         self._validate_experiment_is_active(experiment_id)
-
-        # Convert to Scorer instances with registration info
-        return [
-            scheduled_scorer.scorer._set_registration_metadata(
-                backend=SCORER_BACKEND_DATABRICKS,
-                experiment_id=experiment_id,
-                sampling_config=ScorerSamplingConfig(
-                    sample_rate=scheduled_scorer.sample_rate,
-                    filter_string=scheduled_scorer.filter_string,
-                ),
-                scorer_version=self._scheduled_scorer_version(scheduled_scorer),
-                canonical_resource_name=self._canonical_resource_name(
-                    experiment_id, scheduled_scorer
-                ),
-                canonical_resource_name_type=self._canonical_resource_name_type(scheduled_scorer),
-            )
-            for scheduled_scorer in scheduled_scorers
-        ]
+        return [self._scorer_from_current_config(experiment_id, config) for config in configs]
 
     def get_scorer(self, experiment_id, name, version=None) -> "Scorer":
         if version is not None:
@@ -890,26 +854,9 @@ class DatabricksStore(AbstractScorerStore):
                 canonical_resource_name_type=SCORER_CANONICAL_RESOURCE_TYPE_DATABRICKS,
             )
 
-        # Get the scheduled scorer from the server
         experiment_id = self._resolve_experiment_id(experiment_id)
-        try:
-            scheduled_scorer = self.get_scheduled_scorer(name, experiment_id)
-        except ValueError as e:
-            if "No registered scorer found with name" not in str(e):
-                raise
-            raise self._scorer_not_found(experiment_id, name) from e
-
-        # Extract the scorer and set registration fields
-        return scheduled_scorer.scorer._set_registration_metadata(
-            backend=SCORER_BACKEND_DATABRICKS,
-            experiment_id=experiment_id,
-            sampling_config=ScorerSamplingConfig(
-                sample_rate=scheduled_scorer.sample_rate,
-                filter_string=scheduled_scorer.filter_string,
-            ),
-            scorer_version=self._scheduled_scorer_version(scheduled_scorer),
-            canonical_resource_name=self._canonical_resource_name(experiment_id, scheduled_scorer),
-            canonical_resource_name_type=self._canonical_resource_name_type(scheduled_scorer),
+        return self._scorer_from_current_config(
+            experiment_id, self._find_current_scorer_config(experiment_id, name)
         )
 
     def list_scorer_versions(self, experiment_id, name) -> list[tuple["Scorer", int]]:

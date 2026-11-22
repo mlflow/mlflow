@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/claude-code",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Claude Code and Claude Agent SDK integration package for MLflow Tracing",
   "type": "module",
   "repository": {
@@ -35,8 +35,9 @@
     "mlflow-claude-code": "./bundle/cli.cjs"
   },
   "scripts": {
-    "build": "tsc && npm run build:bundle",
+    "build": "tsc && npm run build:bundle && npm run verify:bundle",
     "build:bundle": "node esbuild.config.mjs",
+    "verify:bundle": "node scripts/verify-bundle.mjs",
     "test": "jest --config jest.config.cjs",
     "sync:pricing": "node scripts/sync-anthropic-pricing.mjs && prettier --write src/anthropicPricing.ts",
     "lint": "eslint src --ext .ts",
@@ -45,7 +46,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@mlflow/core": "^0.4.0"
+    "@mlflow/core": "^0.5.0"
   },
   "peerDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.0"

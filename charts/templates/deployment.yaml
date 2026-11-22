@@ -8,7 +8,9 @@ metadata:
   labels:
     {{- include "mlflow.labels" . | nindent 4 }}
 spec:
+  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   strategy:
     {{- if .Values.deploymentStrategy }}
     {{- toYaml .Values.deploymentStrategy | nindent 4 }}

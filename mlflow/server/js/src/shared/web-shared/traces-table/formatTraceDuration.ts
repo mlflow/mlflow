@@ -7,7 +7,7 @@
  */
 const DURATION_PATTERN = /^([\d.]+)\s*(s|ms|us|µs|ns|m|h)$/;
 
-const parseDurationToMs = (duration: string): number | null => {
+export const parseTraceDurationToMs = (duration: string): number | null => {
   const match = duration.trim().match(DURATION_PATTERN);
   if (!match) {
     return null;
@@ -41,7 +41,7 @@ const parseDurationToMs = (duration: string): number | null => {
  * anything under a second reads as whole milliseconds — the "ms below 1 second" spec for the
  * traces duration column.
  */
-const formatDurationMs = (ms: number): string => {
+export const formatTraceDurationMs = (ms: number): string => {
   if (ms < 1_000) {
     return `${Math.round(ms)}ms`;
   }
@@ -62,6 +62,22 @@ const formatDurationMs = (ms: number): string => {
  * null when the value can't be parsed, so the caller can fall back to showing the raw string.
  */
 export const formatTraceDuration = (duration: string): string | null => {
-  const ms = parseDurationToMs(duration);
-  return ms === null ? null : formatDurationMs(ms);
+  const ms = parseTraceDurationToMs(duration);
+  return ms === null ? null : formatTraceDurationMs(ms);
+};
+
+/** Total of several trace durations, or null when there are none or any is missing or unparseable. */
+export const formatTraceDurationTotal = (durations: Array<string | undefined>): string | null => {
+  if (durations.length === 0) {
+    return null;
+  }
+  let totalMs = 0;
+  for (const duration of durations) {
+    const durationMs = duration ? parseTraceDurationToMs(duration) : null;
+    if (durationMs === null) {
+      return null;
+    }
+    totalMs += durationMs;
+  }
+  return formatTraceDurationMs(totalMs);
 };

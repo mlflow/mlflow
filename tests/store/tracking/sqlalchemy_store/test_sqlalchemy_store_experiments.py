@@ -348,12 +348,36 @@ def test_search_experiments_filter_by_attribute(store: SqlAlchemyStore):
     assert [e.name for e in experiments] == ["a"]
     experiments = store.search_experiments(filter_string="attribute.`name` != 'a'")
     assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
+    experiments = store.search_experiments(filter_string="attributes.name = 'a'")
+    assert [e.name for e in experiments] == ["a"]
     experiments = store.search_experiments(filter_string="name LIKE 'a%'")
     assert [e.name for e in experiments] == ["ab", "a"]
     experiments = store.search_experiments(filter_string="name ILIKE 'a%'")
     assert [e.name for e in experiments] == ["Abc", "ab", "a"]
     experiments = store.search_experiments(filter_string="name ILIKE 'a%' AND name ILIKE '%b'")
     assert [e.name for e in experiments] == ["ab"]
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected"),
+    [
+        ("name like 'a%'", ["ab", "a"]),
+        ("name ilike 'a%'", ["Abc", "ab", "a"]),
+        ("tag.key like 'val%'", ["a"]),
+        ("tag.key ilike 'VAL%'", ["a"]),
+        ("tag.key is null", ["Abc", "ab", "Default"]),
+    ],
+)
+def test_search_experiments_filter_with_lowercase_comparator(
+    store: SqlAlchemyStore, filter_string, expected
+):
+    _create_experiments(store, ["a", "ab", "Abc"])
+    store.set_experiment_tag(
+        store.get_experiment_by_name("a").experiment_id, ExperimentTag("key", "value")
+    )
+
+    experiments = store.search_experiments(filter_string=filter_string)
+    assert [e.name for e in experiments] == expected
 
 
 def test_search_experiments_filter_by_experiment_id_in(store: SqlAlchemyStore):
@@ -944,6 +968,26 @@ def test_create_experiments(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match=r"'name' exceeds the maximum length"):
         store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
+
+
+@pytest.mark.parametrize("name", [" ", "\t\n", "\u2003"])
+def test_experiment_name_cannot_be_whitespace(store: SqlAlchemyStore, name):
+    with pytest.raises(
+        MlflowException,
+        match="Invalid experiment name",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.create_experiment(name)
+    assert len(store.search_experiments()) == 1
+
+    experiment_id = store.create_experiment(" valid name ")
+    with pytest.raises(
+        MlflowException,
+        match="Invalid experiment name",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        store.rename_experiment(experiment_id, name)
+    assert store.get_experiment(experiment_id).name == " valid name "
 
 
 def test_create_experiment_with_tags_works_correctly(store: SqlAlchemyStore, workspaces_enabled):

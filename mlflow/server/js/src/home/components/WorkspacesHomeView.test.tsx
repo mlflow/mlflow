@@ -100,6 +100,7 @@ describe('WorkspacesHomeView', () => {
   });
 
   test('renders empty state when no workspaces', () => {
+    mockedIsAdmin.mockReturnValue(true);
     jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [],
       isLoading: false,
@@ -114,7 +115,36 @@ describe('WorkspacesHomeView', () => {
     ).toBeInTheDocument();
   });
 
+  test('hides create button in empty state for non-admin users', () => {
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as (options: any) => Promise<any>,
+    });
+
+    renderComponent();
+    expect(screen.getByText('No workspaces available')).toBeInTheDocument();
+    expect(screen.queryByText('Create your first workspace')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Create workspace' })).not.toBeInTheDocument();
+  });
+
+  test('shows create button in empty state when auth is unavailable', () => {
+    mockedIsAuthAvailable.mockReturnValue(false);
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as (options: any) => Promise<any>,
+    });
+
+    renderComponent();
+    expect(screen.getByText('Create your first workspace')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create workspace' })).toBeInTheDocument();
+  });
+
   test('calls onCreateWorkspace when create button clicked in empty state', async () => {
+    mockedIsAdmin.mockReturnValue(true);
     jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [],
       isLoading: false,
@@ -181,7 +211,34 @@ describe('WorkspacesHomeView', () => {
     expect(window.location.reload).toHaveBeenCalled();
   });
 
+  test('hides create new workspace button for non-admin users', () => {
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [{ name: 'ml-research', description: 'Research experiments' }],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as (options: any) => Promise<any>,
+    });
+
+    renderComponent();
+    expect(screen.getByText('ml-research')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Create new workspace' })).not.toBeInTheDocument();
+  });
+
+  test('shows create new workspace button when auth is unavailable', () => {
+    mockedIsAuthAvailable.mockReturnValue(false);
+    jest.mocked(useWorkspaces).mockReturnValue({
+      workspaces: [{ name: 'ml-research', description: 'Research experiments' }],
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn() as (options: any) => Promise<any>,
+    });
+
+    renderComponent();
+    expect(screen.getByRole('button', { name: 'Create new workspace' })).toBeInTheDocument();
+  });
+
   test('shows create new workspace button when workspaces exist', () => {
+    mockedIsAdmin.mockReturnValue(true);
     jest.mocked(useWorkspaces).mockReturnValue({
       workspaces: [{ name: 'ml-research', description: 'Research experiments' }],
       isLoading: false,

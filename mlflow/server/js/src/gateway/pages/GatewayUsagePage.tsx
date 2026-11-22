@@ -16,13 +16,18 @@ import { createTraceMetadataFilter, AUTH_USER_ID_METADATA_KEY } from '@databrick
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
 import { useUsersQuery } from '../hooks/useUsersQuery';
 import { GatewayChartsPanel } from '../components/GatewayChartsPanel';
+import { getGatewayFeatureFilterOption } from '../utils/gatewayFeatures';
 import GatewayRoutes from '../routes';
 import { TracesV3Logs } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
 import { MonitoringConfigProvider } from '../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import type { TableFilter } from '@databricks/web-shared/genai-traces-table';
-import { ExperimentViewTracesStatusLabels, FilterOperator } from '@databricks/web-shared/genai-traces-table';
+import {
+  CUSTOM_METADATA_COLUMN_ID,
+  ExperimentViewTracesStatusLabels,
+  FilterOperator,
+} from '@databricks/web-shared/genai-traces-table';
 import { MetricsFilter } from '../../common/components/MetricsFilter';
 import {
   translateToMetricsFilters,
@@ -156,7 +161,13 @@ export const GatewayUsagePage = () => {
 
   const tableFilters = useMemo((): TableFilter[] | undefined => {
     if (!selectedUserId) return undefined;
-    return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
+    return [
+      {
+        column: `${CUSTOM_METADATA_COLUMN_ID}:${AUTH_USER_ID_METADATA_KEY}`,
+        operator: FilterOperator.EQUALS,
+        value: selectedUserId,
+      },
+    ];
   }, [selectedUserId]);
 
   // URL filter strings (column::operator::value) appended to chart-tooltip
@@ -190,6 +201,7 @@ export const GatewayUsagePage = () => {
           label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
         })),
       },
+      getGatewayFeatureFilterOption(intl),
     ],
     [intl],
   );

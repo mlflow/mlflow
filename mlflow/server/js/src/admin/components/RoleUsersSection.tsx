@@ -17,6 +17,8 @@ export interface RoleUsersSectionProps {
   value: string[];
   onChange: (value: string[]) => void;
   disabled?: boolean;
+  /** Workspace whose roster to offer; defaults to the active workspace. */
+  workspace?: string;
 }
 
 /**
@@ -25,10 +27,10 @@ export interface RoleUsersSectionProps {
  * + access editing) so the experience is consistent across role
  * creation and role editing.
  */
-export const RoleUsersSection = ({ value, onChange, disabled }: RoleUsersSectionProps) => {
+export const RoleUsersSection = ({ value, onChange, disabled, workspace }: RoleUsersSectionProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
-  const { data: usersData, isLoading } = useUsersQuery();
+  const { data: usersData, isLoading } = useUsersQuery(workspace);
   const users = useMemo(() => usersData?.users ?? [], [usersData]);
 
   const sortedUsers = useMemo(() => [...users].sort((a, b) => a.username.localeCompare(b.username)), [users]);

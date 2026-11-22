@@ -25,6 +25,29 @@ _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 _OSS_UNITY_CATALOG_SCHEME = "uc"
 
 
+def redact_uri_credentials(uri: str | None) -> str | None:
+    """Redact userinfo and URI options before including a configured URI in an error message."""
+    if not uri:
+        return uri
+    try:
+        parsed = urllib.parse.urlparse(uri)
+    except ValueError:
+        return "<redacted URI>"
+    if not parsed.netloc and not (
+        parsed.params or parsed.query or parsed.fragment or ";" in parsed.path
+    ):
+        return uri
+    # Unescaped delimiters in userinfo can make credentials look like a path or query.
+    if parsed.netloc and any("@" in part for part in parsed[2:]):
+        return "<redacted URI>"
+    netloc = parsed.netloc
+    if "@" in netloc:
+        netloc = f"***@{netloc.rsplit('@', 1)[1]}"
+    return parsed._replace(
+        netloc=netloc, path=parsed.path.split(";", 1)[0], params="", query="", fragment=""
+    ).geturl()
+
+
 def is_local_uri(uri, is_tracking_or_registry_uri=True):
     """Returns true if the specified URI is a local file path (/foo or file:/foo).
 
@@ -365,7 +388,7 @@ def append_to_uri_query_params(uri, *query_params: tuple[str, Any]) -> str:
             be a 2-element tuple. For example, ``("key", "value")``.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    parsed_query = urllib.parse.parse_qsl(parsed_uri.query)
+    parsed_query = urllib.parse.parse_qsl(parsed_uri.query, keep_blank_values=True)
     new_parsed_query = parsed_query + list(query_params)
     new_query = urllib.parse.urlencode(new_parsed_query)
     new_parsed_uri = parsed_uri._replace(query=new_query)
@@ -497,7 +520,7 @@ def join_paths(*paths: str) -> str:
 _OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
 
 
-def validate_path_is_safe(path):
+def validate_path_is_safe(path, *, validate_windows_aliases: bool = False):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
     measure to prevent path traversal attacks.
@@ -505,6 +528,12 @@ def validate_path_is_safe(path):
         not contain separators other than '/'
         not contain .. to navigate to parent dir in path
         not be an absolute path
+
+    Set ``validate_windows_aliases`` for local filesystem access and its server authorization.
+    On Windows it also rejects components ending in dots or spaces, DOS short-name patterns with
+    ``~N`` at a component end or before a dot, and alternate data stream syntax containing ``:``.
+    Alias validation applies to raw artifact paths, including ``file:`` spellings.
+    Remote artifact names may be valid POSIX or object-store paths even on a Windows client.
     """
     from mlflow.utils.file_utils import local_file_uri_to_path
 
@@ -517,6 +546,9 @@ def validate_path_is_safe(path):
     if "#" in path:
         raise exc
 
+    if validate_windows_aliases:
+        _validate_windows_path_aliases(path)
+
     if is_file_uri(path):
         path = local_file_uri_to_path(path)
     if (
@@ -528,6 +560,45 @@ def validate_path_is_safe(path):
     ):
         raise exc
 
+    return path
+
+
+def _windows_path_alias_rule(component: str) -> str | None:
+    # Win32 strips trailing dots/spaces and resolves DOS short names and stream syntax. Reject
+    # ambiguous spellings before authorization, which cannot distinguish short names from literal
+    # names without the repository's filesystem. Preserve POSIX and ordinary Windows tilde names.
+    if component in {".", ".."} or not is_windows():
+        return None
+    if component.endswith((" ", ".")):
+        return "ends with a dot or space"
+    if ":" in component:
+        return "contains ':' (alternate data stream syntax)"
+    if re.search(r"~[0-9]+(?:\.|$)", component):
+        return "uses a DOS short-name '~N' spelling"
+    return None
+
+
+def _validate_windows_path_aliases(path: str) -> None:
+    for component in path.replace("\\", "/").split("/"):
+        rule = _windows_path_alias_rule(component)
+        if rule is not None:
+            raise MlflowException(
+                f"Invalid path: component {component!r} {rule}, which Windows resolves "
+                "ambiguously. Rename the artifact.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
+def _strip_extended_length_prefix(path: pathlib.PurePath) -> pathlib.PurePath:
+    # On Windows, non-strict ntpath.realpath (used by Path.resolve()) keeps the `\\?\`
+    # extended-length prefix when the path doesn't fully exist and a concurrent mkdir changes
+    # the error code of its re-check (see `realpath` in CPython's Lib/ntpath.py). The prefixed
+    # and plain forms name the same location, but `is_relative_to` compares them lexically.
+    s = str(path)
+    if s.startswith("\\\\?\\UNC\\"):
+        return type(path)("\\\\" + s[len("\\\\?\\UNC\\") :])
+    if s.startswith("\\\\?\\"):
+        return type(path)(s[len("\\\\?\\") :])
     return path
 
 
@@ -565,6 +636,8 @@ def validate_path_within_directory(base_dir: str, constructed_path: str) -> str:
     else:
         real_constructed_path = target.parent.resolve() / target.name
 
+    real_base_dir = _strip_extended_length_prefix(real_base_dir)
+    real_constructed_path = _strip_extended_length_prefix(real_constructed_path)
     if not real_constructed_path.is_relative_to(real_base_dir):
         raise MlflowException(
             "Invalid path: resolved path is outside the artifact directory",

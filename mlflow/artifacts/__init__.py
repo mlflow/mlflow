@@ -8,6 +8,8 @@ import posixpath
 import tempfile
 from typing import Any
 
+import yaml
+
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
@@ -234,12 +236,19 @@ def load_dict(artifact_uri: str) -> dict[str, Any]:
         local_artifact = download_artifacts(artifact_uri, dst_path=tmpdir)
         with open(local_artifact, encoding="utf-8") as local_artifact_fd:
             try:
+                # Mirror `log_dict`, which infers the format from the file extension
+                if pathlib.Path(local_artifact).suffix in (".yml", ".yaml"):
+                    return yaml.safe_load(local_artifact_fd)
                 return json.load(local_artifact_fd)
             except UnicodeDecodeError as e:
                 raise _not_utf8_error(artifact_uri) from e
             except json.JSONDecodeError as e:
                 raise MlflowException(
                     "Unable to form a JSON object from file content", BAD_REQUEST
+                ) from e
+            except yaml.YAMLError as e:
+                raise MlflowException(
+                    "Unable to form a YAML object from file content", BAD_REQUEST
                 ) from e
 
 

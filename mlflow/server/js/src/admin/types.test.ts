@@ -34,6 +34,7 @@ describe('getGrantablePermissions', () => {
     ['gateway_endpoint', ['READ', 'USE', 'EDIT', 'MANAGE', 'DENY']],
     ['mcp_server', ['READ', 'USE', 'EDIT', 'MANAGE', 'DENY']],
     ['mcp_server_version', ['READ', 'USE', 'EDIT', 'MANAGE', 'DENY']],
+    ['skill', ['READ', 'EDIT', 'MANAGE', 'DENY']],
     ['workspace', ['USE', 'MANAGE']],
   ])('returns the backend-allowed set for %s', (resourceType, expected) => {
     expect(getGrantablePermissions(resourceType)).toEqual(expected);
@@ -116,6 +117,7 @@ describe('isWildcardOnlyResourceType', () => {
       'gateway_secret',
       'gateway_endpoint',
       'mcp_server',
+      'skill',
     ]) {
       expect(isWildcardOnlyResourceType(resourceType)).toBe(false);
     }

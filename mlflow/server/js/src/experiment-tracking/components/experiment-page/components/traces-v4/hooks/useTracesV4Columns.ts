@@ -25,6 +25,8 @@ const OPT_IN_COLUMNS: ReadonlySet<TraceColumnId> = new Set([
 export interface UseTracesV4ColumnsParams {
   /** True when the current page has at least one session-tagged trace — drives the Session column's default. */
   hasSessionOnPage: boolean;
+  /** Extra columns hidden by default for this consumer (e.g. Request time in an evaluation run). */
+  defaultHiddenColumns?: ReadonlySet<TraceColumnId>;
 }
 
 /**
@@ -35,16 +37,16 @@ export interface UseTracesV4ColumnsParams {
  */
 export const useTracesV4Columns = (
   experimentId: string,
-  { hasSessionOnPage }: UseTracesV4ColumnsParams,
+  { hasSessionOnPage, defaultHiddenColumns }: UseTracesV4ColumnsParams,
 ): TraceColumnVisibility => {
   const getDefaultVisible = useCallback(
     (id: TraceColumnId) => {
       if (id === 'session') {
         return hasSessionOnPage;
       }
-      return !OPT_IN_COLUMNS.has(id);
+      return !OPT_IN_COLUMNS.has(id) && !defaultHiddenColumns?.has(id);
     },
-    [hasSessionOnPage],
+    [hasSessionOnPage, defaultHiddenColumns],
   );
 
   return useTraceColumnVisibility({

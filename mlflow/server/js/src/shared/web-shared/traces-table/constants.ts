@@ -1,4 +1,5 @@
-import type { SortDirection, TraceColumnId } from './types';
+import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
+import type { SortDirection, TraceColumnId, TraceSortColumnId } from './types';
 
 /** Page-size options offered in the pagination bar. */
 export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
@@ -43,11 +44,23 @@ export const isTraceColumnId = (id: string): id is TraceColumnId => TRACE_COLUMN
  */
 export const SORTABLE_TRACE_COLUMNS: readonly TraceColumnId[] = ['start_time', 'duration'];
 
-const SORTABLE_TRACE_COLUMN_SET = new Set<string>(SORTABLE_TRACE_COLUMNS);
+/** With the new evaluation runs UI, traces also sort by state (the search API orders by `status`). */
+const SORTABLE_TRACE_COLUMNS_WITH_STATE: readonly TraceColumnId[] = [...SORTABLE_TRACE_COLUMNS, 'state'];
+
+/** The sortable columns for the current UI: `SORTABLE_TRACE_COLUMNS`, plus state with the new eval runs UI. */
+export const getSortableTraceColumns = (): readonly TraceColumnId[] =>
+  shouldEnableNewEvalRunsUi() ? SORTABLE_TRACE_COLUMNS_WITH_STATE : SORTABLE_TRACE_COLUMNS;
 
 /** Narrows an arbitrary id to a server-sortable `TraceColumnId`. Shared so the table and any consumer
- * order-by/URL builder agree on what's sortable (both derive from `SORTABLE_TRACE_COLUMNS`). */
-export const isSortableTraceColumn = (id: string): id is TraceColumnId => SORTABLE_TRACE_COLUMN_SET.has(id);
+ * order-by/URL builder agree on what's sortable (both derive from `getSortableTraceColumns`). */
+export const isSortableTraceColumn = (id: string): id is TraceColumnId =>
+  (getSortableTraceColumns() as readonly string[]).includes(id);
+
+const COMPARISON_SORTABLE_TRACE_COLUMNS = new Set<string>(['start_time', 'duration', 'state', 'tokens', 'cost']);
+
+/** Columns a consumer-sorted comparison can order by, including trace-level assessment columns. */
+export const isComparisonSortableTraceColumn = (id: string): id is TraceSortColumnId =>
+  COMPARISON_SORTABLE_TRACE_COLUMNS.has(id) || (id.startsWith('assessment:') && id.length > 'assessment:'.length);
 
 /** Default sort: newest traces first. */
 export const DEFAULT_SORT_COLUMN: TraceColumnId = 'start_time';

@@ -10,6 +10,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import StoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.plugins import get_entry_points
+from mlflow.utils.uri import redact_uri_credentials
 
 _WORKSPACE_PROVIDER_ENTRYPOINT_GROUP = "mlflow.workspace_provider"
 _building_workspace_store_lock = threading.RLock()
@@ -21,7 +22,8 @@ class UnsupportedWorkspaceStoreURIException(MlflowException):
     def __init__(self, unsupported_uri, supported_uri_schemes):
         message = (
             "Workspace functionality is unavailable; got unsupported URI "
-            f"'{unsupported_uri}' for the workspace backend. Supported URI schemes are: "
+            f"'{redact_uri_credentials(unsupported_uri)}' for the workspace backend. "
+            "Supported URI schemes are: "
             f"{supported_uri_schemes}. See the workspace configuration guide for instructions."
         )
         super().__init__(message, error_code=INVALID_PARAMETER_VALUE)

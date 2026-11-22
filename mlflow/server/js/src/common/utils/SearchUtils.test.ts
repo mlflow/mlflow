@@ -1,5 +1,22 @@
 import { describe, it, expect } from '@jest/globals';
-import { buildSearchFilterClause } from './SearchUtils';
+import { buildSearchFilterClause, buildSearchParams } from './SearchUtils';
+
+describe('buildSearchParams', () => {
+  it('serializes scalar and repeated parameters and omits undefined values', () => {
+    expect(
+      buildSearchParams({
+        filter_string: "status = 'active'",
+        max_results: 25,
+        order_by: ['name ASC', 'version DESC'],
+        page_token: undefined,
+      }),
+    ).toBe('?filter_string=status+%3D+%27active%27&max_results=25&order_by=name+ASC&order_by=version+DESC');
+  });
+
+  it('returns an empty string when no parameters are defined', () => {
+    expect(buildSearchParams({ page_token: undefined })).toBe('');
+  });
+});
 
 describe('buildSearchFilterClause', () => {
   it('returns undefined for undefined input', () => {
@@ -38,6 +55,26 @@ describe('buildSearchFilterClause', () => {
     expect(buildSearchFilterClause('tags.env = "prod"')).toBe('tags.env = "prod"');
   });
 
+  it.each([
+    "tags.demo='true'",
+    "tags.demo= 'true'",
+    "tags.demo ='true'",
+    "tags.demo = 'true'",
+    `tags."demo"='true'`,
+    `tags."demo" = 'true'`,
+    `tags."mlflow.organization" = 'production'`,
+    "tags.`demo`='true'",
+    "tags.`demo` = 'true'",
+    `tags."demo"='true' AND tags.env='prod'`,
+    'count!=10',
+    'count<10',
+    'count>10',
+    'count<=10',
+    'count>=10',
+  ])('passes through compact comparisons and quoted tag keys: %s', (filter) => {
+    expect(buildSearchFilterClause(filter)).toBe(filter);
+  });
+
   it('passes through not-equals filter syntax', () => {
     expect(buildSearchFilterClause('tags.status != "archived"')).toBe('tags.status != "archived"');
   });
@@ -53,6 +90,43 @@ describe('buildSearchFilterClause', () => {
     expect(buildSearchFilterClause('status IN ("active", "paused")')).toBe('status IN ("active", "paused")');
   });
 
+  it('passes through NOT IN filter syntax', () => {
+    expect(buildSearchFilterClause('status NOT IN ("draft", "deleted")')).toBe('status NOT IN ("draft", "deleted")');
+  });
+
+  it('passes through complete multi-clause filter expressions', () => {
+    expect(buildSearchFilterClause('status = "active" AND organization = "acme"')).toBe(
+      'status = "active" AND organization = "acme"',
+    );
+    expect(buildSearchFilterClause('tags.`mlflow.organization` = "production"')).toBe(
+      'tags.`mlflow.organization` = "production"',
+    );
+  });
+
+  it.each([
+    "`tags`.team = 'platform'",
+    "`name` ILIKE '%review%'",
+    '"name" ILIKE \'%review%\'',
+    "status = 'active' AND `tags`.team = 'platform'",
+  ])('passes through quoted first segments when supported: %s', (filter) => {
+    expect(buildSearchFilterClause(filter, 'search_text', { allowQuotedFirstSegment: true })).toBe(filter);
+  });
+
+  it('keeps quoted first segments on the text path for searches that do not support them', () => {
+    expect(buildSearchFilterClause("`name` ILIKE '%review%'")).toBe("name ILIKE '%`name` ILIKE ''\\%review\\%''%'");
+  });
+
+  it('treats SQL keywords in ordinary phrases as free text', () => {
+    expect(buildSearchFilterClause('write in python', 'search_text')).toBe("search_text ILIKE '%write in python%'");
+    expect(buildSearchFilterClause('write like Shakespeare', 'search_text')).toBe(
+      "search_text ILIKE '%write like Shakespeare%'",
+    );
+    expect(buildSearchFilterClause('this is useful', 'search_text')).toBe("search_text ILIKE '%this is useful%'");
+    expect(buildSearchFilterClause('name..description = "review"', 'search_text')).toBe(
+      `search_text ILIKE '%name..description = "review"%'`,
+    );
+  });
+
   it('is case-insensitive for SQL keywords', () => {
     expect(buildSearchFilterClause('name ilike "%test%"')).toBe('name ilike "%test%"');
   });
@@ -60,5 +134,6 @@ describe('buildSearchFilterClause', () => {
   it('requires whitespace before SQL keywords to avoid false positives', () => {
     expect(buildSearchFilterClause('prompt-ILIKE-test')).toBe("name ILIKE '%prompt-ILIKE-test%'");
     expect(buildSearchFilterClause('prompt-LIKE-test')).toBe("name ILIKE '%prompt-LIKE-test%'");
+    expect(buildSearchFilterClause('namelike "test"')).toBe(`name ILIKE '%namelike "test"%'`);
   });
 });

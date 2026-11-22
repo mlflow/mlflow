@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import type {
   Assessment,
@@ -372,6 +372,52 @@ describe('searchTree', () => {
         matchIndex: 0,
       }),
     ]);
+  });
+
+  // searchTree used to recurse once per span and merge results with push(...spread),
+  // so a large trace could exhaust the call stack or exceed the argument limit --
+  // which threw inside a useMemo and took down the whole panel.
+  const buildSearchableNode = (key: string, children: ModelTraceSpanNode[] = []): ModelTraceSpanNode => ({
+    key,
+    title: key,
+    start: 0,
+    end: 1,
+    inputs: { question: `${key}-needle` },
+    outputs: {},
+    attributes: {},
+    events: [],
+    assessments: [],
+    traceId: 'trace-id',
+    children,
+  });
+
+  it('should handle a tree deeper than the call stack allows', () => {
+    // ~2-3 stack frames per level in the old recursive implementation, so this is
+    // comfortably past the engine limit while staying cheap to build
+    const depth = 12000;
+    let node = buildSearchableNode('span-0');
+    for (let i = 1; i < depth; i++) {
+      node = buildSearchableNode(`span-${i}`, [node]);
+    }
+
+    const matchesPerSpan = searchTree(buildSearchableNode('solo'), 'needle', TEST_SPAN_FILTER_STATE).matches.length;
+    expect(matchesPerSpan).toBeGreaterThan(0);
+
+    const { filteredTreeNodes, matches } = searchTree(node, 'needle', TEST_SPAN_FILTER_STATE);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    expect(matches).toHaveLength(depth * matchesPerSpan);
+  });
+
+  it('should preserve match ordering across a very wide level', () => {
+    const width = 5000;
+    const children = Array.from({ length: width }, (_, i) => buildSearchableNode(`child-${i}`));
+    const root = buildSearchableNode('root', children);
+
+    const { matches } = searchTree(root, 'needle', TEST_SPAN_FILTER_STATE);
+
+    // a span's own matches come before its children's, and children keep their order
+    expect(matches.map((match) => match.span.key)).toEqual(['root', ...children.map((child) => child.key)]);
   });
 });
 
@@ -1644,6 +1690,35 @@ describe('parseTraceV4SerializedLocation', () => {
 });
 
 describe('tryDeserializeAttribute', () => {
+  it('preserves already decoded OTLP values without parsing or coercing them', () => {
+    const spy = jest.spyOn(JSON, 'parse');
+    try {
+      for (const value of [undefined, null, true, 42, 1.25, [], [5], [false], { key: 5 }]) {
+        expect(tryDeserializeAttribute(value)).toBe(value);
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('skips JSON.parse for plain attributes and missing values', () => {
+    const spy = jest.spyOn(JSON, 'parse');
+    try {
+      for (const value of ['CHAIN', 'provider:model', 'falsehood', undefined]) {
+        expect(tryDeserializeAttribute(value as string)).toBe(value);
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it.each(['true', 'false', 'null', ' \t\r\ntrue ', '-0', '1e-5', '{"x":["🙂",null]}'])(
+    'preserves JSON parsing for %j',
+    (value) => expect(tryDeserializeAttribute(value)).toEqual(JSON.parse(value)),
+  );
+
   it.each([
     ['small int', '42', 42],
     ['float', '3.14', 3.14],

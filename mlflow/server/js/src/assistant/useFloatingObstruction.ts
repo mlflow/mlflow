@@ -8,15 +8,20 @@ interface FloatingObstructionStore {
   obstructions: Record<string, number>;
   /** id -> height (px) reserved on the bottom edge by a pinned surface (e.g. an action bar). */
   bottomObstructions: Record<string, number>;
+  /** ids of open surfaces covering the page's bottom-pinned bars, whose reservations then don't apply. */
+  bottomObstructionCovers: Record<string, true>;
   setObstruction: (id: string, reservedRightPx: number) => void;
   removeObstruction: (id: string) => void;
   setBottomObstruction: (id: string, reservedBottomPx: number) => void;
   removeBottomObstruction: (id: string) => void;
+  setBottomObstructionCover: (id: string) => void;
+  removeBottomObstructionCover: (id: string) => void;
 }
 
 const useFloatingObstructionStore = create<FloatingObstructionStore>((set) => ({
   obstructions: {},
   bottomObstructions: {},
+  bottomObstructionCovers: {},
   setObstruction: (id, reservedRightPx) =>
     set((state) => ({ obstructions: { ...state.obstructions, [id]: reservedRightPx } })),
   removeObstruction: (id) =>
@@ -44,6 +49,21 @@ const useFloatingObstructionStore = create<FloatingObstructionStore>((set) => ({
       const next = { ...state.bottomObstructions };
       delete next[id];
       return { bottomObstructions: next };
+    }),
+  setBottomObstructionCover: (id) =>
+    set((state) =>
+      id in state.bottomObstructionCovers
+        ? state
+        : { bottomObstructionCovers: { ...state.bottomObstructionCovers, [id]: true } },
+    ),
+  removeBottomObstructionCover: (id) =>
+    set((state) => {
+      if (!(id in state.bottomObstructionCovers)) {
+        return state;
+      }
+      const next = { ...state.bottomObstructionCovers };
+      delete next[id];
+      return { bottomObstructionCovers: next };
     }),
 }));
 
@@ -152,9 +172,31 @@ export const useRegisterFloatingBottomObstruction = (ref: RefObject<HTMLElement>
   }, [id, ref, measure, removeBottomObstruction]);
 };
 
-/** The tallest reservation (px) currently held on the bottom edge, or 0 if none. */
+/**
+ * Register that an open surface (e.g. a full-height drawer that leaves the Assistant button in place)
+ * covers the page's bottom-pinned bars, so the button rests in its corner over the surface instead of
+ * rising above bars hidden under it. Pass false while the surface is closed.
+ */
+export const useCoverFloatingBottomObstructions = (isCovering: boolean) => {
+  const id = useMemo(() => uuidv4(), []);
+  const setBottomObstructionCover = useFloatingObstructionStore((state) => state.setBottomObstructionCover);
+  const removeBottomObstructionCover = useFloatingObstructionStore((state) => state.removeBottomObstructionCover);
+  useEffect(() => {
+    if (!isCovering) {
+      removeBottomObstructionCover(id);
+      return undefined;
+    }
+    setBottomObstructionCover(id);
+    return () => removeBottomObstructionCover(id);
+  }, [id, isCovering, setBottomObstructionCover, removeBottomObstructionCover]);
+};
+
+/** The tallest reservation (px) currently held on the bottom edge, or 0 if none or while they are covered. */
 export const useFloatingObstructionHeight = (): number =>
   useFloatingObstructionStore((state) => {
+    if (Object.keys(state.bottomObstructionCovers).length > 0) {
+      return 0;
+    }
     const heights = Object.values(state.bottomObstructions);
     return heights.length > 0 ? Math.max(...heights) : 0;
   });
