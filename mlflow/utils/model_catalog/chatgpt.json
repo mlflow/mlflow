@@ -4,7 +4,7 @@
     "gpt-5.1-codex-max": {
       "mode": "responses",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 272000,
         "max_output": 128000
       },
       "capabilities": {
@@ -14,12 +14,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-22"
     },
     "gpt-5.1-codex-mini": {
       "mode": "responses",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 272000,
         "max_output": 64000
       },
       "capabilities": {
@@ -29,12 +29,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-22"
     },
     "gpt-5.2": {
       "mode": "responses",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 272000,
         "max_output": 64000
       },
       "capabilities": {
@@ -44,12 +44,12 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-22"
     },
     "gpt-5.2-codex": {
       "mode": "responses",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 272000,
         "max_output": 128000
       },
       "capabilities": {
@@ -59,7 +59,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-22"
     },
     "gpt-5.3-chat-latest": {
       "mode": "responses",
@@ -79,7 +79,7 @@
     "gpt-5.3-codex": {
       "mode": "responses",
       "context_window": {
-        "max_input": 128000,
+        "max_input": 272000,
         "max_output": 128000
       },
       "capabilities": {
@@ -89,7 +89,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-22"
     },
     "gpt-5.3-codex-spark": {
       "mode": "responses",
