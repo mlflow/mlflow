@@ -19,6 +19,7 @@ const traceStringChars = new WeakMap<ModelTrace, number>();
 const traceAccessOrder = new WeakMap<Query, number>();
 let nextTraceAccessOrder = 0;
 
+// Shared getTrace hooks use two-part keys; the drawer's warehouse slot makes its key exactly three parts.
 const isDrawerTraceQuery = ({ queryKey }: Pick<Query, 'queryKey'>): boolean =>
   queryKey.length === 3 && queryKey[0] === 'getTrace';
 
