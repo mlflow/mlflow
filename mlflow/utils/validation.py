@@ -1321,14 +1321,17 @@ def _iter_region_key_values(value: Any) -> Iterator[tuple[str, Any]]:
             yield from _iter_region_key_values(nested)
 
 
-def _validate_llm_client_kwargs(kwargs: Any, field: str, client: str, endpoint: str) -> None:
+def _validate_llm_client_kwargs(
+    kwargs: Any, field: str, client: str, endpoint: str | None = None
+) -> None:
     """Reject ``kwargs`` that would choose where an LLM client on the server sends requests.
 
     The gateway destination keys are rejected at any nesting depth, and the region keys, from
     which providers build request hosts, must be bare region names at any nesting depth. ``client``
     names whose LLM client receives the kwargs and ``endpoint`` names the endpoint configured on
-    the server instead, e.g. ``"judge"``.
+    the server instead, e.g. ``"judge"``. ``endpoint`` defaults to ``client``.
     """
+    endpoint = endpoint or client
     if found := sorted(_find_destination_keys(kwargs)):
         raise MlflowException.invalid_parameter_value(
             f"{field} must not contain {', '.join(map(repr, found))}: these options choose where "
@@ -1425,9 +1428,7 @@ def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
             raise MlflowException.invalid_parameter_value(
                 f"{field}.inference_params must be a JSON object, got {type(params).__name__}."
             )
-        _validate_llm_client_kwargs(
-            params, f"{field}.inference_params", client="judge", endpoint="judge"
-        )
+        _validate_llm_client_kwargs(params, f"{field}.inference_params", client="judge")
 
 
 def _validate_prompt_optimizer_config(optimizer_config: Any) -> None:
@@ -1447,10 +1448,7 @@ def _validate_prompt_optimizer_config(optimizer_config: Any) -> None:
             f"optimizer_config_json must be a JSON object, got {type(optimizer_config).__name__}."
         )
     _validate_llm_client_kwargs(
-        optimizer_config,
-        "optimizer_config_json",
-        client="reflection model",
-        endpoint="reflection model",
+        optimizer_config, "optimizer_config_json", client="reflection model"
     )
 
 
