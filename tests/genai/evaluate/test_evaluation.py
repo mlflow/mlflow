@@ -687,6 +687,52 @@ def test_evaluate_passed_ignores_feedback_logged_outside_the_run(server_config):
     assert result.result_df["self_grade/value"].tolist() == ["no"]
 
 
+def test_evaluate_passed_ignores_same_name_feedback_on_traces_the_scorer_skipped(server_config):
+    @mlflow.trace
+    def app(q):
+        return q
+
+    app("scored")
+    scored_trace_id = mlflow.get_last_active_trace_id()
+    app("skipped")
+    skipped_trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_assessment(trace_id=skipped_trace_id, assessment=Feedback(name="judged", value="no"))
+
+    @scorer
+    def judged(inputs):
+        return "yes" if inputs["q"] == "scored" else None
+
+    result = mlflow.genai.evaluate(
+        data=[mlflow.get_trace(scored_trace_id), mlflow.get_trace(skipped_trace_id)],
+        scorers=[judged],
+    )
+    assert result.passed, result.reason
+    values = dict(zip(result.result_df["trace_id"], result.result_df["judged/value"]))
+    assert values == {scored_trace_id: "yes", skipped_trace_id: "no"}
+
+
+@pytest.mark.parametrize(
+    ("other_value", "expected_reason"),
+    [
+        ("yes", ""),
+        ("no", "other: value='no'"),
+    ],
+)
+def test_evaluate_passed_checks_custom_named_scorer_feedback(
+    server_config, other_value, expected_reason
+):
+    @scorer
+    def multi(outputs):
+        return [Feedback(name="other", value=other_value), Feedback(name="another", value="yes")]
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "hello"}],
+        scorers=[multi],
+    )
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+
+
 def test_evaluate_passed_checks_session_level_scorer_feedback(server_config):
     class ConversationJudge(mlflow.genai.Scorer):
         @property

@@ -266,11 +266,11 @@ class EvaluationResult:
     pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
     # Run-level conditions parsed from ``evaluate(quality_criteria=...)``. In-process only.
     quality_criteria: list[QualityCriteriaRule] = field(default_factory=list)
-    # Names of the feedback this run's scorers produced. Populated by the evaluation harness so
-    # ``passed`` skips the other ``/value`` columns of ``result_df``: dataset expectations and
-    # feedback logged on the traces outside this run. ``None`` checks every ``/value`` column.
-    # In-process only.
-    scorer_feedback_names: set[str] | None = None
+    # Names of the feedback this run's scorers produced, keyed by trace ID. Populated by the
+    # evaluation harness so ``passed`` checks only those ``/value`` columns of each row, skipping
+    # dataset expectations and feedback logged on the traces outside this run. ``None`` checks
+    # every ``/value`` column. In-process only.
+    scorer_feedback_names_by_trace: dict[str, set[str]] | None = None
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -335,15 +335,17 @@ class EvaluationResult:
             ]
 
         value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
-        if self.scorer_feedback_names is not None:
-            value_cols = [
-                c for c in value_cols if c.removesuffix("/value") in self.scorer_feedback_names
-            ]
 
         failures: list[str] = []
         num_scored = 0
         for _, row in self.result_df.iterrows():
-            for col in value_cols:
+            row_value_cols = value_cols
+            if self.scorer_feedback_names_by_trace is not None:
+                # Filter per row: a trace the scorers skipped can still carry feedback with the
+                # same name that was logged outside this run.
+                names = self.scorer_feedback_names_by_trace.get(row.get("trace_id"), set())
+                row_value_cols = [c for c in value_cols if c.removesuffix("/value") in names]
+            for col in row_value_cols:
                 scorer_name = col.removesuffix("/value")
                 value = row.get(col)
                 error_msg = row.get(f"{scorer_name}/error_message")
