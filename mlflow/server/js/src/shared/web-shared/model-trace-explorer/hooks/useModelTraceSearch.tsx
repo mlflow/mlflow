@@ -1,6 +1,8 @@
 import { compact } from 'lodash';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 
+import { copyModelTraceSpanNode } from '../copyModelTraceSpanNode';
+
 import type {
   ModelTraceExplorerTab,
   ModelTraceSpanNode,
@@ -113,7 +115,7 @@ const searchComparisonTree = (
 
   return nodeShouldBeDisplayed
     ? {
-        filteredTreeNodes: [{ ...rootNode, children: filteredChildren }],
+        filteredTreeNodes: [copyModelTraceSpanNode(rootNode, { children: filteredChildren })],
         matches: [...spanMatches, ...childMatches],
       }
     : { filteredTreeNodes: filteredChildren, matches: childMatches };

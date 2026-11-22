@@ -28,6 +28,7 @@ from mlflow.environment_variables import (
     MLFLOW_AUTH_ADMIN_PASSWORD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
     MLFLOW_WORKSPACE_STORE_URI,
@@ -3203,6 +3204,48 @@ def test_graphql_get_experiment_authorization(client, monkeypatch):
     data = response.json()
     # With authorization denied, the result should be null
     assert data.get("data", {}).get("mlflowGetExperiment") is None
+
+
+@pytest.mark.parametrize(
+    "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.name: "yes",
+        }
+    ],
+    indirect=True,
+)
+def test_graphql_fails_closed_on_invalid_graphql_auth_flag(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_invalid_flag_exp")
+
+    query = """
+    query($expId: String!) {
+        mlflowGetExperiment(input: {experimentId: $expId}) {
+            experiment {
+                name
+            }
+        }
+    }
+    """
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": experiment_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 500
+    assert "graphql_invalid_flag_exp" not in response.text
+
+
+def test_get_graphql_authorization_middleware_skips_flag_when_auth_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.name, "yes")
+    monkeypatch.setattr(auth_module, "_auth_initialized", False)
+    assert auth_module.get_graphql_authorization_middleware() == []
 
 
 @pytest.mark.parametrize(

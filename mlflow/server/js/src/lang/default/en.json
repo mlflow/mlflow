@@ -5939,6 +5939,10 @@
     "defaultMessage": "Edit tags for version {version}",
     "description": "Title for editing tags on a skill version"
   },
+  "H6IGV4": {
+    "defaultMessage": "Edit permission on this experiment is required to create a dataset.",
+    "description": "Tooltip explaining why dataset creation is disabled"
+  },
   "H6aarx": {
     "defaultMessage": "Reset to saved",
     "description": "Menu item that discards unsaved edits and re-applies the active saved view's stored state"
@@ -7850,10 +7854,6 @@
   "N79Rdb": {
     "defaultMessage": "{count, plural, =1 {1 month} other {# months}} ago",
     "description": "Time duration in months"
-  },
-  "N7BCue": {
-    "defaultMessage": "Create dataset",
-    "description": "Create evaluation dataset button"
   },
   "N7KBFa": {
     "defaultMessage": "Create view",

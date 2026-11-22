@@ -5,18 +5,23 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { useRunJudgesOnTracesConfiguration } from './useRunScorerInTracesViewConfiguration';
+import {
+  useRunJudgesOnTracesConfiguration,
+  useRunJudgesOnTracesConfigurationForExperiment,
+} from './useRunScorerInTracesViewConfiguration';
+import { useExperimentIds } from '../../../components/experiment-page/hooks/useExperimentIds';
+import { useGetScheduledScorers } from './useGetScheduledScorers';
 import type { ScorerEvaluation } from '../useEvaluateTracesAsync';
 
 jest.mock('./useGetScheduledScorers', () => ({
-  useGetScheduledScorers: () => ({
+  useGetScheduledScorers: jest.fn(() => ({
     data: { scheduledScorers: [{ name: 'tone_judge', type: 'llm' }] },
     isLoading: false,
-  }),
+  })),
 }));
 
 jest.mock('../../../components/experiment-page/hooks/useExperimentIds', () => ({
-  useExperimentIds: () => ['exp-1'],
+  useExperimentIds: jest.fn(() => ['exp-1']),
 }));
 
 const queryClient = new QueryClient({
@@ -36,7 +41,34 @@ describe('useRunJudgesOnTracesConfiguration', () => {
   let mockEvaluateTraces: jest.Mock;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     mockEvaluateTraces = jest.fn();
+  });
+
+  it('uses the explicit experiment for hidden and open modals without reading the route', async () => {
+    const ExplicitModal = ({ experimentId }: { experimentId: string }) => {
+      const { showRunJudgesModal, RunJudgesModal } = useRunJudgesOnTracesConfigurationForExperiment(
+        experimentId,
+        mockEvaluateTraces,
+        undefined,
+      );
+      return (
+        <>
+          <button onClick={() => showRunJudgesModal(['trace-1'])}>open explicit</button>
+          {RunJudgesModal}
+        </>
+      );
+    };
+    const user = userEvent.setup();
+    const { rerender } = render(<ExplicitModal experimentId="explicit-experiment" />, { wrapper });
+    expect(useGetScheduledScorers).toHaveBeenLastCalledWith('explicit-experiment', { enabled: false });
+    expect(useExperimentIds).not.toHaveBeenCalled();
+    await user.click(screen.getByText('open explicit'));
+    expect(await screen.findByText('tone_judge')).toBeInTheDocument();
+    expect(useGetScheduledScorers).toHaveBeenLastCalledWith('explicit-experiment', { enabled: true });
+    rerender(<ExplicitModal experimentId="next-experiment" />);
+    expect(useGetScheduledScorers).toHaveBeenLastCalledWith('next-experiment', { enabled: true });
+    expect(useExperimentIds).not.toHaveBeenCalled();
   });
 
   afterEach(() => {

@@ -283,6 +283,26 @@ def validate_prompt_name(name: Any):
         )
 
 
+_IMMUTABLE_PROMPT_VERSION_TAG_KEYS = frozenset({
+    IS_PROMPT_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_TAG_KEY,
+    RESPONSE_FORMAT_TAG_KEY,
+})
+
+
+def validate_prompt_version_tag_key_is_mutable(key: str) -> None:
+    """
+    Reject changes to the tags that define a prompt version (its template, type, response format,
+    and prompt marker), since prompt versions are immutable once registered.
+    """
+    if key in _IMMUTABLE_PROMPT_VERSION_TAG_KEYS:
+        raise MlflowException.invalid_parameter_value(
+            f"Tag '{key}' is set when the prompt version is registered and cannot be modified "
+            "or deleted. Register a new prompt version to change it."
+        )
+
+
 def handle_resource_already_exist_error(
     name: str,
     is_existing_entity_prompt: bool,

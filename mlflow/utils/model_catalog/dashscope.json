@@ -865,7 +865,10 @@
       },
       "pricing": {
         "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 4.5
+        "output_per_million_tokens": 4.5,
+        "cache_read_per_million_tokens": 0.075,
+        "cache_write_per_million_tokens": 1.875,
+        "cache_write_1hr_per_million_tokens": 3.0
       },
       "capabilities": {
         "function_calling": true,

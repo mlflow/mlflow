@@ -341,7 +341,7 @@ jobs:
               --print \
               --verbose \
               --output-format stream-json \
-              "/verify $skill_inputs" | "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh"
+              "/verify $skill_inputs" | "$GITHUB_WORKSPACE/trusted/.claude/scripts/stream.sh" "$RUNNER_TEMP/stream.jsonl"
           ' || { echo "::$token::"; exit 1; }
           echo "::$token::"
       - name: Stop agent processes
@@ -353,6 +353,15 @@ jobs:
               kill -KILL -- "-$pgid" 2>/dev/null || true
             fi
           fi
+      - name: Upload agent stream
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verify-stream-${{ github.run_id }}
+          path: ${{ runner.temp }}/stream.jsonl
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
       - name: Reset trusted checkout
         if: always() && steps.trusted.outcome == 'success'
         working-directory: trusted
@@ -427,7 +436,7 @@ jobs:
         run: |
           uv run --no-project python .claude/skills/verify/scripts/cli.py embed \
             --payload "$VERIFY_TMP_DIR/out/payload.json" --media-dir "$VERIFY_TMP_DIR/out/media"
-      # The review app posts the review and enables auto-merge; a preview only reads the PR.
+      # The review app posts reviews. A preview uses the read-only GITHUB_TOKEN.
       - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         id: app-token
         if: always() && (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
@@ -436,10 +445,6 @@ jobs:
           private-key: ${{ secrets.REVIEW_PRIVATE_KEY }}
           owner: mlflow
           repositories: mlflow
-          # Enabling auto-merge needs write access to contents.
-          permission-contents: write
-          # Lets a merge the app enabled close the PR's linked issues.
-          permission-issues: write
           permission-pull-requests: write
       # Runs even when verification failed, so it relies on the runner's Python rather than uv.
       - name: Publish or preview review

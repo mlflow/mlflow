@@ -1,6 +1,5 @@
 import json
 import os
-import subprocess
 import tarfile
 from pathlib import Path
 
@@ -138,10 +137,12 @@ def archive_directory(input_dir, archive_file_path):
     #  the file symlink pointing to, which is not the expected behavior in our usage.
     #  We need to pack the python and virtualenv environment, which contains a bunch of
     #  symlink files.
-    subprocess.check_call(
-        ["tar", "-czf", archive_file_path, *os.listdir(input_dir)],
-        cwd=input_dir,
-    )
+    # Use `tarfile` instead of the `tar` CLI so entry names are always treated literally:
+    #  GNU tar parses names starting with "-" as options and decodes backslash escapes
+    #  (e.g. "\056\056\057x" becomes "../x"), which can archive files outside `input_dir`.
+    with tarfile.open(archive_file_path, "w:gz", compresslevel=6, dereference=False) as tar:
+        for name in os.listdir(input_dir):
+            tar.add(os.path.join(input_dir, name), arcname=name)
     return archive_file_path
 
 

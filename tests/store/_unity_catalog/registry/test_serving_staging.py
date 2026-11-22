@@ -1,3 +1,4 @@
+import time
 from types import SimpleNamespace
 from unittest import mock
 
@@ -35,8 +36,11 @@ def poll():
 
 @pytest.fixture(autouse=True)
 def no_sleep():
-    with mock.patch.object(serving_staging.time, "sleep") as sleep:
-        yield sleep
+    # Replace the module's `time` reference rather than attributes of the global `time` module,
+    # so background threads that call `time.sleep` or `time.monotonic` aren't affected.
+    fake_time = SimpleNamespace(monotonic=time.monotonic, sleep=mock.Mock())
+    with mock.patch.object(serving_staging, "time", fake_time):
+        yield fake_time.sleep
 
 
 @pytest.mark.parametrize(

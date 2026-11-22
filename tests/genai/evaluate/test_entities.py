@@ -96,9 +96,60 @@ def test_unrecognized_string_gets_pass_if_hint():
     assert "pass_if" in result.reason
 
 
-def test_none_result_df():
+def test_none_result_df_fails():
+    # Without per-row results there is nothing to check, so the run must not pass.
     result = EvaluationResult(run_id="r1", metrics={}, result_df=None)
-    assert result.passed
+    assert not result.passed
+    assert "per-row results are unavailable" in result.reason
+
+
+@pytest.mark.parametrize(
+    ("scorer_value", "expected_reason"),
+    [
+        ("yes", ""),
+        ("no", "scorer_a: value='no'"),
+    ],
+)
+def test_only_scorer_feedback_columns_are_checked(scorer_value, expected_reason):
+    # Expectations and feedback logged outside the run share the "<name>/value" shape.
+    df = pd.DataFrame([
+        {
+            "trace_id": "tr-1",
+            "scorer_a/value": scorer_value,
+            "expected_response/value": "hello",
+            "max_length/value": 10,
+            "app_self_grade/value": "no",
+        }
+    ])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics={},
+        result_df=df,
+        scorer_feedback_names_by_trace={"tr-1": {"scorer_a"}},
+    )
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+
+
+def test_scorer_feedback_names_are_checked_per_trace():
+    # tr-2 carries outside feedback named like the scorer, which skipped that trace.
+    df = pd.DataFrame([
+        {"trace_id": "tr-1", "scorer_a/value": "yes"},
+        {"trace_id": "tr-2", "scorer_a/value": "no"},
+    ])
+    result = EvaluationResult(
+        run_id="r1",
+        metrics={},
+        result_df=df,
+        scorer_feedback_names_by_trace={"tr-1": {"scorer_a"}, "tr-2": set()},
+    )
+    assert result.passed, result.reason
+
+
+def test_without_scorer_feedback_names_by_trace_every_value_column_is_checked():
+    df = pd.DataFrame([{"scorer_a/value": "yes", "app_self_grade/value": "no"}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert result.reason == "app_self_grade: value='no'"
 
 
 def test_categorical_rating_value():
@@ -225,12 +276,42 @@ def test_quality_criteria_failures_are_listed_with_row_failures():
         result_df=None,
         quality_criteria=[QualityCriteriaRule("correctness", "mean", ">=", 0.9)],
     )
-    assert result.reason == "quality criteria correctness/mean >= 0.9: got 0"
+    assert not result.passed
+    assert "per-row results are unavailable" in result.reason
+    assert "quality criteria correctness/mean >= 0.9: got 0" in result.reason
 
     result.result_df = df
     assert not result.passed
     assert result.reason.startswith("2 assertions failed:")
     assert "quality criteria correctness/mean >= 0.9: got 0" in result.reason
+
+
+def test_no_scored_cells_fails():
+    # Every cell is NaN: no scorer produced a value, so there is nothing to pass on.
+    df = pd.DataFrame([
+        {"scorer_a/value": np.nan, "scorer_a/rationale": None},
+        {"scorer_a/value": None, "scorer_a/rationale": None},
+    ])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "no scorer produced a value" in result.reason
+
+
+def test_no_value_columns_fails():
+    # A scorer that returns None for every row leaves no /value column at all.
+    df = pd.DataFrame([{"request": "q1"}, {"request": "q2"}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "no scorer produced a value" in result.reason
+
+
+def test_one_scored_cell_is_enough_evidence():
+    df = pd.DataFrame([
+        {"scorer_a/value": True},
+        {"scorer_a/value": np.nan},
+    ])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert result.passed, result.reason
 
 
 def test_eval_item_from_trace_takes_inputs_and_outputs_from_the_root_span():
