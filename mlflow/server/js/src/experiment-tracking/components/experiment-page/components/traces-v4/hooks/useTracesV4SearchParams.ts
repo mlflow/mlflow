@@ -3,7 +3,7 @@ import { useSearchParamSelector, type Location } from '@mlflow/mlflow/src/common
 
 export const SPAN_ID_PARAM = 'spanId';
 
-const withoutSpan = (params: URLSearchParams) => {
+export const withoutSpan = (params: URLSearchParams) => {
   params.delete(SPAN_ID_PARAM);
   return params.toString();
 };
