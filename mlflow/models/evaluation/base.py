@@ -1496,7 +1496,7 @@ def evaluate(
 
                 def custom_artifact(
                     eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                    builtin_metrics: Dict[str, float],
+                    builtin_metrics: Dict[str, MetricValue],
                     artifacts_dir: str,
                 ) -> Dict[str, Any]:
                     """
@@ -1508,10 +1508,11 @@ def evaluate(
                             predictions made on that row.
                         builtin_metrics:
                             A dictionary containing the metrics calculated by the default evaluator.
-                            The keys are the names of the metrics and the values are the scalar
-                            values of the metrics. Refer to the DefaultEvaluator behavior section
-                            for what metrics will be returned based on the type of model (i.e.
-                            classifier or regressor).
+                            The keys are the names of the metrics and the values are
+                            ``MetricValue`` objects. The scalar value of metric ``name`` is
+                            ``builtin_metrics[name].aggregate_results[name]``. Refer to the
+                            DefaultEvaluator behavior section for what metrics will be returned
+                            based on the type of model (i.e. classifier or regressor).
                         artifacts_dir:
                             A temporary directory path that can be used by the custom artifacts
                             function to temporarily store produced artifacts. The directory will be
