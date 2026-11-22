@@ -91,6 +91,17 @@ describe('YAML collection previews', () => {
     expect(jest.mocked(dump).mock.calls[firstCall]?.[0]).toEqual(value);
   });
 
+  it('bounds a large scalar after an earlier key consumes most of the budget', () => {
+    const data = JSON.stringify({ ['key'.repeat(100)]: 'word '.repeat(5000) });
+    const firstCall = jest.mocked(dump).mock.calls.length;
+    const preview = getYamlCollectionPreview(data, 10, 300);
+    const dumpedValue = jest.mocked(dump).mock.calls[firstCall]?.[0];
+
+    expect(preview?.isComplete).toBe(false);
+    expect(JSON.stringify(dumpedValue).length).toBeLessThan(600);
+    expect(prefix(preview!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+  });
+
   it('keeps the existing invalid-JSON fallback', () => {
     expect(getYamlCollectionPreview('{invalid', 10, 300)).toBeUndefined();
     expect(formatJsonStringAsYaml('{invalid')).toBe('{invalid');

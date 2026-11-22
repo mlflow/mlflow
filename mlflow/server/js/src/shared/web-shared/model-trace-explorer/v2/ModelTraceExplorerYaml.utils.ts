@@ -55,7 +55,12 @@ export function getYamlCollectionPreview(
       if (typeof node === 'string') {
         strings.push(node);
         if (node.length > remainingChars) {
-          const prefix = truncateYamlScalar(node, remainingChars, false);
+          const scalarLimit = Math.max(remainingChars, OPTIONS.lineWidth + 1);
+          if (node.length <= scalarLimit) {
+            remainingChars = 0;
+            return node;
+          }
+          const prefix = truncateYamlScalar(node, scalarLimit, false);
           if (prefix === undefined) {
             unsafeScalar = true;
             return node;
