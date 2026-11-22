@@ -109,3 +109,54 @@ describe('buildOrderBy', () => {
     expect(buildOrderBy('cost', 'asc')).toBeUndefined();
   });
 });
+
+describe('predicate grouping', () => {
+  test('applies time bounds and Basic siblings to the whole SQL disjunction', () => {
+    expect(
+      buildFilter({
+        timeRange: { startTime: '10' },
+        extraClauses: ["tags.env = 'prod' OR metadata.env = 'dev'", "attributes.status = 'ERROR'"],
+      }),
+    ).toBe(
+      "attributes.timestamp_ms > 10 AND (tags.env = 'prod' OR metadata.env = 'dev') AND attributes.status = 'ERROR'",
+    );
+  });
+
+  test.each([
+    "tags.env = 'AND OR (other)'",
+    "tags.env = 'Tom'' OR ''name'",
+    String.raw`tags.env = 'a\' OR (literal)'`,
+    String.raw`tags.env = "a\" OR (literal)"`,
+    'tags."OR" = \'value\'',
+    "tags.`OR (name)` = 'value'",
+    "tags.OR = 'value'",
+    "tags.name#OR = 'value'",
+    "(tags.env = 'prod' OR tags.env = 'dev')",
+    "tags.env = 'prod' AND (metadata.env = 'dev' OR metadata.env = 'qa')",
+  ])('preserves quoted OR and already grouped predicates: %s', (clause) => {
+    expect(buildFilter({ timeRange: { startTime: '10' }, extraClauses: [clause] })).toBe(
+      `attributes.timestamp_ms > 10 AND ${clause}`,
+    );
+  });
+
+  test('preserves a standalone predicate byte-for-byte', () => {
+    const clause = "tags.env = 'prod' OR tags.env = 'dev'";
+    expect(buildFilter({ extraClauses: [clause] })).toBe(clause);
+  });
+
+  test.each([String.raw`a\\'`, String.raw`a\\''`])(
+    'groups OR after ambiguous backslash/quote literals under both server tokenizers: %s',
+    (value) => {
+      const clause = `tags.name = '${value}' OR status = 'OK'`;
+      const scoped = `attributes.timestamp_ms > 10 AND (${clause}) AND attributes.run_id = 'run'`;
+      expect(
+        buildFilter({
+          timeRange: { startTime: '10' },
+          extraClauses: [clause, "attributes.run_id = 'run'"],
+        }),
+      ).toBe(scoped);
+      expect(buildFilter({ extraClauses: [scoped, "tags.env = 'qa'"] })).toBe(`${scoped} AND tags.env = 'qa'`);
+      expect(buildFilter({ extraClauses: [clause] })).toBe(clause);
+    },
+  );
+});

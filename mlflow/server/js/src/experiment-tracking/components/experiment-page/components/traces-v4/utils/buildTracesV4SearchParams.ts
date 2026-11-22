@@ -51,6 +51,23 @@ export const escapeFilterValue = (value: string): string => value.replace(/'/g, 
 export const isExactTraceIdSearch = (searchQuery?: string): boolean =>
   normalizeTraceIdQuery(searchQuery?.trim() ?? '') !== undefined;
 
+const groupTopLevelOr = (clause: string): string => {
+  // Match both supported sqlparse tokenizers, as in Python's combine_trace_filters.
+  const tokenizers = [
+    /'(?:''|\\'|[^'])*'|"(?:""|\\"|[^"])*"|`(?:``|[^`])*`|[()]|(?<![\w.$#])OR(?![\w.$#])/gi,
+    /'(?:''|\\\\|\\'|[^'])*'|"(?:""|\\\\|\\"|[^"])*"|`(?:``|[^`])*`|[()]|(?<![\w.$#])OR(?![\w.$#])/gi,
+  ];
+  for (const tokenizer of tokenizers) {
+    let depth = 0;
+    for (const [token] of clause.matchAll(tokenizer)) {
+      if (token === '(') depth++;
+      else if (token === ')') depth--;
+      else if (depth === 0 && token.toUpperCase() === 'OR') return `(${clause})`;
+    }
+  }
+  return clause;
+};
+
 export interface BuildFilterParams {
   /** Free-text search. A trace-id token becomes an indexed `request_id` lookup; otherwise ILIKE. */
   searchQuery?: string;
@@ -112,7 +129,7 @@ export const buildFilter = ({ searchQuery, timeRange, extraClauses }: BuildFilte
     }
   }
 
-  return clauses.length > 0 ? clauses.join(' AND ') : undefined;
+  return clauses.length > 0 ? (clauses.length > 1 ? clauses.map(groupTopLevelOr) : clauses).join(' AND ') : undefined;
 };
 
 /**

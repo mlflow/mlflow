@@ -8009,7 +8009,10 @@ def test_find_completed_sessions_aggregates_across_all_traces(store: SqlAlchemyS
     assert completed[0].last_trace_timestamp_ms == 3000
 
 
-def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
+@pytest.mark.parametrize(
+    "tag_filter", ["tag.env = 'prod'", "(tag.env = 'prod' OR tag.env = 'missing')"]
+)
+def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore, tag_filter):
     exp_id = store.create_experiment("test_find_completed_sessions_with_filter")
 
     # Session A: first trace env="prod", second env="dev" - should match prod filter
@@ -8033,7 +8036,7 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
         experiment_id=exp_id,
         min_last_trace_timestamp_ms=0,
         max_last_trace_timestamp_ms=10000,
-        filter_string="tag.env = 'prod'",
+        filter_string=tag_filter,
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-a"

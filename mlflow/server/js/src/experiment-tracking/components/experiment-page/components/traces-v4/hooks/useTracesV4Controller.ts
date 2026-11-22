@@ -3,7 +3,6 @@ import { useQueryClient } from '@databricks/web-shared/query-client';
 import { SEARCH_MLFLOW_TRACES_QUERY_KEY, shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
 import { SESSION_ID_METADATA_KEY, type ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import {
-  EMPTY_FILTER_MODEL,
   countActiveFilters,
   useBulkTraceSelection,
   useTracesPageQuery,
@@ -58,6 +57,7 @@ export interface UseTracesV4ControllerResult {
   bulk: ReturnType<typeof useBulkTraceSelection>;
   searchInput: ReturnType<typeof useDebouncedSearchInput>;
   filterModel: TraceFilterModel;
+  numericAssessmentKeys: ReadonlySet<string>;
   setFilterModel: (next: TraceFilterModel) => void;
   activeFilterCount: number;
   /** ISO time range currently applied (drives the search filter + refresh label context). */
@@ -95,7 +95,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
 
   const isGroupedBySession = shouldEnableSessionGrouping() && url.isGroupedBySession;
 
-  const [filterModel, setFilterModel] = useState<TraceFilterModel>(EMPTY_FILTER_MODEL);
+  const { filterModel, setFilterModel } = url;
 
   const searchInput = useDebouncedSearchInput({
     committedValue: url.search,
@@ -292,6 +292,7 @@ export const useTracesV4Controller = ({ experimentId }: UseTracesV4ControllerPar
     bulk,
     searchInput,
     filterModel,
+    numericAssessmentKeys,
     setFilterModel,
     activeFilterCount,
     timeRange,

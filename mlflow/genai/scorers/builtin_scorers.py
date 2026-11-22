@@ -2348,7 +2348,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
         # Retrieve a list of traces with the same session ID
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
 
@@ -2365,7 +2365,7 @@ class UserFrustration(BuiltInSessionLevelScorer):
 
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
         result = mlflow.genai.evaluate(data=session, scorers=[UserFrustration()])
@@ -2424,7 +2424,7 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         # Retrieve a list of traces with the same session ID
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
 
@@ -2440,7 +2440,7 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
 
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
         result = mlflow.genai.evaluate(data=session, scorers=[ConversationCompleteness()])
@@ -2505,7 +2505,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         # Retrieve a list of traces with the same session ID
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
 
@@ -2521,7 +2521,7 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
 
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
         result = mlflow.genai.evaluate(data=session, scorers=[ConversationalSafety()])
@@ -2582,7 +2582,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         # Retrieve a list of traces with the same session ID
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
 
@@ -2598,7 +2598,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
 
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
         result = mlflow.genai.evaluate(data=session, scorers=[ConversationalToolCallEfficiency()])
@@ -2660,7 +2660,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         # Retrieve a list of traces with the same session ID
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
 
@@ -2676,7 +2676,7 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
 
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
         result = mlflow.genai.evaluate(data=session, scorers=[ConversationalRoleAdherence()])
@@ -2739,7 +2739,7 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
         # Retrieve a list of traces with the same session ID
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
 
@@ -2761,7 +2761,7 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
 
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
 
@@ -2877,7 +2877,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         # Retrieve a list of traces with the same session ID
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
 
@@ -2894,7 +2894,7 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
 
         session = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            filter_string="metadata.`mlflow.trace.session` = 'session-123'",
             return_type="list",
         )
         result = mlflow.genai.evaluate(data=session, scorers=[KnowledgeRetention()])

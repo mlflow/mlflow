@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
+import { IntlProvider } from 'react-intl';
 import { act, renderHook } from '@testing-library/react';
 import { useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import {
@@ -8,6 +9,7 @@ import {
   testRoute,
   waitForRoutesToBeRendered,
 } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+import { FilterOp } from '@databricks/web-shared/traces-table';
 import { useTracesV4UrlState } from './useTracesV4UrlState';
 import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
@@ -35,18 +37,20 @@ describe('useTracesV4UrlState', () => {
     lastSearch = '';
     const result = renderHook(() => useTracesV4UrlState(), {
       wrapper: ({ children }) => (
-        <TestRouter
-          history={history}
-          initialEntries={[initialUrl]}
-          routes={[
-            testRoute(
-              <>
-                <LocationSpy />
-                <div>{children}</div>
-              </>,
-            ),
-          ]}
-        />
+        <IntlProvider locale="en">
+          <TestRouter
+            history={history}
+            initialEntries={[initialUrl]}
+            routes={[
+              testRoute(
+                <>
+                  <LocationSpy />
+                  <div>{children}</div>
+                </>,
+              ),
+            ]}
+          />
+        </IntlProvider>
       ),
     });
     await waitForRoutesToBeRendered();
@@ -212,6 +216,23 @@ describe('useTracesV4UrlState', () => {
       ]);
     });
 
+    test('drops unsafe URL tag keys so rendered pills match the compiled query', async () => {
+      const params = new URLSearchParams();
+      for (const key of ['env', 'bad`key', 'bad"key', 'line\nbreak', 'path\\key']) {
+        params.append('tag', `${encodeURIComponent(key)}=prod`);
+      }
+      const { result } = await mountHook(`/p?${params}`);
+      expect(result.current.tagFilters).toEqual([{ key: 'env', value: 'prod' }]);
+    });
+
+    test('retains URL tag keys that are safe inside quoted identifiers', async () => {
+      const keys = ['my--tag', 'a;tag', 'x/*y', 'x*/y'];
+      const params = new URLSearchParams();
+      keys.forEach((key) => params.append('tag', `${encodeURIComponent(key)}=v`));
+      const { result } = await mountHook(`/p?${params}`);
+      expect(result.current.tagFilters).toEqual(keys.map((key) => ({ key, value: 'v' })));
+    });
+
     test('addTagFilter appends an encoded key=value and clears the page param', async () => {
       const { result } = await mountHook('/p?page=5');
       act(() => result.current.addTagFilter('env', 'prod'));
@@ -277,5 +298,59 @@ describe('useTracesV4UrlState', () => {
         { key: 'team', value: 'ml' },
       ]);
     });
+  });
+  test('restores validated filter shapes and updates filters with tags atomically', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    const sql = { field: 'sql_where', operator: '=', value: "span.name IN ('a', 'b')" };
+    const { result } = await mountHook(
+      `/p?page=3&q=hello&traceId=tr-1&filters=${encodeURIComponent(JSON.stringify([sql, null, { field: 3 }, { ...sql, value: null }]))}&tag=env%3Dqa`,
+    );
+    expect(result.current.filterModel).toEqual([sql]);
+    act(() => result.current.setFilterState([], [{ key: 'team', value: 'ml' }]));
+    expect(result.current.filterModel).toEqual([]);
+    expect(result.current.tagFilters).toEqual([{ key: 'team', value: 'ml' }]);
+    expect(param('filters')).toBeNull();
+    expect(param('page')).toBeNull();
+    expect(param('q')).toBe('hello');
+    expect(param('traceId')).toBe('tr-1');
+  });
+
+  test.each(['null', '{}', 'bad JSON'])('ignores malformed filter state %s', async (filters) => {
+    const { result } = await mountHook(`/p?filters=${encodeURIComponent(filters)}`);
+    expect(result.current.filterModel).toEqual([]);
+  });
+  test('clearing a shared view keeps an explicit empty model across reload', async () => {
+    const { result } = await mountHook('/p?traceViewShareKey=v1&filters=[]&tag=env%3Dprod');
+    act(() => result.current.setFilterState([], []));
+    expect(param('filters')).toBe('[]');
+    expect(param('tag')).toBeNull();
+    expect(param('traceViewShareKey')).toBe('v1');
+  });
+  test('restores only supported clauses while preserving a SQL predicate', async () => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+    const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env = 'qa'" };
+    const valid = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
+    const clauses = [
+      sql,
+      valid,
+      { field: 'state', operator: FilterOp.CONTAINS, value: 'OK' },
+      { ...valid, operator: FilterOp.CONTAINS },
+      { ...valid, value: '1.5' },
+      { field: 'tag', key: 'x`bad', operator: FilterOp.EQUALS, value: 'v' },
+      { field: 'removed', operator: FilterOp.EQUALS, value: 'v' },
+    ];
+    const { result } = await mountHook(`/p?filters=${encodeURIComponent(JSON.stringify(clauses))}`);
+    expect(result.current.filterModel).toEqual([sql, valid]);
+  });
+
+  test.each([false, true])('restored SQL is active only while its editor is enabled: %s', async (enabled) => {
+    jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(enabled);
+    const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: "tags.env = 'qa'" };
+    const basic = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
+    const { result } = await mountHook(
+      `/p?traceViewShareKey=v1&filters=${encodeURIComponent(JSON.stringify([sql, basic]))}&tag=team%3Dml`,
+    );
+    expect(result.current.filterModel).toEqual(enabled ? [sql, basic] : [basic]);
+    expect(result.current.tagFilters).toEqual([{ key: 'team', value: 'ml' }]);
   });
 });

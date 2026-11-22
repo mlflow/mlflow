@@ -19,4 +19,14 @@ describe('eval-run V4 trace filters', () => {
       "attributes.run_id = 'run''id' AND tags.`mlflow.trace.sourceScorer` IS NULL AND attributes.request_id = 'tr-0123456789abcdef0123456789abcdef'",
     );
   });
+  test('groups a disjunction before adding the run and scorer restrictions', () => {
+    expect(
+      buildEvalRunTraceFilter({
+        runUuid: 'run-1',
+        extraClauses: ["attributes.status = 'ERROR' OR tags.env = 'qa'"],
+      }),
+    ).toBe(
+      "attributes.run_id = 'run-1' AND tags.`mlflow.trace.sourceScorer` IS NULL AND (attributes.status = 'ERROR' OR tags.env = 'qa')",
+    );
+  });
 });

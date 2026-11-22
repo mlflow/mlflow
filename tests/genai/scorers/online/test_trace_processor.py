@@ -279,6 +279,24 @@ def test_process_traces_groups_by_filter(mock_trace_loader, mock_checkpoint_mana
     assert any("tags.env = 'staging'" in f for f in filters)
 
 
+def test_process_traces_groups_or_before_excluding_eval_runs(
+    mock_trace_loader, mock_checkpoint_manager
+):
+    expression = "tags.env = 'prod' OR tags.env = 'qa'"
+    sampler = OnlineScorerSampler([make_online_scorer(Completeness(), filter_string=expression)])
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = []
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+    )
+    processor.process_traces()
+    assert mock_trace_loader.fetch_trace_infos_in_range.call_args[0][3] == (
+        f"metadata.mlflow.sourceRun IS NULL AND ({expression})"
+    )
+
+
 def test_process_traces_excludes_eval_run_traces(
     mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
 ):

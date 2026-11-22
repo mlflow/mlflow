@@ -1,5 +1,7 @@
+import * as FeatureUtils from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { FilterOp } from '@databricks/web-shared/traces-table';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { rest } from 'msw';
@@ -67,6 +69,12 @@ jest.mock('@databricks/design-system', () => ({
   TableSkeleton: () => null,
 }));
 
+jest.mock('../../components/experiment-page/components/traces-v4/components/SqlFilterEditor', () => ({
+  SqlFilterEditor: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+    <textarea aria-label="Trace filter predicate" value={value} onChange={(event) => onChange(event.target.value)} />
+  ),
+}));
+
 describe('EvalRunTracesV4Table', () => {
   const { history } = setupTestRouter();
 
@@ -105,6 +113,7 @@ describe('EvalRunTracesV4Table', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
     window.localStorage.clear();
   });
 
@@ -271,6 +280,71 @@ describe('EvalRunTracesV4Table', () => {
       await waitFor(() => expect(screen.queryByRole('columnheader', { name: 'parity.case' })).not.toBeInTheDocument());
     });
   });
+
+  test('adds, reloads, and removes a unified-search predicate in the run query', async () => {
+    const table = renderTable();
+    await findTraceRow('tr-000');
+    const searchBox = screen.getByRole('combobox', { name: 'Type something to use full text search' });
+    fireEvent.change(searchBox, { target: { value: "state = 'ERROR'" } });
+    fireEvent.keyDown(searchBox, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
+    await waitFor(() => expect(state.searchCalls.at(-1)?.filter).toBe(`${RUN_FILTER} AND attributes.status = 'ERROR'`));
+    const query = lastSearch;
+    expect(JSON.parse(new URLSearchParams(query).get('filters') ?? '[]')).toHaveLength(1);
+    table.unmount();
+    state.searchCalls = [];
+    renderTable(`${RUN_URL}${query}`);
+    await waitFor(() => expect(state.searchCalls.at(-1)?.filter).toBe(`${RUN_FILTER} AND attributes.status = 'ERROR'`));
+    await userEvent.click(await screen.findByRole('button', { name: "Remove filter state = 'ERROR'" }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Remove filter/ })).not.toBeInTheDocument());
+    expect(new URLSearchParams(lastSearch).get('filters')).toBeNull();
+  });
+
+  test.each([false, true])('restored SQL executes only with its editor enabled: %s', async (enabled) => {
+    jest.spyOn(FeatureUtils, 'shouldEnableNewEvalRunsUi').mockReturnValue(enabled);
+    const expression = "tags.hidden = 'sql-only'";
+    const filters = [
+      { field: 'sql_where', operator: FilterOp.EQUALS, value: expression },
+      { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' },
+    ];
+    renderTable(`${RUN_URL}?${new URLSearchParams({ filters: JSON.stringify(filters), tag: 'team=ml' })}`);
+    await findTraceRow('tr-000');
+    await waitFor(() => expect(state.searchCalls.at(-1)?.filter).toContain('attributes.execution_time_ms > 1000'));
+    const query = state.searchCalls.at(-1)?.filter;
+    expect(query).toContain(RUN_FILTER);
+    expect(query).toContain("tags.team = 'ml'");
+    expect(query?.includes(expression)).toBe(enabled);
+  });
+
+  test('edits and removes a restored SQL pill without dropping sibling or run constraints', async () => {
+    const basic = { field: 'duration', operator: FilterOp.GREATER_THAN, value: '1000' };
+    const expression = "attributes.status = 'ERROR' OR tags.env = 'qa'";
+    const sql = { field: 'sql_where', operator: FilterOp.EQUALS, value: expression };
+    const initialQuery = new URLSearchParams({ filters: JSON.stringify([basic, sql]), tag: 'team=ml' });
+    renderTable(`${RUN_URL}?${initialQuery}`);
+    await findTraceRow('tr-000');
+    await userEvent.click(screen.getByRole('button', { name: `Edit filter SQL: ${expression}` }));
+    expect(await screen.findByRole('tab', { name: 'SQL' })).toHaveAttribute('aria-selected', 'true');
+    const editor = await screen.findByRole('textbox', { name: 'Trace filter predicate' });
+    expect(editor).toHaveValue(expression);
+    const next = "attributes.status = 'OK' OR tags.env = 'prod'";
+    fireEvent.change(editor, { target: { value: next } });
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filter' }));
+    await waitFor(() =>
+      expect(JSON.parse(new URLSearchParams(lastSearch).get('filters') ?? '[]')).toEqual([
+        basic,
+        { ...sql, value: next },
+      ]),
+    );
+    expect(new URLSearchParams(lastSearch).getAll('tag')).toEqual(['team=ml']);
+    await waitFor(() =>
+      expect(state.searchCalls.at(-1)?.filter).toBe(
+        `${RUN_FILTER} AND attributes.execution_time_ms > 1000 AND (${next}) AND tags.team = 'ml'`,
+      ),
+    );
+    await userEvent.click(screen.getByRole('button', { name: `Remove filter SQL: ${next}` }));
+    await waitFor(() => expect(JSON.parse(new URLSearchParams(lastSearch).get('filters') ?? '[]')).toEqual([basic]));
+    expect(new URLSearchParams(lastSearch).get('tag')).toBe('team=ml');
+  }, 30000);
 
   test('turns a typed query into a filter on the run’s traces', async () => {
     state.traces = [makeRunTrace('tr-000', { assessments: [makeFeedbackAssessment('relevance', 'yes')] })];

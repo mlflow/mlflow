@@ -68,6 +68,7 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
+from mlflow.tracing.utils.search import combine_trace_filters, format_trace_metadata_filter
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -350,7 +351,9 @@ class TracingClient:
             # if sql_warehouse_id is not set then we convert model_id to filter_string,
             # because `_search_unified_traces` requires sql warehouse id existing.
             if MLFLOW_TRACING_SQL_WAREHOUSE_ID.get() is None:
-                filter_string = f"request_metadata.`mlflow.modelId` = '{model_id}'"
+                filter_string = format_trace_metadata_filter(
+                    "request_metadata.`mlflow.modelId`", model_id
+                )
                 model_id = None
 
         if run_id:
@@ -373,7 +376,7 @@ class TracingClient:
                         "string and try again.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                filter_string += f" AND {additional_filter}"
+                filter_string = combine_trace_filters(filter_string, additional_filter)
             else:
                 filter_string = additional_filter
 

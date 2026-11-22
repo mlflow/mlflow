@@ -34,6 +34,7 @@ from mlflow.tracing.constant import (
     TraceMetricSearchKey,
     TraceTagKey,
 )
+from mlflow.tracing.utils.search import combine_trace_filters
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATASET_CONTEXT,
 )
@@ -81,7 +82,10 @@ def _join_in_comparison_tokens(tokens, search_traces=False):
     if Version(sqlparse.__version__) < Version("0.4.4"):
         # In sqlparse < 0.4.4, IN is treated as a comparison, we don't need to join tokens
         return tokens
+    return _normalize_comparison_tokens(tokens, search_traces)
 
+
+def _normalize_comparison_tokens(tokens, search_traces=False):
     non_whitespace_tokens = [t for t in tokens if not t.is_whitespace]
     joined_tokens = []
     num_tokens = len(non_whitespace_tokens)
@@ -1897,10 +1901,12 @@ class SearchTraceUtils(SearchUtils):
         """Filters a set of traces based on a search filter string."""
         if not filter_string:
             return traces
-        parsed = cls.parse_search_filter_for_search_traces(filter_string)
+        groups = cls.parse_search_filter_groups(filter_string)
 
         def trace_matches(trace):
-            return all(cls._does_trace_match_clause(trace, s) for s in parsed)
+            return any(
+                all(cls._does_trace_match_clause(trace, s) for s in group) for group in groups
+            )
 
         return list(filter(trace_matches, traces))
 
@@ -1964,6 +1970,128 @@ class SearchTraceUtils(SearchUtils):
     def parse_search_filter_for_search_traces(cls, filter_string):
         parsed = cls.parse_search_filter(filter_string)
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
+
+    @classmethod
+    def format_equals_filter(cls, field, value):
+        """Build a string equality filter that preserves the entire atom and literal value."""
+        value = str(value)
+        expression = f"{field} = '{value}'"
+        try:
+            expected = cls.parse_search_filter_for_search_traces(f"{field} = ''")
+            parsed = cls.parse_search_filter_for_search_traces(expression)
+            if len(expected) == 1 and parsed == [{**expected[0], "value": value}]:
+                return expression
+        except MlflowException:
+            pass
+        raise MlflowException.invalid_parameter_value(
+            f"Value cannot be represented as a single equality filter for {field}"
+        )
+
+    combine_filters = staticmethod(combine_trace_filters)
+
+    @classmethod
+    def parse_search_filter_groups(cls, filter_string):
+        """Return alternative conjunctions, preserving AND precedence and span co-occurrence."""
+        if not filter_string:
+            return [[]]
+
+        def invalid():
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid clause(s) in filter string: {filter_string}"
+            )
+
+        def normalize_and_bound_groups(groups):
+            if len(groups) > 1 and all(len(group) == 1 for group in groups):
+                first = groups[0][0]
+                if (
+                    first["type"] == cls._SPAN_IDENTIFIER
+                    and first["key"] in cls._SUPPORTED_SPAN_ATTRIBUTES
+                    and all(
+                        clause["type"] == first["type"]
+                        and clause["key"] == first["key"]
+                        and clause["comparator"].upper() in ("=", "IN")
+                        for [clause] in groups
+                    )
+                ):
+                    values = tuple(
+                        value
+                        for [clause] in groups
+                        for value in (
+                            clause["value"]
+                            if clause["comparator"].upper() == "IN"
+                            else [clause["value"]]
+                        )
+                    )
+                    if len(values) > 200:
+                        raise MlflowException.invalid_parameter_value(
+                            "Trace span OR filter supports at most 200 values"
+                        )
+                    return [[{**first, "comparator": "IN", "value": values}]]
+            # Distribution can grow exponentially even for a short input expression.
+            if len(groups) > 32 or (len(groups) > 1 and sum(map(len, groups)) > 256):
+                raise MlflowException.invalid_parameter_value(
+                    "Trace filter is too complex: at most 32 alternative conjunctions "
+                    "and 256 expanded predicates are supported"
+                )
+            return groups
+
+        def parse_tokens(tokens, depth=0):
+            if depth > 32:
+                raise MlflowException.invalid_parameter_value("Trace filter nesting exceeds 32")
+            tokens = _normalize_comparison_tokens(tokens, search_traces=True)
+            if not tokens:
+                invalid()
+            alternatives = []
+            conjunction = [[]]
+            expecting_operand = True
+            operator = "AND"
+            for token in tokens:
+                if expecting_operand:
+                    if isinstance(token, Parenthesis):
+                        operand = parse_tokens(token.tokens[1:-1], depth + 1)
+                    elif isinstance(token, Comparison):
+                        operand = [
+                            [cls._replace_key_to_tag_or_metadata(cls._get_comparison(token))]
+                        ]
+                    else:
+                        invalid()
+                    if operator == "AND":
+                        conjunction = normalize_and_bound_groups([
+                            a + b for a in conjunction for b in operand
+                        ])
+                    else:
+                        alternatives.extend(conjunction)
+                        conjunction = operand
+                    # Check limits here, but fold OR only after its higher-precedence ANDs.
+                    normalize_and_bound_groups(alternatives + conjunction)
+                else:
+                    if not token.match(TokenType.Keyword, ["AND", "OR"]):
+                        invalid()
+                    operator = token.value.upper()
+                expecting_operand = not expecting_operand
+            if expecting_operand:
+                invalid()
+            return normalize_and_bound_groups(alternatives + conjunction)
+
+        try:
+            statements = sqlparse.parse(filter_string)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid clause(s) in filter string"
+            ) from e
+        if len(statements) != 1:
+            invalid()
+        tokens = _join_in_comparison_tokens(statements[0].tokens, search_traces=True)
+        # Preserve accepted legacy flat filters, including optional/repeated AND separators.
+        if all(not cls._invalid_statement_token_search_traces(token) for token in tokens):
+            return [
+                [
+                    cls._replace_key_to_tag_or_metadata(cls._get_comparison(token))
+                    for token in tokens
+                    if isinstance(token, Comparison)
+                ]
+            ]
+        return parse_tokens(tokens)
 
     @classmethod
     def _replace_key_to_tag_or_metadata(cls, parsed: dict[str, Any]):

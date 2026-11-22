@@ -28,6 +28,7 @@ from mlflow.genai.scorers.online.session_checkpointer import (
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.utils.search_utils import SearchTraceUtils
 
 if TYPE_CHECKING:
     # Type-only: importing the job container code here would import the server's job package,
@@ -444,7 +445,9 @@ class OnlineSessionScoringProcessor:
 
     def _fetch_session_traces(self, session: CompletedSession) -> list[Trace] | None:
         """The session's traces, oldest first, or None (with a warning) if there are none."""
-        session_filter = f"metadata.`mlflow.trace.session` = '{session.session_id}'"
+        session_filter = SearchTraceUtils.format_equals_filter(
+            "metadata.`mlflow.trace.session`", session.session_id
+        )
         combined_filter = f"{EXCLUDE_EVAL_RUN_TRACES_FILTER} AND {session_filter}"
         trace_infos = self._trace_loader.fetch_trace_infos_in_range(
             experiment_id=self._experiment_id,

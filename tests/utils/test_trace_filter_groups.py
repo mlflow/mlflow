@@ -1,0 +1,261 @@
+from itertools import product
+from unittest import mock
+
+import pytest
+import sqlparse
+
+from mlflow.entities import TraceInfo, TraceState
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.exceptions import MlflowException
+from mlflow.tracing.utils.search import format_trace_metadata_filter
+from mlflow.utils.search_utils import SearchTraceMetricsUtils, SearchTraceUtils
+
+
+@pytest.mark.parametrize(
+    ("expression", "keys"),
+    [
+        ("", [[]]),
+        ("(status = 'OK')", [["status"]]),
+        ("span.name = 'a' OR span.name = 'b' AND span.type = 'LLM'", [["name"], ["name", "type"]]),
+        (
+            "status = 'OK' OR timestamp_ms > 1 AND tags.env = 'prod'",
+            [["status"], ["timestamp_ms", "env"]],
+        ),
+        (
+            "(status = 'OK' OR timestamp_ms > 1) AND tags.env = 'prod'",
+            [["status", "env"], ["timestamp_ms", "env"]],
+        ),
+        (
+            "(tags.a = '1' OR tags.b = '2') AND (metadata.c = '3' OR metadata.d = '4')",
+            [["a", "c"], ["a", "d"], ["b", "c"], ["b", "d"]],
+        ),
+        (
+            "status IN ('OK', 'ERROR') AND (tags.env IS NULL OR metadata.env IS NOT NULL)",
+            [["status", "env"], ["status", "env"]],
+        ),
+        ("span.name NOT IN ('AND', 'OR') OR span.name = 'AND (OR)'", [["name"], ["name"]]),
+    ],
+)
+def test_trace_filter_groups(expression, keys):
+    groups = SearchTraceUtils.parse_search_filter_groups(expression)
+    assert [[clause["key"] for clause in group] for group in groups] == keys
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "()",
+        "status = 'OK' OR",
+        "status = 'OK' AND OR status = 'ERROR'",
+        "status = 'OK' (status = 'ERROR')",
+        "NOT (status = 'OK')",
+        "status = 'OK'; status = 'ERROR'",
+        "status = 'OK' -- ignored",
+        "status = 'OK' UNION SELECT * FROM traces",
+        "status = 'OK' OR 1 = 1",
+        "status = 'OK' OR unknown.field = 'x'",
+        "status = 'OK' OR (",
+        "((status = 'OK')",
+    ],
+)
+def test_trace_filter_groups_reject_invalid(expression):
+    with pytest.raises(MlflowException, match="Invalid"):
+        SearchTraceUtils.parse_search_filter_groups(expression)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "()",
+        "status = 'OK' OR",
+        "status = 'OK' OR NOT (status = 'ERROR')",
+        "status = 'OK'; status = 'ERROR'",
+    ],
+)
+def test_trace_filter_groups_invalid_syntax_preserves_expression(expression):
+    with pytest.raises(MlflowException, match=r"Invalid clause\(s\) in filter string") as exc:
+        SearchTraceUtils.parse_search_filter_groups(expression)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert str(exc.value) == f"Invalid clause(s) in filter string: {expression}"
+
+
+def test_trace_filter_groups_bounds_expansion():
+    def expression(count):
+        return " AND ".join(f"(tags.a{i} = 'a' OR tags.b{i} = 'b')" for i in range(count))
+
+    assert len(SearchTraceUtils.parse_search_filter_groups(expression(5))) == 32
+    with pytest.raises(MlflowException, match="too complex"):
+        SearchTraceUtils.parse_search_filter_groups(expression(6))
+    with pytest.raises(MlflowException, match="too complex"):
+        SearchTraceUtils.parse_search_filter_groups(
+            expression(5) + " AND " + " AND ".join(["tags.c = 'c'"] * 4)
+        )
+    assert (
+        len(SearchTraceUtils.parse_search_filter_groups(" AND ".join(["tags.c = 'c'"] * 260))[0])
+        == 260
+    )
+
+
+def test_trace_filter_groups_preserve_legacy_parser_contract():
+    with pytest.raises(MlflowException, match="Invalid"):
+        SearchTraceUtils.parse_search_filter("status = 'OK' OR status = 'ERROR'")
+    with pytest.raises(MlflowException, match="Invalid"):
+        SearchTraceMetricsUtils.parse_search_filter("trace.status = 'OK' OR trace.status = 'ERROR'")
+
+
+def test_trace_filter_groups_in_memory():
+    def trace(trace_id, timestamp, env):
+        return TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id("1"),
+            request_time=timestamp,
+            execution_duration=1,
+            state=TraceState.OK,
+            tags={"env": env},
+            trace_metadata={},
+        )
+
+    traces = [trace("tr-old", 1, "prod"), trace("tr-new", 20, "prod"), trace("tr-dev", 30, "dev")]
+    expression = "timestamp_ms > 10 AND (tags.env = 'prod' OR tags.env = 'dev')"
+    assert [t.trace_id for t in SearchTraceUtils.filter(traces, expression)] == ["tr-new", "tr-dev"]
+
+
+def test_trace_filter_groups_fold_same_span_field_alternatives():
+    expression = " OR ".join(f"span.name = 'name-{i}'" for i in range(200))
+    groups = SearchTraceUtils.parse_search_filter_groups(expression)
+    assert len(groups) == len(groups[0]) == 1
+    assert groups[0][0]["comparator"] == "IN"
+    assert groups[0][0]["value"] == tuple(f"name-{i}" for i in range(200))
+    with pytest.raises(MlflowException, match="200 values"):
+        SearchTraceUtils.parse_search_filter_groups(expression + " OR span.name = 'extra'")
+    groups = SearchTraceUtils.parse_search_filter_groups(
+        "span.attributes.foo = 'a' OR span.attributes.FOO = 'b'"
+    )
+    assert len(groups) == 2
+
+
+@pytest.mark.parametrize(
+    ("expressions", "expected"),
+    [
+        ((None, ""), ""),
+        (("tags.env = 'prod'", None), "tags.env = 'prod'"),
+        (("tags.env = 'a' OR tags.env = 'b'",), "tags.env = 'a' OR tags.env = 'b'"),
+        (("tags.env = 'AND OR (x)'", "status = 'OK'"), "tags.env = 'AND OR (x)' AND status = 'OK'"),
+        (
+            ("(tags.env = 'a' OR tags.env = 'b')", "status = 'OK'"),
+            "(tags.env = 'a' OR tags.env = 'b') AND status = 'OK'",
+        ),
+        (
+            ("tags.env = 'a' OR tags.env = 'b'", "status = 'OK'"),
+            "(tags.env = 'a' OR tags.env = 'b') AND status = 'OK'",
+        ),
+    ],
+)
+def test_combine_trace_filters(expressions, expected):
+    assert SearchTraceUtils.combine_filters(*expressions) == expected
+
+
+@pytest.mark.parametrize(
+    "field", ["metadata.`mlflow.trace.session`", "request_metadata.`mlflow.modelId`"]
+)
+@pytest.mark.parametrize(
+    "value", ["plain-id", "AND OR (literal)", r"a\b", "O''Reilly", '["a","b"]']
+)
+def test_trace_equality_formatter_preserves_existing_literals(field, value):
+    expression = SearchTraceUtils.format_equals_filter(field, value)
+    assert expression == f"{field} = '{value}'"
+    expected = SearchTraceUtils.parse_search_filter_for_search_traces(f"{field} = ''")[0]
+    assert SearchTraceUtils.parse_search_filter_groups(expression) == [
+        [{**expected, "value": value}]
+    ]
+
+
+@pytest.mark.parametrize("value", ["O'Reilly", "'", "a'b'c"])
+def test_trace_equality_formatter_rejects_unrepresentable_literals(value):
+    with pytest.raises(MlflowException, match="single equality filter"):
+        SearchTraceUtils.format_equals_filter("metadata.`mlflow.trace.session`", value)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "AND status = 'OK'",
+        "status = 'OK' AND",
+        "status = 'OK' tags.env = 'prod'",
+    ],
+)
+def test_trace_filter_groups_preserve_legacy_flat_shapes(expression):
+    assert SearchTraceUtils.parse_search_filter_groups(expression) == [
+        SearchTraceUtils.parse_search_filter_for_search_traces(expression)
+    ]
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "status = 'OK'",
+        "AND status = 'OK' AND AND",
+        "status = 'OK' tags.env = 'prod'",
+        "span.name IN ('O''Reilly', 'AND OR') AND span.type NOT IN ('CHAIN')",
+        "name = 'AND OR' AND run_id = 'run-1' AND execution_time > 10",
+        "metadata.`mlflow.trace.session` = 'raw\\backslash'",
+    ],
+)
+def test_trace_filter_groups_parse_flat_filter_once(expression):
+    expected = SearchTraceUtils.parse_search_filter_for_search_traces(expression)
+    with mock.patch("mlflow.utils.search_utils.sqlparse.parse", wraps=sqlparse.parse) as parse:
+        assert SearchTraceUtils.parse_search_filter_groups(expression) == [expected]
+    parse.assert_called_once_with(expression)
+
+
+def test_trace_filter_groups_keep_custom_span_attributes_as_alternatives():
+    groups = SearchTraceUtils.parse_search_filter_groups(
+        "span.attributes.foo = 'a' OR span.attributes.foo = 'b'"
+    )
+    assert [[clause["comparator"] for clause in group] for group in groups] == [["="], ["="]]
+
+
+@pytest.mark.parametrize(
+    ("expression", "values"),
+    [("status = 'OK' OR status = 'ERROR'", ["OK", "ERROR"]), ("(status = 'OK')", ["OK"])],
+)
+def test_trace_filter_groups_support_legacy_sqlparse_whitespace(monkeypatch, expression, values):
+    monkeypatch.setattr("mlflow.utils.search_utils.sqlparse.__version__", "0.4.3")
+    assert SearchTraceUtils.parse_search_filter_groups(expression) == [
+        [{"type": "attribute", "key": "status", "comparator": "=", "value": value}]
+        for value in values
+    ]
+
+
+@pytest.mark.parametrize("key", ["my--tag", "a;tag", "x/*y", "x*/y", "x' OR 1=1 --"])
+@pytest.mark.parametrize(
+    ("namespace", "quote"),
+    [("tags", "`"), ("request_metadata", '"'), ("feedback", "`"), ("expectation", "`")],
+)
+def test_trace_filter_groups_keep_quoted_punctuation_keys_literal(key, namespace, quote):
+    groups = SearchTraceUtils.parse_search_filter_groups(f"{namespace}.{quote}{key}{quote} = 'v'")
+    assert len(groups) == len(groups[0]) == 1
+    assert groups[0][0]["key"] == key
+    assert groups[0][0]["value"] == "v"
+
+
+@pytest.mark.parametrize(
+    "field", ["metadata.`mlflow.trace.session`", "request_metadata.`mlflow.modelId`"]
+)
+def test_sdk_metadata_formatter_matches_complete_parser_atom(field):
+    values = ["AND OR (literal)", r"raw\backslash", "O''Reilly", '["a","b"]', "line\nbreak"]
+    values.extend("".join(chars) for size in range(5) for chars in product("a'\\ ", repeat=size))
+    expected = SearchTraceUtils.parse_search_filter_for_search_traces(f"{field} = ''")[0]
+    for value in values:
+        try:
+            expression = format_trace_metadata_filter(field, value)
+        except MlflowException:
+            # Some backslash/quote spellings are valid under only one server tokenizer.
+            if "\\\\'" not in value:
+                with pytest.raises(MlflowException, match="single equality filter"):
+                    SearchTraceUtils.format_equals_filter(field, value)
+        else:
+            assert expression == SearchTraceUtils.format_equals_filter(field, value)
+            assert SearchTraceUtils.parse_search_filter_groups(expression) == [
+                [{**expected, "value": value}]
+            ]

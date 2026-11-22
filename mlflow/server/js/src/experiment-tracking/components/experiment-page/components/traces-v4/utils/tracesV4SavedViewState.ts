@@ -48,7 +48,7 @@ const MULTI_VALUE_KEYS = ['tag'] as const;
 export interface CapturedV4ViewState {
   single: Partial<Record<(typeof SINGLE_VALUE_KEYS)[number] | typeof TRACE_V4_COLS_PARAM_KEY, string>>;
   multi: Partial<Record<(typeof MULTI_VALUE_KEYS)[number], string[]>>;
-  // The popover filter clauses (React state, not URL-backed), captured so a saved view restores the
+  // The popover filter clauses, captured so a saved view restores the
   // exact filter model the user had applied. Absent in older stored views; restored through a
   // validation pass (see `isSupportedFilterClause`) so a clause referencing a since-removed
   // field/operator is dropped rather than silently producing wrong results.
@@ -149,6 +149,7 @@ export const buildV4ViewQuery = (state: CapturedV4ViewState, viewId: string): st
   Object.entries(state.multi ?? {}).forEach(([key, values]) => {
     (values ?? []).forEach((value) => params.append(key, value));
   });
+  if (state.filters) params.set('filters', JSON.stringify(state.filters));
   params.set(TRACE_V4_SHARE_URL_PARAM_KEY, viewId);
   return params.toString();
 };
