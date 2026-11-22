@@ -2,6 +2,7 @@ import asyncio
 import threading
 import uuid
 import weakref
+from collections.abc import Coroutine
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -213,7 +214,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
             return [inputs | params]
         return [x | params for x in inputs]
 
-    async def _run_predictions(self, inputs: list[dict[str, Any]]) -> asyncio.Future:
+    async def _run_predictions(self, inputs: list[dict[str, Any]]) -> list[Any]:
         tasks = [self._predict_single(x) for x in inputs]
         return await asyncio.gather(*tasks)
 
@@ -222,7 +223,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
             raise ValueError(f"Unsupported input type: {type(x)}. It must be a dictionary.")
         return await self._llama_model.run(**x)
 
-    def _wait_async_task(self, task: asyncio.Future) -> Any:
+    def _wait_async_task(self, task: Coroutine[Any, Any, Any]) -> Any:
         """
         A utility function to run async tasks in a blocking manner.
 
@@ -234,7 +235,14 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
         notebook, where ``run_until_complete`` cannot be used. ``nest_asyncio`` is not an option
         because ``nest_asyncio.apply()`` breaks the async OpenAI client.
         """
-        return asyncio.run_coroutine_threadsafe(task, self._get_event_loop()).result()
+        future = asyncio.run_coroutine_threadsafe(task, self._get_event_loop())
+        try:
+            return future.result()
+        except BaseException:
+            # If the wait is interrupted (e.g. KeyboardInterrupt), cancel the coroutine so it
+            # doesn't keep running on the shared loop and stall later calls.
+            future.cancel()
+            raise
 
     def _get_event_loop(self) -> asyncio.AbstractEventLoop:
         with _EVENT_LOOP_LOCK:

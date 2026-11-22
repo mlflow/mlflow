@@ -1,7 +1,10 @@
 import asyncio
+import concurrent.futures
 import contextvars
 import gc
+import threading
 import time
+from unittest import mock
 
 import llama_index.core
 import numpy as np
@@ -415,3 +418,35 @@ def test_wrap_workflow_stops_event_loop_on_garbage_collection():
     while not loop.is_closed() and time.monotonic() < deadline:
         time.sleep(0.1)
     assert loop.is_closed()
+
+
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+def test_wrap_workflow_cancels_task_when_wait_is_interrupted():
+    wrapper = create_pyfunc_wrapper(_create_workflow_with_loop_bound_state())
+    started = threading.Event()
+    cancelled = threading.Event()
+
+    async def never_finishes():
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    def interrupted_result(self, timeout=None):
+        started.wait(5)
+        raise KeyboardInterrupt("interrupted")
+
+    with (
+        mock.patch.object(concurrent.futures.Future, "result", interrupted_result),
+        pytest.raises(KeyboardInterrupt, match="interrupted"),
+    ):
+        wrapper._wait_async_task(never_finishes())
+
+    assert cancelled.wait(5)
+    # The shared loop is still usable after the interrupted call.
+    assert wrapper.predict({"name": "Alice"}) == "Hi, Alice!"
