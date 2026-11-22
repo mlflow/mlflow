@@ -66,6 +66,7 @@ export const pruneTraceCache = (queryClient: QueryClient): void => {
   const cachedTraces = traces
     .filter((trace) => !trace.active)
     .sort((left, right) => left.accessOrder - right.accessOrder || left.updatedAt - right.updatedAt);
+  // Active traces count toward the budget but cannot be removed, so discard inactive payloads around them first.
   let totalChars = traces.reduce((total, trace) => total + trace.chars, 0);
   while (cachedTraces.length > MAX_CACHED_TRACES || totalChars > MAX_CACHED_TRACE_CHARS) {
     const oldest = cachedTraces.shift();
