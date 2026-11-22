@@ -184,7 +184,7 @@ export const TimelineTreeGanttBars = ({
             return (
               <div
                 key={node.key}
-                css={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
+                css={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: TimelineTreeZIndex.NORMAL }}
                 style={{ transform: `translateY(${start}px)` }}
               >
                 <TimelineTreeGanttNode
