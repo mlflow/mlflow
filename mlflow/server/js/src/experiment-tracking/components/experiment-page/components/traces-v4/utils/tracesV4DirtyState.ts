@@ -14,7 +14,8 @@ import { DEFAULT_TRACES_V4_TIME_LABEL } from './timeRange';
  * The match is narrower than a raw field equality, for the same reasons managed's is:
  *   - Relative time ranges recompute their absolute `startTime`/`endTime` on every render, so for a
  *     non-CUSTOM label only the label is compared (the bounds are dropped). The default label is
- *     explicit in fresh captures but absent in older stored views, so it is normalized in first.
+ *     explicit in fresh captures but absent in older stored views. A view without a label does not
+ *     own the time range, so time changes alone do not mark it dirty.
  *   - The stored column list carries both membership and order (reordering persists into a view), so
  *     the two `cols` lists are compared position-by-position — a pure reorder reads as dirty.
  *   - The popover filter model is deep-compared (`filters ?? []`) so absent (legacy) and empty read
@@ -34,7 +35,7 @@ const COLS_KEY = 'cols';
  * drop the recomputed absolute bounds for relative time ranges, normalize the default label, and
  * sort by key so param order never spuriously reads as dirty.
  */
-const canonicalViewQuery = (state: CapturedV4ViewState): string => {
+const canonicalViewQuery = (state: CapturedV4ViewState, includeTimeRange = true): string => {
   const params = new URLSearchParams();
   Object.entries(state.single ?? {}).forEach(([key, value]) => {
     if (typeof value === 'string' && key !== COLS_KEY) {
@@ -46,11 +47,15 @@ const canonicalViewQuery = (state: CapturedV4ViewState): string => {
   });
 
   const label = params.get(START_TIME_LABEL_KEY) ?? DEFAULT_TRACES_V4_TIME_LABEL;
-  if (label !== 'CUSTOM') {
+  if (!includeTimeRange || label !== 'CUSTOM') {
     params.delete('startTime');
     params.delete('endTime');
   }
-  params.set(START_TIME_LABEL_KEY, label);
+  if (includeTimeRange) {
+    params.set(START_TIME_LABEL_KEY, label);
+  } else {
+    params.delete(START_TIME_LABEL_KEY);
+  }
 
   // Sort by key; Array.sort is stable, so repeated keys (tag filters) keep their relative order.
   const entries = [...params.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
@@ -118,12 +123,16 @@ const customVisibilityEqual = (a: Record<string, boolean> = {}, b: Record<string
 };
 
 /** True when the live captured state matches the stored view (i.e. not dirty). */
-export const capturedV4StatesMatch = (live: CapturedV4ViewState, stored: CapturedV4ViewState): boolean =>
-  canonicalViewQuery(live) === canonicalViewQuery(stored) &&
-  columnListsEqual(colsOf(live), colsOf(stored)) &&
-  assessmentVisibilityEqual(live.assessmentColumns, stored.assessmentColumns) &&
-  customVisibilityEqual(live.customColumns, stored.customColumns) &&
-  isEqual(live.filters ?? [], stored.filters ?? []);
+export const capturedV4StatesMatch = (live: CapturedV4ViewState, stored: CapturedV4ViewState): boolean => {
+  const includeTimeRange = Boolean(stored.single?.startTimeLabel);
+  return (
+    canonicalViewQuery(live, includeTimeRange) === canonicalViewQuery(stored, includeTimeRange) &&
+    columnListsEqual(colsOf(live), colsOf(stored)) &&
+    assessmentVisibilityEqual(live.assessmentColumns, stored.assessmentColumns) &&
+    customVisibilityEqual(live.customColumns, stored.customColumns) &&
+    isEqual(live.filters ?? [], stored.filters ?? [])
+  );
+};
 
 // Exported for unit-testing the pure comparisons in isolation.
 export const __test__ = { canonicalViewQuery, columnListsEqual, assessmentVisibilityEqual, customVisibilityEqual };
