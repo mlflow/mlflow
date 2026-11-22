@@ -188,6 +188,14 @@ describe('TimelineTreeNode', () => {
     { metrics: ['tokens', 'cost'] as TimelineTreeMetric[], node: METRICS_NODE },
     {
       metrics: ['tokens', 'cost'] as TimelineTreeMetric[],
+      node: {
+        ...METRICS_NODE,
+        tokenUsage: undefined,
+        cost: { input_cost: 0.01, output_cost: 0.02, total_cost: 0.03 },
+      },
+    },
+    {
+      metrics: ['tokens', 'cost'] as TimelineTreeMetric[],
       node: { ...METRICS_NODE, tokenUsage: undefined },
     },
     {
