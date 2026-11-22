@@ -18,6 +18,7 @@ export const useTimelineTreeRowVirtualizer = (
   selectedKey: string | number,
   getRowHeight: (node: ModelTraceSpanNode) => number,
   enabled = true,
+  scrollMargin = 0,
 ) => {
   const selectedIndex = useMemo(() => nodes.findIndex((node) => node.key === selectedKey), [nodes, selectedKey]);
   const rangeExtractor = useCallback((range: Range) => mergePinnedRowIndex(range, selectedIndex), [selectedIndex]);
@@ -30,6 +31,7 @@ export const useTimelineTreeRowVirtualizer = (
     rangeExtractor,
     overscan: 8,
     enabled: virtualized,
+    scrollMargin,
   });
   return { rowVirtualizer, virtualized };
 };

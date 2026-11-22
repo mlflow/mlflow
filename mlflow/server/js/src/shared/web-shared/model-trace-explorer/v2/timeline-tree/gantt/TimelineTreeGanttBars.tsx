@@ -76,7 +76,9 @@ export const TimelineTreeGanttBars = ({
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const treeContainerRef = useRef<HTMLDivElement>(null);
-  const treeElementWidth = useResizeObserver({ ref: treeContainerRef })?.width ?? 0;
+  const treeElementBounds = useResizeObserver({ ref: treeContainerRef });
+  const treeElementWidth = treeElementBounds?.width ?? 0;
+  const treeHeaderHeight = treeElementBounds?.height ?? 0;
   const initialXTicks = useMemo(
     () => getNiceXTicks(traceStartTime, traceEndTime, treeElementWidth),
     [traceEndTime, traceStartTime, treeElementWidth],
@@ -96,6 +98,8 @@ export const TimelineTreeGanttBars = ({
     scrollElement,
     selectedKey,
     () => SPAN_ROW_HEIGHT,
+    true,
+    treeHeaderHeight,
   );
   const virtualRows = rowVirtualizer.getVirtualItems();
 
@@ -184,8 +188,10 @@ export const TimelineTreeGanttBars = ({
             return (
               <div
                 key={node.key}
+                ref={rowVirtualizer.measureElement}
+                data-index={index}
                 css={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: TimelineTreeZIndex.NORMAL }}
-                style={{ transform: `translateY(${start}px)` }}
+                style={{ transform: `translateY(${start - treeHeaderHeight}px)` }}
               >
                 <TimelineTreeGanttNode
                   selectedKey={selectedKey}
