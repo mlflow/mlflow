@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useTracesV4SearchParams } from './useTracesV4SearchParams';
 import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 // Reuse the generic (branding-free) number-search-param helper from datasets-v2.
 import { useNumberSearchParam } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets-v2/hooks/useNumberSearchParam';
@@ -104,10 +104,7 @@ export interface TracesV4UrlState {
  * URLs tidy.
  */
 export const useTracesV4UrlState = (): TracesV4UrlState => {
-  // OSS's `useSearchParams` is the raw react-router hook — it returns `[searchParams, setSearchParams]`
-  // and has no read-selector overload (unlike the Databricks variant), so read each param off the
-  // `searchParams` object directly.
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useTracesV4SearchParams();
   const search = searchParams.get(Q_PARAM) ?? '';
   const [pageIndex, setPageIndex] = useNumberSearchParam({ key: PAGE_PARAM, defaultValue: 1, min: 1 });
   const pageSizeRaw = searchParams.get(PAGE_SIZE_PARAM);

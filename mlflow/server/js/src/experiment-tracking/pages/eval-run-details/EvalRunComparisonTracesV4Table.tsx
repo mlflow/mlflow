@@ -23,7 +23,7 @@ import {
 } from '@databricks/web-shared/traces-table';
 import { AssistantAwareDrawer } from '../../../common/components/AssistantAwareDrawer';
 import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
-import { useLocation, useSearchParams } from '../../../common/utils/RoutingUtils';
+import { useLocationSelector, useSearchParamSelector } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../constants';
 import { useSlashFocusSearch } from '../experiment-evaluation-datasets-v2/hooks/useSlashFocusSearch';
@@ -57,6 +57,7 @@ import { EvalRunComparisonColumnSummary } from './EvalRunComparisonColumnSummary
 import { EvalRunComparisonOutcomeFilters } from './EvalRunComparisonOutcomeFilters';
 import { withEvalRunComparisonAssessmentDeltas } from './evalRunComparisonAssessmentColumns';
 import { buildComparisonSessionAssessmentColumns } from './EvalRunComparisonSessionAssessmentCell';
+import { selectTracesV4PageLocation } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4SearchParams';
 
 const NO_SELECTION = new Map<string, ModelTraceInfoV3>();
 const NO_TRACES: ModelTraceInfoV3[] = [];
@@ -85,8 +86,7 @@ export interface EvalRunComparisonTracesV4TableProps extends EvalRunComparisonTr
 
 /** Matches the compared runs' traces by input (or sessions by scenario) and shows a sub-row per run. */
 export const EvalRunComparisonTracesV4Table = (props: EvalRunComparisonTracesV4TableProps) => {
-  const [searchParams] = useSearchParams();
-  const sessionMode = searchParams.get('comparisonGroupBy') === 'session';
+  const [sessionMode] = useSearchParamSelector((params) => params.get('comparisonGroupBy') === 'session');
   // Outcome filters outlive the remount, so switching modes doesn't restore one the user removed.
   const outcomeFiltersState = useState<EvalRunComparisonOutcomeFilter[]>(() =>
     props.initialOutcomeFilter ? [{ ...props.initialOutcomeFilter, id: 0 }] : [],
@@ -126,11 +126,15 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
   const actions = useTracesV4TraceActions(experimentId, controller.pageTraces, refetchComparison, notify);
   const searchInputRef = useRef<InputRef>(null);
   useSlashFocusSearch(searchInputRef);
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const baselineTraceId = searchParams.get(BASELINE_TRACE_ID_PARAM) ?? undefined;
-  const candidateTraceId = searchParams.get(CANDIDATE_TRACE_ID_PARAM) ?? undefined;
-  const isPairwiseReviewMode = searchParams.get(PAIRWISE_REVIEW_MODE_PARAM) === 'true';
+  const location = useLocationSelector(selectTracesV4PageLocation);
+  const [[baselineTraceId, candidateTraceId, isPairwiseReviewMode], setSearchParams] = useSearchParamSelector(
+    (params) =>
+      [
+        params.get(BASELINE_TRACE_ID_PARAM) ?? undefined,
+        params.get(CANDIDATE_TRACE_ID_PARAM) ?? undefined,
+        params.get(PAIRWISE_REVIEW_MODE_PARAM) === 'true',
+      ] as const,
+  );
   // The runs of the row that opened the comparison; a deep link with only the two ids derives them below.
   const [comparisonRunOptions, setComparisonRunOptions] = useState<TracesV4DrawerComparisonRunOption[]>();
   const directComparisonRunOptions = useMemo(() => {
@@ -182,7 +186,6 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
       params.delete(BASELINE_TRACE_ID_PARAM);
       params.delete(CANDIDATE_TRACE_ID_PARAM);
       params.delete(PAIRWISE_REVIEW_MODE_PARAM);
-      params.delete('spanId');
       return `${location.pathname}?${params.toString()}${location.hash}`;
     },
     [location],
@@ -738,6 +741,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
         experimentId,
         traces: controller.pageTraces,
         onSelectTrace: url.setTraceId,
+        onSelectSpan: url.setSpanId,
         runJudgeConfiguration: actions.runJudges?.runJudgeConfiguration,
         comparisonRunOptions: activeComparisonRunOptions,
         comparisonNavigation,

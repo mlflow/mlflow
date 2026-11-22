@@ -22,7 +22,7 @@ import {
 import { ToolbarCollapsibleLabel } from '@databricks/web-shared/traces-table';
 // Not re-exported from the genai-traces-table barrel — import from its module.
 import { GenAITraceComparisonModal } from '@databricks/web-shared/genai-traces-table/components/GenAITraceComparisonModal';
-import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useSearchParamSelector } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { type TracesV4TraceActions } from '../hooks/useTracesV4TraceActions';
 import {
   BASELINE_TRACE_ID_PARAM,
@@ -76,7 +76,8 @@ export const TracesV4ActionsButton = ({
   const { theme } = useDesignSystemTheme();
   // The new eval runs UI compares exactly two traces in the trace drawer instead of the comparison modal.
   const isComparisonV2Enabled = shouldEnableModelTraceComparisonV2();
-  const [, setSearchParams] = useSearchParams();
+  // A constant selection lets this button write params without subscribing to data-router URL changes.
+  const [, setSearchParams] = useSearchParamSelector(() => undefined);
 
   // Match the shared GenAITracesTable menu: mute the group heading and indent its items so
   // "Use for evaluation" reads as a section label, not a disabled row.

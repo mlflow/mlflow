@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
 import { act, renderHook } from '@testing-library/react';
-import { useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+// eslint-disable-next-line no-restricted-imports
+import { createMemoryRouter } from 'react-router-dom';
+import { MemoryRouter, RouterProvider, useLocation } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import {
   setupTestRouter,
   TestRouter,
@@ -9,6 +11,47 @@ import {
   waitForRoutesToBeRendered,
 } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 import { useDatasetRecordsUrlState } from './useDatasetRecordsUrlState';
+
+describe.each(['data', 'memory'] as const)('dataset URL writes with a %s router', (kind) => {
+  test('retain the current path, hash and state while merging record and pagination changes', async () => {
+    const initialEntries = [
+      {
+        pathname: '/base/datasets/dataset-1/records',
+        search: '?q=original&page=3&tag=one&tag=two',
+        hash: '#records',
+        state: { retained: true },
+      },
+    ];
+    const { result } = renderHook(() => ({ url: useDatasetRecordsUrlState(), location: useLocation() }), {
+      wrapper: ({ children }) =>
+        kind === 'data' ? (
+          <RouterProvider
+            router={createMemoryRouter([{ path: '*', element: children }], { basename: '/base', initialEntries })}
+          />
+        ) : (
+          <MemoryRouter basename="/base" initialEntries={initialEntries}>
+            {children}
+          </MemoryRouter>
+        ),
+    });
+    await act(async () => {
+      result.current.url.setPageIndex(4);
+    });
+    await act(async () => {
+      result.current.url.setRecordId('record-1');
+    });
+    expect(result.current.url.pageIndex).toBe(4);
+    expect(result.current.url.recordId).toBe('record-1');
+    await act(async () => result.current.url.setSearch('filtered'));
+    expect(result.current.url.search).toBe('filtered');
+    expect(result.current.url.pageIndex).toBe(1);
+    expect(result.current.url.recordId).toBe('record-1');
+    expect(result.current.location.pathname).toBe('/datasets/dataset-1/records');
+    expect(result.current.location.hash).toBe('#records');
+    expect(result.current.location.state).toEqual({ retained: true });
+    expect(new URLSearchParams(result.current.location.search).getAll('tag')).toEqual(['one', 'two']);
+  });
+});
 
 describe('useDatasetRecordsUrlState', () => {
   // setupTestRouter registers beforeAll/afterAll hooks; must live at describe scope.

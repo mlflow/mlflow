@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
+import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { rest } from 'msw';
 import { setupServer } from '@mlflow/mlflow/src/common/utils/setup-msw';
 import { setupTestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
@@ -59,6 +60,10 @@ afterAll(() => {
 });
 
 const noop = () => {};
+const LocationSpy = () => {
+  const [params] = useSearchParams();
+  return <output data-testid="drawer-query">{params.toString()}</output>;
+};
 
 // The drawer body mounts the heavy shared `ModelTraceExplorer`; the first test to render it pays a
 // cold module-load cost (the whole tree sits behind a page-loading Suspense fallback) that can exceed
@@ -73,13 +78,16 @@ const renderDrawer = ({ traceId, initialUrl = URL }: { traceId?: string; initial
       {
         path: PATH,
         element: (
-          <TracesV4TraceDrawer
-            traceId={traceId}
-            onClose={noop}
-            experimentId={EXPERIMENT_ID}
-            traces={[ON_PAGE_TRACE]}
-            onSelectTrace={noop}
-          />
+          <>
+            <LocationSpy />
+            <TracesV4TraceDrawer
+              traceId={traceId}
+              onClose={noop}
+              experimentId={EXPERIMENT_ID}
+              traces={[ON_PAGE_TRACE]}
+              onSelectTrace={noop}
+            />
+          </>
         ),
       },
     ],
@@ -88,6 +96,27 @@ const renderDrawer = ({ traceId, initialUrl = URL }: { traceId?: string; initial
   });
 
 describe('TracesV4TraceDrawer', () => {
+  test('embeddings without a span callback retain read-only span URLs', async () => {
+    state.spans = ['root', 'child'].map((name, index) => ({
+      name,
+      context: { span_id: name, trace_id: ON_PAGE_TRACE.trace_id },
+      parent_id: index ? 'root' : null,
+      start_time: index * 1_000_000,
+      end_time: 10_000_000,
+      status: { status_code: 1, description: 'OK' },
+      attributes: {
+        'mlflow.spanType': JSON.stringify('CHAIN'),
+        'mlflow.spanOutputs': JSON.stringify(`${name}-only-output`),
+      },
+      events: [],
+    }));
+    renderDrawer({ traceId: ON_PAGE_LONG_ID, initialUrl: `${URL}?traceId=${ON_PAGE_LONG_ID}&spanId=child` });
+    const drawer = await findDrawer();
+    await within(drawer).findByText('child-only-output', { exact: false }, { timeout: 10000 });
+    fireEvent.click(within(drawer).getByTestId('timeline-tree-node-root'));
+    expect(await within(drawer).findByText('root-only-output', { exact: false })).toBeVisible();
+    expect(new URLSearchParams(screen.getByTestId('drawer-query').textContent ?? '').get('spanId')).toBe('child');
+  }, 15000);
   test.each([
     { name: 'selects the linked child', spanId: 'child', expectedSpan: 'child' },
     { name: 'falls back to root for an unknown span', spanId: 'missing-span', expectedSpan: 'root' },

@@ -84,6 +84,8 @@ export interface TracesV4TraceDrawerProps {
   traces: ModelTraceInfoV3[];
   /** Writes the newly-selected trace's id to the URL (as a long id — see {@link idOf}). */
   onSelectTrace: (traceId: string) => void;
+  /** Optional span-selection navigation owned by the embedding page. */
+  onSelectSpan?: (spanId?: string) => void;
   /** Optional in-explorer run-judges config (enables "Run judge" from within a span's assessments). */
   runJudgeConfiguration?: NonNullable<TracesV4TraceActions['runJudges']>['runJudgeConfiguration'];
   /** Opens the drawer on a session instead of a single trace. Omit for trace-only drawers. */
@@ -116,6 +118,7 @@ export const TracesV4TraceDrawer = ({
   experimentId,
   traces,
   onSelectTrace,
+  onSelectSpan,
   runJudgeConfiguration,
   session,
   comparisonRunOptions,
@@ -364,6 +367,7 @@ export const TracesV4TraceDrawer = ({
               <ModelTraceExplorer
                 modelTrace={traceData}
                 selectedSpanId={searchParams.get('spanId') ?? undefined}
+                onSelectSpan={onSelectSpan}
                 {...(session ? { collapseAssessmentPane: 'force-open' as const } : {})}
                 comparisonModelTrace={isComparisonMode ? counterpartTraceData : undefined}
                 comparisonRole={isComparisonMode ? comparisonRole : undefined}

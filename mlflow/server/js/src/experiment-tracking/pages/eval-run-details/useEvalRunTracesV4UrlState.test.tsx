@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { useEffect } from 'react';
 import { act, renderHook } from '@testing-library/react';
-import { useLocation } from '../../../common/utils/RoutingUtils';
+import { useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
 import {
   setupTestRouter,
   TestRouter,
@@ -13,16 +13,24 @@ import { useEvalRunTracesV4UrlState } from './useEvalRunTracesV4UrlState';
 describe('useEvalRunTracesV4UrlState', () => {
   const { history } = setupTestRouter();
   let lastSearch = '';
+  let lastHash = '';
+  let lastState: unknown;
+  let navigateBack: () => void;
 
   const LocationSpy = () => {
-    const search = useLocation().search;
-    useEffect(() => setLastSearch(search), [search]);
+    const { search, hash, state } = useLocation();
+    const navigate = useNavigate();
+    navigateBack = () => navigate(-1);
+    useEffect(() => {
+      lastSearch = search;
+      lastHash = hash;
+      lastState = state;
+    }, [search, hash, state]);
     return null;
   };
-  const setLastSearch = (search: string) => {
-    lastSearch = search;
-  };
-  const mountHook = async (initialUrl: string) => {
+  const mountHook = async (
+    initialUrl: string | { pathname: string; search: string; hash: string; state: Record<string, boolean> },
+  ) => {
     lastSearch = '';
     const result = renderHook(() => useEvalRunTracesV4UrlState(), {
       wrapper: ({ children }) => (
@@ -68,5 +76,25 @@ describe('useEvalRunTracesV4UrlState', () => {
     act(() => result.current.setTraceId(undefined));
     expect(param('selectedEvaluationId')).toBeNull();
     expect(param('traceId')).toBeNull();
+  });
+
+  test('writes the selected span without changing table parameters', async () => {
+    const { result } = await mountHook({
+      pathname: '/p',
+      search: '?page=3&selectedEvaluationId=trace-1&spanId=old-span',
+      hash: '#section',
+      state: { retained: true },
+    });
+
+    act(() => result.current.setSpanId('span-1'));
+    expect(param('spanId')).toBe('span-1');
+    expect(param('page')).toBe('3');
+    expect(lastHash).toBe('#section');
+    expect(lastState).toEqual({ retained: true });
+    act(() => navigateBack());
+    expect(param('spanId')).toBe('span-1');
+
+    act(() => result.current.setSpanId(undefined));
+    expect(param('spanId')).toBeNull();
   });
 });

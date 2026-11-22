@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { SPAN_ID_PARAM, useTracesV4SearchParams } from './useTracesV4SearchParams';
 import {
   TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
   TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
@@ -12,7 +12,6 @@ import {
 } from './useTracesV4UrlState';
 
 const LEGACY_TRACE_ID_PARAM = 'selectedEvaluationId';
-const SPAN_ID_PARAM = 'spanId';
 const SESSION_VIEW_MODE = 'session';
 
 export type TracesV4DrawerViewMode = 'trace' | 'session';
@@ -39,7 +38,7 @@ export interface TracesV4DrawerSessionUrlState {
  * grouping stay as they are.
  */
 export const useTracesV4DrawerSessionUrlState = (): TracesV4DrawerSessionUrlState => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useTracesV4SearchParams();
   const sessionId = searchParams.get(TRACE_DRAWER_SESSION_ID_QUERY_PARAM) ?? undefined;
   const viewMode: TracesV4DrawerViewMode =
     sessionId && searchParams.get(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM) === SESSION_VIEW_MODE ? 'session' : 'trace';

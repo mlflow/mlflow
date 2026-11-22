@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
-import { useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useSearchParamSelector } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
+import { withoutSpan } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4SearchParams';
 
 export const useEvalRunComparisonBaseline = (
   experimentId: string,
@@ -8,7 +9,7 @@ export const useEvalRunComparisonBaseline = (
   compareRunUuids: string[],
 ): ((runUuid: string) => void) => {
   const navigate = useNavigate();
-  const locationSearch = useLocation().search;
+  const [locationSearch] = useSearchParamSelector(withoutSpan);
   return useCallback(
     (nextBaseline: string) => {
       if (nextBaseline === baselineRunUuid || !compareRunUuids.includes(nextBaseline)) return;

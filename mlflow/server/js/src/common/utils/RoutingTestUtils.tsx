@@ -47,7 +47,7 @@ type TestRouteReturnValue = {
 interface TestRouterProps {
   routes: TestRouteReturnValue[];
   history?: any;
-  initialEntries?: string[];
+  initialEntries?: React.ComponentProps<typeof MemoryRouter>['initialEntries'];
 }
 
 export const testRoute = (element: React.ReactNode, path = '*', pageId = '', children = []): TestRouteReturnValue => {

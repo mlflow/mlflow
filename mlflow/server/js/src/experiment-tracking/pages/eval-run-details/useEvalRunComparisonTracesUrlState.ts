@@ -6,7 +6,7 @@ import {
   type TraceSortColumnId,
   type SortDirection,
 } from '@databricks/web-shared/traces-table';
-import { useSearchParams } from '../../../common/utils/RoutingUtils';
+import { useSearchParamSelector } from '../../../common/utils/RoutingUtils';
 
 const FILTER_OPERATORS = new Set<string>(Object.values(FilterOp));
 const isClause = (value: unknown): value is TraceFilterModel[number] =>
@@ -38,12 +38,16 @@ const parseFilters = (raw: string | null): { filterModel: TraceFilterModel; inva
 
 /** Comparison criteria never overwrite single-run URL state or drawer/run-selection links. */
 export const useEvalRunComparisonTracesUrlState = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const search = searchParams.get('comparisonQ') ?? '';
-  const filtersRaw = searchParams.get('comparisonFilters');
-  const sortRaw = searchParams.get('comparisonSort');
-  const dirRaw = searchParams.get('comparisonDir');
-  const isGroupedBySession = searchParams.get('comparisonGroupBy') === 'session';
+  const [[search, filtersRaw, sortRaw, dirRaw, isGroupedBySession], setSearchParams] = useSearchParamSelector(
+    (params) =>
+      [
+        params.get('comparisonQ') ?? '',
+        params.get('comparisonFilters'),
+        params.get('comparisonSort'),
+        params.get('comparisonDir'),
+        params.get('comparisonGroupBy') === 'session',
+      ] as const,
+  );
   const filters = useMemo(() => parseFilters(filtersRaw), [filtersRaw]);
   const validSort =
     sortRaw !== null && isComparisonSortableTraceColumn(sortRaw) && (dirRaw === 'asc' || dirRaw === 'desc');
