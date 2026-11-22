@@ -110,8 +110,12 @@ describe('TimelineTree virtualization', () => {
   test.each([
     [99, 99],
     [100, 2],
-  ])('mounts %i Gantt rows at the virtualization boundary', async (count, mountedRows) => {
+  ])('mounts expected tree and Gantt rows for %i spans', async (count, mountedRows) => {
     render(<TestTree rootNodes={makeNodes(count)} />);
+
+    expect(screen.getAllByTestId(/^timeline-tree-node-/)).toHaveLength(mountedRows);
+    expect(screen.getByTestId('timeline-tree-node-span-0')).toBeInTheDocument();
+    expect(screen.getByTestId(`timeline-tree-node-span-${count - 1}`)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Show execution timeline' }));
 
