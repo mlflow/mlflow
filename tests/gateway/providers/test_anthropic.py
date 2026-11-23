@@ -1729,6 +1729,48 @@ def test_anthropic_extract_passthrough_token_usage_with_cached_tokens():
     }
 
 
+def test_anthropic_extract_passthrough_token_usage_with_1h_cache_creation():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 11,
+            "output_tokens": 4,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 5411,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 5411},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 5422,
+        "output_tokens": 4,
+        "total_tokens": 5426,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
+def test_anthropic_extract_streaming_token_usage_with_1h_cache_creation():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":11,"cache_read_input_tokens":0,'
+        b'"cache_creation_input_tokens":5411,"cache_creation":'
+        b'{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":5411}}}}\n'
+    )
+    assert provider._extract_streaming_token_usage(chunk) == {
+        "input_tokens": 11,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
 def test_anthropic_extract_streaming_token_usage_message_start_with_cached_tokens():
     provider = AnthropicProvider(EndpointConfig(**chat_config()))
     chunk = (
@@ -1801,6 +1843,60 @@ def test_anthropic_extract_streaming_token_usage_message_delta_final_counts():
         "cache_read_input_tokens": 100,
         "cache_creation_input_tokens": 20,
     }
+
+
+def test_anthropic_extract_streaming_token_usage_message_delta_1h_cache_creation():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    accumulated_usage = {}
+    chunk1 = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":10,"cache_read_input_tokens":0,'
+        b'"cache_creation_input_tokens":30,"cache_creation":'
+        b'{"ephemeral_5m_input_tokens":10,"ephemeral_1h_input_tokens":20}}}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
+
+    # The cumulative message_delta breakdown replaces the one from message_start
+    chunk2 = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"input_tokens":120,"cache_read_input_tokens":100,'
+        b'"cache_creation_input_tokens":50,"cache_creation":'
+        b'{"ephemeral_5m_input_tokens":10,"ephemeral_1h_input_tokens":40},"output_tokens":50}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
+
+    assert accumulated_usage == {
+        "input_tokens": 120,
+        "output_tokens": 50,
+        "cache_read_input_tokens": 100,
+        "cache_creation_input_tokens": 50,
+        "cache_creation_input_tokens_above_1hr": 40,
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_usage_omits_1h_cache_creation():
+    resp = chat_stream_response()
+    delta_index = next(
+        i for i, line in enumerate(resp) if line.startswith(b'data: {"type": "message_delta"')
+    )
+    resp[delta_index] = (
+        b'data: {"type": "message_delta", "delta": {"stop_reason": "end_turn", '
+        b'"stop_sequence":null}, "usage":{"input_tokens": 10, "cache_creation_input_tokens": 20, '
+        b'"cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 20}, '
+        b'"output_tokens": 15}}\n'
+    )
+
+    with mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)):
+        provider = AnthropicProvider(EndpointConfig(**chat_config()))
+        response = provider.chat_stream(chat.RequestPayload(**chat_payload(stream=True)))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+
+    usage = chunks[-1]["usage"]
+    assert usage["cache_creation_input_tokens"] == 20
+    assert "cache_creation_input_tokens_above_1hr" not in usage
 
 
 @pytest.mark.asyncio
@@ -2052,3 +2148,254 @@ def test_chat_stream_finish_reason(stop_reason, expected):
     result = AnthropicAdapter.model_to_chat_streaming(resp, EndpointConfig(**chat_config()))
 
     assert result.choices[0].finish_reason == expected
+
+
+async def _chat_request_body(payload, stream=False):
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    if stream:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(chat_stream_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            [chunk async for chunk in provider.chat_stream(chat.RequestPayload(**payload))]
+    else:
+        mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            await provider.chat(chat.RequestPayload(**payload))
+    return mock_client.post.call_args[1]["json"]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_chat_keeps_cache_control_on_content_parts(stream):
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Long document",
+                        "cache_control": {"type": "ephemeral"},
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,iVBORw0KGgo="},
+                        "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                    },
+                    {"type": "text", "text": "Question"},
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Answer", "cache_control": {"type": "ephemeral"}}
+                ],
+            },
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+
+    body = await _chat_request_body(payload, stream=stream)
+
+    assert body["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Long document",
+                    "cache_control": {"type": "ephemeral"},
+                },
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgo="},
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                },
+                {"type": "text", "text": "Question"},
+            ],
+        },
+        {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Answer", "cache_control": {"type": "ephemeral"}}],
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_chat_without_cache_control_sends_content_parts_unchanged():
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,iVBORw0KGgo="},
+                    },
+                ],
+            }
+        ],
+    }
+
+    body = await _chat_request_body(payload)
+
+    assert body == {
+        "model": "claude-2.1",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": "iVBORw0KGgo=",
+                        },
+                    },
+                ],
+            }
+        ],
+        "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
+    }
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    ("cache_control", "expected_block"),
+    [
+        (None, {"type": "text", "text": "Long instructions"}),
+        (
+            {"type": "ephemeral"},
+            {
+                "type": "text",
+                "text": "Long instructions",
+                "cache_control": {"type": "ephemeral"},
+            },
+        ),
+        (
+            {"type": "ephemeral", "ttl": "1h"},
+            {
+                "type": "text",
+                "text": "Long instructions",
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            },
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_chat_sends_list_system_content_as_system_blocks(
+    cache_control, expected_block, stream
+):
+    part = {"type": "text", "text": "Long instructions"}
+    if cache_control is not None:
+        part["cache_control"] = cache_control
+    payload = {
+        "messages": [
+            {"role": "system", "content": [part]},
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+
+    body = await _chat_request_body(payload, stream=stream)
+
+    assert body["system"] == [expected_block]
+    assert body["messages"] == [{"role": "user", "content": "Hello"}]
+
+
+@pytest.mark.asyncio
+async def test_chat_joins_multiple_string_system_messages():
+    payload = {
+        "messages": [
+            {"role": "system", "content": "First"},
+            {"role": "system", "content": "Second"},
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+
+    body = await _chat_request_body(payload)
+
+    assert body["system"] == "First\nSecond"
+
+
+@pytest.mark.asyncio
+async def test_chat_mixes_string_and_list_system_messages_into_blocks():
+    payload = {
+        "messages": [
+            {"role": "system", "content": "First"},
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": "Second", "cache_control": {"type": "ephemeral"}},
+                    {"type": "text", "text": "Third"},
+                ],
+            },
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+
+    body = await _chat_request_body(payload)
+
+    assert body["system"] == [
+        {"type": "text", "text": "First"},
+        {"type": "text", "text": "Second", "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": "Third"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_chat_rejects_non_text_parts_in_system_message():
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": [{"type": "image_url", "image_url": {"url": "https://example.com"}}],
+            },
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+
+    with pytest.raises(AIGatewayException, match="only support text content parts") as e:
+        await _chat_request_body(payload)
+    assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_chat_json_object_response_format_appends_to_list_system():
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}}
+                ],
+            },
+            {"role": "user", "content": "Give me JSON"},
+        ],
+        "response_format": {"type": "json_object"},
+    }
+
+    body = await _chat_request_body(payload)
+
+    assert body["system"][0] == {
+        "type": "text",
+        "text": "Rules",
+        "cache_control": {"type": "ephemeral"},
+    }
+    assert body["system"][1]["type"] == "text"
+    assert "valid JSON object" in body["system"][1]["text"]
+    assert len(body["system"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_chat_forwards_unknown_cache_control_ttl_as_is():
+    part = {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral", "ttl": "24h"}}
+    payload = {"messages": [{"role": "user", "content": [part]}]}
+
+    body = await _chat_request_body(payload)
+
+    assert body["messages"] == [{"role": "user", "content": [part]}]

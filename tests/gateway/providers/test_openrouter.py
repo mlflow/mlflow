@@ -159,3 +159,27 @@ async def test_system_one_passthrough_rejects_streaming():
 
     assert exc.value.status_code == 400
     assert exc.value.detail == "TypeSafe System One does not support streaming."
+
+
+@pytest.mark.asyncio
+async def test_chat_sends_cache_control():
+    provider = _make_provider()
+    mock_client = MockHttpClient(MockAsyncResponse(_chat_response()))
+    messages = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Rules",
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                }
+            ],
+        },
+        {"role": "user", "content": "Hello"},
+    ]
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(messages=messages))
+
+    assert mock_client.post.call_args.kwargs["json"]["messages"] == messages

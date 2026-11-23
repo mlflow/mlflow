@@ -29,7 +29,7 @@ requires-python = ">=3.11"
 # installable within the existing ranges, and pinning them is the responsibility of the
 # application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
 dependencies = [
-  "cachetools<8,>=5.0.0",
+  "cachetools<9,>=5.0.0",
   "databricks-sdk<1,>=0.20.0",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-proto<3,>=1.9.0",

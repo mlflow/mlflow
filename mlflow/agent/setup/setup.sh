@@ -57,6 +57,11 @@ restore_terminal() {
 }
 
 cleanup() {
+	case $? in
+	0) telemetry_send success ;;
+	130 | 143) telemetry_send canceled ;;
+	*) telemetry_send failure ;;
+	esac
 	restore_terminal
 	if [ -n "$spinner_pid" ]; then
 		kill "$spinner_pid" 2>/dev/null || true
@@ -86,6 +91,68 @@ trap 'exit 143' TERM
 die() {
 	printf '\n%b×  %s%b\n' "$RED" "$*" "$RESET" >&2
 	exit 1
+}
+
+cancel() {
+	telemetry_send canceled
+	die "$@"
+}
+
+telemetry_start=""
+telemetry_sent=""
+telemetry_flags=""
+agent_choice=""
+backend=""
+telemetry_python='
+import sys
+import time
+
+end = time.time()  # Before the slow mlflow import.
+if "" in sys.path:
+    sys.path.remove("")  # Never import modules from the working directory.
+
+import os
+
+if not os.environ.get("MLFLOW_TRACKING_URI", "").startswith("databricks"):
+    os.environ.pop("MLFLOW_TRACKING_URI", None)  # Only route to Databricks; never probe other servers.
+
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.events import Event
+from mlflow.telemetry.schemas import Status
+from mlflow.telemetry.track import _record_event
+
+
+class AgentSetupScriptEvent(Event):
+    name = "agent_setup_script"
+
+
+status, start, agent, backend, flags = sys.argv[1:6]
+_record_event(
+    AgentSetupScriptEvent,
+    {
+        "agent": agent or None,
+        "backend": {"remote": "oss"}.get(backend, backend) or None,
+        "flags": sorted(set(flags.split())),
+    },
+    status=Status(status),
+    duration_ms=int((end - int(start)) * 1000),
+)
+# The atexit hook drops unsent records, so flush explicitly in this short-lived process.
+if client := get_telemetry_client():
+    client.flush()
+'
+
+# Sends at most one event per run, detached so it never delays setup and survives exec.
+telemetry_send() {
+	[ -n "$telemetry_start" ] && [ -z "$telemetry_sent" ] || return 0
+	telemetry_sent="true"
+	(
+		trap '' HUP
+		# The client's server-info probe must not send credentials, possibly over plain HTTP.
+		unset MLFLOW_TRACKING_TOKEN MLFLOW_TRACKING_USERNAME MLFLOW_TRACKING_PASSWORD
+		MLFLOW_TRACKING_URI="${TRACKING_URI:-${MLFLOW_TRACKING_URI:-}}" python3 -c "$telemetry_python" \
+			"$1" "$telemetry_start" "${agent_choice:-$AGENT_NAME}" "$backend" "$telemetry_flags"
+	) </dev/null >/dev/null 2>&1 &
 }
 
 header() {
@@ -477,7 +544,7 @@ select_option() {
 		case "$key_code" in
 		3)
 			restore_terminal
-			die "Setup cancelled."
+			cancel "Setup cancelled."
 			;;
 		10 | 13)
 			selected_value=$(option_at "$selected_index")
@@ -659,6 +726,8 @@ usage() {
 		"  --agent <name>                claude, codex, opencode, or manual" \
 		"  -h, --help                    Show this help" \
 		"" \
+		"Sends anonymous usage telemetry; disable with MLFLOW_DISABLE_TELEMETRY=true or DO_NOT_TRACK=true." \
+		"" \
 		"Without an experiment flag, create a new experiment with a unique project-based name." \
 		"Without a backend setting, default to Databricks when a local profile exists." \
 		"Choose the first installed coding agent: claude, codex, then opencode; otherwise configure manually."
@@ -669,43 +738,51 @@ parse_args() {
 		case "$1" in
 		--workspace-url)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags workspace-url"
 			WORKSPACE_URL=$2
 			WORKSPACE_URL_EXPLICIT="true"
 			shift 2
 			;;
 		--profile)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags profile"
 			PROFILE=$2
 			PROFILE_EXPLICIT="true"
 			shift 2
 			;;
 		--tracking-uri)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags tracking-uri"
 			TRACKING_URI=$2
 			shift 2
 			;;
 		--experiment-id)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags experiment-id"
 			EXPERIMENT_ID=$2
 			shift 2
 			;;
 		--experiment-name)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags experiment-name"
 			EXPERIMENT_NAME=$2
 			shift 2
 			;;
 		--uc-schema)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags uc-schema"
 			UC_SCHEMA=$2
 			shift 2
 			;;
 		--warehouse-id)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags warehouse-id"
 			WAREHOUSE_ID=$2
 			shift 2
 			;;
 		--agent)
 			[ "$#" -ge 2 ] || die "$1 requires a value."
+			telemetry_flags="$telemetry_flags agent"
 			AGENT_NAME=$2
 			shift 2
 			;;
@@ -735,7 +812,7 @@ inspect_repository() {
 				"Exit and protect current changes" \
 				"Continue anyway"
 			if [ "$selected_index" -eq 0 ]; then
-				die "Setup cancelled. Commit or stash the changes, then rerun setup."
+				cancel "Setup cancelled. Commit or stash the changes, then rerun setup."
 			fi
 		fi
 		success "Repository detected" "$repo_root"
@@ -744,7 +821,7 @@ inspect_repository() {
 		repo_name=$(basename "$repo_root")
 		warning "Git repository not found" "The agent's edits cannot be reviewed or reverted with Git."
 		select_option "Continue with setup?" "Exit and initialize Git first" "Continue without Git"
-		[ "$selected_index" -eq 1 ] || die "Setup cancelled."
+		[ "$selected_index" -eq 1 ] || cancel "Setup cancelled."
 	fi
 }
 
@@ -821,6 +898,7 @@ choose_agent() {
 		done
 	fi
 	if [ -z "$agent_choice" ] || [ "$agent_choice" = "manual" ]; then
+		agent_choice="manual"
 		show_manual_setup
 		exit 0
 	fi
@@ -1627,6 +1705,7 @@ build_agent_prompt() {
 launch_agent() {
 	agent_prompt=$(build_agent_prompt)
 	footer "Launching ${agent_display}…"
+	telemetry_send success
 	if [ "${MLFLOW_SETUP_DRY_RUN:-}" = "1" ]; then
 		printf '%s\n' "$agent_prompt"
 		return
@@ -1640,6 +1719,7 @@ launch_agent() {
 
 main() {
 	parse_args "$@"
+	telemetry_start=$(date +%s)
 	validate_agent_name
 	header
 	inspect_repository

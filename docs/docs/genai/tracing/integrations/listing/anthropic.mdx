@@ -83,7 +83,7 @@ mlflow.set_experiment("Anthropic")
 client = anthropic.Anthropic()
 
 message = client.messages.create(
-    model="claude-sonnet-4-5-2025092",
+    model="claude-sonnet-5-5",
     max_tokens=512,
     messages=[
         {"role": "user", "content": "Hello, Claude"},
@@ -105,7 +105,7 @@ const client = tracedAnthropic(new Anthropic());
 
 // Invoke the client as usual
 const message = await client.messages.create({
-  model: "claude-3-7-sonnet-20250219",
+  model: "claude-sonnet-5-5",
   max_tokens: 512,
   messages: [
     { role: "user", content: "Hello, Claude" },
@@ -158,7 +158,7 @@ MLflow Tracing has supported the asynchronous API of the Anthropic SDK since MLf
     client = anthropic.AsyncAnthropic()
 
     response = await client.messages.create(
-        model="claude-3-5-sonnet-20241022",
+        model="claude-sonnet-5-5",
         max_tokens=1024,
         messages=[
             {"role": "user", "content": "Hello, Claude"},
@@ -186,7 +186,7 @@ import asyncio
 from mlflow.entities import SpanType
 
 client = anthropic.AsyncAnthropic()
-model_name = "claude-sonnet-4-5-20250929"
+model_name = "claude-sonnet-5-5"
 
 
 # Define the tool function. Decorate it with `@mlflow.trace` to create a span for its execution.

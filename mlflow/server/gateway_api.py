@@ -79,6 +79,7 @@ from mlflow.gateway.tracing_utils import (
     aggregate_gemini_stream_generate_content_chunks,
     aggregate_openai_responses_stream_chunks,
     maybe_traced_gateway_call,
+    openai_responses_stream_status,
 )
 from mlflow.gateway.utils import safe_stream, to_sse_stream, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -522,10 +523,17 @@ def _build_endpoint_config(
         model_config.provider = Provider.BEDROCK
     elif model_config.provider == Provider.VERTEX_AI:
         auth_config = model_config.auth_config or {}
+        # default_chain uses the server's Application Default Credentials, so ignore any
+        # service account JSON left over from a previous auth mode
+        vertex_credentials = (
+            None
+            if auth_config.get(_AuthConfigKey.AUTH_MODE) == "default_chain"
+            else model_config.secret_value.get("vertex_credentials")
+        )
         provider_config = VertexAIConfig(
             vertex_project=auth_config.get("vertex_project"),
             vertex_location=auth_config.get("vertex_location"),
-            vertex_credentials=model_config.secret_value.get("vertex_credentials"),
+            vertex_credentials=vertex_credentials,
             vertex_anthropic_betas=auth_config.get("vertex_anthropic_betas"),
         )
     else:
@@ -536,9 +544,14 @@ def _build_endpoint_config(
         # Merge auth_config with secret_value (secret_value contains api_key and other secrets).
         # api_base is validated on auth_config at write time, so the encrypted, unvalidated
         # secret map must never be allowed to override it.
-        secret_value = {
-            k: v for k, v in model_config.secret_value.items() if k != _AuthConfigKey.API_BASE
-        }
+        # default_chain modes (e.g. SageMaker) resolve credentials from the server environment,
+        # so ignore any secrets left over from a previous auth mode.
+        if auth_config.get(_AuthConfigKey.AUTH_MODE) == "default_chain":
+            secret_value = {}
+        else:
+            secret_value = {
+                k: v for k, v in model_config.secret_value.items() if k != _AuthConfigKey.API_BASE
+            }
         litellm_config = {
             "litellm_provider": original_provider,
             "litellm_auth_config": auth_config | secret_value,
@@ -1462,6 +1475,7 @@ async def openai_passthrough_responses(request: Request):
             endpoint_config,
             user_metadata,
             output_reducer=aggregate_openai_responses_stream_chunks,
+            stream_status_resolver=openai_responses_stream_status,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
             on_complete=make_budget_on_complete(
