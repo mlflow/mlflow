@@ -6050,6 +6050,14 @@ def test_assistant_message_requires_experiment_read_permission(fastapi_client, m
     assert send((other, other_password)).status_code == 200
     assert send((owner, owner_password), experiment_id=experiment_id).status_code == 200
 
+    # Bodies the validator can't read pass through to FastAPI, which rejects them with 422.
+    other_auth = (other, other_password)
+    malformed = requests.post(
+        url, data="{", headers={"Content-Type": "application/json"}, auth=other_auth
+    )
+    assert malformed.status_code == 422
+    assert requests.post(url, json=[experiment_id], auth=other_auth).status_code == 422
+
     grant_role_permission(fastapi_client.tracking_uri, other, "experiment", experiment_id, "READ")
     assert send((other, other_password), experiment_id=experiment_id).status_code == 200
 
