@@ -182,6 +182,7 @@ jobs:
           path: ${{ env.VERIFY_TMP_DIR }}/in
       - uses: ./trusted/.github/actions/setup-python
       - uses: ./trusted/.github/actions/setup-node
+      - uses: ./trusted/.github/actions/setup-java
       - name: Prepare PR diff
         env:
           HEAD_SHA: ${{ needs.gate.outputs.head }}

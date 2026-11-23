@@ -80,7 +80,8 @@ still observe. Use read-only `gh` for linked issues, PRs, or Actions logs when n
 
 ### Launch the finders
 
-Use `Agent` to launch one finder per listed review angle in parallel.
+For each listed review angle, make a separate `Agent` tool call and assign that finder exactly
+one angle. Launch the finders in parallel.
 Each finder starts with fresh context. Fill in its prompt using absolute paths and omit
 `isolation` to use the prepared checkouts.
 
@@ -118,6 +119,7 @@ Specify the entry point, input, and expected result for each check.
 Run each check through its planned entry point. Record the input and the observed result
 (the returned value or visible state), then compare it with the expected result. Group checks
 that share setup and use fresh data when an earlier check could affect the result.
+Install missing dependencies as needed (e.g., `uv run --with pyspark python check.py`).
 
 - Exercise HTTP endpoints against a running server and UI flows in the browser. Mock external
   providers. Check visual changes in both light and dark themes. Logic-only changes need one theme.
@@ -148,9 +150,9 @@ which source, module, or build path each process actually loaded.
 
 ## 5. Write and validate the review
 
-Write `$tmp_dir/out/payload.json` using the [payload schema](payload.schema.yml). Summarize
-the entry points you exercised, the observed results, and any verification gaps. Report a candidate
-as a finding when source evidence or an observed result supports it. Include findings discovered
+Write `$tmp_dir/out/payload.json` using the [payload schema](payload.schema.yml), including its
+instructions for the summary and optional Evidence section. Report a candidate as a finding
+when source evidence or an observed result supports it. Include findings discovered
 while running the checks. If a review thread already covers a finding, mention it in the body
 and account for it in the verdict.
 
