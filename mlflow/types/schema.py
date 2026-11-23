@@ -1026,7 +1026,9 @@ class Schema:
 
     @staticmethod
     def _find_duplicates(inputs: list[ColSpec | TensorSpec]) -> list[str]:
-        return sorted(name for name, count in Counter(x.name for x in inputs).items() if count > 1)
+        counts = Counter(x.name for x in inputs)
+        # Names aren't type-checked, so sort by `str` to handle mixed types (e.g., `1` and `"a"`).
+        return sorted((name for name, count in counts.items() if count > 1), key=str)
 
     def __len__(self):
         return len(self._inputs)

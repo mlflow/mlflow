@@ -192,6 +192,17 @@ def test_schema_creation_warns_on_duplicated_names(inputs):
         Schema(inputs)
 
 
+def test_schema_creation_warns_on_duplicated_names_of_mixed_types():
+    inputs = [
+        ColSpec("string", 1),
+        ColSpec("double", 1),
+        ColSpec("string", "a"),
+        ColSpec("double", "a"),
+    ]
+    with pytest.warns(FutureWarning, match=r"Duplicated input names found in schema: \[1, 'a'\]"):
+        Schema(inputs)
+
+
 @pytest.mark.parametrize(
     "inputs",
     [
