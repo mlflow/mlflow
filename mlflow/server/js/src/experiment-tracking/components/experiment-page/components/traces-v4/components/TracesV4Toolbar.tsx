@@ -1,9 +1,7 @@
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
-  Button,
   ForkHorizontalIcon,
-  HistoryIcon,
   SchemaIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
@@ -24,10 +22,12 @@ import {
   type TraceColumnId,
   type TraceFilterModel,
 } from '@databricks/web-shared/traces-table';
-import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
-import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import {
+  shouldEnableExperimentIssuesTab,
+  shouldEnableIssueDetection,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { CancelIssueDetectionButton } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-issues/CancelIssueDetectionButton';
+import { IssueDetectionRunHistoryButton } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-issues/IssueDetectionRunHistoryButton';
 import { type TracesV4AssessmentColumns } from '../hooks/useTracesV4AssessmentColumns';
 import { type TracesV4CustomColumns } from '../hooks/useTracesV4CustomColumns';
 import { type TracesV4Density } from '../hooks/useTracesV4Density';
@@ -218,7 +218,6 @@ export const useTracesV4ToolbarSlots = ({
 }: TracesV4ToolbarParams): TracesV4ToolbarSlots => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
   const issueDetectionEnabled = shouldEnableIssueDetection();
   const hasSelection = selectionCount > 0;
   const tracesViewLabel = intl.formatMessage({
@@ -504,24 +503,11 @@ export const useTracesV4ToolbarSlots = ({
         {!hideFilterButton && <div css={{ flex: 1 }} />}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <TracesV4RefreshButton isFetching={isRefreshing} />
-          {issueDetectionEnabled && onDetectIssues && (
-            <Tooltip
-              componentId="mlflow.traces-v4.issue-detection-run-history-tooltip"
-              content={intl.formatMessage({
-                defaultMessage: 'Issue detection run history',
-                description: 'Traces table toolbar > Tooltip for opening issue detection run history',
-              })}
-            >
-              <Button
-                componentId="mlflow.traces-v4.issue-detection-run-history"
-                icon={<HistoryIcon />}
-                aria-label={intl.formatMessage({
-                  defaultMessage: 'Issue detection run history',
-                  description: 'Traces table toolbar > Accessible label for opening issue detection run history',
-                })}
-                onClick={() => navigate(Routes.getIssueDetectionRunsRoute(experimentId))}
-              />
-            </Tooltip>
+          {shouldEnableExperimentIssuesTab() && (
+            <IssueDetectionRunHistoryButton
+              experimentId={experimentId}
+              componentId="mlflow.traces-v4.issue-detection-run-history"
+            />
           )}
           {issueDetectionEnabled &&
             onDetectIssues &&

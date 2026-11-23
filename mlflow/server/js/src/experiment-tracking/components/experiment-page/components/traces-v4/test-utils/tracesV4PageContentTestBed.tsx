@@ -93,6 +93,7 @@ export const renderPage = ({ initialUrl = URL }: { initialUrl?: string } = {}) =
           </>
         ),
       },
+      { path: '*', element: <LocationSpy /> },
     ],
     history,
     experimentId: EXPERIMENT_ID,

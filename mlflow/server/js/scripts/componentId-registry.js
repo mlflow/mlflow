@@ -1103,6 +1103,7 @@ module.exports = {
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-request-time": "",
 
   // -- mlflow.experiment-issues --
+  "mlflow.experiment-issues.action-bar.run-history": "",
   "mlflow.experiment-issues.cancel-detection": "",
   "mlflow.experiment-issues.detail.category": "",
   "mlflow.experiment-issues.detail.proposed-fix.copy": "",
@@ -1741,6 +1742,9 @@ module.exports = {
   "mlflow.home.workspaces_table.header.description": "",
   "mlflow.home.workspaces_table.header.manage": "",
   "mlflow.home.workspaces_table.header.name": "",
+
+  // -- mlflow.issue-detection-run-history --
+  "mlflow.issue-detection-run-history.tooltip": "",
 
   // -- mlflow.issue-detection-settings --
   "mlflow.issue-detection-settings.custom-category.remove": "",
@@ -2482,7 +2486,6 @@ module.exports = {
   "mlflow.traces-v4.group-by-session": "",
   "mlflow.traces-v4.group-by-session.tooltip": "",
   "mlflow.traces-v4.issue-detection-run-history": "",
-  "mlflow.traces-v4.issue-detection-run-history-tooltip": "",
   "mlflow.traces-v4.notifications.close": "",
   "mlflow.traces-v4.pairwise-review.card": "",
   "mlflow.traces-v4.pairwise-review.question": "",

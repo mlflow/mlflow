@@ -20,7 +20,10 @@ import { setLocalStorageItem } from '@databricks/web-shared/hooks';
 import { slowlyTypeEachKey } from '@databricks/web-shared/test-utils/slowlyTypeEachKey';
 import { TracesV4Tab } from '../TracesV4Tab';
 import { renderTracesV4Page } from '../test-utils/renderTracesV4Page';
-import { shouldEnableIssueDetection } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentIssuesTab,
+  shouldEnableIssueDetection,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import {
   renderPage,
@@ -46,10 +49,12 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
     '@mlflow/mlflow/src/common/utils/FeatureUtils',
   ),
   shouldEnableNewEvalRunsUi: jest.fn(() => false),
+  shouldEnableExperimentIssuesTab: jest.fn(() => true),
   shouldEnableIssueDetection: jest.fn(() => false),
 }));
 
 afterEach(() => {
+  jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(true);
   jest.mocked(shouldEnableIssueDetection).mockReturnValue(false);
 });
 
@@ -63,15 +68,22 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/hooks/useExperimentQuery', () 
 }));
 
 describe('TracesV4PageContent', () => {
-  test('opens issue detection run history from the traces toolbar', async () => {
-    jest.mocked(shouldEnableIssueDetection).mockReturnValue(true);
+  test('opens issue detection run history when starting new detection is disabled', async () => {
     const user = userEvent.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
     renderPage();
     await findTraceRow('tr-000');
 
     await user.click(screen.getByRole('button', { name: 'Issue detection run history' }));
 
-    expect(env.lastPathname).toBe(Routes.getIssueDetectionRunsRoute(EXPERIMENT_ID));
+    await waitFor(() => expect(env.lastPathname).toBe(Routes.getIssueDetectionRunsRoute(EXPERIMENT_ID)));
+  });
+
+  test('hides issue detection run history when the Issues tab is disabled', async () => {
+    jest.mocked(shouldEnableExperimentIssuesTab).mockReturnValue(false);
+    renderPage();
+    await findTraceRow('tr-000');
+
+    expect(screen.queryByRole('button', { name: 'Issue detection run history' })).not.toBeInTheDocument();
   });
 
   test('renders a row per trace with the default columns', async () => {
