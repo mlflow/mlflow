@@ -668,6 +668,14 @@ def _try_read_trace_data_pb(trace_data_path) -> list["Span"]:
         raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
 
 
+def _validate_multipart_upload_num_parts(num_parts: int, max_num_parts: int) -> None:
+    if not 1 <= num_parts <= max_num_parts:
+        raise MlflowException(
+            f"num_parts must be between 1 and {max_num_parts}, got {num_parts}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
 class MultipartUploadMixin(ABC):
     @abstractmethod
     def create_multipart_upload(

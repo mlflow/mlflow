@@ -8,6 +8,7 @@ from google.auth.exceptions import DefaultCredentialsError
 from google.cloud.storage import client as gcs_client
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository, GCSMPUArguments
 
@@ -431,6 +432,15 @@ def test_create_multipart_upload(mock_client):
         assert len(create.credentials) == 5
         assert create.upload_id == upload_id
         assert kwargs["data"] is None
+
+
+@pytest.mark.parametrize("num_parts", [0, 10_001])
+def test_create_multipart_upload_rejects_out_of_range_num_parts(mock_client, num_parts):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    with pytest.raises(MlflowException, match="num_parts must be between 1 and 10000") as exc:
+        repo.create_multipart_upload("file.txt", num_parts=num_parts)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    mock_client.bucket.assert_not_called()
 
 
 def test_complete_multipart_upload(mock_client):

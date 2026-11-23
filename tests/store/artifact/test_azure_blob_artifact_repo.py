@@ -498,6 +498,19 @@ def test_create_multipart_upload_block_ids_have_same_length(mock_client):
     assert len({len(b) for b in block_ids}) == 1
 
 
+@pytest.mark.parametrize("num_parts", [0, 50_001])
+def test_create_multipart_upload_rejects_out_of_range_num_parts(mock_client, num_parts):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    with (
+        mock.patch("azure.storage.blob.generate_blob_sas") as generate_sas,
+        pytest.raises(MlflowException, match="num_parts must be between 1 and 50000") as exc,
+    ):
+        repo.create_multipart_upload("local_file", num_parts=num_parts)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    generate_sas.assert_not_called()
+    mock_client.get_user_delegation_key.assert_not_called()
+
+
 def test_create_multipart_upload_with_token_credential(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     mock_client.url = "some-url"

@@ -37,12 +37,15 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     PresignedUploadMixin,
     _is_object_key_within_path,
+    _validate_multipart_upload_num_parts,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 _logger = logging.getLogger(__name__)
 
 _MAX_CACHE_SECONDS = 300
+# https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
+_S3_MAX_NUM_PARTS = 10_000
 
 BOTO_TO_MLFLOW_ERROR = {
     "AccessDenied": PERMISSION_DENIED,
@@ -636,6 +639,7 @@ class S3ArtifactRepository(
             - credentials: List of MultipartUploadCredential objects with presigned URLs
             - upload_id: S3 upload ID for tracking this multipart upload
         """
+        _validate_multipart_upload_num_parts(num_parts, _S3_MAX_NUM_PARTS)
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)

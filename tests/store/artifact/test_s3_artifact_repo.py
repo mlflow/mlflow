@@ -514,6 +514,18 @@ def test_create_multipart_upload_rejects_unsupported_checksums_before_creating_u
     get_client.assert_not_called()
 
 
+@pytest.mark.parametrize("num_parts", [0, 10_001])
+def test_create_multipart_upload_rejects_out_of_range_num_parts(num_parts):
+    repo = S3ArtifactRepository("s3://bucket/root")
+    with (
+        mock.patch.object(repo, "_get_s3_client") as get_client,
+        pytest.raises(MlflowException, match="num_parts must be between 1 and 10000") as exc,
+    ):
+        repo.create_multipart_upload("local_file", num_parts=num_parts)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    get_client.assert_not_called()
+
+
 def test_create_multipart_upload_preserves_content_metadata_and_encryption_headers(
     tmp_path, monkeypatch
 ):
