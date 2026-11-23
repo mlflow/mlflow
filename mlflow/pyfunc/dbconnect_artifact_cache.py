@@ -1,11 +1,14 @@
+import errno
 import json
 import os
+import shutil
 import tarfile
+from contextlib import ExitStack
 from pathlib import Path
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.file_utils import check_tarfile_security, get_or_create_tmp_dir
+from mlflow.utils.file_utils import check_tarfile_security, get_or_create_tmp_dir, remove_on_error
 
 _CACHE_MAP_FILE_NAME = "db_connect_artifact_cache.json"
 
@@ -178,21 +181,32 @@ def _safe_extractall(tar, dest_dir):
                 f"the destination directory."
             )
         if member.islnk():
-            _extract_hardlink(member, resolved_dest)
+            try:
+                _extract_hardlink(member, resolved_dest)
+            except OSError as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to extract hard link {member.name!r} -> {member.linkname!r}: {e}"
+                ) from e
         else:
             tar.extract(member, path=resolved_dest)
 
 
 def _extract_hardlink(member, resolved_dest):
-    # Create the link directly rather than through tarfile: when `os.link` fails (e.g. the
-    # link path already exists, or the target has a trailing slash), tarfile falls back to
-    # re-extracting the archive member named by the normalized target at the link path,
-    # which can be a symlink that points outside the destination once relocated.
+    # Keep the original path spelling so that os.link and open resolve the same target.
+    target_path = os.path.join(resolved_dest, member.linkname)
     link_path = os.path.join(resolved_dest, member.name)
     os.makedirs(os.path.dirname(link_path), exist_ok=True)
     try:
-        os.link(os.path.join(resolved_dest, member.linkname), link_path)
+        os.link(target_path, link_path)
+        return
     except OSError as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Failed to extract hard link {member.name!r} -> {member.linkname!r}: {e}"
-        ) from e
+        if e.errno not in (errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP, errno.EXDEV, errno.EMLINK):
+            raise
+
+    # Copy the validated file when the filesystem can't hard link. tarfile's fallback
+    # re-extracts an archive member, which can relocate a relative symlink.
+    with ExitStack() as cleanup:
+        with open(target_path, "rb") as source, open(link_path, "xb") as destination:
+            cleanup.enter_context(remove_on_error(link_path))
+            shutil.copyfileobj(source, destination)
+        shutil.copystat(target_path, link_path)

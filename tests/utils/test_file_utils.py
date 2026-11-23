@@ -1,3 +1,4 @@
+import errno
 import filecmp
 import hashlib
 import io
@@ -451,7 +452,10 @@ def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
     assert stat.S_IMODE(secret.stat().st_mode) == original_mode
 
 
-def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
+@pytest.mark.parametrize("hardlinks_supported", [True, False])
+def test_extract_archive_to_dir_allows_hardlinks_inside_dest(
+    tmp_path, monkeypatch, hardlinks_supported
+):
     archive = tmp_path / "hardlinks.tar"
     with tarfile.open(archive, "w") as tar:
         subdir = tarfile.TarInfo("subdir")
@@ -478,16 +482,40 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
             tar.addfile(hardlink)
 
     dest = tmp_path / "extracted"
+    if not hardlinks_supported:
+        monkeypatch.setattr(
+            os, "link", mock.Mock(side_effect=PermissionError(errno.EPERM, "denied"))
+        )
     extract_archive_to_dir(archive, dest)
-    assert (dest / "copy.txt").read_text() == "data.txt"
-    assert (dest / "copy.txt").samefile(dest / "data.txt")
-    assert (dest / "via_link.txt").read_text() == "subdir/file.txt"
-    assert (dest / "via_link.txt").samefile(dest / "subdir" / "file.txt")
-    for name in ["copy.txt", "via_link.txt"]:
-        link_stat = (dest / name).stat()
+    for name, target in [("copy.txt", "data.txt"), ("via_link.txt", "subdir/file.txt")]:
+        link = dest / name
+        assert link.read_text() == target
+        assert link.samefile(dest / target) == hardlinks_supported
+        link_stat = link.stat()
         assert link_stat.st_mtime == 1_000_000
         if not is_windows():
             assert stat.S_IMODE(link_stat.st_mode) == 0o640
+
+
+def test_hardlink_copy_preserves_existing_destination(tmp_path):
+    archive = tmp_path / "hardlinks.tar"
+    with tarfile.open(archive, "w") as tar:
+        tar.addfile(tarfile.TarInfo("target"))
+        link = tarfile.TarInfo("alias")
+        link.type = tarfile.LNKTYPE
+        link.linkname = "target"
+        tar.addfile(link)
+
+    dest = tmp_path / "extracted"
+    dest.mkdir()
+    alias = dest / "alias"
+    alias.write_text("existing")
+    with (
+        mock.patch("os.link", side_effect=OSError(errno.ENOTSUP, "unsupported")),
+        pytest.raises(MlflowException, match="Failed to extract hard link"),
+    ):
+        extract_archive_to_dir(archive, dest)
+    assert alias.read_text() == "existing"
 
 
 @pytest.mark.parametrize(
