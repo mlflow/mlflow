@@ -175,6 +175,41 @@ def test_schema_creation_errors():
         Schema({"col1": ColSpec(DataType.string)})
 
 
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [ColSpec("string", "dup"), ColSpec("double", "dup")],
+        [
+            TensorSpec(np.dtype("float64"), (-1,), "dup"),
+            TensorSpec(np.dtype("float64"), (-1,), "dup"),
+        ],
+    ],
+)
+def test_schema_rejects_duplicate_input_names(inputs):
+    with pytest.raises(MlflowException, match="Duplicated input names found in schema"):
+        Schema(inputs)
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [ColSpec("string", "")],
+        [ColSpec("string", ""), ColSpec("double", "a")],
+        [TensorSpec(np.dtype("float64"), (-1,), "")],
+    ],
+)
+def test_schema_rejects_empty_input_names(inputs):
+    with pytest.raises(
+        MlflowException, match="Creating Schema with empty input names is not allowed"
+    ):
+        Schema(inputs)
+
+
+def test_schema_allows_valid_named_and_unnamed_inputs():
+    assert len(Schema([ColSpec("string", "a"), ColSpec("double", "b")])) == 2
+    assert len(Schema([ColSpec("string"), ColSpec("double")])) == 2
+
+
 def test_get_schema_type(dict_of_ndarrays):
     schema = _infer_schema(dict_of_ndarrays)
     assert ["float64"] * 4 == schema.numpy_types()

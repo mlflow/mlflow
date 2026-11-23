@@ -978,6 +978,17 @@ class Schema:
                 "Creating Schema with a combination of named and unnamed inputs "
                 f"is not allowed. Got input names {[x.name for x in inputs]}"
             )
+        if all(x.name is not None for x in inputs):
+            input_names = [x.name for x in inputs]
+            if any(name == "" for name in input_names):
+                raise MlflowException.invalid_parameter_value(
+                    "Creating Schema with empty input names is not allowed. "
+                    "Please provide non-empty names for all inputs."
+                )
+            if duplicates := self._find_duplicate_names(input_names):
+                raise MlflowException.invalid_parameter_value(
+                    f"Duplicated input names found in schema: {duplicates}"
+                )
         if not (
             all(isinstance(x, TensorSpec) for x in inputs)
             or all(isinstance(x, ColSpec) for x in inputs)
@@ -1001,6 +1012,17 @@ class Schema:
                 "Please name all inputs or make all inputs required."
             )
         self._inputs = inputs
+
+    @staticmethod
+    def _find_duplicate_names(names: list[str]) -> list[str]:
+        seen = set()
+        duplicates = []
+        for name in names:
+            if name in seen:
+                duplicates.append(name)
+            else:
+                seen.add(name)
+        return duplicates
 
     def __len__(self):
         return len(self._inputs)
