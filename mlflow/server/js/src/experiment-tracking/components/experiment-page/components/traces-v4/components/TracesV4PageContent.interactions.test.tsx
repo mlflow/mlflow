@@ -439,7 +439,7 @@ describe('TracesV4PageContent (interactions)', () => {
       await user.click(await findTraceRow('tr-000'));
 
       const drawer = await screen.findByRole('dialog');
-      await user.click(within(drawer).getByRole('button', { name: 'Flag for review' }));
+      await user.click(await within(drawer).findByRole('button', { name: 'Flag for review' }));
       await user.click(await screen.findByRole('checkbox', { name: 'Relevance' }));
       await waitFor(() => expect(addItemsRequest).toEqual({ queue_id: 'rq-relevance', item_ids: ['tr-000'] }));
       expect(await screen.findByText('Added 1 trace to review.')).toBeInTheDocument();

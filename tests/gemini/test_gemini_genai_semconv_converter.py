@@ -10,6 +10,7 @@ from mlflow.tracing.constant import GenAiSemconvKey
 
 from tests.gemini.test_gemini_autolog import (
     _dummy_generate_content,
+    _dummy_generate_content_stream,
     _generate_content_response,
     multiply,
 )
@@ -58,6 +59,28 @@ def test_autolog_basic(capture_otel_export):
     assert output_msgs[0]["role"] == "assistant"
     assert output_msgs[0]["parts"][0]["content"] == "test answer"
     assert not any(k.startswith("mlflow.") for k in llm_span.attributes)
+
+
+@pytest.mark.usefixtures("reset_autolog_state")
+def test_autolog_stream(capture_otel_export):
+    exporter, processor = capture_otel_export
+
+    mlflow.gemini.autolog()
+    with patch(
+        "google.genai.models.Models._generate_content_stream",
+        new=_dummy_generate_content_stream(is_async=False),
+    ):
+        client = genai.Client(api_key="dummy")
+        list(client.models.generate_content_stream(model=MODEL, contents="test content"))
+
+    llm_span = _get_llm_span(exporter, processor)
+    input_msgs = json.loads(llm_span.attributes[GenAiSemconvKey.INPUT_MESSAGES])
+    assert input_msgs[0]["parts"][0]["content"] == "test content"
+
+    output_msgs = json.loads(llm_span.attributes[GenAiSemconvKey.OUTPUT_MESSAGES])
+    assert [part["content"] for part in output_msgs[0]["parts"]] == ["test answer"]
+    assert llm_span.attributes[GenAiSemconvKey.USAGE_INPUT_TOKENS] == 6
+    assert llm_span.attributes[GenAiSemconvKey.USAGE_OUTPUT_TOKENS] == 6
 
 
 @pytest.mark.usefixtures("reset_autolog_state")

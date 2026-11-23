@@ -30,13 +30,12 @@ requires-python = ">=3.11"
 # application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
 dependencies = [
   "anyio<5,>=3.6.2,!=4.15.0",
-  "cachetools<8,>=5.0.0",
+  "cachetools<9,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
   "databricks-sdk<1,>=0.20.0",
   "fastapi<1",
   "gitpython<4,>=3.1.9",
-  "importlib_metadata<11,>=3.7.0,!=4.7.0",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-proto<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",

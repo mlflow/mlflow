@@ -1195,6 +1195,7 @@ def chat_config_with_base_url_alias():
         ("custom_llm_provider", "ollama"),
         ("aws_bedrock_runtime_endpoint", "http://127.0.0.1:11434"),
         ("aws_sts_endpoint", "http://127.0.0.1:11434"),
+        ("sagemaker_base_url", "http://127.0.0.1:11434/invocations"),
         ("gigachat_auth_url", "https://oauth.example.com/token"),
         ("aws_region_name", "evil.example/invocations?x="),
         ("vertex_location", "evil.example/#"),
@@ -1335,6 +1336,7 @@ async def test_chat_folds_public_base_url_alias_into_api_base_when_upstream_prot
         ),
         ("aws_bedrock_runtime_endpoint", "http://10.0.0.1/"),
         ("aws_sts_endpoint", "http://10.0.0.1/"),
+        ("sagemaker_base_url", "http://10.0.0.1/invocations"),
         ("gigachat_auth_url", "https://oauth.example.com/token"),
     ],
 )
@@ -1449,3 +1451,24 @@ def test_credential_request_guard_with_private_upstream_opt_out(monkeypatch):
     with pytest.raises(HTTPException, match="The request must not set 'aws_profile_name'") as exc:
         _prepare_litellm_kwargs({"aws_profile_name": "caller-profile"}, None, protected=True)
     assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_chat_sends_cache_control():
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": "Question"},
+            ],
+        }
+    ]
+
+    with mock.patch(
+        "litellm.acompletion", return_value=mock_litellm_chat_response()
+    ) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**chat_config()))
+        await provider.chat(chat.RequestPayload(messages=messages))
+
+    assert mock_completion.call_args.kwargs["messages"] == messages

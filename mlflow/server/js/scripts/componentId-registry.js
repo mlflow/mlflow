@@ -751,6 +751,7 @@ module.exports = {
   // -- mlflow.eval-datasets-v2 --
   "mlflow.eval-datasets-v2.breadcrumb.datasets": "",
   "mlflow.eval-datasets-v2.create-dataset.button": "",
+  "mlflow.eval-datasets-v2.create-dataset.permission-tooltip": "",
   "mlflow.eval-datasets-v2.detail.actions": "",
   "mlflow.eval-datasets-v2.detail.actions.delete-dataset": "",
   "mlflow.eval-datasets-v2.detail.actions.view-in-unity-catalog": "",
@@ -1602,6 +1603,7 @@ module.exports = {
   "mlflow.gateway.usage-modal.unified-view-mode": "",
   "mlflow.gateway.usage.breadcrumb_gateway_link": "",
   "mlflow.gateway.usage.endpoint-selector": "",
+  "mlflow.gateway.usage.feature_usage": "",
   "mlflow.gateway.usage.go_to_endpoints_link": "",
   "mlflow.gateway.usage.go_to_endpoints_link_logs": "",
   "mlflow.gateway.usage.tabs": "",

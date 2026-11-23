@@ -203,6 +203,49 @@ def test_build_endpoint_config_vertex_ai_reads_anthropic_betas_from_auth_config(
     assert config.model.config.vertex_anthropic_betas == expected
 
 
+@pytest.mark.parametrize(
+    ("auth_mode", "expected"),
+    [
+        ("service_account_json", '{"type": "service_account"}'),
+        ("default_chain", None),
+    ],
+)
+def test_build_endpoint_config_vertex_ai_credentials_follow_auth_mode(auth_mode, expected):
+    # A key switched to default_chain can still store the service account JSON
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="vertex_ai",
+        model_name="gemini-2.5-flash",
+        secret_value={"vertex_credentials": '{"type": "service_account"}'},
+        auth_config={"auth_mode": auth_mode, "vertex_project": "my-project"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, VertexAIConfig)
+    assert config.model.config.vertex_credentials == expected
+
+
+@pytest.mark.parametrize(
+    ("auth_mode", "expected_keys"),
+    [
+        ("access_keys", {"aws_access_key_id", "aws_secret_access_key"}),
+        ("default_chain", set()),
+    ],
+)
+def test_build_endpoint_config_sagemaker_secrets_follow_auth_mode(auth_mode, expected_keys):
+    # A key switched to default_chain can still store the access keys
+    model_config = GatewayModelConfig(
+        model_definition_id="md-test",
+        provider="sagemaker",
+        model_name="my-endpoint",
+        secret_value={"aws_access_key_id": "a", "aws_secret_access_key": "b"},
+        auth_config={"auth_mode": auth_mode, "aws_region_name": "us-east-1"},
+    )
+    config = _build_endpoint_config("test-ep", model_config, EndpointType.LLM_V1_CHAT)
+    assert isinstance(config.model.config, LiteLLMConfig)
+    auth = config.model.config.litellm_auth_config
+    assert {"aws_access_key_id", "aws_secret_access_key"} & auth.keys() == expected_keys
+
+
 def test_build_endpoint_config_typesafe_reads_api_base_from_auth_config():
     model_config = GatewayModelConfig(
         model_definition_id="md-test",
@@ -702,14 +745,23 @@ def test_upstream_ssrf_protection_enabled_for_stored_base_url_alias(store: SqlAl
 
 
 @pytest.mark.parametrize("config_field", ["auth_config", "secret_value"])
-def test_upstream_ssrf_protection_enabled_for_stored_oauth_destination(config_field):
+@pytest.mark.parametrize(
+    ("provider", "destination"),
+    [
+        ("gigachat", {"gigachat_auth_url": "https://oauth.example.com/token"}),
+        ("sagemaker", {"sagemaker_base_url": "http://10.0.0.1/invocations"}),
+    ],
+)
+def test_upstream_ssrf_protection_enabled_for_stored_provider_destination(
+    config_field, provider, destination
+):
     model = GatewayModelConfig(
         model_definition_id="legacy-model",
-        provider="gigachat",
+        provider=provider,
         model_name="m",
         secret_value={"api_key": "configured-key"},
     )
-    setattr(model, config_field, {"gigachat_auth_url": "https://oauth.example.com/token"})
+    setattr(model, config_field, destination)
     endpoint_config = GatewayEndpointConfig(
         endpoint_id="legacy-endpoint", endpoint_name="legacy-endpoint", models=[model]
     )
@@ -2276,6 +2328,100 @@ async def test_openai_passthrough_responses_streaming(store: SqlAlchemyStore):
         assert b"response.content_part.done" in chunks[5]
         assert b"response.output_item.done" in chunks[6]
         assert b"response.completed" in chunks[7]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("terminal_event", "expected_state", "expected_description"),
+    [
+        (
+            {
+                "type": "response.failed",
+                "response": {
+                    "id": "resp_1",
+                    "status": "failed",
+                    "output": [],
+                    "error": {"code": "server_error", "message": "Upstream failure"},
+                },
+            },
+            TraceState.ERROR,
+            "server_error: Upstream failure",
+        ),
+        (
+            {
+                "type": "response.incomplete",
+                "response": {
+                    "id": "resp_1",
+                    "status": "incomplete",
+                    "output": [],
+                    "incomplete_details": {"reason": "max_output_tokens"},
+                },
+            },
+            TraceState.OK,
+            "",
+        ),
+    ],
+    ids=["failed", "incomplete"],
+)
+async def test_openai_passthrough_responses_streaming_trace_status(
+    store: SqlAlchemyStore,
+    terminal_event: dict[str, Any],
+    expected_state: TraceState,
+    expected_description: str,
+):
+    endpoint_name = "openai-responses-status-endpoint"
+    experiment_id = store.create_experiment(f"gateway/{endpoint_name}")
+    secret = store.create_gateway_secret(
+        secret_name="openai-responses-status-key",
+        secret_value={"api_key": "sk-test-responses-status"},
+        provider="openai",
+    )
+    model_def = store.create_gateway_model_definition(
+        name="openai-responses-status-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4o",
+    )
+    store.create_gateway_endpoint(
+        name=endpoint_name,
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+        usage_tracking=True,
+        experiment_id=experiment_id,
+    )
+
+    mock_request = create_mock_request()
+    mock_request.json = AsyncMock(
+        return_value={"model": endpoint_name, "input": "Hello", "stream": True}
+    )
+
+    async def mock_stream_generator():
+        yield (
+            b'data: {"type":"response.created","response":{"id":"resp_1",'
+            b'"status":"in_progress","output":[]}}\n\n'
+        )
+        yield f"data: {json.dumps(terminal_event)}\n\n".encode()
+
+    with mock.patch(
+        "mlflow.gateway.providers.openai.send_stream_request",
+        return_value=mock_stream_generator(),
+    ):
+        response = await openai_passthrough_responses(mock_request)
+        chunks = [chunk async for chunk in response.body_iterator]
+
+    assert len(chunks) == 2
+    traces = TracingClient().search_traces(locations=[experiment_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.state == expected_state
+    root_span = next(span for span in trace.data.spans if span.parent_id is None)
+    assert root_span.status.description == expected_description
+    assert root_span.outputs == terminal_event["response"]
 
 
 # =============================================================================

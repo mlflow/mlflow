@@ -22,6 +22,7 @@ from mlflow.data.evaluation_dataset import (
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.logged_model_input import LoggedModelInput
+from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -37,6 +38,7 @@ from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.time import get_current_time_millis
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -1010,6 +1012,9 @@ def _evaluate(
     The public API "evaluate" will verify argument first, and then pass normalized arguments
     to the _evaluate method.
     """
+    # Lazy import to avoid a circular import (default_evaluator imports this module)
+    from mlflow.models.evaluation.default_evaluator import BuiltInEvaluator
+
     global _last_failed_evaluator
     _last_failed_evaluator = None
 
@@ -1042,6 +1047,25 @@ def _evaluate(
 
             if eval_result is not None:
                 eval_results.append(eval_result)
+                # Built-in evaluators already log their metrics linked to the model and dataset
+                if model_id is not None and not isinstance(eval_.evaluator, BuiltInEvaluator):
+                    timestamp = get_current_time_millis()
+                    client.log_batch(
+                        run_id,
+                        metrics=[
+                            Metric(
+                                key=key,
+                                value=value,
+                                timestamp=timestamp,
+                                step=0,
+                                model_id=model_id,
+                                dataset_name=dataset.name,
+                                dataset_digest=dataset.digest,
+                                run_id=run_id,
+                            )
+                            for key, value in eval_result.metrics.items()
+                        ],
+                    )
 
     _last_failed_evaluator = None
 
@@ -1496,7 +1520,7 @@ def evaluate(
 
                 def custom_artifact(
                     eval_df: Union[pandas.Dataframe, pyspark.sql.DataFrame],
-                    builtin_metrics: Dict[str, float],
+                    builtin_metrics: Dict[str, MetricValue],
                     artifacts_dir: str,
                 ) -> Dict[str, Any]:
                     """
@@ -1508,10 +1532,11 @@ def evaluate(
                             predictions made on that row.
                         builtin_metrics:
                             A dictionary containing the metrics calculated by the default evaluator.
-                            The keys are the names of the metrics and the values are the scalar
-                            values of the metrics. Refer to the DefaultEvaluator behavior section
-                            for what metrics will be returned based on the type of model (i.e.
-                            classifier or regressor).
+                            The keys are the names of the metrics and the values are
+                            ``MetricValue`` objects. The scalar value of metric ``name`` is
+                            ``builtin_metrics[name].aggregate_results[name]``. Refer to the
+                            DefaultEvaluator behavior section for what metrics will be returned
+                            based on the type of model (i.e. classifier or regressor).
                         artifacts_dir:
                             A temporary directory path that can be used by the custom artifacts
                             function to temporarily store produced artifacts. The directory will be
@@ -1803,9 +1828,5 @@ def evaluate(
             finally:
                 if isinstance(model, _ServedPyFuncModel):
                     os.kill(model.pid, signal.SIGTERM)
-
-            # if model_id is specified log metrics to the eval run and logged model
-            if model_id is not None:
-                mlflow.log_metrics(metrics=evaluate_result.metrics, dataset=data, model_id=model_id)
 
     return evaluate_result

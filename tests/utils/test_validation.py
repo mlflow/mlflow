@@ -1021,6 +1021,7 @@ def test_validate_gateway_secret_region_keys_reject_non_region_names(key, value)
         "custom_llm_provider",
         "aws_bedrock_runtime_endpoint",
         "aws_sts_endpoint",
+        "sagemaker_base_url",
         "gigachat_auth_url",
     ],
 )
@@ -1041,6 +1042,7 @@ def test_validate_gateway_secret_auth_config_rejects_litellm_destination_aliases
         "custom_llm_provider",
         "aws_bedrock_runtime_endpoint",
         "aws_sts_endpoint",
+        "sagemaker_base_url",
         "gigachat_auth_url",
     ],
 )
@@ -1165,12 +1167,51 @@ def test_validate_third_party_scorer_data_names_every_offending_key():
         )
 
 
+@pytest.mark.parametrize("key", sorted(GATEWAY_REGION_KEYS))
+@pytest.mark.parametrize("value", ["us-east-1.example.com", "US-EAST-1", "us-east-1\n", 1])
+def test_validate_third_party_scorer_data_rejects_non_region_names(key, value):
+    with pytest.raises(
+        MlflowException, match=f"third_party_scorer_data.kwargs '{key}' must contain only"
+    ) as exc:
+        _validate_third_party_scorer_data(_trulens_scorer({key: value}))
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize(
+    "serialized_scorer",
+    [
+        # trulens' LiteLLM provider forwards `completion_kwargs` into every litellm call.
+        _trulens_scorer({"completion_kwargs": {"aws_region_name": "us-east-1.example.com"}}),
+        _trulens_scorer({"completion_kwargs": [["aws_region_name", "us-east-1.example.com"]]}),
+        _trulens_scorer({"model_kwargs": {"extra": [{"vertex_location": "us.example.com"}]}}),
+        {
+            "name": "ensemble",
+            "ensemble_scorer_data": {
+                "ensemble_fn": "majority_vote",
+                "scorers": [
+                    _trulens_scorer({"completion_kwargs": {"vertex_ai_location": "US"}}),
+                ],
+            },
+        },
+    ],
+)
+def test_validate_third_party_scorer_data_rejects_nested_non_region_names(serialized_scorer):
+    with pytest.raises(MlflowException, match="must contain only lowercase letters") as exc:
+        _validate_third_party_scorer_data(serialized_scorer)
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
 @pytest.mark.parametrize(
     "serialized_scorer",
     [
         _trulens_scorer({}),
         _trulens_scorer(None),
         _trulens_scorer({"threshold": 0.7, "temperature": 0.0}),
+        _trulens_scorer({"aws_region_name": "us-east-1"}),
+        _trulens_scorer({"vertex_location": "europe-west4", "vertex_ai_location": ""}),
+        _trulens_scorer({"completion_kwargs": {"aws_region_name": "us-isob-east-1"}}),
+        _trulens_scorer({"completion_kwargs": [["vertex_location", "us-central1"]]}),
+        _trulens_scorer({"completion_kwargs": [[["aws_region_name"], "x"]]}),
         {"name": "builtin", "builtin_scorer_class": "Safety"},
         {"name": "not-a-dict", "third_party_scorer_data": "x"},
         {

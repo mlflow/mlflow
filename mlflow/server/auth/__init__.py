@@ -2168,12 +2168,16 @@ def _run_requirement(
     ]
 
 
-def _authorize_run_id(run_id: str, action: str) -> bool:
+def _authorize_run_id_as(username: str, run_id: str, action: str) -> bool:
     resolved = _run_requirement(run_id, action)
     if resolved is None:
         return False
     anchor, requirements = resolved
-    return authorize(authenticate_request().username, anchor, requirements)
+    return authorize(username, anchor, requirements)
+
+
+def _authorize_run_id(run_id: str, action: str) -> bool:
+    return _authorize_run_id_as(authenticate_request().username, run_id, action)
 
 
 def _authorize_run(action: str) -> bool:
@@ -8678,9 +8682,9 @@ def get_graphql_authorization_middleware():
         A list containing the middleware instance if auth is enabled,
         empty list otherwise. Suitable for passing to schema.execute(middleware=...).
     """
-    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
-        return []
     if not is_auth_enabled():
+        return []
+    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
         return []
     return [GraphQLAuthorizationMiddleware()]
 
@@ -9564,7 +9568,12 @@ def _get_otel_validator(
             )
         # The handler persists the submitted spans, so this is a trace create and carries the
         # same veto as StartTrace / StartTraceV3.
-        return _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE)
+        if not _authorize_create_in_experiment_as(username, experiment_id, RESOURCE_TYPE_TRACE):
+            return False
+        # The handler also links the ingested traces to this run, which LinkTracesToRun gates on
+        # UPDATE on the run.
+        run_id = request.headers.get("x-mlflow-run-id")
+        return not run_id or _authorize_run_id_as(username, run_id, "update")
 
     return validator
 

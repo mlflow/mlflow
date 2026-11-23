@@ -1432,6 +1432,28 @@ def test_bedrock_anthropic_passthrough_token_usage():
     assert usage == {"input_tokens": 10, "output_tokens": 20, "total_tokens": 30}
 
 
+def test_bedrock_anthropic_passthrough_token_usage_with_1h_cache_creation():
+    provider = _make_api_key_provider()
+    result = {
+        "usage": {
+            "input_tokens": 11,
+            "output_tokens": 4,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 5411,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 5411},
+        },
+    }
+    usage = provider._extract_passthrough_token_usage(PassthroughAction.ANTHROPIC_MESSAGES, result)
+    assert usage == {
+        "input_tokens": 5422,
+        "output_tokens": 4,
+        "total_tokens": 5426,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 5411,
+        "cache_creation_input_tokens_above_1hr": 5411,
+    }
+
+
 @pytest.mark.asyncio
 async def test_bedrock_anthropic_passthrough_rejects_non_anthropic_model():
     provider = _make_api_key_provider("amazon.nova-pro-v1:0")
@@ -1465,3 +1487,326 @@ async def test_bedrock_passthrough_rejects_unsupported_action():
     provider = _make_api_key_provider()
     with pytest.raises(AIGatewayException, match="Unsupported passthrough endpoint"):
         await provider.passthrough(PassthroughAction.OPENAI_CHAT, {"messages": []})
+
+
+# ---- Prompt caching (cachePoint) tests ----
+
+
+def _make_converse_provider_for(model_name: str) -> AmazonBedrockProvider:
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "bedrock",
+            "name": model_name,
+            "config": {"aws_config": {"aws_region": "us-east-1"}},
+        },
+    }
+    return AmazonBedrockProvider(EndpointConfig(**config))
+
+
+async def _converse_kwargs(payload: dict[str, Any], model_name: str | None = None):
+    provider = _make_converse_provider_for(model_name) if model_name else _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse.return_value = _converse_response()
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(**payload))
+    return mock_client.converse.call_args.kwargs
+
+
+def _cache_control_messages():
+    return [
+        {
+            "role": "system",
+            "content": [
+                {"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}},
+                {"type": "text", "text": "More rules"},
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Doc part 1"},
+                {
+                    "type": "text",
+                    "text": "Doc part 2",
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                },
+                {"type": "text", "text": "Question"},
+            ],
+        },
+        {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Answer", "cache_control": {"type": "ephemeral"}}],
+        },
+        {"role": "user", "content": "Follow up"},
+    ]
+
+
+_EXPECTED_CACHED_SYSTEM = [
+    {"text": "Rules"},
+    {"cachePoint": {"type": "default"}},
+    {"text": "More rules"},
+]
+
+_EXPECTED_CACHED_MESSAGES = [
+    {
+        "role": "user",
+        "content": [
+            {"text": "Doc part 1\nDoc part 2"},
+            {"cachePoint": {"type": "default", "ttl": "1h"}},
+            {"text": "Question"},
+        ],
+    },
+    {
+        "role": "assistant",
+        "content": [{"text": "Answer"}, {"cachePoint": {"type": "default"}}],
+    },
+    {"role": "user", "content": [{"text": "Follow up"}]},
+]
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_adds_cache_points_after_marked_parts():
+    kwargs = await _converse_kwargs({"messages": _cache_control_messages()})
+
+    assert kwargs["system"] == _EXPECTED_CACHED_SYSTEM
+    assert kwargs["messages"] == _EXPECTED_CACHED_MESSAGES
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_stream_adds_cache_points_after_marked_parts():
+    provider = _make_converse_provider()
+    mock_client = mock.Mock()
+    mock_client.converse_stream.return_value = _converse_stream_response()
+
+    with mock.patch.object(provider, "get_bedrock_client", return_value=mock_client):
+        payload = chat.RequestPayload(messages=_cache_control_messages(), stream=True)
+        [chunk async for chunk in provider.chat_stream(payload)]
+
+    kwargs = mock_client.converse_stream.call_args.kwargs
+    assert kwargs["system"] == _EXPECTED_CACHED_SYSTEM
+    assert kwargs["messages"] == _EXPECTED_CACHED_MESSAGES
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_with_api_key_adds_cache_points():
+    provider = _make_api_key_provider()
+    mock_client = mock_http_client(MockAsyncResponse(_converse_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(messages=_cache_control_messages()))
+
+    body = mock_client.post.call_args.kwargs["json"]
+    assert body["system"] == _EXPECTED_CACHED_SYSTEM
+    assert body["messages"] == _EXPECTED_CACHED_MESSAGES
+
+
+@pytest.mark.parametrize(
+    ("cache_control", "expected_cache_point"),
+    [
+        ({"type": "ephemeral"}, {"type": "default"}),
+        # 5 minutes is the default, and models that only support it can reject `ttl`.
+        ({"type": "ephemeral", "ttl": "5m"}, {"type": "default"}),
+        ({"type": "ephemeral", "ttl": "1h"}, {"type": "default", "ttl": "1h"}),
+        # Other values are sent as is, so Bedrock reports the ones it does not support.
+        ({"type": "ephemeral", "ttl": "24h"}, {"type": "default", "ttl": "24h"}),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_cache_point_ttl(cache_control, expected_cache_point):
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": [{"type": "text", "text": "Rules", "cache_control": cache_control}],
+            },
+            {"role": "user", "content": "Hello"},
+        ]
+    }
+
+    kwargs = await _converse_kwargs(payload)
+
+    assert kwargs["system"] == [{"text": "Rules"}, {"cachePoint": expected_cache_point}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content",
+    [
+        # Marker on a part that is not the last text part: the cachePoint would land after it.
+        [
+            {"type": "text", "text": "static", "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": "dynamic"},
+        ],
+        # Two markers in one tool result: only one cachePoint can follow the result.
+        [
+            {"type": "text", "text": "a", "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": "b", "cache_control": {"type": "ephemeral", "ttl": "1h"}},
+        ],
+    ],
+)
+async def test_bedrock_converse_rejects_tool_result_markers_it_cannot_place(content):
+    payload = {
+        "messages": [
+            {"role": "user", "content": "add 17 and 25"},
+            {
+                "role": "assistant",
+                "content": "Calling add",
+                "tool_calls": [
+                    {
+                        "id": "tool_abc123",
+                        "type": "function",
+                        "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "tool_abc123", "content": content},
+        ]
+    }
+
+    with pytest.raises(AIGatewayException, match="single cache_control marker") as e:
+        await _converse_kwargs(payload)
+    assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_adds_cache_point_after_marked_tool_result():
+    payload = {
+        "messages": [
+            {"role": "user", "content": "add 17 and 25"},
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Calling add", "cache_control": {"type": "ephemeral"}}
+                ],
+                "tool_calls": [
+                    {
+                        "id": "tool_abc123",
+                        "type": "function",
+                        "function": {"name": "add", "arguments": '{"a": 17, "b": 25}'},
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "tool_abc123",
+                "content": [{"type": "text", "text": "42", "cache_control": {"type": "ephemeral"}}],
+            },
+        ]
+    }
+
+    kwargs = await _converse_kwargs(payload)
+
+    assert kwargs["messages"][1:] == [
+        {
+            "role": "assistant",
+            "content": [
+                {"text": "Calling add"},
+                {"cachePoint": {"type": "default"}},
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_abc123",
+                        "name": "add",
+                        "input": {"a": 17, "b": 25},
+                    }
+                },
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"toolResult": {"toolUseId": "tool_abc123", "content": [{"text": "42"}]}},
+                {"cachePoint": {"type": "default"}},
+            ],
+        },
+    ]
+
+
+def _messages_without_cache_control():
+    return [
+        {
+            "role": "system",
+            "content": [{"type": "text", "text": "Rules"}, {"type": "text", "text": "More"}],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe"},
+                {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+            ],
+        },
+        {"role": "assistant", "content": "Sure"},
+        {"role": "user", "content": "Thanks"},
+    ]
+
+
+# The Converse request sent for `_messages_without_cache_control()`, as built before prompt
+# caching support: each message is a single text block.
+_EXPECTED_KWARGS_WITHOUT_CACHE_CONTROL = {
+    "modelId": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "system": [{"text": "Rules\nMore"}],
+    "messages": [
+        {"role": "user", "content": [{"text": "Describe"}]},
+        {"role": "assistant", "content": [{"text": "Sure"}]},
+        {"role": "user", "content": [{"text": "Thanks"}]},
+    ],
+    "inferenceConfig": {"maxTokens": 100},
+}
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_without_cache_control_is_unchanged():
+    kwargs = await _converse_kwargs({
+        "messages": _messages_without_cache_control(),
+        "max_tokens": 100,
+    })
+
+    assert kwargs == _EXPECTED_KWARGS_WITHOUT_CACHE_CONTROL
+
+
+@pytest.mark.asyncio
+async def test_bedrock_converse_ignores_cache_control_on_dropped_image_parts():
+    messages = _messages_without_cache_control()
+    messages[1]["content"][1]["cache_control"] = {"type": "ephemeral"}
+
+    kwargs = await _converse_kwargs({"messages": messages, "max_tokens": 100})
+
+    assert kwargs == _EXPECTED_KWARGS_WITHOUT_CACHE_CONTROL
+
+
+@pytest.mark.parametrize(
+    ("model_name", "keeps_cache_points"),
+    [
+        ("anthropic.claude-sonnet-4-6", True),
+        ("us.anthropic.claude-3-5-sonnet-20241022-v2:0", True),
+        ("amazon.nova-pro-v1:0", True),
+        ("us.amazon.nova-lite-v1:0", True),
+        ("meta.llama3-70b-instruct-v1:0", False),
+        ("amazon.titan-text-express-v1", False),
+        ("arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/abc123", False),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bedrock_converse_cache_points_only_for_models_that_support_them(
+    model_name, keeps_cache_points
+):
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral"}},
+                    {"type": "text", "text": "Question"},
+                ],
+            }
+        ]
+    }
+
+    kwargs = await _converse_kwargs(payload, model_name=model_name)
+
+    if keeps_cache_points:
+        expected = [{"text": "Doc"}, {"cachePoint": {"type": "default"}}, {"text": "Question"}]
+    else:
+        expected = [{"text": "Doc\nQuestion"}]
+    assert kwargs["messages"] == [{"role": "user", "content": expected}]
