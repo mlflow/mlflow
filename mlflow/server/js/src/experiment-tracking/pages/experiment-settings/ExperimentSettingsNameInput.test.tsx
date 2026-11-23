@@ -40,6 +40,61 @@ describe('ExperimentSettingsNameInput', () => {
     jest.useRealTimers();
   });
 
+  it('saves the name without surrounding whitespace, and shows it trimmed after leaving the field', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const { onSave } = renderNameInput();
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.click(input);
+    await user.paste('  Updated name  ');
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('Updated name');
+
+    await act(async () => {
+      input.blur();
+    });
+    expect(input).toHaveValue('Updated name');
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not save a change that only adds surrounding whitespace', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const { onSave } = renderNameInput();
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.click(input);
+    await user.paste('   ');
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    await act(async () => {
+      input.blur();
+    });
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(input).toHaveValue('Original name');
+  });
+
+  it('treats a name of only spaces as empty', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const { onSave } = renderNameInput();
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.click(input);
+    await user.paste('   ');
+    await act(async () => {
+      input.blur();
+    });
+
+    expect(await screen.findByText('Experiment name is required.')).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
   it('saves the latest draft once after 500 ms of inactivity', async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     const { onSave } = renderNameInput();

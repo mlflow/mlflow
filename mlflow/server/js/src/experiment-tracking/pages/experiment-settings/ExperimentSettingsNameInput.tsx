@@ -4,7 +4,8 @@ import { useElementId } from './SettingCell';
 import { SettingSaveErrorMessage } from './SettingSaveErrorMessage';
 import { useSettingAutosave } from './useSettingAutosave';
 
-const nameKey = (name: string) => name;
+// Names are saved trimmed, like the Edit experiment dialog does, so surrounding whitespace isn't a change.
+const nameKey = (name: string) => name.trim();
 
 export interface ExperimentSettingsNameInputProps {
   initialName: string;
@@ -32,7 +33,7 @@ export const ExperimentSettingsNameInput = ({
             defaultMessage: 'Experiment name is required.',
             description: 'Inline error shown when the experiment name is empty',
           }),
-    save: onSave,
+    save: (name) => onSave(name.trim()),
   });
 
   return (
@@ -45,7 +46,13 @@ export const ExperimentSettingsNameInput = ({
         disabled={!isEditable}
         validationState={error ? 'error' : undefined}
         value={draft}
-        onBlur={() => saveNow()}
+        onBlur={() => {
+          const trimmedName = draft.trim();
+          if (trimmedName !== draft) {
+            updateDraft(trimmedName);
+          }
+          saveNow(trimmedName);
+        }}
         onChange={(event) => updateDraft(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
