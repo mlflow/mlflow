@@ -71,6 +71,11 @@ class OpenAIAdapter(OpenAICompatibleAdapter):
 
     @classmethod
     def chat_to_model(cls, payload, config):
+        # NB: `chat.RequestPayload` fills in `n=1` when the client omits `n`. `n=1` is also
+        # OpenAI's default, and some OpenAI models reject any request that carries `n`, so
+        # the default is not forwarded.
+        if payload.get("n") == 1:
+            payload = {k: v for k, v in payload.items() if k != "n"}
         return cls._add_model_to_payload_if_necessary(payload, config)
 
     @classmethod

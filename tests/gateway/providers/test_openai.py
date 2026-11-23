@@ -126,7 +126,6 @@ async def _run_test_chat(provider):
             "https://api.openai.com/v1/chat/completions",
             json={
                 "model": "gpt-4o-mini",
-                "n": 1,
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
@@ -187,6 +186,26 @@ async def test_chat():
     config = chat_config()
     provider = OpenAIProvider(EndpointConfig(**config))
     await _run_test_chat(provider)
+
+
+@pytest.mark.parametrize(
+    ("request_n", "forwarded_n"),
+    [({}, {}), ({"n": 1}, {}), ({"n": 2}, {"n": 2})],
+)
+@pytest.mark.asyncio
+async def test_chat_forwards_only_non_default_n(request_n, forwarded_n):
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.chat(chat.RequestPayload(**payload, **request_n))
+
+    assert mock_client.post.call_args.kwargs["json"] == {
+        "model": "gpt-4o-mini",
+        **payload,
+        **forwarded_n,
+    }
 
 
 def chat_stream_response():
@@ -296,7 +315,6 @@ async def _run_test_chat_stream(resp, provider):
             "https://api.openai.com/v1/chat/completions",
             json={
                 "model": "gpt-4o-mini",
-                "n": 1,
                 "stream_options": {"include_usage": True},
                 **payload,
             },
