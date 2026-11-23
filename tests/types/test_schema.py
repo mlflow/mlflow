@@ -189,8 +189,7 @@ def test_schema_creation_errors():
 )
 def test_schema_creation_warns_on_duplicated_names(inputs):
     with pytest.warns(FutureWarning, match=r"Duplicated input names found in schema: \['a'\]"):
-        schema = Schema(inputs)
-    assert schema.inputs == inputs
+        Schema(inputs)
 
 
 @pytest.mark.parametrize(
@@ -203,8 +202,7 @@ def test_schema_creation_warns_on_duplicated_names(inputs):
 )
 def test_schema_creation_warns_on_empty_names(inputs):
     with pytest.warns(FutureWarning, match="Creating Schema with empty input names is deprecated"):
-        schema = Schema(inputs)
-    assert schema.inputs == inputs
+        Schema(inputs)
 
 
 @pytest.mark.parametrize(

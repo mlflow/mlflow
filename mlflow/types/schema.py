@@ -6,6 +6,7 @@ import json
 import string
 import warnings
 from abc import ABC, abstractmethod
+from collections import Counter
 from copy import deepcopy
 from dataclasses import fields, is_dataclass
 from enum import Enum
@@ -1024,8 +1025,7 @@ class Schema:
 
     @staticmethod
     def _find_duplicates(inputs: list[ColSpec | TensorSpec]) -> list[str]:
-        names = [x.name for x in inputs]
-        return sorted({name for name in names if names.count(name) > 1})
+        return sorted(name for name, count in Counter(x.name for x in inputs).items() if count > 1)
 
     def __len__(self):
         return len(self._inputs)
