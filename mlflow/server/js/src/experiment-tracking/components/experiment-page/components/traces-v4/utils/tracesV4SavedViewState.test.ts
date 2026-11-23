@@ -1,6 +1,8 @@
 import { describe, expect, test } from '@jest/globals';
 import { FilterOp, TRACE_COLUMN_IDS } from '@databricks/web-shared/traces-table';
 import {
+  applyV4ViewQuery,
+  hasV4ViewTimeRange,
   captureV4ViewState,
   buildV4ViewQuery,
   decodeViewColumns,
@@ -14,6 +16,37 @@ import {
 } from './tracesV4SavedViewState';
 
 const params = (query: string) => new URLSearchParams(query);
+
+test.each([
+  ['ALL', true],
+  ['CUSTOM', true],
+  ['LAST_HOUR', true],
+  ['', false],
+  [undefined, false],
+  [null, false],
+] as const)('a view owns a time range only with a non-empty label: %s', (label, expected) => {
+  expect(hasV4ViewTimeRange(label)).toBe(expected);
+});
+
+describe('applyV4ViewQuery', () => {
+  test.each(['sort=duration', 'startTimeLabel=&startTime=old&endTime=old'])(
+    'a view without a time label ignores stored bounds and preserves the current range: %s',
+    (query) => {
+      const current = params('startTimeLabel=CUSTOM&startTime=1000&endTime=2000&q=old');
+      const next = applyV4ViewQuery(current, params(query));
+      expect(next.get('startTimeLabel')).toBe('CUSTOM');
+      expect(next.get('startTime')).toBe('1000');
+      expect(next.get('endTime')).toBe('2000');
+      expect(next.has('q')).toBe(false);
+      expect(current.get('q')).toBe('old');
+    },
+  );
+
+  test('an explicitly saved custom range replaces the browsing range', () => {
+    const query = 'startTimeLabel=CUSTOM&startTime=3000&endTime=4000';
+    expect(applyV4ViewQuery(params('startTimeLabel=ALL'), params(query)).toString()).toBe(query);
+  });
+});
 
 describe('tracesV4SavedViewState tag-key helpers', () => {
   test('round-trips a view id through the tag key', () => {
