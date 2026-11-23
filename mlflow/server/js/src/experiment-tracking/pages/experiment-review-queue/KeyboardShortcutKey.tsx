@@ -9,7 +9,7 @@ export const KeyboardShortcutKey = ({ children }: { children: string }) => {
       css={{
         minWidth: 20,
         height: 20,
-        padding: `0 ${theme.spacing.xs}px`,
+        padding: '0 var(--db-space-1)',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -18,7 +18,7 @@ export const KeyboardShortcutKey = ({ children }: { children: string }) => {
         backgroundColor: theme.colors.backgroundSecondary,
         color: theme.colors.textSecondary,
         fontFamily: 'inherit',
-        fontSize: theme.typography.fontSizeSm,
+        fontSize: 'var(--db-font-size-sm)',
         lineHeight: 1,
       }}
     >

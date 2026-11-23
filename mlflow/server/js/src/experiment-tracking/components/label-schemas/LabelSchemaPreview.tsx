@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Empty, Input, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, Input, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { LabelSchemaInputRenderer } from './widgets/LabelSchemaInputRenderer';
@@ -28,7 +28,6 @@ export interface LabelSchemaPreviewProps {
  * authored.
  */
 export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
   // Sandbox state — never read by the form, never submitted. Reset when
@@ -43,9 +42,9 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
   const header = (
     <div
       css={{
-        padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-        backgroundColor: theme.colors.backgroundSecondary,
-        borderBottom: `1px solid ${theme.colors.border}`,
+        padding: 'var(--db-space-2) var(--db-space-4)',
+        backgroundColor: 'var(--db-surface-subtle)',
+        borderBottom: '1px solid var(--db-border-base)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -91,7 +90,7 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: theme.spacing.lg,
+            padding: 'var(--db-space-6)',
             // Override the Design System's internal wrapper styles to
             // properly center the Empty content (per mlflow/server/js
             // CLAUDE.md empty-states guidance).
@@ -133,22 +132,22 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
         css={{
           flex: 1,
           overflowY: 'auto',
-          padding: theme.spacing.md,
+          padding: 'var(--db-space-4)',
           display: 'flex',
           flexDirection: 'column',
-          gap: theme.spacing.md,
+          gap: 'var(--db-space-4)',
         }}
       >
         <div
           css={{
-            border: `1px solid ${theme.colors.border}`,
-            borderRadius: theme.borders.borderRadiusMd,
-            padding: theme.spacing.lg,
+            border: '1px solid var(--db-border-base)',
+            borderRadius: 'var(--db-shape-container-small)',
+            padding: 'var(--db-space-6)',
             display: 'flex',
             flexDirection: 'column',
-            gap: theme.spacing.sm,
+            gap: 'var(--db-space-2)',
             opacity: hasErrors ? 0.6 : 1,
-            backgroundColor: theme.colors.backgroundPrimary,
+            backgroundColor: 'var(--db-surface-base)',
           }}
         >
           {formData.name ? (
@@ -169,7 +168,7 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
           {formData.instruction && formData.inputKind !== 'text' && (
             <Typography.Text color="secondary">{formData.instruction}</Typography.Text>
           )}
-          <div css={{ marginTop: theme.spacing.sm }}>
+          <div css={{ marginTop: 'var(--db-space-2)' }}>
             <LabelSchemaInputRenderer
               input={input}
               value={previewValue}
@@ -187,7 +186,7 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
               componentId="mlflow.experiment-label-schemas.preview.comment"
               id="mlflow.experiment-label-schemas.preview.comment"
               rows={2}
-              css={{ marginTop: theme.spacing.sm }}
+              css={{ marginTop: 'var(--db-space-2)' }}
               placeholder={intl.formatMessage({
                 defaultMessage: 'Rationale (optional)',
                 description: 'Review question preview free-form rationale placeholder',

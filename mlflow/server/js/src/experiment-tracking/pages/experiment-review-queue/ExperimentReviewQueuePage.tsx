@@ -498,8 +498,8 @@ const ExperimentReviewQueuePage = () => {
         flexDirection: 'column',
         height: '100%',
         minHeight: 0,
-        paddingRight: theme.spacing.md,
-        paddingBottom: theme.spacing.md,
+        paddingRight: 'var(--db-space-4)',
+        paddingBottom: 'var(--db-space-4)',
       }}
     >
       <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: inFocusMode ? 'visible' : 'hidden' }}>
@@ -547,8 +547,8 @@ const ExperimentReviewQueuePage = () => {
                   overflow: 'hidden',
                   display: 'flex',
                   flexDirection: 'column',
-                  paddingLeft: theme.spacing.md,
-                  borderLeft: `1px solid ${theme.colors.border}`,
+                  paddingLeft: 'var(--db-space-4)',
+                  borderLeft: '1px solid var(--db-border-base)',
                 }}
               >
                 {rightContent}

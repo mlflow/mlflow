@@ -436,7 +436,7 @@ export const AddToReviewQueueDropdown = ({
           }}
         >
           {queuesError ? (
-            <div css={{ padding: theme.spacing.sm }}>
+            <div css={{ padding: 'var(--db-space-2)' }}>
               <Alert
                 componentId={`${CID}.load-error`}
                 type="error"
@@ -454,7 +454,7 @@ export const AddToReviewQueueDropdown = ({
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                padding: theme.spacing.lg,
+                padding: 'var(--db-space-6)',
               }}
             >
               <Spinner />
@@ -480,12 +480,12 @@ export const AddToReviewQueueDropdown = ({
                         css={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: theme.spacing.xs,
-                          padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                          gap: 'var(--db-space-1)',
+                          padding: 'var(--db-space-1) var(--db-space-2)',
                         }}
                         onClick={() => setCreateOpen(true)}
                       >
-                        <PlusIcon css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }} />
+                        <PlusIcon css={{ paddingLeft: 'var(--db-space-1)', paddingRight: 'var(--db-space-1)' }} />
                         <FormattedMessage
                           defaultMessage="New queue"
                           description="Add to review queue: create new queue link"

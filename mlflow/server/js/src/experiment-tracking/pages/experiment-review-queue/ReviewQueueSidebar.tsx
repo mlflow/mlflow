@@ -61,7 +61,7 @@ const SortHeader = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
-        gap: theme.spacing.xs,
+        gap: 'var(--db-space-1)',
         cursor: 'pointer',
         ...(width != null ? { width, flexShrink: 0 } : { flex: 1, minWidth: 0 }),
       }}
@@ -118,9 +118,9 @@ const QueueRow = ({
       css={{
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing.sm,
-        padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-        borderRadius: theme.borders.borderRadiusMd,
+        gap: 'var(--db-space-2)',
+        padding: 'var(--db-space-1) var(--db-space-2)',
+        borderRadius: 'var(--db-shape-container-small)',
         cursor: inspectable ? 'pointer' : 'default',
         // Greyed when not inspectable: listed but not openable (server detail-tier gate).
         opacity: inspectable ? 1 : 0.5,
@@ -250,15 +250,15 @@ export const ReviewQueueSidebar = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing.md,
+        gap: 'var(--db-space-4)',
         height: '100%',
         minHeight: 0,
-        paddingRight: theme.spacing.sm,
+        paddingRight: 'var(--db-space-2)',
         overflow: 'auto',
       }}
     >
       {(canManage || canCreateQueue) && (
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, flexWrap: 'wrap' }}>
+        <div css={{ display: 'flex', alignItems: 'center', gap: 'var(--db-space-1)', flexWrap: 'wrap' }}>
           {/* Managing questions needs MANAGE; creating a queue only needs EDIT. */}
           {canManage && (
             <Button componentId={`${CID}.manage-questions`} icon={<GearIcon />} onClick={onManageQuestions}>
@@ -301,10 +301,10 @@ export const ReviewQueueSidebar = ({
           css={{
             display: 'flex',
             alignItems: 'center',
-            gap: theme.spacing.sm,
-            padding: `0 ${theme.spacing.sm}px`,
-            borderBottom: `1px solid ${theme.colors.border}`,
-            paddingBottom: theme.spacing.xs,
+            gap: 'var(--db-space-2)',
+            padding: '0 var(--db-space-2)',
+            borderBottom: '1px solid var(--db-border-base)',
+            paddingBottom: 'var(--db-space-1)',
           }}
         >
           <SortHeader
@@ -341,7 +341,7 @@ export const ReviewQueueSidebar = ({
       )}
 
       {visible.length > 0 ? (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-1)' }}>
           {visible.map((queue) => (
             <QueueRow
               key={queue.queue_id}
@@ -358,7 +358,7 @@ export const ReviewQueueSidebar = ({
       ) : (
         effectiveMineOnly &&
         queues.length > 0 && (
-          <Typography.Text color="secondary" css={{ paddingLeft: theme.spacing.sm }}>
+          <Typography.Text color="secondary" css={{ paddingLeft: 'var(--db-space-2)' }}>
             <FormattedMessage
               defaultMessage="You don't own any queues yet."
               description="Review queue sidebar: empty state for the My-queues filter"

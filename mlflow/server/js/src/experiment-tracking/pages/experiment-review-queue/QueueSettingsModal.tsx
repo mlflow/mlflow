@@ -259,7 +259,7 @@ export const QueueSettingsModal = ({
         }
       >
         <ApplyDesignSystemContextOverrides getPopupContainer={() => document.body}>
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-4)' }}>
             <div>
               <FormUI.Label htmlFor={`${CID}.name-input`}>
                 <FormattedMessage defaultMessage="Name" description="Queue settings: name field label" />
@@ -279,7 +279,7 @@ export const QueueSettingsModal = ({
                 <FormUI.Label>
                   <FormattedMessage defaultMessage="Owner" description="Queue settings: owner field label" />
                 </FormUI.Label>
-                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                <FormUI.Hint css={{ marginBottom: 'var(--db-space-2)' }}>
                   <FormattedMessage
                     defaultMessage="The owner can manage this queue with experiment EDIT access."
                     description="Queue settings: owner field hint"
@@ -302,7 +302,7 @@ export const QueueSettingsModal = ({
                 <FormUI.Label>
                   <FormattedMessage defaultMessage="Reviewers" description="Queue settings: members field label" />
                 </FormUI.Label>
-                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                <FormUI.Hint css={{ marginBottom: 'var(--db-space-2)' }}>
                   <FormattedMessage
                     defaultMessage="Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”."
                     description="Queue settings: members field hint"
@@ -326,7 +326,7 @@ export const QueueSettingsModal = ({
               <FormUI.Label>
                 <FormattedMessage defaultMessage="Questions" description="Queue settings: questions field label" />
               </FormUI.Label>
-              <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+              <FormUI.Hint css={{ marginBottom: 'var(--db-space-2)' }}>
                 {canEditQuestions ? (
                   <FormattedMessage
                     defaultMessage="Choose which questions reviewers answer for traces in this queue."
@@ -380,14 +380,14 @@ export const QueueSettingsModal = ({
                 }}
               >
                 <div css={{ overflow: 'hidden' }}>
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-1)' }}>
                     <FormUI.Label>
                       <FormattedMessage
                         defaultMessage="Question preview"
                         description="Queue settings: question preview section label"
                       />
                     </FormUI.Label>
-                    <FormUI.Hint css={{ marginBottom: theme.spacing.xs }}>
+                    <FormUI.Hint css={{ marginBottom: 'var(--db-space-1)' }}>
                       <FormattedMessage
                         defaultMessage="Preview how the questions will appear for the human reviewer."
                         description="Queue settings: question preview section hint"
@@ -397,7 +397,7 @@ export const QueueSettingsModal = ({
                       css={{
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: theme.spacing.sm,
+                        gap: 'var(--db-space-2)',
                         // Fixed height (~4 collapsed rows) so the modal doesn't resize;
                         // more questions or an expanded preview scroll within this section.
                         height: 200,
@@ -413,10 +413,10 @@ export const QueueSettingsModal = ({
                             css={{
                               display: 'flex',
                               flexDirection: 'column',
-                              gap: theme.spacing.xs,
-                              padding: theme.spacing.sm,
-                              border: `1px solid ${theme.colors.border}`,
-                              borderRadius: theme.borders.borderRadiusMd,
+                              gap: 'var(--db-space-1)',
+                              padding: 'var(--db-space-2)',
+                              border: '1px solid var(--db-border-base)',
+                              borderRadius: 'var(--db-shape-container-small)',
                             }}
                           >
                             <div
@@ -429,7 +429,12 @@ export const QueueSettingsModal = ({
                                   togglePreview(schema.schema_id);
                                 }
                               }}
-                              css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, cursor: 'pointer' }}
+                              css={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 'var(--db-space-1)',
+                                cursor: 'pointer',
+                              }}
                             >
                               {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
                               <Typography.Text bold>{schema.name}</Typography.Text>

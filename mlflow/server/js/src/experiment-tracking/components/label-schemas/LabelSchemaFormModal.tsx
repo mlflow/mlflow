@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { Modal, useDesignSystemTheme } from '@databricks/design-system';
+import { Modal } from '@databricks/design-system';
 import { ModelTraceExplorerResizablePane } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useForm, useWatch } from 'react-hook-form';
@@ -50,7 +50,6 @@ export const LabelSchemaFormModal = ({
   onClose,
   onCreated,
 }: LabelSchemaFormModalProps) => {
-  const { theme } = useDesignSystemTheme();
   const isEdit = editingSchema != null;
   const defaultValues = editingSchema ? getFormValuesFromSchema(editingSchema) : DEFAULT_FORM_VALUES;
   const {
@@ -160,7 +159,7 @@ export const LabelSchemaFormModal = ({
       onOk={handleSubmit(onSubmit)}
       onCancel={handleCancel}
     >
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, minHeight: 0 }}>
+      <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-2)', minHeight: 0 }}>
         <div css={{ display: 'flex', height: FORM_BODY_HEIGHT, minHeight: 0, overflow: 'hidden' }}>
           <ModelTraceExplorerResizablePane
             initialRatio={0.55}
@@ -176,10 +175,10 @@ export const LabelSchemaFormModal = ({
                   overflowY: 'auto',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: theme.spacing.sm,
-                  paddingTop: theme.spacing.sm,
-                  paddingBottom: theme.spacing.md,
-                  paddingRight: theme.spacing.md,
+                  gap: 'var(--db-space-2)',
+                  paddingTop: 'var(--db-space-2)',
+                  paddingBottom: 'var(--db-space-4)',
+                  paddingRight: 'var(--db-space-4)',
                   height: '100%',
                   minHeight: 0,
                 }}
@@ -201,8 +200,8 @@ export const LabelSchemaFormModal = ({
                   width: '100%',
                   minHeight: 0,
                   overflow: 'hidden',
-                  paddingLeft: theme.spacing.md,
-                  borderLeft: `1px solid ${theme.colors.border}`,
+                  paddingLeft: 'var(--db-space-4)',
+                  borderLeft: '1px solid var(--db-border-base)',
                 }}
               >
                 <LabelSchemaPreview formData={watched} />

@@ -1,4 +1,4 @@
-import { Alert, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert } from '@databricks/design-system';
 
 import type { LabelSchemaInput } from '../types';
 import { LabelSchemaInputCategorical } from './LabelSchemaInputCategorical';
@@ -58,8 +58,6 @@ export const LabelSchemaInputRenderer = ({
   label,
   instruction,
 }: LabelSchemaInputRendererProps) => {
-  const { theme } = useDesignSystemTheme();
-
   if (input.pass_fail) {
     return (
       <LabelSchemaInputPassFail
@@ -123,7 +121,7 @@ export const LabelSchemaInputRenderer = ({
       type="error"
       message="Invalid label schema: input has no variant set (expected one of pass_fail, categorical, numeric, text)."
       closable={false}
-      css={{ color: theme.colors.textValidationDanger }}
+      css={{ color: 'var(--db-negative-text)' }}
     />
   );
 };
