@@ -444,24 +444,14 @@ def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
         tar.addfile(hardlink)
 
     dest = tmp_path / "extracted"
-    with pytest.raises(MlflowException, match="would be extracted outside"):
+    # Python 3.14's default tar filter can reject the symlink before MLflow sees the hard link.
+    with pytest.raises((MlflowException, tarfile.TarError), match="outside the destination"):
         extract_archive_to_dir(mal_tar, dest)
     assert not (dest / "hardlink").exists()
     assert stat.S_IMODE(secret.stat().st_mode) == original_mode
 
 
-@pytest.mark.parametrize(
-    ("mode", "expected_mode"),
-    [
-        # Strips the setuid and group/other write bits
-        (0o4777, 0o755),
-        # Ensures the owner can read and write
-        (0o444, 0o644),
-        # Clears the executable bits when the owner can't execute
-        (0o055, 0o644),
-    ],
-)
-def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path, mode, expected_mode):
+def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path):
     archive = tmp_path / "hardlinks.tar"
     with tarfile.open(archive, "w") as tar:
         subdir = tarfile.TarInfo("subdir")
@@ -470,6 +460,8 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path, mode, exp
         tar.addfile(subdir)
         for name in ["data.txt", "subdir/file.txt"]:
             info = tarfile.TarInfo(name)
+            info.mode = 0o640
+            info.mtime = 1_000_000
             data = name.encode()
             info.size = len(data)
             tar.addfile(info, fileobj=io.BytesIO(data))
@@ -481,8 +473,8 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path, mode, exp
             hardlink = tarfile.TarInfo(name)
             hardlink.type = tarfile.LNKTYPE
             hardlink.linkname = target
-            hardlink.mode = mode
-            hardlink.mtime = 1_000_000
+            hardlink.mode = 0o755
+            hardlink.mtime = 2_000_000
             tar.addfile(hardlink)
 
     dest = tmp_path / "extracted"
@@ -495,7 +487,7 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path, mode, exp
         link_stat = (dest / name).stat()
         assert link_stat.st_mtime == 1_000_000
         if not is_windows():
-            assert stat.S_IMODE(link_stat.st_mode) == expected_mode
+            assert stat.S_IMODE(link_stat.st_mode) == 0o640
 
 
 @pytest.mark.parametrize(

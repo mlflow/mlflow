@@ -1,4 +1,3 @@
-import copy
 import json
 import os
 import tarfile
@@ -179,12 +178,12 @@ def _safe_extractall(tar, dest_dir):
                 f"the destination directory."
             )
         if member.islnk():
-            _extract_hardlink(tar, member, resolved_dest)
+            _extract_hardlink(member, resolved_dest)
         else:
             tar.extract(member, path=resolved_dest)
 
 
-def _extract_hardlink(tar, member, resolved_dest):
+def _extract_hardlink(member, resolved_dest):
     # Create the link directly rather than through tarfile: when `os.link` fails (e.g. the
     # link path already exists, or the target has a trailing slash), tarfile falls back to
     # re-extracting the archive member named by the normalized target at the link path,
@@ -197,11 +196,3 @@ def _extract_hardlink(tar, member, resolved_dest):
         raise MlflowException.invalid_parameter_value(
             f"Failed to extract hard link {member.name!r} -> {member.linkname!r}: {e}"
         ) from e
-
-
-def _sanitize_data_mode(mode):
-    # Mirrors the mode handling of `tarfile.data_filter` for regular files and hard links
-    mode &= 0o755
-    if not mode & 0o100:
-        mode &= ~0o111
-    return mode | 0o600
