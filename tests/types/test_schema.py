@@ -2,6 +2,7 @@ import datetime
 import json
 import math
 import re
+import warnings
 from dataclasses import KW_ONLY, InitVar, dataclass, field
 from typing import ClassVar, Optional
 
@@ -173,6 +174,55 @@ def test_schema_creation_errors():
 
     with pytest.raises(MlflowException, match=r"Inputs of Schema must be a list, got type dict"):
         Schema({"col1": ColSpec(DataType.string)})
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [ColSpec("string", "a"), ColSpec("double", "a")],
+        [ColSpec("string", "a"), ColSpec("double", "b"), ColSpec("long", "a")],
+        [
+            TensorSpec(np.dtype("float64"), (-1,), "a"),
+            TensorSpec(np.dtype("uint8"), (-1,), "a"),
+        ],
+    ],
+)
+def test_schema_creation_warns_on_duplicated_names(inputs):
+    with pytest.warns(FutureWarning, match=r"Duplicated input names found in schema: \['a'\]"):
+        schema = Schema(inputs)
+    assert schema.inputs == inputs
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [ColSpec("string", "")],
+        [ColSpec("string", "a"), ColSpec("double", "")],
+        [TensorSpec(np.dtype("float64"), (-1,), "")],
+    ],
+)
+def test_schema_creation_warns_on_empty_names(inputs):
+    with pytest.warns(FutureWarning, match="Creating Schema with empty input names is deprecated"):
+        schema = Schema(inputs)
+    assert schema.inputs == inputs
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [ColSpec("string", "a"), ColSpec("double", "b")],
+        [ColSpec("string"), ColSpec("double")],
+        [
+            TensorSpec(np.dtype("float64"), (-1,), "a"),
+            TensorSpec(np.dtype("uint8"), (-1,), "b"),
+        ],
+        [TensorSpec(np.dtype("float64"), (-1,))],
+    ],
+)
+def test_schema_creation_does_not_warn_on_valid_names(inputs):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        Schema(inputs)
 
 
 def test_get_schema_type(dict_of_ndarrays):

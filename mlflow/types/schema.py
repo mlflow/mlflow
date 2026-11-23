@@ -4,6 +4,7 @@ import builtins
 import datetime as dt
 import json
 import string
+import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import fields, is_dataclass
@@ -1000,7 +1001,31 @@ class Schema:
                 "Creating Schema with unnamed optional inputs is not supported. "
                 "Please name all inputs or make all inputs required."
             )
+        if all(x.name is not None for x in inputs):
+            # TODO: Raise an exception instead of warning in a future release.
+            # Warning first avoids breaking `Model.load()` for models already logged with
+            # such signatures.
+            if any(x.name == "" for x in inputs):
+                warnings.warn(
+                    "Creating Schema with empty input names is deprecated and will raise an "
+                    "exception in a future release.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
+            if duplicates := self._find_duplicates(inputs):
+                warnings.warn(
+                    f"Duplicated input names found in schema: {duplicates}. Creating Schema with "
+                    "duplicated input names is deprecated and will raise an exception in a "
+                    "future release.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
         self._inputs = inputs
+
+    @staticmethod
+    def _find_duplicates(inputs: list[ColSpec | TensorSpec]) -> list[str]:
+        names = [x.name for x in inputs]
+        return sorted({name for name in names if names.count(name) > 1})
 
     def __len__(self):
         return len(self._inputs)
