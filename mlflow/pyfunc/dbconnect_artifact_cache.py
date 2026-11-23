@@ -1,4 +1,3 @@
-import errno
 import json
 import os
 import shutil
@@ -198,15 +197,11 @@ def _extract_hardlink(member, resolved_dest):
     os.makedirs(os.path.dirname(link_path), exist_ok=True)
     try:
         os.link(target_path, link_path)
-        return
-    except OSError as e:
-        if e.errno not in (errno.EPERM, errno.ENOTSUP, errno.EOPNOTSUPP, errno.EXDEV, errno.EMLINK):
-            raise
-
-    # Copy the validated file when the filesystem can't hard link. tarfile's fallback
-    # re-extracts an archive member, which can relocate a relative symlink.
-    with ExitStack() as cleanup:
-        with open(target_path, "rb") as source, open(link_path, "xb") as destination:
-            cleanup.enter_context(remove_on_error(link_path))
-            shutil.copyfileobj(source, destination)
-        shutil.copystat(target_path, link_path)
+    except OSError:
+        # Filesystems report unsupported hard links with different errors. Copy the
+        # validated target to a new file without re-extracting an archive member.
+        with ExitStack() as cleanup:
+            with open(target_path, "rb") as source, open(link_path, "xb") as destination:
+                cleanup.enter_context(remove_on_error(link_path))
+                shutil.copyfileobj(source, destination)
+            shutil.copystat(target_path, link_path)

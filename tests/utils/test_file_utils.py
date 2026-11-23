@@ -452,10 +452,8 @@ def test_extract_archive_to_dir_blocks_hardlink_through_symlink(
     assert stat.S_IMODE(secret.stat().st_mode) == original_mode
 
 
-@pytest.mark.parametrize("hardlinks_supported", [True, False])
-def test_extract_archive_to_dir_allows_hardlinks_inside_dest(
-    tmp_path, monkeypatch, hardlinks_supported
-):
+@pytest.mark.parametrize("link_errno", [None, errno.EPERM, errno.ENOSYS, errno.EINVAL])
+def test_extract_archive_to_dir_allows_hardlinks_inside_dest(tmp_path, monkeypatch, link_errno):
     archive = tmp_path / "hardlinks.tar"
     with tarfile.open(archive, "w") as tar:
         subdir = tarfile.TarInfo("subdir")
@@ -482,15 +480,13 @@ def test_extract_archive_to_dir_allows_hardlinks_inside_dest(
             tar.addfile(hardlink)
 
     dest = tmp_path / "extracted"
-    if not hardlinks_supported:
-        monkeypatch.setattr(
-            os, "link", mock.Mock(side_effect=PermissionError(errno.EPERM, "denied"))
-        )
+    if link_errno is not None:
+        monkeypatch.setattr(os, "link", mock.Mock(side_effect=OSError(link_errno, "unavailable")))
     extract_archive_to_dir(archive, dest)
     for name, target in [("copy.txt", "data.txt"), ("via_link.txt", "subdir/file.txt")]:
         link = dest / name
         assert link.read_text() == target
-        assert link.samefile(dest / target) == hardlinks_supported
+        assert link.samefile(dest / target) == (link_errno is None)
         link_stat = link.stat()
         assert link_stat.st_mtime == 1_000_000
         if not is_windows():
