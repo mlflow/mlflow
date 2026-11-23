@@ -62,10 +62,14 @@ export const IssueDetectionIllustration = () => {
       <svg viewBox="0 0 72 72" width="100%" height="100%" focusable="false">
         {ISOMETRIC_BLOCKS.map((block, index) => {
           const faces = getBlockFaces(block);
-          const outlineColor = block.isAnomaly ? theme.colors.textValidationDanger : theme.colors.actionDisabledText;
+          const outlineColor = block.isAnomaly ? theme.colors.textValidationDanger : theme.colors.actionDisabledBorder;
           const topColor = block.isAnomaly ? theme.colors.backgroundDanger : theme.colors.backgroundPrimary;
           const leftColor = block.isAnomaly ? theme.colors.backgroundDanger : theme.colors.backgroundSecondary;
-          const rightColor = block.isAnomaly ? theme.colors.borderDanger : theme.colors.actionDisabledBackground;
+          const rightColor = block.isAnomaly
+            ? theme.isDarkMode
+              ? theme.colors.red700
+              : theme.colors.borderDanger
+            : theme.colors.actionDisabledBackground;
 
           return (
             <g

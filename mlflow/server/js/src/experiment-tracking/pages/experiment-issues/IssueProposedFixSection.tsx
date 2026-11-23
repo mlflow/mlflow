@@ -122,7 +122,7 @@ export const IssueProposedFixSection = ({ experimentId, issue }: IssueProposedFi
             margin: 0,
             // Room on the right, so the first lines don't run under the Copy button.
             padding: `${theme.spacing.md}px ${theme.spacing.lg * 4}px ${theme.spacing.md}px ${theme.spacing.md}px`,
-            fontFamily: 'monospace',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
             fontSize: theme.typography.fontSizeSm,
             lineHeight: PROMPT_LINE_HEIGHT,
             color: theme.colors.textPrimary,
