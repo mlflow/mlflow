@@ -4328,7 +4328,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'genai'", specifier = ">=1.28.56,<2" },
     { name = "botocore", marker = "extra == 'databricks'" },
     { name = "botocore", marker = "extra == 'extras'" },
-    { name = "cachetools", specifier = ">=5.0.0,<8" },
+    { name = "cachetools", specifier = ">=5.0.0,<9" },
     { name = "click", specifier = ">=7.0,<9" },
     { name = "click", marker = "extra == 'mcp'", specifier = "!=8.3.0" },
     { name = "cloudpickle", specifier = "<4" },
