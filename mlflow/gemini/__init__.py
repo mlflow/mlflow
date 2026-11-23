@@ -62,34 +62,46 @@ def autolog(
     try:
         from google import genai
 
-        # Since the genai SDK calls "_generate_content" iteratively within "generate_content",
-        # we need to patch both "generate_content" and "_generate_content".
-        for method in ["generate_content", "_generate_content", "count_tokens", "embed_content"]:
+        # Since the genai SDK calls private generation methods iteratively within their public
+        # counterparts, we need to patch both methods to trace each model request.
+        for method in [
+            "generate_content",
+            "_generate_content",
+            "generate_content_stream",
+            "_generate_content_stream",
+            "count_tokens",
+            "embed_content",
+        ]:
             safe_patch(
                 FLAVOR_NAME,
                 genai.models.Models,
                 method,
                 patched_class_call,
+                return_patch_result=method.endswith("_stream"),
             )
             safe_patch(
                 FLAVOR_NAME,
                 genai.models.AsyncModels,
                 method,
                 async_patched_class_call,
+                return_patch_result=method.endswith("_stream"),
             )
 
-        safe_patch(
-            FLAVOR_NAME,
-            genai.chats.Chat,
-            "send_message",
-            patched_class_call,
-        )
-        safe_patch(
-            FLAVOR_NAME,
-            genai.chats.AsyncChat,
-            "send_message",
-            async_patched_class_call,
-        )
+        for method in ["send_message", "send_message_stream"]:
+            safe_patch(
+                FLAVOR_NAME,
+                genai.chats.Chat,
+                method,
+                patched_class_call,
+                return_patch_result=method.endswith("_stream"),
+            )
+            safe_patch(
+                FLAVOR_NAME,
+                genai.chats.AsyncChat,
+                method,
+                async_patched_class_call,
+                return_patch_result=method.endswith("_stream"),
+            )
     except ImportError:
         pass
 

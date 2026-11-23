@@ -91,6 +91,7 @@ from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.store.tracking.sqlalchemy_store.conftest import (
+    IS_MSSQL,
     _create_trace,
     create_test_span,
 )
@@ -1774,6 +1775,50 @@ def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
             workspace_tracking_store.search_traces(
                 locations=[exp_b], filter_string='feedback.score > "high"'
             )
+
+
+def test_search_traces_with_assessment_pattern_filters_is_workspace_scoped(
+    workspace_tracking_store,
+):
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    with WorkspaceContext("team-assessment-pattern-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-assessment-pattern-a")
+        _create_trace(workspace_tracking_store, "trace-a", exp_a)
+        workspace_tracking_store.create_assessment(
+            Feedback(trace_id="trace-a", name="rating", value="good", source=source)
+        )
+
+    with WorkspaceContext("team-assessment-pattern-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-assessment-pattern-b")
+        for trace_id, value in [("trace-b1", "good"), ("trace-b2", "café"), ("trace-b3", 4)]:
+            _create_trace(workspace_tracking_store, trace_id, exp_b)
+            workspace_tracking_store.create_assessment(
+                Feedback(trace_id=trace_id, name="rating", value=value, source=source)
+            )
+        workspace_tracking_store.create_assessment(
+            Expectation(trace_id="trace-b1", name="label", value="success", source=source)
+        )
+
+        def search(filter_string):
+            traces, _ = workspace_tracking_store.search_traces(
+                locations=[exp_b], filter_string=filter_string
+            )
+            return {trace.trace_id for trace in traces}
+
+        assert search("feedback.rating LIKE 'go%'") == {"trace-b1"}
+        assert search("feedback.rating ILIKE 'GOOD'") == {"trace-b1"}
+        assert search("feedback.rating LIKE '%café%'") == {"trace-b2"}
+        assert search("feedback.rating LIKE '4'") == {"trace-b3"}
+        assert search("expectation.label LIKE 'succ%'") == {"trace-b1"}
+        if not IS_MSSQL:
+            assert search("feedback.rating RLIKE '^good$'") == {"trace-b1"}
+            assert search("expectation.label RLIKE '^success$'") == {"trace-b1"}
+
+        traces, _ = workspace_tracking_store.search_traces(
+            locations=[exp_a], filter_string="feedback.rating LIKE 'go%'"
+        )
+        assert traces == []
 
 
 @pytest.mark.parametrize(

@@ -241,8 +241,17 @@ def test_autolog_cot():
         assert lm_span.span_type == SpanType.CHAT_MODEL
         assert lm_span.inputs == expected_lm_inputs
         if DSPY_3_5_0_OR_NEWER:
-            # A single lm15 `Response`
-            assert lm_span.outputs["message"]["role"] == "assistant"
+            # The trace UI renders these lm15 `Request` and `Response` fields as chat messages
+            request = lm_span.inputs["prompt"]
+            assert "Your input fields are:" in request["system"]
+            assert request["config"]["temperature"] == 0.7
+            assert [message["role"] for message in request["messages"]] == ["user"]
+            assert [part["type"] for part in request["messages"][0]["parts"]] == ["text"]
+            assert "How are you?" in request["messages"][0]["parts"][0]["text"]
+            response = lm_span.outputs["message"]
+            assert response["role"] == "assistant"
+            assert [part["type"] for part in response["parts"]] == ["text"]
+            assert "test output" in response["parts"][0]["text"]
         else:
             assert len(lm_span.outputs) == 3
         assert lm_span.model_name == "dummy"

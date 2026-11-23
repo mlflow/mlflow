@@ -1201,6 +1201,11 @@ def test_sql_expression_comparison_func_binds_lists_on_mysql(comparator):
     assert "binary(" in _mysql_sql(comparator, _collated_column(), ["active", "draft"])
 
 
+def test_sql_expression_comparison_func_supports_rlike_on_mysql():
+    sql = _mysql_sql("RLIKE", _collated_column(), "^Act")
+    assert "AS BINARY) REGEXP binary(" in sql
+
+
 @pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mssql"])
 @pytest.mark.parametrize("comparator", ["=", "LIKE", "ILIKE"])
 def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, comparator):
@@ -1208,3 +1213,20 @@ def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, com
     expression_func = SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
     column_func = SearchUtils.get_sql_comparison_func(comparator, dialect)
     assert expression_func(column, "act%").compare(column_func(column, "act%"))
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE"])
+def test_json_pattern_comparison_decodes_strings_with_openjson_on_mssql(comparator):
+    from sqlalchemy.dialects import mssql
+
+    from mlflow.store.tracking.dbmodels.models import SqlAssessments
+
+    func = SearchTraceUtils._get_sql_json_comparison_func(comparator, "mssql")
+    query = sa.select(SqlAssessments.trace_id).where(func(SqlAssessments.value, "go%"))
+    sql = str(query.compile(dialect=mssql.dialect()))
+    # JSON_VALUE truncates to 4000 characters (NULL in lax mode), OPENJSON doesn't
+    assert "json_value" not in sql.lower()
+    assert "openjson" in sql.lower()
+    assert "COLLATE" in sql
+    # The OPENJSON subquery is correlated with the outer assessments table
+    assert sql.count("FROM assessments") == 1

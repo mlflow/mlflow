@@ -525,3 +525,38 @@ def test_prompt_model_config_empty():
     assert config.temperature is None
     assert config.max_tokens is None
     assert config.to_dict() == {}
+
+
+@pytest.mark.parametrize("ttl", ["1h", "24h"])
+def test_chat_prompt_with_cache_control_round_trips(ttl):
+    template = [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "You answer questions about {{topic}}.",
+                    "cache_control": {"type": "ephemeral", "ttl": ttl},
+                }
+            ],
+        },
+        {"role": "user", "content": "{{question}}"},
+    ]
+
+    prompt = PromptVersion(name="test", version=1, template=template)
+
+    assert not prompt.is_text_prompt
+    assert prompt.template == template
+    assert prompt.format(topic="MLflow", question="What is a run?") == [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "You answer questions about MLflow.",
+                    "cache_control": {"type": "ephemeral", "ttl": ttl},
+                }
+            ],
+        },
+        {"role": "user", "content": "What is a run?"},
+    ]
