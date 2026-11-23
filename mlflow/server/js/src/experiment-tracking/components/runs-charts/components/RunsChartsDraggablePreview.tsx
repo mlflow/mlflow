@@ -27,9 +27,9 @@ export const RunsChartsDraggablePreview = ({
           position: 'absolute',
           backgroundColor: theme.colors.actionDefaultBackgroundHover,
           borderStyle: 'dashed',
-          borderColor: theme.colors.actionDefaultBorderDefault,
+          borderColor: theme.colors.actionPrimaryBackgroundDefault,
           pointerEvents: 'none',
-          borderRadius: theme.general.borderRadiusBase,
+          borderRadius: theme.borders.borderRadiusMd,
           borderWidth: 2,
           inset: 0,
           // Make sure the preview is above other cards

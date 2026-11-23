@@ -7,20 +7,12 @@
   cursor: pointer;
 }
 
-.mlflow-ui-container .parcoords svg g.axis-label-tooltip rect {
-  outline: 1px solid black;
-}
-
 .mlflow-ui-container .parcoords svg g.axis-label-tooltip {
   visibility: hidden;
   pointer-events: none;
 }
 .mlflow-ui-container .parcoords svg text.label:hover:not(:active) + g.axis-label-tooltip {
   visibility: visible;
-}
-
-.mlflow-ui-container .parcoords svg g.tick-label-tooltip rect {
-  outline: 1px solid black;
 }
 
 .mlflow-ui-container .parcoords svg g.tick-label-tooltip {

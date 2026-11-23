@@ -41,7 +41,7 @@ export const ImageGridSingleKeyPlot = ({
             key={run.uuid}
             css={{
               border: `1px solid transparent`,
-              borderRadius: theme.borders.borderRadiusSm,
+              borderRadius: theme.borders.borderRadiusMd,
               padding: theme.spacing.sm,
               '&:hover': {
                 border: `1px solid ${theme.colors.border}`,

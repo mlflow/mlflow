@@ -540,7 +540,7 @@ const styles = {
     border: `1px solid ${theme.colors.border}`,
     left: -999,
     top: -999,
-    borderRadius: theme.general.borderRadiusBase,
+    borderRadius: theme.borders.borderRadiusMd,
     boxShadow: theme.general.shadowLow,
   }),
   overlayElement: (): Interpolation<Theme> => ({
