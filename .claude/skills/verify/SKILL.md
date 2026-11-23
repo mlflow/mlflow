@@ -149,9 +149,9 @@ which source, module, or build path each process actually loaded.
 
 ## 5. Write and validate the review
 
-Write `$tmp_dir/out/payload.json` using the [payload schema](payload.schema.yml). Summarize
-the entry points you exercised, the observed results, and any verification gaps. Report a candidate
-as a finding when source evidence or an observed result supports it. Include findings discovered
+Write `$tmp_dir/out/payload.json` using the [payload schema](payload.schema.yml), including its
+instructions for the summary and optional Evidence section. Report a candidate as a finding
+when source evidence or an observed result supports it. Include findings discovered
 while running the checks. If a review thread already covers a finding, mention it in the body
 and account for it in the verdict.
 

@@ -41,17 +41,20 @@ properties:
       - COMMENT
   body:
     description: |
-      Lead with one short paragraph stating the outcome, any material findings, and any
-      verification gaps. Distinguish what you observed at runtime from what you inferred
-      from the code. When a finding has no relevant diff line or is already covered by an
-      existing thread, mention it here and omit a duplicate inline comment.
+      In one short paragraph, name the entry points you exercised and state the observed
+      outcomes, any material findings, and any verification gaps. Distinguish runtime
+      observations from findings inferred from the code. When a finding has no relevant
+      diff line or is already covered by an existing thread, mention it here and omit a
+      duplicate inline comment.
 
-      Put supporting details such as commands, inputs, output, and captioned media in a
-      single collapsed Evidence section. Omit the section when the summary and inline
-      comments already cover the evidence. Keep the blank lines inside the block.
+      Put commands, inputs, short output excerpts, and captioned media in one collapsed
+      Evidence section when they add to the summary and inline comments. Keep the blank
+      lines inside the block so GitHub renders the Markdown.
 
       ```markdown
       <details><summary>Evidence</summary>
+
+      `curl -fsS http://localhost:5000/health` returned `OK`.
 
       Base: <behavior observed on the base build>
       ![Base behavior](/absolute/path/to/out/media/base.png)
