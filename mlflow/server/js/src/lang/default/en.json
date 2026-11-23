@@ -459,10 +459,6 @@
     "defaultMessage": "Please input a name for the new workspace.",
     "description": "Error message for name requirement in create workspace modal"
   },
-  "/Tty+k": {
-    "defaultMessage": "Manage permissions",
-    "description": "Button that opens the admin page where experiment permissions are managed"
-  },
   "/UWNW9": {
     "defaultMessage": "Query endpoint",
     "description": "Title for try-it modal dialog"
@@ -722,6 +718,10 @@
   "0NomdE": {
     "defaultMessage": "This trace is already in this queue, and you don't have permission to remove it.",
     "description": "Add to review queue: queue option locked because the trace is a member the reviewer cannot remove"
+  },
+  "0OljzO": {
+    "defaultMessage": "Edit description",
+    "description": "experiment page > edit description modal > title"
   },
   "0Ox6UC": {
     "defaultMessage": "Show run parameters",
@@ -2274,10 +2274,6 @@
   "5SDHB3": {
     "defaultMessage": "Status:",
     "description": "Skill version stored status label"
-  },
-  "5SZJcB": {
-    "defaultMessage": "Retry",
-    "description": "Link-styled button to retry an experiment rename"
   },
   "5Sk9A1": {
     "defaultMessage": "Input cost",
@@ -8931,6 +8927,10 @@
     "defaultMessage": "The location, ref, or path is too long.",
     "description": "Validation error when a skill source field exceeds the length limit"
   },
+  "QEm0Sg": {
+    "defaultMessage": "Retry",
+    "description": "Link-styled button to retry saving a setting"
+  },
   "QGiy9C": {
     "defaultMessage": "About this run",
     "description": "Title for the details/metadata section on the run details page"
@@ -10418,6 +10418,10 @@
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
+  },
+  "V0/XKX": {
+    "defaultMessage": "Unable to save the trace archival retention: {reason}",
+    "description": "Inline error shown when saving the experiment trace archival retention fails, with the server's reason"
   },
   "V0IJuy": {
     "defaultMessage": "Allow the assistant to run {toolName}?",
@@ -12887,6 +12891,10 @@
     "defaultMessage": "Disable grouped runs to compare parameters, tag, or attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > disable group runs tooltip message"
   },
+  "csfwlW": {
+    "defaultMessage": "Edit description",
+    "description": "Text for the menu item that edits the experiment description on the experiment view page header"
+  },
   "cto1kL": {
     "defaultMessage": "About tool definitions",
     "description": "Aria label for the info popover next to the Tools section header"
@@ -13615,6 +13623,10 @@
     "defaultMessage": "Select ({count})",
     "description": "Confirm button in the select sessions modal showing number of selected sessions"
   },
+  "f3bsFN": {
+    "defaultMessage": "Optional. Set an experiment-specific archival retention override. Leave blank to inherit the workspace or server default.",
+    "description": "Description for the experiment trace archival retention setting"
+  },
   "f3cOoh": {
     "defaultMessage": "Post-LLM Guardrails",
     "description": "Pipeline AFTER stage label"
@@ -13790,10 +13802,6 @@
   "ffema5": {
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
-  },
-  "fg5iwp": {
-    "defaultMessage": "Permissions",
-    "description": "Heading for experiment permission settings"
   },
   "fgvfcZ": {
     "defaultMessage": "Baseline: missing",
@@ -14110,10 +14118,6 @@
   "gVz/1j": {
     "defaultMessage": "An endpoint with this name already exists",
     "description": "Error message when endpoint name already exists"
-  },
-  "gWXkY8": {
-    "defaultMessage": "Experiment permissions",
-    "description": "Label for the experiment permissions setting"
   },
   "gXCZjg": {
     "defaultMessage": "Active",
@@ -17647,6 +17651,10 @@
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
   },
+  "rA9RPg": {
+    "defaultMessage": "Trace archival retention",
+    "description": "Label for the experiment trace archival retention setting"
+  },
   "rAAy4b": {
     "defaultMessage": "Open dataset record {recordId}",
     "description": "Aria label for the record-id activator in the V2 dataset records table"
@@ -18171,10 +18179,6 @@
     "defaultMessage": "{subMessage}, go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
   },
-  "ssPytS": {
-    "defaultMessage": "Only admins can manage permissions. Ask an admin for access.",
-    "description": "Tooltip shown when the user cannot manage experiment permissions in Settings"
-  },
   "ssbzqa": {
     "defaultMessage": "({count})",
     "description": "Count shown beside the available chat tools section title"
@@ -18210,6 +18214,10 @@
   "t+UhZI": {
     "defaultMessage": "required",
     "description": "MCP server package env var required badge"
+  },
+  "t+Z3MD": {
+    "defaultMessage": "Unable to save the trace archival retention.",
+    "description": "Inline error shown when saving the experiment trace archival retention fails"
   },
   "t+aG6y": {
     "defaultMessage": "User",
@@ -18390,10 +18398,6 @@
   "tcQ02J": {
     "defaultMessage": "Delete",
     "description": "Confirm button label on the delete-custom-view modal"
-  },
-  "tcp8bC": {
-    "defaultMessage": "Controls who can view and manage this experiment. Permissions are granted to users and roles by an admin.",
-    "description": "Description for the experiment permissions setting on an MLflow server with authentication"
   },
   "tez9iz": {
     "defaultMessage": "About",

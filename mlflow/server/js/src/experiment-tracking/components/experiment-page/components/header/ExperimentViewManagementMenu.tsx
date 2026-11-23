@@ -29,10 +29,14 @@ export const ExperimentViewManagementMenu = ({
   const invalidateExperimentList = useInvalidateExperimentList();
   const navigate = useNavigate();
   const { search } = useLocation();
+  // With the Settings page, the name and trace archival retention are edited there, so the editor only
+  // edits the description.
+  const settingsPageEnabled = shouldEnableExperimentSettingsPage();
   const canEditExperiment = Boolean(setEditing) && (canRenameExperiment(experiment) || canModifyExperiment(experiment));
+  const canEditDescription = Boolean(setEditing) && canModifyExperiment(experiment);
   const canDelete = canDeleteExperiment(experiment);
   const menu = [
-    ...(shouldEnableExperimentSettingsPage()
+    ...(settingsPageEnabled
       ? [
           {
             id: `${baseComponentId}.settings`,
@@ -50,7 +54,23 @@ export const ExperimentViewManagementMenu = ({
           },
         ]
       : []),
-    ...(canEditExperiment
+    ...(settingsPageEnabled && canEditDescription
+      ? [
+          {
+            id: `${baseComponentId}.edit-description`,
+            itemName: (
+              <Typography.Text>
+                <FormattedMessage
+                  defaultMessage="Edit description"
+                  description="Text for the menu item that edits the experiment description on the experiment view page header"
+                />
+              </Typography.Text>
+            ),
+            onClick: () => setEditing?.(true),
+          },
+        ]
+      : []),
+    ...(!settingsPageEnabled && canEditExperiment
       ? [
           {
             id: `${baseComponentId}.edit-experiment`,

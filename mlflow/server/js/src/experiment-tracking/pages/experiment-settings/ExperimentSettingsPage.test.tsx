@@ -16,7 +16,7 @@ import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
 import { MlflowService } from '../../sdk/MlflowService';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
-import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
+import { encodeTraceArchivalRetentionTag, TRACE_ARCHIVAL_RETENTION_TAG_KEY } from '../../../common/utils/traceArchival';
 import ExperimentSettingsPage from './ExperimentSettingsPage';
 
 // The client retries failed reads with growing delays before reporting a network error; pass
@@ -42,10 +42,11 @@ jest.mock('../../../account/api', () => ({
   },
 }));
 
-let mockWorkspacesEnabled = false;
+let mockTraceArchivalEnabled = false;
 jest.mock('../../hooks/useServerInfo', () => ({
   ...jest.requireActual<typeof import('../../hooks/useServerInfo')>('../../hooks/useServerInfo'),
-  useWorkspacesEnabled: () => ({ workspacesEnabled: mockWorkspacesEnabled, loading: false }),
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+  useTraceArchivalEnabled: () => mockTraceArchivalEnabled,
 }));
 
 const mockedAccountApi = jest.mocked(AccountApi);
@@ -142,8 +143,7 @@ describe('ExperimentSettingsPage', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
-    mockWorkspacesEnabled = false;
-    setActiveWorkspace(null);
+    mockTraceArchivalEnabled = false;
   });
 
   const renderPage = (
@@ -168,7 +168,6 @@ describe('ExperimentSettingsPage', () => {
                       ),
                       testRoute(<div>Experiment root</div>, createMLflowRoutePath('/experiments/:experimentId')),
                       testRoute(<div>Experiments list</div>, createMLflowRoutePath('/experiments')),
-                      testRoute(<div>Admin page</div>, createMLflowRoutePath('/admin')),
                     ]}
                   />
                 </DesignSystemProvider>
@@ -189,7 +188,6 @@ describe('ExperimentSettingsPage', () => {
       'About',
       'Actions',
     ]);
-    expect(screen.queryByRole('region', { name: 'Permissions' })).not.toBeInTheDocument();
     expect(within(aboutSection).getByRole('textbox', { name: 'Experiment name' })).toHaveValue(
       'team/Helpful experiment',
     );
@@ -354,72 +352,24 @@ describe('ExperimentSettingsPage', () => {
   });
 
   describe('with authentication enabled', () => {
-    test('lets an admin open the admin page to manage permissions', async () => {
-      authEnabledAs({ isAdmin: true });
-      renderPage();
-
-      const permissionsSection = await screen.findByRole('region', { name: 'Permissions' });
-      expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
-        'About',
-        'Permissions',
-        'Actions',
-      ]);
-      expect(within(permissionsSection).getByText('Experiment permissions')).toBeInTheDocument();
-      const manageButton = within(permissionsSection).getByRole('button', { name: 'Manage permissions' });
-      expect(manageButton).toBeEnabled();
-      await userEvent.click(manageButton);
-      expect(await screen.findByText('Admin page')).toBeInTheDocument();
-    });
-
-    const managerOfWorkspace = (workspace: string) =>
-      mockedAccountApi.listUserRoles.mockResolvedValue({
-        roles: [
-          {
-            id: 7,
-            name: 'managers',
-            workspace,
-            description: null,
-            permissions: [
-              { id: 1, role_id: 7, resource_type: 'workspace', resource_pattern: '*', permission: 'MANAGE' },
-            ],
-          },
-        ],
-      });
-
-    test('lets a manager of the workspace being viewed open the admin page', async () => {
-      mockWorkspacesEnabled = true;
-      setActiveWorkspace('ws-a');
-      authEnabledAs({ isAdmin: false });
-      managerOfWorkspace('ws-a');
-      renderPage();
-
-      const permissionsSection = await screen.findByRole('region', { name: 'Permissions' });
-      await waitFor(() =>
-        expect(within(permissionsSection).getByRole('button', { name: 'Manage permissions' })).toBeEnabled(),
-      );
-    });
-
-    test('does not let a manager of a different workspace manage permissions here', async () => {
-      mockWorkspacesEnabled = true;
-      setActiveWorkspace('ws-a');
-      authEnabledAs({ isAdmin: false });
-      managerOfWorkspace('ws-other');
-      renderPage();
-
-      const permissionsSection = await screen.findByRole('region', { name: 'Permissions' });
-      await waitFor(() => expect(mockedAccountApi.listUserRoles).toHaveBeenCalled());
+    const permissionsLoaded = async () => {
+      await waitFor(() => expect(mockedAccountApi.listMyPermissions).toHaveBeenCalled());
       await act(async () => {
         await new Promise((resolve) => setTimeout(resolve, 200));
       });
-      expect(within(permissionsSection).getByRole('button', { name: 'Manage permissions' })).toBeDisabled();
-    });
+    };
 
-    test('disables managing permissions for users who are not admins', async () => {
-      authEnabledAs({ isAdmin: false, permission: 'MANAGE' });
+    test('has no Permissions section, even for an admin', async () => {
+      authEnabledAs({ isAdmin: true });
       renderPage();
 
-      const permissionsSection = await screen.findByRole('region', { name: 'Permissions' });
-      expect(within(permissionsSection).getByRole('button', { name: 'Manage permissions' })).toBeDisabled();
+      await screen.findByRole('region', { name: 'About' });
+      await permissionsLoaded();
+      expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+        'About',
+        'Actions',
+      ]);
+      expect(screen.queryByRole('button', { name: 'Manage permissions' })).not.toBeInTheDocument();
     });
 
     test('disables editing and deleting with only READ permission', async () => {
@@ -428,7 +378,7 @@ describe('ExperimentSettingsPage', () => {
       renderPage();
 
       const aboutSection = await screen.findByRole('region', { name: 'About' });
-      await screen.findByRole('region', { name: 'Permissions' });
+      await permissionsLoaded();
       expect(within(aboutSection).getByRole('textbox', { name: 'Experiment name' })).toBeDisabled();
       expect(within(aboutSection).getByRole('button', { name: 'Edit tags' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
@@ -586,6 +536,134 @@ describe('ExperimentSettingsPage', () => {
         expect(setTag).toHaveBeenCalledWith({ experiment_id: '123', key: 'newkey', value: 'v' });
       });
       expect(await within(aboutSection).findByText('newkey')).toBeVisible();
+    });
+  });
+
+  describe('trace archival retention', () => {
+    const retentionTag = (retention: string) => ({
+      key: TRACE_ARCHIVAL_RETENTION_TAG_KEY,
+      value: encodeTraceArchivalRetentionTag(retention),
+    });
+    const retentionSetTo = (retention: string) => ({
+      experiment_id: '123',
+      key: TRACE_ARCHIVAL_RETENTION_TAG_KEY,
+      value: encodeTraceArchivalRetentionTag(retention),
+    });
+    const findRetentionInput = async () => {
+      const input = await screen.findByRole('textbox', { name: 'Trace archival retention' });
+      await waitFor(() => expect(input).toBeEnabled());
+      return input;
+    };
+    const AUTOSAVE_WAIT = { timeout: 3000 };
+
+    beforeEach(() => {
+      mockTraceArchivalEnabled = true;
+    });
+
+    test('is hidden when the server has trace archival off', async () => {
+      mockTraceArchivalEnabled = false;
+      renderPage();
+
+      const aboutSection = await screen.findByRole('region', { name: 'About' });
+      expect(within(aboutSection).getByRole('textbox', { name: 'Experiment name' })).toBeInTheDocument();
+      expect(within(aboutSection).queryByText('Trace archival retention')).not.toBeInTheDocument();
+    });
+
+    test('shows the saved override and saves a new one shortly after typing', async () => {
+      server.use(experimentQuery(() => makeExperiment([retentionTag('30d')])));
+      const setTag = jest.spyOn(MlflowService, 'setExperimentTag').mockResolvedValue({});
+      renderPage();
+
+      const input = await findRetentionInput();
+      expect(input).toHaveValue('30');
+      expect(screen.getByText('Days')).toBeInTheDocument();
+      await userEvent.clear(input);
+      await userEvent.type(input, '14');
+
+      await waitFor(() => expect(setTag).toHaveBeenCalledWith(retentionSetTo('14d')), AUTOSAVE_WAIT);
+      expect(setTag).toHaveBeenCalledTimes(1);
+    });
+
+    test('removes the override when cleared', async () => {
+      server.use(experimentQuery(() => makeExperiment([retentionTag('30d')])));
+      const setTag = jest.spyOn(MlflowService, 'setExperimentTag').mockResolvedValue({});
+      const deleteTag = jest.spyOn(MlflowService, 'deleteExperimentTag').mockResolvedValue({});
+      renderPage();
+
+      await userEvent.clear(await findRetentionInput());
+
+      await waitFor(
+        () => expect(deleteTag).toHaveBeenCalledWith({ experiment_id: '123', key: TRACE_ARCHIVAL_RETENTION_TAG_KEY }),
+        AUTOSAVE_WAIT,
+      );
+      expect(setTag).not.toHaveBeenCalled();
+    });
+
+    test('saves right away when the unit changes', async () => {
+      server.use(experimentQuery(() => makeExperiment([retentionTag('30d')])));
+      const setTag = jest.spyOn(MlflowService, 'setExperimentTag').mockResolvedValue({});
+      renderPage();
+
+      await findRetentionInput();
+      await userEvent.click(screen.getByText('Days'));
+      await userEvent.click(await screen.findByRole('option', { name: 'Hours' }));
+
+      await waitFor(() => expect(setTag).toHaveBeenCalledWith(retentionSetTo('30h')));
+    });
+
+    test('shows why a value is invalid and does not save it', async () => {
+      const setTag = jest.spyOn(MlflowService, 'setExperimentTag').mockResolvedValue({});
+      renderPage();
+
+      await userEvent.type(await findRetentionInput(), '0');
+
+      expect(
+        await screen.findByText(
+          "Trace archival retention must use the format <int><unit>, where unit is one of 'm', 'h', or 'd'.",
+          undefined,
+          AUTOSAVE_WAIT,
+        ),
+      ).toBeInTheDocument();
+      expect(setTag).not.toHaveBeenCalled();
+    });
+
+    test("shows the server's reason when saving fails, and saves again on Retry", async () => {
+      const setTag = jest
+        .spyOn(MlflowService, 'setExperimentTag')
+        .mockRejectedValueOnce(new Error('Retention exceeds the server maximum'))
+        .mockResolvedValue({});
+      renderPage();
+
+      await userEvent.type(await findRetentionInput(), '400');
+      expect(
+        await screen.findByText(
+          'Unable to save the trace archival retention: Retention exceeds the server maximum',
+          undefined,
+          AUTOSAVE_WAIT,
+        ),
+      ).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+      await waitFor(() => expect(setTag).toHaveBeenCalledTimes(2));
+      expect(setTag).toHaveBeenLastCalledWith(retentionSetTo('400d'));
+      await waitFor(() =>
+        expect(screen.queryByText(/Unable to save the trace archival retention/)).not.toBeInTheDocument(),
+      );
+    });
+
+    test('cannot be changed with only READ permission', async () => {
+      authEnabledAs({ isAdmin: false, permission: 'READ' });
+      server.use(experimentQuery(() => makeExperiment([retentionTag('30d')])));
+      renderPage();
+
+      const input = await screen.findByRole('textbox', { name: 'Trace archival retention' });
+      await waitFor(() => expect(mockedAccountApi.listMyPermissions).toHaveBeenCalled());
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      });
+      expect(input).toHaveValue('30');
+      expect(input).toBeDisabled();
     });
   });
 });

@@ -1311,10 +1311,10 @@ module.exports = {
   "mlflow.experiment_settings.load_error": "",
   "mlflow.experiment_settings.name": "",
   "mlflow.experiment_settings.name_retry": "",
-  "mlflow.experiment_settings.permissions": "",
-  "mlflow.experiment_settings.permissions.tooltip": "",
   "mlflow.experiment_settings.tags.edit": "",
   "mlflow.experiment_settings.tags.edit_tooltip": "",
+  "mlflow.experiment_settings.trace_archival_retention": "",
+  "mlflow.experiment_settings.trace_archival_retention_retry": "",
 
   // -- mlflow.experiment_side_nav --
   "mlflow.experiment_side_nav.assistant_beta_tag": "",

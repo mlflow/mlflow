@@ -11,6 +11,7 @@ import { ExperimentViewArtifactLocation } from '../../components/experiment-page
 import { MlflowService } from '../../sdk/MlflowService';
 import type { ExperimentEntity } from '../../types';
 import { ExperimentSettingsNameInput } from './ExperimentSettingsNameInput';
+import { ExperimentSettingsTraceArchivalRetention } from './ExperimentSettingsTraceArchivalRetention';
 import { ExperimentSettingsValue } from './ExperimentSettingsValue';
 import { SettingCell } from './SettingCell';
 
@@ -160,7 +161,7 @@ export interface ExperimentSettingsDetailsProps {
   refetchExperiment?: () => Promise<unknown>;
 }
 
-/** The About section: name, ID, artifact location and tags. */
+/** The About section: name, ID, artifact location, tags and, with trace archival on, its retention. */
 export const ExperimentSettingsDetails = ({
   experiment,
   canEdit,
@@ -241,6 +242,11 @@ export const ExperimentSettingsDetails = ({
           </ExperimentSettingsValue>
         </SettingCell.Static>
         <ExperimentSettingsTags experiment={experiment} canEdit={canEdit} refetchExperiment={refetchExperiment} />
+        <ExperimentSettingsTraceArchivalRetention
+          experiment={experiment}
+          canEdit={canEdit}
+          refetchExperiment={refetchExperiment}
+        />
       </div>
     </section>
   );

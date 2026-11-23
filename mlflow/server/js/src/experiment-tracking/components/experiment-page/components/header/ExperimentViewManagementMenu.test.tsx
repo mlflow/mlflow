@@ -140,6 +140,38 @@ describe('ExperimentViewManagementMenu', () => {
     expect(screen.getByText('Delete')).toBeInTheDocument();
   });
 
+  describe('with the experiment Settings page', () => {
+    test('offers Settings and Edit description instead of Edit experiment', async () => {
+      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+      const setEditing = jest.fn();
+      renderTestComponent({
+        setEditing,
+        experiment: { ...defaultExperiment, allowedActions: ['RENAME', 'MODIFIY_PERMISSION', 'DELETE'] },
+      });
+
+      await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+
+      expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+        'Settings',
+        'Edit description',
+        'Delete',
+      ]);
+      await userEvent.click(screen.getByText('Edit description'));
+      expect(setEditing).toHaveBeenCalledWith(true);
+    });
+
+    test('does not offer Edit description when only renaming is allowed', async () => {
+      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(true);
+      renderTestComponent({ setEditing: jest.fn(), experiment: { ...defaultExperiment, allowedActions: ['RENAME'] } });
+
+      await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
+
+      expect(screen.getByText('Settings')).toBeInTheDocument();
+      expect(screen.queryByText('Edit description')).not.toBeInTheDocument();
+      expect(screen.queryByText('Edit experiment')).not.toBeInTheDocument();
+    });
+  });
+
   test('it should not offer Settings without the experiment Settings page', async () => {
     jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
     renderTestComponent();

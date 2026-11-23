@@ -430,7 +430,7 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(screen.queryByRole('button', { name: 'Run evaluation' })).not.toBeInTheDocument();
     });
 
-    test('flag on: keeps the experiment info, Edit / Delete menu and archival badge in the breadcrumb header', async () => {
+    test('flag on: keeps the experiment info, Settings / Edit description / Delete menu and archival badge in the breadcrumb header', async () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       server.use(
         graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
@@ -447,12 +447,13 @@ describe('ExperimentLoggedModelListPage', () => {
       );
 
       await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
-      expect(await screen.findByRole('menuitem', { name: 'Edit experiment' })).toBeInTheDocument();
+      expect(await screen.findByRole('menuitem', { name: 'Settings' })).toBeInTheDocument();
+      expect(screen.getByRole('menuitem', { name: 'Edit description' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
       expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();
     });
 
-    test('flag on: Edit experiment from the evaluation runs breadcrumb header opens the experiment editor', async () => {
+    test('flag on: Edit description from the evaluation runs breadcrumb header opens the description editor', async () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
       renderTestComponent('/experiments/12345678/evaluation-runs');
 
@@ -460,8 +461,8 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(await main.findByRole('button', { name: 'Run evaluation' })).toBeInTheDocument();
       expect(main.getByRole('button', { name: 'Info' })).toBeInTheDocument();
       await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
-      await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit experiment' }));
-      expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
+      await userEvent.click(await screen.findByRole('menuitem', { name: 'Edit description' }));
+      expect(await screen.findByRole('dialog', { name: 'Edit description' })).toBeInTheDocument();
     });
 
     test('flag on: shows the experiment description under the breadcrumb row, not in it', async () => {
@@ -488,7 +489,7 @@ describe('ExperimentLoggedModelListPage', () => {
       expect(screen.getByRole('main')).toContainElement(description);
 
       await userEvent.click(screen.getByTestId('experiment-metadata-editor-edit-button'));
-      expect(await screen.findByRole('dialog', { name: 'Edit experiment' })).toBeInTheDocument();
+      expect(await screen.findByRole('dialog', { name: 'Edit description' })).toBeInTheDocument();
     });
 
     test('flag on: shows no description area when the experiment has no description', async () => {
