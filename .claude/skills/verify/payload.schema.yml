@@ -41,14 +41,14 @@ properties:
       - COMMENT
   body:
     description: |
-      Summarize the code reviewed, the entry points and inputs exercised, the observed outcomes,
-      and any verification gaps in a few sentences. Distinguish runtime observations from findings
-      established by tracing the code. When a finding has no relevant diff line or is already
-      covered by an existing thread, mention it here and omit a duplicate inline comment.
+      Lead with one short paragraph stating the outcome, any material findings, and any
+      verification gaps. Distinguish what you observed at runtime from what you inferred
+      from the code. When a finding has no relevant diff line or is already covered by an
+      existing thread, mention it here and omit a duplicate inline comment.
 
-      To show media of verified behavior, end the body with a collapsed section, giving each
-      citation a short caption saying what it shows. Keep the blank lines around the content
-      so GitHub renders it:
+      Put supporting details such as commands, inputs, output, and captioned media in a
+      single collapsed Evidence section. Omit the section when the summary and inline
+      comments already cover the evidence. Keep the blank lines inside the block.
 
       ```markdown
       <details><summary>Evidence</summary>
