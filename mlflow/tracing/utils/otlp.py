@@ -242,6 +242,11 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
     from fastapi import HTTPException, status
 
     max_size = MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.get()
+    # A negative limit would disable the output cap (zlib treats `max_length=0` as unlimited).
+    if max_size < 0:
+        raise ValueError(
+            f"{MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name} must be non-negative, got {max_size}"
+        )
 
     def _too_large() -> HTTPException:
         return HTTPException(

@@ -342,6 +342,15 @@ def test_decompress_otlp_body_allows_at_limit(
     assert decompress_otlp_body(compress_fn(data), encoding) == data
 
 
+@pytest.mark.parametrize("limit", ["-1", "-2"])
+@pytest.mark.parametrize("encoding", ["gzip", "deflate"])
+def test_decompress_otlp_body_rejects_negative_limit(encoding: str, limit: str, monkeypatch):
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, limit)
+    compressed = gzip.compress(b"data") if encoding == "gzip" else zlib.compress(b"data")
+    with pytest.raises(ValueError, match=r"must be non-negative"):
+        decompress_otlp_body(compressed, encoding)
+
+
 @pytest.mark.parametrize(
     ("encoding", "invalid_data", "expected_error"),
     [
