@@ -118,6 +118,7 @@ Specify the entry point, input, and expected result for each check.
 Run each check through its planned entry point. Record the input and the observed result
 (the returned value or visible state), then compare it with the expected result. Group checks
 that share setup and use fresh data when an earlier check could affect the result.
+Install missing dependencies as needed (e.g., `uv run --with pyspark python check.py`).
 
 - Exercise HTTP endpoints against a running server and UI flows in the browser. Mock external
   providers. Check visual changes in both light and dark themes. Logic-only changes need one theme.
