@@ -685,7 +685,8 @@ class MultipartUploadMixin(ABC):
 
         Args:
             local_file: Path of artifact to upload.
-            num_parts: Number of parts to upload. Only required by S3 and GCS.
+            num_parts: Number of parts to upload. Must be at least 1 and at most the
+                storage service's part limit (10,000 for S3 and GCS, 50,000 for Azure Blob).
             artifact_path: Directory within the run's artifact directory in which to upload the
                 artifact.
 
