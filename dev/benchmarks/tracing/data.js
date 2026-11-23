@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795365420824,
+  "lastUpdate": 1795393151441,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "73396868+r14dd@users.noreply.github.com",
-            "name": "Riad Mukhtarov",
-            "username": "r14dd"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "248e2939ebacfdbf49aa86c414b4295a88c1dde9",
-          "message": "Fix parallel tool call indices in Anthropic streaming (#26269)\n\nSigned-off-by: Riad Mukhtarov <riad.mrv@gmail.com>\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
-          "timestamp": "2026-10-01T09:30:29Z",
-          "tree_id": "737d2077a61ae39623c28f240928e5dd3019e71c",
-          "url": "https://github.com/mlflow/mlflow/commit/248e2939ebacfdbf49aa86c414b4295a88c1dde9"
-        },
-        "date": 1790847239077,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 30.232642349983507,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 5.67177372222558,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 3.7540448999969893,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 3.7744897860706876,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 4.662370198899019,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 4.318358428577085,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 3.120887833337823,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "191841109+mlflow-app[bot]@users.noreply.github.com",
+            "name": "mlflow-app[bot]",
+            "username": "mlflow-app[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0ed0dba68e26e9e0bf57052917de5f309b1f2a5d",
+          "message": "Run LlamaIndex Workflow `predict` calls on a persistent event loop (#28041)\n\nSigned-off-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-23T00:15:24Z",
+          "tree_id": "b496af83a4cf558d17cddd58b7869b05b294ce08",
+          "url": "https://github.com/mlflow/mlflow/commit/0ed0dba68e26e9e0bf57052917de5f309b1f2a5d"
+        },
+        "date": 1795393147520,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.136492199999594,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.783484947367917,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 4.103092714285236,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.026408847368139,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.486930222891669,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 11.930759399999147,
             "unit": "ms"
           }
         ]
