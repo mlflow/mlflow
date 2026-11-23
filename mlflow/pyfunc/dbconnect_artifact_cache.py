@@ -190,12 +190,6 @@ def _extract_hardlink(tar, member, resolved_dest):
     # re-extracting the archive member named by the normalized target at the link path,
     # which can be a symlink that points outside the destination once relocated.
     link_path = os.path.join(resolved_dest, member.name)
-    # Like tarfile, restore the link header's mode and mtime, sanitizing the mode the way the
-    # `data` filter (the default from Python 3.14) does so the header can't set high or
-    # group/other write bits. `tarfile.data_filter` isn't available before Python 3.11.4, and
-    # it also normalizes the paths, which would no longer match the validated target.
-    metadata = copy.copy(member)
-    metadata.mode = _sanitize_data_mode(member.mode)
     os.makedirs(os.path.dirname(link_path), exist_ok=True)
     try:
         os.link(os.path.join(resolved_dest, member.linkname), link_path)
@@ -203,13 +197,6 @@ def _extract_hardlink(tar, member, resolved_dest):
         raise MlflowException.invalid_parameter_value(
             f"Failed to extract hard link {member.name!r} -> {member.linkname!r}: {e}"
         ) from e
-    try:
-        tar.chmod(metadata, link_path)
-        tar.utime(metadata, link_path)
-    except tarfile.ExtractError:
-        # tarfile treats failing to restore metadata as non-fatal unless errorlevel > 1
-        if tar.errorlevel > 1:
-            raise
 
 
 def _sanitize_data_mode(mode):
