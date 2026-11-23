@@ -7,8 +7,8 @@ import { useState } from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
-import { TimelineTreeNode } from './TimelineTreeNode';
-import { ModelSpanType, type ModelTraceSpanNode } from '../ModelTrace.types';
+import { getTimelineTreeRowHeight, TimelineTreeNode } from './TimelineTreeNode';
+import { ModelSpanType, type ModelTraceComparisonRole, type ModelTraceSpanNode } from '../ModelTrace.types';
 import {
   ModelTraceExplorerPreferencesContext,
   ModelTraceExplorerPreferencesProvider,
@@ -58,12 +58,30 @@ const MetricPreferencesOverride = ({
   );
 };
 
-const ViewStateOverride = ({ children }: { children: React.ReactNode }) => {
+const ViewStateOverride = ({
+  children,
+  node,
+  comparisonSpan,
+  comparisonRole,
+}: {
+  children: React.ReactNode;
+  node: ModelTraceSpanNode;
+  comparisonSpan?: ModelTraceSpanNode;
+  comparisonRole?: ModelTraceComparisonRole;
+}) => {
   const viewState = useModelTraceExplorerViewState();
   const [activeTab, setActiveTab] = useState(viewState.activeTab);
 
   return (
-    <ModelTraceExplorerViewStateContext.Provider value={{ ...viewState, activeTab, setActiveTab }}>
+    <ModelTraceExplorerViewStateContext.Provider
+      value={{
+        ...viewState,
+        activeTab,
+        setActiveTab,
+        comparisonNodeMap: comparisonSpan ? { [String(node.key)]: comparisonSpan } : {},
+        comparisonNodeRoleMap: comparisonRole ? { [String(node.key)]: comparisonRole } : {},
+      }}
+    >
       {children}
       <span data-testid="active-tab">{activeTab}</span>
     </ModelTraceExplorerViewStateContext.Provider>
@@ -73,11 +91,15 @@ const ViewStateOverride = ({ children }: { children: React.ReactNode }) => {
 const TestWrapper = ({
   node = TEST_NODE,
   metrics,
+  comparisonSpan,
+  comparisonRole,
   initialSelectedKey = node.key,
   onSelect,
 }: {
   node?: ModelTraceSpanNode;
   metrics?: TimelineTreeMetric[];
+  comparisonSpan?: ModelTraceSpanNode;
+  comparisonRole?: ModelTraceComparisonRole;
   initialSelectedKey?: string | number;
   onSelect?: (node: ModelTraceSpanNode) => void;
 }) => {
@@ -107,7 +129,7 @@ const TestWrapper = ({
         <IntlProvider locale="en">
           <DesignSystemProvider>
             <ModelTraceExplorerPreferencesProvider>
-              <ViewStateOverride>
+              <ViewStateOverride node={node} comparisonSpan={comparisonSpan} comparisonRole={comparisonRole}>
                 {metrics ? (
                   <MetricPreferencesOverride metrics={metrics}>{timelineTreeNode}</MetricPreferencesOverride>
                 ) : (
@@ -159,6 +181,42 @@ describe('TimelineTreeNode', () => {
     expect(titleRow).not.toContainElement(screen.getByText('3.20s'));
     expect(metricRow).toContainElement(screen.getByText('3.20s'));
     expect(screen.queryByText('2K')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { metrics: ['duration', 'tokens'] as TimelineTreeMetric[], node: { ...METRICS_NODE, tokenUsage: undefined } },
+    { metrics: ['tokens', 'cost'] as TimelineTreeMetric[], node: METRICS_NODE },
+    {
+      metrics: ['tokens', 'cost'] as TimelineTreeMetric[],
+      node: {
+        ...METRICS_NODE,
+        tokenUsage: undefined,
+        cost: { input_cost: 0.01, output_cost: 0.02, total_cost: 0.03 },
+      },
+    },
+    {
+      metrics: ['tokens', 'cost'] as TimelineTreeMetric[],
+      node: { ...METRICS_NODE, tokenUsage: undefined },
+    },
+    {
+      metrics: ['tokens', 'cost'] as TimelineTreeMetric[],
+      node: { ...METRICS_NODE, tokenUsage: undefined },
+      comparisonSpan: METRICS_NODE,
+      comparisonRole: 'baseline' as ModelTraceComparisonRole,
+    },
+    {
+      metrics: ['tokens', 'cost'] as TimelineTreeMetric[],
+      node: { ...METRICS_NODE, tokenUsage: undefined },
+      comparisonSpan: METRICS_NODE,
+      comparisonRole: 'candidate' as ModelTraceComparisonRole,
+    },
+  ])('estimates the rendered metric row height for $metrics', ({ metrics, node, comparisonSpan, comparisonRole }) => {
+    render(
+      <TestWrapper node={node} metrics={metrics} comparisonSpan={comparisonSpan} comparisonRole={comparisonRole} />,
+    );
+
+    const hasMetricRow = screen.queryByTestId(`span-metric-row-${node.key}`) !== null;
+    expect(getTimelineTreeRowHeight(node, metrics, comparisonSpan, comparisonRole)).toBe(hasMetricRow ? 48 : 32);
   });
 
   it('stops the active connector below the selected span', async () => {

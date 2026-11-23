@@ -128,6 +128,27 @@ def _strip_cache_control(payload: chat.RequestPayload) -> chat.RequestPayload:
     return payload
 
 
+def _strip_thought_signatures(payload: chat.RequestPayload) -> chat.RequestPayload:
+    """Return ``payload`` without Gemini ``thought_signature`` values on its tool calls.
+
+    The payload is copied before it is changed, because ``FallbackProvider`` hands the same
+    payload to the next provider, which may be Gemini.
+    """
+
+    def _signed_tool_calls(messages):
+        for message in messages:
+            for tool_call in message.tool_calls or []:
+                if tool_call.thought_signature is not None:
+                    yield tool_call
+
+    if next(_signed_tool_calls(payload.messages), None) is None:
+        return payload
+    payload = payload.model_copy(deep=True)
+    for tool_call in _signed_tool_calls(payload.messages):
+        tool_call.thought_signature = None
+    return payload
+
+
 @developer_stable
 class BaseProvider(ABC):
     """
@@ -146,6 +167,10 @@ class BaseProvider(ABC):
     # parts. When False, the markers are removed before the request is built, so a backend
     # that does not know the field never receives it.
     SUPPORTS_CACHE_CONTROL: bool = False
+    # Whether the chat routes forward Gemini `thought_signature` values on tool calls. When
+    # False, they are removed before the request is built. A client can echo them back on any
+    # route, and a backend that rejects unknown fields (such as OpenAI) would fail the request.
+    SUPPORTS_THOUGHT_SIGNATURES: bool = False
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
         if self.DISPLAY_NAME == "":
@@ -245,6 +270,13 @@ class BaseProvider(ABC):
         """
         return self.SUPPORTS_CACHE_CONTROL
 
+    def _supports_thought_signatures(self) -> bool:
+        """Whether the chat routes forward Gemini ``thought_signature`` values on tool calls.
+
+        Override this when support depends on the configured model.
+        """
+        return self.SUPPORTS_THOUGHT_SIGNATURES
+
     # -------------------------------------------------------------------------
     # Public methods (with optional tracing)
     # -------------------------------------------------------------------------
@@ -254,6 +286,8 @@ class BaseProvider(ABC):
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         if not self._supports_cache_control():
             payload = _strip_cache_control(payload)
+        if not self._supports_thought_signatures():
+            payload = _strip_thought_signatures(payload)
         async for chunk in self._maybe_trace_stream_method(
             "chat_stream", self._chat_stream, payload
         ):
@@ -263,6 +297,8 @@ class BaseProvider(ABC):
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         if not self._supports_cache_control():
             payload = _strip_cache_control(payload)
+        if not self._supports_thought_signatures():
+            payload = _strip_thought_signatures(payload)
         result = await self._maybe_trace_method("chat", self._chat, payload)
         result.provider = self._provider_name
         return result

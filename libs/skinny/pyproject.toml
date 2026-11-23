@@ -30,7 +30,7 @@ requires-python = ">=3.11"
 # application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
 dependencies = [
   "anyio<5,>=3.6.2,!=4.15.0",
-  "cachetools<8,>=5.0.0",
+  "cachetools<9,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
   "databricks-sdk<1,>=0.20.0",

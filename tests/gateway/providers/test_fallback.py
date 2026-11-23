@@ -421,3 +421,51 @@ async def test_fallback_chat_keeps_cache_control_for_next_provider():
         {"role": "user", "content": [{"type": "text", "text": "Doc"}]}
     ]
     assert second_call.kwargs["json"]["messages"] == [{"role": "user", "content": [marked_part]}]
+
+
+@pytest.mark.asyncio
+async def test_fallback_chat_keeps_thought_signature_for_next_provider():
+    from tests.gateway.providers.test_gemini import chat_config as gemini_chat_config
+    from tests.gateway.providers.test_gemini import fake_chat_response as gemini_chat_response
+
+    # OpenAI does not get the signature, but the Gemini provider it falls back to does.
+    provider = _get_fallback_provider([chat_config(), gemini_chat_config()])
+    mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            MockAsyncResponse(gemini_chat_response()),
+        ]
+        await provider.chat(
+            chat.RequestPayload(
+                messages=[
+                    {"role": "user", "content": "What's the weather in Paris?"},
+                    {
+                        "role": "assistant",
+                        "tool_calls": [{**tool_call, "thought_signature": "sig_1"}],
+                    },
+                    {"role": "tool", "tool_call_id": "call_1", "content": '{"temperature": 20}'},
+                ]
+            )
+        )
+
+    first_call, second_call = mock_client.post.call_args_list
+    assert first_call.kwargs["json"]["messages"][1] == {
+        "role": "assistant",
+        "tool_calls": [tool_call],
+    }
+    assert second_call.kwargs["json"]["contents"][1] == {
+        "role": "model",
+        "parts": [
+            {
+                "functionCall": {"id": "call_1", "name": "get_weather", "args": {"city": "Paris"}},
+                "thoughtSignature": "sig_1",
+            }
+        ],
+    }

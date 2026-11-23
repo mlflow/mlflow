@@ -1,6 +1,25 @@
 import { dump, YAMLException } from 'js-yaml';
 
 const OPTIONS = { noRefs: true, lineWidth: 120, sortKeys: false };
+// eslint-disable-next-line no-control-regex -- js-yaml escapes these code points.
+const NON_PRINTABLE_YAML = /[\x00-\x09\x0b-\x1f\x7f-\xa0\u2028\u2029\ud800-\udfff\ufeff\ufffe\uffff]/;
+const PLAIN_SAFE_SCALAR = /^[a-z_][a-z0-9_-]*$/i;
+
+const truncateYamlScalar = (value: string, limit: number, isKey: boolean): string | undefined => {
+  if (NON_PRINTABLE_YAML.test(value)) return undefined;
+  let prefix = value.slice(0, limit);
+  if (PLAIN_SAFE_SCALAR.test(value)) return prefix;
+  if (isKey) return undefined;
+
+  const isStableLiteral = prefix.includes('\n') && !/(?:^|\n)[^ \n][^\n]{40}/.test(value);
+  const isStableFolded = /(?:^|\n)[^ \n][^\n]{120}/.test(prefix);
+  if (!isStableLiteral && !isStableFolded) return undefined;
+
+  prefix = prefix.replace(/\n+$/, '');
+  if (value.endsWith('\n\n')) return `${prefix}\n\n`;
+  if (value.endsWith('\n')) return `${prefix}\n`;
+  return prefix;
+};
 
 export function formatJsonStringAsYaml(data: string): string {
   try {
@@ -10,7 +29,7 @@ export function formatJsonStringAsYaml(data: string): string {
   }
 }
 
-/** Dump only the collection entries needed to fill a collapsed preview. */
+/** Dump only the content needed to fill a collapsed preview. */
 export function getYamlCollectionPreview(
   data: string,
   maxLines: number,
@@ -22,19 +41,41 @@ export function getYamlCollectionPreview(
   } catch {
     return undefined;
   }
-  // shortcut: Scalar strings keep js-yaml's complete formatting; bound them once exact scalar-prefix formatting is available.
   for (let budget = maxLines + 1; budget <= maxLines * 64; budget *= 2) {
     let remaining = budget;
+    // Keep one formatter line beyond the visible prefix so only the discarded tail can differ.
+    let remainingChars = maxChars + OPTIONS.lineWidth;
     let cut = false;
+    let stringsCut = false;
+    let unsafeScalar = false;
     const arrayCuts: unknown[][] = [];
     const objectCuts: Record<string, unknown>[] = [];
     const strings: string[] = [];
     const prune = (node: unknown): unknown => {
-      if (typeof node === 'string') strings.push(node);
+      if (typeof node === 'string') {
+        strings.push(node);
+        if (node.length > remainingChars) {
+          const scalarLimit = Math.max(remainingChars, OPTIONS.lineWidth + 1);
+          if (node.length <= scalarLimit) {
+            remainingChars = 0;
+            return node;
+          }
+          const prefix = truncateYamlScalar(node, scalarLimit, false);
+          if (prefix === undefined) {
+            unsafeScalar = true;
+            return node;
+          }
+          stringsCut = true;
+          remainingChars = 0;
+          return prefix;
+        }
+        remainingChars -= node.length;
+        return node;
+      }
       if (Array.isArray(node)) {
         const items: unknown[] = [];
         for (const item of node) {
-          if (remaining-- <= 0) {
+          if (remainingChars === 0 || remaining-- <= 0) {
             cut = true;
             items.push(null);
             arrayCuts.push(items);
@@ -48,13 +89,30 @@ export function getYamlCollectionPreview(
         const entries: Record<string, unknown> = Object.create(null);
         for (const key in node) {
           if (!Object.hasOwn(node, key)) continue;
-          if (remaining-- <= 0) {
+          if (remainingChars === 0 || remaining-- <= 0) {
             cut = true;
             objectCuts.push(entries);
             break;
           }
           strings.push(key);
-          entries[key] = prune((node as Record<string, unknown>)[key]);
+          let previewKey = key;
+          let keyWasCut = false;
+          if (key.length > remainingChars) {
+            // js-yaml switches keys over 1024 characters to explicit-key syntax.
+            const keyLimit = key.length > 1024 ? Math.max(remainingChars, 1025) : remainingChars;
+            const prefix = truncateYamlScalar(key, keyLimit, true);
+            if (prefix === undefined || Object.hasOwn(entries, prefix)) {
+              unsafeScalar = true;
+              return node;
+            }
+            stringsCut = true;
+            keyWasCut = true;
+            previewKey = prefix;
+            remainingChars = 0;
+          } else {
+            remainingChars -= key.length;
+          }
+          entries[previewKey] = keyWasCut ? null : prune((node as Record<string, unknown>)[key]);
         }
         return entries;
       }
@@ -62,6 +120,7 @@ export function getYamlCollectionPreview(
     };
     try {
       const pruned = prune(value);
+      if (unsafeScalar) break;
       // The cut marker must not be mistaken for an original key or scalar, even in escaped JSON.
       let marker = 'mlflow_yaml_preview_cut';
       const containsMarker = (candidate: string) => strings.some((text) => text.includes(candidate));
@@ -73,7 +132,7 @@ export function getYamlCollectionPreview(
       for (const entries of objectCuts) entries[marker] = null;
       for (const items of arrayCuts) items[items.length - 1] = marker;
       const text = dump(pruned, OPTIONS).trimEnd();
-      if (!cut) return { text, isComplete: true };
+      if (!cut) return { text, isComplete: !stringsCut };
       const lineStart = text.lastIndexOf('\n', text.indexOf(marker));
       const prefix = lineStart === -1 ? '' : text.slice(0, lineStart);
       let lines = 1;

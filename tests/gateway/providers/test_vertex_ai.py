@@ -1297,3 +1297,54 @@ def test_supports_cache_control_only_for_claude(model_name, expected):
         },
     )
     assert VertexAIProvider(endpoint_config)._supports_cache_control() is expected
+
+
+@pytest.mark.asyncio
+async def test_maas_chat_does_not_send_thought_signature():
+    provider = _make_maas_provider("meta/llama-3.1-405b-instruct-maas")
+    mock_client = mock_http_client(MockAsyncResponse(_maas_chat_response()))
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.chat(
+            chat.RequestPayload(
+                messages=[
+                    {"role": "user", "content": "What's the weather in Paris?"},
+                    {
+                        "role": "assistant",
+                        "tool_calls": [{**tool_call, "thought_signature": "sig_1"}],
+                    },
+                    {"role": "tool", "tool_call_id": "call_1", "content": '{"temperature": 20}'},
+                ]
+            )
+        )
+
+    assert mock_client.post.call_args.kwargs["json"]["messages"][1] == {
+        "role": "assistant",
+        "tool_calls": [tool_call],
+    }
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        ("claude-sonnet-4-5@20251101", False),
+        ("gemini-2.0-flash", True),
+        ("meta/llama-3.1-405b-instruct-maas", False),
+    ],
+)
+def test_supports_thought_signatures_only_for_gemini(model_name, expected):
+    endpoint_config = EndpointConfig(
+        name="vertex-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "vertex_ai",
+            "name": model_name,
+            "config": {"vertex_project": "my-gcp-project", "vertex_location": "us-central1"},
+        },
+    )
+    assert VertexAIProvider(endpoint_config)._supports_thought_signatures() is expected

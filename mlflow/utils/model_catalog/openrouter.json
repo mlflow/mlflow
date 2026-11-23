@@ -1706,22 +1706,21 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 943718,
-        "max_tokens": 943718
+        "max_output": 393216
       },
       "pricing": {
-        "input_per_million_tokens": 0.0075,
-        "output_per_million_tokens": 1.28,
-        "cache_read_per_million_tokens": 0.0075
+        "input_per_million_tokens": 0.09,
+        "output_per_million_tokens": 0.18,
+        "cache_read_per_million_tokens": 0.018
       },
       "capabilities": {
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": true,
+        "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-09"
+      "last_updated_at": "2026-11-22"
     },
     "deepseek/deepseek-v4-flash-0731": {
       "mode": "chat",
@@ -1831,22 +1830,21 @@
       "mode": "chat",
       "context_window": {
         "max_input": 1048576,
-        "max_output": 384000,
-        "max_tokens": 384000
+        "max_output": 393216
       },
       "pricing": {
-        "input_per_million_tokens": 0.287274,
-        "output_per_million_tokens": 0.574548,
-        "cache_read_per_million_tokens": 0.0239395
+        "input_per_million_tokens": 0.9,
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.2
       },
       "capabilities": {
         "function_calling": true,
         "vision": false,
         "reasoning": true,
-        "prompt_caching": true,
+        "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-09"
+      "last_updated_at": "2026-11-22"
     },
     "deepseek/deepseek-v4-pro-0813": {
       "mode": "chat",
