@@ -17,7 +17,7 @@ export const IssueDetectionRunHistoryButton = ({ experimentId, componentId }: Is
   });
 
   return (
-    <Tooltip componentId="mlflow.issue-detection-run-history.tooltip" content={label}>
+    <Tooltip componentId={`${componentId}.tooltip`} content={label}>
       <Button
         componentId={componentId}
         icon={<HistoryIcon />}

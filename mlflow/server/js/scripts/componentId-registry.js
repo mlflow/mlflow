@@ -1743,9 +1743,6 @@ module.exports = {
   "mlflow.home.workspaces_table.header.manage": "",
   "mlflow.home.workspaces_table.header.name": "",
 
-  // -- mlflow.issue-detection-run-history --
-  "mlflow.issue-detection-run-history.tooltip": "",
-
   // -- mlflow.issue-detection-settings --
   "mlflow.issue-detection-settings.custom-category.remove": "",
   "mlflow.issue-detection-settings.custom-category.remove-tooltip": "",
