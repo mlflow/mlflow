@@ -64,9 +64,9 @@ const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
             backgroundColor: 'transparent',
           },
           '&:focus-visible': {
-            outline: `2px solid ${theme.colors.actionPrimaryBackgroundDefault}`,
+            outline: `2px solid ${theme.colors.actionDefaultBorderFocus}`,
             outlineOffset: '2px',
-            borderRadius: theme.borders.borderRadiusMd,
+            borderRadius: theme.borders.borderRadiusSm,
           },
         }}
       >

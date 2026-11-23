@@ -108,7 +108,7 @@ export const HighlightedTextArea: React.FC<HighlightedTextAreaProps> = ({
     lineHeight: theme.typography.lineHeightBase,
     padding: '8px 12px',
     border: `1px solid transparent`,
-    borderRadius: theme.borders.borderRadiusMd,
+    borderRadius: theme.borders.borderRadiusSm,
     width: '100%',
     boxSizing: 'border-box' as const,
     wordWrap: 'break-word' as const,
