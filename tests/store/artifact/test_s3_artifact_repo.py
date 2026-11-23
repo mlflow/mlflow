@@ -526,6 +526,20 @@ def test_create_multipart_upload_rejects_out_of_range_num_parts(num_parts):
     get_client.assert_not_called()
 
 
+def test_create_multipart_upload_reports_unsupported_config_before_num_parts(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", json.dumps({"ChecksumAlgorithm": "SHA256"}))
+    local_file = tmp_path / "artifact.bin"
+    local_file.write_bytes(b"data")
+    repo = S3ArtifactRepository("s3://bucket/root")
+    with (
+        mock.patch.object(repo, "_get_s3_client") as get_client,
+        pytest.raises(MlflowException, match="Presigned artifact transfers are unavailable") as exc,
+    ):
+        repo.create_multipart_upload(str(local_file), num_parts=10_001)
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    get_client.assert_not_called()
+
+
 def test_create_multipart_upload_preserves_content_metadata_and_encryption_headers(
     tmp_path, monkeypatch
 ):

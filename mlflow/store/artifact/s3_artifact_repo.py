@@ -639,7 +639,6 @@ class S3ArtifactRepository(
             - credentials: List of MultipartUploadCredential objects with presigned URLs
             - upload_id: S3 upload ID for tracking this multipart upload
         """
-        _validate_multipart_upload_num_parts(num_parts, _S3_MAX_NUM_PARTS)
         (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -655,6 +654,7 @@ class S3ArtifactRepository(
             raise MlflowException(
                 "Presigned artifact transfers are unavailable.", error_code=NOT_IMPLEMENTED
             )
+        _validate_multipart_upload_num_parts(num_parts, _S3_MAX_NUM_PARTS)
         s3_client = self._get_s3_client()
         create_allowed_args = s3_client.meta.service_model.operation_model(
             "CreateMultipartUpload"
