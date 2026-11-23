@@ -1,10 +1,6 @@
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { MlflowService } from '../../sdk/MlflowService';
-import {
-  MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG,
-  MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
-  MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-} from '../../constants';
+import { MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG, MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG } from '../../constants';
 
 /**
  * The experiment's recurring issue-detection schedule, as stored.
@@ -13,28 +9,6 @@ import {
  * experiment tags below, so this module is the adapter between the control and those tags; the
  * types it exports are the ones the control is written against.
  */
-
-/** Which trace namespace a filter clause matches on: request metadata or a tag. */
-export type ScheduleTraceFilterField = 'metadata' | 'tag';
-
-/**
- * The comparison a filter clause applies. Only equality is offered today; the operator is persisted
- * anyway so the stored schema is ready to carry other comparisons (e.g. `!=`) without a migration.
- */
-export type ScheduleTraceFilterOperator = '=';
-
-/**
- * One equality clause attached to an experiment's schedule, matching either request metadata
- * (`request_metadata.<key>`) or a tag (`tags.<key>`). A schedule may carry several (ANDed): a
- * scheduled run only analyzes traces matching every clause (`key` = `value`). Stored as a JSON
- * array in its own experiment tag so the clauses can be recovered to prefill the schedule modal.
- */
-export interface ScheduleTraceFilter {
-  field: ScheduleTraceFilterField;
-  operator: ScheduleTraceFilterOperator;
-  key: string;
-  value: string;
-}
 
 /**
  * The model a scheduled run analyzes with: either an AI Gateway endpoint or a provider's model
@@ -118,7 +92,6 @@ export interface IssueDetectionSchedule {
    * recorded against different timing would describe a schedule that no longer exists.
    */
   nextRunMs: number | undefined;
-  traceFilters: ScheduleTraceFilter[];
   /** Undefined on a schedule saved before a model could be chosen: the server default applies. */
   model: IssueDetectionScheduleModel | undefined;
   /**
@@ -134,7 +107,6 @@ export const noIssueDetectionSchedule = (): IssueDetectionSchedule => ({
   startTime: DEFAULT_ISSUE_DETECTION_START_TIME,
   weekday: DEFAULT_ISSUE_DETECTION_WEEKDAY,
   nextRunMs: undefined,
-  traceFilters: [],
   model: undefined,
   timezone: undefined,
 });
@@ -218,29 +190,6 @@ const parseJson = (raw: string | null | undefined): unknown => {
   }
 };
 
-const parseTraceFilter = (entry: unknown): ScheduleTraceFilter | undefined => {
-  if (!isRecord(entry)) {
-    return undefined;
-  }
-  const { field, key, value, operator } = entry;
-  if (typeof key !== 'string' || key.trim().length === 0) {
-    return undefined;
-  }
-  // Only equality exists today; an operator this version cannot apply drops the clause rather
-  // than being coerced to '=', which would select a set disjoint from the one it asked for.
-  if (operator !== undefined && operator !== '=') {
-    return undefined;
-  }
-  // Anything that is not 'tag' is request metadata, so a clause written before the field existed
-  // still applies; a missing or non-text value reads as empty.
-  return {
-    field: field === 'tag' ? 'tag' : 'metadata',
-    operator: '=',
-    key: key.trim(),
-    value: typeof value === 'string' ? value : '',
-  };
-};
-
 const parseScheduleModel = (entry: unknown): IssueDetectionScheduleModel | undefined => {
   if (!isRecord(entry)) {
     return undefined;
@@ -257,17 +206,6 @@ const parseScheduleModel = (entry: unknown): IssueDetectionScheduleModel | undef
     };
   }
   return undefined;
-};
-
-export const parseScheduleTraceFilters = (raw: string | null | undefined): ScheduleTraceFilter[] => {
-  const parsed = parseJson(raw);
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-  return parsed.flatMap((entry) => {
-    const filter = parseTraceFilter(entry);
-    return filter ? [filter] : [];
-  });
 };
 
 /**
@@ -320,12 +258,9 @@ export const readIssueDetectionScheduleFromTags = (
   tags: readonly ExperimentTag[] | undefined | null,
 ): IssueDetectionSchedule => {
   const scheduleTag = tags?.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG)?.value;
-  const traceFilters = parseScheduleTraceFilters(
-    tags?.find(({ key }) => key === MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG)?.value,
-  );
   const parsed = parseJson(scheduleTag);
   if (!isRecord(parsed) || parsed['version'] !== ISSUE_DETECTION_SCHEDULE_VERSION) {
-    return { ...noIssueDetectionSchedule(), traceFilters };
+    return noIssueDetectionSchedule();
   }
   const cadence = isFrequency(parsed['cadence']) ? parsed['cadence'] : undefined;
   const paused = parsed['paused'] === true;
@@ -335,7 +270,6 @@ export const readIssueDetectionScheduleFromTags = (
     cadence,
     startTime: parseIssueDetectionStartTime(parsed['fireTime']),
     weekday: parseIssueDetectionWeekday(parsed['weekday']),
-    traceFilters,
     model: parseScheduleModel(parsed['model']),
     timezone: typeof storedTimezone === 'string' && storedTimezone.trim().length > 0 ? storedTimezone : undefined,
   };
@@ -352,54 +286,6 @@ export const loadIssueDetectionSchedule = async (experimentId: string): Promise<
   const { experiment } = await MlflowService.getExperiment({ experiment_id: experimentId });
   return readIssueDetectionScheduleFromTags(experiment?.tags);
 };
-
-/**
- * Characters the server drops a clause for. A clause is spliced into a trace-search expression
- * where a backtick or quote breaks it, and that grammar has no escape, so the server has no way to
- * apply such a clause. Rejecting the draft here is what stops a schedule being saved with a filter
- * that looks active in this modal and is silently ignored by every run.
- */
-const UNSUPPORTED_FILTER_CHARACTERS = ['`', "'", '"', '\\'];
-
-/**
- * Also dropped by the server: a control character or DEL makes a malformed clause, so
- * `_has_control_char` in `mlflow/genai/discovery/schedule.py` refuses it the same way, and this
- * applies the same bounds. Easy to arrive here by paste rather than by typing -- a tab or a
- * newline carried along with a copied value -- and invisible once in the field, which is exactly
- * why the modal has to name it.
- */
-const isControlCharacter = (character: string): boolean => {
-  const code = character.codePointAt(0) ?? 0;
-  return code < 0x20 || code === 0x7f;
-};
-
-/**
- * How many clauses a schedule may carry. The server applies only this many and ignores the rest,
- * so offering a further one here would show a filter as active that no run ever applies. Must
- * stay in step with `MAX_TRACE_FILTERS` on the server.
- */
-export const MAX_TRACE_FILTERS = 20;
-
-export const unsupportedFilterCharacter = (filter: ScheduleTraceFilter): string | undefined => {
-  const punctuation = UNSUPPORTED_FILTER_CHARACTERS.find(
-    (character) => filter.key.includes(character) || filter.value.includes(character),
-  );
-  if (punctuation) {
-    return punctuation;
-  }
-  // Spread rather than indexed, so a character outside the basic plane is one item and cannot be
-  // split into surrogates that look like something else.
-  const control = [...filter.key, ...filter.value].find(isControlCharacter);
-  // Named by code point, because the character itself has nothing to show: "Remove the  character
-  // from the filter" would name nothing at all.
-  return control === undefined ? undefined : `U+${control.codePointAt(0)?.toString(16).toUpperCase().padStart(4, '0')}`;
-};
-
-/** Blank-key clauses are dropped and keys trimmed, so the stored model stays clean. */
-export const normalizeTraceFilters = (filters: ScheduleTraceFilter[]): ScheduleTraceFilter[] =>
-  filters
-    .map((filter) => ({ field: filter.field, operator: filter.operator, key: filter.key.trim(), value: filter.value }))
-    .filter((filter) => filter.key.length > 0);
 
 /**
  * The weekday names a schedule's stored weekday indexes into, Monday first.
@@ -475,7 +361,6 @@ export const resolveScheduleTimezone = (chosen?: string, stored?: string): strin
 
 export interface IssueDetectionScheduleUpdate {
   setting: IssueDetectionScheduleSetting;
-  traceFilters: ScheduleTraceFilter[];
   model?: IssueDetectionScheduleModel;
   /** Omitted keeps the stored start time, the way omitting the model keeps the stored model. */
   startTime?: string;
@@ -489,7 +374,7 @@ export interface IssueDetectionScheduleUpdate {
  * Ask the server to bring the schedule's dispatch state in line with what was just written, and
  * to say when it next runs.
  *
- * The two tag writes above go through the generic tag endpoint, so nothing on the server learns a
+ * The cadence write goes through the generic tag endpoint, so nothing on the server learns a
  * schedule was saved; without this the next run was computed only by the following dispatcher
  * pass, up to a quarter of an hour later, and the dialog had nothing to show for exactly as long
  * as someone was waiting to be told what they had just scheduled.
@@ -517,23 +402,13 @@ const syncScheduleState = async (experimentId: string): Promise<number | undefin
  * restores what was chosen before. Turning it off with nothing stored writes a paused schedule with
  * no cadence, which the server reads as nothing to run.
  *
- * The clauses are written **before** the cadence, and the order is the safety property rather than
- * a detail: the cadence tag is what makes the dispatcher pick the schedule up, so writing it first
- * opened a window -- a failed second write, or a dispatcher poll landing between the two -- where a
- * run could analyze traces the clauses were meant to exclude. Written in this order, a narrowed
- * scope is in force before anything can run under it, and a failure before the cadence write
- * leaves the schedule as it was.
- *
- * The two writes are still not atomic, so a failure between them can leave the stored clauses
- * ahead of the cadence. That failure is surfaced to the user, both tags are rewritten on every
- * save, and the direction it can fail in is the safe one.
+ * Shared trace scope is owned by detection settings; cadence edits never write its tag.
  */
 export const saveIssueDetectionSchedule = async (
   experimentId: string,
-  { setting, traceFilters, model, startTime, weekday, timezone }: IssueDetectionScheduleUpdate,
+  { setting, model, startTime, weekday, timezone }: IssueDetectionScheduleUpdate,
   current?: IssueDetectionSchedule,
 ): Promise<IssueDetectionSchedule> => {
-  const normalized = normalizeTraceFilters(traceFilters);
   const cadence = setting === 'off' ? current?.cadence : setting;
   // Like the cadence, the model, start time, weekday and timezone are kept while paused so
   // turning the schedule back on restores what it had.
@@ -543,11 +418,6 @@ export const saveIssueDetectionSchedule = async (
   const savedStartTime = parseIssueDetectionStartTime(startTime ?? current?.startTime);
   const savedWeekday = parseIssueDetectionWeekday(weekday ?? current?.weekday);
   const savedTimezone = resolveScheduleTimezone(timezone, current?.timezone);
-  await MlflowService.setExperimentTag({
-    experiment_id: experimentId,
-    key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG,
-    value: JSON.stringify(normalized),
-  });
   await MlflowService.setExperimentTag({
     experiment_id: experimentId,
     key: MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG,
@@ -566,11 +436,10 @@ export const saveIssueDetectionSchedule = async (
     cadence,
     startTime: savedStartTime,
     weekday: savedWeekday,
-    // Answered by the server now that the tags are written, so the dialog can say when the
+    // Answered by the server now that the cadence is written, so the dialog can say when the
     // schedule runs next the moment it is saved. Undefined if that call did not get through,
     // which is the old behaviour: no line until the dispatcher's next pass.
     nextRunMs: await syncScheduleState(experimentId),
-    traceFilters: normalized,
     model: savedModel,
     timezone: savedTimezone,
   };

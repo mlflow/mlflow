@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Literal
@@ -24,12 +24,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_SCHEDULE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
 )
+from mlflow.utils.search_utils import SearchTraceUtils
 
 _logger = logging.getLogger(__name__)
 
@@ -40,15 +42,14 @@ SCHEDULE_VERSION = 1
 
 DEFAULT_TIMEZONE = "UTC"
 
-# Upper bound on how many clauses one schedule may carry. The tag is client-written, so its size
-# is read defensively; 20 is far more than the modal offers.
+# Keep these limits in sync with issueDetectionTraceScope.ts in the issue-detection UI.
 MAX_TRACE_FILTERS = 20
+MAX_COMPILED_FILTER_LENGTH = 10000
 
 # A clause's key and value are spliced into a ``search_traces`` filter string, so a character that
 # would break the expression or change which traces it matches makes the clause unusable. Such a
-# clause is dropped rather than escaped or rewritten: the filter grammar has no escape (doubling a
-# quote yields both characters, not one), and a run that silently analyzed the wrong traces would
-# be worse than one that ignored a clause nobody can express.
+# clause rejects the complete scope: the filter grammar has no escape (doubling a quote yields
+# both characters, not one), and dropping it would silently analyze excluded traces.
 _FORBIDDEN_FILTER_CHARS = "`'\"\\"
 
 
@@ -116,6 +117,20 @@ class ScheduleTraceFilter:
             "key": self.key,
             "value": self.value,
         }
+
+
+@dataclass(frozen=True)
+class CompiledTraceScopeClause:
+    """A saved UI trace filter, validated by the trace-search parser before use."""
+
+    compiled: str
+    source: dict[str, Any] = field(compare=False, hash=False)
+
+    def to_filter_clause(self) -> str:
+        return self.compiled
+
+    def to_dict(self) -> dict[str, Any]:
+        return {**self.source, "compiled": self.compiled}
 
 
 @dataclass(frozen=True)
@@ -189,7 +204,7 @@ class DetectionSchedule:
     cadence: DetectionCadence
     timezone: str = DEFAULT_TIMEZONE
     paused: bool = False
-    trace_filters: tuple[ScheduleTraceFilter, ...] = ()
+    trace_filters: tuple[ScheduleTraceFilter | CompiledTraceScopeClause, ...] = ()
     model: ScheduleModel | None = None
     # Time of day the cadence fires, ``"HH:MM"`` in ``timezone``. Daily and weekly use both
     # halves; hourly uses the minute and ignores the hour.
@@ -299,9 +314,37 @@ def _parse_envelope(raw_value: str | None) -> dict[str, Any] | None:
     return parsed
 
 
-def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
+def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | CompiledTraceScopeClause | None:
     if not isinstance(entry, dict):
         return None
+    if "compiled" in entry:
+        compiled = entry["compiled"]
+        if (
+            not isinstance(compiled, str)
+            or not compiled.strip()
+            or len(compiled) > MAX_COMPILED_FILTER_LENGTH
+        ):
+            raise MlflowException.invalid_parameter_value(
+                "Invalid saved issue-detection trace scope"
+            )
+        # Reject an invalid active scope instead of silently analyzing excluded traces.
+        clauses = SearchTraceUtils.parse_search_filter_for_search_traces(compiled)
+        if any("'" in str(clause.get("value", "")) for clause in clauses):
+            raise MlflowException.invalid_parameter_value(
+                "Single quotes are not supported in saved issue-detection trace scope values"
+            )
+        if any("`" in str(clause.get("key", "")) for clause in clauses):
+            raise MlflowException.invalid_parameter_value(
+                "Backticks are not supported in saved issue-detection trace scope keys"
+            )
+        return CompiledTraceScopeClause(compiled=compiled, source=dict(entry))
+    if entry.get("operator", "=") != "=" or (
+        entry.get("field") not in (None, "tag", "metadata")
+        and ("operator" in entry or "key" not in entry)
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "Invalid saved issue-detection trace scope: rich clauses require compiled filters"
+        )
     # Anything that is not "tag" reads as request metadata, as it does in the tab, so a clause
     # written before this field existed is applied rather than dropped.
     field: Literal["metadata", "tag"] = "tag" if entry.get("field") == "tag" else "metadata"
@@ -317,10 +360,6 @@ def _parse_trace_filter(entry: object) -> ScheduleTraceFilter | None:
     # dropping the clause.
     raw_value = entry.get("value")
     value = raw_value if isinstance(raw_value, str) else ""
-    # An unknown operator is dropped rather than coerced to "=": coercing "!=" would analyze a
-    # set disjoint from the one the clause asked for, hiding the traces it meant to select.
-    if entry.get("operator", "=") != "=":
-        return None
     if any(char in key or char in value for char in _FORBIDDEN_FILTER_CHARS):
         return None
     if _has_control_char(key) or _has_control_char(value):
@@ -436,37 +475,34 @@ def _parse_model(entry: object) -> ScheduleModel | None:
     )
 
 
-def parse_trace_filters(raw_value: str | None) -> tuple[ScheduleTraceFilter, ...]:
-    """
-    Parse the trace-filter tag, dropping any clause this reader cannot use.
-
-    Dropping a clause widens what a run analyzes, so each is logged. The clauses that did parse
-    are still returned, which keeps the schedule narrowed by the rest rather than not at all.
-    """
+def parse_trace_filters(
+    raw_value: str | None,
+) -> tuple[ScheduleTraceFilter | CompiledTraceScopeClause, ...]:
+    """Read the complete saved scope; invalid input must never widen scheduled analysis."""
     if not raw_value:
         return ()
     try:
         parsed = json.loads(raw_value)
-    except (TypeError, ValueError):
-        _logger.warning("Ignoring an unreadable issue-detection schedule trace filter tag")
-        return ()
+    except (TypeError, ValueError) as exc:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid saved issue-detection trace scope: unreadable JSON"
+        ) from exc
     if not isinstance(parsed, list):
-        return ()
-    filters = []
-    for entry in parsed[:MAX_TRACE_FILTERS]:
-        if (parsed_filter := _parse_trace_filter(entry)) is None:
-            _logger.warning(
-                "Ignoring an issue-detection schedule trace filter clause this server cannot "
-                "apply; the scheduled run will analyze traces the clause meant to exclude"
-            )
-        else:
-            filters.append(parsed_filter)
-    if len(parsed) > MAX_TRACE_FILTERS:
-        _logger.warning(
-            "An issue-detection schedule carries %d trace filter clauses; applying the first %d",
-            len(parsed),
-            MAX_TRACE_FILTERS,
+        raise MlflowException.invalid_parameter_value(
+            "Invalid saved issue-detection trace scope: expected a list of clauses"
         )
+    if len(parsed) > MAX_TRACE_FILTERS:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid saved issue-detection trace scope: "
+            f"expected at most {MAX_TRACE_FILTERS} clauses"
+        )
+    filters = []
+    for entry in parsed:
+        if (parsed_filter := _parse_trace_filter(entry)) is None:
+            raise MlflowException.invalid_parameter_value(
+                "Invalid saved issue-detection trace scope clause"
+            )
+        filters.append(parsed_filter)
     return tuple(filters)
 
 
@@ -573,17 +609,15 @@ def write_detection_schedule(
     store: AbstractStore, experiment_id: str, schedule: DetectionSchedule
 ) -> None:
     """
-    Persist the cadence and filter tags. Both are rewritten so they stay consistent.
+    Replace the cadence and shared trace scope with the supplied schedule.
 
-    The filters are written **before** the cadence, matching the tab's writer, and the order is
-    the safety property rather than a detail: the cadence tag is what makes the dispatcher pick
-    the schedule up, so writing it first leaves a window -- a failed second write, or a poll
-    landing between the two -- where a run could analyze traces the new clauses meant to exclude.
-    This way a narrowed scope is in force before anything runs under it, and a failure before the
-    cadence write leaves the schedule as it was.
+    This is a complete writer for callers such as the demo generator: omitted ``trace_filters``
+    replace any saved shared scope with an empty scope. Cadence-only edits must preserve the
+    current scope instead of calling this helper with an unpopulated schedule.
 
-    The two writes are not atomic, so a failure between them can leave the stored filters ahead of
-    the cadence. Both are rewritten on every save, and that is the safe direction to fail in.
+    Scope is written before cadence so a newly activated schedule cannot dispatch before its
+    intended filters are saved. The writes are not atomic; a failed cadence write can leave the
+    shared scope updated while cadence remains unchanged.
     """
     store.set_experiment_tag(
         experiment_id,

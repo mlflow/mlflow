@@ -8,6 +8,7 @@ import pytest
 
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.checkpoint import FIRST_RUN_LOOKBACK_MS, STALE_WATERMARK_CAP_MS
 from mlflow.genai.discovery.schedule import (
     DEFAULT_FIRE_TIME,
@@ -15,6 +16,7 @@ from mlflow.genai.discovery.schedule import (
     MAX_MODEL_IDENTIFIER_LENGTH,
     MAX_TRACE_FILTERS,
     SCHEDULE_VERSION,
+    CompiledTraceScopeClause,
     DetectionCadence,
     DetectionSchedule,
     DetectionScheduleState,
@@ -42,6 +44,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE,
     MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
 )
+from mlflow.utils.search_utils import SearchTraceUtils
 
 HOUR_MS = 60 * 60 * 1000
 UTC = ZoneInfo("UTC")
@@ -175,7 +178,6 @@ def test_no_clauses_make_an_empty_filter_string():
         {"field": "metadata", "key": "", "value": "v"},
         {"field": "metadata", "key": "   ", "value": "v"},
         {"field": "metadata", "key": 7, "value": "v"},
-        {"field": "metadata", "key": "k", "value": "v", "operator": "!="},
         {"field": "metadata", "key": "k`", "value": "v"},
         {"field": "metadata", "key": "k", "value": "v' OR '1' = '1"},
         {"field": "metadata", "key": "k", "value": 'say "hi"'},
@@ -183,8 +185,9 @@ def test_no_clauses_make_an_empty_filter_string():
         None,
     ],
 )
-def test_a_clause_this_server_cannot_apply_is_dropped(entry: object):
-    assert parse_trace_filters(json.dumps([entry])) == ()
+def test_a_clause_this_server_cannot_apply_fails_closed(entry: object):
+    with pytest.raises(MlflowException, match="Invalid saved"):
+        parse_trace_filters(json.dumps([entry]))
 
 
 @pytest.mark.parametrize(
@@ -206,29 +209,26 @@ def test_a_clause_the_tab_would_keep_is_kept(entry: object, expected: str):
     assert parsed[0].to_filter_clause() == expected
 
 
-def test_a_dropped_clause_does_not_discard_the_usable_ones():
-    filters = parse_trace_filters(
-        json.dumps([
-            {"field": "metadata", "key": "environment", "value": "production"},
-            {"field": "metadata", "key": "bad`key", "value": "v"},
-            {"field": "tag", "key": "team", "value": "search"},
-        ])
-    )
-    assert filters == (
-        ScheduleTraceFilter(field="metadata", key="environment", value="production"),
-        ScheduleTraceFilter(field="tag", key="team", value="search"),
-    )
+def test_an_invalid_clause_blocks_the_whole_scope():
+    with pytest.raises(MlflowException, match="Invalid saved"):
+        parse_trace_filters(
+            json.dumps([
+                {"field": "metadata", "key": "environment", "value": "production"},
+                {"field": "metadata", "key": "bad`key", "value": "v"},
+                {"field": "tag", "key": "team", "value": "search"},
+            ])
+        )
 
 
-@pytest.mark.parametrize("raw_value", [None, "", "not json", '{"field": "metadata"}'])
-def test_an_unreadable_filter_tag_reads_as_no_clauses(raw_value: str | None):
+@pytest.mark.parametrize("raw_value", [None, "", "[]"])
+def test_an_absent_or_empty_filter_tag_reads_as_no_clauses(raw_value: str | None):
     assert parse_trace_filters(raw_value) == ()
 
 
-def test_more_clauses_than_the_cap_are_truncated_not_dropped():
+def test_the_maximum_number_of_clauses_is_preserved():
     entries = [
         {"field": "metadata", "key": f"k{index}", "value": "v"}
-        for index in range(MAX_TRACE_FILTERS + 5)
+        for index in range(MAX_TRACE_FILTERS)
     ]
     assert len(parse_trace_filters(json.dumps(entries))) == MAX_TRACE_FILTERS
 
@@ -956,7 +956,7 @@ def test_the_latest_fire_time_is_found_across_a_dst_transition(zone, transition_
         ), f"mismatch {offset_minutes:+d} min from the {zone} transition"
 
 
-def test_a_trace_filter_carrying_a_control_character_is_dropped():
+def test_a_trace_filter_carrying_a_control_character_fails_closed():
     # The key and value are spliced into a filter expression, so a newline or a null byte would
     # build a malformed clause.
     for key, value in [
@@ -967,7 +967,8 @@ def test_a_trace_filter_carrying_a_control_character_is_dropped():
         ("team", "a\nb"),
     ]:
         raw = json.dumps([{"field": "tag", "key": key, "value": value}])
-        assert parse_trace_filters(raw) == ()
+        with pytest.raises(MlflowException, match="Invalid saved"):
+            parse_trace_filters(raw)
     # An ordinary space is not a control character and stays usable.
     kept = parse_trace_filters(
         json.dumps([{"field": "tag", "key": "team", "value": "north america"}])
@@ -1062,3 +1063,115 @@ def test_a_model_naming_neither_an_endpoint_nor_a_provider_and_model_is_rejected
         ScheduleModel(provider="openai")
     assert ScheduleModel(endpoint_name="my-endpoint").to_model_uri() == "gateway:/my-endpoint"
     assert ScheduleModel(provider="OpenAI", model="gpt-5").to_model_uri() == "openai:/gpt-5"
+
+
+def test_saved_trace_scope_applies_rich_filters_and_text_search():
+    entries = [
+        {
+            "field": "duration",
+            "operator": ">",
+            "value": "1000",
+            "compiled": "attributes.execution_time_ms > 1000",
+        },
+        {
+            "field": "issue_detection_search_query",
+            "value": "customer feedback",
+            "compiled": "trace.text ILIKE '%customer feedback%'",
+        },
+    ]
+    schedule = parse_detection_schedule(
+        json.dumps({"version": 1, "cadence": "daily", "timezone": "UTC"}),
+        json.dumps(entries),
+    )
+    assert (
+        schedule.to_filter_string()
+        == "attributes.execution_time_ms > 1000 AND trace.text ILIKE '%customer feedback%'"
+    )
+    assert json.loads(schedule.trace_filters_to_json()) == entries
+
+
+@pytest.mark.parametrize(
+    ("field", "key", "operator", "value", "compiled"),
+    [
+        ("tag", "team", "=", "support", "tags.team = 'support'"),
+        ("tag", "team.name", "!=", "support", "tags.`team.name` != 'support'"),
+        ("metadata", "env", "=", "prod", "request_metadata.env = 'prod'"),
+        ("metadata", "env", "!=", "dev", "request_metadata.env != 'dev'"),
+        ("metadata", "env", "CONTAINS", "prod", "request_metadata.env ILIKE '%prod%'"),
+        ("state", None, "!=", "ERROR", "attributes.status != 'ERROR'"),
+        ("tag", "team", "=", "", "tags.`team` = ''"),
+    ],
+)
+def test_ui_compiled_scope_shapes_reach_the_server_parser(field, key, operator, value, compiled):
+    entry = {"field": field, "operator": operator, "value": value, "compiled": compiled}
+    if key is not None:
+        entry["key"] = key
+    (parsed,) = parse_trace_filters(json.dumps([entry]))
+    assert parsed.to_filter_clause() == compiled
+    assert parsed.to_dict() == entry
+
+
+@pytest.mark.parametrize("payload", ["{}", "null"])
+def test_non_list_scope_reports_its_shape(payload):
+    with pytest.raises(MlflowException, match="expected a list of clauses"):
+        parse_trace_filters(payload)
+
+
+@pytest.mark.parametrize(
+    "compiled", [None, 42, "", "x" * 10001, "trace.invalid = 'value'", "DROP TABLE traces"]
+)
+def test_invalid_saved_trace_scope_does_not_widen_a_scheduled_run(compiled):
+
+    with pytest.raises(MlflowException, match="Invalid"):
+        parse_trace_filters(json.dumps([{"field": "duration", "compiled": compiled}]))
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"field": "duration", "operator": ">", "value": "1000"},
+        {"field": "tag", "operator": "!=", "key": "team", "value": "support"},
+        {"field": "issue_detection_search_query", "value": "feedback"},
+    ],
+)
+def test_rich_scope_without_a_saved_expression_fails_closed(entry):
+
+    with pytest.raises(MlflowException, match="require compiled"):
+        parse_trace_filters(json.dumps([entry]))
+
+
+def test_doubled_quotes_are_not_escapes_in_trace_search():
+
+    compiled = "tags.`team` = 'don''t'"
+    assert SearchTraceUtils.parse_search_filter_for_search_traces(compiled)[0]["value"] == "don''t"
+    with pytest.raises(MlflowException, match="Single quotes"):
+        parse_trace_filters(json.dumps([{"field": "tag", "compiled": compiled}]))
+
+
+def test_backticks_in_compiled_scope_keys_are_rejected():
+
+    with pytest.raises(MlflowException, match="Backticks"):
+        parse_trace_filters(json.dumps([{"compiled": "tags.`bad``key` = 'value'"}]))
+
+
+def test_compiled_scope_keeps_validated_expression_stable():
+    source = {"compiled": "tags.team = 'search'"}
+    clause = CompiledTraceScopeClause(compiled=source["compiled"], source=source)
+    source["compiled"] = "invalid"
+    assert clause.to_filter_clause() == "tags.team = 'search'"
+    assert clause.to_dict()["compiled"] == "tags.team = 'search'"
+    assert hash(clause) == hash(CompiledTraceScopeClause(compiled=clause.compiled, source={}))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "not-json",
+        "{}",
+        "null",
+        json.dumps([{"key": "team", "value": "search"}] * (MAX_TRACE_FILTERS + 1)),
+    ],
+)
+def test_invalid_scope_envelope_fails_closed(raw):
+    with pytest.raises(MlflowException, match="Invalid saved issue-detection trace scope"):
+        parse_trace_filters(raw)

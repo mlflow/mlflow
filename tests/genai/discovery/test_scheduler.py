@@ -917,3 +917,93 @@ def test_a_scheduled_job_records_no_creator_so_only_an_admin_can_inspect_it(stor
         # Not even the admin passes the *ownership* check -- admins reach these routes by
         # bypassing RBAC entirely, not by owning the job.
         assert validate_is_job_owner() is False
+
+
+def test_shared_setup_edits_apply_to_the_next_occurrence_without_retiming(store, dispatch):
+    experiment_id = _experiment_with(
+        store, "shared-setup", **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY))
+    )
+    dispatch(ONE_PM_MS)
+    before = _state(store, experiment_id)
+    store.set_experiment_tag(
+        experiment_id,
+        ExperimentTag(
+            MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
+            json.dumps([
+                {
+                    "field": "duration",
+                    "operator": ">",
+                    "value": "1000",
+                    "compiled": "attributes.execution_time_ms > 1000",
+                },
+                {
+                    "field": "issue_detection_search_query",
+                    "value": "feedback",
+                    "compiled": "trace.text ILIKE '%feedback%'",
+                },
+            ]),
+        ),
+    )
+    store.set_experiment_tag(
+        experiment_id,
+        ExperimentTag(
+            MLFLOW_ISSUE_DETECTION_PRIORITIES,
+            json.dumps({"instructions": "Focus on feedback", "categories": {"correctness": True}}),
+        ),
+    )
+    assert dispatch(ONE_PM_MS + HOUR_MS // 2).call_count == 0
+    assert _state(store, experiment_id).next_fire_time_ms == before.next_fire_time_ms
+    params = dispatch(ONE_PM_MS + HOUR_MS).call_args.kwargs["params"]
+    assert (
+        params["trace_filter"]
+        == "attributes.execution_time_ms > 1000 AND trace.text ILIKE '%feedback%'"
+    )
+    assert params["categories"] == ["correctness"]
+    assert params["instructions"] == "Focus on feedback"
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        {"field": "duration", "compiled": "trace.invalid = 'value'"},
+        {"field": "duration", "operator": ">", "value": "1000"},
+        {"field": "tag", "compiled": "tags.`team` = 'don''t'"},
+    ],
+)
+def test_invalid_shared_scope_never_dispatches_or_initializes_state(store, dispatch, entry, caplog):
+    experiment_id = _experiment_with(
+        store,
+        "invalid-shared-scope",
+        **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY)),
+    )
+    store.set_experiment_tag(
+        experiment_id,
+        ExperimentTag(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER, json.dumps([entry])),
+    )
+    assert dispatch(ONE_PM_MS).call_count == 0
+    assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 0
+    assert _state(store, experiment_id) is None
+    assert MLFLOW_ISSUE_DETECTION_CHECKPOINT not in store.get_experiment(experiment_id).tags
+    records = [r for r in caplog.records if r.name == "mlflow.genai.discovery.scheduler"]
+    assert len(records) == 2
+    assert all(r.levelno == logging.WARNING and r.exc_info is None for r in records)
+    prefix = f"Could not read issue detection schedule for experiment {experiment_id}:"
+    assert all(r.message.startswith(prefix) for r in records)
+
+
+@pytest.mark.parametrize(
+    "raw", ["not-json", "{}", "null", json.dumps([{"key": "team", "value": "search"}] * 21)]
+)
+def test_invalid_scope_envelope_never_dispatches(store, dispatch, raw):
+    experiment_id = _experiment_with(
+        store,
+        "invalid-envelope",
+        **_schedule_tags(DetectionSchedule(cadence=DetectionCadence.HOURLY)),
+    )
+    store.set_experiment_tag(
+        experiment_id, ExperimentTag(MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER, raw)
+    )
+    assert dispatch(ONE_PM_MS).call_count == 0
+    assert dispatch(ONE_PM_MS + HOUR_MS).call_count == 0
+    assert _state(store, experiment_id) is None
+    assert MLFLOW_ISSUE_DETECTION_CHECKPOINT not in store.get_experiment(experiment_id).tags

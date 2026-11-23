@@ -28,9 +28,8 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   shouldEnableExperimentIssuesTab: jest.fn(),
 }));
 
-jest.mock('../../../account/hooks', () => ({
-  useIsAuthAvailable: () => true,
-  useMyPermissionsQuery: () => ({ data: { is_admin: false, permissions: [] } }),
+jest.mock('../../hooks/useExperimentPermission', () => ({
+  useExperimentPermission: () => false,
 }));
 jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
   IssueDetectionModal: ({ availableTraceIds }: { availableTraceIds: string[] }) => (
@@ -60,6 +59,9 @@ let latestRun:
   | undefined;
 let jobStatus: string;
 const server = setupServer(
+  rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
+    res(ctx.json({ experiment: { experiment_id: '1', name: 'Synthetic experiment', tags: [] } })),
+  ),
   rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
     res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false, features_enabled: { gateway: true } })),
   ),

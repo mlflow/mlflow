@@ -13,6 +13,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { Link } from '../../../common/utils/RoutingUtils';
 import { IssueDetectionIllustration } from './IssueDetectionIllustration';
+import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
 
 const IssueDetectionExampleBubbles = () => {
   const { theme } = useDesignSystemTheme();
@@ -140,6 +141,7 @@ const IssueDetectionExampleBubbles = () => {
 };
 
 export interface ExperimentIssuesEmptyStateProps {
+  experimentId: string;
   hasCompletedDetectionRuns: boolean;
   isCleanScan?: boolean;
   hasTimedOutDetectionRun: boolean;
@@ -159,6 +161,7 @@ export interface ExperimentIssuesEmptyStateProps {
 }
 
 export const ExperimentIssuesEmptyState = ({
+  experimentId,
   hasCompletedDetectionRuns,
   isCleanScan = false,
   hasTimedOutDetectionRun,
@@ -191,11 +194,16 @@ export const ExperimentIssuesEmptyState = ({
 
   return (
     <Empty
-      dangerouslyAppendEmotionCSS={{ transform: `translateY(-${theme.spacing.md}px)` }}
+      dangerouslyAppendEmotionCSS={{ width: '100%', transform: `translateY(-${theme.spacing.md}px)` }}
       image={<IssueDetectionExampleBubbles />}
       title={
         <span css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-          {isCleanScan ? (
+          {hasTimedOutDetectionRun ? (
+            <FormattedMessage
+              defaultMessage="Issue detection timed out"
+              description="Issues empty state timeout title"
+            />
+          ) : isCleanScan ? (
             <FormattedMessage
               defaultMessage="No issues detected"
               description="Experiment issues tab > Empty state title after a completed detection found no issues"
@@ -242,7 +250,9 @@ export const ExperimentIssuesEmptyState = ({
         )
       }
       button={
-        <div css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: theme.spacing.sm }}>
+        <div
+          css={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: theme.spacing.sm, width: '100%' }}
+        >
           {detectionEnabled && (
             <Button
               componentId="mlflow.experiment-issues.empty-state.run-detection"
@@ -256,6 +266,14 @@ export const ExperimentIssuesEmptyState = ({
             >
               {buttonText}
             </Button>
+          )}
+          {detectionEnabled && (
+            <IssueDetectionSettingsControl
+              experimentId={experimentId}
+              buttonText={
+                <FormattedMessage defaultMessage="Customize" description="Customize detection from the empty state" />
+              }
+            />
           )}
           {/* On one line so the stack stays two rows tall, and in the same muted grey, so neither
               link competes with the action above them. */}

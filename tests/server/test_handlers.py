@@ -317,7 +317,11 @@ from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import build_otel_context
-from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIEW_TAG_PREFIX
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
+    MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
+    MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER,
+)
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils.server_info import (
@@ -11024,6 +11028,25 @@ def test_schedule_state_handler_reports_no_next_run_without_a_schedule(mock_trac
     assert resp.status_code == 200
     assert resp.get_json()["next_fire_time_ms"] is None
     assert _written_state(mock_tracking_store) is None
+
+
+@pytest.mark.parametrize("scope", ["not-json", "{}", '[{"key": "bad\\\\key", "value": "x"}]'])
+def test_schedule_state_handler_invalid_scope_is_best_effort(mock_tracking_store, scope, caplog):
+    _schedule_experiment(
+        mock_tracking_store,
+        json.dumps({"version": 1, "cadence": "daily", "timezone": "UTC", "fireTime": "16:00"}),
+    )
+    mock_tracking_store.get_experiment.return_value.tags[
+        MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER
+    ] = scope
+    with app.test_client() as client:
+        response = client.post(
+            "/ajax-api/3.0/mlflow/issues/schedule/state", json={"experiment_id": "exp-123"}
+        )
+    assert response.status_code == 200
+    assert response.get_json() == {"next_fire_time_ms": None}
+    mock_tracking_store.set_experiment_tag.assert_not_called()
+    assert "Could not read issue-detection schedule for experiment exp-123" in caplog.text
 
 
 def test_invoke_issue_detection_handler_rejects_cross_experiment_traces(

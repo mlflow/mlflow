@@ -2,11 +2,9 @@ import {
   Button,
   CheckCircleIcon,
   ClockIcon,
-  CloseSmallIcon,
   FormUI,
   Input,
   Modal,
-  PlusIcon,
   SimpleSelect,
   SimpleSelectOption,
   Tooltip,
@@ -29,24 +27,18 @@ import {
 import {
   DEFAULT_ISSUE_DETECTION_START_TIME,
   DEFAULT_ISSUE_DETECTION_WEEKDAY,
-  MAX_TRACE_FILTERS,
   formatScheduleInstant,
   joinStartTime,
   resolveScheduleTimezone,
   splitStartTime,
   startTimeHourOptions,
   startTimeMinuteOptions,
-  unsupportedFilterCharacter,
   weekdayLabels,
 } from './issueDetectionSchedule';
 import { allTimezones, recommendedTimezones, timezoneChoice } from './scheduleTimezones';
 import { NavigableCombobox } from '../../../common/components/navigable-combobox/NavigableCombobox';
 import type { ComboboxMenuItem, NavigableComboboxConfig } from '../../../common/components/navigable-combobox/types';
-import type {
-  IssueDetectionScheduleModel,
-  ScheduleTraceFilter,
-  ScheduleTraceFilterField,
-} from './issueDetectionSchedule';
+import type { IssueDetectionScheduleModel } from './issueDetectionSchedule';
 import {
   useIssueDetectionSchedule,
   useScheduledDetectionAvailable,
@@ -67,19 +59,6 @@ const isScheduleSetting = (value: string): value is IssueDetectionScheduleSettin
 /** The modal's two steps: the schedule itself, and the API key the chosen provider needs. */
 type ModalView = 'main' | 'apiKey';
 
-/**
- * Weekday names in the browser's own language, Monday first -- which is the numbering the
- * schedule stores and the server reads (`datetime.weekday()`), not the locale's first day.
- * Localized through `Intl` rather than through seven translated messages, since every locale
- * already has these names.
- */
-/**
- * Width of the dialog.
- *
- * Narrower than the design system's default, which left every row ending less than half way
- * across. What stops it going narrower still is the clause row below -- `Field | Key | Operator |
- * Value` plus its remove button -- which is the widest thing here and has to stay on one line.
- */
 const MODAL_WIDTH = 580;
 
 /** Widths of the schedule row's controls, sized to fit one line inside the dialog. */
@@ -94,172 +73,9 @@ const TIME_PART_WIDTH = 72;
  */
 const MODEL_PICKER_WIDTH = 220;
 
-// Widths of one clause row, which together with its gaps and remove button set the floor under
-// `MODAL_WIDTH`. Trimmed from 140/160/56/160 when the dialog was narrowed; the key and value
-// still hold a tag name and a value like `production` without scrolling.
-const FILTER_FIELD_WIDTH = 130;
-const FILTER_KEY_WIDTH = 140;
-const FILTER_OPERATOR_WIDTH = 48;
-const FILTER_VALUE_WIDTH = 140;
-
-// The filterable namespaces (Field dropdown) and the only operator offered today. Kept as constants
-// so the row mirrors the traces-tab filter shape (Field | Key | Operator | Value) while the operator
-// stays locked to equals.
-const METADATA_FIELD_VALUE: ScheduleTraceFilterField = 'metadata';
-const TAG_FIELD_VALUE: ScheduleTraceFilterField = 'tag';
-const EQUALS_OPERATOR = '=';
-
-const isTraceFilterField = (value: string): value is ScheduleTraceFilterField =>
-  value === METADATA_FIELD_VALUE || value === TAG_FIELD_VALUE;
-
-interface TraceFilterRowProps {
-  index: number;
-  filter: ScheduleTraceFilter;
-  disabled: boolean;
-  onChange: (index: number, next: ScheduleTraceFilter) => void;
-  onRemove: (index: number) => void;
-}
-
-/**
- * One Field | Key | Operator | Value row of the scheduled-run trace filter, mirroring the traces-tab
- * filter clause. Field selects the namespace (Metadata or Tag); the operator is locked to "=", so
- * only the field, key, and value are editable. Declared at module scope rather than nested, so it is not
- * redefined on every render of the modal.
- */
-const TraceFilterRow = ({ index, filter, disabled, onChange, onRemove }: TraceFilterRowProps) => {
-  const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-
-  const fieldLabel = intl.formatMessage({
-    defaultMessage: 'Field',
-    description: 'Experiment issues tab > Schedule modal label for the trace filter field',
-  });
-  const keyLabel = intl.formatMessage({
-    defaultMessage: 'Key',
-    description: 'Experiment issues tab > Schedule modal label for the trace filter key',
-  });
-  const operatorLabel = intl.formatMessage({
-    defaultMessage: 'Operator',
-    description: 'Experiment issues tab > Schedule modal label for the trace filter operator',
-  });
-  const valueLabel = intl.formatMessage({
-    defaultMessage: 'Value',
-    description: 'Experiment issues tab > Schedule modal label for the trace filter value',
-  });
-  const metadataFieldOptionLabel = intl.formatMessage({
-    defaultMessage: 'Metadata',
-    description: 'Experiment issues tab > Schedule modal trace filter field option for request metadata',
-  });
-  const tagFieldOptionLabel = intl.formatMessage({
-    defaultMessage: 'Tag',
-    description: 'Experiment issues tab > Schedule modal trace filter field option for tags',
-  });
-
-  const fieldId = `${COMPONENT_ID}.modal.filter-field-${index}`;
-  const keyId = `${COMPONENT_ID}.modal.filter-key-${index}`;
-  const operatorId = `${COMPONENT_ID}.modal.filter-operator-${index}`;
-  const valueId = `${COMPONENT_ID}.modal.filter-value-${index}`;
-  // Lift the portaled option lists above the modal, which otherwise stacks over them.
-  const contentProps = { style: { zIndex: theme.options.zIndexBase + 40 } };
-
-  return (
-    <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'flex-end' }}>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={fieldId}>{fieldLabel}</FormUI.Label>
-        <SimpleSelect
-          id={fieldId}
-          componentId={`${COMPONENT_ID}.modal.filter-field`}
-          aria-label={fieldLabel}
-          width={FILTER_FIELD_WIDTH}
-          value={filter.field}
-          disabled={disabled}
-          contentProps={contentProps}
-          onChange={({ target }) => {
-            if (isTraceFilterField(target.value)) {
-              onChange(index, { ...filter, field: target.value });
-            }
-          }}
-        >
-          <SimpleSelectOption value={METADATA_FIELD_VALUE}>{metadataFieldOptionLabel}</SimpleSelectOption>
-          <SimpleSelectOption value={TAG_FIELD_VALUE}>{tagFieldOptionLabel}</SimpleSelectOption>
-        </SimpleSelect>
-      </div>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={keyId}>{keyLabel}</FormUI.Label>
-        <Input
-          id={keyId}
-          componentId={`${COMPONENT_ID}.modal.filter-key`}
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Filter key',
-            description: 'Experiment issues tab > Schedule modal aria label for the trace filter key input',
-          })}
-          css={{ width: FILTER_KEY_WIDTH }}
-          placeholder={intl.formatMessage({
-            defaultMessage: 'e.g. environment',
-            description: 'Experiment issues tab > Schedule modal placeholder for the metadata filter key',
-          })}
-          value={filter.key}
-          disabled={disabled}
-          onChange={(e) => onChange(index, { ...filter, key: e.target.value })}
-        />
-      </div>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={operatorId}>{operatorLabel}</FormUI.Label>
-        <Input
-          id={operatorId}
-          componentId={`${COMPONENT_ID}.modal.filter-operator`}
-          aria-label={operatorLabel}
-          css={{ width: FILTER_OPERATOR_WIDTH }}
-          value={EQUALS_OPERATOR}
-          // Only equality is supported for now, so the operator is a fixed, read-only "=".
-          readOnly
-          disabled
-        />
-      </div>
-      <div css={{ display: 'flex', flexDirection: 'column' }}>
-        <FormUI.Label htmlFor={valueId}>{valueLabel}</FormUI.Label>
-        <Input
-          id={valueId}
-          componentId={`${COMPONENT_ID}.modal.filter-value`}
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Filter value',
-            description: 'Experiment issues tab > Schedule modal aria label for the trace filter value input',
-          })}
-          css={{ width: FILTER_VALUE_WIDTH }}
-          placeholder={intl.formatMessage({
-            defaultMessage: 'e.g. production',
-            description: 'Experiment issues tab > Schedule modal placeholder for the metadata filter value',
-          })}
-          value={filter.value}
-          disabled={disabled}
-          onChange={(e) => onChange(index, { ...filter, value: e.target.value })}
-        />
-      </div>
-      <Button
-        componentId={`${COMPONENT_ID}.modal.filter-remove`}
-        type="tertiary"
-        icon={<CloseSmallIcon />}
-        disabled={disabled}
-        aria-label={intl.formatMessage({
-          defaultMessage: 'Remove filter',
-          description: 'Experiment issues tab > Schedule modal aria label for the remove-filter button',
-        })}
-        onClick={() => onRemove(index)}
-      />
-    </div>
-  );
-};
-
 export interface ExperimentIssuesScheduleControlProps {
   experimentId: string;
 }
-
-const emptyFilterRow = (): ScheduleTraceFilter => ({
-  field: METADATA_FIELD_VALUE,
-  operator: EQUALS_OPERATOR,
-  key: '',
-  value: '',
-});
 
 /**
  * The picker's selection in the shape the schedule stores: an endpoint, or a provider's model
@@ -325,9 +141,8 @@ const toSelection = (model: IssueDetectionScheduleModel | undefined): IssueDetec
 
 /**
  * Toolbar control that turns automatic (scheduled) issue detection on/off, picks its cadence, and
- * optionally scopes each run to traces matching one or more key=value clauses over request metadata
- * and/or tags. The trigger opens a modal so the cadence and the trace filters are chosen and saved
- * together; "Off" pauses the schedule. Manual detection is unaffected.
+ * uses the shared trace scope from detection settings. The trigger opens a modal so the cadence and model are chosen and saved
+ * together; "Off" pauses the schedule.
  */
 export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssuesScheduleControlProps) => {
   const { theme } = useDesignSystemTheme();
@@ -341,7 +156,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   const scheduledDetectionAvailable = useScheduledDetectionAvailable();
   const {
     setting,
-    traceFilters,
     model,
     startTime: storedStartTime,
     weekday: storedWeekday,
@@ -363,7 +177,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // The zone the time above is read in. Seeded from the schedule, or from this browser when the
   // schedule has none, which is the zone a save would have adopted anyway.
   const [timezone, setTimezone] = useState(() => resolveScheduleTimezone());
-  const [filters, setFilters] = useState<ScheduleTraceFilter[]>([]);
   // The model the scheduled runs will use. Null until the stored selection (or the default) is
   // resolved, which needs the endpoint list.
   const [selection, setSelection] = useState<IssueDetectionModelSelection | null>(null);
@@ -398,9 +211,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     error: createSecretError,
     reset: resetCreateSecret,
   } = useCreateSecret();
-  // Set when a clause holds a character the server cannot apply, so Save explains instead of
-  // storing a filter that every run would ignore.
-  const [filterError, setFilterError] = useState<string | null>(null);
   // True after a Save whose writes failed. Local (not the hook's `error`, which also covers load
   // failures) so it only reflects the in-modal save attempt, and it keeps the modal open for retry.
   const [saveFailed, setSaveFailed] = useState(false);
@@ -454,8 +264,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
       triggerLabel
     );
 
-  // Seed the modal from the current schedule + filters so it opens showing what is active. With no
-  // filters we show no rows — just the "Add filter" button — so the user opts in explicitly.
+  // Seed the modal from the current cadence and model. Detection settings own trace scope.
   const openModal = useCallback(() => {
     // Read the schedule again on the way in. The draft below is seeded from what is already
     // loaded, so a reply that lands mid-edit cannot disturb it -- what it refreshes is the next
@@ -465,16 +274,14 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     setStartTime(storedStartTime);
     setWeekday(storedWeekday);
     setTimezone(resolveScheduleTimezone(undefined, storedTimezone));
-    setFilters(traceFilters.map((filter) => ({ ...filter })));
     setSaveFailed(false);
-    setFilterError(null);
     setSelection(toSelection(model) ?? null);
     setView('main');
     setApiKeyDraft('');
     setCreatedSecret(null);
     resetCreateSecret();
     setOpen(true);
-  }, [reload, setting, storedStartTime, storedWeekday, storedTimezone, traceFilters, model, resetCreateSecret]);
+  }, [reload, setting, storedStartTime, storedWeekday, storedTimezone, model, resetCreateSecret]);
   const closeModal = useCallback(() => setOpen(false), []);
 
   // A schedule that names no model (or one saved before a model could be chosen) falls back to the
@@ -496,19 +303,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         : { mode: 'direct', provider: provider.id, model: provider.defaultModel },
     );
   }, [open, selection, isLoadingEndpoints, endpoints]);
-
-  const changeFilter = useCallback((index: number, next: ScheduleTraceFilter) => {
-    setFilterError(null);
-    setFilters((prev) => prev.map((filter, i) => (i === index ? next : filter)));
-  }, []);
-
-  // Removing the last row collapses the section back to just the "Add filter" button.
-  const removeFilter = useCallback((index: number) => setFilters((prev) => prev.filter((_, i) => i !== index)), []);
-
-  const addFilter = useCallback(
-    () => setFilters((prev) => (prev.length >= MAX_TRACE_FILTERS ? prev : [...prev, emptyFilterRow()])),
-    [],
-  );
 
   // Every zone the browser knows, built once the modal is opened rather than on every render of
   // the Issues tab: the list is a few hundred entries and each one is formatted to find its
@@ -596,57 +390,15 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
 
   const persistSchedule = useCallback(
     async (secretId?: string) => {
-      // Blank-key rows are dropped; the hook/persistence also normalize, but trimming here keeps the
-      // saved model clean.
-      const cleaned = filters
-        .map((filter) => ({
-          field: filter.field,
-          operator: filter.operator,
-          key: filter.key.trim(),
-          value: filter.value,
-        }))
-        .filter((filter) => filter.key.length > 0);
-      // Both checks run before either tag is written: the server drops what they catch, so storing
-      // it would leave the modal showing a filter that no run applies.
-      if (cleaned.length > MAX_TRACE_FILTERS) {
-        setFilterError(
-          intl.formatMessage(
-            {
-              defaultMessage:
-                'Remove {excess, plural, one {# filter} other {# filters}}. Scheduled runs apply at most {limit}.',
-              description:
-                'Experiment issues tab > Schedule modal error shown when a schedule carries more trace filters than the server applies',
-            },
-            { excess: cleaned.length - MAX_TRACE_FILTERS, limit: MAX_TRACE_FILTERS },
-          ),
-        );
-        return;
-      }
-      const rejected = cleaned.map(unsupportedFilterCharacter).find(Boolean);
-      if (rejected) {
-        setFilterError(
-          intl.formatMessage(
-            {
-              defaultMessage: 'Remove the {character} character from the filter. Scheduled runs cannot match on it.',
-              description:
-                'Experiment issues tab > Schedule modal error shown when a trace filter contains a character the server cannot apply',
-            },
-            { character: rejected },
-          ),
-        );
-        return;
-      }
-      setFilterError(null);
       setSaveFailed(false);
       try {
         // Await the writes and only close on success. On failure keep the modal open with the draft
-        // intact so the user can retry without re-entering the cadence/filters.
+        // intact so the user can retry without re-entering the cadence/model.
         await setSetting({
           setting: cadence,
           startTime,
           weekday,
           timezone,
-          traceFilters: cleaned,
           model: selection
             ? toStoredModel(selection, resolveSecretId(selection, model, secretId, existingSecrets[0]?.secret_id))
             : undefined,
@@ -656,7 +408,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
         setSaveFailed(true);
       }
     },
-    [cadence, startTime, weekday, timezone, filters, selection, model, existingSecrets, setSetting, intl],
+    [cadence, startTime, weekday, timezone, selection, model, existingSecrets, setSetting],
   );
 
   // Prompting for a key before these answer would ask for one the server may already have.
@@ -731,7 +483,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
   // explaining why -- the affordance stays discoverable and any cadence already saved is still
   // readable. Offering a working-looking switch that silently never fires would be worse.
   // A failed read leaves the values above as fallbacks rather than what is stored, so the modal
-  // must not open: saving the apparent "Off, no filters" state would replace a real schedule with
+  // must not open: saving the apparent "Off" state would replace a real schedule with
   // it. The reason and a retry sit on the trigger, since the modal that would otherwise carry them
   // is exactly what is being withheld.
   if (loadError) {
@@ -797,11 +549,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
     defaultMessage: 'Model',
     description: 'Experiment issues tab > Schedule modal label for the model scheduled runs analyze with',
   });
-  const filterSectionLabel = intl.formatMessage({
-    defaultMessage: 'Additional trace filters (optional)',
-    description: 'Experiment issues tab > Schedule modal label for the optional trace filters',
-  });
-  const filtersDisabled = cadence === 'off';
+  const scheduleOff = cadence === 'off';
   const { hour, minute } = splitStartTime(startTime);
   // The quarter hours the dispatcher can fire at, plus the stored minute when it is not one of
   // them: a schedule set by hand to 09:08 is shown and saved as 09:08 rather than being moved to
@@ -1025,7 +773,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                       label={hourFieldLabel}
                       width={TIME_PART_WIDTH}
                       value={hour}
-                      disabled={filtersDisabled}
+                      disabled={scheduleOff}
                       onChange={({ target }) => setStartTime(joinStartTime(target.value, minute))}
                       contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
                     >
@@ -1042,7 +790,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                       label={minuteFieldLabel}
                       width={TIME_PART_WIDTH}
                       value={minute}
-                      disabled={filtersDisabled}
+                      disabled={scheduleOff}
                       onChange={({ target }) => setStartTime(joinStartTime(hour, target.value))}
                       contentProps={{ style: { zIndex: theme.options.zIndexBase + 40 } }}
                     >
@@ -1068,7 +816,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                       defaultMessage: 'Search timezones',
                       description: 'Experiment issues tab > Schedule modal placeholder of the timezone search input',
                     })}
-                    disabled={filtersDisabled}
+                    disabled={scheduleOff}
                     clearOnOpen
                   />
                 </div>
@@ -1081,7 +829,7 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                       endpoints={endpoints}
                       value={selection}
                       onChange={setSelection}
-                      disabled={filtersDisabled}
+                      disabled={scheduleOff}
                       // The modal raises its own stacking context, which this control's option list
                       // and its "Create endpoint" modal would otherwise render below.
                       overlayZIndex={theme.options.zIndexBase + 40}
@@ -1101,35 +849,12 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
                   </Typography.Hint>
                 )}
               </div>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                <Typography.Text color="secondary">{filterSectionLabel}</Typography.Text>
-                {filters.map((filter, index) => (
-                  <TraceFilterRow
-                    key={index}
-                    index={index}
-                    filter={filter}
-                    disabled={filtersDisabled}
-                    onChange={changeFilter}
-                    onRemove={removeFilter}
-                  />
-                ))}
-                <div>
-                  <Button
-                    componentId={`${COMPONENT_ID}.modal.filter-add`}
-                    icon={<PlusIcon />}
-                    // Held at the cap the server applies: a clause past it would show here as
-                    // active and be dropped by every run.
-                    disabled={filtersDisabled || filters.length >= MAX_TRACE_FILTERS}
-                    onClick={addFilter}
-                  >
-                    {intl.formatMessage({
-                      defaultMessage: 'Add filter',
-                      description:
-                        'Experiment issues tab > Schedule modal button that adds another trace filter clause',
-                    })}
-                  </Button>
-                </div>
-              </div>
+              <Typography.Text color="secondary">
+                {intl.formatMessage({
+                  defaultMessage: 'Uses the trace scope saved in issue detection settings.',
+                  description: 'Schedule modal shared trace scope explanation',
+                })}
+              </Typography.Text>
             </>
           )}
           {view === 'apiKey' && (
@@ -1167,7 +892,6 @@ export const ExperimentIssuesScheduleControl = ({ experimentId }: ExperimentIssu
               {createSecretError && <FormUI.Message type="error" message={createSecretError.message} />}
             </div>
           )}
-          {filterError && <FormUI.Message type="error" message={filterError} />}
           {saveFailed && (
             <FormUI.Message
               type="error"
