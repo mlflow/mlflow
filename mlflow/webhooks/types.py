@@ -494,14 +494,14 @@ class BudgetPolicyExceededPayload(TypedDict):
     """The duration unit (MINUTES, HOURS, DAYS, WEEKS, MONTHS)."""
     duration_value: int
     """The duration value."""
-    target_scope: Literal["GLOBAL", "WORKSPACE", "ENDPOINT", "USER"]
-    """The target scope (GLOBAL, WORKSPACE, ENDPOINT, or USER)."""
+    target_scope: Literal["GLOBAL", "WORKSPACE", "ENDPOINT", "USER", "ROLE"]
+    """The target scope (GLOBAL, WORKSPACE, ENDPOINT, USER, or ROLE)."""
     workspace: str
     """The workspace this budget applies to."""
     target_value: str | None
     """The target this budget applies to, interpreted per target_scope: a gateway
-    endpoint ID for ENDPOINT scope, a username for USER scope.
-    None for GLOBAL and WORKSPACE scopes."""
+    endpoint ID for ENDPOINT scope, a username for USER scope, an auth role ID
+    for ROLE scope. None for GLOBAL and WORKSPACE scopes."""
     window_start: int
     """The start timestamp (milliseconds) of the current budget window."""
 

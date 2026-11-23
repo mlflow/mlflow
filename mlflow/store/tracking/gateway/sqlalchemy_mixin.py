@@ -113,7 +113,11 @@ def _validate_one_of(
         )
 
 
-_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT.value, BudgetTargetScope.USER.value)
+_TARGETED_BUDGET_SCOPES = (
+    BudgetTargetScope.ENDPOINT.value,
+    BudgetTargetScope.USER.value,
+    BudgetTargetScope.ROLE.value,
+)
 
 
 def _normalize_budget_target_value(
@@ -121,12 +125,12 @@ def _normalize_budget_target_value(
 ) -> str | None:
     """Enforce the budget policy target_value/target_scope invariant at the store layer.
 
-    ENDPOINT- and USER-scoped policies must carry a ``target_value`` (the endpoint ID
-    or username to match; without one the policy silently never matches any request
-    and thus never enforces). Policies with any other scope must not carry one, so a
-    stray ``target_value`` is dropped. This mirrors the REST handler validation so
-    direct/programmatic store callers cannot persist a policy that violates the
-    invariant.
+    ENDPOINT-, USER-, and ROLE-scoped policies must carry a ``target_value`` (the
+    endpoint ID, username, or role ID to match; without one the policy silently never
+    matches any request and thus never enforces). Policies with any other scope must
+    not carry one, so a stray ``target_value`` is dropped. This mirrors the REST
+    handler validation so direct/programmatic store callers cannot persist a policy
+    that violates the invariant.
     """
     if target_scope in _TARGETED_BUDGET_SCOPES:
         if not target_value:
@@ -1247,7 +1251,8 @@ class SqlAlchemyGatewayStoreMixin:
                 # An ENDPOINT policy referencing a nonexistent endpoint would never
                 # match any request (a REJECT cap that silently never rejects), so
                 # require the endpoint to exist up front. USER targets are free-form
-                # usernames and are not validated against any table.
+                # usernames and ROLE targets live in the auth store, so neither is
+                # validated against a tracking table.
                 self._get_entity_or_raise(
                     session, SqlGatewayEndpoint, {"endpoint_id": target_value}, "GatewayEndpoint"
                 )
@@ -1343,16 +1348,17 @@ class SqlAlchemyGatewayStoreMixin:
                 )
             if target_value is not None:
                 sql_budget_policy.target_value = target_value
-            # Enforce the target_value/scope invariant on the resulting row: ENDPOINT-
-            # and USER-scoped policies must always carry a target (a targeted policy
-            # with target_value=None silently never matches any request, so reject it
-            # rather than persist a dead policy), and any other scope must not.
+            # Enforce the target_value/scope invariant on the resulting row: ENDPOINT-,
+            # USER-, and ROLE-scoped policies must always carry a target (a targeted
+            # policy with target_value=None silently never matches any request, so reject
+            # it rather than persist a dead policy), and any other scope must not.
             sql_budget_policy.target_value = _normalize_budget_target_value(
                 sql_budget_policy.target_scope, sql_budget_policy.target_value
             )
             # An ENDPOINT target must reference an existing endpoint; validate whenever
             # this update introduced or changed it. USER targets are free-form
-            # usernames and are not validated against any table.
+            # usernames and ROLE targets live in the auth store, so neither is
+            # validated against a tracking table.
             if (
                 target_value is not None
                 and sql_budget_policy.target_scope == BudgetTargetScope.ENDPOINT.value
