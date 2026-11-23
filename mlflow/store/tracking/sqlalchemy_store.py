@@ -82,7 +82,10 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACE_DELETE_MAX_WORKERS
+from mlflow.environment_variables import (
+    MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS,
+    MLFLOW_TRACE_DELETE_MAX_WORKERS,
+)
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceArchivalMalformedTrace,
@@ -118,6 +121,7 @@ from mlflow.genai.scorers.scorer_utils import (
     validate_scorer_name,
 )
 from mlflow.protos.databricks_pb2 import (
+    DEADLINE_EXCEEDED,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -128,7 +132,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.analytics import trace_correlation
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.db.db_types import MSSQL, MYSQL, SQLITE
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
@@ -369,6 +373,17 @@ class DatasetFilter(TypedDict, total=False):
 
     dataset_name: str
     dataset_digest: str
+
+
+def _get_search_traces_timeout_seconds() -> float | None:
+    """
+    Returns the configured trace search timeout, or None when no limit applies. Zero, negative,
+    and non-finite values (``inf``, ``nan``) all mean no limit.
+    """
+    timeout_seconds = MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.get()
+    if timeout_seconds is None or not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        return None
+    return timeout_seconds
 
 
 class SqlAlchemyStore(
@@ -4444,14 +4459,27 @@ class SqlAlchemyStore(
             # one that ends on the boundary, and every other paginated search in this store
             # already looks ahead this way.
             stmt = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results + 1)
+            stmt = self._apply_search_traces_timeout(session, stmt)
 
-            trace_rows = stmt.all()
-            has_more = len(trace_rows) > max_results
-            # Built after trimming: the look-ahead row is only ever counted, and building its
-            # trace info would read its tags, assessments and request metadata for nothing.
-            trace_infos = _build_trace_infos_from_rows(session, trace_rows[:max_results])
+            try:
+                trace_rows = stmt.all()
+                # Built after trimming: the look-ahead row is only ever counted, and building its
+                # trace info would read its tags, assessments and request metadata for nothing.
+                trace_infos = _build_trace_infos_from_rows(session, trace_rows[:max_results])
+            except sqlalchemy.exc.DBAPIError as e:
+                if self._is_search_traces_timeout_error(e):
+                    raise MlflowException(
+                        "The trace search was cancelled because it ran longer than the "
+                        f"{_get_search_traces_timeout_seconds()} second "
+                        f"limit set by {MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS}. "
+                        "Narrow the search, for example with a shorter time range or a more "
+                        "selective filter, or increase the limit.",
+                        error_code=DEADLINE_EXCEEDED,
+                    ) from e
+                raise
 
             # Compute next search token
+            has_more = len(trace_rows) > max_results
             if has_more:
                 final_offset = offset + max_results
                 next_token = SearchTraceUtils.create_page_token(final_offset)
@@ -4459,6 +4487,36 @@ class SqlAlchemyStore(
                 next_token = None
 
             return trace_infos, next_token
+
+    def _apply_search_traces_timeout(self, session: Session, stmt: Query) -> Query:
+        timeout_seconds = _get_search_traces_timeout_seconds()
+        if timeout_seconds is None:
+            return stmt
+        # Both databases treat 0 as "no limit", so never round a positive timeout down to it.
+        timeout_ms = max(1, int(timeout_seconds * 1000))
+        if self.db_type == POSTGRES:
+            # `set_config(..., true)` is `SET LOCAL`: the limit ends with the search transaction
+            # instead of staying on the pooled connection. Unlike `SET`, it accepts a bind param.
+            session.execute(
+                sql.text("SELECT set_config('statement_timeout', :timeout, true)"),
+                {"timeout": str(timeout_ms)},
+            )
+        elif self.db_type == MYSQL:
+            stmt = stmt.prefix_with(f"/*+ MAX_EXECUTION_TIME({timeout_ms}) */")
+        return stmt
+
+    def _is_search_traces_timeout_error(self, error: sqlalchemy.exc.DBAPIError) -> bool:
+        if _get_search_traces_timeout_seconds() is None:
+            return False
+        orig = error.orig
+        if self.db_type == POSTGRES:
+            # SQLSTATE 57014 (query_canceled): psycopg2 exposes it as `pgcode`, psycopg as
+            # `sqlstate`.
+            return "57014" in (getattr(orig, "pgcode", None), getattr(orig, "sqlstate", None))
+        if self.db_type == MYSQL:
+            # ER_QUERY_TIMEOUT (3024): maximum statement execution time exceeded.
+            return bool(getattr(orig, "args", None)) and orig.args[0] == 3024
+        return False
 
     def find_completed_sessions(
         self,
@@ -6103,7 +6161,8 @@ class SqlAlchemyStore(
             # their batch-local aggregates are authoritative (no recompute needed later).
             created_trace_ids: set[str] = set()
             if any(tid not in existing_traces for tid in all_trace_ids):
-                experiment = self.get_experiment(location)
+                # Reuse the write session instead of waiting for a second pooled connection.
+                experiment = self._get_experiment(session, location, ViewType.ALL)
                 for _attempt in range(_LOG_SPANS_MAX_TRACE_CREATE_RETRIES):
                     pending = [tid for tid in all_trace_ids if tid not in existing_traces]
                     if not pending:

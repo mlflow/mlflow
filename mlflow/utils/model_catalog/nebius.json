@@ -130,9 +130,9 @@
         "vision": false,
         "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-22"
     },
     "NousResearch/Hermes-4-70B": {
       "mode": "chat",
@@ -340,9 +340,9 @@
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-22"
     },
     "Qwen/Qwen3-30B-A3B": {
       "mode": "chat",
@@ -379,9 +379,9 @@
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-22"
     },
     "Qwen/Qwen3-32B": {
       "mode": "chat",
@@ -481,7 +481,7 @@
     "Qwen/Qwen3.8-27B": {
       "mode": "chat",
       "context_window": {
-        "max_input": 262144
+        "max_input": 1000000
       },
       "pricing": {
         "input_per_million_tokens": 0.45,
@@ -490,12 +490,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-22"
     },
     "deepseek-ai/DeepSeek-R1": {
       "mode": "chat",
@@ -1169,9 +1169,9 @@
         "vision": false,
         "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-22"
     },
     "openbmb/MiniCPM-V-4_5": {
       "mode": "chat",
@@ -1228,9 +1228,9 @@
         "vision": true,
         "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-11-16"
+      "last_updated_at": "2026-11-22"
     },
     "zai-org/GLM-5.1": {
       "mode": "chat",

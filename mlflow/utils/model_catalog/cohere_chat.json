@@ -76,8 +76,12 @@
     "command-a-reasoning-08-2025": {
       "mode": "chat",
       "context_window": {
-        "max_input": 288768,
+        "max_input": 256000,
         "max_output": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.0,
+        "output_per_million_tokens": 0.0
       },
       "capabilities": {
         "function_calling": true,
@@ -86,13 +90,17 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-17"
+      "last_updated_at": "2026-11-19"
     },
     "command-a-translate-08-2025": {
       "mode": "chat",
       "context_window": {
-        "max_input": 8992,
+        "max_input": 8000,
         "max_output": 8000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.0,
+        "output_per_million_tokens": 0.0
       },
       "capabilities": {
         "function_calling": true,
@@ -101,13 +109,17 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-17"
+      "last_updated_at": "2026-11-19"
     },
     "command-a-vision-07-2025": {
       "mode": "chat",
       "context_window": {
         "max_input": 128000,
         "max_output": 8000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.0,
+        "output_per_million_tokens": 0.0
       },
       "capabilities": {
         "function_calling": false,
@@ -116,7 +128,7 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-17"
+      "last_updated_at": "2026-11-19"
     },
     "command-light": {
       "mode": "chat",
@@ -252,7 +264,7 @@
     "north-mini-code-1.0": {
       "mode": "chat",
       "context_window": {
-        "max_input": 436000,
+        "max_input": 256000,
         "max_output": 64000
       },
       "pricing": {
@@ -266,12 +278,12 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-17"
+      "last_updated_at": "2026-11-19"
     },
     "north-small-translate-1.0": {
       "mode": "chat",
       "context_window": {
-        "max_input": 32768,
+        "max_input": 16000,
         "max_output": 16000
       },
       "pricing": {
@@ -285,7 +297,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-17"
+      "last_updated_at": "2026-11-19"
     },
     "tiny-aya-earth": {
       "mode": "chat",

@@ -288,6 +288,47 @@ def test_classifier_binary():
     assert len(plt.get_fignums()) == 0
 
 
+@pytest.mark.filterwarnings("error:`y_pred` was renamed to `y_proba`:FutureWarning")
+def test_classifier_log_loss_does_not_use_deprecated_y_pred_argument():
+    mlflow.sklearn.autolog()
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    _, metrics, _, _ = get_run_data(run.info.run_id)
+    assert metrics["training_log_loss"] == pytest.approx(
+        sklearn.metrics.log_loss(y_true, model.predict_proba(X))
+    )
+
+
+def _log_loss_with_y_proba(y_true, y_proba, *, sample_weight=None): ...
+
+
+def _log_loss_with_y_pred(y_true, y_pred, *, sample_weight=None): ...
+
+
+@pytest.mark.parametrize(
+    ("log_loss_stub", "proba_arg"),
+    [(_log_loss_with_y_proba, "y_proba"), (_log_loss_with_y_pred, "y_pred")],
+)
+def test_classifier_log_loss_passes_probabilities_with_supported_keyword(log_loss_stub, proba_arg):
+    mlflow.sklearn.autolog()
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    mock_log_loss = mock.create_autospec(log_loss_stub, return_value=0.25)
+    with mock.patch("sklearn.metrics.log_loss", mock_log_loss), mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    mock_log_loss.assert_called_once()
+    assert mock_log_loss.call_args.kwargs.keys() == {"y_true", proba_arg, "sample_weight"}
+    np.testing.assert_array_equal(mock_log_loss.call_args.kwargs[proba_arg], model.predict_proba(X))
+    _, metrics, _, _ = get_run_data(run.info.run_id)
+    assert metrics["training_log_loss"] == 0.25
+
+
 def test_classifier_multi_class():
     mlflow.sklearn.autolog()
     # use RandomForestClassifier that has method [predict_proba], so that we can test

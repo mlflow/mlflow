@@ -40,6 +40,8 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.entities.workspace import TraceArchivalConfig, Workspace
 from mlflow.environment_variables import (
+    MLFLOW_SQL_TRACE_ROLLUPS_ENABLED,
+    MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS,
     MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_TRACE_DELETE_MAX_WORKERS,
 )
@@ -50,6 +52,8 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    DEADLINE_EXCEEDED,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
@@ -58,6 +62,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
+from mlflow.store.db.utils import _get_managed_session_maker
 from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
@@ -562,6 +567,141 @@ def test_search_traces_order_by_null_handling(store, order_by, needs_null_orderi
     if order_by.startswith("timestamp"):
         direction = " DESC" if order_by.endswith("DESC") else ""
         assert f"ORDER BY trace_info.timestamp_ms{direction}, trace_info.request_id" in statement
+
+
+def test_search_traces_timeout_is_ignored_on_sqlite(store, monkeypatch):
+    if store.db_type != SQLITE:
+        pytest.skip("Other databases are covered by tests/db/test_search_traces_timeout.py")
+
+    exp_id = _create_experiments(store, "test_search_traces_timeout")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "0.001")
+    statements = []
+
+    def capture(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", capture)
+    try:
+        traces, _ = store.search_traces(locations=[exp_id])
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", capture)
+
+    assert [t.trace_id for t in traces] == ["tr-0"]
+    assert not any("statement_timeout" in s or "MAX_EXECUTION_TIME" in s for s in statements)
+
+
+class _FakeDriverError(Exception):
+    def __init__(self, *args, pgcode=None, sqlstate=None):
+        super().__init__(*args)
+        self.pgcode = pgcode
+        self.sqlstate = sqlstate
+
+
+def _dbapi_error(orig):
+    return sqlalchemy.exc.DBAPIError("SELECT 1", {}, orig)
+
+
+@pytest.mark.parametrize(("value", "expected_ms"), [("0.0001", 1), ("1.5", 1500)])
+def test_search_traces_timeout_is_applied_on_postgres(store, monkeypatch, value, expected_ms):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt
+    session.execute.assert_called_once()
+    assert session.execute.call_args.args[1] == {"timeout": str(expected_ms)}
+    stmt.prefix_with.assert_not_called()
+
+
+@pytest.mark.parametrize(("value", "expected_ms"), [("0.0001", 1), ("1.5", 1500)])
+def test_search_traces_timeout_is_applied_on_mysql(store, monkeypatch, value, expected_ms):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", MYSQL)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt.prefix_with.return_value
+    stmt.prefix_with.assert_called_once_with(f"/*+ MAX_EXECUTION_TIME({expected_ms}) */")
+    session.execute.assert_not_called()
+
+
+@pytest.mark.parametrize("value", [None, "0", "-1", "inf", "nan"])
+@pytest.mark.parametrize(
+    ("db_type", "orig"),
+    [(POSTGRES, _FakeDriverError(pgcode="57014")), (MYSQL, _FakeDriverError(3024, "timeout"))],
+)
+def test_search_traces_timeout_is_disabled(store, monkeypatch, value, db_type, orig):
+    if value is None:
+        monkeypatch.delenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, raising=False)
+    else:
+        monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, value)
+    monkeypatch.setattr(store, "db_type", db_type)
+    session = mock.MagicMock()
+    stmt = mock.MagicMock()
+
+    assert store._apply_search_traces_timeout(session, stmt) is stmt
+    session.execute.assert_not_called()
+    stmt.prefix_with.assert_not_called()
+    # A cancel from the server's own limit must not be attributed to the disabled variable.
+    assert not store._is_search_traces_timeout_error(_dbapi_error(orig))
+
+
+@pytest.mark.parametrize(
+    ("db_type", "orig", "expected"),
+    [
+        (POSTGRES, _FakeDriverError(pgcode="57014"), True),
+        (POSTGRES, _FakeDriverError(sqlstate="57014"), True),
+        (POSTGRES, _FakeDriverError(pgcode="40P01"), False),
+        (POSTGRES, _FakeDriverError(), False),
+        (MYSQL, _FakeDriverError(3024, "maximum statement execution time exceeded"), True),
+        (MYSQL, _FakeDriverError(1205, "lock wait timeout exceeded"), False),
+        (MYSQL, _FakeDriverError(), False),
+        (SQLITE, _FakeDriverError(pgcode="57014"), False),
+    ],
+)
+def test_is_search_traces_timeout_error(store, monkeypatch, db_type, orig, expected):
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "1")
+    monkeypatch.setattr(store, "db_type", db_type)
+
+    assert store._is_search_traces_timeout_error(_dbapi_error(orig)) is expected
+
+
+def test_search_traces_raises_deadline_exceeded_on_timeout(store, monkeypatch):
+    exp_id = _create_experiments(store, "test_search_traces_timeout_error")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "2.5")
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    monkeypatch.setattr(store, "_apply_search_traces_timeout", lambda session, stmt: stmt)
+    error = _dbapi_error(_FakeDriverError(pgcode="57014"))
+    monkeypatch.setattr(
+        sqlalchemy_store_module, "_build_trace_infos_from_rows", mock.Mock(side_effect=error)
+    )
+
+    with pytest.raises(MlflowException, match="2.5 second limit") as exc_info:
+        store.search_traces(locations=[exp_id])
+
+    assert exc_info.value.error_code == ErrorCode.Name(DEADLINE_EXCEEDED)
+    assert exc_info.value.__cause__ is error
+
+
+def test_search_traces_reraises_other_database_errors(store, monkeypatch):
+    exp_id = _create_experiments(store, "test_search_traces_other_error")
+    _create_trace(store, "tr-0", exp_id)
+    monkeypatch.setenv(MLFLOW_SQLALCHEMYSTORE_SEARCH_TRACES_TIMEOUT_SECONDS.name, "2.5")
+    monkeypatch.setattr(store, "db_type", POSTGRES)
+    monkeypatch.setattr(store, "_apply_search_traces_timeout", lambda session, stmt: stmt)
+    error = _dbapi_error(_FakeDriverError("deadlock detected", pgcode="40P01"))
+    monkeypatch.setattr(
+        sqlalchemy_store_module, "_build_trace_infos_from_rows", mock.Mock(side_effect=error)
+    )
+
+    with pytest.raises(MlflowException, match="deadlock detected") as exc_info:
+        store.search_traces(locations=[exp_id])
+
+    assert exc_info.value.error_code == ErrorCode.Name(BAD_REQUEST)
+    assert exc_info.value.__cause__ is error
 
 
 @pytest.mark.parametrize("direction", ["ASC", "DESC"])
@@ -2054,6 +2194,102 @@ def test_search_traces_numeric_filters_exclude_nan_and_infinity(store: SqlAlchem
     assert search("feedback.score > 4") == set()
     assert search("feedback.score > 0") == {"trace_finite"}
     assert search("feedback.score <= 3") == {"trace_finite"}
+
+
+@pytest.mark.parametrize(
+    ("filter_string", "expected_trace_ids"),
+    [
+        ("feedback.rating LIKE 'good'", {"trace_string"}),
+        ("feedback.rating LIKE 'go%'", {"trace_string"}),
+        ("feedback.rating LIKE '%good%'", {"trace_string"}),
+        ("feedback.rating LIKE 'GOOD'", set()),
+        ("feedback.rating LIKE '\"good\"'", set()),
+        ("feedback.rating ILIKE 'GOOD'", {"trace_string"}),
+        ("feedback.rating ILIKE 'GO%'", {"trace_string"}),
+        ("feedback.rating RLIKE '^good$'", {"trace_string"}),
+        ("feedback.rating LIKE '%café%'", {"trace_non_ascii"}),
+        ("feedback.rating ILIKE 'CAFé'", {"trace_non_ascii"}),
+        ("feedback.rating RLIKE '^café$'", {"trace_non_ascii"}),
+        # Stored as the surrogate pair escape `\ud83d\udc4d`
+        ("feedback.rating LIKE '%👍'", {"trace_emoji"}),
+        ("""feedback.rating LIKE 'say "hi"'""", {"trace_quoted"}),
+        ("""feedback.rating LIKE '%"hi"%'""", {"trace_quoted"}),
+        ("feedback.rating LIKE '4'", {"trace_numeric"}),
+        ("feedback.rating RLIKE '^4$'", {"trace_numeric"}),
+        ("feedback.rating LIKE 'true'", {"trace_bool"}),
+        ("feedback.rating RLIKE '^true$'", {"trace_bool"}),
+        ("feedback.rating LIKE 'NaN'", {"trace_nan"}),
+        # Longer than the 4000 characters MSSQL `JSON_VALUE` can return
+        ("feedback.rating LIKE '%needle'", {"trace_long"}),
+        ("feedback.rating ILIKE '%NEEDLE'", {"trace_long"}),
+        ("expectation.label LIKE 'success'", {"trace_string"}),
+        ("expectation.label LIKE 'succ%'", {"trace_string"}),
+        ("expectation.label ILIKE 'SUCCESS'", {"trace_string"}),
+        ("expectation.label RLIKE '^success$'", {"trace_string"}),
+        ("expectation.label LIKE '%ü%'", {"trace_non_ascii"}),
+        ("expectation.label LIKE '7'", {"trace_numeric"}),
+    ],
+)
+def test_search_traces_assessment_pattern_filters_match_decoded_strings(
+    store: SqlAlchemyStore, filter_string: str, expected_trace_ids: set[str]
+):
+    if IS_MSSQL and "RLIKE" in filter_string:
+        pytest.skip("RLIKE is not supported for MSSQL database dialect.")
+
+    exp_id = store.create_experiment("test_assessment_pattern_filters")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, feedback_value, expectation_value in [
+        ("trace_string", "good", "success"),
+        ("trace_non_ascii", "café", "über"),
+        ("trace_emoji", "ok 👍", None),
+        ("trace_quoted", 'say "hi"', None),
+        ("trace_numeric", 4, 7),
+        ("trace_bool", True, None),
+        ("trace_nan", float("nan"), None),
+        ("trace_long", "x" * 5000 + "needle", None),
+    ]:
+        _create_trace(store, trace_id, exp_id)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="rating", value=feedback_value, source=source)
+        )
+        if expectation_value is not None:
+            store.create_assessment(
+                Expectation(trace_id=trace_id, name="label", value=expectation_value, source=source)
+            )
+
+    traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+    assert {trace.request_id for trace in traces} == expected_trace_ids
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        # Stored as `"a\u0000b"`, which PostgreSQL can't convert to text
+        "a\x00b",
+        # Unpaired surrogate escapes, which PostgreSQL and MySQL reject as invalid JSON
+        "\ud800",
+        "x\udc00",
+        "\ud800é",
+    ],
+    ids=["nul", "lone-high-surrogate", "lone-low-surrogate", "high-surrogate-without-low"],
+)
+def test_search_traces_assessment_pattern_filters_tolerate_undecodable_strings(
+    store: SqlAlchemyStore, value: str
+):
+    exp_id = store.create_experiment("test_assessment_pattern_filters_undecodable")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, feedback_value in [("trace_good", "good"), ("trace_undecodable", value)]:
+        _create_trace(store, trace_id, exp_id)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="rating", value=feedback_value, source=source)
+        )
+
+    def search(filter_string):
+        traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+        return {trace.request_id for trace in traces}
+
+    assert search("feedback.rating LIKE 'go%'") == {"trace_good"}
+    assert search("feedback.rating LIKE '%'") == {"trace_good", "trace_undecodable"}
 
 
 def test_search_traces_with_run_id(store: SqlAlchemyStore):
@@ -4208,6 +4444,43 @@ async def test_log_spans_async_allows_concurrent_store_calls(store: SqlAlchemySt
         )
 
     assert results == [[], []]
+
+
+@pytest.mark.parametrize("rollups_enabled", [False, True])
+def test_log_spans_with_single_connection_pool(
+    store: SqlAlchemyStore, monkeypatch, rollups_enabled
+):
+    monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, str(rollups_enabled).lower())
+    experiment_id = store.create_experiment("single_connection_pool")
+    artifact_location = store.get_experiment(experiment_id).artifact_location
+    spans = [create_test_span(f"tr-single-connection-{i}", span_id=i, trace_num=i) for i in (1, 2)]
+    engine = sqlalchemy.create_engine(
+        store.engine.url,
+        poolclass=sqlalchemy.pool.QueuePool,
+        pool_size=1,
+        max_overflow=0,
+        pool_timeout=0.1,
+    )
+    try:
+        managed_session_maker = _get_managed_session_maker(
+            sqlalchemy.orm.sessionmaker(bind=engine), store.db_type
+        )
+        with mock.patch.object(store, "ManagedSessionMaker", managed_session_maker):
+            assert store.log_spans(experiment_id, spans) == spans
+
+            for span in spans:
+                info = store.get_trace_info(span.trace_id)
+                assert info.experiment_id == experiment_id
+                assert info.tags[MLFLOW_ARTIFACT_LOCATION] == append_to_uri_path(
+                    artifact_location, "traces", span.trace_id, "artifacts"
+                )
+
+            with store.ManagedSessionMaker() as session:
+                assert {(row.trace_id, row.span_id) for row in session.query(SqlSpan).all()} == {
+                    (span.trace_id, span.span_id) for span in spans
+                }
+    finally:
+        engine.dispose()
 
 
 def test_log_spans_multiple_traces(store: SqlAlchemyStore):

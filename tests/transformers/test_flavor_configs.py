@@ -1,11 +1,14 @@
 from unittest import mock
 
 import pytest
+import transformers
+from tokenizers import Tokenizer, models, pre_tokenizers
 
 from mlflow.exceptions import MlflowException
 from mlflow.transformers import _build_pipeline_from_model_input
 from mlflow.transformers.flavor_config import (
     build_flavor_config,
+    build_flavor_config_from_local_checkpoint,
     update_flavor_conf_to_persist_pretrained_model,
 )
 from mlflow.transformers.torch_utils import _get_torch_dtype_kwarg_name
@@ -184,3 +187,37 @@ def test_update_flavor_conf_to_persist_pretrained_model_raise_if_already_persist
 
     with pytest.raises(MlflowException, match="It appears that the pretrained model weight"):
         update_flavor_conf_to_persist_pretrained_model(flavor_conf)
+
+
+@pytest.fixture
+def tiny_local_checkpoint(tmp_path):
+    config = transformers.GPT2Config(n_layer=1, n_head=2, n_embd=8, vocab_size=16, n_positions=16)
+    transformers.GPT2LMHeadModel(config).save_pretrained(tmp_path)
+    tokenizer = Tokenizer(models.WordLevel({"[UNK]": 0, "hello": 1}, unk_token="[UNK]"))
+    tokenizer.pre_tokenizer = pre_tokenizers.Whitespace()
+    transformers.PreTrainedTokenizerFast(
+        tokenizer_object=tokenizer, unk_token="[UNK]"
+    ).save_pretrained(tmp_path)
+    return str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "impl",
+    [
+        transformers.TextGenerationPipeline,
+        # transformers >= 5.23 stores a dotted-path string instead of the class
+        "transformers.pipelines.text_generation.TextGenerationPipeline",
+    ],
+)
+def test_build_flavor_config_from_local_checkpoint_pipeline_impl(tiny_local_checkpoint, impl):
+    task_metadata = ("text-generation", {"impl": impl}, None)
+    with mock.patch(
+        "transformers.pipelines.check_task", return_value=task_metadata
+    ) as mock_check_task:
+        flavor_conf = build_flavor_config_from_local_checkpoint(
+            tiny_local_checkpoint, "text-generation"
+        )
+
+    mock_check_task.assert_called_once_with("text-generation")
+    assert flavor_conf["instance_type"] == "TextGenerationPipeline"
+    assert flavor_conf["pipeline_model_type"] == "GPT2LMHeadModel"

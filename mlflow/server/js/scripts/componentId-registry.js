@@ -751,6 +751,7 @@ module.exports = {
   // -- mlflow.eval-datasets-v2 --
   "mlflow.eval-datasets-v2.breadcrumb.datasets": "",
   "mlflow.eval-datasets-v2.create-dataset.button": "",
+  "mlflow.eval-datasets-v2.create-dataset.permission-tooltip": "",
   "mlflow.eval-datasets-v2.detail.actions": "",
   "mlflow.eval-datasets-v2.detail.actions.delete-dataset": "",
   "mlflow.eval-datasets-v2.detail.actions.view-in-unity-catalog": "",

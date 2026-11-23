@@ -7,8 +7,9 @@ import { isEvaluatingTracesInDetailsViewEnabled } from '@databricks/web-shared/m
 import { type GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import {
-  useRunScorerInTracesViewConfiguration,
-  useRunJudgesOnTracesConfiguration,
+  type useRunScorerInTracesViewConfiguration,
+  useRunScorerInTracesViewConfigurationForExperiment,
+  useRunJudgesOnTracesConfigurationForExperiment,
 } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { ExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { AddToReviewQueueDropdown } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-review-queue/AddToReviewQueueDropdown';
@@ -61,8 +62,9 @@ export const useTracesV4TraceActions = (
 ): TracesV4TraceActions => {
   const getTrace: GetTraceFunction = getTraceV3;
 
-  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
-  const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(
+  const runJudgeConfiguration = useRunScorerInTracesViewConfigurationForExperiment(experimentId);
+  const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner } = useRunJudgesOnTracesConfigurationForExperiment(
+    experimentId,
     runJudgeConfiguration.evaluateTraces,
     runJudgeConfiguration.allEvaluations,
     runJudgeConfiguration.subscribeToScorerFinished,

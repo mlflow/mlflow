@@ -266,6 +266,11 @@ class EvaluationResult:
     pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
     # Run-level conditions parsed from ``evaluate(quality_criteria=...)``. In-process only.
     quality_criteria: list[QualityCriteriaRule] = field(default_factory=list)
+    # Names of the feedback this run's scorers produced, keyed by trace ID. Populated by the
+    # evaluation harness so ``passed`` checks only those ``/value`` columns of each row, skipping
+    # dataset expectations and feedback logged on the traces outside this run. ``None`` checks
+    # every ``/value`` column. In-process only.
+    scorer_feedback_names_by_trace: dict[str, set[str]] | None = None
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -290,6 +295,10 @@ class EvaluationResult:
 
         A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
         Declare ``@scorer(pass_if=...)`` to define passing for other values.
+        Only the feedback this run's scorers produced is checked. Dataset expectations
+        and feedback logged on the traces outside this run stay in ``result_df`` but
+        don't affect ``passed``. A run does not pass when its per-row results are
+        unavailable or when no scorer produced a value for any row.
 
         Usage::
 
@@ -320,15 +329,23 @@ class EvaluationResult:
 
     def _row_failures(self) -> list[str]:
         if self.result_df is None:
-            return []
+            return [
+                "per-row results are unavailable (the result table could not be built), "
+                "so the run cannot be checked"
+            ]
 
         value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
-        if not value_cols:
-            return []
 
         failures: list[str] = []
+        num_scored = 0
         for _, row in self.result_df.iterrows():
-            for col in value_cols:
+            row_value_cols = value_cols
+            if self.scorer_feedback_names_by_trace is not None:
+                # Filter per row: a trace the scorers skipped can still carry feedback with the
+                # same name that was logged outside this run.
+                names = self.scorer_feedback_names_by_trace.get(row.get("trace_id"), set())
+                row_value_cols = [c for c in value_cols if c.removesuffix("/value") in names]
+            for col in row_value_cols:
                 scorer_name = col.removesuffix("/value")
                 value = row.get(col)
                 error_msg = row.get(f"{scorer_name}/error_message")
@@ -336,6 +353,7 @@ class EvaluationResult:
                 # Skip cells a scorer did not produce for this row.
                 if error_msg is None and is_none_or_nan(value):
                     continue
+                num_scored += 1
                 rationale = row.get(f"{scorer_name}/rationale")
                 rationale = None if is_none_or_nan(rationale) else rationale
                 passed, detail = _assertion_outcome(
@@ -343,6 +361,13 @@ class EvaluationResult:
                 )
                 if not passed:
                     failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
+        # Skipping a single missing cell is fine, but a run where no scorer produced a
+        # value for any row has no evidence to pass on.
+        if num_scored == 0:
+            failures.append(
+                "no scorer produced a value for any row; check that the scorers return a "
+                "value and receive the inputs they need"
+            )
         return failures
 
     # For backwards compatibility
