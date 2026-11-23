@@ -44,6 +44,12 @@ from mlflow.tracing.utils.otlp import (
 _TEST_HTTP_OTLP_ENDPOINT = "http://127.0.0.1:4317/v1/traces"
 _TEST_HTTPS_OTLP_ENDPOINT = "https://127.0.0.1:4317/v1/traces"
 
+_COMPRESSION_CASES = [
+    pytest.param("gzip", gzip.compress, id="gzip"),
+    pytest.param("deflate", zlib.compress, id="deflate-rfc"),
+    pytest.param("deflate", lambda d: zlib.compress(d)[2:-4], id="deflate-raw"),  # Raw deflate
+]
+
 
 @pytest.mark.parametrize(
     ("traces_endpoint", "otlp_endpoint", "mlflow_enable", "expected"),
@@ -269,18 +275,9 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     )
 
 
-@pytest.mark.parametrize(
-    ("encoding", "compress_fn", "data"),
-    [
-        ("gzip", gzip.compress, b"otlp-data-test"),
-        ("deflate", zlib.compress, b"otlp-deflate-data"),
-        ("deflate", lambda d: zlib.compress(d)[2:-4], b"raw-deflate-data"),  # Raw deflate
-    ],
-    ids=["gzip", "deflate-rfc", "deflate-raw"],
-)
-def test_decompress_otlp_body_valid(
-    encoding: str, compress_fn: Callable[[bytes], bytes], data: bytes
-):
+@pytest.mark.parametrize(("encoding", "compress_fn"), _COMPRESSION_CASES)
+def test_decompress_otlp_body_valid(encoding: str, compress_fn: Callable[[bytes], bytes]):
+    data = b"otlp-data-test"
     compressed = compress_fn(data)
     output = decompress_otlp_body(compressed, encoding)
     assert output == data
@@ -300,15 +297,7 @@ def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expect
         decompress_otlp_body(invalid_data, encoding)
 
 
-@pytest.mark.parametrize(
-    ("encoding", "compress_fn"),
-    [
-        ("gzip", gzip.compress),
-        ("deflate", zlib.compress),
-        ("deflate", lambda d: zlib.compress(d)[2:-4]),  # Raw deflate
-    ],
-    ids=["gzip", "deflate-rfc", "deflate-raw"],
-)
+@pytest.mark.parametrize(("encoding", "compress_fn"), _COMPRESSION_CASES)
 def test_decompress_otlp_body_rejects_oversize(
     encoding: str, compress_fn: Callable[[bytes], bytes], monkeypatch
 ):
@@ -325,15 +314,7 @@ def test_decompress_otlp_body_rejects_oversize(
         decompress_otlp_body(compressed, encoding)
 
 
-@pytest.mark.parametrize(
-    ("encoding", "compress_fn"),
-    [
-        ("gzip", gzip.compress),
-        ("deflate", zlib.compress),
-        ("deflate", lambda d: zlib.compress(d)[2:-4]),  # Raw deflate
-    ],
-    ids=["gzip", "deflate-rfc", "deflate-raw"],
-)
+@pytest.mark.parametrize(("encoding", "compress_fn"), _COMPRESSION_CASES)
 def test_decompress_otlp_body_allows_at_limit(
     encoding: str, compress_fn: Callable[[bytes], bytes], monkeypatch
 ):
