@@ -38,6 +38,9 @@ export const useSettingAutosave = <T>({
   const latestDraftRef = useRef(savedValue);
   // The value the server will have once every queued save has run.
   const latestQueuedKeyRef = useRef(savedKey);
+  // Why the latest queued save failed, if it did. That value isn't sent again until the user retries,
+  // so its error stays while the draft matches it.
+  const latestQueuedFailureRef = useRef<SettingSaveError | null>(null);
   const pendingSaveCountRef = useRef(0);
   const saveQueueRef = useRef(Promise.resolve());
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -60,6 +63,7 @@ export const useSettingAutosave = <T>({
       }
 
       latestQueuedKeyRef.current = key;
+      latestQueuedFailureRef.current = null;
       setError(null);
       pendingSaveCountRef.current += 1;
       const isLatestDraft = () => optionsRef.current.getKey(latestDraftRef.current) === key;
@@ -74,16 +78,20 @@ export const useSettingAutosave = <T>({
             setError(null);
           }
         } catch (saveError) {
+          const failure: SettingSaveError = {
+            kind: 'request',
+            reason:
+              saveError instanceof ErrorWrapper
+                ? saveError.getMessageField()
+                : saveError instanceof Error
+                  ? saveError.message
+                  : undefined,
+          };
+          if (key === latestQueuedKeyRef.current) {
+            latestQueuedFailureRef.current = failure;
+          }
           if (isLatestDraft()) {
-            setError({
-              kind: 'request',
-              reason:
-                saveError instanceof ErrorWrapper
-                  ? saveError.getMessageField()
-                  : saveError instanceof Error
-                    ? saveError.message
-                    : undefined,
-            });
+            setError(failure);
           }
         } finally {
           pendingSaveCountRef.current -= 1;
@@ -119,10 +127,12 @@ export const useSettingAutosave = <T>({
     }
     persistedKeyRef.current = savedKey;
     latestQueuedKeyRef.current = savedKey;
+    latestQueuedFailureRef.current = null;
   }, [savedKey]);
 
   const updateDraft = useCallback((value: T) => {
-    setError(null);
+    const failure = latestQueuedFailureRef.current;
+    setError(failure && optionsRef.current.getKey(value) === latestQueuedKeyRef.current ? failure : null);
     setDraft(value);
   }, []);
 

@@ -170,6 +170,64 @@ describe('ExperimentSettingsNameInput', () => {
     expect(screen.queryByText(/Unable to save the experiment name/)).not.toBeInTheDocument();
   });
 
+  it('keeps the error and Retry when the name is edited back to the value that failed to save', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const onSave = jest
+      .fn<ExperimentSettingsNameInputProps['onSave']>()
+      .mockRejectedValueOnce(new Error('rename failed'))
+      .mockResolvedValue(undefined);
+    renderNameInput({ onSave });
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.click(input);
+    await user.paste('Failed name');
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(screen.getByText('Unable to save the experiment name: rename failed')).toBeInTheDocument();
+
+    // Delete a character and type it again, then add a trailing space: the same name each time.
+    await user.type(input, '{Backspace}e ');
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(input).toHaveValue('Failed name ');
+    expect(screen.getByText('Unable to save the experiment name: rename failed')).toBeInTheDocument();
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await act(async () => Promise.resolve());
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(onSave).toHaveBeenLastCalledWith('Failed name');
+    expect(screen.queryByText(/Unable to save the experiment name/)).not.toBeInTheDocument();
+  });
+
+  it('clears the error once the name is changed to a different value, and saves that value', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const onSave = jest
+      .fn<ExperimentSettingsNameInputProps['onSave']>()
+      .mockRejectedValueOnce(new Error('rename failed'))
+      .mockResolvedValue(undefined);
+    renderNameInput({ onSave });
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.click(input);
+    await user.paste('Failed name');
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    await user.type(input, '2');
+    expect(screen.queryByText(/Unable to save the experiment name/)).not.toBeInTheDocument();
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(onSave).toHaveBeenLastCalledWith('Failed name2');
+  });
+
   it('requires a non-empty name without offering a retry', async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     const { onSave } = renderNameInput();
