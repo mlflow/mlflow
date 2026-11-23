@@ -80,7 +80,8 @@ still observe. Use read-only `gh` for linked issues, PRs, or Actions logs when n
 
 ### Launch the finders
 
-Use `Agent` to launch one finder per listed review angle in parallel.
+For each listed review angle, make a separate `Agent` tool call and assign that finder exactly
+one angle. Launch the finders in parallel.
 Each finder starts with fresh context. Fill in its prompt using absolute paths and omit
 `isolation` to use the prepared checkouts.
 
