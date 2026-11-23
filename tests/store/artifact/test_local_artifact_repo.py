@@ -793,3 +793,11 @@ def test_get_local_path_nonexistent_raises_resource_does_not_exist(local_artifac
     with pytest.raises(MlflowException, match="No such artifact") as exc_info:
         local_artifact_repo.get_local_path("nonexistent.txt")
     assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+@pytest.mark.parametrize("location", ["loc#", "loc?", "loc?x=1"])
+def test_artifact_dir_keeps_literal_question_mark_and_hash(tmp_path, location):
+    (tmp_path / "outside.txt").write_text("outside")
+    repo = LocalArtifactRepository(f"{tmp_path.as_posix()}/{location}/run/artifacts")
+    assert repo.artifact_dir == str(tmp_path / location / "run" / "artifacts")
+    assert repo.list_artifacts() == []
