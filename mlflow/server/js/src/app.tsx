@@ -1,12 +1,18 @@
 /* eslint-disable @databricks/no-singleton-query-client -- OSS MLflow (oss_MLFlowRoot) uses singleton, file copied to OSS */
 import React, { useCallback, useMemo } from 'react';
+import { Global } from '@emotion/react';
 import { ApolloProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { RawIntlProvider } from 'react-intl';
 
 import 'font-awesome/css/font-awesome.css';
 import './index.css';
 
-import { ApplyGlobalStyles, DesignSystemEventProvider } from '@databricks/design-system';
+import {
+  ApplyGlobalStyles,
+  DesignSystemEventProvider,
+  LegacySkeleton,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import '@databricks/design-system/dist/index.css';
 import '@databricks/design-system/dist/index-dark.css';
 import { Provider } from 'react-redux';
@@ -16,13 +22,37 @@ import { DesignSystemContainer } from './common/components/DesignSystemContainer
 import { QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { createMlflowQueryClient } from '@mlflow/mlflow/src/shared/web-shared/query-client/createMlflowQueryClient';
 import { createApolloClient } from './graphql/client';
-import { LegacySkeleton } from '@databricks/design-system';
 // eslint-disable-next-line no-useless-rename
 import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 import { DarkThemeProvider } from './common/contexts/DarkThemeContext';
 import { telemetryClient } from './telemetry';
 import { ServerInfoProvider } from './experiment-tracking/hooks/useServerInfo';
+
+const DesignTokenCompatibilityStyles = () => {
+  const { theme } = useDesignSystemTheme();
+
+  // shortcut: OSS dbui CSS omits these tokens; remove this shim when the vendored stylesheet defines them.
+  return (
+    <Global
+      styles={{
+        ':root': {
+          '--db-space-1': `${theme.spacing.xs}px`,
+          '--db-space-2': `${theme.spacing.sm}px`,
+          '--db-space-4': `${theme.spacing.md}px`,
+          '--db-space-6': `${theme.spacing.lg}px`,
+          '--db-border-base': theme.colors.border,
+          '--db-shape-container-small': `${theme.borders.borderRadiusMd}px`,
+          '--db-font-size-sm': `${theme.typography.fontSizeSm}px`,
+          '--db-surface-base': theme.colors.backgroundPrimary,
+          '--db-surface-subtle': theme.colors.backgroundSecondary,
+          '--db-text-subtle': theme.colors.textSecondary,
+          '--db-negative-text': theme.colors.textValidationDanger,
+        },
+      }}
+    />
+  );
+};
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -56,6 +86,7 @@ export function MLFlowRoot() {
           <DesignSystemEventProvider callback={logObservabilityEvent}>
             <DesignSystemContainer isDarkTheme={isDarkTheme}>
               <ApplyGlobalStyles />
+              <DesignTokenCompatibilityStyles />
               <MlflowThemeGlobalStyles />
               <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
                 <QueryClientProvider client={queryClient}>

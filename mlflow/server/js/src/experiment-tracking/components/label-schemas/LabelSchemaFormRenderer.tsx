@@ -233,7 +233,6 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 };
 
 const PassFailFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
-  const { theme } = useDesignSystemTheme();
   // Positive / negative sit side-by-side (item 9) to save vertical space.
   return (
     <div css={{ display: 'flex', gap: 'var(--db-space-4)' }}>
@@ -549,7 +548,6 @@ const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFo
 };
 
 const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   // Min / max sit side-by-side (item 9) to save vertical space.
   return (
@@ -611,7 +609,6 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
 };
 
 const TextFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: 'var(--db-space-4)' }}>

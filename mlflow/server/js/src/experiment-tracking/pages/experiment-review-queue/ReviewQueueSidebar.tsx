@@ -45,7 +45,6 @@ const SortHeader = ({
   align: 'left' | 'right';
   onClick: () => void;
 }) => {
-  const { theme } = useDesignSystemTheme();
   return (
     <div
       role="button"
@@ -174,7 +173,6 @@ export const ReviewQueueSidebar = ({
   onNewQueue: () => void;
   onManageQuestions: () => void;
 }) => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const authAvailable = useIsAuthAvailable();
   const [sortKey, setSortKey] = useState<SortKey>('name');

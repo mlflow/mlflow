@@ -53,7 +53,6 @@ const PendingDot = () => {
 };
 
 export const StatusTag = ({ status }: { status: ReviewStatus }) => {
-  const { theme } = useDesignSystemTheme();
   const label: Record<ReviewStatus, React.ReactNode> = {
     PENDING: <FormattedMessage defaultMessage="Needs review" description="Review queue status: pending" />,
     COMPLETE: <FormattedMessage defaultMessage="Reviewed" description="Review queue status: complete" />,

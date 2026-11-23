@@ -1,6 +1,6 @@
 import React, { lazy, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, Modal, PlusIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Modal, PlusIcon, TableSkeleton } from '@databricks/design-system';
 import {
   ModelTraceExplorerResizablePane,
   useGetTracesById,
@@ -54,7 +54,6 @@ const LazyExperimentCustomViewDefinitionProvider = lazy(() =>
  * The left list of visible queues lives in `ReviewQueueSidebar`.
  */
 const ExperimentReviewQueuePage = () => {
-  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { experimentId } = useParams<{ experimentId: string }>();
   const reviewer = useReviewer();
