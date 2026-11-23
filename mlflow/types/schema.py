@@ -1013,7 +1013,8 @@ class Schema:
                     FutureWarning,
                     stacklevel=2,
                 )
-            if duplicates := self._find_duplicates(inputs):
+            # Empty names are already reported above, so don't also report them as duplicates.
+            if duplicates := self._find_duplicates([x for x in inputs if x.name != ""]):
                 warnings.warn(
                     f"Duplicated input names found in schema: {duplicates}. Creating Schema with "
                     "duplicated input names is deprecated and will raise an exception in a "

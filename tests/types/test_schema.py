@@ -205,6 +205,15 @@ def test_schema_creation_warns_on_empty_names(inputs):
         Schema(inputs)
 
 
+def test_schema_creation_does_not_report_empty_names_as_duplicates():
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        Schema([ColSpec("string", ""), ColSpec("double", "")])
+    messages = [str(w.message) for w in record if issubclass(w.category, FutureWarning)]
+    assert len(messages) == 1
+    assert "Creating Schema with empty input names is deprecated" in messages[0]
+
+
 @pytest.mark.parametrize(
     "inputs",
     [
