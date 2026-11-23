@@ -253,26 +253,35 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
             ),
         )
 
-    def _bounded_decompress(wbits: int) -> bytes:
-        # Inflate incrementally and stop one byte past the cap, so an over-limit payload is
+    def _inflate(data: bytes, wbits: int, limit: int) -> tuple[bytes, bytes]:
+        # Inflate with an output cap of one byte past the limit, so an over-limit payload is
         # rejected before the full decompressed body is materialized in memory. A tiny
-        # compressed body can otherwise expand by several orders of magnitude.
+        # compressed body can otherwise expand by several orders of magnitude. When the output
+        # stays within the cap, all input has been consumed and nothing is left to flush.
         decompressor = zlib.decompressobj(wbits)
-        out = decompressor.decompress(raw_body, max_size + 1)
-        if len(out) > max_size or decompressor.unconsumed_tail:
+        out = decompressor.decompress(data, limit + 1)
+        if len(out) > limit:
             raise _too_large()
-        out += decompressor.flush()
-        if len(out) > max_size:
-            raise _too_large()
-        return out
+        if not decompressor.eof:
+            raise zlib.error("Incomplete or truncated compressed stream")
+        return out, decompressor.unused_data
+
+    def _decompress_gzip(data: bytes) -> bytes:
+        # Like `gzip.decompress`, accept concatenated members and trailing null padding.
+        members = []
+        remaining = max_size
+        while data:
+            out, data = _inflate(data, 16 + zlib.MAX_WBITS, remaining)
+            members.append(out)
+            remaining -= len(out)
+            data = data.lstrip(b"\x00")
+        return b"".join(members)
 
     match content_encoding:
         case "gzip":
             try:
-                return _bounded_decompress(16 + zlib.MAX_WBITS)
-            except HTTPException:
-                raise
-            except Exception:
+                return _decompress_gzip(raw_body)
+            except zlib.error:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Failed to decompress gzip payload",
@@ -280,16 +289,12 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
 
         case "deflate":
             try:
-                return _bounded_decompress(zlib.MAX_WBITS)
-            except HTTPException:
-                raise
-            except Exception:
+                return _inflate(raw_body, zlib.MAX_WBITS, max_size)[0]
+            except zlib.error:
                 # Try raw DEFLATE stream (some clients send this)
                 try:
-                    return _bounded_decompress(-zlib.MAX_WBITS)
-                except HTTPException:
-                    raise
-                except Exception:
+                    return _inflate(raw_body, -zlib.MAX_WBITS, max_size)[0]
+                except zlib.error:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Failed to decompress deflate payload",

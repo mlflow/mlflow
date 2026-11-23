@@ -342,6 +342,67 @@ def test_decompress_otlp_body_allows_at_limit(
     assert decompress_otlp_body(compress_fn(data), encoding) == data
 
 
+@pytest.mark.parametrize(
+    ("encoding", "invalid_data", "expected_error"),
+    [
+        ("gzip", gzip.compress(b"otlp-data-test" * 100)[:-10], r"gzip"),
+        ("deflate", zlib.compress(b"otlp-data-test" * 100)[:-10], r"deflate"),
+        ("deflate", zlib.compress(b"otlp-data-test" * 100)[2:-10], r"deflate"),
+        ("deflate", b"", r"deflate"),
+    ],
+    ids=["gzip-truncated", "deflate-rfc-truncated", "deflate-raw-truncated", "deflate-empty"],
+)
+def test_decompress_otlp_body_rejects_incomplete_stream(
+    encoding: str, invalid_data: bytes, expected_error: str
+):
+    with pytest.raises(
+        HTTPException,
+        match=rf"Failed to decompress {expected_error} payload",
+        check=lambda e: e.status_code == 400,
+    ):
+        decompress_otlp_body(invalid_data, encoding)
+
+
+def test_decompress_otlp_body_gzip_multiple_members():
+    body = gzip.compress(b"first-") + gzip.compress(b"second") + b"\x00\x00"
+    assert decompress_otlp_body(body, "gzip") == b"first-second"
+
+
+def test_decompress_otlp_body_gzip_multiple_members_share_limit(monkeypatch):
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, "1024")
+    body = gzip.compress(b"\x00" * 600) + gzip.compress(b"\x00" * 600)
+    with pytest.raises(
+        HTTPException,
+        match=r"exceeds the maximum allowed size",
+        check=lambda e: e.status_code == 413,
+    ):
+        decompress_otlp_body(body, "gzip")
+
+
+def test_decompress_otlp_body_stops_inflating_past_limit(monkeypatch):
+    limit = 1024
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, str(limit))
+    output_sizes = []
+    original_decompressobj = zlib.decompressobj
+
+    class SpyDecompressor:
+        def __init__(self, *args, **kwargs):
+            self._decompressor = original_decompressobj(*args, **kwargs)
+
+        def __getattr__(self, name):
+            return getattr(self._decompressor, name)
+
+        def decompress(self, *args, **kwargs):
+            out = self._decompressor.decompress(*args, **kwargs)
+            output_sizes.append(len(out))
+            return out
+
+    monkeypatch.setattr(zlib, "decompressobj", SpyDecompressor)
+    with pytest.raises(HTTPException, check=lambda e: e.status_code == 413):
+        decompress_otlp_body(gzip.compress(b"\x00" * (1024 * 1024)), "gzip")
+    assert output_sizes == [limit + 1]
+
+
 def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_string():
     value = AnyValue()
     _set_otel_proto_anyvalue(value, "x" * 149 + "\ud83e")
