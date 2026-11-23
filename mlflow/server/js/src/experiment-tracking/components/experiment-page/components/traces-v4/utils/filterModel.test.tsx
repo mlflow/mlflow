@@ -74,9 +74,9 @@ describe('compileFilterModel', () => {
         expected: `request_metadata."mlflow.source.name" RLIKE '(^|/)O''Reilly\\.app$'`,
       },
       {
-        name: 'source not-equals → excludes the full name and the last path segment, LIKE-escaped',
+        name: 'source not-equals → excludes the full name and the last path segment',
         clause: { field: 'source', operator: FilterOp.NOT_EQUALS, value: 'my_app.py' },
-        expected: `request_metadata."mlflow.source.name" != 'my_app.py' AND request_metadata."mlflow.source.name" NOT LIKE '%/my\\_app.py'`,
+        expected: `request_metadata."mlflow.source.name" RLIKE '^(?!(?:.*/)?my_app\\.py$).*'`,
       },
       {
         name: 'source equals a path → exact full-name match',

@@ -313,13 +313,12 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
  */
 const compileSourceClause = (operator: FilterOp, value: string): string => {
   const field = 'request_metadata."mlflow.source.name"';
-  const escaped = escapeFilterValue(value);
   if (operator === FilterOp.EQUALS && !value.includes('/')) {
     return `${field} RLIKE '(^|/)${escapeFilterValue(escapeRegExp(value))}$'`;
   }
   if (operator === FilterOp.NOT_EQUALS && !value.includes('/')) {
-    // The search grammar has no `NOT RLIKE` or `OR`, so exclude both forms with ANDed predicates.
-    return `${field} != '${escaped}' AND ${field} NOT LIKE '%/${escaped.replace(/[\\%_]/g, '\\$&')}'`;
+    // The search grammar has no `NOT RLIKE` or `OR`, so negate both forms inside one supported regex.
+    return `${field} RLIKE '^(?!(?:.*/)?${escapeFilterValue(escapeRegExp(value))}$).*'`;
   }
   return compileContainsAwareClause(field, operator, value);
 };
