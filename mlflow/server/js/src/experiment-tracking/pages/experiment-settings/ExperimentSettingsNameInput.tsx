@@ -64,14 +64,10 @@ export const ExperimentSettingsNameInput = ({
         <SettingSaveErrorMessage
           id={errorId}
           message={
+            // Like managed MLflow, a failed rename gets one message: server errors such as a duplicate
+            // name come back as raw database text.
             error.kind === 'invalid' ? (
               error.message
-            ) : error.reason ? (
-              <FormattedMessage
-                defaultMessage="Unable to save the experiment name: {reason}"
-                description="Inline error shown when an experiment rename fails, with the server's reason"
-                values={{ reason: error.reason }}
-              />
             ) : (
               <FormattedMessage
                 defaultMessage="Unable to save the experiment name."

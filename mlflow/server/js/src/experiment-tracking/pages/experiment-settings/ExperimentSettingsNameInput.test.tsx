@@ -161,7 +161,7 @@ describe('ExperimentSettingsNameInput', () => {
     });
 
     expect(input).toHaveValue('Retained draft');
-    expect(input).toHaveAccessibleDescription('Unable to save the experiment name: rename failed Retry');
+    expect(input).toHaveAccessibleDescription('Unable to save the experiment name. Retry');
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     await act(async () => Promise.resolve());
 
@@ -185,7 +185,7 @@ describe('ExperimentSettingsNameInput', () => {
     await act(async () => {
       jest.advanceTimersByTime(500);
     });
-    expect(screen.getByText('Unable to save the experiment name: rename failed')).toBeInTheDocument();
+    expect(screen.getByText('Unable to save the experiment name.')).toBeInTheDocument();
 
     // Delete a character and type it again, then add a trailing space: the same name each time.
     await user.type(input, '{Backspace}e ');
@@ -193,7 +193,7 @@ describe('ExperimentSettingsNameInput', () => {
       jest.advanceTimersByTime(500);
     });
     expect(input).toHaveValue('Failed name ');
-    expect(screen.getByText('Unable to save the experiment name: rename failed')).toBeInTheDocument();
+    expect(screen.getByText('Unable to save the experiment name.')).toBeInTheDocument();
     expect(onSave).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: 'Retry' }));
@@ -270,7 +270,7 @@ describe('ExperimentSettingsNameInput', () => {
     expect([...firstSave.mock.calls, ...secondSave.mock.calls]).toEqual([['Updated name']]);
   });
 
-  it('shows the server reason when a rename fails', async () => {
+  it("shows one message for a failed rename, not the server's error text", async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     const { onSave } = renderNameInput({
       onSave: jest
@@ -285,9 +285,8 @@ describe('ExperimentSettingsNameInput', () => {
     await act(async () => Promise.resolve());
 
     expect(onSave).toHaveBeenCalledWith('Taken name');
-    expect(
-      await screen.findByText("Unable to save the experiment name: Experiment 'Taken name' already exists."),
-    ).toBeVisible();
+    expect(await screen.findByText('Unable to save the experiment name.')).toBeVisible();
+    expect(screen.queryByText(/already exists/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
   });
 
