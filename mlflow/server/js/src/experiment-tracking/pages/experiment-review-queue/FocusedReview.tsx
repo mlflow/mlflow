@@ -464,7 +464,7 @@ export const FocusedReview = ({
           css={{
             flex: 1,
             minWidth: 0,
-            backgroundColor: theme.colors.backgroundSecondary,
+            backgroundColor: 'var(--db-surface-subtle)',
             borderRadius: 'var(--db-shape-container-small)',
             overflow: 'hidden',
             display: 'flex',
