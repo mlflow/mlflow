@@ -9531,7 +9531,10 @@ def _get_assistant_validator(
         experiment_id = body.get("experiment_id") if isinstance(body, dict) else None
         if not experiment_id:
             return True
-        return _get_experiment_permission(str(experiment_id), username).can_read
+        permission = await asyncio.to_thread(
+            _get_experiment_permission, str(experiment_id), username
+        )
+        return permission.can_read
 
     return validator
 
