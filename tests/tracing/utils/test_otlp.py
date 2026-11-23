@@ -8,7 +8,10 @@ from fastapi import HTTPException
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.environment_variables import (
+    MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE,
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+)
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
@@ -295,6 +298,48 @@ def test_decompress_otlp_body_valid(
 def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
     with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
         decompress_otlp_body(invalid_data, encoding)
+
+
+@pytest.mark.parametrize(
+    ("encoding", "compress_fn"),
+    [
+        ("gzip", gzip.compress),
+        ("deflate", zlib.compress),
+        ("deflate", lambda d: zlib.compress(d)[2:-4]),  # Raw deflate
+    ],
+    ids=["gzip", "deflate-rfc", "deflate-raw"],
+)
+def test_decompress_otlp_body_rejects_oversize(
+    encoding: str, compress_fn: Callable[[bytes], bytes], monkeypatch
+):
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, "1024")
+    # A tiny compressed body that expands far past the cap must be rejected with HTTP 413
+    # before the full decompressed buffer is allocated.
+    compressed = compress_fn(b"\x00" * (64 * 1024))
+    assert len(compressed) < 1024
+    with pytest.raises(
+        HTTPException,
+        match=r"exceeds the maximum allowed size",
+        check=lambda e: e.status_code == 413,
+    ):
+        decompress_otlp_body(compressed, encoding)
+
+
+@pytest.mark.parametrize(
+    ("encoding", "compress_fn"),
+    [
+        ("gzip", gzip.compress),
+        ("deflate", zlib.compress),
+        ("deflate", lambda d: zlib.compress(d)[2:-4]),  # Raw deflate
+    ],
+    ids=["gzip", "deflate-rfc", "deflate-raw"],
+)
+def test_decompress_otlp_body_allows_at_limit(
+    encoding: str, compress_fn: Callable[[bytes], bytes], monkeypatch
+):
+    data = b"\x00" * 1024
+    monkeypatch.setenv(MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name, str(len(data)))
+    assert decompress_otlp_body(compress_fn(data), encoding) == data
 
 
 def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_string():

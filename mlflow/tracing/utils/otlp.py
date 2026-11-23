@@ -1,5 +1,4 @@
 import base64
-import gzip
 import os
 import zlib
 from typing import Any
@@ -9,7 +8,11 @@ from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoRe
 from opentelemetry.sdk.resources import Resource as OTelResource
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER, MLFLOW_TRACKING_TOKEN
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_OTLP_EXPORTER,
+    MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE,
+    MLFLOW_TRACKING_TOKEN,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.credentials import read_mlflow_creds
@@ -233,14 +236,42 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
     - gzip
     - deflate (RFC-compliant and raw deflate)
 
-    Raises HTTPException if the payload cannot be decompressed.
+    Raises HTTPException if the payload cannot be decompressed, or with status 413 if the
+    decompressed body exceeds ``MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE``.
     """
     from fastapi import HTTPException, status
+
+    max_size = MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.get()
+
+    def _too_large() -> HTTPException:
+        return HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                f"Decompressed OTLP trace body exceeds the maximum allowed size of "
+                f"{max_size} bytes. Set {MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE.name} "
+                f"to raise this limit."
+            ),
+        )
+
+    def _bounded_decompress(wbits: int) -> bytes:
+        # Inflate incrementally and stop one byte past the cap, so an over-limit payload is
+        # rejected before the full decompressed body is materialized in memory. A tiny
+        # compressed body can otherwise expand by several orders of magnitude.
+        decompressor = zlib.decompressobj(wbits)
+        out = decompressor.decompress(raw_body, max_size + 1)
+        if len(out) > max_size or decompressor.unconsumed_tail:
+            raise _too_large()
+        out += decompressor.flush()
+        if len(out) > max_size:
+            raise _too_large()
+        return out
 
     match content_encoding:
         case "gzip":
             try:
-                return gzip.decompress(raw_body)
+                return _bounded_decompress(16 + zlib.MAX_WBITS)
+            except HTTPException:
+                raise
             except Exception:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -249,11 +280,15 @@ def decompress_otlp_body(raw_body: bytes, content_encoding: str) -> bytes:
 
         case "deflate":
             try:
-                return zlib.decompress(raw_body)
+                return _bounded_decompress(zlib.MAX_WBITS)
+            except HTTPException:
+                raise
             except Exception:
                 # Try raw DEFLATE stream (some clients send this)
                 try:
-                    return zlib.decompress(raw_body, -zlib.MAX_WBITS)
+                    return _bounded_decompress(-zlib.MAX_WBITS)
+                except HTTPException:
+                    raise
                 except Exception:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
