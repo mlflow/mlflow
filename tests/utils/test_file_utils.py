@@ -165,6 +165,20 @@ def test_local_file_uri_to_path_on_windows(input_uri, expected_path):
     assert local_file_uri_to_path(input_uri) == expected_path
 
 
+@pytest.mark.parametrize(
+    ("input_uri", "expected_path"),
+    [
+        ("/tmp/a#b/c", "/tmp/a#b/c"),
+        ("/tmp/a?b/c", "/tmp/a?b/c"),
+        ("/tmp/a?x=1/c", "/tmp/a?x=1/c"),
+        ("file:///tmp/a%23b/c", "/tmp/a#b/c"),
+        ("file:///tmp/a%3Fb/c", "/tmp/a?b/c"),
+    ],
+)
+def test_local_file_uri_to_path_keeps_question_mark_and_hash(input_uri, expected_path):
+    assert local_file_uri_to_path(input_uri) == str(Path(expected_path))
+
+
 @pytest.mark.parametrize("dirname", ["a+b", "a%2Bb", "a#b", "a b"])
 def test_path_to_local_sqlite_uri_preserves_literal_path(tmp_path, dirname):
     db_path = tmp_path / dirname / "mlflow.db"
