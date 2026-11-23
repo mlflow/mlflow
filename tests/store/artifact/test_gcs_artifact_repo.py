@@ -437,9 +437,13 @@ def test_create_multipart_upload(mock_client):
 @pytest.mark.parametrize("num_parts", [0, 10_001])
 def test_create_multipart_upload_rejects_out_of_range_num_parts(mock_client, num_parts):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
-    with pytest.raises(MlflowException, match="num_parts must be between 1 and 10000") as exc:
+    with (
+        mock.patch.object(GCSArtifactRepository, "_validate_support_mpu") as mock_support,
+        pytest.raises(MlflowException, match="num_parts must be between 1 and 10000") as exc,
+    ):
         repo.create_multipart_upload("file.txt", num_parts=num_parts)
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    mock_support.assert_not_called()
     mock_client.bucket.assert_not_called()
 
 
