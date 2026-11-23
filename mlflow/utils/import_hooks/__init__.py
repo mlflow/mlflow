@@ -253,6 +253,12 @@ def notify_module_import_error(module_name):
 class _ImportHookChainedLoader:
     def __init__(self, loader):
         self.loader = loader
+        # Python 3.15 no longer falls back to `load_module()`, so mirror the wrapped
+        # loader's `create_module()`/`exec_module()` API when it provides one.
+        if hasattr(loader, "exec_module"):
+            if hasattr(loader, "create_module"):
+                self.create_module = loader.create_module
+            self.exec_module = self._exec_module
 
     def load_module(self, fullname):
         try:
@@ -263,6 +269,23 @@ class _ImportHookChainedLoader:
             raise
 
         return module
+
+    def _exec_module(self, module):
+        # The import system points `__loader__` and `__spec__.loader` at this wrapper.
+        # Restore the wrapped loader, as `load_module()` did, so that APIs relying on it
+        # (e.g. `inspect.getsource()`, `importlib.resources`) keep working.
+        if getattr(module, "__loader__", None) is self:
+            module.__loader__ = self.loader
+        spec = getattr(module, "__spec__", None)
+        if spec is not None and spec.loader is self:
+            spec.loader = self.loader
+
+        try:
+            self.loader.exec_module(module)
+            notify_module_loaded(module)
+        except (ImportError, AttributeError):
+            notify_module_import_error(module.__name__)
+            raise
 
 
 class ImportHookFinder:
