@@ -1815,6 +1815,9 @@ class SearchTraceUtils(SearchUtils):
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
+    # The SQL store matches `span.attributes.<key>` against the serialized span content,
+    # so only pattern-matching comparators are supported.
+    VALID_SPAN_CUSTOM_ATTRIBUTE_COMPARATORS = {"LIKE", "ILIKE", "RLIKE"}
     VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
     NUMERIC_ASSESSMENT_COMPARATORS = {">", ">=", "<", "<="}
     VALID_ASSESSMENT_COMPARATORS = {
@@ -2012,10 +2015,11 @@ class SearchTraceUtils(SearchUtils):
                         "Span attribute name cannot be empty after 'attributes.'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                if comparator not in cls.VALID_SPAN_ATTRIBUTE_COMPARATORS:
+                if comparator not in cls.VALID_SPAN_CUSTOM_ATTRIBUTE_COMPARATORS:
+                    allowed = ", ".join(sorted(cls.VALID_SPAN_CUSTOM_ATTRIBUTE_COMPARATORS))
                     raise MlflowException(
-                        f"span.{key_name} comparator '{comparator}' not one of "
-                        f"'{cls.VALID_SPAN_ATTRIBUTE_COMPARATORS}'",
+                        f"span.{key_name} comparator '{comparator}' is not supported. "
+                        f"Supported comparators for span.attributes.<key>: {allowed}.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             elif key_name in cls._SUPPORTED_SPAN_ATTRIBUTES:
