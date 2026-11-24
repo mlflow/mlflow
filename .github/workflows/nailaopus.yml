@@ -249,7 +249,7 @@ jobs:
           # This revision replaces the custom review engine with Claude Code
           # Sonnet 5.5 + Codex Sol and frozen 2025 memory. The installer
           # below belongs to the same pinned implementation.
-          ref: 2b947fcf36a921cf3ea3fc201b294b8eb9fb5134
+          ref: d2a1953946769dab0cd711f331ace12c530a4356
           sparse-checkout: |
             nailaopus
           path: internal
