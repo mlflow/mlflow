@@ -8,6 +8,7 @@ import {
   getSubmittedIssueDetectionJobs,
   IssueDetectionJobNotifications,
   ISSUE_DETECTION_JOB_OBSERVED_EVENT,
+  ISSUE_DETECTION_JOB_COMPLETED_EVENT,
   recordSubmittedIssueDetectionJob,
   type SubmittedIssueDetectionJob,
 } from './IssueDetectionJobNotifications';
@@ -138,6 +139,51 @@ describe('IssueDetectionJobNotifications', () => {
     );
     expect(await screen.findByText('The run ended with an error.')).toBeInTheDocument();
     expect(screen.queryByText(/Started/)).not.toBeInTheDocument();
+  });
+
+  test.each([true, false])(
+    'preserves submitted metadata and actual start time in either event order (submitted first: %s)',
+    async (submittedFirst) => {
+      mockJobStatus(JobStatus.RUNNING);
+      const completed: SubmittedIssueDetectionJob[] = [];
+      const listener = (event: Event) => completed.push((event as CustomEvent).detail);
+      window.addEventListener(ISSUE_DETECTION_JOB_COMPLETED_EVENT, listener);
+      try {
+        const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+        const events = [
+          () => recordSubmittedIssueDetectionJob(submittedJob),
+          () =>
+            window.dispatchEvent(
+              new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, {
+                detail: { ...submittedJob, traceCount: 0, submittedAtMs: Date.now() + 1000, startTimeMs: 12345 },
+              }),
+            ),
+        ];
+        if (!submittedFirst) events.reverse();
+        act(() => events.forEach((send) => send()));
+        mockJobStatus(JobStatus.SUCCEEDED, undefined, { issues: 1 });
+        rerender(<IssueDetectionJobNotifications />);
+        await screen.findByText('Issue detection completed');
+        expect(completed).toEqual([{ ...submittedJob, startTimeMs: 12345 }]);
+      } finally {
+        window.removeEventListener(ISSUE_DETECTION_JOB_COMPLETED_EVENT, listener);
+      }
+    },
+  );
+
+  test('keeps a multi-line provider log to one readable capped reason', async () => {
+    mockJobStatuses[submittedJob.jobId] = {
+      ...createMockJobStatus(JobStatus.FAILED),
+      errorMessage: `Header\n\t${'x'.repeat(700)}\nFooter`,
+    };
+    mockUseFetchJobStatus();
+    renderWithDesignSystem(<IssueDetectionJobNotifications />);
+    act(() => window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, { detail: submittedJob })));
+    const reason = await screen.findByText(/^Header /);
+    expect(reason.textContent).toHaveLength(500);
+    expect(reason.textContent).toMatch(/…$/);
+    expect(reason.textContent).not.toMatch(/[\n\t]|Footer/);
+    expect(screen.getByText('View details')).toBeInTheDocument();
   });
 
   test('pauses a job outside its workspace and keeps the owner workspace in its completion link', async () => {

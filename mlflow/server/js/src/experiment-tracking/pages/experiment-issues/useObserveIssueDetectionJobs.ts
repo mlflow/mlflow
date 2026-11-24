@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQuery } from '@databricks/web-shared/query-client';
 import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import { MlflowService } from '../../sdk/MlflowService';
 import type { RunEntity } from '../../types';
 import { MLFLOW_ISSUE_DETECTION_JOB_ID_TAG } from '../../constants';
@@ -29,6 +30,7 @@ export const useObserveIssueDetectionJobs = (experimentId: string) => {
       return runs;
     },
     retry: false,
+    enabled: shouldEnableIssueDetection(),
     refetchInterval: RUNNING_POLL_INTERVAL_MS,
   });
 

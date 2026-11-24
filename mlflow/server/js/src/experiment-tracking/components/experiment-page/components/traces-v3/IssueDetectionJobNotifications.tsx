@@ -29,6 +29,7 @@ export const ISSUE_DETECTION_JOB_SUBMITTED_EVENT = 'mlflow.issueDetection.jobSub
 export const ISSUE_DETECTION_JOB_OBSERVED_EVENT = 'mlflow.issueDetection.jobObserved';
 export const ISSUE_DETECTION_JOB_COMPLETED_EVENT = 'mlflow.issueDetection.jobCompleted';
 const ISSUE_DETECTION_JOB_TTL_MS = 60 * 60 * 1000;
+const MAX_ERROR_MESSAGE_LENGTH = 500;
 
 /* eslint-disable formatjs/no-multiple-plurals */
 const COMPLETION_MESSAGES = defineMessages({
@@ -314,25 +315,35 @@ export const IssueDetectionJobNotifications = () => {
   }, []);
 
   useEffect(() => {
-    const handleSubmittedJob = (event: Event) => {
+    const handleJobEvent = (event: Event) => {
       const job = (event as CustomEvent<unknown>).detail;
       if (!isSubmittedIssueDetectionJob(job)) {
         return;
       }
 
       if (!notifiedCompletionJobIdsRef.current.has(job.jobId)) {
-        setTrackedJobs((currentJobs) => appendSubmittedJob(currentJobs, job));
+        setTrackedJobs((currentJobs) => {
+          const existing = currentJobs.find((tracked) => tracked.jobId === job.jobId);
+          // An observation adds the actual start time without resetting submission metadata or expiry.
+          const trackedJob = existing
+            ? {
+                ...(event.type === ISSUE_DETECTION_JOB_OBSERVED_EVENT ? existing : job),
+                startTimeMs: existing.startTimeMs ?? job.startTimeMs,
+              }
+            : job;
+          return appendSubmittedJob(currentJobs, trackedJob);
+        });
       }
       if (event.type === ISSUE_DETECTION_JOB_SUBMITTED_EVENT) {
         setStartedNotificationJobs((currentJobs) => appendSubmittedJob(currentJobs, job));
       }
     };
 
-    window.addEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, handleSubmittedJob);
-    window.addEventListener(ISSUE_DETECTION_JOB_OBSERVED_EVENT, handleSubmittedJob);
+    window.addEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, handleJobEvent);
+    window.addEventListener(ISSUE_DETECTION_JOB_OBSERVED_EVENT, handleJobEvent);
     return () => {
-      window.removeEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, handleSubmittedJob);
-      window.removeEventListener(ISSUE_DETECTION_JOB_OBSERVED_EVENT, handleSubmittedJob);
+      window.removeEventListener(ISSUE_DETECTION_JOB_SUBMITTED_EVENT, handleJobEvent);
+      window.removeEventListener(ISSUE_DETECTION_JOB_OBSERVED_EVENT, handleJobEvent);
     };
   }, []);
 
@@ -387,6 +398,11 @@ export const IssueDetectionJobNotifications = () => {
   const handleTerminalStatus = useCallback(
     (trackedJob: SubmittedIssueDetectionJob, status: JobStatus, result: unknown, errorMessage?: string) => {
       const { experimentId, jobId, runId } = trackedJob;
+      const reason = errorMessage?.replace(/\s+/g, ' ').trim();
+      const shortReason =
+        reason && reason.length > MAX_ERROR_MESSAGE_LENGTH
+          ? `${reason.slice(0, MAX_ERROR_MESSAGE_LENGTH - 1)}…`
+          : reason;
       const startTimeMs = trackedJob.startTimeMs;
       const started = typeof startTimeMs === 'number' && Number.isFinite(startTimeMs) && startTimeMs > 0 && (
         <div>
@@ -470,7 +486,7 @@ export const IssueDetectionJobNotifications = () => {
               <div>
                 {started}
                 <div>
-                  {errorMessage || (typeof result === 'string' && result) || (
+                  {shortReason || (
                     <FormattedMessage
                       defaultMessage="The run ended with an error."
                       description="Fallback reason in a failed issue detection notification"
