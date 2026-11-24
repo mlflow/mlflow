@@ -684,9 +684,9 @@
         "max_output": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 1.05,
-        "output_per_million_tokens": 3.15,
-        "cache_read_per_million_tokens": 0.0525
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 4.5,
+        "cache_read_per_million_tokens": 0.075
       },
       "capabilities": {
         "function_calling": true,
@@ -695,7 +695,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-11-19"
+      "last_updated_at": "2026-11-24"
     },
     "RunDiffusion/Juggernaut-pro-flux": {
       "mode": "image_generation",
@@ -1114,6 +1114,26 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 2.4,
+        "cache_read_per_million_tokens": 0.012
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-24"
     },
     "deepseek-ai/deepseek-coder-33b-instruct": {
       "mode": "chat",
