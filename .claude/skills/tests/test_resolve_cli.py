@@ -325,17 +325,34 @@ def test_publish_pr_update(
     expected_update: dict[str, str],
 ) -> None:
     out_dir = metadata_context.parent
+    new_head = "0123456789abcdef0123456789abcdef01234567"
+    earlier_fix = "See the [earlier fix](https://github.com/mlflow/mlflow/commit/abc1234)."
+    reply = (
+        "Handled in {{commit}}. To apply it, run `git cherry-pick {{ commit }}`."
+        if with_patch
+        else "Addressed the feedback."
+    )
     result: dict[str, Any] = {
-        "responses": {"PRRT_1": {"status": "resolved", "body": "Addressed the feedback."}}
+        "responses": {
+            "PRRT_1": {"status": "resolved", "body": reply},
+            "PRRT_2": {"status": "resolved", "body": earlier_fix},
+        }
     }
     if proposed:
         result["pr_update"] = proposed
     (out_dir / "publish.json").write_text(json.dumps(result))
     context = json.loads(metadata_context.read_text())
+    context["timeline"][0]["threads"].append({
+        "id": "PRRT_2",
+        "resolved": False,
+        "comments": [{"id": 35, "review_id": 12}],
+    })
+    metadata_context.write_text(json.dumps(context))
     repo = "mlflow/mlflow"
     endpoint = f"repos/{repo}/pulls/1"
     review_endpoint = f"{endpoint}/reviews/12"
     reply_endpoint = f"{endpoint}/comments/34/replies"
+    earlier_reply_endpoint = f"{endpoint}/comments/35/replies"
     ref_endpoint = f"repos/{repo}/git/ref/heads/{context['head_ref']}"
     issue_comments = f"repos/{repo}/issues/1/comments"
     pr = {
@@ -366,7 +383,7 @@ def test_publish_pr_update(
                 pr.update(data)
             return pr
         if endpoint_arg == ref_endpoint:
-            sha = context["head_sha"] if after_patch == "reverted" else "new-sha"
+            sha = context["head_sha"] if after_patch == "reverted" else new_head
             return {"object": {"sha": sha}}
         if endpoint_arg == review_endpoint:
             return review
@@ -374,19 +391,19 @@ def test_publish_pr_update(
             return {"data": {"resolveReviewThread": {"thread": {"isResolved": True}}}}
         if endpoint_arg == "--paginate":
             return [[]]
-        assert endpoint_arg in {reply_endpoint, issue_comments}
+        assert endpoint_arg in {reply_endpoint, earlier_reply_endpoint, issue_comments}
         return None
 
     def update_branch(
         repo: str, review_id: str, context: dict[str, Any], head: str, tree: str
     ) -> str:
         if after_patch not in {"stale", "reverted"}:
-            pr["head"]["sha"] = "different-sha" if after_patch == "head" else "new-sha"
+            pr["head"]["sha"] = "different-sha" if after_patch == "head" else new_head
         if after_patch == "title":
             pr["title"] = "Concurrent"
         if after_patch == "branch":
             pr["head"]["ref"] = "triage/another-branch"
-        return "new-sha"
+        return new_head
 
     api = Mock(side_effect=github_api)
     branch = Mock(side_effect=update_branch)
@@ -398,7 +415,6 @@ def test_publish_pr_update(
     monkeypatch.setattr(cli, "fetch_timeline", timeline)
     if with_patch:
         (out_dir / "fix.patch").touch()
-        monkeypatch.setenv("GITHUB_SERVER_URL", "https://github.com")
     if error:
         with pytest.raises(ValueError, match=error):
             cli.publish(repo, "1", "12", metadata_context, out_dir)
@@ -416,6 +432,9 @@ def test_publish_pr_update(
         [call(endpoint, data=expected_update, method="PATCH")] if expected_update else []
     )
     replies = [entry for entry in api.call_args_list if entry.args[0] == reply_endpoint]
+    earlier_replies = [
+        entry for entry in api.call_args_list if entry.args[0] == earlier_reply_endpoint
+    ]
     closures = [entry for entry in api.call_args_list if entry.args[0] == "graphql"]
     ref_reads = [entry for entry in api.call_args_list if entry.args[0] == ref_endpoint]
     assert ref_reads == ([call(ref_endpoint)] if after_patch in {"stale", "reverted"} else [])
@@ -427,15 +446,20 @@ def test_publish_pr_update(
         assert review_requests == []
     if expect_feedback:
         timeline.assert_called_once_with(repo, "1", "12")
-        assert len(replies) == len(closures) == 1
-        assert ("[Fix commit]" in str(replies[0].kwargs["data"]["body"])) == (
-            with_patch and not proposed
+        assert len(replies) == len(earlier_replies) == 1
+        assert {entry.args[-1] for entry in closures} == {"id=PRRT_1", "id=PRRT_2"}
+        expected_reply = (
+            f"Handled in {new_head}. To apply it, run `git cherry-pick {new_head}`."
+            if with_patch
+            else "Addressed the feedback."
         )
+        assert replies[0].kwargs["data"]["body"].rsplit("\n\n", 1)[0] == expected_reply
+        assert earlier_replies[0].kwargs["data"]["body"].rsplit("\n\n", 1)[0] == earlier_fix
         if writes:
             assert api.call_args_list.index(writes[0]) < api.call_args_list.index(replies[0])
     else:
         timeline.assert_not_called()
-        assert replies == closures == []
+        assert replies == earlier_replies == closures == []
 
 
 def test_publish_retries_with_embedded_description_after_update(
@@ -625,13 +649,16 @@ def test_embed_stops_when_description_media_upload_fails(
 
 
 @pytest.mark.parametrize(
-    ("status", "update", "with_patch", "error"),
+    ("status", "body", "update", "with_patch", "error"),
     [
-        ("resolved", {}, False, None),
-        ("resolved", {"pr_update": {"title": "Before"}}, False, "must change each proposed field"),
-        ("answered", {"pr_update": {"title": "After"}}, False, None),
-        ("answered", {}, True, None),
-        ("blocked", {}, True, None),
+        ("resolved", "Reply.", {}, False, None),
+        ("resolved", "Reply.", {"title": "Before"}, False, "must change each proposed field"),
+        ("answered", "Reply.", {"title": "After"}, False, None),
+        ("answered", "See {{commit}}.", {}, True, None),
+        ("blocked", "See {{commit}}.", {}, True, None),
+        ("resolved", "See {{commit}}.", {"title": "After"}, False, "requires fix.patch"),
+        ("resolved", "See {{ commit }}.", {}, False, "requires fix.patch"),
+        ("answered", "The template uses {{commit_id}}.", {}, False, None),
     ],
 )
 def test_validate_pr_update(
@@ -639,15 +666,17 @@ def test_validate_pr_update(
     metadata_context: Path,
     monkeypatch: pytest.MonkeyPatch,
     status: str,
-    update: dict[str, dict[str, str]],
+    body: str,
+    update: dict[str, str],
     with_patch: bool,
     error: str | None,
 ) -> None:
     out_dir = metadata_context.parent
     payload = out_dir / "payload.json"
-    payload.write_text(
-        json.dumps({"responses": {"PRRT_1": {"status": status, "body": "Reply."}}, **update})
-    )
+    result: dict[str, Any] = {"responses": {"PRRT_1": {"status": status, "body": body}}}
+    if update:
+        result["pr_update"] = update
+    payload.write_text(json.dumps(result))
     command = Mock()
     monkeypatch.setattr(cli, "command", command)
     if with_patch:

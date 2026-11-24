@@ -118,6 +118,10 @@ that needs a response. If the current PR already addresses the requested change,
 `resolved` and cite the existing fix in the reply. Use `answered` for a question that only
 needs an explanation.
 
+When submitting `fix.patch`, you can write `{{commit}}` or `{{ commit }}` in a reply, for example
+`Handled the empty-input case in {{commit}}.` The publisher inserts the full SHA, which
+GitHub displays as a short commit link. For an earlier fix, cite its SHA directly.
+
 If feedback calls for a change to the PR title or description, add a top-level
 `pr_update` object with the complete replacement for each field you are changing (`title`
 or `body`). Use the smallest edits that address the review. Preserve relevant links,
