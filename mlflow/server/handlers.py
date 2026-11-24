@@ -1016,6 +1016,15 @@ def _assert_less_than_or_equal(x, max_value, message=None):
         raise AssertionError(message) if message else AssertionError()
 
 
+def _validate_max_results_within_threshold(max_results: int) -> None:
+    # Validate the parsed field rather than the raw request JSON so that the `maxResults`
+    # alias accepted by protobuf can't bypass the check. Zero means "use the default".
+    if not 0 <= max_results <= SEARCH_MAX_RESULTS_THRESHOLD:
+        raise MlflowException.invalid_parameter_value(
+            f"max_results must be between 0 and {SEARCH_MAX_RESULTS_THRESHOLD}."
+        )
+
+
 def _assert_intlike_within_range(x, min_value, max_value, message=None):
     if not min_value <= x <= max_value:
         raise AssertionError(message) if message else AssertionError()
@@ -6396,14 +6405,12 @@ def _search_logged_models():
             ],
             "filter": [_assert_string],
             "datasets": [_assert_array],
-            "max_results": [
-                _assert_intlike,
-                lambda x: _assert_less_than_or_equal(int(x), SEARCH_MAX_RESULTS_THRESHOLD),
-            ],
+            "max_results": [_assert_intlike],
             "order_by": [_assert_array],
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
     with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
         models = _get_tracking_store().search_logged_models(
             # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
@@ -8580,13 +8587,11 @@ def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),
         schema={
-            "max_results": [
-                _assert_intlike,
-                lambda x: _assert_less_than_or_equal(int(x), SEARCH_MAX_RESULTS_THRESHOLD),
-            ],
+            "max_results": [_assert_intlike],
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
 
     max_results = request_message.max_results or 1000
     page_token = request_message.page_token or None

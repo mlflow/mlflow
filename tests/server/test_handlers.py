@@ -3743,10 +3743,16 @@ def test_get_dataset_records(mock_tracking_store):
     assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
 
 
-def test_get_dataset_records_rejects_max_results_above_threshold(mock_tracking_store):
-    with app.test_request_context(
-        method="GET", query_string={"max_results": SEARCH_MAX_RESULTS_THRESHOLD + 1}
-    ):
+@pytest.mark.parametrize(
+    "request_kwargs",
+    [
+        {"query_string": {"max_results": SEARCH_MAX_RESULTS_THRESHOLD + 1}},
+        {"query_string": {"max_results": -2}},
+        {"json": {"maxResults": SEARCH_MAX_RESULTS_THRESHOLD + 1}},
+    ],
+)
+def test_get_dataset_records_rejects_invalid_max_results(mock_tracking_store, request_kwargs):
+    with app.test_request_context(method="GET", **request_kwargs):
         resp = _get_dataset_records_handler("d-1234567890abcdef1234567890abcdef")
 
     assert resp.status_code == 400
@@ -4724,10 +4730,17 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
     assert call_kwargs.get("max_results") == 10
 
 
-def test_search_logged_models_rejects_max_results_above_threshold(mock_tracking_store):
+@pytest.mark.parametrize(
+    "max_results_field",
+    [
+        {"max_results": SEARCH_MAX_RESULTS_THRESHOLD + 1},
+        {"max_results": -2},
+        {"maxResults": SEARCH_MAX_RESULTS_THRESHOLD + 1},
+    ],
+)
+def test_search_logged_models_rejects_invalid_max_results(mock_tracking_store, max_results_field):
     with app.test_request_context(
-        method="POST",
-        json={"experiment_ids": ["1"], "max_results": SEARCH_MAX_RESULTS_THRESHOLD + 1},
+        method="POST", json={"experiment_ids": ["1"], **max_results_field}
     ):
         resp = _search_logged_models()
 
