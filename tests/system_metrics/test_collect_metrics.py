@@ -84,10 +84,16 @@ def _mock_pynvml(lost_gpus: set[int]):
 
 
 def test_gpu_monitor_skips_gpu_whose_handle_lookup_fails():
-    with _mock_pynvml(lost_gpus={1}) as fake_pynvml:
+    with (
+        _mock_pynvml(lost_gpus={1}) as fake_pynvml,
+        mock.patch.object(gpu_monitor_module, "_logger") as mock_logger,
+    ):
         gpu_monitor = GPUMonitor()
         gpu_monitor.collect_metrics()
 
+    mock_logger.warning.assert_called_once_with(
+        "Failed to get handle for GPU 1, skip logging its metrics: GPU is lost"
+    )
     assert fake_pynvml.nvmlDeviceGetHandleByIndex.call_count == 3
     assert fake_pynvml.nvmlDeviceGetMemoryInfo.call_count == 2
     assert gpu_monitor.metrics["gpu_0_utilization_percentage"] == [50]
