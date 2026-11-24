@@ -7,7 +7,7 @@ tee "${1:-/dev/null}" \
       Bash: "💻", Read: "📖", Write: "📝", Edit: "✏️",
       NotebookEdit: "✏️", Glob: "📁", Grep: "🔬",
       WebSearch: "🔍", WebFetch: "🌐", Task: "🤝",
-      Agent: "🤝", Skill: "🎓", TodoWrite: "☑️"
+      Agent: "🤝", SubagentHandback: "📬", Skill: "🎓", TodoWrite: "☑️"
     } as $tools
     | if .type == "assistant" then
       .message.content[] |

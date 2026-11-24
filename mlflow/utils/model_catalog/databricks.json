@@ -1281,7 +1281,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2026-12-11",
+      "last_updated_at": "2026-11-21"
     },
     "databricks-gpt-5-1": {
       "mode": "chat",
@@ -1747,7 +1748,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2026-12-11",
+      "last_updated_at": "2026-11-21"
     },
     "databricks-gpt-5-nano": {
       "mode": "chat",
@@ -1768,7 +1770,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-12-11",
+      "last_updated_at": "2026-11-24"
     },
     "databricks-gpt-6-1-sol": {
       "mode": "responses",

@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { type Query, type QueryClient, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import {
   shouldUseTracesV4API,
@@ -12,6 +12,92 @@ import {
   type ModelTrace,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
+
+const MAX_CACHED_TRACES = 5;
+const MAX_CACHED_TRACE_CHARS = 64 * 1024 * 1024;
+const traceStringChars = new WeakMap<ModelTrace, number>();
+const traceAccessOrder = new WeakMap<Query, number>();
+let nextTraceAccessOrder = 0;
+
+// Shared getTrace hooks use two-part keys; the drawer's warehouse slot makes its key exactly three parts.
+const isDrawerTraceQuery = ({ queryKey }: Pick<Query, 'queryKey'>): boolean =>
+  queryKey.length === 3 && queryKey[0] === 'getTrace';
+
+const getDrawerTraceQueries = (queryClient: QueryClient): Query[] =>
+  queryClient
+    .getQueryCache()
+    .findAll({ queryKey: ['getTrace'] })
+    .filter(isDrawerTraceQuery);
+
+const countTraceStringChars = (trace: ModelTrace): number => {
+  const cached = traceStringChars.get(trace);
+  if (cached !== undefined) return cached;
+  let chars = 0;
+  const values: unknown[] = [trace.data];
+  while (values.length > 0 && chars <= MAX_CACHED_TRACE_CHARS) {
+    const value = values.pop();
+    if (typeof value === 'string') {
+      chars += value.length;
+    } else if (Array.isArray(value)) {
+      for (const item of value) values.push(item);
+    } else if (value && typeof value === 'object') {
+      for (const item of Object.values(value)) values.push(item);
+    }
+  }
+  traceStringChars.set(trace, chars);
+  return chars;
+};
+
+export const pruneTraceCache = (queryClient: QueryClient): void => {
+  const traces = getDrawerTraceQueries(queryClient).flatMap((query) => {
+    const trace = query.state.data as ModelTrace | undefined;
+    return trace
+      ? [
+          {
+            queryKey: query.queryKey,
+            chars: countTraceStringChars(trace),
+            accessOrder: traceAccessOrder.get(query) ?? 0,
+            updatedAt: query.state.dataUpdatedAt,
+            active: query.getObserversCount() > 0,
+          },
+        ]
+      : [];
+  });
+  const cachedTraces = traces
+    .filter((trace) => !trace.active)
+    .sort((left, right) => left.accessOrder - right.accessOrder || left.updatedAt - right.updatedAt);
+  // Active traces count toward the budget but cannot be removed, so discard inactive payloads around them first.
+  let totalChars = traces.reduce((total, trace) => total + trace.chars, 0);
+  while (cachedTraces.length > MAX_CACHED_TRACES || totalChars > MAX_CACHED_TRACE_CHARS) {
+    const oldest = cachedTraces.shift();
+    if (!oldest) break;
+    queryClient.removeQueries({ queryKey: oldest.queryKey, exact: true });
+    totalChars -= oldest.chars;
+  }
+};
+
+export const subscribeToTraceCachePruning = (queryClient: QueryClient): (() => void) => {
+  for (const query of getDrawerTraceQueries(queryClient).sort(
+    (left, right) => left.state.dataUpdatedAt - right.state.dataUpdatedAt,
+  )) {
+    if (!traceAccessOrder.has(query)) traceAccessOrder.set(query, ++nextTraceAccessOrder);
+  }
+
+  const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+    if (!isDrawerTraceQuery(event.query)) return;
+
+    if (event.type === 'observerAdded' || event.type === 'observerRemoved') {
+      traceAccessOrder.set(event.query, ++nextTraceAccessOrder);
+    } else if (event.type === 'updated' && event.action.type === 'success') {
+      if (!traceAccessOrder.has(event.query)) traceAccessOrder.set(event.query, ++nextTraceAccessOrder);
+      pruneTraceCache(queryClient);
+    }
+  });
+  return () => {
+    unsubscribe();
+    pruneTraceCache(queryClient);
+  };
+};
 
 /**
  * Fetches a single trace's body for the V4 drawer. Parses the `trace:/…` long id itself, so it also
