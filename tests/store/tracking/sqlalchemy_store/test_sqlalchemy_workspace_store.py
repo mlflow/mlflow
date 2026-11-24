@@ -849,6 +849,20 @@ def test_custom_artifact_location_rejected_in_workspace(workspace_tracking_store
         assert excinfo.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
+def test_rename_experiment_name_conflict_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        workspace_tracking_store.create_experiment("taken")
+        exp_a_id = workspace_tracking_store.create_experiment("other")
+        with pytest.raises(MlflowException, match=r"Experiment\(name=taken\) already exists") as e:
+            workspace_tracking_store.rename_experiment(exp_a_id, "taken")
+        assert e.value.error_code == "RESOURCE_ALREADY_EXISTS"
+
+    with WorkspaceContext("team-b"):
+        exp_b_id = workspace_tracking_store.create_experiment("other")
+        workspace_tracking_store.rename_experiment(exp_b_id, "taken")
+        assert workspace_tracking_store.get_experiment(exp_b_id).name == "taken"
+
+
 def test_experiment_lifecycle_operations_are_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-a"):
         exp_a_id = workspace_tracking_store.create_experiment("lifecycle-exp")
