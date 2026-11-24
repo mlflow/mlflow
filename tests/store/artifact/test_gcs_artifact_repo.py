@@ -1,17 +1,41 @@
+import base64
+import hashlib
+import json
 import os
 import posixpath
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest import mock
+from urllib import parse
 
 import pytest
 import requests
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
+from cryptography.hazmat.primitives.asymmetric import rsa
+from google.auth.compute_engine import credentials as gce_credentials
 from google.auth.exceptions import DefaultCredentialsError
+from google.cloud import storage as gcs_storage
 from google.cloud.storage import client as gcs_client
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository, GCSMPUArguments
 
 from tests.helper_functions import mock_method_chain
+
+SA_EMAIL = "mlflow-tests@test-project.iam.gserviceaccount.com"
+FAKE_ACCESS_TOKEN = "fake-metadata-access-token"
+UPLOAD_ID = "some_upload_id"
+INITIATE_RESPONSE_XML = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">'
+    "<Bucket>test_bucket</Bucket>"
+    "<Key>file.txt</Key>"
+    f"<UploadId>{UPLOAD_ID}</UploadId>"
+    "</InitiateMultipartUploadResult>"
+)
 
 
 @pytest.fixture
@@ -387,11 +411,12 @@ def test_gcs_mpu_arguments():
     assert args.content_type == "application/octet-stream"
 
 
-def test_create_multipart_upload(mock_client):
+def test_create_multipart_upload(mock_client, rsa_key):
     artifact_root_path = "experiment_id/run_id/"
     bucket_name = "test_bucket"
     file_name = "file.txt"
     gcs_base_url = "gcs_base_url"
+    mock_client._credentials = _service_account_credentials(rsa_key[1])
     repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, client=mock_client)
 
     gcs_mpu_arguments_patch = mock.patch(
@@ -571,3 +596,242 @@ def test_retryable_log_artifacts(throw, tmp_path):
             gcs_refreshed_bucket_mock.blob.assert_not_called()
             mock_gcs_client_factory.assert_not_called()
             mock_gcs_credentials_factory.assert_not_called()
+
+
+@pytest.fixture(scope="module")
+def rsa_key():
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    return key, pem
+
+
+def _service_account_credentials(pem):
+    from google.oauth2 import service_account
+
+    return service_account.Credentials.from_service_account_info({
+        "type": "service_account",
+        "client_email": SA_EMAIL,
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "private_key": pem.decode("utf-8"),
+    })
+
+
+def _verify_v4_signature(url, public_key, expected_email):
+    """Verify the X-Goog-Signature of a V4 signed URL against `public_key`.
+
+    Reconstructs the canonical request from the URL per the V4 signing spec
+    (https://cloud.google.com/storage/docs/access-control/signed-urls-v4) and
+    checks the RSA-SHA256 signature.
+    """
+    base_url, _, query = url.partition("?")
+    canonical_query, sep, signature_hex = query.rpartition("&X-Goog-Signature=")
+    assert sep, f"URL has no X-Goog-Signature parameter: {url}"
+    params = dict(parse.parse_qsl(canonical_query))
+    assert params["X-Goog-Algorithm"] == "GOOG4-RSA-SHA256"
+    assert params["X-Goog-Credential"].startswith(f"{expected_email}/")
+    assert params["X-Goog-SignedHeaders"] == "host"
+    credential_scope = params["X-Goog-Credential"].split("/", 1)[1]
+    parsed = parse.urlparse(base_url)
+    canonical_request = "\n".join([
+        "PUT",
+        parsed.path,
+        canonical_query,
+        f"host:{parsed.netloc}\n",
+        "host",
+        "UNSIGNED-PAYLOAD",
+    ])
+    canonical_request_hash = hashlib.sha256(canonical_request.encode("ascii")).hexdigest()
+    string_to_sign = "\n".join([
+        "GOOG4-RSA-SHA256",
+        params["X-Goog-Date"],
+        credential_scope,
+        canonical_request_hash,
+    ])
+    public_key.verify(
+        bytes.fromhex(signature_hex),
+        string_to_sign.encode("ascii"),
+        asym_padding.PKCS1v15(),
+        hashes.SHA256(),
+    )
+
+
+def _stub_gcs_and_iam(monkeypatch, rsa_key):
+    """Serve the XML multipart initiate response and the IAM signBlob endpoint.
+
+    Intercepts requests at the `requests.Session.send` transport level, so the
+    real google-cloud-storage client and google-auth credentials run against a
+    fake HTTP surface. signBlob responses carry a genuine RSA-SHA256 signature
+    of the requested string-to-sign, produced with `rsa_key`, so the signed
+    URLs returned by `create_multipart_upload` can be verified cryptographically.
+    """
+    captured = {}
+    real_send = requests.Session.send
+
+    def fake_send(session, request, **kwargs):
+        host = parse.urlparse(request.url).hostname
+        if host == "localhost":
+            # metadata server fixture traffic
+            return real_send(session, request, **kwargs)
+        if "oauth2.googleapis.com/token" in request.url:
+            # service account credentials exchange their JWT assertion for an
+            # access token before the initiate request is sent
+            response = requests.Response()
+            response.status_code = 200
+            response._content = json.dumps({
+                "access_token": FAKE_ACCESS_TOKEN,
+                "expires_in": 3600,
+                "token_type": "Bearer",
+            }).encode("utf-8")
+            return response
+        if ":allowedLocations" in request.url:
+            # regional access boundary lookup spawned by compute engine credentials
+            # in a background thread; a 404 makes google-auth skip it gracefully
+            response = requests.Response()
+            response.status_code = 404
+            response._content = b""
+            return response
+        if ":signBlob" in request.url:
+            captured["sign_blob_url"] = request.url
+            captured["sign_blob_authorization"] = request.headers.get("Authorization")
+            string_to_sign = base64.b64decode(json.loads(request.body)["payload"])
+            signature = rsa_key.sign(string_to_sign, asym_padding.PKCS1v15(), hashes.SHA256())
+            response = requests.Response()
+            response.status_code = 200
+            response._content = json.dumps({
+                "signedBlob": base64.b64encode(signature).decode("ascii")
+            }).encode("utf-8")
+            return response
+        if request.url.endswith("?uploads"):
+            captured["initiate_authorization"] = request.headers.get("Authorization")
+            response = requests.Response()
+            response.status_code = 200
+            response.headers["Content-Type"] = "application/xml"
+            response._content = INITIATE_RESPONSE_XML.encode("utf-8")
+            return response
+        raise AssertionError(f"Unexpected HTTP request in test: {request.url}")
+
+    monkeypatch.setattr(requests.Session, "send", fake_send)
+    return captured
+
+
+@pytest.fixture
+def fake_metadata_server(monkeypatch):
+    """Start a local GCE metadata server and point google-auth at it.
+
+    google-auth resolves GCE_METADATA_HOST at import time
+    (google/auth/compute_engine/_metadata.py), so the resolved module global is
+    patched instead of the environment variable.
+    """
+    import google.auth.compute_engine._metadata as metadata_module
+
+    servers = []
+
+    def _start(sa_email):
+        class _Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                path = parse.urlparse(self.path).path.rstrip("/")
+                if path.endswith("/service-accounts/default/token"):
+                    body = json.dumps({
+                        "access_token": FAKE_ACCESS_TOKEN,
+                        "expires_in": 3600,
+                        "token_type": "Bearer",
+                    }).encode("utf-8")
+                elif path.endswith("/service-accounts/default"):
+                    body = json.dumps({"email": sa_email, "scopes": []}).encode("utf-8")
+                else:
+                    self.send_response(404)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Metadata-Flavor", "Google")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format, *args):
+                pass
+
+        server = ThreadingHTTPServer(("localhost", 0), _Handler)
+        threading.Thread(
+            target=server.serve_forever, daemon=True, name="fake-metadata-server"
+        ).start()
+        servers.append(server)
+        monkeypatch.setattr(
+            metadata_module, "_GCE_METADATA_HOST", f"localhost:{server.server_port}"
+        )
+
+    yield _start
+
+    for server in servers:
+        server.shutdown()
+        server.server_close()
+
+
+def test_create_multipart_upload_service_account_key_signs_locally(rsa_key, monkeypatch):
+    key, pem = rsa_key
+    client = gcs_storage.Client(
+        project="test-project", credentials=_service_account_credentials(pem)
+    )
+    repo = GCSArtifactRepository("gs://test_bucket/experiment_id/run_id/", client=client)
+
+    captured = _stub_gcs_and_iam(monkeypatch, key)
+    response = repo.create_multipart_upload(
+        "file.txt", num_parts=3, artifact_path="experiment_id/run_id/"
+    )
+
+    assert response.upload_id == UPLOAD_ID
+    assert [cred.part_number for cred in response.credentials] == [1, 2, 3]
+    # no signBlob call is made: key-backed credentials sign with their own private key
+    assert "sign_blob_url" not in captured
+    for cred in response.credentials:
+        _verify_v4_signature(cred.url, key.public_key(), SA_EMAIL)
+        query = dict(parse.parse_qsl(parse.urlparse(cred.url).query))
+        assert query["partNumber"] == str(cred.part_number)
+        assert query["uploadId"] == UPLOAD_ID
+
+
+def test_create_multipart_upload_workload_identity_delegates_to_iam(
+    rsa_key, monkeypatch, fake_metadata_server
+):
+    key, _ = rsa_key
+    fake_metadata_server(SA_EMAIL)
+    client = gcs_storage.Client(project="test-project", credentials=gce_credentials.Credentials())
+    repo = GCSArtifactRepository("gs://test_bucket/experiment_id/run_id/", client=client)
+
+    captured = _stub_gcs_and_iam(monkeypatch, key)
+    response = repo.create_multipart_upload(
+        "file.txt", num_parts=2, artifact_path="experiment_id/run_id/"
+    )
+
+    # credentials were refreshed against the metadata server, resolving the
+    # placeholder "default" service account email and a fresh access token
+    # (the storage client stores a scoped copy of the credentials it is given)
+    client_credentials = client._credentials
+    assert client_credentials.valid
+    assert client_credentials.service_account_email == SA_EMAIL
+    assert client_credentials.token == FAKE_ACCESS_TOKEN
+    # one signBlob request per part, carrying the metadata token and real email
+    assert captured["sign_blob_authorization"] == f"Bearer {FAKE_ACCESS_TOKEN}"
+    assert f"serviceAccounts/{SA_EMAIL}:signBlob" in captured["sign_blob_url"]
+    assert captured["initiate_authorization"] == f"Bearer {FAKE_ACCESS_TOKEN}"
+    assert response.upload_id == UPLOAD_ID
+    for cred in response.credentials:
+        _verify_v4_signature(cred.url, key.public_key(), SA_EMAIL)
+
+
+def test_get_signing_kwargs_rejects_user_oauth_credentials():
+    from google.oauth2.credentials import Credentials as user_credentials
+
+    client = gcs_storage.Client(
+        project="test-project", credentials=user_credentials(token="user-oauth-token")
+    )
+    repo = GCSArtifactRepository("gs://test_bucket/experiment_id/run_id/", client=client)
+
+    with pytest.raises(MlflowException, match="service account"):
+        repo._get_signing_kwargs()
