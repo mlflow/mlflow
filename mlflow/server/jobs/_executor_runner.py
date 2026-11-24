@@ -12,7 +12,7 @@ Each tick also forwards store-side cancellations to the executor for in-flight j
 runner recovers jobs left unfinished by a previous server generation.
 
 Only job execution moves to the executor framework here. Periodic tasks (e.g. the online scoring
-scheduler) still run on Huey via ``_launch_periodic_tasks_consumer``.
+scheduler) still run on Huey, with one database-elected leader across server replicas.
 """
 
 import json
@@ -1028,14 +1028,14 @@ def _recover_orphaned_executor_jobs(
 def main() -> None:
     from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
     from mlflow.server.jobs.utils import (
-        _launch_periodic_tasks_consumer,
+        _launch_periodic_tasks_consumer_if_enabled,
         _start_watcher_to_kill_job_runner_if_mlflow_server_dies,
     )
 
     configure_logging_for_jobs()
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
-    # Periodic tasks (e.g. the online scoring scheduler) still run on Huey.
-    _launch_periodic_tasks_consumer()
+    # Periodic tasks still run on Huey, but only on the replica holding scheduler leadership.
+    _launch_periodic_tasks_consumer_if_enabled()
 
     # Own the executor lifecycle here rather than inside the claim loop, starting and stopping each
     # configured backend (the default, plus a separate custom-scorer backend when one is set)

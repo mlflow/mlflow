@@ -65,7 +65,7 @@ def test_rollup_schedule_rejects_invalid_cron(monkeypatch, schedule):
         validate_and_resolve_sql_trace_rollup_schedule()
 
 
-def test_register_periodic_tasks_includes_locked_rollup_scheduler(monkeypatch):
+def test_register_periodic_tasks_includes_rollup_scheduler_without_huey_lock(monkeypatch):
     monkeypatch.setenv(MLFLOW_SQL_TRACE_ROLLUPS_ENABLED.name, "true")
     monkeypatch.delenv(MLFLOW_TRACE_ROLLUPS_SCHEDULE.name, raising=False)
     huey = RecordingHuey()
@@ -73,7 +73,7 @@ def test_register_periodic_tasks_includes_locked_rollup_scheduler(monkeypatch):
     register_periodic_tasks(huey)
 
     assert "sql_trace_rollup_scheduler" in huey.tasks
-    assert huey.locks["sql_trace_rollup_scheduler"] == "sql-trace-rollup-scheduler-lock"
+    assert huey.locks == {}
 
 
 def test_periodic_worker_initializes_tracking_store_from_public_server_config(monkeypatch):
