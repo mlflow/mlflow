@@ -61,7 +61,9 @@ def download_artifacts(
             specified artifacts. If the directory does not exist, it is created. If
             unspecified, the artifacts are downloaded to a new uniquely-named directory on
             the local filesystem, unless the artifacts already exist on the local
-            filesystem, in which case their local path is returned directly.
+            filesystem, in which case their local path is returned directly. When ``run_id``
+            is specified, artifacts keep their path relative to the run's artifact root, so
+            ``artifact_path="a/b.txt"`` is downloaded to ``<dst_path>/a/b.txt``.
         tracking_uri: The tracking URI to be used when downloading artifacts.
         registry_uri: The registry URI to be used when downloading artifacts.
 

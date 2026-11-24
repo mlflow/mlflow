@@ -251,7 +251,7 @@ class RunsArtifactRepository(ArtifactRepository):
         [model_name, *rest] = rel_path.split("/", 1)
         rel_path = rest[0] if rest else ""
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
-            dst = os.path.join(dst_path, model_name)
+            dst = self._create_download_destination(model_name, dst_path)
             os.makedirs(dst, exist_ok=True)
             return repo.download_artifacts(artifact_path=rel_path, dst_path=dst)
 

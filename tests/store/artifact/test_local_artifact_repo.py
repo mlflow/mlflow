@@ -830,7 +830,8 @@ def test_download_artifacts_uses_literal_file_name(
 ):
     local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"train"), "a b.csv", "data")
     local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"eval"), "a%20b.csv", "data")
-    local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"faq"), "what?.txt", "answers")
+    if not is_windows():
+        local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"faq"), "what?.txt", "answers")
     dst = str(tmp_path_factory.mktemp("dst")) if dst_path_provided else None
     result = local_artifact_repo.download_artifacts(path, dst_path=dst)
     assert pathlib.Path(result).read_text() == content
