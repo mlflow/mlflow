@@ -94,10 +94,26 @@ def test_gpu_monitor_skips_gpu_whose_handle_lookup_fails():
     mock_logger.warning.assert_called_once_with(
         "Failed to get handle for GPU 1, skip logging its metrics: GPU is lost"
     )
-    assert fake_pynvml.nvmlDeviceGetHandleByIndex.call_count == 3
-    assert fake_pynvml.nvmlDeviceGetMemoryInfo.call_count == 2
-    assert gpu_monitor.metrics["gpu_0_utilization_percentage"] == [50]
-    assert gpu_monitor.metrics["gpu_2_utilization_percentage"] == [50]
+    fake_pynvml.nvmlInit.assert_called_once_with()
+    fake_pynvml.nvmlDeviceGetCount.assert_called_once_with()
+    assert fake_pynvml.nvmlDeviceGetHandleByIndex.call_args_list == [
+        mock.call(0),
+        mock.call(1),
+        mock.call(2),
+    ]
+    for query in (
+        fake_pynvml.nvmlDeviceGetMemoryInfo,
+        fake_pynvml.nvmlDeviceGetUtilizationRates,
+        fake_pynvml.nvmlDeviceGetPowerUsage,
+        fake_pynvml.nvmlDeviceGetEnforcedPowerLimit,
+    ):
+        assert query.call_args_list == [mock.call(0), mock.call(2)]
+    for i in (0, 2):
+        assert gpu_monitor.metrics[f"gpu_{i}_memory_usage_percentage"] == [25.0]
+        assert gpu_monitor.metrics[f"gpu_{i}_memory_usage_megabytes"] == [1000.0]
+        assert gpu_monitor.metrics[f"gpu_{i}_utilization_percentage"] == [50]
+        assert gpu_monitor.metrics[f"gpu_{i}_power_usage_watts"] == [100.0]
+        assert gpu_monitor.metrics[f"gpu_{i}_power_usage_percentage"] == [50.0]
     assert not any(name.startswith("gpu_1_") for name in gpu_monitor.metrics)
 
 
@@ -108,7 +124,14 @@ def test_gpu_monitor_raises_when_no_gpu_handle_is_available():
     ):
         GPUMonitor()
 
-    assert fake_pynvml.nvmlDeviceGetHandleByIndex.call_count == 3
+    fake_pynvml.nvmlInit.assert_called_once_with()
+    fake_pynvml.nvmlDeviceGetCount.assert_called_once_with()
+    assert fake_pynvml.nvmlDeviceGetHandleByIndex.call_args_list == [
+        mock.call(0),
+        mock.call(1),
+        mock.call(2),
+    ]
+    fake_pynvml.nvmlDeviceGetMemoryInfo.assert_not_called()
 
 
 def test_disk_monitor():
