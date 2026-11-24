@@ -152,7 +152,7 @@ describe('ExperimentViewManagementMenu', () => {
       await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
 
       expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
-        'Settings',
+        'Experiment settings',
         'Edit description',
         'Delete',
       ]);
@@ -166,7 +166,7 @@ describe('ExperimentViewManagementMenu', () => {
 
       await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
 
-      expect(screen.getByText('Settings')).toBeInTheDocument();
+      expect(screen.getByText('Experiment settings')).toBeInTheDocument();
       expect(screen.queryByText('Edit description')).not.toBeInTheDocument();
       expect(screen.queryByText('Edit experiment')).not.toBeInTheDocument();
     });
@@ -178,7 +178,7 @@ describe('ExperimentViewManagementMenu', () => {
 
     await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
 
-    expect(screen.queryByText('Settings')).not.toBeInTheDocument();
+    expect(screen.queryByText('Experiment settings')).not.toBeInTheDocument();
   });
 
   test('it should open the experiment Settings page from the menu', async () => {
@@ -186,7 +186,7 @@ describe('ExperimentViewManagementMenu', () => {
     renderTestComponent();
 
     await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
-    await userEvent.click(screen.getByText('Settings'));
+    await userEvent.click(screen.getByText('Experiment settings'));
 
     expect(window.location.pathname).toBe('/experiments/123/settings');
   });
@@ -214,7 +214,7 @@ describe('ExperimentViewManagementMenu', () => {
     );
 
     await userEvent.click(screen.getByTestId('overflow-menu-trigger'));
-    await userEvent.click(screen.getByText('Settings'));
+    await userEvent.click(screen.getByText('Experiment settings'));
 
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/experiments/123/settings?workflowType=machine_learning&workspace=team-a',

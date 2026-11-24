@@ -42,7 +42,10 @@ export const ExperimentViewManagementMenu = ({
             id: `${baseComponentId}.settings`,
             itemName: (
               <Typography.Text>
-                <FormattedMessage defaultMessage="Settings" description="Link to the experiment settings page" />
+                <FormattedMessage
+                  defaultMessage="Experiment settings"
+                  description="Link to the experiment settings page"
+                />
               </Typography.Text>
             ),
             onClick: () =>

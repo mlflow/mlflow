@@ -199,8 +199,8 @@ const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
     case ExperimentPageTabName.Settings:
       return (
         <FormattedMessage
-          defaultMessage="Settings"
-          description="Label for the settings page in the MLflow experiment navbar"
+          defaultMessage="Experiment settings"
+          description="Label for the experiment settings page in the MLflow experiment navbar and breadcrumb"
         />
       );
     case ExperimentPageTabName.Models:

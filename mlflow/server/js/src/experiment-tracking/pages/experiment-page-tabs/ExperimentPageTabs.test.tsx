@@ -447,7 +447,7 @@ describe('ExperimentLoggedModelListPage', () => {
       );
 
       await userEvent.click(main.getByRole('button', { name: 'Open header dropdown menu' }));
-      expect(await screen.findByRole('menuitem', { name: 'Settings' })).toBeInTheDocument();
+      expect(await screen.findByRole('menuitem', { name: 'Experiment settings' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Edit description' })).toBeInTheDocument();
       expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
       expect(screen.queryByTestId('experiment-view-header-back-button')).not.toBeInTheDocument();

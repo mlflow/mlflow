@@ -991,6 +991,10 @@
     "defaultMessage": "Evaluate traces",
     "description": "Title for the run evaluation modal dialog"
   },
+  "1OnsUK": {
+    "defaultMessage": "Experiment settings",
+    "description": "Label for the experiment settings page in the MLflow experiment navbar and breadcrumb"
+  },
   "1QnDrr": {
     "defaultMessage": "Open trace comparison",
     "description": "Accessible label for a matched trace comparison row"
@@ -1158,6 +1162,10 @@
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
+  },
+  "1xiLzr": {
+    "defaultMessage": "Experiment settings",
+    "description": "Link to the experiment settings page"
   },
   "1yIbZj": {
     "defaultMessage": "Presence penalty",
@@ -10647,6 +10655,10 @@
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message"
   },
+  "VhkBIs": {
+    "defaultMessage": "Experiment settings",
+    "description": "Title of the experiment Settings page"
+  },
   "ViqP7B": {
     "defaultMessage": "Traces",
     "description": "Label for the traces tab in the MLflow experiment navbar"
@@ -11162,6 +11174,10 @@
   "X8lcGb": {
     "defaultMessage": "Time in milliseconds",
     "description": "Placeholder for the duration filter value input"
+  },
+  "XAWjad": {
+    "defaultMessage": "These settings apply to this experiment only. For settings across MLflow, go to <link>Settings</link>.",
+    "description": "Subtitle of the experiment Settings page, linking to MLflow's own Settings page"
   },
   "XB7wGu": {
     "defaultMessage": "Manual setup",
@@ -16967,10 +16983,6 @@
     "defaultMessage": "Delete",
     "description": "Skill detail action that deletes the skill"
   },
-  "p0orPz": {
-    "defaultMessage": "Settings",
-    "description": "Label for the settings page in the MLflow experiment navbar"
-  },
   "p0zgPJ": {
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding scorer trace"
@@ -18910,10 +18922,6 @@
   "vSI23W": {
     "defaultMessage": "Provider cannot be changed. Create a new key if a different provider is needed.",
     "description": "Tooltip explaining why provider field is disabled in drawer edit"
-  },
-  "vTr1H6": {
-    "defaultMessage": "Settings",
-    "description": "Link to the experiment settings page"
   },
   "vVSm7w": {
     "defaultMessage": "This column contains all models logged or evaluated by the run. Click into an individual run to see more detailed information about all models associated with it.",

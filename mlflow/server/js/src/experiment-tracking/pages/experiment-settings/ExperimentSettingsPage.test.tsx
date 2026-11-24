@@ -221,6 +221,33 @@ describe('ExperimentSettingsPage', () => {
     expect(within(actionsSection).getByRole('button', { name: 'Delete' })).toBeEnabled();
   });
 
+  test("is titled as the experiment's settings, and links to MLflow's Settings page", async () => {
+    renderPage();
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Experiment settings' })).toBeVisible();
+    expect(
+      screen.getByText(/These settings apply to this experiment only\. For settings across MLflow, go to/),
+    ).toBeVisible();
+    const href = screen.getByRole('link', { name: 'Settings' }).getAttribute('href') ?? '';
+    expect(href).toContain('settings/general?returnTo=');
+    // Like the sidebar's Settings link, it brings the user back to this page.
+    expect(decodeURIComponent(href.split('returnTo=')[1])).toContain('/experiments/123/settings');
+  });
+
+  test('leaves the title to the page header in the Model training layout', async () => {
+    renderPage(undefined, {
+      page: (
+        <ExperimentPageRevampProvider enabled={false}>
+          <ExperimentSettingsPage />
+        </ExperimentPageRevampProvider>
+      ),
+    });
+
+    await screen.findByRole('region', { name: 'About' });
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeVisible();
+  });
+
   test('shows its own load error when only Settings fails, after the experiment page loaded', async () => {
     // Requests succeed until the experiment page has loaded; Settings' own request then fails at the
     // network level, leaving that page's copy intact.

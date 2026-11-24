@@ -1,11 +1,13 @@
 import { useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import invariant from 'invariant';
-import { Alert, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Alert, ParagraphSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
-import { useParams } from '../../../common/utils/RoutingUtils';
+import { Link, useLocation, useParams } from '../../../common/utils/RoutingUtils';
+import { SETTINGS_RETURN_TO_PARAM, SETTINGS_SECTION_GENERAL } from '../../../settings/settingsSectionConstants';
+import Routes from '../../routes';
 import type { ExperimentEntity } from '../../types';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentPageRevampContext } from '../experiment-page-tabs/ExperimentPageRevampContext';
@@ -57,6 +59,48 @@ const ExperimentSettingsPageContainer = ({
         {children}
       </div>
     </div>
+  );
+};
+
+/**
+ * Says whose settings these are, so they aren't mistaken for MLflow's own Settings page, and links there.
+ * The title is only needed in the GenAI layout: the Model training layout's header already shows it.
+ */
+const ExperimentSettingsIntro = ({ showTitle }: { showTitle: boolean }) => {
+  const { theme } = useDesignSystemTheme();
+  const { pathname, search } = useLocation();
+  // Like the sidebar's Settings link, so Settings can send the user back here.
+  const mlflowSettingsRoute = `${Routes.getSettingsSectionRoute(SETTINGS_SECTION_GENERAL)}?${SETTINGS_RETURN_TO_PARAM}=${encodeURIComponent(pathname + search)}`;
+
+  return (
+    <header
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing.xs,
+        marginBlockEnd: theme.spacing.lg,
+        maxWidth: SETTINGS_MAX_WIDTH,
+      }}
+    >
+      {showTitle && (
+        <Typography.Title level={2} withoutMargins>
+          <FormattedMessage defaultMessage="Experiment settings" description="Title of the experiment Settings page" />
+        </Typography.Title>
+      )}
+      <Typography.Text color="secondary">
+        <FormattedMessage
+          defaultMessage="These settings apply to this experiment only. For settings across MLflow, go to <link>Settings</link>."
+          description="Subtitle of the experiment Settings page, linking to MLflow's own Settings page"
+          values={{
+            link: (chunks: ReactNode) => (
+              <Link componentId="mlflow.experiment_settings.mlflow_settings_link" to={mlflowSettingsRoute}>
+                {chunks}
+              </Link>
+            ),
+          }}
+        />
+      </Typography.Text>
+    </header>
   );
 };
 
@@ -149,6 +193,7 @@ export const ExperimentSettingsPage = () => {
 
   return (
     <ExperimentSettingsPageContainer revampEnabled={revampEnabled}>
+      <ExperimentSettingsIntro showTitle={revampEnabled} />
       <ExperimentSettingsContent experiment={experiment} refetchExperiment={refetch} />
     </ExperimentSettingsPageContainer>
   );
