@@ -337,7 +337,7 @@ class MemoryAugmentedJudge(Judge):
             outputs = resolve_outputs_from_trace(outputs, trace)
             expectations = resolve_expectations_from_trace(expectations, trace)
 
-        guidelines = [g.guideline_text for g in self._semantic_memory]
+        guidelines = self.guidelines
         query_kwargs = {
             "inputs": inputs,
             "outputs": outputs,
@@ -796,7 +796,7 @@ class MemoryAugmentedJudge(Judge):
         Args:
             new_examples: The examples that were just added (not all examples)
         """
-        existing_guideline_texts = [g.guideline_text for g in self._semantic_memory]
+        existing_guideline_texts = self.guidelines
         new_guidelines = distill_guidelines(
             examples=new_examples,
             judge_instructions=self._base_judge.instructions,
