@@ -1,5 +1,4 @@
-import { Button, ChainIcon, TableCell, TableRow, TrashIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { useIntl } from 'react-intl';
+import { Checkbox, TableCell, TableRow, useDesignSystemTheme } from '@databricks/design-system';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import GatewayRoutes from '../../routes';
@@ -13,34 +12,45 @@ interface EndpointRowProps {
   endpoint: Endpoint;
   bindings: EndpointBinding[];
   visibleColumns: EndpointsColumn[];
+  isSelected: boolean;
+  onSelectChange: () => void;
   onViewBindings: () => void;
-  onDelete: () => void;
 }
 
-export const EndpointRow = ({ endpoint, bindings, visibleColumns, onViewBindings, onDelete }: EndpointRowProps) => {
+export const EndpointRow = ({
+  endpoint,
+  bindings,
+  visibleColumns,
+  isSelected,
+  onSelectChange,
+  onViewBindings,
+}: EndpointRowProps) => {
   const { theme } = useDesignSystemTheme();
-  const { formatMessage } = useIntl();
 
   return (
     <TableRow>
+      <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+        <Checkbox
+          componentId="mlflow.gateway.endpoints-list.row-checkbox"
+          isChecked={isSelected}
+          onChange={onSelectChange}
+        />
+      </TableCell>
       <TableCell css={{ flex: 2 }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
-          <Link
-            componentId="mlflow.gateway.endpoints.endpoint_name_link"
-            to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
-            css={{
-              color: theme.colors.actionPrimaryBackgroundDefault,
-              textDecoration: 'none',
-              fontWeight: theme.typography.typographyBoldFontWeight,
-              '&:hover': {
-                textDecoration: 'underline',
-              },
-            }}
-          >
-            {endpoint.name ?? endpoint.endpoint_id}
-          </Link>
-        </div>
+        <Link
+          componentId="mlflow.gateway.endpoints.endpoint_name_link"
+          to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
+          css={{
+            color: theme.colors.actionPrimaryBackgroundDefault,
+            textDecoration: 'none',
+            fontWeight: theme.typography.typographyBoldFontWeight,
+            '&:hover': {
+              textDecoration: 'underline',
+            },
+          }}
+        >
+          {endpoint.name ?? endpoint.endpoint_id}
+        </Link>
       </TableCell>
       {visibleColumns.includes(EndpointsColumn.PROVIDER) && (
         <TableCell css={{ flex: 1 }}>
@@ -67,18 +77,6 @@ export const EndpointRow = ({ endpoint, bindings, visibleColumns, onViewBindings
           <TimeAgo date={new Date(endpoint.created_at)} />
         </TableCell>
       )}
-      <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
-        <Button
-          componentId="mlflow.gateway.endpoints-list.delete-button"
-          type="primary"
-          icon={<TrashIcon />}
-          aria-label={formatMessage({
-            defaultMessage: 'Delete endpoint',
-            description: 'Gateway > Endpoints list > Delete endpoint button aria label',
-          })}
-          onClick={onDelete}
-        />
-      </TableCell>
     </TableRow>
   );
 };

@@ -1,7 +1,3 @@
-"""Tests for scorer telemetry behavior, specifically testing that nested scorer calls
-skip telemetry recording while top-level calls record telemetry correctly.
-"""
-
 import asyncio
 import json
 import threading
@@ -183,7 +179,9 @@ def test_thread_safety_concurrent_scorers(mock_requests, mock_telemetry_client: 
     threads = []
     for i in range(10):
         parent = ParentScorer(name=f"parent{i}", child_scorer=child)
-        thread = threading.Thread(target=run_scorer, args=(parent, f"test{i}"))
+        thread = threading.Thread(
+            name=f"scorer-telemetry-{i}", target=run_scorer, args=(parent, f"test{i}")
+        )
         threads.append(thread)
 
     for thread in threads:

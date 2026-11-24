@@ -1,14 +1,15 @@
 import asyncio
 import json
+from collections import OrderedDict
 from typing import Any
 from unittest import mock
 
-import httpx
 import numpy as np
 import openai
 import pandas as pd
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities.assessment import Expectation
@@ -23,6 +24,7 @@ from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     _extract_tool_name_from_span,
+    _parse_chunk,
     _should_keep_trace,
     _try_extract_available_tools_with_llm,
     clean_up_extra_traces,
@@ -35,6 +37,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
     extract_retrieval_context_from_trace,
+    extract_tools_called_from_trace,
     parse_inputs_to_str,
     parse_outputs_to_str,
     parse_tool_call_messages_from_trace,
@@ -45,8 +48,15 @@ from mlflow.tracing import set_span_chat_tools
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import build_otel_context
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
+from mlflow.types.responses import ResponsesAgentResponse
 
 from tests.tracing.helper import create_test_trace_info, get_traces, purge_traces
+
+# openai>=3 sends requests through `httpx2` instead of `httpx`.
+if Version(openai.__version__).major >= 3:
+    import httpx2 as httpx
+else:
+    import httpx
 
 
 def httpx_send_patch(request, *args, **kwargs):
@@ -79,11 +89,12 @@ def get_openai_predict_fn(with_tracing=False):
         mlflow.openai.autolog()
 
     def predict_fn(request):
-        with mock.patch("httpx.Client.send", side_effect=httpx_send_patch):
+        with mock.patch.object(httpx.Client, "send", side_effect=httpx_send_patch) as mock_send:
             response = openai.OpenAI().chat.completions.create(
                 messages=request["messages"],
                 model="gpt-4o-mini",
             )
+            mock_send.assert_called_once()
             return response.choices[0].message.content
 
     return predict_fn
@@ -629,6 +640,146 @@ def test_parse_outputs_to_str(output_data, expected):
     assert parse_outputs_to_str(output_data) == expected
 
 
+@pytest.mark.parametrize("response_format", ["dict", "model", "list"])
+def test_parse_outputs_to_str_responses_api_multiple_text_parts(response_format):
+    output = {
+        "output": [
+            {
+                "id": "msg_previous",
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Previous answer"}],
+            },
+            {
+                "id": "msg_final",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "output_text", "text": ""},
+                    {"type": "output_text", "text": "First sentence."},
+                    {"type": "output_text", "text": " "},
+                    {"type": "output_text", "text": "Second sentence.\n"},
+                    {"type": "output_text", "text": "Final sentence."},
+                ],
+            },
+        ]
+    }
+    if response_format == "model":
+        output = ResponsesAgentResponse(**output)
+    elif response_format == "list":
+        output = [output]
+
+    assert parse_outputs_to_str(output) == "First sentence. Second sentence.\nFinal sentence."
+
+
+def test_parse_outputs_to_str_responses_api_mixed_content():
+    output = {
+        "output": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Before "},
+                    {"type": "image", "image_url": "https://example.com/image.png"},
+                    {"type": "output_text", "text": "and after."},
+                ],
+            }
+        ]
+    }
+
+    assert parse_outputs_to_str(output) == "Before and after."
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        [],
+        [{"type": "image", "image_url": "https://example.com/image.png"}],
+        [{"type": "output_text"}],
+        [{"type": "output_text", "text": None}],
+        [{"type": "output_text", "text": "Valid text"}, {"type": "output_text", "text": 42}],
+    ],
+)
+def test_parse_outputs_to_str_responses_api_fallback(content):
+    output = [{"type": "message", "role": "assistant", "content": content}]
+
+    assert parse_outputs_to_str({"output": output}) == json.dumps(output)
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        pytest.param(
+            {
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "First part."},
+                    {"type": "text", "text": "Second part."},
+                ],
+            },
+            id="anthropic",
+        ),
+        pytest.param(
+            {
+                "candidates": [
+                    {
+                        "content": {
+                            "role": "model",
+                            "parts": [{"text": "First part."}, {"text": "Second part."}],
+                        }
+                    }
+                ]
+            },
+            id="gemini",
+        ),
+        pytest.param(
+            {
+                "output": {
+                    "message": {
+                        "role": "assistant",
+                        "content": [{"text": "First part."}, {"text": "Second part."}],
+                    }
+                }
+            },
+            id="bedrock-converse",
+        ),
+        pytest.param(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {"type": "text", "text": "First part."},
+                                {"type": "text", "text": "Second part."},
+                            ],
+                        }
+                    }
+                ]
+            },
+            id="chat-completions-content-blocks",
+        ),
+        pytest.param(
+            {
+                "messages": [
+                    {
+                        "role": "assistant",
+                        "content": [
+                            {"type": "text", "text": "First part."},
+                            {"type": "text", "text": "Second part."},
+                        ],
+                    }
+                ]
+            },
+            id="messages-content-blocks",
+        ),
+    ],
+)
+def test_parse_outputs_to_str_preserves_multipart_fallback(output):
+    assert json.loads(parse_outputs_to_str(output)) == output
+
+
 @pytest.mark.parametrize(
     ("input_value", "expected"),
     [
@@ -645,6 +796,139 @@ def test_parse_outputs_to_str(output_data, expected):
 )
 def test_is_none_or_nan(input_value, expected):
     assert is_none_or_nan(input_value) == expected
+
+
+def test_parse_chunk_preserves_empty_page_content():
+    assert _parse_chunk({"page_content": ""}) == {"content": ""}
+
+
+def test_parse_chunk_non_dict_metadata_does_not_drop_valid_content():
+    assert _parse_chunk({"page_content": "text", "metadata": "bad metadata"}) == {"content": "text"}
+
+
+def test_parse_chunk_page_content_none_beats_populated_aliases():
+    chunk = {
+        "page_content": None,
+        "content": "Fallback content",
+        "text": "Fallback text",
+    }
+
+    assert _parse_chunk(chunk) == {"content": None}
+
+
+def _reset_retriever_document_warning_cache(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._WARNED_RETRIEVER_DOCUMENT_KEY_SETS",
+        OrderedDict(),
+    )
+
+
+def test_parse_chunk_warns_once_per_unrecognized_key_set(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    _parse_chunk({"body": "Body text", "metadata": {"doc_uri": "doc-1"}})
+    _parse_chunk({"body": "Another body text", "metadata": {"doc_uri": "doc-2"}})
+
+    assert len(logged_messages) == 1
+    assert "does not contain any recognized text field" in logged_messages[0]
+    assert "body" in logged_messages[0]
+
+
+def test_parse_chunk_uses_page_content_by_default():
+    chunk = {
+        "page_content": "Page content text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Page content text",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_falls_back_to_content_field():
+    chunk = {
+        "content": "Content text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Content text",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_falls_back_to_text_field():
+    chunk = {
+        "text": "Text field content",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Text field content",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_prefers_page_content_over_aliases():
+    chunk = {
+        "page_content": "Preferred text",
+        "content": "Fallback content",
+        "text": "Fallback text",
+    }
+
+    assert _parse_chunk(chunk) == {"content": "Preferred text"}
+
+
+def test_parse_chunk_warns_for_unrecognized_text_field(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    chunk = {
+        "body": "Body text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    parsed_chunk = _parse_chunk(chunk)
+
+    assert parsed_chunk == {"content": None, "doc_uri": "doc-1"}
+    assert len(logged_messages) == 1
+    assert "does not contain any recognized text field" in logged_messages[0]
+    assert "body" in logged_messages[0]
+
+
+def test_parse_chunk_does_not_warn_for_metadata_only_chunk(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    chunk = {
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    parsed_chunk = _parse_chunk(chunk)
+
+    assert parsed_chunk == {"content": None, "doc_uri": "doc-1"}
+    assert logged_messages == []
+
+
+def test_parse_chunk_returns_none_for_non_dict_chunk():
+    assert _parse_chunk("not a chunk") is None
 
 
 def test_extract_expectations_from_trace_with_source_filter():
@@ -973,6 +1257,32 @@ def test_extract_tool_name_from_span_extracts_from_call_tool_name():
     assert _extract_tool_name_from_span(tool_spans[0]) == "list_client"
 
 
+def test_extract_tool_name_from_span_extracts_from_genai_semconv_tool_name():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_attribute("gen_ai.tool.name", "log_food")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+
+    assert _extract_tool_name_from_span(tool_spans[0]) == "log_food"
+    assert [call.name for call in extract_tools_called_from_trace(trace)] == ["log_food"]
+
+
+def test_extract_tools_called_from_trace_skips_google_adk_merged_tool_span():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="execute_tool log_food", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "log_food")
+            span.set_inputs({"food": "bread"})
+        with mlflow.start_span(name="execute_tool (merged)", span_type=SpanType.TOOL) as span:
+            span.set_attribute("gen_ai.tool.name", "(merged tools)")
+            span.set_inputs("N/A")
+
+    trace = mlflow.get_trace(root_span.trace_id)
+
+    assert [call.name for call in extract_tools_called_from_trace(trace)] == ["log_food"]
+
+
 def test_resolve_conversation_from_session():
     session_id = "test_session_resolve"
     traces = []
@@ -1030,6 +1340,27 @@ def test_resolve_conversation_from_session_with_tool_calls():
 
 def test_resolve_conversation_from_session_empty():
     assert resolve_conversation_from_session([]) == []
+
+
+@pytest.mark.parametrize("include_timing", [True, False])
+def test_resolve_conversation_from_session_with_timing_parameter(include_timing):
+    session_id = "test_session"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "What is MLflow?"}]})
+        span.set_outputs("MLflow is an ML platform.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    conversation = resolve_conversation_from_session(traces, include_timing=include_timing)
+
+    assert len(conversation) == 2
+    assert conversation[0] == {"role": "user", "content": "What is MLflow?"}
+    assert conversation[1]["role"] == "assistant"
+    assert "MLflow is an ML platform." in conversation[1]["content"]
+    assert ("[Response duration:" in conversation[1]["content"]) is include_timing
+    assert ("slowest spans:" in conversation[1]["content"]) is include_timing
 
 
 def test_session_level_expectations_filtering():
@@ -1524,6 +1855,22 @@ def test_should_keep_trace_deletes_non_input_traces_after_eval_start():
     assert result is False
 
 
+def test_should_keep_trace_keeps_untagged_run_traces_when_requested():
+    trace_info = create_test_trace_info(
+        trace_id="tr-extra-456",
+        request_time=2000,
+    )
+    trace = Trace(info=trace_info, data=TraceData(spans=[]))
+
+    result = _should_keep_trace(
+        trace,
+        eval_start_time=1000,
+        input_trace_ids={"tr-input-123"},
+        keep_untagged_run_traces=True,
+    )
+    assert result is True
+
+
 def test_clean_up_extra_traces_preserves_input_traces():
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
@@ -1548,6 +1895,24 @@ def test_clean_up_extra_traces_preserves_input_traces():
     remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
     assert trace1.info.trace_id in remaining_trace_ids
     assert trace2.info.trace_id in remaining_trace_ids
+
+
+def test_clean_up_extra_traces_keeps_untagged_run_traces_when_requested():
+    experiment_id = mlflow.set_experiment("cleanup_keep_untagged").experiment_id
+    with mlflow.start_span(name="untagged_run_trace") as span:
+        span.set_inputs({"question": "test"})
+        span.set_outputs({"answer": "answer"})
+    trace = mlflow.get_trace(span.trace_id)
+
+    clean_up_extra_traces(
+        [trace],
+        eval_start_time=0,
+        experiment_id=experiment_id,
+        keep_untagged_run_traces=True,
+    )
+
+    remaining_traces = get_traces()
+    assert {t.info.trace_id for t in remaining_traces} == {trace.info.trace_id}
 
 
 def test_clean_up_extra_traces_uses_correct_experiment_id():

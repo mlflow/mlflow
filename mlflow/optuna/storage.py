@@ -1,14 +1,18 @@
 import copy
 import datetime
 import json
+import logging
 import threading
 import time
 import uuid
+import weakref
 from collections.abc import Container, Sequence
 from typing import Any
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric, Param, RunTag
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 try:
@@ -27,6 +31,8 @@ try:
 except ImportError as e:
     raise ImportError("Install optuna to use `mlflow.optuna` module") from e
 
+_logger = logging.getLogger(__name__)
+
 optuna_mlflow_status_map = {
     TrialState.RUNNING: "RUNNING",
     TrialState.COMPLETE: "FINISHED",
@@ -42,6 +48,33 @@ mlflow_optuna_status_map = {
     "FAILED": TrialState.FAIL,
     "SCHEDULED": TrialState.WAITING,
 }
+
+
+def _periodic_flush_worker(
+    ref: "weakref.ref[MlflowStorage]",
+    stop_event: threading.Event,
+    flush_interval: float,
+) -> None:
+    """Background thread that periodically flushes batched data.
+
+    Uses a weak reference so the thread does not prevent garbage collection
+    of the owning MlflowStorage instance.  When the instance is collected
+    the weak reference returns None and the loop exits.
+    """
+    while not stop_event.wait(timeout=min(0.1, flush_interval / 10)):
+        obj = ref()
+        if obj is None:
+            break
+        try:
+            current_time = time.time()
+            if current_time - obj._last_flush_time >= obj._batch_flush_interval:
+                obj.flush_all_batches()
+                obj._last_flush_time = current_time
+        except Exception:
+            # Sleep longer on error to avoid tight retry loop
+            stop_event.wait(timeout=1.0)
+        finally:
+            del obj
 
 
 class MlflowStorage(BaseStorage):
@@ -86,12 +119,21 @@ class MlflowStorage(BaseStorage):
         self._batch_lock = threading.RLock()
         self._last_flush_time = time.time()
 
-        # Flag to indicate if the worker should stop - must be defined BEFORE starting the thread
-        self._stop_worker = False
+        # Event to signal the worker thread to stop
+        self._stop_event = threading.Event()
 
-        # Start a background thread for periodic flushing
+        # Register a weak-ref callback that fires the stop event when this
+        # instance is garbage-collected, so the flush thread exits promptly.
+        # Pass the Event object directly (not a bound method on self) to avoid
+        # preventing GC via a reference cycle.
+        stop = self._stop_event
+        weakref.finalize(self, stop.set)
+
+        # Start a background thread for periodic flushing using a weak reference
+        # so the thread does not prevent garbage collection of this instance.
         self._flush_thread = threading.Thread(
-            target=self._periodic_flush_worker,
+            target=_periodic_flush_worker,
+            args=(weakref.ref(self), self._stop_event, self._batch_flush_interval),
             daemon=True,
             name=f"mlflow_optuna_batch_flush_worker_{uuid.uuid4().hex[:8]}",
         )
@@ -107,9 +149,12 @@ class MlflowStorage(BaseStorage):
         # Remove thread-related attributes that can't be pickled
         state.pop("_batch_lock", None)
         state.pop("_flush_thread", None)
+        state.pop("_stop_event", None)
 
         # Store the configuration but not the actual lock/thread
-        state["_thread_running"] = hasattr(self, "_flush_thread") and self._flush_thread.is_alive()
+        state["_thread_running"] = hasattr(self, "_flush_thread") and (
+            self._flush_thread is not None and self._flush_thread.is_alive()
+        )
 
         return state
 
@@ -130,42 +175,8 @@ class MlflowStorage(BaseStorage):
 
         # If we're on a worker node, we should disable automatic background flushing
         # because it could cause issues with multiple threads trying to write to MLflow
-        self._stop_worker = True
-
-    def __del__(self):
-        """Ensure all queued data is flushed before destroying the object."""
-        # Set the stop flag
-        if hasattr(self, "_stop_worker"):
-            self._stop_worker = True
-
-        # Join the thread if it exists and is alive
-        if hasattr(self, "_flush_thread") and self._flush_thread.is_alive():
-            try:
-                self._flush_thread.join(timeout=5.0)
-            except Exception:
-                pass  # Ignore errors during cleanup
-
-        # Flush any remaining data
-        if hasattr(self, "_batch_queue"):
-            try:
-                self.flush_all_batches()
-            except Exception:
-                pass  # Ignore errors during cleanup
-
-    def _periodic_flush_worker(self):
-        """Background worker that periodically flushes batched data."""
-        while not self._stop_worker:
-            try:
-                time.sleep(min(0.1, self._batch_flush_interval / 10))  # Sleep in small increments
-
-                # Check if it's time to flush
-                current_time = time.time()
-                if current_time - self._last_flush_time >= self._batch_flush_interval:
-                    self.flush_all_batches()
-                    self._last_flush_time = current_time
-            except Exception:
-                # Catch any exceptions to prevent thread crashes
-                time.sleep(1.0)  # Sleep a bit longer if there was an error
+        self._stop_event = threading.Event()
+        self._stop_event.set()  # Don't start flushing on deserialized workers
 
     def _queue_batch_operation(
         self,
@@ -193,8 +204,13 @@ class MlflowStorage(BaseStorage):
             if batch_size >= self._batch_size_threshold:
                 self._flush_batch(run_id)
 
-    def _flush_batch(self, run_id: str):
-        """Flush the batch for a specific run_id to MLflow."""
+    def _flush_batch(self, run_id: str, raise_on_error: bool = False):
+        """Flush the batch for a specific run_id to MLflow.
+
+        If ``raise_on_error`` is True, any failure is raised and the batch is kept for a
+        later retry. Otherwise only "run not found" errors are raised and other failures
+        are logged and the batch is dropped.
+        """
         with self._batch_lock:
             if run_id not in self._batch_queue:
                 return
@@ -203,15 +219,25 @@ class MlflowStorage(BaseStorage):
 
             # Only make the API call if there's something to flush
             if batch["metrics"] or batch["params"] or batch["tags"]:
+                # Async logging would only enqueue the write, so strict mode forces a
+                # synchronous call to surface failures before the batch is cleared.
+                sync_kwargs = {"synchronous": True} if raise_on_error else {}
                 try:
                     self._mlflow_client.log_batch(
-                        run_id, metrics=batch["metrics"], params=batch["params"], tags=batch["tags"]
+                        run_id,
+                        metrics=batch["metrics"],
+                        params=batch["params"],
+                        tags=batch["tags"],
+                        **sync_kwargs,
                     )
                 except Exception as e:
-                    # If the run doesn't exist, propagate the error
-                    if "Run with id=" in str(e) and "not found" in str(e):
+                    if raise_on_error or ("Run with id=" in str(e) and "not found" in str(e)):
                         raise
-                    # Otherwise, handle or log the error as needed
+                    _logger.warning(
+                        "Failed to flush batched Optuna data for run %s; dropping it: %s",
+                        run_id,
+                        e,
+                    )
 
                 # Clear the batch
                 batch["metrics"] = []
@@ -227,8 +253,22 @@ class MlflowStorage(BaseStorage):
         for run_id in run_ids:
             self._flush_batch(run_id)
 
+    def _search_all_runs(self, filter_string: str = ""):
+        # A single search_runs call returns at most one page of runs
+        return get_results_from_paginated_fn(
+            lambda max_results, page_token: self._mlflow_client.search_runs(
+                experiment_ids=[self._experiment_id],
+                filter_string=filter_string,
+                max_results=max_results,
+                page_token=page_token,
+            ),
+            SEARCH_MAX_RESULTS_DEFAULT,
+        )
+
     def _search_runs_by_name(self, run_name: str):
-        filter_string = f"tags.mlflow.runName = '{run_name}'"
+        # The filter grammar has no escape sequence, so quote with `"` when the name has a `'`.
+        quote = '"' if "'" in run_name else "'"
+        filter_string = f"tags.mlflow.runName = {quote}{run_name}{quote}"
         return self._mlflow_client.search_runs(
             experiment_ids=[self._experiment_id],
             filter_string=filter_string,
@@ -337,12 +377,14 @@ class MlflowStorage(BaseStorage):
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._mlflow_client.search_runs(experiment_ids=[self._experiment_id])
+        runs = self._search_all_runs()
         studies = []
         for run in runs:
+            # Trial runs share the experiment with study runs but have no study direction tag
+            if (directions_str := run.data.tags.get("optuna.study_direction")) is None:
+                continue
             study_id = run.info.run_id
             study_name = run.data.tags["mlflow.runName"]
-            directions_str = run.data.tags["optuna.study_direction"]
             directions = [StudyDirection[name] for name in directions_str.split(",")]
             studies.append(
                 FrozenStudy(
@@ -474,16 +516,16 @@ class MlflowStorage(BaseStorage):
             param_distribution = json_to_distribution(distributions_dict[param_name])
             check_distribution_compatibility(param_distribution, distribution)
 
-        # Queue parameter update
+        distributions_dict[param_name] = distribution_to_json(distribution)
+        # Queue the param value and its distribution together so they are flushed in the same
+        # log_batch; otherwise other workers can read the value without its distribution.
         self._queue_batch_operation(
             trial_id,
             params=[Param(param_name, distribution.to_external_repr(param_value_internal))],
-            tags=[RunTag(f"param_internal_val_{param_name}", json.dumps(param_value_internal))],
-        )
-
-        distributions_dict[param_name] = distribution_to_json(distribution)
-        self._queue_batch_operation(
-            trial_id, tags=[RunTag("param_directions", json.dumps(distributions_dict))]
+            tags=[
+                RunTag(f"param_internal_val_{param_name}", json.dumps(param_value_internal)),
+                RunTag("param_directions", json.dumps(distributions_dict)),
+            ],
         )
 
     def get_trial_id_from_study_id_trial_number(self, study_id, trial_number: int) -> int:
@@ -508,16 +550,18 @@ class MlflowStorage(BaseStorage):
     def set_trial_state_values(
         self, trial_id, state: TrialState, values: Sequence[float] | None = None
     ) -> bool:
-        # Update trial state
-        if state.is_finished():
-            self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
-        else:
-            self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
+        # Optuna uses a False return to indicate that a RUNNING trial could not
+        # be claimed. A WAITING trial is eligible for this transition.
+        if state == TrialState.RUNNING:
+            current_state = mlflow_optuna_status_map[
+                self._mlflow_client.get_run(trial_id).info.status
+            ]
+            if current_state != TrialState.WAITING:
+                return False
 
-        # Queue value metrics if provided
         timestamp = int(time.time() * 1000)
+        metrics = []
         if values is not None:
-            metrics = []
             if len(values) > 1:
                 metrics = [
                     Metric(f"value_{idx}", val, timestamp, 1) for idx, val in enumerate(values)
@@ -525,10 +569,17 @@ class MlflowStorage(BaseStorage):
             else:
                 metrics = [Metric("value", values[0], timestamp, 1)]
 
-            self._queue_batch_operation(trial_id, metrics=metrics)
+        # Persist pending trial data and values before updating the state, so that other
+        # workers never observe a finished trial without its values. Failures must raise
+        # rather than leave a COMPLETE trial with no value behind.
+        self._flush_batch(trial_id, raise_on_error=True)
+        if metrics:
+            self._mlflow_client.log_batch(trial_id, metrics=metrics, synchronous=True)
 
-        if state == TrialState.RUNNING and state != TrialState.WAITING:
-            return False
+        if state.is_finished():
+            self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
+        else:
+            self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
         return True
 
     def set_trial_intermediate_value(self, trial_id, step: int, intermediate_value: float) -> None:
@@ -634,23 +685,25 @@ class MlflowStorage(BaseStorage):
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._mlflow_client.search_runs(
-            experiment_ids=[self._experiment_id],
-            filter_string=f"tags.mlflow.parentRunId='{study_id}'",
-        )
+        runs = self._search_all_runs(f"tags.mlflow.parentRunId='{study_id}'")
         trials = [self.get_trial(run.info.run_id) for run in runs]
 
         frozen_trials: list[FrozenTrial] = [
             trial for trial in trials if states is None or trial.state in states
         ]
-        return frozen_trials
+        # Optuna requires trials to be ordered by trial number, but search_runs returns
+        # the newest runs first.
+        return sorted(frozen_trials, key=lambda trial: trial.number)
 
-    def get_n_trials(self, study_id, states=None) -> int:
+    def get_n_trials(
+        self, study_id, states: Container[TrialState] | TrialState | None = None
+    ) -> int:
         # Flush all batches to ensure we have the latest data
         self.flush_all_batches()
 
-        runs = self._mlflow_client.search_runs(
-            experiment_ids=[self._experiment_id],
-            filter_string=f"tags.mlflow.parentRunId='{study_id}'",
-        )
-        return len(runs)
+        runs = self._search_all_runs(f"tags.mlflow.parentRunId='{study_id}'")
+        if states is None:
+            return len(runs)
+        if isinstance(states, TrialState):
+            states = (states,)
+        return sum(mlflow_optuna_status_map[run.info.status] in states for run in runs)

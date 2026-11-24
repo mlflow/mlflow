@@ -1,4 +1,4 @@
-import { getActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
+import { getActiveWorkspace } from './RoutingUtils';
 import { matchPredefinedError } from '../errors/PredefinedErrors';
 
 // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
@@ -93,3 +93,23 @@ export const getDefaultHeaders = (cookieStr: any) => {
     ...(workspace ? { 'X-MLFLOW-WORKSPACE': workspace } : {}),
   };
 };
+
+export async function fetchOrFail(input: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: {
+      ...getDefaultHeaders(document.cookie),
+      ...options?.headers,
+    },
+  };
+
+  const response = await fetchFn(input, fetchOptions);
+  if (!response.ok) {
+    const predefinedError = matchPredefinedError(response);
+    if (predefinedError) {
+      throw predefinedError;
+    }
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+  return response;
+}

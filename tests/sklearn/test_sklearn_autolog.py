@@ -168,21 +168,24 @@ def test_autolog_throws_error_with_negative_max_tuning_runs():
 
 
 @pytest.mark.parametrize(
-    ("max_tuning_runs", "total_runs", "output_statement"),
+    ("max_tuning_runs", "total_runs", "logging_phrase", "omitting_phrase"),
     [
-        (0, 4, "Logging no runs, all will be omitted"),
-        (0, 1, "Logging no runs, one run will be omitted"),
-        (1, 1, "Logging the best run, no runs will be omitted"),
-        (5, 4, "Logging all runs, no runs will be omitted"),
-        (4, 4, "Logging all runs, no runs will be omitted"),
-        (2, 5, "Logging the 2 best runs, 3 runs will be omitted"),
+        (0, 4, "no runs", "4 runs"),
+        (0, 1, "no runs", "one run"),
+        (1, 1, "the best run", "no runs"),
+        (5, 4, "the 4 best runs", "no runs"),
+        (4, 4, "the 4 best runs", "no runs"),
+        (2, 5, "the 2 best runs", "3 runs"),
     ],
 )
-def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statement):
+def test_autolog_max_tuning_runs_logs_info_correctly(
+    max_tuning_runs, total_runs, logging_phrase, omitting_phrase
+):
     with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
         _log_child_runs_info(max_tuning_runs, total_runs)
-        mock_info.assert_called_once()
-        mock_info.called_once_with(output_statement)
+        mock_info.assert_called_once_with(
+            "Logging %s, %s will be omitted.", logging_phrase, omitting_phrase
+        )
 
 
 def test_autolog_does_not_terminate_active_run():
@@ -283,6 +286,47 @@ def test_classifier_binary():
     assert_predict_equal(loaded_model, model, X)
     # verify no figure is open
     assert len(plt.get_fignums()) == 0
+
+
+@pytest.mark.filterwarnings("error:`y_pred` was renamed to `y_proba`:FutureWarning")
+def test_classifier_log_loss_does_not_use_deprecated_y_pred_argument():
+    mlflow.sklearn.autolog()
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    _, metrics, _, _ = get_run_data(run.info.run_id)
+    assert metrics["training_log_loss"] == pytest.approx(
+        sklearn.metrics.log_loss(y_true, model.predict_proba(X))
+    )
+
+
+def _log_loss_with_y_proba(y_true, y_proba, *, sample_weight=None): ...
+
+
+def _log_loss_with_y_pred(y_true, y_pred, *, sample_weight=None): ...
+
+
+@pytest.mark.parametrize(
+    ("log_loss_stub", "proba_arg"),
+    [(_log_loss_with_y_proba, "y_proba"), (_log_loss_with_y_pred, "y_pred")],
+)
+def test_classifier_log_loss_passes_probabilities_with_supported_keyword(log_loss_stub, proba_arg):
+    mlflow.sklearn.autolog()
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    mock_log_loss = mock.create_autospec(log_loss_stub, return_value=0.25)
+    with mock.patch("sklearn.metrics.log_loss", mock_log_loss), mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    mock_log_loss.assert_called_once()
+    assert mock_log_loss.call_args.kwargs.keys() == {"y_true", proba_arg, "sample_weight"}
+    np.testing.assert_array_equal(mock_log_loss.call_args.kwargs[proba_arg], model.predict_proba(X))
+    _, metrics, _, _ = get_run_data(run.info.run_id)
+    assert metrics["training_log_loss"] == 0.25
 
 
 def test_classifier_multi_class():
@@ -671,6 +715,8 @@ def test_autolog_emits_warning_message_when_score_fails():
     mlflow.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()
+    # `score` is inherited, and which base class defines it varies across scikit-learn versions
+    score_qualname = model.score.__qualname__
 
     @functools.wraps(model.score)
     def throwing_score(X, y=None, sample_weight=None):
@@ -680,9 +726,8 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "KMeans.score failed. The 'training_score' metric will not be recorded. "
+        mock_warning.assert_called_once_with(
+            f"{score_qualname} failed. The 'training_score' metric will not be recorded. "
             "Scoring error: EXCEPTION"
         )
 
@@ -696,19 +741,18 @@ def test_autolog_emits_warning_message_when_metric_fails():
     model = sklearn.svm.SVC()
 
     @functools.wraps(sklearn.metrics.precision_score)
-    def throwing_metrics(y_true, y_pred):
+    def throwing_metrics(*args, **kwargs):
         raise Exception("EXCEPTION")
 
+    # Patch with `new`, not a mock: the warning message reads the metric's `__qualname__`
     with (
         mlflow.start_run(),
         mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning,
-        mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics),
+        mock.patch("sklearn.metrics.precision_score", new=throwing_metrics),
     ):
         model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "SVC.precision_score failed. "
-            "The 'precision_score' metric will not be recorded. "
+        mock_warning.assert_called_once_with(
+            "precision_score failed. The metric training_precision_score will not be recorded. "
             "Metric error: EXCEPTION"
         )
 

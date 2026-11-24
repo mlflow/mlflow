@@ -1,6 +1,10 @@
 ---
+title: Tracing Gemini
+description: Trace Google Gemini model interactions with MLflow for full observability into LLM calls, token usage, and response quality.
 sidebar_position: 9
 sidebar_label: Gemini
+keywords: [gemini, google, tracing, mlflow, llm]
+image: /images/llms/gemini/gemini-tracing.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -39,7 +43,7 @@ MLflow trace automatically captures the following information about Gemini calls
 <Tabs>
   <TabItem value="python" label="Python" default>
 ```bash
-pip install 'mlflow[genai]' google-generativeai
+pip install mlflow google-generativeai
 ```
 </TabItem>
 <TabItem value="typescript" label="JS / TS">
@@ -124,7 +128,7 @@ MLflow supports automatic tracing for the following Gemini APIs:
 
 | Text Generation | Chat | Function Calling | Streaming |  Async   | Image | Video |
 | :-------------: | :--: | :--------------: | :-------: | :------: | :---: | :---: |
-|       ✅        |  ✅  |        ✅        |     -     | ✅ (\*1) |   -   |   -   |
+|       ✅        |  ✅  |        ✅        |    ✅     | ✅ (\*1) |   -   |   -   |
 
 <div style={{ fontSize: '0.9em', marginTop: '10px' }}>
 
@@ -206,6 +210,19 @@ print(response.text)
 response = chat.send_message("Okay, how about a more detailed explanation to a high schooler?")
 print(response.text)
 ```
+
+## Streaming
+
+MLflow supports tracing streaming calls to the Gemini SDK, including `generate_content_stream` and `send_message_stream` (Python only). The generated trace shows the aggregated output message in the `Chat` tab, while the individual chunks are displayed in the `Events` tab.
+
+```python
+for chunk in client.models.generate_content_stream(
+    model="gemini-1.5-flash", contents="Write a short poem about the sea."
+):
+    print(chunk.text, end="")
+```
+
+If you stop reading the stream early, the trace is still logged with the chunks received so far.
 
 ## Async
 

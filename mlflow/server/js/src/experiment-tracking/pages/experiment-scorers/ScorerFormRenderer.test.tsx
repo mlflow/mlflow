@@ -14,6 +14,7 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   isRunningScorersEnabled: () => true,
   isEvaluatingSessionsInScorersEnabled: () => true,
   isScorerModelSelectionEnabled: () => true,
+  isScorerOutputTypeSelectorEnabled: () => false,
 }));
 
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)
@@ -24,6 +25,26 @@ jest.mock('../../components/EndpointSelector', () => ({
 // Mock useExperimentIds used by ModelSectionRenderer for cache invalidation
 jest.mock('../../components/experiment-page/hooks/useExperimentIds', () => ({
   useExperimentIds: () => ['exp-123'],
+}));
+
+// Mock to avoid transitive @databricks/web-shared/comlink resolution failure via SelectTracesModal
+jest.mock('./SampleScorerOutputPanelContainer', () => ({
+  __esModule: true,
+  default: ({
+    selectedItemIds,
+    isSessionLevelScorer,
+  }: {
+    selectedItemIds: string[];
+    isSessionLevelScorer: boolean;
+  }) => (
+    <div data-testid="sample-scorer-output-panel">
+      {selectedItemIds.length > 0
+        ? `${selectedItemIds.length} session selected`
+        : isSessionLevelScorer
+          ? 'Select sessions'
+          : 'Select traces'}
+    </div>
+  ),
 }));
 
 const queryClient = new QueryClient({
@@ -122,6 +143,21 @@ describe('ScorerFormRenderer', () => {
 
       // After scope change, selected items should be cleared, showing "Select traces"
       expect(screen.getByText('Select traces')).toBeInTheDocument();
+    });
+  });
+
+  describe('Evaluation criteria model placement', () => {
+    it('shows model selection inside evaluation criteria instead of general', async () => {
+      const user = userEvent.setup();
+      render(<TestWrapper />);
+
+      expect(screen.getByRole('button', { name: /General/i })).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.queryByRole('button', { name: /^Model$/i })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /Evaluation criteria/i }));
+
+      expect(screen.getByText('Model')).toBeInTheDocument();
+      expect(screen.getByTestId('endpoint-selector')).toBeInTheDocument();
     });
   });
 });

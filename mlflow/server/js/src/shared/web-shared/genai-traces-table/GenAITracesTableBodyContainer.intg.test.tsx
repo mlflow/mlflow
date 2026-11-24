@@ -9,8 +9,7 @@ import { getUser } from '../global-settings/getUser';
 import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
 import { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
-// eslint-disable-next-line import/no-namespace
-import * as GenAiTracesTableUtils from './GenAiTracesTable.utils';
+import * as GenAiTracesTableBodyUtils from './GenAiTracesTableBody.utils';
 import {
   createTestTraceInfoV3,
   createTestAssessmentInfo,
@@ -63,6 +62,11 @@ jest.mock('./hooks/useTableSortURL', () => ({
 
 jest.mock('./hooks/useColumnsURL', () => ({
   useColumnsURL: () => [undefined, jest.fn()] as const,
+}));
+
+jest.mock('./utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('./utils/FeatureUtils')>('./utils/FeatureUtils'),
+  shouldEnableTagGrouping: jest.fn().mockReturnValue(true),
 }));
 
 const testExperimentId = 'test-experiment-id';

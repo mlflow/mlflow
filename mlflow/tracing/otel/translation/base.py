@@ -25,10 +25,13 @@ class OtelSchemaTranslator:
     INPUT_TOKEN_KEY: str | None = None
     OUTPUT_TOKEN_KEY: str | None = None
     TOTAL_TOKEN_KEY: str | None = None
+    CACHE_READ_INPUT_TOKEN_KEY: str | None = None
+    CACHE_CREATION_INPUT_TOKEN_KEY: str | None = None
     INPUT_VALUE_KEYS: list[str] | None = None
     OUTPUT_VALUE_KEYS: list[str] | None = None
     MODEL_NAME_KEYS: list[str] | None = None
     LLM_PROVIDER_KEY: str | None = None
+    TOOL_DEFINITION_KEYS: list[str] | None = None
 
     def get_message_format(self, attributes: dict[str, Any]) -> str | None:
         """
@@ -111,6 +114,14 @@ class OtelSchemaTranslator:
         if self.TOTAL_TOKEN_KEY:
             return attributes.get(self.TOTAL_TOKEN_KEY)
 
+    def get_cache_read_input_tokens(self, attributes: dict[str, Any]) -> int | None:
+        if self.CACHE_READ_INPUT_TOKEN_KEY:
+            return attributes.get(self.CACHE_READ_INPUT_TOKEN_KEY)
+
+    def get_cache_creation_input_tokens(self, attributes: dict[str, Any]) -> int | None:
+        if self.CACHE_CREATION_INPUT_TOKEN_KEY:
+            return attributes.get(self.CACHE_CREATION_INPUT_TOKEN_KEY)
+
     def get_model_name(self, attributes: dict[str, Any]) -> str | None:
         """
         Get model name from OTEL attributes.
@@ -172,6 +183,18 @@ class OtelSchemaTranslator:
             Output value or None if not found
         """
         return self.get_attribute_value(attributes, self.OUTPUT_VALUE_KEYS)
+
+    def get_tool_definitions(self, attributes: dict[str, Any]) -> Any:
+        """
+        Get tool definitions from OTEL attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+
+        Returns:
+            Tool definitions or None if not found
+        """
+        return self.get_attribute_value(attributes, self.TOOL_DEFINITION_KEYS)
 
     def get_attribute_value(
         self, attributes: dict[str, Any], keys_to_check: list[str] | None = None

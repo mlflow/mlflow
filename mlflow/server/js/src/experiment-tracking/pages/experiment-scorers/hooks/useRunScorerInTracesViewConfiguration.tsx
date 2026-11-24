@@ -7,6 +7,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Alert,
   Button,
+  PillControl,
   getShadowScrollStyles,
   Input,
   Modal,
@@ -18,7 +19,6 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { PillControl } from '@databricks/design-system/development';
 import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';
@@ -34,6 +34,7 @@ import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
 import { isEmpty } from 'lodash';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { invalidateMlflowSearchTracesCache } from '../../../../shared/web-shared/model-trace-explorer/hooks/invalidateMlflowSearchTracesCache';
+import { formatJudgeModelError } from '../utils/judgeModelErrors';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
@@ -44,7 +45,14 @@ export const useRunScorerInTracesViewConfiguration = (
   scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
 ): UseRunScorerInTracesViewConfigurationReturnType => {
   const [experimentId] = useExperimentIds();
+  return useRunScorerInTracesViewConfigurationForExperiment(experimentId, scope);
+};
 
+// Callers with an experiment ID can avoid subscribing to unrelated route updates.
+export const useRunScorerInTracesViewConfigurationForExperiment = (
+  experimentId: string,
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+): UseRunScorerInTracesViewConfigurationReturnType => {
   const scorerFinishSubscribers = useRef<((event: ScorerFinishedEvent) => void)[]>([]);
 
   const onScorerFinished = useCallback((event: ScorerFinishedEvent) => {
@@ -70,6 +78,7 @@ export const useRunScorerInTracesViewConfiguration = (
     ({ itemId, onClose, visible }) => {
       return (
         <RunJudgeModalImpl
+          experimentId={experimentId}
           scope={scope}
           visible={visible}
           itemIds={[itemId]}
@@ -78,7 +87,7 @@ export const useRunScorerInTracesViewConfiguration = (
         />
       );
     },
-    [evaluateTraces, scope],
+    [evaluateTraces, experimentId, scope],
   );
 
   return {
@@ -90,6 +99,7 @@ export const useRunScorerInTracesViewConfiguration = (
       subscribeToScorerFinished as ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
     reset,
     scope,
+    formatErrorMessage: (errorMessage: string) => formatJudgeModelError({ message: errorMessage }),
   };
 };
 
@@ -99,6 +109,23 @@ export const useRunScorerInTracesViewConfiguration = (
  * bulk evaluations are visible in `ModelTraceExplorerRunJudgesContext` (used by AssessmentCell).
  */
 export const useRunJudgesOnTracesConfiguration = (
+  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
+  allEvaluations: Record<string, ScorerEvaluation> | undefined,
+  subscribeToScorerFinished?: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+) => {
+  const [experimentId] = useExperimentIds();
+  return useRunJudgesOnTracesConfigurationForExperiment(
+    experimentId,
+    evaluateTraces,
+    allEvaluations,
+    subscribeToScorerFinished,
+    scope,
+  );
+};
+
+export const useRunJudgesOnTracesConfigurationForExperiment = (
+  experimentId: string,
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
   allEvaluations: Record<string, ScorerEvaluation> | undefined,
   subscribeToScorerFinished?: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
@@ -149,6 +176,7 @@ export const useRunJudgesOnTracesConfiguration = (
   const RunJudgesModal = useMemo(
     () => (
       <RunJudgeModalImpl
+        experimentId={experimentId}
         scope={scope}
         visible={isModalVisible}
         itemIds={pendingTraceIds}
@@ -156,7 +184,7 @@ export const useRunJudgesOnTracesConfiguration = (
         onClose={handleClose}
       />
     ),
-    [scope, isModalVisible, pendingTraceIds, evaluateTraces, handleClose],
+    [experimentId, scope, isModalVisible, pendingTraceIds, evaluateTraces, handleClose],
   );
 
   // Invalidate the traces search cache when a scorer finishes
@@ -173,19 +201,20 @@ export const useRunJudgesOnTracesConfiguration = (
  * Dropdown for selecting a judge to run against one or more traces.
  */
 const RunJudgeModalImpl = ({
+  experimentId,
   itemIds,
   evaluateTraces,
   visible,
   onClose,
   scope = ScorerEvaluationScope.TRACES,
 }: {
+  experimentId: string;
   itemIds: string[];
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
   visible: boolean;
   onClose: () => void;
   scope?: ScorerEvaluationScope;
 }) => {
-  const [experimentId] = useExperimentIds();
   const { data, isLoading: loadingScorers } = useGetScheduledScorers(experimentId, { enabled: visible });
   const { templateOptions } = useTemplateOptions(scope);
   const intl = useIntl();
@@ -445,13 +474,12 @@ const ScorerOption = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div
-      role="checkbox"
-      aria-checked={selected}
-      css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
-      onClick={() => onClick(scorer)}
-    >
-      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-llm" isChecked={selected}>
+    <div css={{ height: 48, flexShrink: 0 }}>
+      <Checkbox
+        componentId="mlflow.experiment-scorers.traces-view-judge-llm"
+        isChecked={selected}
+        onChange={() => onClick(scorer)}
+      >
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{scorer.name}</Typography.Text>
           <Typography.Hint>
@@ -480,13 +508,12 @@ const TemplateOption = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
-    <div
-      role="checkbox"
-      aria-checked={selected}
-      css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
-      onClick={() => onClick(template.value)}
-    >
-      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-template" isChecked={selected}>
+    <div css={{ height: 48, flexShrink: 0 }}>
+      <Checkbox
+        componentId="mlflow.experiment-scorers.traces-view-judge-template"
+        isChecked={selected}
+        onChange={() => onClick(template.value)}
+      >
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{template.label}</Typography.Text>
           <Typography.Hint>
@@ -513,6 +540,13 @@ const TemplateOption = ({
  * on selected traces. Shows one row per in-flight or completed evaluation,
  * with a spinner while loading and success/error states on completion.
  */
+const AUTO_DISMISS_DELAY_MS = 10000;
+const FADE_OUT_DURATION_MS = 1000;
+const completedEvaluationFadeOutCss = {
+  animation: `fadeOut ${FADE_OUT_DURATION_MS}ms ease-out ${AUTO_DISMISS_DELAY_MS - FADE_OUT_DURATION_MS}ms forwards`,
+  '@keyframes fadeOut': { from: { opacity: 1 }, to: { opacity: 0 } },
+} as const;
+
 const JudgesEvaluationStatusBanner = ({
   evaluations,
   onDismiss,
@@ -522,6 +556,38 @@ const JudgesEvaluationStatusBanner = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    const completedKeys = new Set(evaluations.filter((e) => !e.isLoading).map((e) => e.requestKey));
+
+    // Start timers for newly completed evaluations that don't have a timer yet
+    completedKeys.forEach((key) => {
+      if (!timersRef.current.has(key)) {
+        const timer = setTimeout(() => {
+          onDismiss(key);
+          timersRef.current.delete(key);
+        }, AUTO_DISMISS_DELAY_MS);
+        timersRef.current.set(key, timer);
+      }
+    });
+
+    // Clear timers for evaluations no longer in the list (e.g., already dismissed)
+    timersRef.current.forEach((timer, key) => {
+      if (!completedKeys.has(key)) {
+        clearTimeout(timer);
+        timersRef.current.delete(key);
+      }
+    });
+  }, [evaluations, onDismiss]);
+
+  // Clean up all pending timers on unmount
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach(clearTimeout);
+    };
+  }, []);
 
   return (
     <div
@@ -555,38 +621,43 @@ const JudgesEvaluationStatusBanner = ({
 
         if (evaluation.error) {
           return (
-            <Alert
-              key={evaluation.requestKey}
-              componentId="mlflow.experiment-scorers.judges-error-banner"
-              type="error"
-              closable
-              onClose={() => onDismiss(evaluation.requestKey)}
-              message={intl.formatMessage(
-                {
-                  defaultMessage: 'Judge "{label}" failed: {error}',
-                  description: 'Banner message shown when a judge run fails',
-                },
-                { label: evaluation.label, error: evaluation.error.message },
-              )}
-            />
+            <div key={evaluation.requestKey} css={completedEvaluationFadeOutCss}>
+              <Alert
+                componentId="mlflow.experiment-scorers.judges-error-banner"
+                type="error"
+                closable
+                onClose={() => onDismiss(evaluation.requestKey)}
+                message={intl.formatMessage(
+                  {
+                    defaultMessage: 'Judge "{label}" failed: {error}',
+                    description: 'Banner message shown when a judge run fails',
+                  },
+                  {
+                    label: evaluation.label,
+                    error: formatJudgeModelError(evaluation.error) || evaluation.error.message,
+                  },
+                )}
+              />
+            </div>
           );
         }
 
         return (
-          <Alert
-            key={evaluation.requestKey}
-            componentId="mlflow.experiment-scorers.judges-success-banner"
-            type="info"
-            closable
-            onClose={() => onDismiss(evaluation.requestKey)}
-            message={intl.formatMessage(
-              {
-                defaultMessage: 'Judge "{label}" completed successfully.',
-                description: 'Banner message shown when a judge run completes successfully',
-              },
-              { label: evaluation.label },
-            )}
-          />
+          <div key={evaluation.requestKey} css={completedEvaluationFadeOutCss}>
+            <Alert
+              componentId="mlflow.experiment-scorers.judges-success-banner"
+              type="info"
+              closable
+              onClose={() => onDismiss(evaluation.requestKey)}
+              message={intl.formatMessage(
+                {
+                  defaultMessage: 'Judge "{label}" completed successfully.',
+                  description: 'Banner message shown when a judge run completes successfully',
+                },
+                { label: evaluation.label },
+              )}
+            />
+          </div>
         );
       })}
     </div>

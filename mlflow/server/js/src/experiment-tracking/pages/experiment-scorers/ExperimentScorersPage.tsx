@@ -4,13 +4,14 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { ErrorBoundary } from 'react-error-boundary';
 import ExperimentScorersContentContainer from './ExperimentScorersContentContainer';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { enableScorersUI } from '../../../common/utils/FeatureUtils';
 import { isExperimentEvalResultsMonitoringUIEnabled } from '../../../common/utils/FeatureUtils';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled } from '../../hooks/useServerInfo';
 import { usePrefetchTraces } from './useEvaluateTraces';
 import { DEFAULT_TRACE_COUNT } from './constants';
+import { useSqlWarehouseContextSafe } from '../experiment-page-tabs/SqlWarehouseContext';
 
-const getProductionMonitoringDocUrl = () => {
-  return 'https://mlflow.org/docs/latest/genai/eval-monitor/';
+const getScorersDocUrl = () => {
+  return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/';
 };
 
 interface ExperimentScorersPageProps {
@@ -55,16 +56,19 @@ const ExperimentScorersPage: React.FC<ExperimentScorersPageProps> = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { experimentId } = useParams();
-  const isFeatureEnabled = enableScorersUI();
+  const isFeatureEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
+
+  const { warehouseId: selectedWarehouseId, traceSearchLocations = [] } = useSqlWarehouseContextSafe() ?? {};
 
   const prefetchParams = useMemo(
     () => ({
       traceCount: DEFAULT_TRACE_COUNT,
-      locations: experimentId
-        ? [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }]
-        : [],
+      locations: traceSearchLocations,
     }),
-    [experimentId],
+    // prettier-ignore
+    [
+      traceSearchLocations,
+    ],
   );
 
   // Prefetch traces when the page loads
@@ -101,7 +105,7 @@ const ExperimentScorersPage: React.FC<ExperimentScorersPageProps> = () => {
                     link: (
                       <Typography.Link
                         componentId="mlflow.experiment-scorers.documentation-link"
-                        href="https://mlflow.org/docs/latest/genai/eval-monitor/"
+                        href={getScorersDocUrl()}
                         target="_blank"
                         rel="noreferrer"
                       >

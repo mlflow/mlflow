@@ -4,8 +4,11 @@ import type { ThemeType } from '@databricks/design-system';
 import { I18nUtils } from '@databricks/i18n';
 
 import {
+  buildAggregatesFromCountMetrics,
+  ERROR_KEY,
   getAssessmentAggregateOverallFraction,
   getAssessmentInfos,
+  getAssessmentNumericAggregates,
   getBarChartData,
   getUniqueValueCountsBySourceId,
 } from './AggregationUtils';
@@ -441,6 +444,125 @@ describe('getAssessmentInfos', () => {
     const mixedAssessmentInfo = result.find((info) => info.name === 'mixedAssessment');
 
     expect(mixedAssessmentInfo?.isSessionLevelAssessment).toBe(true);
+  });
+
+  describe('scorer description in tooltip', () => {
+    const codeSource: RunEvaluationResultAssessmentSource = {
+      sourceType: 'CODE',
+      sourceId: 'my_custom_scorer',
+      metadata: {},
+    };
+
+    it('falls back to generic message when no scorerDescriptionsByName is provided', () => {
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            my_custom_scorer: [{ name: 'my_custom_scorer', booleanValue: true, source: codeSource }],
+          },
+        },
+      ]);
+
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
+      const info = result.find((r) => r.name === 'my_custom_scorer');
+
+      expect(info?.description).toBe('This assessment is produced by a custom metric.');
+    });
+
+    it('falls back to generic message when scorer is not in scorerDescriptionsByName', () => {
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            my_custom_scorer: [{ name: 'my_custom_scorer', booleanValue: true, source: codeSource }],
+          },
+        },
+      ]);
+
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, { other_scorer: 'Other desc' });
+      const info = result.find((r) => r.name === 'my_custom_scorer');
+
+      expect(info?.description).toBe('This assessment is produced by a custom metric.');
+    });
+
+    it('shows scorer name and description when scorerDescriptionsByName has an entry for the scorer', () => {
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            my_custom_scorer: [{ name: 'my_custom_scorer', booleanValue: true, source: codeSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { my_custom_scorer: 'Checks whether the response is accurate.' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'my_custom_scorer');
+
+      expect(info?.description).toBe('my_custom_scorer \u2014 Checks whether the response is accurate.');
+    });
+
+    it('prefers a CODE scorer description over a built-in judge when their names collide', () => {
+      // A user can register a custom CODE scorer with a name that matches a built-in judge
+      // (for example "correctness"). The registered description must win over the built-in text.
+      const collidingSource: RunEvaluationResultAssessmentSource = {
+        sourceType: 'CODE',
+        sourceId: 'correctness',
+        metadata: {},
+      };
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            correctness: [{ name: 'correctness', booleanValue: true, source: collidingSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { correctness: 'My project-specific accuracy check.' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'correctness');
+
+      expect(info?.description).toBe('correctness — My project-specific accuracy check.');
+    });
+
+    it('prefers an AI_JUDGE scorer description over a built-in judge when their names collide', () => {
+      const collidingSource: RunEvaluationResultAssessmentSource = {
+        sourceType: 'AI_JUDGE',
+        sourceId: 'correctness',
+        metadata: {},
+      };
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            correctness: [{ name: 'correctness', booleanValue: true, source: collidingSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { correctness: 'My registered LLM accuracy judge.' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'correctness');
+
+      expect(info?.description).toBe('correctness — My registered LLM accuracy judge.');
+    });
+
+    it('does not use scorerDescriptionsByName for HUMAN-sourced assessments', () => {
+      const humanSource: RunEvaluationResultAssessmentSource = {
+        sourceType: 'HUMAN',
+        sourceId: 'human_annotator',
+        metadata: {},
+      };
+      const currentEvaluationResults = makeTracesFromAssessments([
+        {
+          responseAssessmentsByName: {
+            human_annotator: [{ name: 'human_annotator', booleanValue: true, source: humanSource }],
+          },
+        },
+      ]);
+
+      const scorerDescriptionsByName = { human_annotator: 'Should not appear' };
+      const result = getAssessmentInfos(intl, currentEvaluationResults, undefined, scorerDescriptionsByName);
+      const info = result.find((r) => r.name === 'human_annotator');
+
+      expect(info?.description).toBe('This assessment is produced by a human judge.');
+    });
   });
 });
 
@@ -1180,5 +1302,160 @@ describe('getUniqueValueCountsBySourceId', () => {
       { value: 'true', count: 2, latestAssessment: assessments[0] },
       { value: 'false', count: 2, latestAssessment: assessments[1] },
     ]);
+  });
+});
+
+describe('buildAggregatesFromCountMetrics', () => {
+  function makeAssessmentInfo(overrides: Partial<AssessmentInfo> = {}): AssessmentInfo {
+    return {
+      name: 'test-assessment',
+      displayName: 'Test',
+      isKnown: false,
+      isOverall: false,
+      metricName: 'test',
+      isCustomMetric: false,
+      isEditable: false,
+      isRetrievalAssessment: false,
+      dtype: 'pass-fail',
+      uniqueValues: new Set(),
+      docsLink: '',
+      missingTooltip: '',
+      description: '',
+      ...overrides,
+    };
+  }
+
+  it('builds counts for pass-fail assessments with JSON-encoded string values', () => {
+    const info = makeAssessmentInfo({ name: 'quality', dtype: 'pass-fail' });
+    const metricsData = [
+      { assessmentName: 'quality', assessmentValue: '"yes"', count: 50 },
+      { assessmentName: 'quality', assessmentValue: '"no"', count: 10 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentCounts?.get('yes')).toBe(50);
+    expect(result.currentCounts?.get('no')).toBe(10);
+  });
+
+  it('builds counts for boolean assessments', () => {
+    const info = makeAssessmentInfo({ name: 'correct', dtype: 'boolean' });
+    const metricsData = [
+      { assessmentName: 'correct', assessmentValue: 'true', count: 80 },
+      { assessmentName: 'correct', assessmentValue: 'false', count: 20 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentCounts?.get(true)).toBe(80);
+    expect(result.currentCounts?.get(false)).toBe(20);
+  });
+
+  it('maps null values to ERROR_KEY', () => {
+    const info = makeAssessmentInfo({ name: 'quality', dtype: 'pass-fail' });
+    const metricsData = [
+      { assessmentName: 'quality', assessmentValue: '"yes"', count: 40 },
+      { assessmentName: 'quality', assessmentValue: 'null', count: 5 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentCounts?.get('yes')).toBe(40);
+    expect(result.currentCounts?.get(ERROR_KEY)).toBe(5);
+  });
+
+  it('builds numeric aggregates with histogram', () => {
+    const info = makeAssessmentInfo({ name: 'score', dtype: 'numeric' });
+    const metricsData = [
+      { assessmentName: 'score', assessmentValue: '1.0', count: 10 },
+      { assessmentName: 'score', assessmentValue: '5.0', count: 20 },
+      { assessmentName: 'score', assessmentValue: '10.0', count: 15 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentNumericAverage).toBeCloseTo((1 * 10 + 5 * 20 + 10 * 15) / 45);
+    expect(result.currentNumericAggregate).toBeDefined();
+    expect(result.currentNumericAggregate?.min).toBe(1);
+    expect(result.currentNumericAggregate?.max).toBe(10);
+    expect(result.currentCounts).toBeUndefined();
+  });
+
+  it('filters metrics by assessment name', () => {
+    const info = makeAssessmentInfo({ name: 'quality', dtype: 'pass-fail' });
+    const metricsData = [
+      { assessmentName: 'quality', assessmentValue: '"yes"', count: 50 },
+      { assessmentName: 'other', assessmentValue: '"yes"', count: 100 },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, metricsData, []);
+    expect(result.currentCounts?.get('yes')).toBe(50);
+    expect(result.currentCounts?.size).toBe(1);
+  });
+
+  it('filters assessment filters by name', () => {
+    const info = makeAssessmentInfo({ name: 'quality', dtype: 'pass-fail' });
+    const filters = [
+      { assessmentName: 'quality', filterValue: 'yes', run: 'run1' },
+      { assessmentName: 'other', filterValue: 'no', run: 'run1' },
+    ];
+    const result = buildAggregatesFromCountMetrics(info, [], filters);
+    expect(result.assessmentFilters).toHaveLength(1);
+    expect(result.assessmentFilters[0].assessmentName).toBe('quality');
+  });
+});
+
+describe('excludeErroredValues', () => {
+  const stringInfo: AssessmentInfo = {
+    name: 'test_assessment',
+    displayName: 'Test Assessment',
+    isKnown: true,
+    isOverall: false,
+    metricName: 'test_metric',
+    isCustomMetric: false,
+    isEditable: false,
+    isRetrievalAssessment: false,
+    dtype: 'string',
+    uniqueValues: new Set(['false']),
+    docsLink: '',
+    missingTooltip: '',
+    description: '',
+  };
+  const valid: RunEvaluationResultAssessment = { name: 'test_assessment', stringValue: 'false', timestamp: 2 };
+  const errored: RunEvaluationResultAssessment = {
+    name: 'test_assessment',
+    stringValue: 'false',
+    errorCode: 'FAILED',
+    timestamp: 1,
+  };
+
+  it('counts an errored assessment as a value by default', () => {
+    expect(getUniqueValueCountsBySourceId(stringInfo, [valid, errored])).toEqual([
+      { value: 'false', count: 2, latestAssessment: valid },
+      { value: ERROR_KEY, count: 1, latestAssessment: errored },
+    ]);
+  });
+
+  it('counts an errored assessment only as an error when excluding errored values', () => {
+    expect(getUniqueValueCountsBySourceId(stringInfo, [valid, errored], true)).toEqual([
+      { value: 'false', count: 1, latestAssessment: valid },
+      { value: ERROR_KEY, count: 1, latestAssessment: errored },
+    ]);
+  });
+
+  it('leaves errored scores out of numeric averages only when excluding errored values', () => {
+    const numericInfo: AssessmentInfo = { ...stringInfo, dtype: 'numeric', uniqueValues: new Set([1, 5]) };
+    const evalResults = [
+      {
+        evaluationId: 'eval-1',
+        requestId: 'request-1',
+        inputs: {},
+        inputsId: 'inputs-1',
+        outputs: {},
+        targets: {},
+        overallAssessments: [],
+        responseAssessmentsByName: {
+          test_assessment: [
+            { name: 'test_assessment', numericValue: 5 },
+            { name: 'test_assessment', numericValue: 1, errorMessage: 'Scorer failed' },
+          ],
+        },
+        metrics: {},
+      },
+    ] as RunEvaluationTracesDataEntry[];
+
+    expect(getAssessmentNumericAggregates(numericInfo, evalResults)?.average).toBe(3);
+    expect(getAssessmentNumericAggregates(numericInfo, evalResults, true)?.average).toBe(5);
   });
 });

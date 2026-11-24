@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 from clint.rules.prefer_os_environ import PreferOsEnviron
 
@@ -16,9 +17,9 @@ from clint.rules.prefer_os_environ import PreferOsEnviron
         pytest.param('from os import putenv\n\nputenv("FOO", "bar")', id="from os import putenv"),
     ],
 )
-def test_violation(code: str, index_path: Path) -> None:
+def test_violation(code: str, index: SymbolIndex) -> None:
     config = Config(select={PreferOsEnviron.name})
-    violations = lint_file(Path("file.py"), code, config, index_path)
+    violations = lint_file(Path("file.py"), code, config, index)
     assert len(violations) == 1
     assert isinstance(violations[0].rule, PreferOsEnviron)
 
@@ -31,7 +32,7 @@ def test_violation(code: str, index_path: Path) -> None:
         pytest.param('import os\n\nos.environ["FOO"] = "bar"', id="os.environ set"),
     ],
 )
-def test_no_violation(code: str, index_path: Path) -> None:
+def test_no_violation(code: str, index: SymbolIndex) -> None:
     config = Config(select={PreferOsEnviron.name})
-    violations = lint_file(Path("file.py"), code, config, index_path)
+    violations = lint_file(Path("file.py"), code, config, index)
     assert len(violations) == 0

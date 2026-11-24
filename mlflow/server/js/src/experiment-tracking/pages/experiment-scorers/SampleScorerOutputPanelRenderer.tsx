@@ -14,7 +14,7 @@ import {
 import { FormattedMessage } from '@databricks/i18n';
 import { SimplifiedModelTraceExplorer } from '@databricks/web-shared/model-trace-explorer';
 import type { Assessment, ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import { COMPONENT_ID_PREFIX, BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
+import { BUTTON_VARIANT, type ButtonVariant, ScorerEvaluationScope } from './constants';
 import { SampleScorerTracesToEvaluatePicker } from './SampleScorerTracesToEvaluatePicker';
 import { useFormContext } from 'react-hook-form';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
@@ -168,19 +168,26 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           {!isInitialScreen && (
-            <Tooltip
-              componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
-              content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
-            >
-              <span>
-                <RunScorerButton
-                  variant={BUTTON_VARIANT.RERUN}
-                  onClick={handleRunScorer}
-                  loading={isLoading}
-                  disabled={isRunScorerDisabled}
-                />
-              </span>
-            </Tooltip>
+            <>
+              <SampleScorerTracesToEvaluatePicker
+                selectedItemIds={selectedItemIds}
+                onSelectedItemIdsChange={onSelectedItemIdsChange}
+                buttonProps={{ size: 'small' }}
+              />
+              <Tooltip
+                componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
+                content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
+              >
+                <span>
+                  <RunScorerButton
+                    variant={BUTTON_VARIANT.RERUN}
+                    onClick={handleRunScorer}
+                    loading={isLoading}
+                    disabled={isRunScorerDisabled}
+                  />
+                </span>
+              </Tooltip>
+            </>
           )}
         </div>
       </div>

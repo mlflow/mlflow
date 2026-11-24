@@ -7,18 +7,6 @@ import WebhookListItem from './WebhookListItem';
 import WebhookFormModal from './WebhookFormModal';
 import WebhookDeleteModal from './WebhookDeleteModal';
 
-interface WebhooksComponentIds {
-  createButton: string;
-  errorAlert: string;
-  testResultAlert: string;
-}
-
-const DEFAULT_COMPONENT_IDS: WebhooksComponentIds = {
-  createButton: 'mlflow.settings.webhooks.create-button',
-  errorAlert: 'mlflow.settings.webhooks.error-alert',
-  testResultAlert: 'mlflow.settings.webhooks.test-result-alert',
-};
-
 interface WebhooksSettingsProps {
   /** Filter displayed webhooks to only those containing at least one event whose entity matches this value exactly */
   eventFilter?: string;
@@ -26,15 +14,21 @@ interface WebhooksSettingsProps {
   title?: React.ReactNode;
   /** Description override */
   description?: React.ReactNode;
-  /** Static componentIds for namespacing */
-  componentIds?: WebhooksComponentIds;
+  /** Whether to show the section title. Defaults to true. */
+  showTitle?: boolean;
+  /** Whether to show the section description. Defaults to true. */
+  showDescription?: boolean;
+  /** Override the empty state message shown when no webhooks exist */
+  emptyDescription?: React.ReactNode;
 }
 
 const WebhooksSettings = ({
   eventFilter,
   title,
   description,
-  componentIds = DEFAULT_COMPONENT_IDS,
+  showTitle = true,
+  showDescription = true,
+  emptyDescription,
 }: WebhooksSettingsProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -175,28 +169,34 @@ const WebhooksSettings = ({
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {(showTitle || showDescription) && (
         <div>
-          <Typography.Title level={4} withoutMargins>
-            {title ?? <FormattedMessage defaultMessage="Webhooks" description="Webhooks settings section title" />}
-          </Typography.Title>
-          <Typography.Text color="secondary">
-            {description ?? (
-              <FormattedMessage
-                defaultMessage="Manage webhooks to receive HTTP notifications when events occur in MLflow."
-                description="Webhooks settings section description"
-              />
-            )}
-          </Typography.Text>
+          {showTitle && (
+            <Typography.Title level={4} withoutMargins>
+              {title ?? <FormattedMessage defaultMessage="Webhooks" description="Webhooks settings section title" />}
+            </Typography.Title>
+          )}
+          {showDescription && (
+            <Typography.Text color="secondary">
+              {description ?? (
+                <FormattedMessage
+                  defaultMessage="Manage webhooks to receive HTTP notifications when events occur in MLflow."
+                  description="Webhooks settings section description"
+                />
+              )}
+            </Typography.Text>
+          )}
         </div>
-        <Button componentId={componentIds.createButton} type="primary" onClick={openCreateModal}>
+      )}
+      <div css={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+        <Button componentId="mlflow.settings.webhooks.create-button" type="primary" onClick={openCreateModal}>
           <FormattedMessage defaultMessage="Create webhook" description="Create webhook button" />
         </Button>
       </div>
 
       {error && (
         <Alert
-          componentId={componentIds.errorAlert}
+          componentId="mlflow.settings.webhooks.error-alert"
           type="error"
           message={error}
           closable
@@ -206,7 +206,7 @@ const WebhooksSettings = ({
 
       {testResult && (
         <Alert
-          componentId={componentIds.testResultAlert}
+          componentId="mlflow.settings.webhooks.test-result-alert"
           type={testResult.success ? 'info' : 'error'}
           message={testResult.message}
           closable
@@ -228,17 +228,19 @@ const WebhooksSettings = ({
           }}
         >
           <Typography.Text color="secondary">
-            <FormattedMessage
-              defaultMessage="No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>"
-              description="Empty state for webhooks list"
-              values={{
-                link: (chunks: any) => (
-                  <a href="https://mlflow.org/docs/latest/ml/webhooks/" target="_blank" rel="noopener noreferrer">
-                    {chunks}
-                  </a>
-                ),
-              }}
-            />
+            {emptyDescription ?? (
+              <FormattedMessage
+                defaultMessage="No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>"
+                description="Empty state for webhooks list"
+                values={{
+                  link: (chunks: any) => (
+                    <a href="https://mlflow.org/docs/latest/ml/webhooks/" target="_blank" rel="noopener noreferrer">
+                      {chunks}
+                    </a>
+                  ),
+                }}
+              />
+            )}
           </Typography.Text>
         </div>
       ) : (

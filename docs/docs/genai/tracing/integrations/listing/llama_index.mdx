@@ -1,6 +1,9 @@
 ---
+title: Tracing LlamaIndex🦙
+description: Trace LlamaIndex data-augmented LLM application workflows with MLflow for full observability into indexing, retrieval, and generation pipelines.
 sidebar_position: 4
 sidebar_label: LlamaIndex
+keywords: [llamaindex, tracing, mlflow, rag, indexing, retrieval, llm]
 ---
 
 import useBaseUrl from '@docusaurus/useBaseUrl';
@@ -34,7 +37,7 @@ First, let's download a test data to create a toy index:
 
 ```
 !mkdir -p data
-!curl -L https://raw.githubusercontent.com/run-llama/llama_index/main/docs/docs/examples/data/paul_graham/paul_graham_essay.txt -o ./data/paul_graham_essay.txt
+!curl -L https://raw.githubusercontent.com/run-llama/llama_index/main/docs/examples/data/paul_graham/paul_graham_essay.txt -o ./data/paul_graham_essay.txt
 ```
 
 Load them into a simple in-memory vector index:

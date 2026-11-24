@@ -1,6 +1,5 @@
 import ast
-
-from typing_extensions import Self
+from typing import Self
 
 from clint.rules.base import Rule
 

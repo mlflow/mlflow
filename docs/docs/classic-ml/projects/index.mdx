@@ -39,7 +39,7 @@ result = mlflow.run(
 result = mlflow.run(".", entry_point="train", parameters={"epochs": 100}, synchronous=True)
 ```
 
-:::tip Project Structure
+:::tip[Project Structure]
 Any directory with a `MLproject` file or containing `.py`/`.sh` files can be run as an MLflow Project. No complex setup required!
 :::
 
@@ -140,7 +140,7 @@ MLflow supports four parameter types with automatic validation and transformatio
 | **path**   | Local file paths | `data.csv`, `s3://bucket/file` | Downloads remote URIs to local files |
 | **uri**    | Any URI          | `s3://bucket/`, `./local/path` | Converts relative paths to absolute  |
 
-:::note Parameter Resolution
+:::note[Parameter Resolution]
 `path` parameters automatically download remote files (S3, GCS, etc.) to local storage before execution. Use `uri` for applications that can read directly from remote storage.
 :::
 
@@ -210,7 +210,7 @@ entry_points:
     command: "python train_model.py --gpus {gpu_count}"
 ```
 
-:::warning Conda Terms
+:::warning[Conda Terms]
 By using Conda, you agree to [Anaconda's Terms of Service](https://legal.anaconda.com/policies/en/?name=terms-of-service).
 :::
 

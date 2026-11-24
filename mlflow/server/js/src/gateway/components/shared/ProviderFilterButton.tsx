@@ -19,14 +19,14 @@ interface ProviderFilterButtonProps {
   availableProviders: string[];
   filter: ProviderFilter;
   onFilterChange: (filter: ProviderFilter) => void;
-  componentIdPrefix: string;
+  componentId: string;
 }
 
 export const ProviderFilterButton = ({
   availableProviders,
   filter,
   onFilterChange,
-  componentIdPrefix,
+  componentId,
 }: ProviderFilterButtonProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -58,10 +58,10 @@ export const ProviderFilterButton = ({
   );
 
   return (
-    <Popover.Root componentId={`${componentIdPrefix}.filter-popover`} open={isOpen} onOpenChange={setIsOpen}>
+    <Popover.Root componentId={`${componentId}.filter-popover`} open={isOpen} onOpenChange={setIsOpen}>
       <Popover.Trigger asChild>
         <Button
-          componentId={`${componentIdPrefix}.filter-button`}
+          componentId={`${componentId}.filter-button`}
           endIcon={<ChevronDownIcon />}
           css={{
             border: hasActiveFilters ? `1px solid ${theme.colors.actionDefaultBorderFocus} !important` : '',
@@ -104,7 +104,7 @@ export const ProviderFilterButton = ({
             sortedProviders.map((provider) => (
               <Checkbox
                 key={provider}
-                componentId={`${componentIdPrefix}.filter.provider.${provider}`}
+                componentId={`${componentId}.filter.provider`}
                 isChecked={filter.providers.includes(provider)}
                 onChange={() => handleProviderToggle(provider)}
               >

@@ -2,9 +2,7 @@ import io
 import re
 import tokenize
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterator
-
-from typing_extensions import Self
+from typing import TYPE_CHECKING, Iterator, Self
 
 if TYPE_CHECKING:
     from clint.linter import Position
@@ -20,7 +18,6 @@ class Noqa:
 
     @classmethod
     def from_token(cls, token: tokenize.TokenInfo) -> Self | None:
-        # Import here to avoid circular dependency
         from clint.linter import Position
 
         if match := NOQA_REGEX.match(token.string):
@@ -34,11 +31,9 @@ class Noqa:
 def iter_comments(code: str) -> Iterator[tokenize.TokenInfo]:
     readline = io.StringIO(code).readline
     try:
-        tokens = tokenize.generate_tokens(readline)
-        for token in tokens:
+        for token in tokenize.generate_tokens(readline):
             if token.type == tokenize.COMMENT:
                 yield token
-
     except tokenize.TokenError:
         # Handle incomplete tokens at end of file
         pass

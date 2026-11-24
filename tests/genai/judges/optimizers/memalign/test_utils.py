@@ -1,14 +1,21 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import dspy
+import numpy as np
 import pytest
 
 import mlflow
 from mlflow.genai.judges.optimizers.memalign.utils import (
+    Guideline,
+    Guidelines,
+    _build_strict_response_format,
     _count_tokens,
     _create_batches,
+    _extract_json_object,
     distill_guidelines,
     get_default_embedding_model,
+    get_query_fields,
     retrieve_relevant_examples,
     truncate_to_token_limit,
     value_to_embedding_text,
@@ -17,6 +24,128 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
 
 def test_get_default_embedding_model():
     assert get_default_embedding_model() == "openai:/text-embedding-3-small"
+
+
+def _iter_object_schemas(schema):
+    """Yield every object schema node (top-level and nested $defs) in a JSON schema."""
+    yield schema
+    yield from schema.get("$defs", {}).values()
+
+
+@pytest.mark.parametrize("model", [Guideline, Guidelines])
+def test_guideline_schemas_satisfy_strict_structured_output(model):
+    # Databricks' structured-output endpoint enforces OpenAI strict-schema rules on every
+    # object: additionalProperties=false (emitted via extra=forbid) AND every property listed
+    # in `required` (so no field may declare a default). Assert both, since either omission
+    # produces a BadRequestError from the endpoint.
+    schema = model.model_json_schema()
+    for obj in _iter_object_schemas(schema):
+        if "properties" in obj:
+            assert obj.get("additionalProperties") is False
+            assert set(obj["required"]) == set(obj["properties"])
+
+
+def test_guideline_accepts_none_source_trace_ids():
+    # source_trace_ids is required (no default) but must remain nullable, since guidelines
+    # loaded from persisted memory and filtering logic rely on None being a valid value.
+    assert Guideline(guideline_text="x", source_trace_ids=None).source_trace_ids is None
+
+
+def _walk_schema(node):
+    """Yield every dict node in a JSON schema tree."""
+    if isinstance(node, dict):
+        yield node
+        for value in node.values():
+            yield from _walk_schema(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_schema(item)
+
+
+def test_build_strict_response_format_satisfies_databricks_rules():
+    # Databricks' structured-output endpoint enforces the full OpenAI strict-schema contract
+    # AND (unlike OpenAI) rejects $ref/$defs indirection. Assert the built response_format:
+    #   - is a strict json_schema envelope
+    #   - contains no $ref / $defs (fully inlined)
+    #   - declares additionalProperties=false and complete `required` on every object
+    rf = _build_strict_response_format(Guidelines)
+
+    assert rf["type"] == "json_schema"
+    assert rf["json_schema"]["strict"] is True
+    schema = rf["json_schema"]["schema"]
+
+    for node in _walk_schema(schema):
+        assert "$ref" not in node
+        assert "$defs" not in node
+        if node.get("type") == "object" or "properties" in node:
+            assert node.get("additionalProperties") is False
+            assert set(node["required"]) == set(node["properties"])
+
+
+def _assert_objects_forbid_additional_properties(node):
+    """Recursively assert every object schema declares additionalProperties=false."""
+    if isinstance(node, dict):
+        if node.get("type") == "object" or "properties" in node:
+            assert node.get("additionalProperties") is False, node
+        for value in node.values():
+            _assert_objects_forbid_additional_properties(value)
+    elif isinstance(node, list):
+        for item in node:
+            _assert_objects_forbid_additional_properties(item)
+
+
+# Databricks-served foundation models split into two response_format routing paths in
+# litellm: OpenAI-compatible models emit a strict `json_schema`, while Claude models are
+# rewritten into a forced tool call whose parameter schema is derived from the same model.
+# These tests verify that Guidelines produces a valid payload (every object declaring
+# additionalProperties=false) on both paths across a representative model per family.
+# NOTE: the version-independent regression guard for the additionalProperties fix is
+# test_guideline_schemas_forbid_additional_properties above - recent litellm also injects
+# additionalProperties on the json_schema path, so these routing tests alone would not
+# catch a removal of extra="forbid" on older litellm. See the Databricks docs:
+# https://docs.databricks.com/aws/en/machine-learning/model-serving/score-foundation-models
+_JSON_SCHEMA_MODELS = [
+    "databricks-gpt-5",
+    "databricks-gpt-5-mini",
+    "databricks-gpt-oss-120b",
+    "databricks-gemini-2-5-flash",
+    "databricks-qwen35-122b-a10b",
+    "databricks-glm-5-2",
+    "databricks-gemma-3-12b",
+    "databricks-llama-4-maverick",
+    "databricks-meta-llama-3-1-8b-instruct",
+]
+_TOOL_CALL_MODELS = [
+    "databricks-claude-sonnet-5",
+    "databricks-claude-opus-4-8",
+    "databricks-claude-haiku-4-5",
+]
+
+
+@pytest.mark.parametrize("model", _JSON_SCHEMA_MODELS)
+def test_guidelines_response_format_json_schema_families(model):
+    import litellm
+
+    params = litellm.get_optional_params(
+        model=model, custom_llm_provider="databricks", response_format=Guidelines
+    )
+    response_format = params.get("response_format")
+    assert response_format is not None, f"{model} dropped response_format"
+    assert response_format["type"] == "json_schema"
+    _assert_objects_forbid_additional_properties(response_format["json_schema"]["schema"])
+
+
+@pytest.mark.parametrize("model", _TOOL_CALL_MODELS)
+def test_guidelines_response_format_tool_call_families(model):
+    import litellm
+
+    params = litellm.get_optional_params(
+        model=model, custom_llm_provider="databricks", response_format=Guidelines
+    )
+    # Claude routes structured output through a forced tool call rather than json_schema.
+    tools = params.get("tools")
+    assert tools, f"{model} produced neither response_format nor tools"
+    _assert_objects_forbid_additional_properties(tools[0]["function"]["parameters"])
 
 
 def test_distill_guidelines_empty_examples():
@@ -132,23 +261,137 @@ def test_distill_guidelines_handles_lm_error():
         assert result == []
 
 
-def test_retrieve_relevant_examples_empty():
-    results = retrieve_relevant_examples(
-        retriever=None,
-        examples=[],
-        query_kwargs={"inputs": "test"},
-        signature=MagicMock(),
-    )
-    assert results == []
+def test_distill_guidelines_falls_back_to_unstructured_on_structured_output_error():
+    # Some models error on structured-output (response_format) requests. The distiller
+    # should retry without response_format rather than dropping the batch.
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[[0]],
+        ),
+    ):
+        example1 = MagicMock(spec=dspy.Example)
+        example1.__iter__ = lambda self: iter([("input", "test"), ("output", "good")])
+        example1._trace_id = "trace_1"
+
+        def lm_side_effect(messages, **kwargs):
+            if "response_format" in kwargs:
+                raise Exception("INTERNAL_ERROR: invalid response from upstream server")
+            # Unstructured fallback returns JSON wrapped in a markdown fence.
+            return [
+                '```json\n{"guidelines": [{"guideline_text": "Be concise", '
+                '"source_trace_ids": [0]}]}\n```'
+            ]
+
+        mock_lm = MagicMock(side_effect=lm_side_effect)
+        mock_construct_lm.return_value = mock_lm
+
+        result = distill_guidelines(
+            examples=[example1],
+            judge_instructions="Evaluate quality",
+            reflection_lm="databricks:/databricks-gpt-oss-120b",
+            existing_guidelines=[],
+        )
+
+        assert len(result) == 1
+        assert result[0].guideline_text == "Be concise"
+        assert result[0].source_trace_ids == ["trace_1"]
+        # Structured attempt + unstructured fallback = two calls.
+        assert mock_lm.call_count == 2
 
 
-def test_retrieve_relevant_examples_no_search():
-    examples = [MagicMock(), MagicMock()]
+_GUIDELINE_JSON = '{"guidelines": [{"guideline_text": "Be concise", "source_trace_ids": [0]}]}'
+
+
+# The DSPy response shape varies by Databricks foundation-model family. Verified against a
+# live endpoint (litellm 1.75.9): most families return the completion as a plain string,
+# while reasoning models (gpt-oss-*) return a {"text": ..., "reasoning_content": ...} dict
+# because DSPy only collapses single-key outputs to str. Distillation must parse both,
+# including the fenced/prose variants the unstructured fallback can produce.
+@pytest.mark.parametrize(
+    ("reflection_lm", "lm_response"),
+    [
+        # str responses (gpt-5, gemini, claude, llama, gemma, qwen, ...)
+        ("databricks:/databricks-gpt-5-mini", _GUIDELINE_JSON),
+        ("databricks:/databricks-claude-sonnet-4-5", _GUIDELINE_JSON),
+        ("databricks:/databricks-meta-llama-3-3-70b-instruct", f"```json\n{_GUIDELINE_JSON}\n```"),
+        # dict responses from reasoning models (gpt-oss-*)
+        (
+            "databricks:/databricks-gpt-oss-120b",
+            {"text": _GUIDELINE_JSON, "reasoning_content": "thinking..."},
+        ),
+        (
+            "databricks:/databricks-gpt-oss-20b",
+            {"text": f"```json\n{_GUIDELINE_JSON}\n```", "reasoning_content": "thinking..."},
+        ),
+    ],
+)
+def test_distill_guidelines_handles_family_response_shapes(reflection_lm, lm_response):
+    with (
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils.construct_dspy_lm"
+        ) as mock_construct_lm,
+        patch(
+            "mlflow.genai.judges.optimizers.memalign.utils._create_batches",
+            return_value=[[0]],
+        ),
+    ):
+        example1 = MagicMock(spec=dspy.Example)
+        example1.__iter__ = lambda self: iter([("input", "test"), ("output", "good")])
+        example1._trace_id = "trace_1"
+
+        mock_lm = MagicMock(return_value=[lm_response])
+        mock_construct_lm.return_value = mock_lm
+
+        result = distill_guidelines(
+            examples=[example1],
+            judge_instructions="Evaluate quality",
+            reflection_lm=reflection_lm,
+            existing_guidelines=[],
+        )
+
+        assert len(result) == 1
+        assert result[0].guideline_text == "Be concise"
+        assert result[0].source_trace_ids == ["trace_1"]
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        '{"guidelines": []}',
+        '```json\n{"guidelines": []}\n```',
+        '```\n{"guidelines": []}\n```',
+        '  {"guidelines": []}  ',
+        'Here are the guidelines:\n```json\n{"guidelines": []}\n```',
+        'Sure! {"guidelines": []}',
+        '{"guidelines": []}\nLet me know if you need more.',
+        # Reasoning models (e.g. gpt-oss) return a DSPy dict rather than a string.
+        {"text": '{"guidelines": []}', "reasoning_content": "let me think..."},
+    ],
+)
+def test_extract_json_object(response):
+    # The unstructured fallback path yields JSON that may be fenced and/or wrapped in
+    # prose; reasoning models return a {"text": ...} dict. Either must extract to valid JSON.
+    assert json.loads(_extract_json_object(response)) == {"guidelines": []}
+
+
+def _mock_retriever(indices):
+    retriever = MagicMock()
+    retriever.return_value = MagicMock(indices=indices)
+    return retriever
+
+
+@pytest.mark.parametrize("examples", [[], [MagicMock(), MagicMock()]])
+def test_retrieve_relevant_examples_without_retrievers(examples):
     results = retrieve_relevant_examples(
-        retriever=None,
+        retrievers=None,
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": "test"},
-        signature=MagicMock(),
+        retrieval_k=5,
     )
     assert results == []
 
@@ -162,64 +405,64 @@ def test_retrieve_relevant_examples_success():
     example3._trace_id = "trace_3"
     examples = [example1, example2, example3]
 
-    # Mock retriever results
-    mock_retriever = MagicMock()
-    search_results = MagicMock()
-    search_results.indices = [2, 0]  # Return example3 and example1
-    mock_retriever.return_value = search_results
-
-    # Mock signature
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs"]
+    mock_retriever = _mock_retriever([2, 0])  # Return example3 and example1
 
     results = retrieve_relevant_examples(
-        retriever=mock_retriever,
+        retrievers={"inputs": (mock_retriever, [0, 1, 2])},
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": "test query", "outputs": "test output"},
-        signature=signature,
+        retrieval_k=5,
     )
 
     assert len(results) == 2
     assert results[0] == (example3, "trace_3")
     assert results[1] == (example1, "trace_1")
-    # Now uses only the first matching field from priority list ("inputs")
+    # Only the indexed field ("inputs") is queried
     mock_retriever.assert_called_once_with("test query")
 
 
-def test_retrieve_relevant_examples_uses_first_priority_field():
-    examples = [MagicMock()]
-    mock_retriever = MagicMock()
-    search_results = MagicMock()
-    search_results.indices = [0]
-    mock_retriever.return_value = search_results
+@pytest.mark.parametrize(("retrieval_k", "expected"), [(5, [2, 0]), (1, [2])])
+def test_retrieve_relevant_examples_maps_corpus_positions_to_examples(retrieval_k, expected):
+    # examples[1] lacks the field, so the index holds examples 0 and 2 at corpus entries 0 and 1
+    examples = [MagicMock(_trace_id=f"trace_{i}") for i in range(3)]
 
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs", "context"]
-
-    retrieve_relevant_examples(
-        retriever=mock_retriever,
+    results = retrieve_relevant_examples(
+        retrievers={"outputs": (_mock_retriever([1, 0]), [0, 2])},
         examples=examples,
-        query_kwargs={"inputs": "test", "outputs": "output_val", "context": "ctx"},
-        signature=signature,
+        embedding_model="openai:/text-embedding-3-small",
+        query_kwargs={"outputs": "test output"},
+        retrieval_k=retrieval_k,
     )
 
-    # Should only use "inputs" (first in priority list that exists in input_fields)
-    mock_retriever.assert_called_once_with("test")
+    assert results == [(examples[i], f"trace_{i}") for i in expected]
+
+
+@pytest.mark.parametrize(
+    ("input_fields", "retrieval_fields", "expected"),
+    [
+        (["inputs", "outputs", "context"], None, ["inputs"]),
+        (["outputs", "trace"], None, ["outputs"]),
+        (["context"], None, []),
+        (["inputs", "outputs"], ["outputs", "inputs"], ["outputs", "inputs"]),
+    ],
+)
+def test_get_query_fields(input_fields, retrieval_fields, expected):
+    signature = MagicMock(input_fields=input_fields)
+    assert get_query_fields(signature, retrieval_fields) == expected
 
 
 def test_retrieve_relevant_examples_returns_empty_for_none_value():
     examples = [MagicMock()]
     mock_retriever = MagicMock()
 
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs"]
-
-    # When the first priority field value is None, should return empty list
+    # When the indexed field's value is None, should return empty list
     results = retrieve_relevant_examples(
-        retriever=mock_retriever,
+        retrievers={"inputs": (mock_retriever, [0])},
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": None, "outputs": "output_val"},
-        signature=signature,
+        retrieval_k=5,
     )
 
     assert results == []
@@ -228,21 +471,112 @@ def test_retrieve_relevant_examples_returns_empty_for_none_value():
 
 def test_retrieve_relevant_examples_out_of_bounds_raises():
     examples = [MagicMock(), MagicMock()]
-    mock_retriever = MagicMock()
-    search_results = MagicMock()
-    search_results.indices = [5]  # Out of bounds
-    mock_retriever.return_value = search_results
-
-    signature = MagicMock()
-    signature.input_fields = ["inputs"]
+    mock_retriever = _mock_retriever([5])  # Out of bounds
 
     with pytest.raises(IndexError, match="list index out of range"):
         retrieve_relevant_examples(
-            retriever=mock_retriever,
+            retrievers={"inputs": (mock_retriever, [0, 1])},
             examples=examples,
+            embedding_model="openai:/text-embedding-3-small",
             query_kwargs={"inputs": "test"},
-            signature=signature,
+            retrieval_k=5,
         )
+
+
+def _scored_retriever(corpus_embeddings, query_embedding):
+    # Mirrors dspy.retrievers.Embeddings: normalized corpus_embeddings plus the embedder
+    retriever = MagicMock()
+    retriever.corpus_embeddings = np.array(corpus_embeddings, dtype=float)
+    retriever.embedder = MagicMock(return_value=np.array([query_embedding], dtype=float))
+    return retriever
+
+
+# Each index is (corpus embeddings, query embedding, episodic positions).
+@pytest.mark.parametrize(
+    ("indexes", "query_kwargs", "retrieval_k", "expected_positions"),
+    [
+        # inputs covers examples 0-2, outputs covers 1 and 3. Unnormalized queries check that the
+        # query is normalized. Totals: 1 = 0.8 + 1.0, 0 = 1.0, 3 = 1.0, 2 = 0.0. Examples 0 and 3
+        # tie and keep episodic order; example 2 is cut by k.
+        pytest.param(
+            {
+                "inputs": ([[1, 0], [0.8, 0.6], [0, 1]], [2, 0], [0, 1, 2]),
+                "outputs": ([[1, 0], [1, 0]], [3, 0], [1, 3]),
+            },
+            {"inputs": "finding", "outputs": "reply"},
+            3,
+            [1, 0, 3],
+            id="fuses_fields",
+        ),
+        # Example 0 only has inputs, which was not queried, so it is not a candidate.
+        pytest.param(
+            {
+                "inputs": ([[1, 0]], [1, 0], [0]),
+                "outputs": ([[1, 0]], [1, 0], [1]),
+            },
+            {"inputs": None, "outputs": "reply"},
+            5,
+            [1],
+            id="skips_empty_query",
+        ),
+    ],
+)
+def test_retrieve_relevant_examples_multiple_fields(
+    indexes, query_kwargs, retrieval_k, expected_positions
+):
+    examples = [MagicMock(_trace_id=f"trace_{i}") for i in range(4)]
+    retrievers = {
+        field: (_scored_retriever(corpus, query), positions)
+        for field, (corpus, query, positions) in indexes.items()
+    }
+
+    results = retrieve_relevant_examples(
+        retrievers=retrievers,
+        examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
+        query_kwargs=query_kwargs,
+        retrieval_k=retrieval_k,
+    )
+
+    assert results == [(examples[i], f"trace_{i}") for i in expected_positions]
+    for field, (retriever, _) in retrievers.items():
+        if query := query_kwargs[field]:
+            retriever.embedder.assert_called_once_with([query])
+        else:
+            retriever.embedder.assert_not_called()
+
+
+def test_retrieve_relevant_examples_truncates_oversized_queries():
+    long_output = "x" * 1_000_000
+    model = "openai:/text-embedding-3-small"
+    expected = truncate_to_token_limit(long_output, model, model_type="embedding")
+    assert len(expected) < len(long_output)
+    examples = [MagicMock(_trace_id="trace_0")]
+
+    single = _mock_retriever([0])
+    retrieve_relevant_examples(
+        retrievers={"outputs": (single, [0])},
+        examples=examples,
+        embedding_model=model,
+        query_kwargs={"outputs": long_output},
+        retrieval_k=5,
+    )
+    single.assert_called_once_with(expected)
+
+    inputs_retriever = _scored_retriever([[1, 0]], [1, 0])
+    outputs_retriever = _scored_retriever([[1, 0]], [1, 0])
+    retrieve_relevant_examples(
+        retrievers={
+            "inputs": (inputs_retriever, [0]),
+            "outputs": (outputs_retriever, [0]),
+        },
+        examples=examples,
+        embedding_model=model,
+        query_kwargs={"inputs": "short", "outputs": long_output},
+        retrieval_k=5,
+    )
+    inputs_retriever.embedder.assert_called_once_with(["short"])
+    outputs_retriever.embedder.assert_called_once_with([expected])
 
 
 @pytest.mark.parametrize(

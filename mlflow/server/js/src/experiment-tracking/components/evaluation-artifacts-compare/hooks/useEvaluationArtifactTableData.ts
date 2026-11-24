@@ -10,7 +10,6 @@ import {
   PROMPTLAB_METADATA_COLUMN_TOTAL_TOKENS,
 } from '../../prompt-engineering/PromptEngineering.utils';
 import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
 
 type ArtifactsByRun = EvaluationDataReduxState['evaluationArtifactsByRunUuid'];
 type PendingDataByRun = EvaluationDataReduxState['evaluationPendingDataByRunUuid'];
@@ -65,7 +64,6 @@ export const useEvaluationArtifactTableData = (
   groupByCols: string[],
   outputColumn: string,
 ): UseEvaluationArtifactTableDataResult =>
-  // eslint-disable-next-line complexity
   useMemo(() => {
     /**
      * End results, i.e. table rows
@@ -225,8 +223,9 @@ export const useEvaluationArtifactTableData = (
               const { type, filepath, compressed_filepath } = cellsEntry[runUuid] as ArtifactLogTableImageObject;
               if (type === LOG_TABLE_IMAGE_COLUMN_TYPE) {
                 cellsEntry[runUuid] = {
-                  url: getArtifactLocationUrl(filepath, runUuid),
-                  compressed_url: getArtifactLocationUrl(compressed_filepath, runUuid),
+                  runUuid,
+                  filepath,
+                  compressedFilepath: compressed_filepath,
                 };
               } else {
                 cellsEntry[runUuid] = JSON.stringify(cellsEntry[runUuid]);

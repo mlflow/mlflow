@@ -14,14 +14,15 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
-from mlflow.store.artifact.artifact_repo import _retry_with_new_creds
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.artifact_repo import _is_object_key_within_path, _retry_with_new_creds
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
     _compute_num_chunks,
     _validate_chunk_size_aws,
 )
-from mlflow.store.artifact.s3_artifact_repo import _get_s3_client
+from mlflow.store.artifact.s3_artifact_repo import _file_is_directory_marker, _get_s3_client
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.rest_utils import augmented_raise_for_status
@@ -124,10 +125,19 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 )
             raise Exception(f"Unable to get the region name for bucket {self.bucket}.")
         except ClientError as error:
-            # If a client error occurs, we check to see if the x-amz-bucket-region field is set
-            # in the response and return that.  If it is not present, this will raise due to the
-            # key not being present.
-            return error.response[_RESPONSE_METADATA][_HTTP_HEADERS][_HTTP_HEADER_BUCKET_REGION]
+            # If a client error occurs, we check to see if the x-amz-bucket-region field
+            # is set in the response and return that.
+            headers = error.response.get(_RESPONSE_METADATA, {}).get(_HTTP_HEADERS, {})
+            if _HTTP_HEADER_BUCKET_REGION in headers:
+                return headers[_HTTP_HEADER_BUCKET_REGION]
+            raise MlflowException(
+                f"Unable to determine the region for S3 bucket '{self.bucket}'. "
+                f"The HeadBucket request failed with: {error}. "
+                "If you are running in AWS GovCloud or another non-standard partition, "
+                "set the AWS_DEFAULT_REGION environment variable to your region "
+                "(e.g., os.environ['AWS_DEFAULT_REGION'] = 'us-gov-west-1')",
+                error_code=INVALID_PARAMETER_VALUE,
+            ) from error
 
     def _get_s3_client(self):
         return _get_s3_client(
@@ -155,6 +165,18 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         else:
             return None
 
+    def _get_multipart_upload_encryption_args(self):
+        extra_args = dict(self._s3_upload_extra_args)
+        if environ_extra_args := self.get_s3_file_upload_extra_args():
+            extra_args.update(environ_extra_args)
+        encryption_arg_names = {
+            "BucketKeyEnabled",
+            "ServerSideEncryption",
+            "SSEKMSKeyId",
+            "SSEKMSEncryptionContext",
+        }
+        return {key: value for key, value in extra_args.items() if key in encryption_arg_names}
+
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = {}
         extra_args.update(self._s3_upload_extra_args)
@@ -172,7 +194,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
+            try_func=try_func,
+            creds_func=self._refresh_credentials,
+            orig_creds=s3_client,
         )
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -207,7 +231,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         # Create multipart upload
         s3_client = cloud_credential_info
         response = s3_client.create_multipart_upload(
-            Bucket=bucket, Key=key, **self._bucket_owner_params
+            Bucket=bucket,
+            Key=key,
+            **self._bucket_owner_params,
+            **self._get_multipart_upload_encryption_args(),
         )
         upload_id = response["UploadId"]
 
@@ -235,7 +262,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     return response.headers["ETag"]
 
             return _retry_with_new_creds(
-                try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
+                try_func=try_func,
+                creds_func=self._refresh_credentials,
+                orig_creds=s3_client,
             )
 
         try:
@@ -273,7 +302,8 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             )
         except Exception as e:
             _logger.warning(
-                "Encountered an unexpected error during multipart upload: %s, aborting", e
+                "Encountered an unexpected error during multipart upload: %s, aborting",
+                e,
             )
             s3_client.abort_multipart_upload(
                 Bucket=bucket,
@@ -315,8 +345,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path
                 )
-                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 file_size = int(obj.get("Size"))
+                if _file_is_directory_marker(file_path, file_size):
+                    continue
+
+                file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
                 infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
 
@@ -358,7 +391,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             creds.download_file(self.bucket, s3_full_path, local_path, **download_kwargs)
 
         _retry_with_new_creds(
-            try_func=try_func, creds_func=self._refresh_credentials, orig_creds=s3_client
+            try_func=try_func,
+            creds_func=self._refresh_credentials,
+            orig_creds=s3_client,
         )
 
     def delete_artifacts(self, artifact_path=None):
@@ -381,7 +416,8 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=dest_path
                 )
-                keys.append({"Key": file_path})
+                if _is_object_key_within_path(file_path, dest_path):
+                    keys.append({"Key": file_path})
             if keys:
                 s3_client.delete_objects(
                     Bucket=self.bucket,

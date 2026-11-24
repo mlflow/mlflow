@@ -1,6 +1,10 @@
 ---
+title: Tracing Agno
+description: Trace Agno agent pipelines including LLM calls, reasoning steps, and tool usage with MLflow for full observability into AI agent workflows.
 sidebar_position: 8
 sidebar_label: Agno
+keywords: [agno, tracing, mlflow, ai agent, agent framework]
+image: /images/llms/agno/agno-tracing-basic.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -35,7 +39,7 @@ MLflow trace automatically captures the following information about Agentic call
 Install the dependencies for the example:
 
 ```bash
-pip install 'mlflow[genai]>=3.3' agno anthropic yfinance
+pip install 'mlflow>=3.3' agno anthropic yfinance
 ```
 
 Run a simple agent with `mlflow.agno.autolog()` enabled:

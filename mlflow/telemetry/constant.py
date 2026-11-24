@@ -26,10 +26,12 @@ GENAI_MODULES = {
     "autogen",
     "chromadb",
     "crewai",
+    "deepeval",
     "dspy",
     "faiss",
     "google.genai",  # gemini
     "groq",
+    "guardrails",
     "haystack",
     "langchain",
     "langgraph",
@@ -40,12 +42,14 @@ GENAI_MODULES = {
     "milvus",
     "mistralai",
     "openai",
+    "phoenix.evals",
     "pinecone",
     "pydantic_ai",
     "qdrant",
     "ragas",
     "semantic_kernel",
     "smolagents",
+    "trulens",
     "vllm",
     "weaviate",
 } | set(GENAI_FLAVOR_TO_MODULE_NAME.values())
@@ -84,6 +88,37 @@ NON_GENAI_MODULES = {
 } | set(NON_GENAI_FLAVOR_TO_MODULE_NAME.values()) - {"pyspark"}
 
 MODULES_TO_CHECK_IMPORT = GENAI_MODULES | NON_GENAI_MODULES
+
+# Built-in MLflow flavors, used to bound the telemetry `flavor` value to a known set.
+# Anything else (a custom or third-party flavor) is reported as "other". Update this
+# when a built-in flavor is added or removed.
+KNOWN_FLAVORS = {
+    "catboost",
+    "diffusers",
+    "dspy",
+    "h2o",
+    "johnsnowlabs",
+    "keras",
+    "langchain",
+    "lightgbm",
+    "llama_index",
+    "onnx",
+    "openai",
+    "paddle",
+    "pmdarima",
+    "prophet",
+    "pyfunc",
+    "pytorch",
+    "sentence_transformers",
+    "shap",
+    "sklearn",
+    "spacy",
+    "spark",
+    "statsmodels",
+    "tensorflow",
+    "transformers",
+    "xgboost",
+}
 
 # fallback config to use for UI telemetry in case fetch fails
 FALLBACK_UI_CONFIG = {

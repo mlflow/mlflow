@@ -11,6 +11,8 @@ import { useCreateSecret } from './useCreateSecret';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
 import type { Endpoint } from '../types';
+import { hasMixedTypeSafeProviders } from '../utils/gatewayUtils';
+import { hasNonAsciiApiKey } from '../utils/secretUtils';
 
 export { getReadableErrorMessage };
 
@@ -67,6 +69,7 @@ export interface UseEditEndpointFormResult {
   handleSubmit: (values: EditEndpointFormData) => Promise<void>;
   handleCancel: () => void;
   handleNameUpdate: (newName: string) => Promise<void>;
+  handleUsageTrackingUpdate: (enabled: boolean) => Promise<void>;
 }
 
 export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResult {
@@ -92,26 +95,10 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       const fallbackMappings = endpoint.model_mappings.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
       const totalWeight = primaryMappings.reduce((sum, m) => sum + (m.weight ?? 1.0), 0);
 
-      form.reset({
-        name: endpoint.name ?? '',
-        trafficSplitModels: primaryMappings.map((m) => ({
-          modelDefinitionId: m.model_definition?.model_definition_id,
-          modelDefinitionName: m.model_definition?.name ?? '',
-          provider: m.model_definition?.provider ?? '',
-          modelName: m.model_definition?.model_name ?? '',
-          secretMode: 'existing' as const,
-          existingSecretId: m.model_definition?.secret_id ?? '',
-          newSecret: {
-            name: '',
-            authMode: '',
-            secretFields: {},
-            configFields: {},
-          },
-          weight: totalWeight > 0 ? ((m.weight ?? 1.0) / totalWeight) * 100 : 100 / primaryMappings.length,
-        })),
-        fallbackModels: fallbackMappings
-          .sort((a, b) => (a.fallback_order ?? 0) - (b.fallback_order ?? 0))
-          .map((m, idx) => ({
+      form.reset(
+        {
+          name: endpoint.name ?? '',
+          trafficSplitModels: primaryMappings.map((m) => ({
             modelDefinitionId: m.model_definition?.model_definition_id,
             modelDefinitionName: m.model_definition?.name ?? '',
             provider: m.model_definition?.provider ?? '',
@@ -124,11 +111,32 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               secretFields: {},
               configFields: {},
             },
-            fallbackOrder: idx + 1,
+            weight: totalWeight > 0 ? ((m.weight ?? 1.0) / totalWeight) * 100 : 100 / primaryMappings.length,
           })),
-        usageTracking: endpoint.usage_tracking ?? false,
-        experimentId: endpoint.experiment_id ?? '',
-      });
+          fallbackModels: fallbackMappings
+            .sort((a, b) => (a.fallback_order ?? 0) - (b.fallback_order ?? 0))
+            .map((m, idx) => ({
+              modelDefinitionId: m.model_definition?.model_definition_id,
+              modelDefinitionName: m.model_definition?.name ?? '',
+              provider: m.model_definition?.provider ?? '',
+              modelName: m.model_definition?.model_name ?? '',
+              secretMode: 'existing' as const,
+              existingSecretId: m.model_definition?.secret_id ?? '',
+              newSecret: {
+                name: '',
+                authMode: '',
+                secretFields: {},
+                configFields: {},
+              },
+              fallbackOrder: idx + 1,
+            })),
+          usageTracking: endpoint.usage_tracking ?? false,
+          experimentId: endpoint.experiment_id ?? '',
+        },
+        {
+          keepDirtyValues: true,
+        },
+      );
     }
   }, [endpoint, form]);
 
@@ -147,7 +155,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
 
   const handleSubmit = useCallback(
     async (values: EditEndpointFormData) => {
-      if (!endpoint) return;
+      if (!endpoint || hasMixedTypeSafeProviders([...values.trafficSplitModels, ...values.fallbackModels])) return;
 
       try {
         const getSecretId = async (model: TrafficSplitModel | FallbackModel): Promise<string> => {
@@ -272,8 +280,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   );
 
   const handleCancel = useCallback(() => {
-    navigate(GatewayRoutes.gatewayPageRoute);
-  }, [navigate]);
+    form.reset();
+  }, [form]);
 
   const handleNameUpdate = useCallback(
     async (newName: string) => {
@@ -291,11 +299,33 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     [endpoint, updateEndpoint, queryClient, endpointId],
   );
 
+  const handleUsageTrackingUpdate = useCallback(
+    async (enabled: boolean) => {
+      if (!endpoint) return;
+
+      const previousValue = form.getValues('usageTracking');
+      if (previousValue === enabled) return;
+
+      form.setValue('usageTracking', enabled);
+
+      try {
+        await updateEndpoint({
+          endpointId: endpoint.endpoint_id,
+          usage_tracking: enabled,
+        });
+      } catch {
+        form.setValue('usageTracking', previousValue);
+      }
+    },
+    [endpoint, form, updateEndpoint],
+  );
+
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
 
   const isFormComplete = useMemo(() => {
     if (trafficSplitModels.length === 0) return false;
+    if (hasMixedTypeSafeProviders([...trafficSplitModels, ...fallbackModels])) return false;
 
     const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
     if (Math.abs(totalWeight - 100) > 0.01) return false;
@@ -313,7 +343,9 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           ? Object.values(m.newSecret.secretFields).some((value) => value)
           : false;
 
-        return hasRequiredNewSecretFields && hasAtLeastOneSecretFieldValue;
+        return (
+          hasRequiredNewSecretFields && hasAtLeastOneSecretFieldValue && !hasNonAsciiApiKey(m.newSecret.secretFields)
+        );
       }
     };
 
@@ -324,16 +356,11 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   }, [trafficSplitModels, fallbackModels]);
 
   const name = form.watch('name');
-  const usageTracking = form.watch('usageTracking');
-
   const hasChanges = useMemo(() => {
     if (!endpoint) return false;
 
     const originalName = endpoint.name ?? '';
     if (name !== originalName) return true;
-
-    const originalUsageTracking = endpoint.usage_tracking ?? false;
-    if (usageTracking !== originalUsageTracking) return true;
 
     const originalPrimaryMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'PRIMARY') ?? [];
     const originalFallbackMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
@@ -400,7 +427,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     });
 
     return trafficSplitChanged || fallbackChanged;
-  }, [endpoint, name, usageTracking, trafficSplitModels, fallbackModels]);
+  }, [endpoint, name, trafficSplitModels, fallbackModels]);
 
   const { data: existingEndpoints } = useEndpointsQuery();
 
@@ -417,5 +444,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     handleSubmit,
     handleCancel,
     handleNameUpdate,
+    handleUsageTrackingUpdate,
   };
 }

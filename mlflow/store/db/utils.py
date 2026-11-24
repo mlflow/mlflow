@@ -12,7 +12,7 @@ import sqlalchemy
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from packaging.version import Version
-from sqlalchemy import event, sql
+from sqlalchemy import BigInteger, event, func, literal_column, sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
 from sqlalchemy.pool import (
@@ -23,7 +23,16 @@ from sqlalchemy.pool import (
     SingletonThreadPool,
     StaticPool,
 )
+from sqlalchemy.sql.elements import BinaryExpression
 
+# CRITICAL: Import ORM modules to register all table metadata with Base.metadata.
+# _all_tables_exist() depends on Base.metadata.tables being fully populated.
+# If these imports are removed, Base.metadata.tables will be incomplete and
+# _all_tables_exist() will return True even when tables are missing, silently
+# skipping DB initialization/migration.
+import mlflow.store.model_registry.dbmodels.models  # noqa: F401
+import mlflow.store.tracking.dbmodels.models  # noqa: F401
+import mlflow.store.workspace.dbmodels.models  # noqa: F401
 from mlflow.environment_variables import (
     MLFLOW_MYSQL_SSL_CA,
     MLFLOW_MYSQL_SSL_CERT,
@@ -40,34 +49,9 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     TEMPORARILY_UNAVAILABLE,
 )
-from mlflow.store.db.db_types import SQLITE
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlModelVersion,
-    SqlModelVersionTag,
-    SqlRegisteredModel,
-    SqlRegisteredModelAlias,
-    SqlRegisteredModelTag,
-)
+from mlflow.store.db.base_sql_model import Base
+from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.store.tracking.dbmodels.models import (
-    SqlDataset,
-    SqlExperiment,
-    SqlExperimentTag,
-    SqlInput,
-    SqlInputTag,
-    SqlJob,
-    SqlLatestMetric,
-    SqlMetric,
-    SqlParam,
-    SqlRun,
-    SqlScorer,
-    SqlScorerVersion,
-    SqlTag,
-    SqlTraceInfo,
-    SqlTraceMetadata,
-    SqlTraceTag,
-)
-from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 
 _logger = logging.getLogger(__name__)
 
@@ -81,38 +65,23 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    # Check if the core initial tables exist in the database.
+    # Check if all ORM-defined tables exist in the database.
+    # Derived from Base.metadata.tables so that newly added ORM models are
+    # automatically included without requiring a manual update here.
     # Using issubset() instead of equality so that additional tables added by migrations
     # don't cause this check to fail. This prevents unnecessary calls to _initialize_tables
     # which can cause migration errors like "Can't locate revision identified by 'xxx'".
-    expected_tables = {
-        SqlExperiment.__tablename__,
-        SqlRun.__tablename__,
-        SqlMetric.__tablename__,
-        SqlParam.__tablename__,
-        SqlTag.__tablename__,
-        SqlExperimentTag.__tablename__,
-        SqlLatestMetric.__tablename__,
-        SqlRegisteredModel.__tablename__,
-        SqlModelVersion.__tablename__,
-        SqlRegisteredModelTag.__tablename__,
-        SqlModelVersionTag.__tablename__,
-        SqlRegisteredModelAlias.__tablename__,
-        SqlDataset.__tablename__,
-        SqlInput.__tablename__,
-        SqlInputTag.__tablename__,
-        SqlTraceInfo.__tablename__,
-        SqlTraceTag.__tablename__,
-        SqlTraceMetadata.__tablename__,
-        SqlScorer.__tablename__,
-        SqlScorerVersion.__tablename__,
-        SqlJob.__tablename__,
-        SqlWorkspace.__tablename__,
-    }
+    expected_tables = set(Base.metadata.tables)
     actual_tables = {
         t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
     }
     return expected_tables.issubset(actual_tables)
+
+
+def _is_empty_database(engine):
+    # Alembic's bookkeeping table is ignored so a previously failed upgrade attempt
+    # doesn't make the DB look populated.
+    return all(t.startswith("alembic_") for t in sqlalchemy.inspect(engine).get_table_names())
 
 
 def _initialize_tables(engine):
@@ -175,8 +144,11 @@ def _get_managed_session_maker(SessionMaker, db_type):
     automatically closed when the session's associated context is exited.
     """
 
+    # Default to read_only=True to avoid accidentally treating read query as write
+    # and send to the main workers. The test time validation detects when the
+    # actual write query is marked read-only.
     @contextmanager
-    def make_managed_session():
+    def make_managed_session(read_only=True):
         """Provide a transactional scope around a series of operations."""
         with SessionMaker() as session:
             try:
@@ -184,6 +156,21 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     session.execute(sql.text("PRAGMA foreign_keys = ON;"))
                     session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
                     session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
+
+                # Validation that only triggers while testing to make sure the
+                # read_only flag is properly set.
+                if read_only and os.environ.get("PYTEST_CURRENT_TEST"):
+
+                    def _reject_flush(session, flush_context, instances):
+                        raise MlflowException(
+                            "Write operation detected on a read-only session. "
+                            "ManagedSessionMaker creates read-only sessions "
+                            "by default. Pass read_only=False to the constructor "
+                            "to mark it as a write operation.",
+                            error_code=INTERNAL_ERROR,
+                        )
+
+                    event.listen(session, "before_flush", _reject_flush)
                 yield session
                 session.commit()
             except MlflowException:
@@ -202,6 +189,36 @@ def _get_managed_session_maker(SessionMaker, db_type):
             except Exception as e:
                 session.rollback()
                 raise MlflowException(message=e, error_code=INTERNAL_ERROR) from e
+
+    return make_managed_session
+
+
+def _get_routing_session_maker(write_session_maker, read_session_maker, db_type):
+    """
+    Creates a routing-aware managed session factory that directs read operations to a
+    read replica and write operations to the primary database.
+
+    When a read replica URI is configured, read-only operations (marked with
+    ``read_only=True``) use the read replica's session, while all other operations
+    use the primary (write) session. If no read replica is configured, both session
+    makers should be identical and all operations go to the primary database.
+
+    Args:
+        write_session_maker: SQLAlchemy ``sessionmaker`` bound to the primary (write) engine.
+        read_session_maker: SQLAlchemy ``sessionmaker`` bound to the read replica engine.
+        db_type: Database type string (e.g. ``"sqlite"``) forwarded to
+            ``_get_managed_session_maker`` for dialect-specific session configuration.
+
+    Returns:
+        A context-manager factory accepting an optional ``read_only`` keyword argument.
+    """
+    _write = _get_managed_session_maker(write_session_maker, db_type)
+    _read = _get_managed_session_maker(read_session_maker, db_type)
+
+    @contextmanager
+    def make_managed_session(read_only=True):
+        with (_read if read_only else _write)(read_only=read_only) as session:
+            yield session
 
     return make_managed_session
 
@@ -267,9 +284,7 @@ def _upgrade_db(engine):
     we recommend taking a backup of your database before running migrations.
 
     Args:
-        url: Database URL, like sqlite:///<absolute-path-to-local-db-file>. See
-            https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls for a full list of
-            valid database URLs.
+        engine: SQLAlchemy engine connected to the database to upgrade.
     """
     # alembic adds significant import time, so we import it lazily
     from alembic import command
@@ -299,12 +314,46 @@ def _make_parent_dirs_if_sqlite(db_uri: str) -> None:
     """Create parent directories for SQLite database file if they don't exist."""
     if not db_uri.startswith("sqlite:///"):
         return
-    # SQLite URI format: sqlite:///path/to/file.db (relative) or sqlite:////abs/path (Unix)
-    # Remove the 'sqlite:///' prefix to get the path
+    # Use the path SQLAlchemy opens, which may be URL-decoded depending on its version.
     # Skip in-memory databases (:memory: or empty path)
-    db_path = db_uri.removeprefix("sqlite:///")
+    db_path = sqlalchemy.engine.make_url(db_uri).database
     if db_path and db_path != ":memory:":
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+
+
+def get_current_time_millis_expression(db_type: str) -> BinaryExpression:
+    """
+    Make a SQL expression that gets the current time from the database clock in milliseconds since
+    the Unix epoch
+
+    Args:
+        db_type: The database dialect string (``postgresql``, ``mysql``, ``sqlite``, ``mssql``).
+
+    Returns:
+        A SQLAlchemy binary expression. Use it in a query the same way you use a literal value.
+
+    Raises:
+        MlflowException: If ``db_type`` is not a supported dialect.
+    """
+
+    if db_type == POSTGRES:
+        return func.floor(func.extract("epoch", func.now()) * 1000)
+
+    if db_type == MYSQL:
+        epoch = "1970-01-01 00:00:00"
+        utc_now = func.utc_timestamp(3)
+        microseconds_since_epoch = func.timestampdiff(literal_column("MICROSECOND"), epoch, utc_now)
+        return func.floor(microseconds_since_epoch / 1000)
+
+    if db_type == SQLITE:
+        milliseconds_per_day = 24 * 3600 * 1000
+        fractional_days_since_unix_epoch = func.julianday("now") - func.julianday("1970-01-01")
+        return func.cast(fractional_days_since_unix_epoch * milliseconds_per_day, BigInteger)
+
+    if db_type == MSSQL:
+        return func.datediff_big(literal_column("MILLISECOND"), "1970-01-01", func.sysutcdatetime())
+
+    raise MlflowException.invalid_parameter_value(f"Unsupported db type: {db_type}")
 
 
 def create_sqlalchemy_engine_with_retry(db_uri):
@@ -339,9 +388,9 @@ def create_sqlalchemy_engine(db_uri):
     kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
-    if pool_size:
+    if pool_size is not None:
         kwargs["pool_size"] = pool_size
-    if pool_max_overflow:
+    if pool_max_overflow is not None:
         kwargs["max_overflow"] = pool_max_overflow
     if pool_recycle:
         kwargs["pool_recycle"] = pool_recycle

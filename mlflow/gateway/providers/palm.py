@@ -10,7 +10,7 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 
 
 class PaLMProvider(BaseProvider):
-    NAME = "PaLM"
+    DISPLAY_NAME = "PaLM"
     CONFIG_TYPE = PaLMConfig
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
@@ -60,7 +60,7 @@ class PaLMProvider(BaseProvider):
         for m in payload["messages"]:
             m["author"] = m.pop("role")
 
-        # Map 'messages', 'examples, and 'context' to 'prompt'
+        # Map 'messages', 'examples', and 'context' to 'prompt'
         prompt = {"messages": payload.pop("messages")}
         if "examples" in payload:
             prompt["examples"] = payload.pop("examples")

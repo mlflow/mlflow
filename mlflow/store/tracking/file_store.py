@@ -8,7 +8,6 @@ import shutil
 import sys
 import time
 import uuid
-import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
@@ -46,7 +45,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_DIR
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE, MLFLOW_TRACKING_DIR
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -115,6 +114,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
+    _validate_experiment_tag,
     _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
@@ -123,6 +123,7 @@ from mlflow.utils.validation import (
     _validate_param_name,
     _validate_run_id,
     _validate_tag_name,
+    invalid_value,
 )
 from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
@@ -134,6 +135,34 @@ _logger = logging.getLogger(__name__)
 
 def _default_root_dir():
     return MLFLOW_TRACKING_DIR.get() or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+
+
+def _validate_path_component(value: str, field_name: str) -> None:
+    # Ids such as trace and model ids name a directory directly under a store folder, so anything
+    # that resolves elsewhere (an absolute path, a path separator, "." or "..") must be rejected
+    # before it reaches `mkdir` or `shutil.rmtree`. Windows strips trailing spaces and periods from
+    # path components, which turns ids such as ".. " back into "..", so ids that normalization
+    # would alter are rejected too.
+    if not value or value.rstrip(" .") != value or os.path.basename(value) != value:
+        raise MlflowException(
+            invalid_value(field_name, value, "must be a single path component"),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_new_trace_id(trace_id: str) -> None:
+    _validate_path_component(trace_id, "trace_id")
+    # New trace ids are also embedded in the trace artifact URI, where "%", "?" and "#" change how
+    # the path is decoded and URL parsing drops tabs and newlines, so those and other control
+    # characters are rejected. Only trace creation applies this, so traces created before it can
+    # still be deleted by id.
+    if any(c in "%?#" or ord(c) < 32 or ord(c) == 127 for c in trace_id):
+        raise MlflowException(
+            invalid_value(
+                "trace_id", trace_id, "must not contain '%', '?', '#' or control characters"
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _read_persisted_experiment_dict(experiment_dict):
@@ -221,15 +250,18 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super().__init__()
-        warnings.warn(
-            "The filesystem tracking backend (e.g., './mlruns') is deprecated as of "
-            "February 2026. Consider transitioning to a database backend (e.g., "
-            "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
-            "See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
-            "for migration guidance.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        if not MLFLOW_ALLOW_FILE_STORE.get():
+            raise MlflowException(
+                "The filesystem tracking backend (e.g., './mlruns') is in maintenance mode "
+                "and will not receive further updates. Please migrate to a "
+                "database backend (e.g., 'sqlite:///mlflow.db') to access the latest MLflow "
+                "features. The `mlflow migrate-filestore` tool migrates your existing data "
+                "losslessly. See "
+                "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+                "for migration guidance. If the filesystem backend is required for your "
+                "workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         if not artifact_root_uri:
             self.artifact_root_uri = path_to_local_file_uri(self.root_directory)
@@ -461,6 +493,9 @@ class FileStore(AbstractStore):
 
         if artifact_location:
             _validate_experiment_artifact_location_length(artifact_location)
+        if tags:
+            for tag in tags:
+                _validate_experiment_tag(tag.key, tag.value)
 
         self._validate_experiment_does_not_exist(name)
         experiment_id = _generate_unique_integer_id()
@@ -1162,7 +1197,7 @@ class FileStore(AbstractStore):
             experiment_id: String ID of the experiment
             tag: ExperimentRunTag instance to log
         """
-        _validate_tag_name(tag.key)
+        _validate_experiment_tag(tag.key, tag.value)
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
@@ -1383,6 +1418,7 @@ class FileStore(AbstractStore):
 
         for model_output in models:
             model_id = model_output.model_id
+            _validate_path_component(model_id, "model_id")
             output_dir = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME, model_id)
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir, exist_ok=True)
@@ -1714,9 +1750,6 @@ class FileStore(AbstractStore):
         self._write_dict_to_trace_sub_folder(
             trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, trace_info.tags
         )
-        # Save assessments to its own folder
-        for assessment in trace_info.assessments:
-            self.create_assessment(assessment)
 
     def _convert_trace_info_to_dict(self, trace_info: TraceInfo):
         """
@@ -1757,6 +1790,7 @@ class FileStore(AbstractStore):
             The created TraceInfo object from the backend.
         """
         _validate_experiment_id(trace_info.experiment_id)
+        _validate_new_trace_id(trace_info.trace_id)
         experiment_dir = self._get_experiment_path(
             trace_info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
         )
@@ -1775,6 +1809,11 @@ class FileStore(AbstractStore):
         # Create updated TraceInfo with artifact location tag
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir)
+        # Save assessments to its own folder. They belong to the trace being saved, so
+        # override any trace id they carry, like SqlAlchemyStore.start_trace does.
+        for assessment in trace_info.assessments:
+            assessment.trace_id = trace_info.trace_id
+            self.create_assessment(assessment)
         return trace_info
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
@@ -1864,6 +1903,7 @@ class FileStore(AbstractStore):
         return os.path.join(trace_dir, FileStore.ASSESSMENTS_FOLDER_NAME)
 
     def _get_assessment_path(self, trace_id: str, assessment_id: str) -> str:
+        _validate_path_component(assessment_id, "assessment_id")
         assessments_dir = self._get_assessments_dir(trace_id)
         return os.path.join(assessments_dir, f"{assessment_id}.yaml")
 
@@ -2147,7 +2187,7 @@ class FileStore(AbstractStore):
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0
-        if max_timestamp_millis:
+        if max_timestamp_millis is not None:
             trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
             trace_info_and_paths = []
             for trace_path in trace_paths:
@@ -2170,6 +2210,8 @@ class FileStore(AbstractStore):
                 shutil.rmtree(trace_path)
             return deleted_traces
         if trace_ids:
+            for trace_id in trace_ids:
+                _validate_path_component(trace_id, "trace_id")
             for trace_id in trace_ids:
                 trace_path = os.path.join(traces_path, trace_id)
                 # Do not throw if the trace doesn't exist
@@ -2522,6 +2564,7 @@ class FileStore(AbstractStore):
         return model_dict
 
     def _get_model_dir(self, experiment_id: str, model_id: str) -> str:
+        _validate_path_component(model_id, "model_id")
         if not self._has_experiment(experiment_id):
             return None
         return os.path.join(

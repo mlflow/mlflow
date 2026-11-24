@@ -1,11 +1,40 @@
-import importlib.util
-from typing import Any, TypedDict
+import functools
+import importlib.resources
+import json
+import logging
+import os
+import urllib.parse
+import urllib.request
+from collections.abc import Iterator
+from pathlib import Path
+from typing import NotRequired, TypedDict
 
-from typing_extensions import NotRequired
+import cachetools
 
-_PROVIDER_BACKEND_AVAILABLE = importlib.util.find_spec("litellm") is not None
+from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
+from mlflow.exceptions import MlflowException
+from mlflow.utils.provider_filter import (
+    filter_providers,
+    is_provider_allowed,
+    normalize_provider_name,
+)
+from mlflow.utils.request_utils import cloud_storage_http_request
 
-_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
+_logger = logging.getLogger(__name__)
+
+_SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", "evaluation", "responses", None)
+
+_REMOTE_FETCH_MAX_RETRIES = 3
+_REMOTE_FETCH_TIMEOUT = 5
+
+# Retry codes for catalog fetches. Extends the standard transient codes with 404
+# because GitHub Releases assets can briefly return 404 during the --clobber
+# re-upload window or CDN propagation delay.
+_CATALOG_RETRY_CODES = frozenset([404, 408, 429, 500, 502, 503, 504])
+
+# Per-provider TTL cache for remote catalog fetches.
+# Initialized lazily in _get_remote_cache() so the TTL reads the env var at first use.
+_remote_cache: cachetools.TTLCache | None = None
 
 
 class FieldDict(TypedDict):
@@ -45,17 +74,405 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
-def _get_model_cost():
-    from litellm import model_cost
+# --- MLflow-native catalog schema TypedDicts (matches per-provider JSON files) ---
 
-    return model_cost
+
+class CatalogContextWindow(TypedDict, total=False):
+    max_input: int
+    max_output: int
+    max_tokens: int
+
+
+class CatalogPricingTier(TypedDict, total=False):
+    input_per_million_tokens: float
+    output_per_million_tokens: float
+    cache_read_per_million_tokens: float
+    cache_write_per_million_tokens: float
+    cache_write_1hr_per_million_tokens: float
+
+
+class CatalogLongContextTier(CatalogPricingTier, total=False):
+    threshold_tokens: int
+
+
+class CatalogPricingModality(TypedDict, total=False):
+    input_per_million_tokens: float
+    output_per_million_tokens: float
+    cache_read_per_million_tokens: float
+    cache_write_per_million_tokens: float
+    input_per_second: float
+    output_per_second: float
+
+
+class ModelInfo(TypedDict, total=False):
+    """Flat model info used internally by cost_per_token, get_models, etc.
+
+    All fields are optional (total=False) since not every model has every field.
+    For example, embedding models may lack output pricing, and some models may
+    not have deprecation dates or cache pricing.
+    """
+
+    mode: str | None
+    supports_function_calling: bool
+    supports_vision: bool
+    supports_reasoning: bool
+    supports_prompt_caching: bool
+    supports_response_schema: bool
+    max_input_tokens: int
+    max_output_tokens: int
+    max_tokens: int
+    input_cost_per_token: float
+    output_cost_per_token: float
+    cache_read_input_token_cost: float
+    cache_creation_input_token_cost: float
+    cache_creation_input_token_cost_above_1hr: float
+    modality: dict[str, CatalogPricingModality]
+    deprecation_date: str
+    last_updated_at: str
+
+
+class ModelDict(TypedDict):
+    """Model dictionary returned by get_models() and the gateway API.
+
+    All fields are always present (some may be None).
+    """
+
+    model: str
+    provider: str | None
+    mode: str | None
+    supports_function_calling: bool
+    supports_vision: bool
+    supports_reasoning: bool
+    supports_prompt_caching: bool
+    supports_response_schema: bool
+    max_input_tokens: int | None
+    max_output_tokens: int | None
+    input_cost_per_token: float | None
+    output_cost_per_token: float | None
+    modality: dict[str, CatalogPricingModality] | None
+    deprecation_date: str | None
+    last_updated_at: str | None
+
+
+# --- (continued) MLflow-native catalog schema TypedDicts ---
+
+
+class CatalogPricing(CatalogPricingTier, total=False):
+    service_tiers: dict[str, CatalogPricingTier]
+    long_context: list[CatalogLongContextTier]
+    modality: dict[str, CatalogPricingModality]
+
+
+class CatalogCapabilities(TypedDict, total=False):
+    function_calling: bool
+    vision: bool
+    reasoning: bool
+    prompt_caching: bool
+    response_schema: bool
+
+
+class CatalogModelEntry(TypedDict, total=False):
+    mode: str
+    context_window: CatalogContextWindow
+    pricing: CatalogPricing
+    capabilities: CatalogCapabilities
+    deprecation_date: str
+    last_updated_at: str
+
+
+class CatalogFile(TypedDict):
+    schema_version: str
+    models: dict[str, CatalogModelEntry]
+
+
+def _flatten_catalog_entry(entry: CatalogModelEntry) -> ModelInfo:
+    """Convert an MLflow-native catalog entry to the flat ModelInfo format."""
+    info: ModelInfo = {"mode": entry.get("mode")}
+
+    if cw := entry.get("context_window"):
+        if (v := cw.get("max_input")) is not None:
+            info["max_input_tokens"] = v
+        if (v := cw.get("max_output")) is not None:
+            info["max_output_tokens"] = v
+        if (v := cw.get("max_tokens")) is not None:
+            info["max_tokens"] = v
+
+    if pricing := entry.get("pricing"):
+        if (v := pricing.get("input_per_million_tokens")) is not None:
+            info["input_cost_per_token"] = v / 1_000_000
+        if (v := pricing.get("output_per_million_tokens")) is not None:
+            info["output_cost_per_token"] = v / 1_000_000
+        if (v := pricing.get("cache_read_per_million_tokens")) is not None:
+            info["cache_read_input_token_cost"] = v / 1_000_000
+        if (v := pricing.get("cache_write_per_million_tokens")) is not None:
+            info["cache_creation_input_token_cost"] = v / 1_000_000
+        if (v := pricing.get("cache_write_1hr_per_million_tokens")) is not None:
+            info["cache_creation_input_token_cost_above_1hr"] = v / 1_000_000
+        if modality := pricing.get("modality"):
+            info["modality"] = modality
+
+    if caps := entry.get("capabilities"):
+        info["supports_function_calling"] = caps.get("function_calling", False)
+        info["supports_vision"] = caps.get("vision", False)
+        info["supports_reasoning"] = caps.get("reasoning", False)
+        info["supports_prompt_caching"] = caps.get("prompt_caching", False)
+        info["supports_response_schema"] = caps.get("response_schema", False)
+
+    if dep := entry.get("deprecation_date"):
+        info["deprecation_date"] = dep
+
+    if last_updated_at := entry.get("last_updated_at"):
+        info["last_updated_at"] = last_updated_at
+
+    return info
+
+
+def _catalog_pkg() -> Path:
+    return importlib.resources.files(__package__).joinpath("model_catalog")
+
+
+@functools.lru_cache(maxsize=1)
+def _list_provider_names() -> list[str]:
+    """Return provider names available in the bundled catalog (cheap directory listing)."""
+    try:
+        return sorted(p.stem for p in _catalog_pkg().glob("*.json") if p.is_file())
+    except (FileNotFoundError, TypeError):
+        return []
+
+
+def _parse_catalog_models(catalog: CatalogFile) -> dict[str, ModelInfo]:
+    return {
+        name: _flatten_catalog_entry(entry) for name, entry in catalog.get("models", {}).items()
+    }
+
+
+def _get_remote_cache() -> cachetools.TTLCache:
+    global _remote_cache
+    if _remote_cache is None:
+        _remote_cache = cachetools.TTLCache(maxsize=256, ttl=MLFLOW_MODEL_CATALOG_CACHE_TTL.get())
+    return _remote_cache
+
+
+def _fetch_remote_provider(provider: str) -> dict[str, ModelInfo] | None:
+    """Try to fetch a single provider's catalog from the configured URL with TTL caching.
+
+    Supports ``http(s)://`` URLs (GitHub Releases, CDNs) and ``file://`` paths
+    (for air-gapped / mirrored environments). Set ``MLFLOW_MODEL_CATALOG_URI``
+    to an empty string to disable remote fetch entirely.
+    """
+    base_url = MLFLOW_MODEL_CATALOG_URI.get()
+    if not base_url:
+        return None
+
+    cache = _get_remote_cache()
+    if provider in cache:
+        return cache[provider] or None
+
+    url = f"{base_url.rstrip('/')}/{provider}.json"
+    parsed = urllib.parse.urlparse(url)
+
+    match parsed.scheme:
+        case "file":
+            result = _fetch_local_provider(provider, Path(urllib.request.url2pathname(parsed.path)))
+        case "http" | "https":
+            result = _fetch_http_provider(provider, url)
+        case _:
+            raise ValueError(
+                f"Unsupported MLFLOW_MODEL_CATALOG_URI scheme: {parsed.scheme!r}. "
+                f"Expected 'http', 'https', or 'file'. Got URI: {base_url}"
+            )
+
+    # Cache failures as empty dict so we don't retry on every call within the TTL
+    cache[provider] = result or {}
+    return result
+
+
+def _fetch_local_provider(provider: str, path: Path) -> dict[str, ModelInfo] | None:
+    try:
+        catalog: CatalogFile = json.loads(path.read_text("utf-8"))
+        return _parse_catalog_models(catalog)
+    except Exception:
+        _logger.debug("Failed to read local catalog for %s", provider, exc_info=True)
+        return None
+
+
+def _fetch_http_provider(provider: str, url: str) -> dict[str, ModelInfo] | None:
+    try:
+        resp = cloud_storage_http_request(
+            "GET",
+            url,
+            max_retries=_REMOTE_FETCH_MAX_RETRIES,
+            backoff_factor=1,
+            retry_codes=_CATALOG_RETRY_CODES,
+            timeout=_REMOTE_FETCH_TIMEOUT,
+        )
+        resp.raise_for_status()
+        catalog: CatalogFile = resp.json()
+        return _parse_catalog_models(catalog)
+    except Exception:
+        _logger.debug("Failed to fetch remote catalog for %s", provider, exc_info=True)
+        return None
+
+
+@functools.lru_cache(maxsize=128)
+def _load_bundled_provider(provider: str) -> dict[str, ModelInfo]:
+    """Load a single provider's catalog from the bundled package resources."""
+    resource = _catalog_pkg().joinpath(f"{provider}.json")
+    try:
+        with importlib.resources.as_file(resource) as path, path.open(encoding="utf-8") as f:
+            catalog: CatalogFile = json.load(f)
+            return _parse_catalog_models(catalog)
+    except (FileNotFoundError, TypeError):
+        return {}
+
+
+def _load_provider(provider: str) -> dict[str, ModelInfo]:
+    """Load a provider's model catalog, trying remote first then bundled fallback."""
+    if remote := _fetch_remote_provider(provider):
+        return remote
+    return _load_bundled_provider(provider)
+
+
+def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
+    """Look up model cost info, loading only the relevant provider file."""
+    bare_model = model.split("/", 1)[-1]
+
+    if custom_llm_provider:
+        return _load_provider(custom_llm_provider).get(bare_model)
+
+    # No provider given — scan bundled providers only (no remote fetch)
+    # to avoid O(N) network requests across all providers.
+    fallback = None
+    for provider in _list_provider_names():
+        if info := _load_bundled_provider(provider).get(bare_model):
+            if info.get("input_cost_per_token"):
+                return info
+            if fallback is None:
+                fallback = info
+    return fallback
+
+
+def cost_per_token(
+    model: str,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    custom_llm_provider: str | None = None,
+    cache_read_input_tokens: int | None = None,
+    cache_creation_input_tokens: int | None = None,
+    cache_creation_input_tokens_above_1hr: int | None = None,
+) -> tuple[float, float] | None:
+    """Calculate cost per token using the bundled model price data.
+
+    Args:
+        model: The model name to look up pricing for.
+        prompt_tokens: Total input tokens, including any cached tokens.
+        completion_tokens: Output tokens.
+        custom_llm_provider: Optional provider hint to speed up / disambiguate lookup.
+        cache_read_input_tokens: Portion of ``prompt_tokens`` served from the prompt cache.
+        cache_creation_input_tokens: Portion of ``prompt_tokens`` written to the prompt cache.
+        cache_creation_input_tokens_above_1hr: Portion of ``cache_creation_input_tokens`` that
+            was written with the extended 1-hour cache TTL (Anthropic reports this as
+            ``usage.cache_creation.ephemeral_1h_input_tokens``). These tokens are priced at the
+            model's 1-hour cache-creation rate when it publishes one, falling back to the standard
+            cache-creation rate otherwise; the remaining cache-creation tokens use the standard
+            (5-minute) rate. A single request may mix both TTLs.
+
+    Returns:
+        A tuple of (input_cost, output_cost) in USD, or None if the model is not found.
+    """
+    info = _lookup_model_info(model, custom_llm_provider)
+    if info is None:
+        return None
+    return _cost_from_model_info(
+        info,
+        prompt_tokens,
+        completion_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        cache_creation_input_tokens_above_1hr,
+    )
+
+
+def _cost_per_token_from_custom_catalog(
+    model: str,
+    provider: str,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    cache_read_input_tokens: int | None = None,
+    cache_creation_input_tokens: int | None = None,
+    cache_creation_input_tokens_above_1hr: int | None = None,
+) -> tuple[float, float] | None:
+    """Price a model only from a catalog the user configured with ``MLFLOW_MODEL_CATALOG_URI``.
+
+    Returns None when the URI is unset or left at its default, when the configured catalog has
+    no file for ``provider`` (the bundled catalog is not consulted), or when the model has no
+    listed price, so callers can fall back to another pricing source.
+    """
+    uri = MLFLOW_MODEL_CATALOG_URI.get()
+    if not uri or uri.rstrip("/") == MLFLOW_MODEL_CATALOG_URI.default:
+        return None
+    if not (models := _fetch_remote_provider(provider)):
+        return None
+    info = models.get(model.split("/", 1)[-1])
+    if info is None or not ({"input_cost_per_token", "output_cost_per_token"} & info.keys()):
+        return None
+    return _cost_from_model_info(
+        info,
+        prompt_tokens,
+        completion_tokens,
+        cache_read_input_tokens,
+        cache_creation_input_tokens,
+        cache_creation_input_tokens_above_1hr,
+    )
+
+
+def _cost_from_model_info(
+    info: ModelInfo,
+    prompt_tokens: int,
+    completion_tokens: int,
+    cache_read_input_tokens: int | None,
+    cache_creation_input_tokens: int | None,
+    cache_creation_input_tokens_above_1hr: int | None,
+) -> tuple[float, float]:
+    input_cost_per_token = info.get("input_cost_per_token", 0.0)
+    output_cost_per_token = info.get("output_cost_per_token", 0.0)
+
+    # In this function, prompt_tokens is expected to include cache tokens, so we subtract
+    # cache_read and cache_creation to get the regular (non-cached) portion, then price each
+    # category at its own rate.
+    cache_read = cache_read_input_tokens or 0
+    cache_creation = cache_creation_input_tokens or 0
+    regular_input_tokens = max(prompt_tokens - cache_read - cache_creation, 0)
+
+    # Split cache-creation tokens by TTL: the 1-hour portion (a subset of the total) is priced
+    # at the 1-hour rate, the remainder at the standard 5-minute rate.
+    cache_creation_1hr = min(cache_creation_input_tokens_above_1hr or 0, cache_creation)
+    cache_creation_5m = cache_creation - cache_creation_1hr
+    cache_creation_rate = info.get("cache_creation_input_token_cost", input_cost_per_token)
+
+    input_cost = regular_input_tokens * input_cost_per_token
+    if cache_read > 0:
+        input_cost += cache_read * info.get("cache_read_input_token_cost", input_cost_per_token)
+    if cache_creation_5m > 0:
+        input_cost += cache_creation_5m * cache_creation_rate
+    if cache_creation_1hr > 0:
+        cache_creation_1hr_rate = info.get(
+            "cache_creation_input_token_cost_above_1hr", cache_creation_rate
+        )
+        input_cost += cache_creation_1hr * cache_creation_1hr_rate
+    output_cost = completion_tokens * output_cost_per_token
+
+    return input_cost, output_cost
 
 
 # Auth modes for providers with multiple authentication options.
 # Each mode defines:
 #   - display_name: Human-readable name for UI
 #   - description: Help text explaining this auth method
-#   - fields: List of fields with secret flag indicating if encrypted
+#   - fields: List of fields with secret flag indicating if encrypted. The UI rejects
+#     non-ASCII characters in secret fields, to catch API keys typed with a CJK input
+#     method on. If a new secret field can hold JSON or free-form text, add it to
+#     `JSON_CREDENTIAL_SECRET_FIELDS` in mlflow/server/js/src/gateway/utils/secretUtils.ts.
 #   - default: True if this is the default auth mode for the provider
 #   - runtime_auth: Optional runtime auth handler name
 #
@@ -78,6 +495,12 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "api_key",
                     "description": "Amazon Bedrock API Key",
                     "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region",
+                    "secret": False,
                     "required": True,
                 },
             ],
@@ -108,31 +531,14 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
         },
         "iam_role": {
             "display_name": "IAM Role Assumption",
-            "description": "Assume an IAM role using base credentials (for cross-account access)",
+            "description": "Assume an IAM role using the server's ambient credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
             "fields": [
-                {
-                    "name": "aws_access_key_id",
-                    "description": "AWS Access Key ID (for assuming role)",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_secret_access_key",
-                    "description": "AWS Secret Access Key",
-                    "secret": True,
-                    "required": True,
-                },
                 {
                     "name": "aws_role_name",
                     "description": "IAM Role ARN to assume",
                     "secret": False,
                     "required": True,
-                },
-                {
-                    "name": "aws_session_name",
-                    "description": "Session name for assumed role",
-                    "secret": False,
-                    "required": False,
                 },
                 {
                     "name": "aws_region_name",
@@ -194,44 +600,45 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
-        "service_principal": {
-            "display_name": "Service Principal",
-            "description": "Use Azure AD Service Principal (client credentials)",
-            "runtime_auth": "azure_service_principal",
-            "fields": [
-                {
-                    "name": "client_secret",
-                    "description": "Azure AD Client Secret",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "api_base",
-                    "description": "Azure OpenAI endpoint URL",
-                    "secret": False,
-                    "required": True,
-                },
-                {
-                    "name": "client_id",
-                    "description": "Azure AD Application (Client) ID",
-                    "secret": False,
-                    "required": True,
-                },
-                {
-                    "name": "tenant_id",
-                    "description": "Azure AD Tenant ID",
-                    "secret": False,
-                    "required": True,
-                },
-                {
-                    "name": "api_version",
-                    "description": "API version (e.g., 2024-02-01)",
-                    "secret": False,
-                    "required": False,
-                    "default": "2024-02-01",
-                },
-            ],
-        },
+        # TODO: uncomment this once it's supported by OpenAIConfig
+        # "service_principal": {
+        #     "display_name": "Service Principal",
+        #     "description": "Use Azure AD Service Principal (client credentials)",
+        #     "runtime_auth": "azure_service_principal",
+        #     "fields": [
+        #         {
+        #             "name": "client_secret",
+        #             "description": "Azure AD Client Secret",
+        #             "secret": True,
+        #             "required": True,
+        #         },
+        #         {
+        #             "name": "api_base",
+        #             "description": "Azure OpenAI endpoint URL",
+        #             "secret": False,
+        #             "required": True,
+        #         },
+        #         {
+        #             "name": "client_id",
+        #             "description": "Azure AD Application (Client) ID",
+        #             "secret": False,
+        #             "required": True,
+        #         },
+        #         {
+        #             "name": "tenant_id",
+        #             "description": "Azure AD Tenant ID",
+        #             "secret": False,
+        #             "required": True,
+        #         },
+        #         {
+        #             "name": "api_version",
+        #             "description": "API version (e.g., 2024-02-01)",
+        #             "secret": False,
+        #             "required": False,
+        #             "default": "2024-02-01",
+        #         },
+        #     ],
+        # },
     },
     "vertex_ai": {
         "service_account_json": {
@@ -249,7 +656,28 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "vertex_project",
                     "description": "GCP Project ID",
                     "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "vertex_location",
+                    "description": "GCP Region (e.g., us-central1)",
+                    "secret": False,
                     "required": False,
+                    "default": "us-central1",
+                },
+            ],
+        },
+        "default_chain": {
+            "display_name": "Application Default Credentials",
+            "description": "Use the server's Application Default Credentials "
+            "(GOOGLE_APPLICATION_CREDENTIALS, gcloud auth application-default login, "
+            "or attached GCE/GKE/Cloud Run service account)",
+            "fields": [
+                {
+                    "name": "vertex_project",
+                    "description": "GCP Project ID",
+                    "secret": False,
+                    "required": True,
                 },
                 {
                     "name": "vertex_location",
@@ -301,6 +729,83 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 {
                     "name": "client_id",
                     "description": "OAuth Client ID",
+                    "secret": False,
+                    "required": True,
+                },
+            ],
+        },
+    },
+    "portkey": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use Portkey API Key with an optional routing target",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "Portkey API Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "portkey_provider",
+                    "description": "Provider to route to: a Model Catalog slug "
+                    "(e.g. @openai-prod) or a bare provider slug (e.g. openai)",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "portkey_config",
+                    "description": "Portkey config ID (e.g. pc-xxxx) or JSON config. "
+                    "Stored as a secret since a raw JSON config may embed "
+                    "upstream credentials",
+                    "secret": True,
+                    "required": False,
+                },
+                {
+                    "name": "provider_api_key",
+                    "description": "Upstream provider API key "
+                    "(only for bare provider slugs not stored in Portkey)",
+                    "secret": True,
+                    "required": False,
+                },
+                {
+                    "name": "api_base",
+                    "description": "Portkey API Base URL (defaults to https://api.portkey.ai/v1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
+    },
+    "sap": {
+        "oauth2_client_credentials": {
+            "display_name": "OAuth2 Client Credentials",
+            "description": "SAP AI Core (SAP Generative AI Hub) via OAuth2 client credentials",
+            "default": True,
+            "fields": [
+                {
+                    "name": "auth_url",
+                    "description": "OAuth2 token endpoint URL "
+                    "(e.g. https://<subdomain>.authentication.<region>.hana.ondemand.com)",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_id",
+                    "description": "OAuth2 client ID",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_secret",
+                    "description": "OAuth2 client secret",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "SAP AI Core API URL",
                     "secret": False,
                     "required": True,
                 },
@@ -395,6 +900,27 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
             ],
         },
     },
+    "typesafe": {
+        "api_key": {
+            "display_name": "API Key",
+            "description": "Use TypeSafe API Key",
+            "default": True,
+            "fields": [
+                {
+                    "name": "api_key",
+                    "description": "TypeSafe API Key",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "TypeSafe API Base URL (defaults to https://api.typesafe.ai/v1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
+    },
 }
 
 _BEDROCK_PROVIDERS = {"bedrock", "bedrock_converse"}
@@ -478,6 +1004,16 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
     if not provider:
         raise ValueError("Provider parameter is required")
 
+    if not is_provider_allowed(provider):
+        _logger.debug(
+            "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
+            provider,
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"Provider '{provider}' is not allowed by the current gateway provider policy."
+        )
+
+    provider = normalize_provider_name(provider.lower())
     config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
 
     if config_provider in _PROVIDER_AUTH_MODES:
@@ -523,38 +1059,25 @@ def _normalize_provider(provider: str) -> str:
 
 def get_all_providers() -> list[str]:
     """
-    Get a list of all LiteLLM providers that have chat, completion, or embedding capabilities.
-
-    Only returns providers that have at least one chat, completion, or embedding model,
-    excluding providers that only offer image generation, audio, or other non-text services.
+    Get a list of all providers.
 
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
-
-    Returns:
-        List of provider names that support chat/completion/embedding
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
-
-    model_cost = _get_model_cost()
     providers = set()
-    for _, info in model_cost.items():
-        mode = info.get("mode")
-        if mode in _SUPPORTED_MODEL_MODES:
-            if provider := info.get("litellm_provider"):
-                if provider not in _EXCLUDED_PROVIDERS:
-                    providers.add(_normalize_provider(provider))
-
-    return list(providers)
+    for provider in _list_provider_names():
+        if provider in _EXCLUDED_PROVIDERS:
+            continue
+        providers.add(_normalize_provider(provider))
+    return filter_providers(list(providers))
 
 
-def get_models(provider: str | None = None) -> list[dict[str, Any]]:
+def get_models(provider: str | None = None) -> list[ModelDict]:
     """
     Get a list of models from LiteLLM, optionally filtered by provider.
 
-    Returns models that support chat, completion, or embedding capabilities,
-    excluding image generation, audio, and other non-text services.
+    Returns models that support chat, completion, embedding, evaluation, or responses
+    capabilities, excluding image generation, audio, and other non-text services.
 
     Args:
         provider: Optional provider name to filter by (e.g., 'openai', 'anthropic').
@@ -565,7 +1088,7 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         List of model dictionaries with keys:
             - model: Model name
             - provider: Provider name (normalized, e.g., vertex_ai instead of vertex_ai-anthropic)
-            - mode: Model mode (e.g., 'chat', 'completion', 'embedding')
+            - mode: Model mode (e.g., 'chat', 'completion', 'embedding', 'evaluation')
             - supports_function_calling: Whether model supports tool/function calling
             - supports_vision: Whether model supports image/vision input
             - supports_reasoning: Whether model supports extended thinking (o1-style)
@@ -576,19 +1099,40 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - input_cost_per_token: Cost per input token (USD)
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
+            - last_updated_at: Date when the model entry was last updated in the catalog (if known)
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
+    if provider:
+        # Fast path: only load provider files that match the filter
+        matching = (
+            p
+            for p in _list_provider_names()
+            if _normalize_provider(p) == provider and p not in _EXCLUDED_PROVIDERS
+        )
+    else:
+        matching = (p for p in _list_provider_names() if p not in _EXCLUDED_PROVIDERS)
 
-    model_cost = _get_model_cost()
+    entries = (
+        (model_name, file_provider, info)
+        for file_provider in matching
+        for model_name, info in _load_provider(file_provider).items()
+    )
+    return _extract_models(entries, provider_filter=provider)
+
+
+def _extract_models(
+    entries: Iterator[tuple[str, str | None, ModelInfo]],
+    provider_filter: str | None = None,
+) -> list[ModelDict]:
     # Use dict to dedupe models by (provider, model_name) key
-    models_dict: dict[tuple[str, str], dict[str, Any]] = {}
-    for model_name, info in model_cost.items():
-        litellm_provider = info.get("litellm_provider")
-        normalized_provider = _normalize_provider(litellm_provider) if litellm_provider else None
+    models_dict: dict[tuple[str | None, str], ModelDict] = {}
+    for model_name, entry_provider, info in entries:
+        normalized_provider = _normalize_provider(entry_provider) if entry_provider else None
 
         # Filter by provider (matching against the normalized provider name)
-        if provider and normalized_provider != provider:
+        if provider_filter and normalized_provider != provider_filter:
+            continue
+
+        if normalized_provider and not is_provider_allowed(normalized_provider):
             continue
 
         mode = info.get("mode")
@@ -600,7 +1144,7 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
             model_name = model_name.removeprefix(f"{normalized_provider}/")
 
-        # LiteLLM contains fine-tuned models with the prefix "ft:"
+        # Skip fine-tuned model variants (e.g. "ft:gpt-4o-2024-08-06:org::id")
         if model_name.startswith("ft:"):
             continue
 
@@ -609,34 +1153,91 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if key in models_dict:
             continue
 
-        models_dict[key] = {
-            "model": model_name,
-            "provider": normalized_provider,
-            "mode": mode,
-            "supports_function_calling": info.get("supports_function_calling", False),
-            "supports_vision": info.get("supports_vision", False),
-            "supports_reasoning": info.get("supports_reasoning", False),
-            "supports_prompt_caching": info.get("supports_prompt_caching", False),
-            "supports_response_schema": info.get("supports_response_schema", False),
-            "max_input_tokens": info.get("max_input_tokens"),
-            "max_output_tokens": info.get("max_output_tokens"),
-            "input_cost_per_token": info.get("input_cost_per_token"),
-            "output_cost_per_token": info.get("output_cost_per_token"),
-            "deprecation_date": info.get("deprecation_date"),
-        }
+        models_dict[key] = _build_model_dict(model_name, normalized_provider, mode, info)
 
     return list(models_dict.values())
 
 
-# Mapping of core providers to their environment variable names for API keys
+def _build_model_dict(
+    model_name: str, provider: str | None, mode: str | None, info: ModelInfo
+) -> ModelDict:
+    return {
+        "model": model_name,
+        "provider": provider,
+        "mode": mode,
+        "supports_function_calling": info.get("supports_function_calling", False),
+        "supports_vision": info.get("supports_vision", False),
+        "supports_reasoning": info.get("supports_reasoning", False),
+        "supports_prompt_caching": info.get("supports_prompt_caching", False),
+        "supports_response_schema": info.get("supports_response_schema", False),
+        "max_input_tokens": info.get("max_input_tokens"),
+        "max_output_tokens": info.get("max_output_tokens"),
+        "input_cost_per_token": info.get("input_cost_per_token"),
+        "output_cost_per_token": info.get("output_cost_per_token"),
+        "modality": info.get("modality"),
+        "deprecation_date": info.get("deprecation_date"),
+        "last_updated_at": info.get("last_updated_at"),
+    }
+
+
+# Azure OpenAI environment variable names (matching litellm convention)
+AZURE_API_KEY_ENV_VAR = "AZURE_API_KEY"
+AZURE_API_BASE_ENV_VAR = "AZURE_API_BASE"
+AZURE_API_VERSION_ENV_VAR = "AZURE_API_VERSION"
+
+# Mapping of core providers to their environment variable names for credentials/config fields
 _CORE_PROVIDER_ENV_VARS = {
-    "openai": "OPENAI_API_KEY",
-    "azure": "AZURE_OPENAI_API_KEY",
+    "openai": {
+        "api_key": "OPENAI_API_KEY",
+        "api_base": "OPENAI_API_BASE",
+    },
+    "azure": {
+        "api_key": AZURE_API_KEY_ENV_VAR,
+        "api_base": AZURE_API_BASE_ENV_VAR,
+        "api_version": AZURE_API_VERSION_ENV_VAR,
+    },
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "xai": "XAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "togetherai": "TOGETHERAI_API_KEY",
+    "typesafe": "TYPESAFE_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
         "aws_session_token": "AWS_SESSION_TOKEN",  # Optional
     },
 }
+
+
+def provider_credential_env_vars(provider: str) -> list[str] | None:
+    """
+    The environment variables a core provider reads its credentials from.
+
+    Returns ``None`` for a provider MLflow has no direct support for, which is how a caller
+    distinguishes "no credential configured" from "not a provider we can configure at all".
+    Where a provider takes several variables, only the credential ones are returned: the api_key
+    of a key-based provider, or every variable of one authenticated by a set of them.
+    """
+    env_config = _CORE_PROVIDER_ENV_VARS.get(provider.lower())
+    if not env_config:
+        return None
+    if isinstance(env_config, dict):
+        return [env_config["api_key"]] if "api_key" in env_config else list(env_config.values())
+    return [env_config]
+
+
+def has_env_credentials(provider: str) -> bool:
+    """
+    Whether this server's own environment already carries a credential for ``provider``.
+
+    A server started with, say, ``OPENAI_API_KEY`` set needs no stored secret, so a client can
+    ask this before prompting for a key the server would not have used.
+    """
+    env_vars = provider_credential_env_vars(provider)
+    if not env_vars:
+        return False
+    return any(os.environ.get(env_var) for env_var in env_vars)

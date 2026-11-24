@@ -22,6 +22,18 @@ jest.mock('../components/GatewayChartsPanel', () => ({
   ),
 }));
 
+const mockTracesV3Logs = jest.fn();
+jest.mock('../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs', () => ({
+  TracesV3Logs: (props: any) => {
+    mockTracesV3Logs(props);
+    return <div data-testid="traces-v3-logs" />;
+  },
+}));
+
+jest.mock('../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector', () => ({
+  TracesV3DateSelector: () => <div data-testid="traces-date-selector" />,
+}));
+
 // Mock useEndpointsQuery
 const mockUseEndpointsQuery = jest.fn();
 jest.mock('../hooks/useEndpointsQuery', () => ({
@@ -74,11 +86,10 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders page title and subtitle', () => {
+    test('renders page title', () => {
       renderComponent();
 
-      expect(screen.getByText('Gateway Usage')).toBeInTheDocument();
-      expect(screen.getByText('Monitor usage and performance across all endpoints')).toBeInTheDocument();
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
     });
 
     test('renders endpoint selector with "All endpoints" option', () => {
@@ -117,6 +128,24 @@ describe('GatewayUsagePage', () => {
 
       expect(screen.getByText('admin')).toBeInTheDocument();
       expect(screen.getByText('alice')).toBeInTheDocument();
+    });
+
+    test('filters logs by the selected user ID metadata', async () => {
+      renderWithDesignSystem(
+        <MemoryRouter initialEntries={['/?tab=logs']}>
+          <GatewayUsagePage />
+        </MemoryRouter>,
+      );
+
+      const selectors = screen.getAllByRole('combobox');
+      await userEvent.click(selectors[1]);
+      await userEvent.click(screen.getByText('alice'));
+
+      expect(mockTracesV3Logs).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          additionalFilters: [{ column: 'custom_metadata:mlflow.auth.userId', operator: '=', value: '2' }],
+        }),
+      );
     });
 
     test('renders time controls', () => {
@@ -163,6 +192,12 @@ describe('GatewayUsagePage', () => {
       expect(screen.queryByText('User:')).not.toBeInTheDocument();
       expect(screen.getByText('Endpoint:')).toBeInTheDocument();
     });
+
+    test('renders MetricsFilter button on Usage tab', () => {
+      renderComponent();
+
+      expect(screen.getByRole('button', { name: /Filters/ })).toBeInTheDocument();
+    });
   });
 
   describe('when no endpoints have usage tracking enabled', () => {
@@ -173,12 +208,18 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders empty state', () => {
+    test('renders page header and breadcrumb', () => {
+      renderComponent();
+
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('renders empty state with correct message', () => {
       renderComponent();
 
       expect(screen.getByText('No usage data available')).toBeInTheDocument();
       expect(
-        screen.getByText('Enable usage tracking on your endpoints to see usage metrics here.'),
+        screen.getByText('Once you have endpoints with usage tracking enabled, usage metrics will appear here.'),
       ).toBeInTheDocument();
     });
 
@@ -186,6 +227,13 @@ describe('GatewayUsagePage', () => {
       renderComponent();
 
       expect(screen.getByText('Go to Endpoints')).toBeInTheDocument();
+    });
+
+    test('does not render endpoint or user filters', () => {
+      renderComponent();
+
+      expect(screen.queryByText('Endpoint:')).not.toBeInTheDocument();
+      expect(screen.queryByText('User:')).not.toBeInTheDocument();
     });
 
     test('does not render charts', () => {
@@ -204,18 +252,16 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('shows loading spinner', () => {
+    test('does not show empty state while loading', () => {
       renderComponent();
 
-      // The spinner should be in the controls section
-      expect(screen.getByText('Endpoint:')).toBeInTheDocument();
+      expect(screen.queryByText('No usage data available')).not.toBeInTheDocument();
     });
 
-    test('disables endpoint selector while loading', () => {
+    test('renders charts panel while loading', () => {
       renderComponent();
 
-      const selectors = screen.getAllByRole('combobox');
-      expect(selectors[0]).toBeDisabled();
+      expect(screen.getByTestId('gateway-charts-panel')).toBeInTheDocument();
     });
   });
 
@@ -227,10 +273,18 @@ describe('GatewayUsagePage', () => {
       });
     });
 
-    test('renders empty state', () => {
+    test('renders page header with empty state', () => {
       renderComponent();
 
+      expect(screen.getAllByText('Usage').length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('No usage data available')).toBeInTheDocument();
+    });
+
+    test('does not render endpoint or user filters', () => {
+      renderComponent();
+
+      expect(screen.queryByText('Endpoint:')).not.toBeInTheDocument();
+      expect(screen.queryByText('User:')).not.toBeInTheDocument();
     });
   });
 });

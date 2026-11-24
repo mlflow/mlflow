@@ -1,9 +1,12 @@
+import asyncio
 import json
 import math
+import threading
 import time
 from unittest import mock
 
 import pytest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 import mlflow
 from mlflow.entities import (
@@ -59,12 +62,23 @@ from mlflow.environment_variables import (
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
-from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowNotImplementedException,
+    MlflowTraceDataCorrupted,
+)
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    ENDPOINT_NOT_FOUND,
+    PERMISSION_DENIED,
+    RESOURCE_DOES_NOT_EXIST,
+)
+from mlflow.protos.issues_pb2 import CreateIssue, SearchIssues, UpdateIssue
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
+    BatchGetTraceInfos,
+    BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
@@ -141,6 +155,7 @@ from mlflow.protos.service_pb2 import (
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
@@ -150,6 +165,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    _UNPROCESSED_REQUEST_RESPONSE_CODES,
     _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
@@ -267,15 +283,30 @@ def test_response_with_unknown_fields():
         assert experiments[0].name == "My experiment"
 
 
-def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None):
+def _args(
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    use_v3=False,
+    retry_timeout_seconds=None,
+    retries_unprocessed_only=False,
+):
     version = "3.0" if use_v3 else "2.0"
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/{version}/mlflow/{endpoint}",
         "method": method,
+        "raise_on_status": False,
     }
     if retry_timeout_seconds is not None:
         res["retry_timeout_seconds"] = retry_timeout_seconds
+    if retries_unprocessed_only:
+        res |= {
+            "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+            "retry_read_errors": False,
+            "retry_on_retry_after": False,
+        }
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -284,7 +315,14 @@ def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_s
 
 
 def _verify_requests(
-    http_request, host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None
+    http_request,
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    use_v3=False,
+    retry_timeout_seconds=None,
+    retries_unprocessed_only=False,
 ):
     """
     Verify HTTP requests in tests.
@@ -298,9 +336,19 @@ def _verify_requests(
         use_v3: If True, verify using /api/3.0/mlflow/ prefix instead of /api/2.0/mlflow/
                 This is used for trace-related endpoints that use the V3 API.
         retry_timeout_seconds: The retry timeout seconds to use for the request
+        retries_unprocessed_only: Whether the request is a write that is retried only when the
+            server didn't process it
     """
     http_request.assert_any_call(
-        **(_args(host_creds, endpoint, method, json_body, use_v3, retry_timeout_seconds))
+        **_args(
+            host_creds,
+            endpoint,
+            method,
+            json_body,
+            use_v3,
+            retry_timeout_seconds,
+            retries_unprocessed_only,
+        )
     )
 
 
@@ -342,7 +390,9 @@ def test_requestor():
                     ],
                 )
             )
-            expected_kwargs = _args(creds, "runs/create", "POST", cr_body)
+            expected_kwargs = _args(
+                creds, "runs/create", "POST", cr_body, retries_unprocessed_only=True
+            )
 
             assert mock_http.call_count == 1
             actual_kwargs = mock_http.call_args[1]
@@ -381,7 +431,9 @@ def test_requestor():
     with mock_http_request() as mock_http:
         store.delete_tag("some_uuid", "t1")
         body = message_to_json(DeleteTag(run_id="some_uuid", key="t1"))
-        _verify_requests(mock_http, creds, "runs/delete-tag", "POST", body)
+        _verify_requests(
+            mock_http, creds, "runs/delete-tag", "POST", body, retries_unprocessed_only=True
+        )
 
     with mock_http_request() as mock_http:
         store.log_metric("u2", Metric("m1", 0.87, 12345, 3))
@@ -413,7 +465,9 @@ def test_requestor():
         dataset_input = DatasetInput(dataset=dataset, tags=[tag])
         store.log_inputs("some_uuid", [dataset_input])
         body = message_to_json(LogInputs(run_id="some_uuid", datasets=[dataset_input.to_proto()]))
-        _verify_requests(mock_http, creds, "runs/log-inputs", "POST", body)
+        _verify_requests(
+            mock_http, creds, "runs/log-inputs", "POST", body, retries_unprocessed_only=True
+        )
 
     with mock_http_request() as mock_http:
         store.delete_run("u25")
@@ -435,6 +489,7 @@ def test_requestor():
             "experiments/delete",
             "POST",
             message_to_json(DeleteExperiment(experiment_id="0")),
+            retries_unprocessed_only=True,
         )
 
     with mock_http_request() as mock_http:
@@ -445,6 +500,7 @@ def test_requestor():
             "experiments/restore",
             "POST",
             message_to_json(RestoreExperiment(experiment_id="0")),
+            retries_unprocessed_only=True,
         )
 
     with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
@@ -478,7 +534,12 @@ def test_requestor():
         store.record_logged_model("run_id", m)
         expected_message = LogModel(run_id=run_id, model_json=json.dumps(m.get_tags_dict()))
         _verify_requests(
-            mock_http, creds, "runs/log-model", "POST", message_to_json(expected_message)
+            mock_http,
+            creds,
+            "runs/log-model",
+            "POST",
+            message_to_json(expected_message),
+            retries_unprocessed_only=True,
         )
 
     # if model has config, it should be removed from the model_json before sending to the server
@@ -503,6 +564,7 @@ def test_requestor():
             "runs/log-model",
             "POST",
             message_to_json(expected_message),
+            retries_unprocessed_only=True,
         )
 
     with mock_http_request() as mock_http:
@@ -532,6 +594,7 @@ def test_get_experiment_by_name():
             name="abc",
             artifact_location="/abc",
             lifecycle_stage=LifecycleStage.ACTIVE,
+            effective_trace_archival_retention="30d",
         )
         response.text = json.dumps({
             "experiment": json.loads(message_to_json(experiment.to_proto()))
@@ -550,6 +613,7 @@ def test_get_experiment_by_name():
         assert result.name == experiment.name
         assert result.artifact_location == experiment.artifact_location
         assert result.lifecycle_stage == experiment.lifecycle_stage
+        assert result.effective_trace_archival_retention == "30d"
         # Test GetExperimentByName against nonexistent experiment
         mock_http.reset_mock()
         nonexistent_exp_response = mock.MagicMock()
@@ -568,6 +632,29 @@ def test_get_experiment_by_name():
             message_to_json(expected_message1),
         )
         assert mock_http.call_count == 1
+
+
+def test_filter_active_experiment_ids_ignores_not_found():
+    store = RestStore(lambda: None)
+    active_experiment = Experiment(
+        experiment_id="1",
+        name="active",
+        artifact_location="/active",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+    )
+    not_found = MlflowException("Experiment does not exist", RESOURCE_DOES_NOT_EXIST)
+
+    with mock.patch.object(store, "get_experiment", side_effect=[active_experiment, not_found]):
+        assert store.filter_active_experiment_ids(["1", "2"]) == ["1"]
+
+
+def test_filter_active_experiment_ids_propagates_remote_errors():
+    store = RestStore(lambda: None)
+    permission_denied = MlflowException("Permission denied", PERMISSION_DENIED)
+
+    with mock.patch.object(store, "get_experiment", side_effect=permission_denied):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            store.filter_active_experiment_ids(["1"])
 
 
 def test_search_experiments():
@@ -715,7 +802,14 @@ def test_deprecated_start_trace_v2():
             request_metadata=metadata,
             tags=tags,
         )
-        _verify_requests(mock_http, creds, "traces", "POST", message_to_json(expected_request))
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces",
+            "POST",
+            message_to_json(expected_request),
+            retries_unprocessed_only=True,
+        )
         assert isinstance(res, TraceInfoV2)
         assert res.request_id == request_id
         assert res.experiment_id == experiment_id
@@ -762,6 +856,42 @@ def test_start_trace(monkeypatch):
             use_v3=True,
             retry_timeout_seconds=1,
         )
+
+
+def test_start_trace_assigns_ids_to_assessments_without_one():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    shared = Feedback(name="new", value=True)
+    existing = Feedback(name="existing", value=True)
+    existing.assessment_id = "a-existing"
+
+    def trace_info(trace_id):
+        return TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id("123"),
+            request_time=123,
+            execution_duration=10,
+            state=TraceState.OK,
+            assessments=[shared, existing],
+        )
+
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.start_trace(trace_info("tr-1"))
+        store.start_trace(trace_info("tr-2"))
+
+    sent = [
+        call.kwargs["json"]["trace"]["trace_info"]["assessments"]
+        for call in mock_http.call_args_list
+    ]
+    assert all(assessments[0]["assessment_id"].startswith("a-") for assessments in sent)
+    # Each request gets its own ID, so an assessment object logged to several traces doesn't
+    # carry one trace's ID into another.
+    assert sent[0][0]["assessment_id"] != sent[1][0]["assessment_id"]
+    assert [assessments[1]["assessment_id"] for assessments in sent] == ["a-existing"] * 2
+    assert shared.assessment_id is None
 
 
 def test_deprecated_end_trace_v2():
@@ -954,7 +1084,11 @@ def test_search_traces_v3_endpoint_not_found_falls_back_to_v2():
 
 
 def test_get_artifact_uri_for_trace_compatibility():
-    from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
+    from mlflow.tracing.constant import TraceTagKey
+    from mlflow.tracing.utils.artifact_utils import (
+        get_archive_uri_for_trace,
+        get_artifact_uri_for_trace,
+    )
 
     # Create a TraceInfo (v2) object
     trace_info_v2 = TraceInfoV2(
@@ -986,6 +1120,17 @@ def test_get_artifact_uri_for_trace_compatibility():
     v3_uri = get_artifact_uri_for_trace(trace_info_v3)
     assert v3_uri == "s3://bucket/trace-v3-path"
 
+    archive_trace_info_v3 = TraceInfo(
+        trace_id="tr-9012",
+        trace_location=trace_location,
+        request_time=789,
+        state=TraceState.OK,
+        trace_metadata={"key3": "value3"},
+        tags={TraceTagKey.ARCHIVE_LOCATION: "s3://bucket/trace-v3-archive"},
+    )
+    archive_uri = get_archive_uri_for_trace(archive_trace_info_v3)
+    assert archive_uri == "s3://bucket/trace-v3-archive"
+
     # Test that get_artifact_uri_for_trace raises the expected exception when tag is missing
     trace_info_no_tag = TraceInfoV2(
         request_id="tr-1234",
@@ -995,8 +1140,16 @@ def test_get_artifact_uri_for_trace_compatibility():
         status=TraceStatus.OK,
         tags={},
     )
-    with pytest.raises(MlflowException, match="Unable to determine trace artifact location"):
+    with pytest.raises(
+        MlflowTraceDataCorrupted,
+        match="Trace data is corrupted for request_id=tr-1234",
+    ):
         get_artifact_uri_for_trace(trace_info_no_tag)
+    with pytest.raises(
+        MlflowTraceDataCorrupted,
+        match="Trace data is corrupted for request_id=tr-1234",
+    ):
+        get_archive_uri_for_trace(trace_info_no_tag)
 
 
 @pytest.mark.parametrize(
@@ -1018,7 +1171,14 @@ def test_delete_traces(delete_traces_kwargs):
         if "request_ids" in call_kwargs:
             call_kwargs["trace_ids"] = call_kwargs.pop("request_ids")
         res = store.delete_traces(**call_kwargs)
-        _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
+        _verify_requests(
+            mock_http,
+            creds,
+            "traces/delete-traces",
+            "POST",
+            message_to_json(request),
+            retries_unprocessed_only=True,
+        )
         assert res == 1
 
 
@@ -1130,6 +1290,7 @@ def test_log_assessment_feedback(is_databricks):
             "POST",
             message_to_json(request),
             use_v3=True,
+            retries_unprocessed_only=True,
         )
         assert isinstance(res, Feedback)
         assert res.assessment_id is not None
@@ -1185,6 +1346,7 @@ def test_log_assessment_expectation(is_databricks):
             "POST",
             message_to_json(request),
             use_v3=True,
+            retries_unprocessed_only=True,
         )
         assert isinstance(res, Expectation)
         assert res.assessment_id is not None
@@ -1491,6 +1653,122 @@ def test_get_trace_raises_other_errors():
     with mock.patch.object(store, "_call_endpoint", side_effect=genuine_error):
         with pytest.raises(MlflowException, match=error_message):
             store.get_trace("abc123")
+
+
+def test_batch_get_traces_forwards_explicit_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraces.Response()
+    ) as mock_call:
+        store.batch_get_traces(["tr-1", "tr-2"], experiment_ids=["1", "2"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraces,
+            message_to_json(BatchGetTraces(trace_ids=["tr-1", "tr-2"], experiment_ids=["1", "2"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGet",
+        )
+
+
+def test_batch_get_traces_omits_experiment_ids_when_not_set():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraces.Response()
+    ) as mock_call:
+        store.batch_get_traces(["tr-1"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraces,
+            message_to_json(BatchGetTraces(trace_ids=["tr-1"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGet",
+        )
+
+
+def test_batch_get_traces_short_circuits_on_empty_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        result = store.batch_get_traces(["tr-1"], experiment_ids=[])
+
+        assert result == []
+        mock_call.assert_not_called()
+
+
+def test_batch_get_trace_infos_forwards_explicit_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraceInfos.Response()
+    ) as mock_call:
+        store.batch_get_trace_infos(["tr-1", "tr-2"], experiment_ids=["1", "2"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraceInfos,
+            message_to_json(
+                BatchGetTraceInfos(trace_ids=["tr-1", "tr-2"], experiment_ids=["1", "2"])
+            ),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+
+
+def test_batch_get_trace_infos_omits_experiment_ids_when_not_set():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=BatchGetTraceInfos.Response()
+    ) as mock_call:
+        store.batch_get_trace_infos(["tr-1"])
+
+        mock_call.assert_called_once_with(
+            BatchGetTraceInfos,
+            message_to_json(BatchGetTraceInfos(trace_ids=["tr-1"])),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+
+
+def test_batch_get_trace_infos_short_circuits_on_empty_experiment_ids():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        result = store.batch_get_trace_infos(["tr-1"], experiment_ids=[])
+
+        assert result == []
+        mock_call.assert_not_called()
+
+
+@pytest.mark.parametrize("store_class", [RestStore, DatabricksTracingRestStore])
+@pytest.mark.parametrize("experiment_ids", [[], ["1"], ["1", "2"]])
+def test_search_logged_models_preserves_explicit_experiment_scope(store_class, experiment_ids):
+    creds = MlflowHostCreds("https://hello")
+    store = store_class(lambda: creds)
+    payload = {
+        "experiment_ids": experiment_ids,
+        "filter": "name != 'excluded'",
+        "datasets": [{"dataset_name": "eval", "dataset_digest": "digest"}],
+        "max_results": 2,
+        "order_by": [{"field_name": "name", "ascending": False}],
+        "page_token": "opaque-request-token",
+    }
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(
+            status_code=200, text=json.dumps({"next_page_token": "opaque-response-token"})
+        ),
+    ) as http:
+        models = store.search_logged_models(
+            experiment_ids=experiment_ids,
+            filter_string=payload["filter"],
+            datasets=payload["datasets"],
+            max_results=payload["max_results"],
+            order_by=payload["order_by"],
+            page_token=payload["page_token"],
+        )
+
+    http.assert_called_once()
+    _verify_requests(http, creds, "logged-models/search", "POST", json.dumps(payload))
+    assert models == []
+    assert models.token == "opaque-response-token"
 
 
 def test_log_logged_model_params():
@@ -2153,7 +2431,8 @@ def test_evaluation_dataset_merge_records():
 
                 assert result is eval_dataset
 
-                assert mock_get.call_count == 1
+                # Once to read the existing schema, once to refresh metadata after the upsert
+                assert mock_get.call_count == 2
                 assert mock_call.call_count == 1
 
                 call_args = mock_call.call_args_list[0]
@@ -2987,6 +3266,34 @@ def _create_test_spans() -> list[LiveSpan]:
     return [LiveSpan(otel_span, trace_id="tr-123")]
 
 
+@pytest.mark.parametrize(
+    ("server_version", "serialize_strings"),
+    [("3.6.0", False), ("3.7.0", True)],
+)
+def test_log_spans_serializes_strings_only_for_servers_that_strip(
+    server_version, serialize_strings
+):
+    spans = _create_test_spans()
+    creds = MlflowHostCreds(f"https://host-wire-{server_version}")
+    store = RestStore(lambda: creds)
+    with mock.patch(
+        "mlflow.store.tracking.rest_store.http_request",
+        side_effect=[_create_mock_response(text=server_version), _create_mock_response()],
+    ) as mock_http:
+        store.log_spans("exp-123", spans)
+
+    sent = ExportTraceServiceRequest()
+    sent.ParseFromString(mock_http.call_args.kwargs["data"])
+    sent_spans = sent.resource_spans[0].scope_spans[0].spans
+    assert list(sent_spans) == [s.to_otel_proto(serialize_strings=serialize_strings) for s in spans]
+    # The two encodings must differ for these spans, or the test proves nothing.
+    assert [s.to_otel_proto(serialize_strings=True) for s in spans] != [
+        s.to_otel_proto(serialize_strings=False) for s in spans
+    ]
+
+
+# flaky: auto-detected from CI re-runs; see the weekly flaky-test report
+@pytest.mark.flaky(attempts=2)
 def test_log_spans_with_version_check():
     spans = _create_test_spans()
     experiment_id = "exp-123"
@@ -3126,6 +3433,42 @@ def test_server_version_check_caching():
         )
 
 
+@pytest.mark.asyncio
+async def test_log_spans_async_offloads_to_worker_thread():
+    store = RestStore(lambda: MlflowHostCreds("https://async-host"))
+    event_loop_ident = threading.get_ident()
+    worker_idents = []
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        worker_idents.append(threading.get_ident())
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        result = await store.log_spans_async("exp-123", [])
+
+    assert result == []
+    assert worker_idents
+    assert worker_idents[0] != event_loop_ident
+
+
+@pytest.mark.asyncio
+async def test_log_spans_async_allows_concurrent_store_calls():
+    store = RestStore(lambda: MlflowHostCreds("https://async-host"))
+    barrier = threading.Barrier(2, timeout=5)
+
+    def fake_log_spans(location, spans, tracking_uri=None):
+        barrier.wait()
+        return spans
+
+    with mock.patch.object(store, "log_spans", side_effect=fake_log_spans):
+        results = await asyncio.gather(
+            store.log_spans_async("exp-123", []),
+            store.log_spans_async("exp-123", []),
+        )
+
+    assert results == [[], []]
+
+
 def test_link_prompts_to_trace():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
@@ -3155,6 +3498,7 @@ def test_link_prompts_to_trace():
             "traces/link-prompts",
             "POST",
             message_to_json(request),
+            retries_unprocessed_only=True,
         )
 
 
@@ -3175,7 +3519,15 @@ def test_create_gateway_secret():
                 provider="openai",
             )
         )
-        _verify_requests(mock_http, creds, "gateway/secrets/create", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http,
+            creds,
+            "gateway/secrets/create",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
+        )
 
 
 def test_get_gateway_secret_info():
@@ -3205,7 +3557,15 @@ def test_update_gateway_secret():
                 auth_config={"region": "us-east-1"},
             )
         )
-        _verify_requests(mock_http, creds, "gateway/secrets/update", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http,
+            creds,
+            "gateway/secrets/update",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
+        )
 
 
 def test_delete_gateway_secret():
@@ -3291,7 +3651,15 @@ def test_create_gateway_endpoint():
                 usage_tracking=True,
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http,
+            creds,
+            "gateway/endpoints/create",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
+        )
 
 
 def test_get_gateway_endpoint():
@@ -3384,7 +3752,15 @@ def test_update_gateway_endpoint():
                 ),
             )
         )
-        _verify_requests(mock_http, creds, "gateway/endpoints/update", "POST", body, use_v3=True)
+        _verify_requests(
+            mock_http,
+            creds,
+            "gateway/endpoints/update",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
+        )
 
 
 def test_delete_gateway_endpoint():
@@ -3427,7 +3803,13 @@ def test_create_gateway_model_definition():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/model-definitions/create", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/model-definitions/create",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3473,7 +3855,13 @@ def test_update_gateway_model_definition():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/model-definitions/update", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/model-definitions/update",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3517,7 +3905,13 @@ def test_attach_model_to_gateway_endpoint():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/endpoints/models/attach", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/endpoints/models/attach",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3537,7 +3931,13 @@ def test_detach_model_from_gateway_endpoint():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/endpoints/models/detach", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/endpoints/models/detach",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3563,7 +3963,13 @@ def test_create_gateway_endpoint_binding():
             )
         )
         _verify_requests(
-            mock_http, creds, "gateway/endpoints/bindings/create", "POST", body, use_v3=True
+            mock_http,
+            creds,
+            "gateway/endpoints/bindings/create",
+            "POST",
+            body,
+            use_v3=True,
+            retries_unprocessed_only=True,
         )
 
 
@@ -3735,7 +4141,15 @@ def test_create_issue():
         "categories": ["hallucination", "tool_error"],
         "created_by": "test_user",
     })
-    _verify_requests(mock_http, creds, "issues", "POST", expected_request_json, use_v3=True)
+    _verify_requests(
+        mock_http,
+        creds,
+        "issues",
+        "POST",
+        expected_request_json,
+        use_v3=True,
+        retries_unprocessed_only=True,
+    )
 
     assert isinstance(issue, Issue)
     assert issue.issue_id == "issue-123"
@@ -3956,3 +4370,71 @@ def test_search_issues_with_trace_count():
     assert result[0].trace_count == 2
     assert result[1].trace_count == 0
     assert result.token is None
+
+
+def test_issue_rest_extended_contract():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+    issue = Issue(
+        "iss-chosen",
+        "0",
+        "Title",
+        "",
+        IssueStatus.PENDING,
+        1,
+        1,
+        last_seen_timestamp=0,
+        metadata={"key": "value"},
+    )
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=CreateIssue.Response(issue=issue.to_proto())
+    ) as call:
+        result = store.create_issue(
+            "0",
+            "Title",
+            "",
+            issue_id="iss-chosen",
+            last_seen_timestamp=0,
+            metadata={"key": "value"},
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["issue_id"] == "iss-chosen"
+        assert body["last_seen_timestamp"] == 0
+        assert body["metadata"] == {"key": "value"}
+        assert result == issue
+    with mock.patch.object(
+        store, "_call_endpoint", return_value=UpdateIssue.Response(issue=issue.to_proto())
+    ) as call:
+        store.update_issue(
+            "iss-chosen",
+            categories=[],
+            metadata={"new": "value"},
+            delete_metadata_keys=["old"],
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["categories"] == []
+        assert body["delete_metadata_keys"] == ["old"]
+    with mock.patch.object(
+        store,
+        "_call_endpoint",
+        return_value=SearchIssues.Response(
+            issues=[issue.to_proto()], total_count=5, next_page_token="next"
+        ),
+    ) as call:
+        result = store.search_issues(
+            "0",
+            name="Title",
+            statuses=["pending"],
+            categories=["cost"],
+            order_by=["status ASC"],
+            include_total_count=True,
+            view="basic",
+        )
+        call.assert_called_once()
+        body = json.loads(call.call_args.args[1])
+        assert body["statuses"] == ["pending"]
+        assert body["order_by"] == ["status ASC"]
+        assert body["include_total_count"] is True
+        assert result.total_count == 5
+        assert result.token == "next"

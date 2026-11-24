@@ -2,7 +2,10 @@ import { Button, Empty, Modal, Tooltip } from '@databricks/design-system';
 import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useParams } from '../../common/utils/RoutingUtils';
-import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table';
+import {
+  createTraceLocationForExperiment,
+  GenAiTraceTableRowSelectionProvider,
+} from '@databricks/web-shared/genai-traces-table';
 import { GenAIChatSessionsTable, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { getChatSessionsFilter } from '../pages/experiment-chat-sessions/utils';
 import { TracesV3DateSelector } from './experiment-page/components/traces-v3/TracesV3DateSelector';
@@ -27,6 +30,10 @@ const SelectSessionsModalImpl = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   const timeRange = useMonitoringFiltersTimeRange();
+
+  const traceSearchLocations = useMemo(() => {
+    return [createTraceLocationForExperiment(experimentId ?? '')];
+  }, [experimentId]);
 
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>(() =>
     initialSessionIdsSelected.reduce(
@@ -60,7 +67,7 @@ const SelectSessionsModalImpl = ({
   const filters = useMemo(() => getChatSessionsFilter({ sessionId: null }), []);
 
   const { data: traceInfos, isLoading } = useSearchMlflowTraces({
-    locations: [{ mlflow_experiment: { experiment_id: experimentId ?? '' }, type: 'MLFLOW_EXPERIMENT' as const }],
+    locations: traceSearchLocations,
     disabled: !experimentId,
     filters,
     searchQuery,
@@ -125,7 +132,11 @@ const SelectSessionsModalImpl = ({
             openLinksInNewTab
             empty={<EmptySessionsList />}
             // TODO: Move date selector to the toolbar in all callsites permanently
-            toolbarAddons={<TracesV3DateSelector />}
+            toolbarAddons={
+              <>
+                <TracesV3DateSelector />
+              </>
+            }
           />
         </GenAiTraceTableRowSelectionProvider>
       </div>

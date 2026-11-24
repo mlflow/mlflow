@@ -8,6 +8,7 @@
  */
 export enum TraceMetricKey {
   TRACE_COUNT = 'trace_count',
+  SESSION_COUNT = 'session_count',
   LATENCY = 'latency',
   INPUT_TOKENS = 'input_tokens',
   OUTPUT_TOKENS = 'output_tokens',
@@ -57,10 +58,27 @@ export enum TraceFilterKey {
 
 /**
  * Trace status values for filter expressions.
+ *
+ * Mirrors the backend `TraceState` enum (mlflow/entities/trace_state.py) for the
+ * subset accepted by the metrics API's `trace.status = "..."` filter.
  */
 export enum TraceStatus {
+  IN_PROGRESS = 'IN_PROGRESS',
   OK = 'OK',
   ERROR = 'ERROR',
+}
+
+/**
+ * Dimension keys for trace metrics.
+ * Based on mlflow/tracing/constant.py TraceMetricDimensionKey
+ */
+export enum TraceDimensionKey {
+  /** Trace name dimension */
+  TRACE_NAME = 'trace_name',
+  /** Trace status dimension (OK, ERROR) */
+  TRACE_STATUS = 'trace_status',
+  /** Caller of an AI Gateway request (traces without one are left out) */
+  GATEWAY_CALLER = 'gateway_caller',
 }
 
 /**
@@ -83,6 +101,9 @@ export const createTraceMetadataFilter = (metadataKey: string, value: string): s
 
 /** Metadata key for the authenticated user's ID stored in gateway traces. */
 export const AUTH_USER_ID_METADATA_KEY = 'mlflow.auth.userId';
+
+/** Metadata key for the caller (e.g. a built-in MLflow feature) stored in gateway traces. */
+export const GATEWAY_CALLER_METADATA_KEY = 'mlflow.gateway.caller';
 
 /**
  * Keys for metrics on assessments view type.
@@ -231,6 +252,8 @@ export enum SpanDimensionKey {
   MODEL_NAME = 'span_model_name',
   /** Model provider dimension */
   MODEL_PROVIDER = 'span_model_provider',
+  /** Caller of the AI Gateway request the span belongs to */
+  GATEWAY_CALLER = 'gateway_caller',
 }
 
 /**
@@ -285,8 +308,15 @@ export interface QueryTraceMetricsRequest {
   experiment_ids: string[];
   /** Required: The level at which to aggregate metrics */
   view_type: MetricViewType;
-  /** Required: The name of the metric to query (e.g. "latency") */
-  metric_name: string;
+  /** DEPRECATED: Use metric_names instead. The name of the metric to query (e.g. "latency") */
+  metric_name?: string;
+  /**
+   * The name(s) of the metric(s) to query (e.g. ["latency"] or ["input_tokens", "output_tokens"]).
+   * Replaces the deprecated metric_name field. When multiple names are provided, all metrics must
+   * share the same aggregation semantics. Each result data point carries a metric_name field so
+   * the caller can distinguish metrics. One of metric_name or metric_names is required.
+   */
+  metric_names?: string[];
   /** Required: The aggregations to apply */
   aggregations: MetricAggregation[];
   /** Optional: Dimensions to group metrics by (e.g. "name", "status") */

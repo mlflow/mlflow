@@ -141,8 +141,8 @@ const validatePermissions = async (context, github) => {
   const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
   const prAuthorAssociation = pr.author_association.toLowerCase();
 
-  // If PR author is not a member/collaborator, this is a community PR
-  if (!VALID_AUTHOR_ASSOCIATIONS.includes(prAuthorAssociation)) {
+  // If PR author is not a trusted user, this is a community PR
+  if (!isAllowedUser({ author_association: prAuthorAssociation, user: pr.user })) {
     // Community PR — require at least one approved review
     const reviews = await github.paginate(github.rest.pulls.listReviews, {
       owner,

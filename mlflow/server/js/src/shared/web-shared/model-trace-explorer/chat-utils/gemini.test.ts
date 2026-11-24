@@ -409,4 +409,50 @@ describe('normalizeConversation', () => {
     // Should NOT contain raw Python bytes
     expect(result![0].content).not.toContain('\\x89');
   });
+
+  it('should handle output content with role omitted', () => {
+    const output = {
+      candidates: [
+        {
+          content: {
+            // role intentionally omitted — some Gemini SDK versions do this
+            parts: [{ text: 'I see a red square.' }, { inline_data: { mime_type: 'image/png', data: 'iVBORw0KGgo=' } }],
+          },
+          finish_reason: 'STOP',
+        },
+      ],
+    };
+    const result = normalizeConversation(output, 'gemini');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'assistant',
+      content: expect.stringContaining('I see a red square.'),
+    });
+    expect(result![0].content).toContain('![](data:image/png;base64,iVBORw0KGgo=)');
+  });
+
+  it('should handle single dict contents (text part)', () => {
+    const input = { contents: { text: 'Say hello in one sentence.' } };
+    const result = normalizeConversation(input, 'gemini');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'user',
+      content: 'Say hello in one sentence.',
+    });
+  });
+
+  it('should handle single Content object as contents', () => {
+    const input = {
+      contents: { role: 'user', parts: [{ text: 'What is MLflow?' }] },
+    };
+    const result = normalizeConversation(input, 'gemini');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'user',
+      content: 'What is MLflow?',
+    });
+  });
 });

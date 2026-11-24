@@ -1,17 +1,25 @@
+import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
+from urllib3.util.retry import Retry
 
 from mlflow.entities.webhook import Webhook, WebhookAction, WebhookEntity, WebhookEvent
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
-from mlflow.webhooks.delivery import deliver_webhook
+from mlflow.webhooks.delivery import (
+    _create_webhook_session,
+    _send_webhook_request,
+    deliver_webhook,
+)
 from mlflow.webhooks.delivery import test_webhook as send_test_webhook
 
 
 @pytest.fixture
 def file_store(tmp_path: Path) -> FileStore:
+    pytest.skip("FileStore is no longer supported.")
     return FileStore(str(tmp_path))
 
 
@@ -32,9 +40,23 @@ def webhook_payload() -> dict[str, str]:
     return {"name": "test_model", "description": "Test model"}
 
 
+@pytest.fixture
+def webhook(webhook_event: WebhookEvent) -> Webhook:
+    return Webhook(
+        webhook_id="wh-1",
+        name="test",
+        url="https://example.com/hook",
+        events=[webhook_event],
+        creation_timestamp=0,
+        last_updated_timestamp=0,
+        workspace="team-a",
+    )
+
+
 def test_deliver_webhook_exits_early_for_file_store(
     file_store: FileStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
 ) -> None:
+    pytest.skip("FileStore is no longer supported.")
     with patch("mlflow.webhooks.delivery._deliver_webhook_impl") as mock_impl:
         deliver_webhook(
             event=webhook_event,
@@ -86,6 +108,7 @@ def test_deliver_webhook_handles_exception_for_sql_store(
 def test_deliver_webhook_no_exception_for_file_store(
     file_store: FileStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
 ) -> None:
+    pytest.skip("FileStore is no longer supported.")
     with (
         patch(
             "mlflow.webhooks.delivery._deliver_webhook_impl", side_effect=Exception("Test")
@@ -104,6 +127,38 @@ def test_deliver_webhook_no_exception_for_file_store(
         mock_logger.error.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("urllib3_version", "expected_kwargs"),
+    [
+        ("1.26.18", {}),
+        ("2.0.0", {"backoff_max": 60.0, "backoff_jitter": 1.0}),
+    ],
+)
+def test_create_webhook_session_retry_kwargs_depend_on_urllib3_version(
+    urllib3_version: str, expected_kwargs: dict[str, float]
+):
+    with (
+        patch("mlflow.webhooks.delivery.urllib3.__version__", urllib3_version),
+        patch("mlflow.webhooks.delivery.Retry", return_value=Retry(total=0)) as mock_retry,
+    ):
+        _create_webhook_session()
+
+    mock_retry.assert_called_once()
+    kwargs = mock_retry.call_args.kwargs
+    assert {k: kwargs[k] for k in ("backoff_max", "backoff_jitter") if k in kwargs} == (
+        expected_kwargs
+    )
+
+
+def test_deliver_webhook_does_not_create_session_without_webhooks(
+    sql_store: SqlAlchemyStore, webhook_event: WebhookEvent, webhook_payload: dict[str, str]
+):
+    with patch("mlflow.webhooks.delivery._get_or_create_webhook_session") as mock_get_session:
+        deliver_webhook(event=webhook_event, payload=webhook_payload, store=sql_store)
+
+    mock_get_session.assert_not_called()
+
+
 def test_test_webhook_rejects_private_ip():
     event = WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)
     webhook = Webhook(
@@ -119,3 +174,41 @@ def test_test_webhook_rejects_private_ip():
 
     assert result.success is False
     assert "must not resolve to a non-public" in result.error_message
+
+
+def test_send_webhook_request_includes_workspace_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+    webhook: Webhook,
+    webhook_event: WebhookEvent,
+    webhook_payload: dict[str, str],
+) -> None:
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    session = Mock()
+    session.post.return_value = Mock(status_code=200, text="ok")
+
+    with patch("mlflow.webhooks.delivery._validate_webhook_url"):
+        _send_webhook_request(webhook, webhook_payload, webhook_event, session)
+
+    actual_payload = json.loads(session.post.call_args.kwargs["data"].decode("utf-8"))
+    assert actual_payload["entity"] == webhook_event.entity.value
+    assert actual_payload["action"] == webhook_event.action.value
+    assert actual_payload["workspace"] == webhook.workspace
+    assert actual_payload["data"] == webhook_payload
+    assert "timestamp" in actual_payload
+
+
+def test_send_webhook_request_omits_workspace_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    webhook: Webhook,
+    webhook_event: WebhookEvent,
+    webhook_payload: dict[str, str],
+) -> None:
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    session = Mock()
+    session.post.return_value = Mock(status_code=200, text="ok")
+
+    with patch("mlflow.webhooks.delivery._validate_webhook_url"):
+        _send_webhook_request(webhook, webhook_payload, webhook_event, session)
+
+    actual_payload = json.loads(session.post.call_args.kwargs["data"].decode("utf-8"))
+    assert "workspace" not in actual_payload

@@ -10,7 +10,14 @@ import pytest
 
 import mlflow
 from mlflow.utils import logging_utils
-from mlflow.utils.logging_utils import LOGGING_LINE_FORMAT, eprint, suppress_logs
+from mlflow.utils.logging_utils import (
+    LOGGING_LINE_FORMAT,
+    SensitiveQueryParamFilter,
+    _configure_mlflow_loggers,
+    _redact_sensitive_query_params,
+    eprint,
+    suppress_logs,
+)
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -181,6 +188,70 @@ assert logging.getLogger("mlflow").isEnabledFor({expected_level})
     )
 
 
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (
+            "Retrying after broken: /path?X-Amz-Security-Token=ABC&"
+            "X-Amz-Credential=KEY%2F20260414%2Fap-northeast-1%2Fs3%2Faws4_request&"
+            "X-Amz-Date=20260414T154032Z&X-Amz-Signature=DEADBEEF",
+            "Retrying after broken: /path?X-Amz-Security-Token=[REDACTED]&"
+            "X-Amz-Credential=[REDACTED]&"
+            "X-Amz-Date=20260414T154032Z&X-Amz-Signature=[REDACTED]",
+        ),
+        (
+            "https://store.googleapis.com/o?X-Goog-Signature=ZZZ&X-Goog-Credential=YYY",
+            "https://store.googleapis.com/o?X-Goog-Signature=[REDACTED]&"
+            "X-Goog-Credential=[REDACTED]",
+        ),
+        (
+            "https://store.blob.core.windows.net/c/b?sig=AAA&se=2026-04-14T16%3A40%3A32Z",
+            "https://store.blob.core.windows.net/c/b?sig=[REDACTED]&se=2026-04-14T16%3A40%3A32Z",
+        ),
+        (
+            "just a normal log message without credentials",
+            "just a normal log message without credentials",
+        ),
+        ("path?foo=bar&baz=qux", "path?foo=bar&baz=qux"),
+    ],
+)
+def test_redact_sensitive_query_params(message: str, expected: str):
+    assert _redact_sensitive_query_params(message) == expected
+
+
+def test_sensitive_query_param_filter_rewrites_record_message():
+    capture_stream = StringIO()
+    logger = logging.getLogger(f"test_urllib3_{uuid.uuid4().hex}")
+    logger.addHandler(logging.StreamHandler(capture_stream))
+    logger.addFilter(SensitiveQueryParamFilter())
+    logger.setLevel(logging.WARNING)
+
+    logger.warning(
+        "Retrying (%r) after connection broken by %r: %s",
+        "Retry(total=1)",
+        "NameResolutionError(...)",
+        "/tokyo-prod/artifacts/traces.json"
+        "?X-Amz-Security-Token=SECRET_TOKEN"
+        "&X-Amz-Algorithm=AWS4-HMAC-SHA256"
+        "&X-Amz-Signature=SECRET_SIGNATURE"
+        "&X-Amz-Credential=SECRET_CREDENTIAL",
+    )
+
+    output = capture_stream.getvalue()
+    assert "X-Amz-Security-Token=[REDACTED]" in output
+    assert "X-Amz-Signature=[REDACTED]" in output
+    assert "X-Amz-Credential=[REDACTED]" in output
+    assert "X-Amz-Algorithm=AWS4-HMAC-SHA256" in output
+    assert "SECRET_TOKEN" not in output
+    assert "SECRET_SIGNATURE" not in output
+    assert "SECRET_CREDENTIAL" not in output
+
+
+def test_sensitive_query_param_filter_installed_on_urllib3_connectionpool():
+    urllib3_logger = logging.getLogger("urllib3.connectionpool")
+    assert any(isinstance(f, SensitiveQueryParamFilter) for f in urllib3_logger.filters)
+
+
 @pytest.mark.parametrize("configure_logging", ["0", "1"])
 def test_alembic_logging_respects_configure_flag(configure_logging: str, tmp_sqlite_uri: str):
     user_specified_format = "CUSTOM: %(name)s - %(message)s"
@@ -215,3 +286,97 @@ assert actual_format == {actual_format!r}, actual_format
             "MLFLOW_CONFIGURE_LOGGING": configure_logging,
         },
     )
+
+
+def _logging_configured_env() -> dict[str, str]:
+    """
+    Subprocess environment guaranteeing `_configure_mlflow_loggers` runs on import,
+    so the regression tests below cannot pass vacuously. The deprecated alias takes
+    precedence over `MLFLOW_CONFIGURE_LOGGING`, so it has to be cleared as well.
+    """
+    env = os.environ.copy()
+    env.pop("MLFLOW_LOGGING_CONFIGURE_LOGGING", None)
+    env["MLFLOW_CONFIGURE_LOGGING"] = "1"
+    return env
+
+
+# Guards against a vacuous pass if the import ever stops configuring logging.
+_ASSERT_LOGGING_CONFIGURED = """
+assert logging.getLogger("mlflow").handlers, "mlflow did not configure logging"
+"""
+
+
+def test_import_mlflow_preserves_disabled_loggers() -> None:
+    """
+    Importing mlflow must not re-enable loggers the host application disabled.
+    The Databricks notebook kernel disables `pyspark.sql.connect.logging` at
+    startup; re-enabling it dumps raw gRPC tracebacks into cell output.
+    """
+    code = f"""
+import logging
+
+connect_logger = logging.getLogger("pyspark.sql.connect.logging")
+connect_logger.disabled = True
+unrelated_logger = logging.getLogger("some.third.party")
+unrelated_logger.disabled = True
+
+import mlflow
+{_ASSERT_LOGGING_CONFIGURED}
+assert connect_logger.disabled, "mlflow re-enabled pyspark.sql.connect.logging"
+assert unrelated_logger.disabled, "mlflow re-enabled some.third.party"
+"""
+    subprocess.check_call([sys.executable, "-c", code], env=_logging_configured_env())
+
+
+def test_import_mlflow_preserves_existing_child_logger_config() -> None:
+    """
+    Descendants of the loggers mlflow configures (`mlflow`, `sqlalchemy.engine`,
+    `alembic`, `huey`) must keep any level, handlers, and propagate flag that
+    were set before the import.
+    """
+    code = f"""
+import logging
+
+CHILDREN = ("mlflow.tracking.fluent", "sqlalchemy.engine.Engine")
+handler = logging.NullHandler()
+for name in CHILDREN:
+    child = logging.getLogger(name)
+    child.setLevel(logging.ERROR)
+    child.addHandler(handler)
+    child.propagate = False
+
+import mlflow
+{_ASSERT_LOGGING_CONFIGURED}
+for name in CHILDREN:
+    child = logging.getLogger(name)
+    assert child.level == logging.ERROR, (name, child.level)
+    assert child.handlers == [handler], (name, child.handlers)
+    assert not child.propagate, name
+"""
+    subprocess.check_call([sys.executable, "-c", code], env=_logging_configured_env())
+
+
+def test_configure_mlflow_loggers_is_idempotent() -> None:
+    configured_loggers = ["mlflow", "sqlalchemy.engine", "alembic", "huey"]
+
+    for _ in range(3):
+        _configure_mlflow_loggers("mlflow")
+        for name in configured_loggers:
+            handlers = logging.getLogger(name).handlers
+            assert len(handlers) == 1, (name, handlers)
+
+
+def test_configure_mlflow_loggers_replaces_existing_handlers() -> None:
+    """
+    Handlers already attached to the loggers MLflow configures are replaced, not
+    appended to. Appending would emit every record twice, once through MLflow's
+    handler and once through the pre-existing one.
+    """
+    logger = logging.getLogger("alembic")
+    pre_existing = logging.StreamHandler(StringIO())
+    logger.addHandler(pre_existing)
+
+    _configure_mlflow_loggers("mlflow")
+
+    assert pre_existing not in logger.handlers
+    assert len(logger.handlers) == 1

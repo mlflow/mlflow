@@ -1,4 +1,4 @@
-export { ModelTraceExplorer } from './ModelTraceExplorer';
+export { ModelTraceExplorer, type ModelTraceExplorerProps } from './ModelTraceExplorerEntrypoint';
 export { SimplifiedModelTraceExplorer } from './SimplifiedModelTraceExplorer';
 export { ExpectationValuePreview } from './assessments-pane/ExpectationValuePreview';
 export { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
@@ -7,8 +7,9 @@ export { default as ModelTraceExplorerResizablePane } from './ModelTraceExplorer
 export type { ModelTraceExplorerResizablePaneRef } from './ModelTraceExplorerResizablePane';
 export {
   ModelTraceExplorerPreferencesProvider,
-  useModelTraceExplorerPreferences,
-} from './ModelTraceExplorerPreferencesContext';
+  type ModelTraceExplorerPreferencesProviderProps,
+} from './ModelTraceExplorerPreferencesContextEntrypoint';
+export { useModelTraceExplorerPreferences } from './ModelTraceExplorerPreferencesContext';
 export { AssessmentsPane } from './assessments-pane/AssessmentsPane';
 export {
   isModelTrace,
@@ -35,18 +36,24 @@ export {
   TOKEN_USAGE_METADATA_KEY,
   COST_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
+  MLFLOW_GIT_BRANCH_KEY,
+  MLFLOW_GIT_COMMIT_KEY,
   SELECTED_TRACE_ID_QUERY_PARAM,
+  CREATE_CUSTOM_VIEW_QUERY_PARAM,
   ASSESSMENT_SESSION_METADATA_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from './constants';
 export {
   shouldEnableTracesTabLabelingSchemas,
   shouldEnableAssessmentsInSessions,
   shouldUseModelTraceExplorerDrawerUI,
+  shouldEnableModelTraceComparisonV2,
   shouldUseUnifiedModelTraceComparisonUI,
   isEvaluatingTracesInDetailsViewEnabled,
   shouldEnableTracesTableStatePersistence,
+  shouldEnableModelTraceExplorerCustomTraceView,
 } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';
 export * from './ModelTrace.types';
@@ -78,7 +85,7 @@ export {
   isSessionLevelAssessment,
 } from './ModelTraceExplorer.utils';
 export { CompareModelTraceExplorer } from './CompareModelTraceExplorer';
-export { useGetTracesById } from './hooks/useGetTracesById';
+export { useGetTracesById, GET_TRACE_BY_ID } from './hooks/useGetTracesById';
 export {
   ModelTraceExplorerContextProvider,
   useModelTraceExplorerContext,
@@ -86,6 +93,23 @@ export {
   type RenderExportTracesToDatasetsModalParams,
   type DrawerComponentType,
 } from './ModelTraceExplorerContext';
-export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawer';
-export { formatCostUSD } from './CostUtils';
+export type { ModelTraceExplorerDisplayMode } from './v2/ModelTraceExplorerContext';
+export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawerEntrypoint';
+export { formatCostUSD, formatEstimatedCostUSD, ESTIMATED_COST_PREFIX } from './CostUtils';
+export { EstimatedCostValue, estimatedCostMessages, type EstimatedCostValueProps } from './EstimatedCostValue';
 export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';
+export {
+  getIssueReferenceFromAssessment,
+  getUniqueIssueReferenceAssessments,
+  getUniqueIssueReferences,
+  ISSUE_EVIDENCE_METADATA_KEY,
+  type IssueEvidence,
+  type IssueEvidenceHighlightTone,
+  type IssueEvidenceStep,
+  type TraceIssueReference,
+} from './IssueAssessmentUtils';
+export {
+  getIssueDetailsHref,
+  ModelTraceExplorerIssueEvidence,
+  ModelTraceExplorerIssueIndicator,
+} from './ModelTraceExplorerIssueBanner';

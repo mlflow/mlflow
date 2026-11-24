@@ -1,15 +1,18 @@
 import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { IntlProvider } from '@databricks/i18n';
 
-import { DetectIssuesButton } from './DetectIssuesButton';
+import {
+  DetectIssuesButton,
+  markDetectIssuesGuidanceSeen,
+  DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY,
+} from './DetectIssuesButton';
 
 describe('DetectIssuesButton', () => {
   const onClickMock = jest.fn();
   const componentId = 'test-detect-issues-button';
-  const storageKey = 'test.detectIssues.guidanceShown';
 
   beforeEach(() => {
     onClickMock.mockClear();
@@ -21,19 +24,48 @@ describe('DetectIssuesButton', () => {
     localStorage.clear();
   });
 
-  const renderTestComponent = (guidanceStorageKey?: string) =>
-    render(
-      <DetectIssuesButton componentId={componentId} onClick={onClickMock} guidanceStorageKey={guidanceStorageKey} />,
-      { wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider> },
-    );
+  const renderTestComponent = (props: { loading?: boolean; disabled?: boolean } = {}) =>
+    render(<DetectIssuesButton componentId={componentId} onClick={onClickMock} {...props} />, {
+      wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
+    });
+
+  test.each([false, true])(
+    'synchronizes guidance dismissal from another surface (storage denied: %s)',
+    async (denied) => {
+      renderTestComponent();
+      expect(await screen.findByText('Detect Issues in Your Traces')).toBeInTheDocument();
+      if (denied) {
+        jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+          throw new Error('Storage denied');
+        });
+      }
+      act(() => markDetectIssuesGuidanceSeen());
+      await waitFor(() => expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument());
+      await userEvent.click(screen.getByRole('button', { name: 'Detect issues in traces' }));
+      expect(onClickMock).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test('renders the Detect Issues button', () => {
-    renderTestComponent(storageKey);
+    renderTestComponent();
     expect(screen.getByText('Detect Issues')).toBeInTheDocument();
   });
 
+  test.each([{ loading: true }, { disabled: true }])(
+    'prevents detection and guidance when unavailable (%o)',
+    async (props) => {
+      renderTestComponent(props);
+      const button = screen.getByRole('button', { name: 'Detect issues in traces' });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute('aria-busy', String(Boolean(props.loading)));
+      expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
+      await userEvent.click(button);
+      expect(onClickMock).not.toHaveBeenCalled();
+    },
+  );
+
   test('shows guidance popover on first visit when hasSeenGuidance is false', async () => {
-    renderTestComponent(storageKey);
+    renderTestComponent();
 
     // Popover should appear immediately
     await waitFor(() => {
@@ -48,16 +80,16 @@ describe('DetectIssuesButton', () => {
 
   test('does not show guidance popover when hasSeenGuidance is true', async () => {
     // Set the localStorage value to indicate guidance has been seen
-    localStorage.setItem(`${storageKey}_v1`, JSON.stringify(true));
+    localStorage.setItem(`${DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY}_v1`, JSON.stringify(true));
 
-    renderTestComponent(storageKey);
+    renderTestComponent();
 
     // Verify the guidance popover is not displayed
     expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
   });
 
   test('dismissing guidance via close button persists the flag and hides popover', async () => {
-    renderTestComponent(storageKey);
+    renderTestComponent();
 
     // Popover should appear immediately
     await waitFor(() => {
@@ -74,12 +106,12 @@ describe('DetectIssuesButton', () => {
     });
 
     // Verify the flag was persisted to localStorage
-    const storedValue = localStorage.getItem(`${storageKey}_v1`);
+    const storedValue = localStorage.getItem(`${DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY}_v1`);
     expect(storedValue).toBe('true');
   });
 
   test('dismissing guidance via "Got it" button persists the flag and hides popover', async () => {
-    renderTestComponent(storageKey);
+    renderTestComponent();
 
     // Popover should appear immediately
     await waitFor(() => {
@@ -96,13 +128,13 @@ describe('DetectIssuesButton', () => {
     });
 
     // Verify the flag was persisted to localStorage
-    const storedValue = localStorage.getItem(`${storageKey}_v1`);
+    const storedValue = localStorage.getItem(`${DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY}_v1`);
     expect(storedValue).toBe('true');
   });
 
   test('prevents re-showing guidance after it has been dismissed', async () => {
     // First render: guidance should show
-    const { unmount } = renderTestComponent(storageKey);
+    const { unmount } = renderTestComponent();
 
     // Popover should appear immediately
     await waitFor(() => {
@@ -120,7 +152,7 @@ describe('DetectIssuesButton', () => {
 
     // Unmount and re-render the component
     unmount();
-    renderTestComponent(storageKey);
+    renderTestComponent();
 
     // Verify the guidance does not show again
     expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
@@ -128,9 +160,9 @@ describe('DetectIssuesButton', () => {
 
   test('button onClick handler is called when button is clicked', async () => {
     // Set guidance as seen to avoid popover
-    localStorage.setItem(`${storageKey}_v1`, JSON.stringify(true));
+    localStorage.setItem(`${DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY}_v1`, JSON.stringify(true));
 
-    renderTestComponent(storageKey);
+    renderTestComponent();
 
     const button = screen.getByText('Detect Issues');
     await userEvent.click(button);
@@ -155,32 +187,5 @@ describe('DetectIssuesButton', () => {
     // Verify the default storage key was used
     const storedValue = localStorage.getItem(`${defaultStorageKey}_v1`);
     expect(storedValue).toBe('true');
-  });
-
-  test('different instances with different storage keys show guidance independently', async () => {
-    const storageKey1 = 'test.instance1.guidanceShown';
-    const storageKey2 = 'test.instance2.guidanceShown';
-
-    // Mark first instance as seen
-    localStorage.setItem(`${storageKey1}_v1`, JSON.stringify(true));
-
-    // Render first instance - should not show guidance
-    const { unmount: unmount1 } = render(
-      <DetectIssuesButton componentId="button1" onClick={onClickMock} guidanceStorageKey={storageKey1} />,
-      { wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider> },
-    );
-
-    expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
-
-    unmount1();
-
-    // Render second instance - should show guidance
-    render(<DetectIssuesButton componentId="button2" onClick={onClickMock} guidanceStorageKey={storageKey2} />, {
-      wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
-    });
   });
 });

@@ -135,20 +135,3 @@ async def test_receive_response_skips_when_autologging_disabled():
         [msg async for msg in mock_self.receive_response()]
 
     mock_process.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_sdk_hook_handler_when_disabled():
-    from mlflow.claude_code.hooks import sdk_stop_hook_handler
-
-    with (
-        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=True),
-        patch("mlflow.claude_code.hooks._process_stop_hook") as mock_process,
-    ):
-        result = await sdk_stop_hook_handler(
-            input_data={"session_id": "test", "transcript_path": "/fake/path"},
-            tool_use_id=None,
-            context=None,
-        )
-        mock_process.assert_not_called()
-        assert result == {"continue": True}

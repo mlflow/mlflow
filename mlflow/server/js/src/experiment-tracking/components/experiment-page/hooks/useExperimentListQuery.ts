@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQ
 import { MlflowService } from '../../../sdk/MlflowService';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SearchExperimentsApiResponse } from '../../../types';
-import { useLocalStorage } from '@mlflow/mlflow/src/shared/web-shared/hooks/useLocalStorage';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
 import type { CursorPaginationProps } from '@databricks/design-system';
 import type { SortingState } from '@tanstack/react-table';
 import type { TagFilter } from './useTagsFilter';
@@ -66,7 +66,7 @@ const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => 
 
   const data: (string[] | undefined)[] = [['max_results', String(pageSize)], ...orderBy];
 
-  // NOTE: undefined values are fine, they're filtered out by `getBigIntJson` inside `MlflowService`
+  // NOTE: undefined values are fine, they're filtered out by the request helpers inside `MlflowService`
   data.push(getFilters({ searchFilter, tagsFilter }));
 
   if (pageToken) {

@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { LightningIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useToolLatencyChartData } from '../hooks/useToolLatencyChartData';
+import { useToolLatencyChartData, type ToolLatencyDataPoint } from '../hooks/useToolLatencyChartData';
 import { useItemSelection } from '../hooks/useItemSelection';
 import {
   OverviewChartLoadingState,
@@ -95,8 +95,14 @@ export const ToolLatencyChart: React.FC = () => {
               <XAxis dataKey="timestamp" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={<ScrollableTooltip formatter={tooltipFormatter} />}
+                content={
+                  <ScrollableTooltip
+                    formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.latency.view_traces_link"
+                  />
+                }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               {displayedItems.map((toolName) => {
                 const originalIndex = toolNames.indexOf(toolName);
@@ -104,7 +110,8 @@ export const ToolLatencyChart: React.FC = () => {
                   <Line
                     key={toolName}
                     type="monotone"
-                    dataKey={toolName}
+                    name={toolName}
+                    dataKey={(dataPoint: ToolLatencyDataPoint) => dataPoint.values[toolName]}
                     stroke={getChartColor(originalIndex)}
                     strokeWidth={2}
                     strokeOpacity={getOpacity(toolName)}

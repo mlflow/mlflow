@@ -1,4 +1,4 @@
-import { describe, test, expect } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { ExperimentViewDatasetLink } from './ExperimentViewDatasetLink';
 import { DatasetSourceTypes } from '../../../../types';
@@ -17,52 +17,72 @@ const createDatasetWithTags = (sourceType: string, source: string): RunDatasetWi
     tags: [],
   }) as any;
 
-const testRunTags = {} as Record<string, { key: string; value: string }>;
-
-const renderComponent = (datasetWithTags: RunDatasetWithTags, experimentId?: string) => {
+const renderComponent = (datasetWithTags: RunDatasetWithTags) => {
   return renderWithIntl(
     <MemoryRouter>
       <DesignSystemProvider>
-        <ExperimentViewDatasetLink
-          datasetWithTags={datasetWithTags}
-          runTags={testRunTags}
-          experimentId={experimentId}
-        />
+        <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
       </DesignSystemProvider>
     </MemoryRouter>,
   );
 };
 
 describe('ExperimentViewDatasetLink', () => {
-  test('renders link to datasets tab when experimentId is provided', () => {
-    const dataset = createDatasetWithTags(DatasetSourceTypes.HTTP, JSON.stringify({ url: 'https://example.com/data' }));
-    renderComponent(dataset, '123');
+  let windowOpenSpy: jest.SpiedFunction<typeof window.open>;
 
-    const link = screen.getByRole('link', { name: /Open dataset/i });
-    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/123/datasets'));
+  beforeEach(() => {
+    windowOpenSpy = jest.spyOn(window, 'open').mockReturnValue(null);
   });
 
-  test('renders link for any source type when experimentId is provided', () => {
-    const dataset = createDatasetWithTags(
-      DatasetSourceTypes.HUGGING_FACE,
-      JSON.stringify({ path: 'org/dataset-name' }),
-    );
-    renderComponent(dataset, '456');
-
-    const link = screen.getByRole('link', { name: /Open dataset/i });
-    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/456/datasets'));
+  afterEach(() => {
+    windowOpenSpy.mockRestore();
   });
 
-  test('renders copy button for S3 source type without experimentId', () => {
+  test('renders copy button for S3 source type', () => {
     const dataset = createDatasetWithTags(DatasetSourceTypes.S3, JSON.stringify({ uri: 's3://bucket/path' }));
     renderComponent(dataset);
 
     expect(screen.getByText(/Copy S3 URI to clipboard/i)).toBeInTheDocument();
   });
 
-  test('renders nothing for unknown source type without experimentId', () => {
+  test('renders open dataset button for HTTP source type and opens URL on click', () => {
+    const dataset = createDatasetWithTags(DatasetSourceTypes.HTTP, JSON.stringify({ url: 'https://example.com/data' }));
+    renderComponent(dataset);
+
+    const button = screen.getByText(/Open dataset/i);
+    expect(button).toBeInTheDocument();
+    button.click();
+    expect(windowOpenSpy).toHaveBeenCalledWith('https://example.com/data', '_blank', 'noopener,noreferrer');
+  });
+
+  test('renders open dataset button for Hugging Face source type and opens URL on click', () => {
+    const dataset = createDatasetWithTags(
+      DatasetSourceTypes.HUGGING_FACE,
+      JSON.stringify({ path: 'org/dataset-name' }),
+    );
+    renderComponent(dataset);
+
+    const button = screen.getByText(/Open dataset/i);
+    expect(button).toBeInTheDocument();
+    button.click();
+    expect(windowOpenSpy).toHaveBeenCalledWith(
+      'https://huggingface.co/datasets/org/dataset-name',
+      '_blank',
+      'noopener,noreferrer',
+    );
+  });
+
+  test('renders nothing for local source type', () => {
+    const dataset = createDatasetWithTags(DatasetSourceTypes.LOCAL, JSON.stringify({ uri: '/data/photos/my-concept' }));
+    const { container } = renderComponent(dataset);
+    expect(container.innerHTML).toBe('');
+    expect(windowOpenSpy).not.toHaveBeenCalled();
+  });
+
+  test('renders nothing for unknown source type', () => {
     const dataset = createDatasetWithTags('unknown', JSON.stringify({ url: 'https://example.com' }));
     const { container } = renderComponent(dataset);
     expect(container.innerHTML).toBe('');
+    expect(windowOpenSpy).not.toHaveBeenCalled();
   });
 });

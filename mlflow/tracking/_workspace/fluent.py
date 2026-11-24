@@ -3,13 +3,16 @@ from __future__ import annotations
 import threading
 from typing import Callable, TypeVar
 
-from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
+from mlflow.entities.workspace import (
+    TraceArchivalConfig,
+    Workspace,
+    WorkspaceDeletionMode,
+)
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_context import set_workspace as set_context_workspace
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -32,7 +35,6 @@ def _workspace_client_call(func: Callable[[MlflowClient], T]) -> T:
         raise
 
 
-@experimental(version="3.10.0")
 def set_workspace(workspace: str | None) -> None:
     """Set the active workspace for subsequent MLflow operations."""
 
@@ -47,23 +49,23 @@ def set_workspace(workspace: str | None) -> None:
         set_context_workspace(workspace)
 
 
-@experimental(version="3.10.0")
 def list_workspaces() -> list[Workspace]:
     """Return the list of workspaces available to the current user."""
 
     return _workspace_client_call(lambda client: client.list_workspaces())
 
 
-@experimental(version="3.10.0")
 def get_workspace(name: str) -> Workspace:
     """Return metadata for the specified workspace."""
 
     return _workspace_client_call(lambda client: client.get_workspace(name))
 
 
-@experimental(version="3.10.0")
 def create_workspace(
-    name: str, description: str | None = None, default_artifact_root: str | None = None
+    name: str,
+    description: str | None = None,
+    default_artifact_root: str | None = None,
+    trace_archival_config: TraceArchivalConfig | None = None,
 ) -> Workspace:
     """Create a new workspace.
 
@@ -71,6 +73,7 @@ def create_workspace(
         name: The workspace name (lowercase alphanumeric with optional internal hyphens).
         description: Optional description of the workspace.
         default_artifact_root: Optional artifact root URI; falls back to server default.
+        trace_archival_config: Optional archival settings; leave fields as ``None`` to omit them.
 
     Returns:
         The newly created workspace.
@@ -84,13 +87,16 @@ def create_workspace(
             name=name,
             description=description,
             default_artifact_root=default_artifact_root,
+            trace_archival_config=trace_archival_config,
         )
     )
 
 
-@experimental(version="3.10.0")
 def update_workspace(
-    name: str, description: str | None = None, default_artifact_root: str | None = None
+    name: str,
+    description: str | None = None,
+    default_artifact_root: str | None = None,
+    trace_archival_config: TraceArchivalConfig | None = None,
 ) -> Workspace:
     """Update metadata for an existing workspace.
 
@@ -98,6 +104,7 @@ def update_workspace(
         name: The name of the workspace to update.
         description: New description, or ``None`` to leave unchanged.
         default_artifact_root: New artifact root URI, empty string to clear, or ``None``.
+        trace_archival_config: Optional archival settings; use ``""`` to clear, ``None`` to keep.
 
     Returns:
         The updated workspace.
@@ -112,11 +119,11 @@ def update_workspace(
             name=name,
             description=description,
             default_artifact_root=default_artifact_root,
+            trace_archival_config=trace_archival_config,
         )
     )
 
 
-@experimental(version="3.10.0")
 def delete_workspace(name: str, *, mode: str = WorkspaceDeletionMode.RESTRICT) -> None:
     """Delete an existing workspace.
 

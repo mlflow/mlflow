@@ -14,6 +14,25 @@ export function displayPercentage(fraction: number, numDecimalsDisplayPercentage
   return Number((fraction * 100).toFixed(numDecimalsDisplayPercentage)).toString();
 }
 
+/**
+ * Parse a duration string like "34.00000000000002ms" or "5.100s", round the numeric
+ * part to up to 3 decimals, strip trailing zeros, and reattach the unit.
+ */
+export function normalizeDurationString(val?: string): string | undefined {
+  if (val === undefined) {
+    return undefined;
+  }
+  const floatVal = parseFloat(val);
+  const unit = val
+    ?.replace?.(/[0-9.]/g, '')
+    .trim()
+    .toLowerCase();
+  if (isNil(floatVal) || isNaN(floatVal)) {
+    return undefined;
+  }
+  return [floatVal.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('');
+}
+
 export function displayFloat(value: number | undefined | null, numDecimals = 3) {
   if (isNil(value)) {
     return 'null';
@@ -37,20 +56,11 @@ export function getDisplayOverallScoreAndChange(
   aggregateType: 'average' | 'percentage-true' | 'categorical';
 } {
   if (assessmentInfo.dtype === 'numeric') {
-    // Compute the average score for displayScore, and the change in average for displayScoreChange.
-    const currentNumericValues = assessmentDisplayInfo.currentNumericValues;
-    const otherNumericValues = assessmentDisplayInfo.otherNumericValues;
+    const currentAverage = assessmentDisplayInfo.currentNumericAverage ?? NaN;
+    const otherAverage = assessmentDisplayInfo.otherNumericAverage;
 
-    let currentAverage = NaN;
-    let otherAverage = NaN;
-    if (currentNumericValues) {
-      currentAverage = currentNumericValues.reduce((a, b) => a + b, 0) / currentNumericValues.length;
-    }
-    if (otherNumericValues) {
-      otherAverage = otherNumericValues.reduce((a, b) => a + b, 0) / otherNumericValues.length;
-    }
     const displayScore = displayFloat(currentAverage, 2);
-    const scoreChange = otherNumericValues ? currentAverage - otherAverage : undefined;
+    const scoreChange = otherAverage !== undefined ? currentAverage - otherAverage : undefined;
     const changeDirection = scoreChange ? (scoreChange > 0 ? 'up' : 'down') : 'none';
 
     const displayScoreChange = scoreChange
@@ -114,6 +124,83 @@ export function getDisplayOverallScoreAndChange(
       changeDirection: 'none',
       aggregateType: 'categorical',
     };
+  }
+}
+
+/**
+ * N-run analog of {@link getDisplayOverallScoreAndChange}: the display score for run `runIndex`
+ * (baseline-first order) plus its change vs the baseline run (index 0). The baseline itself
+ * (`runIndex === 0`) reports no change. Reads the per-run aggregate arrays (`numericAverageByRun` /
+ * `countsByRun`) added for the multi-run path.
+ */
+export function getDisplayScoreAndChangeForRun(
+  intl: IntlShape,
+  assessmentInfo: AssessmentInfo,
+  assessmentDisplayInfo: AssessmentAggregates,
+  runIndex: number,
+): {
+  displayScore: string;
+  displayScoreChange: string | undefined;
+  changeDirection: 'up' | 'down' | 'none';
+  aggregateType: 'average' | 'percentage-true' | 'categorical';
+} {
+  const isBaseline = runIndex === 0;
+  if (assessmentInfo.dtype === 'numeric') {
+    const runAverage = assessmentDisplayInfo.numericAverageByRun?.[runIndex] ?? NaN;
+    const baselineAverage = assessmentDisplayInfo.numericAverageByRun?.[0];
+    const displayScore = displayFloat(runAverage, 2);
+    const scoreChange =
+      !isBaseline && baselineAverage !== undefined && !isNaN(runAverage) ? runAverage - baselineAverage : undefined;
+    const changeDirection = scoreChange ? (scoreChange > 0 ? 'up' : 'down') : 'none';
+    const displayScoreChange = scoreChange
+      ? changeDirection === 'up'
+        ? `+${displayFloat(Math.abs(scoreChange), 2)}`
+        : changeDirection === 'down'
+          ? `-${displayFloat(Math.abs(scoreChange), 2)}`
+          : '+0'
+      : undefined;
+    return { displayScore, displayScoreChange, changeDirection, aggregateType: 'average' };
+  } else if (assessmentInfo.dtype === 'pass-fail' || assessmentInfo.dtype === 'boolean') {
+    const numDecimalsDisplayPercentage = 0;
+    const runFraction = getAssessmentAggregateOverallFraction(
+      assessmentInfo,
+      assessmentDisplayInfo.countsByRun?.[runIndex],
+    );
+    const displayScore = displayPercentage(runFraction, numDecimalsDisplayPercentage) + '%';
+    const baselineCounts = assessmentDisplayInfo.countsByRun?.[0];
+    const scoreChange =
+      !isBaseline && baselineCounts
+        ? runFraction - getAssessmentAggregateOverallFraction(assessmentInfo, baselineCounts)
+        : undefined;
+    const changeDirection = scoreChange ? (scoreChange > 0 ? 'up' : 'down') : 'none';
+    const displayScoreChange = scoreChange
+      ? (changeDirection === 'up' || changeDirection === 'none' ? '+' : '') +
+        displayPercentage(scoreChange, numDecimalsDisplayPercentage) +
+        '%'
+      : undefined;
+    return { displayScore, displayScoreChange, changeDirection, aggregateType: 'percentage-true' };
+  } else if (assessmentInfo.dtype === 'string') {
+    const numUniqueValues = assessmentInfo.uniqueValues.size;
+    return {
+      displayScore:
+        numUniqueValues !== 1
+          ? intl.formatMessage(
+              {
+                defaultMessage: '{numUniqueValues} values',
+                description: 'Text for number of unique values for categorical assessment',
+              },
+              { numUniqueValues },
+            )
+          : intl.formatMessage({
+              defaultMessage: '1 value',
+              description: 'Text for number of unique values for categorical assessment',
+            }),
+      displayScoreChange: '',
+      changeDirection: 'none',
+      aggregateType: 'categorical',
+    };
+  } else {
+    return { displayScore: 'N/A', displayScoreChange: 'N/A', changeDirection: 'none', aggregateType: 'categorical' };
   }
 }
 

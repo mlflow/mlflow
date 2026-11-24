@@ -81,6 +81,7 @@ export const AliasSelect = ({
       onChange={updateEditedAliases}
       dangerouslySetAntdProps={{
         dropdownMatchSelectWidth: true,
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         tagRender: ({ value }) => (
           <AliasTag
             compact

@@ -44,3 +44,11 @@ export const shouldUseLongRunningTracesAPI = () => {
 export const shouldEnableSessionGrouping = () => {
   return true;
 };
+
+/**
+ * Determines if the traces table should use infinite paginated queries
+ * instead of eagerly fetching all pages in a single query.
+ */
+export const shouldUseInfinitePaginatedTraces = () => {
+  return true;
+};

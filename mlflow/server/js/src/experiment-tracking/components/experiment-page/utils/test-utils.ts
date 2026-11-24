@@ -9,6 +9,8 @@ import type { ExperimentRunsSelectorResult } from './experimentRuns.selector';
  */
 export const createBaseUIState = (): ExperimentPageUIState => ({
   selectedColumns: [],
+  columnOrder: [],
+  columnWidths: {},
   runsExpanded: {},
   runsPinned: [],
   runsHidden: [],

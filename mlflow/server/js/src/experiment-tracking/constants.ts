@@ -75,6 +75,7 @@ export const AUTOML_TEST_EVALUATION_METRIC_PREFIX = 'test_';
 
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
+export const MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG = 'mlflow.experiment.databricksTraceDestinationPath';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const MLFLOW_LINKED_PROMPTS_TAG = 'mlflow.linkedPrompts';
 export const MLFLOW_LOGGED_MODEL_USER_TAG = 'mlflow.user';
@@ -87,7 +88,31 @@ export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 export const MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE = 'genai_evaluate';
 export const MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION = 'issue_detection';
+export const MLFLOW_RUN_TYPE_VALUE_TEST = 'test';
 export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
+export const MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG = 'mlflow.issueDetection.result.issues';
+export const MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG = 'mlflow.issueDetection.result.totalTracesAnalyzed';
+export const MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG = 'mlflow.issueDetection.result.summary';
+// The trace window a scheduled occurrence covered, as epoch-ms bounds. Written only by the
+// scheduled job: a manual run analyzes a chosen set of traces rather than a window.
+export const MLFLOW_ISSUE_DETECTION_WINDOW_START_TAG = 'mlflow.issueDetection.windowStart';
+export const MLFLOW_ISSUE_DETECTION_WINDOW_END_TAG = 'mlflow.issueDetection.windowEnd';
+// Why a detection run failed, as "<ExceptionType>: <message>".
+export const MLFLOW_ISSUE_DETECTION_ERROR_TAG = 'mlflow.issueDetection.error';
+// How a detection run was started. Scheduled occurrences carry "schedule"; an ad-hoc run has no
+// value for this tag at all, which is what tells the two apart once the runs are read.
+export const MLFLOW_ISSUE_DETECTION_TRIGGER_TAG = 'mlflow.issueDetection.trigger';
+export const MLFLOW_ISSUE_DETECTION_TRIGGER_VALUE_SCHEDULE = 'schedule';
+// Experiment-level detection settings, stored as one JSON value: instructions plus category toggles.
+export const MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG = 'mlflow.issueDetection.priorities';
+// The experiment's recurring detection schedule: cadence, start time, weekday, timezone and
+// paused flag.
+export const MLFLOW_ISSUE_DETECTION_SCHEDULE_TAG = 'mlflow.issueDetection.schedule';
+// The equality clauses narrowing which traces a scheduled detection run analyzes.
+export const MLFLOW_ISSUE_DETECTION_SCHEDULE_TRACE_FILTER_TAG = 'mlflow.issueDetection.scheduleTraceFilter';
+// What the server has dispatched for that schedule, and when it will next run. Written only by
+// the server; read here to show the next run, never written from the browser.
+export const MLFLOW_ISSUE_DETECTION_SCHEDULE_STATE_TAG = 'mlflow.issueDetection.scheduleState';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';
@@ -103,7 +128,6 @@ export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json'
 export enum RunPageTabName {
   OVERVIEW = 'overview',
   TRACES = 'traces',
-  ISSUES = 'issues',
   MODEL_METRIC_CHARTS = 'model-metrics',
   SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',
@@ -121,7 +145,14 @@ export const MLFLOW_MODEL_METRIC_NAME = 'Model metrics';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_URL_PARAM_KEY = 'viewStateShareKey';
 export const EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX = 'mlflow.sharedViewState.';
 export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
+export const TRACE_DRAWER_VIEW_MODE_QUERY_PARAM = 'traceDrawerView';
+export const TRACE_DRAWER_SESSION_ID_QUERY_PARAM = 'traceDrawerSessionId';
 export const SELECTED_ISSUE_ID_PARAM = 'selectedIssueId';
+/**
+ * The span an Issue's evidence sends the reader to, alongside the trace the shared drawer reads
+ * from `selectedEvaluationId`. Kept in the URL so a copied link reopens the same span.
+ */
+export const SELECTED_ISSUE_SPAN_ID_PARAM = 'selectedIssueSpanId';
 
 export const MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH = 'images';
 export const IMAGE_FILE_EXTENSION = 'png';
@@ -145,22 +176,32 @@ export const HOUR_IN_MILLISECONDS = 1000 * 60 * 60; // 1 hour
 
 export enum ExperimentPageTabName {
   Overview = 'overview',
+  Dashboard = 'dashboard',
   Runs = 'runs',
   Traces = 'traces',
   Models = 'models',
   EvaluationMonitoring = 'evaluation-monitoring',
   Judges = 'judges',
+  Issues = 'issues',
   EvaluationRuns = 'evaluation-runs',
   Datasets = 'datasets',
   LabelingSessions = 'labeling-sessions',
   LabelingSchemas = 'label-schemas',
+  ReviewQueue = 'review-queue',
   Prompts = 'prompts',
   ChatSessions = 'chat-sessions',
   SingleChatSession = 'single-chat-session',
+  Playground = 'playground',
 }
 
 export const getMlflow3DocsLink = () => {
+  // eslint-disable-next-line @databricks/no-hardcoded-doc-links -- See go/dbguidelinks
   return 'https://docs.databricks.com/aws/en/mlflow/mlflow-3-install';
+};
+
+export const getMlflow3GenAIDocsLink = () => {
+  // eslint-disable-next-line @databricks/no-hardcoded-doc-links -- See go/dbguidelinks
+  return 'https://docs.databricks.com/aws/en/mlflow3/genai/';
 };
 
 export enum ExperimentKind {

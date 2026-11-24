@@ -33,7 +33,7 @@ def test_get_input_schema_uses_array_schema_for_variadic_arguments():
     assert schema["items"] == {"type": "string"}
 
 
-@pytest_asyncio.fixture()
+@pytest_asyncio.fixture
 async def client() -> AsyncIterator[Client]:
     transport = StdioTransport(
         command=sys.executable,
@@ -93,6 +93,7 @@ async def test_list_tools(client: Client):
         "set_trace_tag",
         "update_deployment",
         "update_deployment_endpoint",
+        "update_experiment",
         "update_model_pip_requirements",
         "update_trace_assessment",
     ]
@@ -210,3 +211,33 @@ def test_fn_wrapper_converts_repeatable_custom_types():
     call_kwargs = mock_predict.call_args.kwargs
     assert call_kwargs["model_uri"] == "runs:/123/model"
     assert call_kwargs["extra_envs"] == {"FOO": "bar", "BAR": "baz"}
+
+
+def test_get_input_schema_uses_boolean_schema_for_flags():
+    @click.command()
+    @click.option("--flag", is_flag=True)
+    @click.option("--typed", type=bool)
+    def cmd(flag, typed):
+        pass
+
+    properties = server.get_input_schema(cmd.params)["properties"]
+
+    assert properties["flag"]["type"] == "boolean"
+    assert properties["typed"]["type"] == "boolean"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(False, False), (True, True), ("false", False), ("true", True), (None, None)],
+)
+def test_fn_wrapper_converts_boolean_params(value, expected):
+    captured = {}
+
+    @click.command()
+    @click.option("--flag", is_flag=True)
+    def cmd(flag):
+        captured["flag"] = flag
+
+    fn_wrapper(cmd)(flag=value)
+
+    assert captured["flag"] is expected

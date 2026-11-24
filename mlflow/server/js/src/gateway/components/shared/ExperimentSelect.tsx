@@ -7,10 +7,10 @@ interface ExperimentSelectProps {
   onChange: (experimentId: string) => void;
   disabled?: boolean;
   error?: string;
-  componentIdPrefix: string;
+  componentId: string;
 }
 
-export const ExperimentSelect = ({ value, onChange, disabled, error, componentIdPrefix }: ExperimentSelectProps) => {
+export const ExperimentSelect = ({ value, onChange, disabled, error, componentId }: ExperimentSelectProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { experiments, isLoading, error: queryError } = useExperimentsForSelect();
@@ -34,8 +34,8 @@ export const ExperimentSelect = ({ value, onChange, disabled, error, componentId
 
   return (
     <SimpleSelect
-      id={componentIdPrefix}
-      componentId={componentIdPrefix}
+      id={componentId}
+      componentId={componentId}
       value={value}
       onChange={({ target }) => onChange(target.value)}
       disabled={disabled}

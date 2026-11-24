@@ -1,14 +1,63 @@
 from __future__ import annotations
 
+import warnings
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
+
+
+class CacheControl(BaseModel):
+    """
+    Marks the end of a prompt prefix that the provider should cache (prompt caching).
+
+    Uses the shape of Anthropic's ``cache_control`` field:
+    https://docs.claude.com/en/docs/build-with-claude/prompt-caching
+
+    Attributes:
+        type: The cache type. ``"ephemeral"`` is the only type.
+        ttl: How long the cache entry lives, e.g. ``"5m"`` (the default) or ``"1h"``. Not
+            checked here, so a value the provider does not accept gets the provider's own
+            error, and chat prompts saved with other values still load.
+    """
+
+    type: Literal["ephemeral"]
+    ttl: str | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if data.get("ttl") is None:
+            data.pop("ttl", None)
+        return data
+
+
+def _drop_unset_cache_control(data: dict[str, Any]) -> dict[str, Any]:
+    # Leave `cache_control` out when it is not set, so content parts without it serialize
+    # exactly as they did before the field existed.
+    if data.get("cache_control") is None:
+        data.pop("cache_control", None)
+    return data
 
 
 class TextContentPart(BaseModel):
+    """
+    A text content part.
+
+    Attributes:
+        type: Always ``"text"``.
+        text: The text.
+        cache_control: Optional prompt caching marker. Providers that support prompt caching
+            cache the prompt up to and including this part. Other providers never receive it.
+    """
+
     type: Literal["text"]
     text: str
+    cache_control: CacheControl | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        return _drop_unset_cache_control(handler(self))
 
 
 class ImageUrl(BaseModel):
@@ -30,8 +79,23 @@ class ImageUrl(BaseModel):
 
 
 class ImageContentPart(BaseModel):
+    """
+    An image content part.
+
+    Attributes:
+        type: Always ``"image_url"``.
+        image_url: The image.
+        cache_control: Optional prompt caching marker, as on
+            :py:class:`TextContentPart <mlflow.types.chat.TextContentPart>`.
+    """
+
     type: Literal["image_url"]
     image_url: ImageUrl
+    cache_control: CacheControl | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        return _drop_unset_cache_control(handler(self))
 
 
 class InputAudio(BaseModel):
@@ -44,8 +108,35 @@ class AudioContentPart(BaseModel):
     input_audio: InputAudio
 
 
+class ReasoningSummaryPart(BaseModel):
+    type: Literal["summary_text"]
+    text: str
+
+
+class ReasoningContentPart(BaseModel):
+    """
+    A reasoning (a.k.a. "thinking") content part that some models emit alongside their
+    text response, e.g. GPT-OSS / Harmony-format models surface their analysis channel as:
+
+    .. code-block:: json
+
+        {"type": "reasoning", "summary": [{"type": "summary_text", "text": "..."}]}
+
+    Providers may attach additional metadata (e.g. ``id``, ``encrypted_content``, ``status``),
+    so extra fields are allowed to keep validation forward-compatible.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    type: Literal["reasoning"]
+    summary: list[ReasoningSummaryPart] = Field(default_factory=list)
+
+
 ContentPartsList = list[
-    Annotated[TextContentPart | ImageContentPart | AudioContentPart, Field(discriminator="type")]
+    Annotated[
+        TextContentPart | ImageContentPart | AudioContentPart | ReasoningContentPart,
+        Field(discriminator="type"),
+    ]
 ]
 
 
@@ -66,6 +157,17 @@ class ToolCall(BaseModel):
     id: str
     type: str = Field(default="function")
     function: Function
+    # Gemini thinking-mode models return a thought_signature with each
+    # function call that must be echoed back in subsequent turns.
+    # https://ai.google.dev/gemini-api/docs/thought-signatures
+    thought_signature: str | None = Field(default=None)
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if data.get("thought_signature") is None:
+            data.pop("thought_signature", None)
+        return data
 
 
 class ChatMessage(BaseModel):
@@ -77,6 +179,7 @@ class ChatMessage(BaseModel):
     - :py:class:`TextContentPart <mlflow.types.chat.TextContentPart>`
     - :py:class:`ImageContentPart <mlflow.types.chat.ImageContentPart>`
     - :py:class:`AudioContentPart <mlflow.types.chat.AudioContentPart>`
+    - :py:class:`ReasoningContentPart <mlflow.types.chat.ReasoningContentPart>`
     """
 
     role: str
@@ -116,11 +219,20 @@ class ParamProperty(ParamType):
 
     description: str | None = None
     enum: list[str | int | float | bool] | None = None
-    items: ParamType | None = None
+    # Recursive type so nested arrays (e.g. list[list[str]]) preserve their inner
+    # `items` schema through Pydantic round-trips. If this were `ParamType`, the
+    # inner `items` field would be silently stripped and downstream providers
+    # would reject the schema with "array schema missing items".
+    items: ParamProperty | None = None
+    # Recursive for the same reason as `items`. Without these, a nested object
+    # parameter is reduced to a bare `{"type": "object"}` and the model can only
+    # guess its fields (e.g. Gemini returns `{}` for it).
+    properties: dict[str, ParamProperty] | None = None
+    required: list[str] | None = None
 
 
 class FunctionParams(BaseModel):
-    properties: dict[str, ParamProperty]
+    properties: dict[str, ParamProperty] = Field(default_factory=dict)
     type: Literal["object"] = "object"
     required: list[str] | None = None
     additionalProperties: bool | None = None
@@ -144,17 +256,44 @@ class ChatTool(BaseModel):
     function: FunctionToolDefinition | None = None
 
 
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore",
+        message='Field name "schema" in "JsonSchemaSpec" shadows an attribute in parent '
+        '"BaseModel"',
+        category=UserWarning,
+    )
+
+    class JsonSchemaSpec(BaseModel):
+        """
+        OpenAI-compatible JSON Schema envelope for structured outputs.
+
+        Attributes:
+            name: The schema name.
+            schema: A JSON Schema definition.
+            strict: Whether model output should strictly follow the schema.
+        """
+
+        model_config = ConfigDict(extra="allow")
+
+        name: str
+        schema: dict[str, Any] = Field(...)
+        strict: bool = True
+
+
 class ResponseFormat(BaseModel):
     """
-    Response format configuration for structured outputs.
+    Response format configuration for structured outputs. Compatible with
+    OpenAI's Chat Completion API.
 
-    Supported formats: {"type": "json_schema", "json_schema": {...}}.
-
-    The schema should follow JSON Schema specification.
+    Supported formats:
+      - {"type": "text"}
+      - {"type": "json_object"}
+      - {"type": "json_schema", "json_schema": {"name": ..., "schema": {...}, "strict": true}}
     """
 
     type: Literal["text", "json_object", "json_schema"]
-    json_schema: dict[str, Any] | None = None
+    json_schema: JsonSchemaSpec | None = None
 
 
 class ToolChoiceFunction(BaseModel):
@@ -232,6 +371,17 @@ class ToolCallDelta(BaseModel):
     id: str | None = None
     type: str | None = None
     function: Function
+    # Gemini thinking-mode models return a thought_signature with each
+    # function call that must be echoed back in subsequent turns.
+    # https://ai.google.dev/gemini-api/docs/thought-signatures
+    thought_signature: str | None = Field(default=None)
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if data.get("thought_signature") is None:
+            data.pop("thought_signature", None)
+        return data
 
 
 class ChatChoiceDelta(BaseModel):

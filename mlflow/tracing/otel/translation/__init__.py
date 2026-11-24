@@ -14,8 +14,11 @@ from typing import Any
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.claude_code import ClaudeCodeTranslator
+from mlflow.tracing.otel.translation.gemini_cli import GeminiCliTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
+from mlflow.tracing.otel.translation.laminar import LaminarTranslator
 from mlflow.tracing.otel.translation.langfuse import LangfuseTranslator
 from mlflow.tracing.otel.translation.livekit import LiveKitTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
@@ -33,6 +36,8 @@ _logger = logging.getLogger(__name__)
 
 _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
+    GeminiCliTranslator(),
+    ClaudeCodeTranslator(),
     GenAiTranslator(),
     SpringAiTranslator(),
     TraceloopTranslator(),
@@ -40,6 +45,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     VercelAITranslator(),
     VoltAgentTranslator(),
     LiveKitTranslator(),
+    LaminarTranslator(),
     LangfuseTranslator(),
 ]
 
@@ -47,6 +53,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
 _EVENT_TRANSLATORS = [
     SpringAiTranslator(),
     LiveKitTranslator(),
+    ClaudeCodeTranslator(),
 ]
 
 
@@ -69,15 +76,17 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         Translated span dictionary
     """
     span_dict = span.to_dict()
-    attributes = sanitize_attributes(span_dict.get("attributes", {}))
+    attributes = span_dict.get("attributes", {})
     events = span_dict.get("events", [])
 
     # Override UNKNOWN (the LiveSpan default) with the translator-determined type.
-    if mlflow_type := translate_span_type_from_otel(attributes):
-        current_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
-        current_type = try_json_loads(current_raw) if current_raw else None
-        if current_type in (None, SpanType.UNKNOWN):
-            attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+    span_type_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
+    span_type = try_json_loads(span_type_raw) if span_type_raw else None
+    if span_type in (None, SpanType.UNKNOWN) and (
+        mlflow_type := translate_span_type_from_otel(attributes)
+    ):
+        span_type = mlflow_type
+        attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
 
     # Translate inputs and outputs (check both attributes and events)
     if SpanAttributeKey.INPUTS not in attributes and (
@@ -102,6 +111,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     ):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = dump_span_attribute_value(message_format)
 
+    # Translate tool definitions for chat UI rendering
+    if SpanAttributeKey.CHAT_TOOLS not in attributes and (
+        tools := _get_tool_definitions(attributes)
+    ):
+        attributes[SpanAttributeKey.CHAT_TOOLS] = tools
+
     # Extract and normalize model name from various sources
     if SpanAttributeKey.MODEL not in attributes and (model_name := _get_model_name(attributes)):
         attributes[SpanAttributeKey.MODEL] = dump_span_attribute_value(model_name)
@@ -111,9 +126,12 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     ):
         attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
 
-    # Calculate cost if both token usage and model are available
+    # Calculate cost if both token usage and model are available. Agent spans are skipped:
+    # their usage is a rollup of the run (possibly several models, no cache breakdown), and a
+    # priced agent span would hide its LLM call spans when the trace cost is aggregated.
     if (
         SpanAttributeKey.LLM_COST not in attributes
+        and span_type != SpanType.AGENT
         and SpanAttributeKey.CHAT_USAGE in attributes
         and SpanAttributeKey.MODEL in attributes
     ):
@@ -174,16 +192,30 @@ def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
         output_tokens = _parse_int_attribute(translator.get_output_tokens(attributes))
         total_tokens = _parse_int_attribute(translator.get_total_tokens(attributes))
 
-        # Calculate total tokens if not provided but input/output are available
-        if input_tokens and output_tokens and (total_tokens is None):
+        # Calculate total tokens if not provided but both input and output are available
+        if total_tokens is None and input_tokens is not None and output_tokens is not None:
             total_tokens = input_tokens + output_tokens
 
-        if input_tokens and output_tokens and total_tokens:
-            return {
-                TokenUsageKey.INPUT_TOKENS: input_tokens,
-                TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                TokenUsageKey.TOTAL_TOKENS: total_tokens,
-            }
+        if input_tokens is not None or output_tokens is not None or total_tokens is not None:
+            usage = {}
+            if input_tokens is not None:
+                usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+            if output_tokens is not None:
+                usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+            if total_tokens is not None:
+                usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+            cache_read = _parse_int_attribute(translator.get_cache_read_input_tokens(attributes))
+            if cache_read is not None:
+                usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+
+            cache_creation = _parse_int_attribute(
+                translator.get_cache_creation_input_tokens(attributes)
+            )
+            if cache_creation is not None:
+                usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+
+            return usage
 
 
 def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | None = None) -> Any:
@@ -209,7 +241,7 @@ def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | 
     if events:
         for translator in _EVENT_TRANSLATORS:
             if hasattr(translator, "get_input_value_from_events"):
-                if value := translator.get_input_value_from_events(events):
+                if value := translator.get_input_value_from_events(events, attributes):
                     return value
 
 
@@ -238,7 +270,7 @@ def _get_output_value(
     if events:
         for translator in _EVENT_TRANSLATORS:
             if hasattr(translator, "get_output_value_from_events"):
-                if value := translator.get_output_value_from_events(events):
+                if value := translator.get_output_value_from_events(events, attributes):
                     return value
 
 
@@ -255,6 +287,13 @@ def _get_message_format(attributes: dict[str, Any]) -> str | None:
     for translator in _TRANSLATORS:
         if message_format := translator.get_message_format(attributes):
             return message_format
+    return None
+
+
+def _get_tool_definitions(attributes: dict[str, Any]) -> Any:
+    for translator in _TRANSLATORS:
+        if value := translator.get_tool_definitions(attributes):
+            return value
     return None
 
 
@@ -342,8 +381,23 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Modified span dictionary
     """
-    attributes = span_dict.get("attributes", {})
+    translate_loaded_span_with_status(span_dict)
+    return span_dict
 
+
+def translate_loaded_span_with_status(span_dict: dict[str, Any]) -> bool:
+    """
+    Apply load-time span translations and report whether the dict changed.
+
+    Returns:
+        True if ``span_dict`` was modified, False otherwise.
+    """
+    attributes = span_dict.get("attributes")
+    created_attributes = attributes is None
+    if created_attributes:
+        attributes = {}
+
+    modified = False
     try:
         if current_raw := attributes.get(SpanAttributeKey.SPAN_TYPE):
             current_type = try_json_loads(current_raw)
@@ -352,11 +406,15 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
         if current_type in (None, SpanType.UNKNOWN):
             if mlflow_type := translate_span_type_from_otel(attributes):
                 attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+                modified = True
     except Exception:
         _logger.debug("Failed to translate span type", exc_info=True)
 
-    span_dict["attributes"] = attributes
-    return span_dict
+    # Avoid injecting an empty attributes object when nothing changed so stored
+    # JSON can be passed through unchanged for artifact responses.
+    if modified or not created_attributes:
+        span_dict["attributes"] = attributes
+    return modified
 
 
 def update_token_usage(
@@ -427,11 +485,14 @@ def update_cost(
     return current_cost
 
 
-def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+def strip_otlp_double_encoding(attributes: dict[str, Any]) -> dict[str, Any]:
     """
-    Sanitize attributes by removing duplicate dumped attributes.
-    This is necessary because when spans are logged to sql store with otel_api, the
-    span attributes are dumped twice (once in Span.from_otel_proto and once in span.to_dict).
+    Strip the extra JSON encoding layer that Span.from_otel_proto adds to attribute values.
+
+    Only call this on spans received over OTLP. MLflow clients already JSON-encode attribute
+    values before export, so from_otel_proto encodes them a second time. A raw string from a
+    third-party OTel client that happens to be JSON (e.g. '{"a": 1}') is also unwrapped here,
+    so it is stored as a structured value. This is intended: the chat UI relies on it.
     """
     updated_attributes = {}
     for key, value in attributes.items():

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
   "entry": [
     // Main entry point
     "src/index.tsx",
@@ -17,6 +17,9 @@
     "src/feature-store/mfe/prefetch.ts",
     "src/feature-store/mfe/register.tsx",
     "src/feature-store/mfe/set-public-path.ts",
+
+    // Cross-MFE exports consumed by webapp via runtime import
+    "src/ai-gateway/external-components/AiGatewayLlmContent.tsx",
 
     // MFE entry points
     "src/mfe/prefetch.ts",
@@ -37,4 +40,6 @@
     "**/*/**",
   ],
   "project": ["src/**/*.{js,jsx,ts,tsx}"],
+  // Disable Storybook plugin because we configure Storybook files ourselves
+  "storybook": { "config": [] },
 }

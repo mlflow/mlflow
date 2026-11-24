@@ -1,5 +1,3 @@
-export const COMPONENT_ID_PREFIX = 'mlflow.experiment-scorers';
-
 export const SCORER_FORM_MODE = {
   CREATE: 'create',
   EDIT: 'edit',
@@ -42,3 +40,7 @@ export const BUTTON_VARIANT = {
 export type ButtonVariant = (typeof BUTTON_VARIANT)[keyof typeof BUTTON_VARIANT];
 
 export const RETRIEVAL_ASSESSMENTS = ['groundedness', 'context_sufficiency'] as const;
+
+export const DEFAULT_SCORERS_PAGE_SIZE = 100;
+
+export const SCORERS_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];

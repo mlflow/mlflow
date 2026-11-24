@@ -43,7 +43,7 @@ type GeminiCandidate = {
 };
 
 type GeminiContent = {
-  role: 'user' | 'model';
+  role?: 'user' | 'model';
   parts: GeminiContentPart[];
 };
 
@@ -134,15 +134,19 @@ const isThinkingPart = (part: GeminiTextPart): boolean => {
 };
 
 const isGeminiContent = (obj: unknown): obj is GeminiContent => {
-  return (
-    isObject(obj) &&
-    'role' in obj &&
-    isString(obj.role) &&
-    ['user', 'model'].includes(obj.role) &&
-    has(obj, 'parts') &&
-    Array.isArray(obj.parts) &&
-    obj.parts.every(isGeminiContentPart)
-  );
+  if (!isObject(obj) || !has(obj, 'parts')) {
+    return false;
+  }
+  const record = obj as Record<string, unknown>;
+  const parts = record['parts'];
+  if (!Array.isArray(parts) || !parts.every(isGeminiContentPart)) {
+    return false;
+  }
+  // role may be omitted by some Gemini SDK versions; treat as valid if parts are present
+  if ('role' in obj) {
+    return isString(record['role']) && ['user', 'model'].includes(record['role'] as string);
+  }
+  return true;
 };
 
 // Gemini SDK serializes bytes as Python literal "b'...'" with escaped hex bytes.
@@ -245,11 +249,14 @@ const processGeminiContentParts = (
       }
     } else if (isGeminiInlineDataPart(part)) {
       const { mime_type } = part.inline_data;
-      const data = cleanBase64Data(part.inline_data.data);
+      const rawData = part.inline_data.data;
+      // If data is an mlflow-attachment:// URI (from auto-extraction), use it directly
+      const isAttachment = rawData.startsWith('mlflow-attachment://');
+      const data = isAttachment ? rawData : cleanBase64Data(rawData);
       if (mime_type.startsWith('image/')) {
         textParts.push({
           type: 'image_url',
-          image_url: { url: `data:${mime_type};base64,${data}` },
+          image_url: { url: isAttachment ? data : `data:${mime_type};base64,${data}` },
         });
       } else if (mime_type.startsWith('audio/')) {
         const format = getAudioFormat(mime_type);
@@ -276,7 +283,7 @@ const processGeminiContentParts = (
 };
 
 const normalizeGeminiContentToMessages = (content: GeminiContent): ModelTraceChatMessage[] => {
-  const role = content.role === 'model' ? 'assistant' : content.role;
+  const role = content.role === 'model' || !content.role ? 'assistant' : content.role;
   const { textParts, thinking, toolCalls, functionResponses } = processGeminiContentParts(content.parts);
 
   // Emit function_response parts as individual tool messages
@@ -353,6 +360,18 @@ export const normalizeGeminiChatInput = (obj: unknown): ModelTraceChatMessage[] 
         const messages = normalizeGeminiContentToMessages({ role: 'user', parts });
         return messages.length > 0 ? messages : null;
       }
+    }
+
+    // Handle single content object (e.g., {"role": "user", "parts": [...]})
+    if (isGeminiContent(obj.contents)) {
+      const messages = normalizeGeminiContentToMessages(obj.contents);
+      return messages.length > 0 ? messages : null;
+    }
+
+    // Handle single part dict (e.g., {"text": "Say hello"})
+    if (isGeminiContentPart(obj.contents)) {
+      const messages = normalizeGeminiContentToMessages({ role: 'user', parts: [obj.contents] });
+      return messages.length > 0 ? messages : null;
     }
   }
 

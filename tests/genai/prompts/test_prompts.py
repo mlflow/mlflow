@@ -1,4 +1,5 @@
 import json
+import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -172,7 +173,7 @@ def test_prompt_associate_with_run(tmp_path):
         def task():
             mlflow.genai.load_prompt("prompt_1", version=1)
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="test-load-prompt") as executor:
             futures = [executor.submit(task) for _ in range(10)]
             for future in futures:
                 future.result()
@@ -515,6 +516,19 @@ def test_format_prompt_with_backslashes(
 ):
     result = format_prompt(prompt_template, **values)
     assert result == expected
+
+
+def test_prompt_version_format_does_not_replace_placeholders_inside_values():
+    prompt = PromptVersion(
+        "chat",
+        1,
+        [{"role": "system", "content": "Docs: {{docs}}"}, {"role": "user", "content": "{{name}}"}],
+    )
+
+    assert prompt.format(docs="Jinja greets with 'Hello {{ name }}!'", name="Ada") == [
+        {"role": "system", "content": "Docs: Jinja greets with 'Hello {{ name }}!'"},
+        {"role": "user", "content": "Ada"},
+    ]
 
 
 def test_load_prompt_with_link_to_model_disabled():
@@ -1380,7 +1394,9 @@ def test_register_prompt_invalidates_latest_cache():
 
     # Verify it's cached
     cache = PromptCache.get_instance()
-    key = PromptCacheKey.from_parts("latest_cache_test", alias="latest")
+    key = PromptCacheKey.from_parts(
+        "latest_cache_test", alias="latest", registry_uri=mlflow.get_registry_uri()
+    )
     assert cache.get(key) is not None
 
     # Register a new version - should invalidate @latest cache
@@ -1411,7 +1427,9 @@ def test_set_prompt_alias_invalidates_alias_cache():
 
     # Verify it's cached
     cache = PromptCache.get_instance()
-    key = PromptCacheKey.from_parts("alias_cache_test", alias="production")
+    key = PromptCacheKey.from_parts(
+        "alias_cache_test", alias="production", registry_uri=mlflow.get_registry_uri()
+    )
     assert cache.get(key) is not None
 
     # Update alias to point to version 2 - should invalidate cache
@@ -1540,7 +1558,9 @@ def test_prompt_cache_custom_ttl():
 
     # Should be cached
     cache = PromptCache.get_instance()
-    key = PromptCacheKey.from_parts("custom_ttl_prompt", version=1)
+    key = PromptCacheKey.from_parts(
+        "custom_ttl_prompt", version=1, registry_uri=mlflow.get_registry_uri()
+    )
     cached = cache.get(key)
     assert cached is not None
     assert cached.template == "Hello!"
@@ -1550,7 +1570,9 @@ def test_prompt_cache_custom_ttl():
     mlflow.genai.load_prompt("custom_ttl_prompt_float", version=1, cache_ttl_seconds=300.5)
 
     # Should be cached
-    key_float = PromptCacheKey.from_parts("custom_ttl_prompt_float", version=1)
+    key_float = PromptCacheKey.from_parts(
+        "custom_ttl_prompt_float", version=1, registry_uri=mlflow.get_registry_uri()
+    )
     cached_float = cache.get(key_float)
     assert cached_float is not None
     assert cached_float.template == "Hello float!"
@@ -1565,11 +1587,13 @@ def test_prompt_cache_invalidation():
 
     # Verify it's cached
     cache = PromptCache.get_instance()
-    key = PromptCacheKey.from_parts("invalidate_prompt", version=1)
+    key = PromptCacheKey.from_parts(
+        "invalidate_prompt", version=1, registry_uri=mlflow.get_registry_uri()
+    )
     assert cache.get(key) is not None
 
     # Delete specific version from cache
-    cache.delete("invalidate_prompt", version=1)
+    cache.delete("invalidate_prompt", version=1, registry_uri=mlflow.get_registry_uri())
 
     # Should be gone
     assert cache.get(key) is None
@@ -1801,6 +1825,25 @@ def test_search_prompts_with_combined_filters():
     prompts = client.search_prompts(filter_string='name = "gamma_prompt"')
     assert len(prompts) == 1
     assert prompts[0].name == "gamma_prompt"
+
+
+def test_search_prompts_order_by():
+    mlflow.genai.register_prompt(name="alpha_prompt", template="Alpha: {{x}}")
+    mlflow.genai.register_prompt(name="beta_prompt", template="Beta: {{y}}")
+    mlflow.genai.register_prompt(name="gamma_prompt", template="Gamma: {{z}}")
+
+    # order_by must reach the store through mlflow.genai.search_prompts ->
+    # _model_registry.fluent.search_prompts -> MlflowClient.search_prompts,
+    # not just MlflowClient directly.
+    prompts = mlflow.genai.search_prompts(
+        filter_string="name LIKE '%_prompt'", order_by=["name DESC"]
+    )
+    assert [p.name for p in prompts] == ["gamma_prompt", "beta_prompt", "alpha_prompt"]
+
+    prompts = mlflow.genai.search_prompts(
+        filter_string="name LIKE '%_prompt'", order_by=["name ASC"]
+    )
+    assert [p.name for p in prompts] == ["alpha_prompt", "beta_prompt", "gamma_prompt"]
 
 
 def test_load_prompt_sets_span_attributes():
@@ -2095,3 +2138,58 @@ def test_concurrent_prompt_linking_to_run_and_trace():
     assert trace_linked_prompts is not None
     trace_prompts = json.loads(trace_linked_prompts)
     assert any(p["name"] == "test" for p in trace_prompts)
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "Hello, {{name}}!",
+        [{"role": "user", "content": "Hello, {{name}}!"}],
+    ],
+)
+@pytest.mark.parametrize(
+    "key",
+    [
+        "mlflow.prompt.text",
+        "_mlflow_prompt_type",
+        "mlflow.prompt.is_prompt",
+        "_mlflow_prompt_response_format",
+    ],
+)
+def test_prompt_version_reserved_tags_are_immutable(template, key):
+    mlflow.genai.register_prompt(name="immutable_prompt", template=template)
+    client = MlflowClient()
+    match = f"Tag '{re.escape(key)}' is set when the prompt version is registered"
+
+    with pytest.raises(MlflowException, match=match):
+        mlflow.genai.set_prompt_version_tag("immutable_prompt", 1, key, "modified")
+    with pytest.raises(MlflowException, match=match):
+        client.set_prompt_version_tag("immutable_prompt", 1, key, "modified")
+    with pytest.raises(MlflowException, match=match):
+        mlflow.genai.delete_prompt_version_tag("immutable_prompt", 1, key)
+    with pytest.raises(MlflowException, match=match):
+        client.delete_prompt_version_tag("immutable_prompt", 1, key)
+
+    prompt = mlflow.genai.load_prompt("prompts:/immutable_prompt/1", cache_ttl_seconds=0)
+    assert prompt.template == template
+
+
+def test_prompt_version_non_template_tags_remain_mutable():
+    mlflow.genai.register_prompt(name="mutable_tags_prompt", template="Hi {{name}}")
+
+    mlflow.genai.set_prompt_version_tag("mutable_tags_prompt", 1, "env", "prod")
+    mlflow.genai.set_prompt_model_config(
+        "mutable_tags_prompt", 1, PromptModelConfig(model_name="gpt-5")
+    )
+    prompt = mlflow.genai.load_prompt("prompts:/mutable_tags_prompt/1", cache_ttl_seconds=0)
+    assert prompt.tags == {"env": "prod"}
+    assert prompt.model_config == {"model_name": "gpt-5"}
+
+    mlflow.genai.delete_prompt_version_tag("mutable_tags_prompt", 1, "env")
+    mlflow.genai.delete_prompt_model_config("mutable_tags_prompt", 1)
+    prompt = mlflow.genai.load_prompt("prompts:/mutable_tags_prompt/1", cache_ttl_seconds=0)
+    assert "env" not in prompt.tags
+    assert prompt.model_config is None
+
+    mlflow.genai.register_prompt(name="mutable_tags_prompt", template="Bye {{name}}")
+    assert mlflow.genai.load_prompt("prompts:/mutable_tags_prompt/2").template == "Bye {{name}}"

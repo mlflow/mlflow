@@ -1,11 +1,3 @@
-"""Verify that every SQLAlchemy model with a ``workspace`` column is handled
-by at least one workspace store's ``_get_query`` method.
-
-If a new model is added with a ``workspace`` column but the developer forgets
-to add it to ``_get_query``, that model's queries will bypass workspace
-isolation.  This test catches that gap.
-"""
-
 import ast
 from pathlib import Path
 
@@ -20,10 +12,10 @@ from mlflow.store.db.base_sql_model import Base
 # store paths resolve correctly regardless of the pytest working directory.
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
-# Every workspace store that provides a ``_get_query`` override.
+# Every store that provides a ``_get_query`` with workspace filtering.
 WORKSPACE_STORE_PATHS = [
     "mlflow/store/tracking/sqlalchemy_workspace_store.py",
-    "mlflow/store/model_registry/sqlalchemy_workspace_store.py",
+    "mlflow/store/model_registry/sqlalchemy_store.py",
     "mlflow/store/jobs/sqlalchemy_workspace_store.py",
 ]
 
@@ -77,14 +69,15 @@ def test_all_workspace_models_handled_in_get_query():
     for ws_path in WORKSPACE_STORE_PATHS:
         handled |= _models_handled_by_get_query(ws_path)
 
+    # Match columns named `workspace` or ending in `_workspace`.
     models_with_column: set[str] = set()
     for mapper in Base.registry.mappers:
-        if "workspace" in {col.key for col in mapper.columns}:
+        if any(col.key == "workspace" or col.key.endswith("_workspace") for col in mapper.columns):
             models_with_column.add(mapper.class_.__name__)
 
     missing = models_with_column - handled
     assert not missing, (
-        f"These models have a `workspace` column but are not handled by any "
+        f"These models have a workspace column but are not handled by any "
         f"workspace store's _get_query: {sorted(missing)}. "
         f"Add handling in the appropriate workspace store's _get_query method."
     )

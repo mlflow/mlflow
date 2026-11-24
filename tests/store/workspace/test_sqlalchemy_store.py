@@ -1,9 +1,18 @@
+import logging
+from unittest import mock
+
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.tracking.dbmodels.models import (
+    SqlGatewayEndpoint,
+    SqlSkill,
+    SqlSkillVersion,
+)
 from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 from mlflow.store.workspace.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
@@ -15,7 +24,7 @@ def workspace_store(db_uri, monkeypatch):
 
     store = SqlAlchemyStore(db_uri)
 
-    with store.ManagedSessionMaker() as session:
+    with store.ManagedSessionMaker(read_only=False) as session:
         try:
             session.add(
                 SqlWorkspace(
@@ -71,11 +80,19 @@ def test_get_workspace_not_found(workspace_store):
 
 def test_create_workspace_persists_record(workspace_store):
     created = workspace_store.create_workspace(
-        Workspace(name="team-a", description="Team A", default_artifact_root="s3://root/team-a"),
+        Workspace(
+            name="team-a",
+            description="Team A",
+            default_artifact_root="s3://root/team-a",
+            trace_archival_location="s3://archive/team-a",
+            trace_archival_retention="30d",
+        ),
     )
     assert created.name == "team-a"
     assert created.description == "Team A"
     assert created.default_artifact_root == "s3://root/team-a"
+    assert created.trace_archival_location == "s3://archive/team-a"
+    assert created.trace_archival_retention == "30d"
     assert ("team-a", "Team A") in _workspace_rows(workspace_store)
 
 
@@ -96,6 +113,59 @@ def test_create_workspace_invalid_name_raises(workspace_store):
         match="Workspace name 'Team-A' must match the pattern",
     ) as exc:
         workspace_store.create_workspace(Workspace(name="Team-A", description=None))
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_create_workspace_invalid_trace_archival_location_raises(workspace_store):
+    with pytest.raises(MlflowException, match="proxy-only `mlflow-artifacts:` scheme") as exc:
+        workspace_store.create_workspace(
+            Workspace(
+                name="team-a",
+                description=None,
+                trace_archival_location="mlflow-artifacts:/archive/team-a",
+            )
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_create_workspace_unsupported_trace_archival_location_raises(workspace_store):
+    class UnsupportedArchiveRepo(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            raise NotImplementedError
+
+        def log_artifacts(self, local_dir, artifact_path=None):
+            raise NotImplementedError
+
+        def list_artifacts(self, path=None):
+            raise NotImplementedError
+
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+        return_value=UnsupportedArchiveRepo("dbfs:/archive/team-a"),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="does not support deleting archived payloads",
+        ) as exc:
+            workspace_store.create_workspace(
+                Workspace(
+                    name="team-a",
+                    description=None,
+                    trace_archival_location="dbfs:/archive/team-a",
+                )
+            )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_create_workspace_invalid_trace_archival_retention_raises(workspace_store):
+    with pytest.raises(MlflowException, match="Trace archival retention must") as exc:
+        workspace_store.create_workspace(
+            Workspace(
+                name="team-a",
+                description=None,
+                trace_archival_retention="thirty-days",
+            )
+        )
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
@@ -132,6 +202,107 @@ def test_update_workspace_can_clear_default_artifact_root(workspace_store):
     assert cleared.default_artifact_root is None
     fetched = workspace_store.get_workspace("team-a")
     assert fetched.default_artifact_root is None
+
+
+def test_update_workspace_sets_trace_archival_location(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    updated = workspace_store.update_workspace(
+        Workspace(name="team-a", trace_archival_location="s3://archive/team-a")
+    )
+    assert updated.trace_archival_location == "s3://archive/team-a"
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.trace_archival_location == "s3://archive/team-a"
+
+
+def test_update_workspace_invalid_trace_archival_location_raises(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    with pytest.raises(MlflowException, match="proxy-only `mlflow-artifacts:` scheme") as exc:
+        workspace_store.update_workspace(
+            Workspace(name="team-a", trace_archival_location="mlflow-artifacts:/archive/team-a")
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_update_workspace_unsupported_trace_archival_location_raises(workspace_store):
+    class UnsupportedArchiveRepo(ArtifactRepository):
+        def log_artifact(self, local_file, artifact_path=None):
+            raise NotImplementedError
+
+        def log_artifacts(self, local_dir, artifact_path=None):
+            raise NotImplementedError
+
+        def list_artifacts(self, path=None):
+            raise NotImplementedError
+
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    with mock.patch(
+        "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+        return_value=UnsupportedArchiveRepo("dbfs:/archive/team-a"),
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="does not support deleting archived payloads",
+        ) as exc:
+            workspace_store.update_workspace(
+                Workspace(name="team-a", trace_archival_location="dbfs:/archive/team-a")
+            )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_update_workspace_can_clear_trace_archival_location(workspace_store):
+    workspace_store.create_workspace(
+        Workspace(
+            name="team-a",
+            description="old",
+            trace_archival_location="s3://archive/team-a",
+        )
+    )
+
+    cleared = workspace_store.update_workspace(Workspace(name="team-a", trace_archival_location=""))
+    assert cleared.trace_archival_location is None
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.trace_archival_location is None
+
+
+def test_update_workspace_sets_trace_archival_retention(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    updated = workspace_store.update_workspace(
+        Workspace(name="team-a", trace_archival_retention="14d")
+    )
+    assert updated.trace_archival_retention == "14d"
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.trace_archival_retention == "14d"
+
+
+def test_update_workspace_invalid_trace_archival_retention_raises(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    with pytest.raises(MlflowException, match="Trace archival retention must") as exc:
+        workspace_store.update_workspace(
+            Workspace(name="team-a", trace_archival_retention="thirty-days")
+        )
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_update_workspace_can_clear_trace_archival_retention(workspace_store):
+    workspace_store.create_workspace(
+        Workspace(
+            name="team-a",
+            description="old",
+            trace_archival_retention="30d",
+        )
+    )
+
+    cleared = workspace_store.update_workspace(
+        Workspace(name="team-a", trace_archival_retention="")
+    )
+    assert cleared.trace_archival_retention is None
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.trace_archival_retention is None
 
 
 def test_delete_workspace_removes_empty_workspace(workspace_store):
@@ -260,6 +431,67 @@ def test_resolve_artifact_root_cache_clears_when_override_removed(workspace_stor
     )
 
 
+def test_resolve_trace_archival_config_returns_defaults(workspace_store):
+    config = workspace_store.resolve_trace_archival_config(
+        default_trace_archival_root="s3://archive/default",
+        default_retention="30d",
+        workspace_name=DEFAULT_WORKSPACE_NAME,
+    )
+    assert config.config.location == "s3://archive/default"
+    assert config.append_workspace_prefix
+    assert config.config.retention == "30d"
+
+
+def test_resolve_trace_archival_config_prefers_workspace_overrides(workspace_store):
+    workspace_store.create_workspace(
+        Workspace(
+            name="team-a",
+            description=None,
+            trace_archival_location="s3://archive/team-a",
+            trace_archival_retention="14d",
+        )
+    )
+
+    config = workspace_store.resolve_trace_archival_config(
+        default_trace_archival_root="s3://archive/default",
+        default_retention="30d",
+        workspace_name="team-a",
+    )
+    assert config.config.location == "s3://archive/team-a"
+    assert not config.append_workspace_prefix
+    assert config.config.retention == "14d"
+
+
+def test_resolve_trace_archival_config_cache_updates_on_override_change(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-cache", description=None))
+
+    initial = workspace_store.resolve_trace_archival_config(
+        default_trace_archival_root="s3://archive/default",
+        default_retention="30d",
+        workspace_name="team-cache",
+    )
+    assert initial.config.location == "s3://archive/default"
+    assert initial.append_workspace_prefix
+    assert initial.config.retention == "30d"
+
+    workspace_store.update_workspace(
+        Workspace(
+            name="team-cache",
+            trace_archival_location="s3://archive/team-cache",
+            trace_archival_retention="7d",
+        )
+    )
+
+    updated = workspace_store.resolve_trace_archival_config(
+        default_trace_archival_root="s3://archive/default",
+        default_retention="30d",
+        workspace_name="team-cache",
+    )
+    assert updated.config.location == "s3://archive/team-cache"
+    assert not updated.append_workspace_prefix
+    assert updated.config.retention == "7d"
+
+
 def test_get_default_workspace_returns_default(workspace_store):
     default_ws = workspace_store.get_default_workspace()
     assert default_ws.name == DEFAULT_WORKSPACE_NAME
@@ -269,7 +501,7 @@ def test_get_default_workspace_returns_default(workspace_store):
 def test_delete_workspace_reassigns_resources_to_default(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (name, workspace, lifecycle_stage) "
@@ -291,7 +523,7 @@ def test_delete_workspace_reassigns_resources_to_default(workspace_store):
 def test_delete_workspace_fails_on_naming_conflict(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (name, workspace, lifecycle_stage) "
@@ -316,10 +548,167 @@ def test_delete_workspace_fails_on_naming_conflict(workspace_store):
     assert ws.name == "team-a"
 
 
+def _insert_skill(session, *, workspace, organization, name):
+    session.execute(
+        sa.text(
+            "INSERT INTO skills (workspace, organization, name, created_at, "
+            "last_updated_at) VALUES (:ws, :org, :name, 0, 0)"
+        ),
+        {"ws": workspace, "org": organization, "name": name},
+    )
+
+
+def test_delete_workspace_set_default_allows_same_name_different_organization(workspace_store):
+    # Skills are keyed on (organization, name), so the same name under different
+    # organizations is not a conflict when merging into the default workspace.
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_skill(session, workspace="team-a", organization="acme", name="code-review")
+        _insert_skill(
+            session, workspace=DEFAULT_WORKSPACE_NAME, organization="other", name="code-review"
+        )
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        moved = session.execute(
+            sa.text("SELECT COUNT(*) FROM skills WHERE workspace = :ws"),
+            {"ws": DEFAULT_WORKSPACE_NAME},
+        ).scalar_one()
+    assert moved == 2
+
+
+def test_delete_workspace_set_default_blocks_same_organization_and_name(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_skill(session, workspace="team-a", organization="acme", name="code-review")
+        _insert_skill(
+            session, workspace=DEFAULT_WORKSPACE_NAME, organization="acme", name="code-review"
+        )
+
+    with pytest.raises(MlflowException, match="already exist in the default workspace"):
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+
+
+def test_delete_workspace_set_default_blocks_conflicting_secret_names(workspace_store):
+
+    def _insert_secret(session, *, workspace, secret_name, secret_id):
+        session.execute(
+            sa.text(
+                "INSERT INTO secrets (secret_id, secret_name, workspace, encrypted_value, "
+                "wrapped_dek, kek_version, masked_value, created_at, last_updated_at) "
+                "VALUES (:secret_id, :secret_name, :ws, :value, :dek, 1, 'masked', 0, 0)"
+            ),
+            {
+                "secret_id": secret_id,
+                "secret_name": secret_name,
+                "ws": workspace,
+                "value": b"encrypted",
+                "dek": b"dek",
+            },
+        )
+
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _insert_secret(session, workspace="team-a", secret_name="shared", secret_id="s-team-a")
+        _insert_secret(
+            session, workspace=DEFAULT_WORKSPACE_NAME, secret_name="shared", secret_id="s-default"
+        )
+
+    with pytest.raises(MlflowException, match=r"secrets: 'shared'"):
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+
+
+def test_delete_workspace_set_default_merges_unnamed_endpoints(workspace_store):
+    # Fast guard to record the following behaviour: `endpoints.name` is nullable, and SQL
+    # treats NULL = NULL as unknown, so two unnamed endpoints are not a clash currently.
+    # Comparing the names in Python, where None == None, would refuse this merge (i.e. the
+    # reassignment of each resource's workspace to `default`). The cross-dialect version,
+    # which also covers SQL Server refusing that merge at the database level, is
+    # tests/db/test_workspace_set_default.py.
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        session.add_all([
+            SqlGatewayEndpoint(endpoint_id="e-a", name=None, workspace="team-a"),
+            SqlGatewayEndpoint(
+                endpoint_id="e-default", name=None, workspace=DEFAULT_WORKSPACE_NAME
+            ),
+        ])
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        moved = {
+            (endpoint.endpoint_id, endpoint.workspace)
+            for endpoint in session.query(SqlGatewayEndpoint)
+        }
+    assert moved == {
+        ("e-a", DEFAULT_WORKSPACE_NAME),
+        ("e-default", DEFAULT_WORKSPACE_NAME),
+    }
+
+
+def _seed_skill_with_version(session, workspace, source_type="git"):
+    session.add(SqlSkill(workspace=workspace, organization="acme", name="code-review"))
+    session.add(
+        SqlSkillVersion(
+            workspace=workspace,
+            organization="acme",
+            name="code-review",
+            version=1,
+            source_type=source_type,
+            source="mlflow-artifacts:/skills/@acme/code-review/content"
+            if source_type == "mlflow"
+            else "s.git",
+        )
+    )
+
+
+def test_delete_workspace_set_default_blocks_mlflow_backed_skills(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_with_version(session, "team-a", source_type="mlflow")
+
+    with pytest.raises(MlflowException, match="MLflow-backed skill versions") as exc:
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+    assert exc.value.error_code == "INVALID_STATE"
+    assert workspace_store.get_workspace("team-a").name == "team-a"
+    with workspace_store.ManagedSessionMaker() as session:
+        assert session.query(SqlSkillVersion.workspace).one()[0] == "team-a"
+
+
+def test_delete_workspace_set_default_allows_external_skill_sources(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_with_version(session, "team-a")
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.SET_DEFAULT)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        assert session.query(SqlSkillVersion.workspace).one()[0] == DEFAULT_WORKSPACE_NAME
+
+
+def test_delete_workspace_cascade_removes_skill_graph(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
+        _seed_skill_with_version(session, "team-a")
+
+    workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+
+    with workspace_store.ManagedSessionMaker() as session:
+        for model in (
+            SqlSkill,
+            SqlSkillVersion,
+        ):
+            assert session.query(model).count() == 0
+
+
 def test_delete_workspace_cascade_removes_resources(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (name, workspace, lifecycle_stage) "
@@ -341,10 +730,18 @@ def test_delete_workspace_cascade_removes_resources(workspace_store):
         workspace_store.get_workspace("team-a")
 
 
+def test_delete_workspace_cascade_does_not_log_the_store_uri(workspace_store, caplog):
+    workspace_store.create_workspace(Workspace(name="team-a", description=None))
+    with caplog.at_level(logging.INFO, logger="mlflow.store.workspace.sqlalchemy_store"):
+        workspace_store.delete_workspace("team-a", mode=WorkspaceDeletionMode.CASCADE)
+    assert "mlflow gc" in caplog.text
+    assert workspace_store._workspace_uri not in caplog.text
+
+
 def test_delete_workspace_cascade_removes_experiment_with_runs(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (experiment_id, name, workspace, lifecycle_stage) "
@@ -379,7 +776,7 @@ def test_delete_workspace_cascade_removes_experiment_with_runs(workspace_store):
 def test_delete_workspace_restrict_blocks_when_resources_exist(workspace_store):
     workspace_store.create_workspace(Workspace(name="team-a", description=None))
 
-    with workspace_store.ManagedSessionMaker() as session:
+    with workspace_store.ManagedSessionMaker(read_only=False) as session:
         session.execute(
             sa.text(
                 "INSERT INTO experiments (name, workspace, lifecycle_stage) "

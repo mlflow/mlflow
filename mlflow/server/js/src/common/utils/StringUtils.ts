@@ -32,7 +32,6 @@ const capitalizeFirstLetter = (string: string) => {
 
 const _keyStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 
-/* eslint-disable no-bitwise */
 /**
  * UTF-8 safe version of base64 encoder
  * Source: http://www.webtoolkit.info/javascript_base64.html
@@ -161,7 +160,6 @@ const _utf8_decode = (utftext = '') => {
   }
   return string;
 };
-/* eslint-enable no-bitwise */
 
 /**
  * Returns a SHA256 hash of the input string

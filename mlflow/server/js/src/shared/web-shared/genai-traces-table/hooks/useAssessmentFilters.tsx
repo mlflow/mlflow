@@ -75,7 +75,12 @@ export function serializedStringToAssessmentValueV2(value: string): AssessmentVa
     return false;
   }
 
-  // TODO(nsthorat): handle float / int types here.
+  // Handle numeric values
+  const numValue = Number(value);
+  if (!isNaN(numValue) && value.trim() !== '') {
+    return numValue;
+  }
+
   return value;
 }
 
@@ -93,8 +98,16 @@ export function serializedStringToAssessmentValue(assessmentInfo: AssessmentInfo
     } else {
       return undefined;
     }
+  } else if (assessmentInfo.dtype === 'numeric') {
+    if (value === 'undefined') {
+      return undefined;
+    }
+    const numValue = Number(value);
+    if (!isNaN(numValue) && value.trim() !== '') {
+      return numValue;
+    }
+    return value;
   }
-  // TODO(nsthorat): handle float / int types here.
   return value;
 }
 

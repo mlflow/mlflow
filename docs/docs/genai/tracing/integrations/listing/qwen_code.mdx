@@ -1,0 +1,147 @@
+---
+title: Tracing Qwen Code
+description: Trace Qwen Code CLI conversations with MLflow for full observability into AI-assisted software development workflows.
+sidebar_position: 10
+sidebar_label: Qwen Code
+keywords: [qwen, qwen code, tracing, mlflow, ai agent, coding assistant]
+image: /images/llms/qwen/qwen-code-tracing.png
+---
+
+# Tracing Qwen Code
+
+![Qwen Code Tracing via the Stop hook](/images/llms/qwen/qwen-code-tracing.png)
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [Qwen Code](https://github.com/QwenLM/qwen-code), Alibaba's open-source terminal-based coding agent. After setup, MLflow will automatically capture traces of your Qwen Code conversations including:
+
+- User prompts and assistant responses
+- Tool usage (file operations, shell commands, etc.)
+- Token usage (input, output, and total tokens)
+- Session metadata including working directory and user
+
+Traces are created after each conversation turn.
+
+## Setup
+
+### Requirements
+
+- MLflow tracking server running
+- [Qwen Code](https://github.com/QwenLM/qwen-code) installed (`npm install -g @qwen-code/qwen-code`)
+- Node.js 18+
+- The `@mlflow/qwen-code` npm package
+
+### Step 1: Install the Tracing Plugin
+
+```bash
+npm install -g @mlflow/qwen-code
+```
+
+If you'd rather not install globally, you can invoke the bin through `npx` (e.g. `npx @mlflow/qwen-code setup`) — everything below works the same way.
+
+### Step 2: Run the Setup Command
+
+Running `mlflow-qwen-code setup` starts an interactive flow for setting up the tracing hook.
+
+```text
+~/my-project $ mlflow-qwen-code setup
+
+Configure MLflow tracing for Qwen Code
+? Where should MLflow tracing be installed?
+  ● Project  ./.qwen/  (default)
+  ○ User  ~/.qwen/
+
+  ↑/↓ to move, enter to select
+
+✓ Registered Stop hook in /path/to/project/.qwen/settings.json
+
+  MLflow tracking URI [http://localhost:5000] http://localhost:5000
+  MLflow experiment ID [0] 1
+
+✓ Wrote tracing config to /path/to/project/.qwen/mlflow-tracing.json
+
+Next steps
+  1. Start the MLflow tracking server in a separate terminal:
+       mlflow server --port 5000
+  2. Launch qwen — traces appear at http://localhost:5000 after each turn.
+```
+
+Pass `--non-interactive` / `-y` to skip the interactive flow and use the default values.
+
+:::note
+Older Qwen Code versions (prior to 0.14) disabled the hook system by default and required a top-level `"hooksConfig": { "enabled": true }` entry to turn it on. Current versions ignore that setting and run hooks unconditionally — it's safe to leave in if you already have it, but no longer needed.
+:::
+
+### Step 3: Start the MLflow Tracking Server
+
+The MLflow server must be running to receive traces. Start it in a separate terminal:
+
+```bash
+mlflow server --port 5000
+```
+
+### Step 4: Launch Qwen Code
+
+```bash
+qwen
+```
+
+Traces become visible at [http://localhost:5000](http://localhost:5000) after each turn completes.
+
+:::note
+`MLFLOW_TRACKING_URI` and `MLFLOW_EXPERIMENT_ID` environment variables (if set in the shell that launched `qwen`) override the values written to `mlflow-tracing.json`. This is convenient for one-off overrides in CI or when switching between local and Databricks endpoints.
+:::
+
+## How It Works
+
+1. The Stop hook fires after each Qwen Code conversation turn
+2. Qwen passes the session ID and transcript path via stdin
+3. The plugin reads the chronological ChatRecord JSONL transcript and matches each `functionCall` to its `tool_result` by `callId`
+4. An MLflow trace is created with an AGENT root span (`qwen_code_conversation`) and LLM/TOOL child spans. LLM spans use OpenAI chat format (`{model, messages}` inputs, `{choices}` outputs)
+
+## Configuration Examples
+
+Write these values via `mlflow-qwen-code setup` or by editing `~/.qwen/mlflow-tracing.json` directly:
+
+```json title="Local MLflow server"
+{ "trackingUri": "http://localhost:5000", "experimentId": "0" }
+```
+
+```json title="Databricks MLflow"
+{ "trackingUri": "databricks", "experimentId": "123456789" }
+```
+
+Per-run overrides via environment variables (take precedence over the config file):
+
+```bash
+MLFLOW_TRACKING_URI=databricks MLFLOW_EXPERIMENT_ID=123456789 qwen
+```
+
+## Token Usage and Cost
+
+MLflow automatically tracks token usage for each LLM call within Qwen Code conversations. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details.
+
+## Troubleshooting
+
+### Common Issues
+
+**Tracing not working:**
+
+- Confirm `mlflow-qwen-code` is on PATH: run `which mlflow-qwen-code` (should resolve after `npm install -g @mlflow/qwen-code`)
+- Confirm `~/.qwen/mlflow-tracing.json` exists and contains a valid `trackingUri`. Re-run `mlflow-qwen-code setup` if the file is missing or stale.
+- Verify Node.js 18+ is being used (required for `fetch` support)
+- On Qwen Code versions older than 0.14, hooks are disabled by default — add a top-level `"hooksConfig": { "enabled": true }` entry to enable them
+
+**Missing traces:**
+
+- Traces are created per conversation turn, not per session
+- Verify the MLflow tracking server is accessible
+- Check the Qwen debug log (`~/.qwen/debug/latest`) for hook execution status
+
+**Duplicate traces:**
+
+- Ensure the hook is only registered once — check both `~/.qwen/settings.json` and `.qwen/settings.json` for duplicate entries
+
+### Disable Tracing
+
+Remove the `hooks` section from settings.json. Existing traces are preserved.
+
+(On older Qwen Code versions that still honor `hooksConfig`, setting `"hooksConfig": { "enabled": false }` will also disable the hook system without removing the entry.)

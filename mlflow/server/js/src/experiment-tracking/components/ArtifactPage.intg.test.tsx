@@ -29,6 +29,14 @@ jest.mock('../../common/utils/ArtifactUtils', () => ({
   getArtifactBytesContent: jest.fn(),
 }));
 
+jest.mock('../utils/PresignedArtifactUtils', () => ({
+  fetchArtifactPreferPresigned: (
+    _params: unknown,
+    legacyArtifactLocation: string,
+    getArtifactData: (artifactLocation: string) => Promise<unknown>,
+  ) => getArtifactData(legacyArtifactLocation),
+}));
+
 jest.mock('../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../common/utils/FeatureUtils')>('../../common/utils/FeatureUtils'),
 }));
@@ -39,6 +47,9 @@ const artifactTestCases: string[] = [
   'json/table_eval_data.json',
   'json/table_unnamed_columns.json',
   'json/table_eval_broken.json',
+
+  // JSON Lines files
+  'jsonl/events.jsonl',
 
   // GeoJSON files
   'geojson/sample.geojson',
@@ -98,9 +109,12 @@ const mockArtifactRetrieval = <T extends BlobPart>(artifactData: T) => {
       }
     });
   };
-  // @ts-expect-error Type 'unknown' is not assignable to type 'R'
-  jest.mocked(getArtifactContent).mockImplementation(getArtifactContentMocked);
-  jest.mocked(getArtifactBytesContent).mockImplementation((...props) => getArtifactContentMocked(...props, true));
+  jest
+    .mocked(getArtifactContent)
+    .mockImplementation((artifactLocation) => getArtifactContentMocked(artifactLocation) as Promise<string>);
+  jest
+    .mocked(getArtifactBytesContent)
+    .mockImplementation((artifactLocation) => getArtifactContentMocked(artifactLocation, true) as Promise<ArrayBuffer>);
 };
 
 /**

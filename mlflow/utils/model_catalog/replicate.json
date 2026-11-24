@@ -1,0 +1,3686 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "alibaba/happyhorse-1.0": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "alibaba/happyhorse-1.1": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "alibaba/qwen-image-3": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "alibaba/qwen-image-3-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "alibaba/wan-3": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "alibaba/wan-3-prime": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "anthropic/claude-3.5-haiku": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "anthropic/claude-3.5-sonnet": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 3.75,
+        "output_per_million_tokens": 18.75
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "anthropic/claude-3.7-sonnet": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "anthropic/claude-4-sonnet": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "anthropic/claude-4.5-haiku": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "anthropic/claude-4.5-sonnet": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "anthropic/claude-fable-5": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "anthropic/claude-fable-5.2": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 8.0,
+        "output_per_million_tokens": 40.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "anthropic/claude-opus-4.6": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "anthropic/claude-opus-4.7": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "anthropic/claude-opus-5.5": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 4.0,
+        "output_per_million_tokens": 20.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "anthropic/claude-sonnet-4.6": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "anthropic/claude-sonnet-5": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-1.1-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-1.1-pro-ultra": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-1.1-pro-ultra-finetuned": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-2-flex": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-2-klein-4b": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-2-klein-4b-base": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-2-klein-4b-base-lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-2-klein-9b": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-2-klein-9b-base": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-2-klein-9b-base-lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-canny-dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-canny-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-depth-dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-depth-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-dev-lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-fill-dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-fill-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-kontext-dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-kontext-dev-lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-kontext-max": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-kontext-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-krea-dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-pro-finetuned": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-redux-dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-redux-schnell": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-schnell": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "black-forest-labs/flux-schnell-lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/eraser": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/expand-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/fibo": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/fibo-edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/generate-background": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/genfill": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/image-3.2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/increase-resolution": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/product-cutout": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/product-packshot": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/product-shadow": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/remove-background": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/video-erase-object": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/video-increase-resolution": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bria/video-remove-background": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/dreamactor-m2.0": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/dreamina-3.1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/omni-human": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/omni-human-1.5": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/seedance-1-lite": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/seedance-1-pro": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/seedance-1-pro-fast": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/seedream-3": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/seedream-4": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/seedream-4.5": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "bytedance/seedream-5-lite": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "decart/lucy-edit-2": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "deepseek-ai/deepseek-r1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.75,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "deepseek-ai/deepseek-v3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.45,
+        "output_per_million_tokens": 1.45
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "deepseek-ai/deepseek-v3.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 163840,
+        "max_output": 163840
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.672,
+        "output_per_million_tokens": 2.016
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "easel/ai-avatars": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/cartoonify": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/change-haircut": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/depth-of-field": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/face-to-many-kontext": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/filters": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/iconic-locations": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/impossible-scenarios": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/multi-image-kontext-max": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/multi-image-kontext-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/multi-image-list": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/portrait-series": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/professional-headshot": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/restore-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/restyle-video-frame": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "flux-kontext-apps/text-removal": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-2.5-flash": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-09-21"
+    },
+    "google/gemini-2.5-flash-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-3-flash": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 3.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-3-pro": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-3.1-pro": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 18.0
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-3.5-flash": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 9.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/gemini-4-carbon": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/nano-banana": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/nano-banana-2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/nano-banana-2-lite": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "google/nano-banana-2.1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "gpt-oss-20b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.09,
+        "output_per_million_tokens": 0.36
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "heygen/avatar-iv": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "heygen/avatar-v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "heygen/lipsync-precision": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "heygen/lipsync-speed": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "heygen/video-agent": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-20b-code-instruct-8k": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-3.0-2b-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.03,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-3.0-8b-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-3.1-2b-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.03,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-3.1-8b-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.03,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-3.2-8b-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.03,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-3.3-8b-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.03,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "ibm-granite/granite-4.0-h-small": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-4.1-8b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-4.2-8b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-8b-code-instruct-128k": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-vision-3.3-2b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.0,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ibm-granite/granite-vision-4.1-4b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.06,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v2-turbo": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v2a": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v2a-turbo": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v3-balanced": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v3-quality": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v3-turbo": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v4-balanced": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/ideogram-v4-quality": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "ideogram-ai/layerize": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "intelligent-utilities/html-to-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "kwaivgi/kling-lip-sync": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "kwaivgi/kling-v2.1-master": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "kwaivgi/kling-v2.5-turbo-pro": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "lightricks/audio-to-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "lightricks/ltx-2-distilled": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "lightricks/ltx-2-fast": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "lightricks/ltx-2-pro": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "lightricks/ltx-2-retake": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "lightricks/ltx-2.3-fast": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "lightricks/ltx-2.3-pro": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "lightricks/ltx-2.5-fast": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "luma/photon": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "luma/photon-flash": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "luma/reframe-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "meta/llama-2-13b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-2-13b-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-2-70b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.65,
+        "output_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-2-70b-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.65,
+        "output_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-2-7b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-2-7b-chat": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-3-70b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.65,
+        "output_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-3-70b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8192,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.65,
+        "output_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-3-8b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8086,
+        "max_output": 8086
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-3-8b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 8086,
+        "max_output": 8086
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "meta/llama-4-maverick-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 0.95
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "meta/llama-4-scout-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.17,
+        "output_per_million_tokens": 0.65
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "meta/llama-guard-4-12b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "meta/meta-llama-3-70b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.65,
+        "output_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "meta/meta-llama-3-70b-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.65,
+        "output_per_million_tokens": 2.75
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "meta/meta-llama-3-8b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "meta/meta-llama-3-8b-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "minimax/h3": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "minimax/h3-highspeed": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "minimax/h3-lite": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "minimax/image-01": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "mistralai/mistral-7b-instruct-v0.2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "mistralai/mistral-7b-v0.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "mistralai/mixtral-8x7b-instruct-v0.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 4096,
+        "max_output": 4096
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-10-27"
+    },
+    "moonshotai/kimi-k2-thinking": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.66,
+        "output_per_million_tokens": 2.7
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "moonshotai/kimi-k2.5": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.72,
+        "output_per_million_tokens": 3.6
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "moonshotai/kimi-k2.6": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.95,
+        "output_per_million_tokens": 4.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "nightmareai/real-esrgan": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-4.1": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 8.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "openai/gpt-4.1-mini": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.4,
+        "output_per_million_tokens": 1.6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "openai/gpt-4.1-nano": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.1,
+        "output_per_million_tokens": 0.4
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "openai/gpt-4o": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "openai/gpt-4o-mini": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "openai/gpt-5": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5-mini": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5-nano": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.05,
+        "output_per_million_tokens": 0.4
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5-pro": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 120.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5.1": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5.2": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5.4": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5.6-luna": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 6.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5.6-sol": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-5.6-terra": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 15.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "openai/gpt-oss-120b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.18,
+        "output_per_million_tokens": 0.72
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "openai/gpt-oss-20b": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.09,
+        "output_per_million_tokens": 0.36
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-08-10"
+    },
+    "openai/o1": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 60.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "openai/o1-mini": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.1,
+        "output_per_million_tokens": 4.4
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "openai/o4-mini": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 4.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "perceptron-ai-inc/isaac-0.1": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.26,
+        "output_per_million_tokens": 2.17
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "philz1337x/clarity-pro-upscaler": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "pixverse/lipsync": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/flux-fast": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/flux-kontext-fast": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/hidream-l1-fast": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-image-edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-image-edit-lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-image-lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-video-2-pro-avatar": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-video-2-pro-replace": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-video-animate": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-video-avatar": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/p-video-replace": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "prunaai/wan-2.2-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "quiverai/arrow-1.1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "quiverai/arrow-1.1-max": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "quiverai/arrow-1.1-max-vectorize": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "quiverai/arrow-1.1-vectorize": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen-edit-apps/qwen-image-edit-plus-lora-fusion": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen-edit-apps/qwen-image-edit-plus-lora-next-scene": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen-edit-apps/qwen-image-edit-plus-lora-photo-to-anime": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen-edit-apps/qwen-image-edit-plus-lora-relight": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen-edit-apps/qwen-image-edit-plus-lora-skin": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen-edit-apps/qwen-image-edit-plus-lora-upscale": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-edit-multiangle": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-image-2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-image-2-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-image-2512": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-image-edit": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-image-edit-2511": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-image-edit-plus": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen-image-edit-plus-lora": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "qwen/qwen3-235b-a22b-instruct-2507": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.264,
+        "output_per_million_tokens": 1.06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "qwen/qwen3-7-plus": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.276,
+        "output_per_million_tokens": 1.101,
+        "long_context": [
+          {
+            "threshold_tokens": 256000,
+            "input_per_million_tokens": 0.826,
+            "output_per_million_tokens": 3.301
+          }
+        ]
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-20b": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-20b-svg": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-creative-upscale": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-crisp-upscale": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-remove-background": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v3": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v3-svg": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4-pro-svg": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4-styles-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4-styles-pro-svg": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4-svg": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4.1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4.1-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4.1-pro-svg": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4.1-svg": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4.1-utility": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-v4.1-utility-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "recraft-ai/recraft-vectorize": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "retro-diffusion/rd-animation": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "runwayml/aleph-2": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "runwayml/gen-4.5": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "runwayml/gen4-image-turbo": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "runwayml/gen4-turbo": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "snowflake/snowflake-arctic-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 20.0,
+        "output_per_million_tokens": 20.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "stability-ai/stable-diffusion-3": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "stability-ai/stable-diffusion-3.5-large": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "stability-ai/stable-diffusion-3.5-large-turbo": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "stability-ai/stable-diffusion-3.5-medium": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "sync/lipsync-2": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "sync/lipsync-2-pro": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "sync/react-1": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "tencent/hunyuan-image-2.1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "tencent/hunyuan-image-3": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "veed/fabric-1.0": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.2-s2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.5-i2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.5-i2v-fast": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.5-t2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.5-t2v-fast": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.6-i2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.6-t2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.7-i2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.7-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.7-image-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.7-r2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.7-t2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan-2.7-videoedit": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wan-video/wan2.6-i2v-flash": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wavespeedai/qwen-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wavespeedai/wan-2.1-i2v-480p": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wavespeedai/wan-2.1-i2v-720p": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wavespeedai/wan-2.1-t2v-480p": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "wavespeedai/wan-2.1-t2v-720p": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-4": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 7.2,
+        "output_per_million_tokens": 36.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "xai/grok-imagine-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-image-quality": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-r2v": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video-1.5": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    },
+    "xai/grok-imagine-video-extension": {
+      "mode": "video_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-12"
+    }
+  }
+}

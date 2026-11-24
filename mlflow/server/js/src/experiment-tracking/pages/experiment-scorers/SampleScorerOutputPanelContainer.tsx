@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSqlWarehouseContextSafe } from '../experiment-page-tabs/SqlWarehouseContext';
+import { createTraceLocationForExperiment } from '@databricks/web-shared/genai-traces-table';
 import type { Control } from 'react-hook-form';
 import { useWatch, useFormState } from 'react-hook-form';
 import { useIntl } from '@databricks/i18n';
@@ -6,16 +8,21 @@ import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import { convertEvaluationResultToAssessment } from './llmScorerUtils';
+import { extractTemplateVariables } from '../../utils/evaluationUtils';
 import { ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from './constants';
+
 import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
 import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import {
   isEvaluatingSessionsInScorersEnabled,
+  isRunningAgenticJudgesEnabled,
+  isRunningAllScorerTemplatesEnabled,
   isScorerModelSelectionEnabled,
+  shouldSupportRunningDatabricksProviderJudgesFromUI,
 } from '../../../common/utils/FeatureUtils';
-import { isDirectModel } from '../../../gateway/utils/gatewayUtils';
+import { getModelProvider, ModelProvider } from '../../../gateway/utils/gatewayUtils';
 
 interface SampleScorerOutputPanelContainerProps {
   control: Control<ScorerFormData>;
@@ -35,12 +42,20 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   onSelectedItemIdsChange,
 }) => {
   const intl = useIntl();
+  const {
+    warehouseId: selectedWarehouseId,
+    setWarehouseId: setSelectedWarehouseId,
+    traceSearchLocations = [createTraceLocationForExperiment(experimentId)],
+    hasV4Location,
+  } = useSqlWarehouseContextSafe() ?? {};
+  const showWarehouseSelector = hasV4Location;
   const judgeInstructions = useWatch({ control, name: 'instructions' });
   const scorerName = useWatch({ control, name: 'name' });
   const llmTemplate = useWatch({ control, name: 'llmTemplate' });
   const guidelines = useWatch({ control, name: 'guidelines' });
   const modelValue = useWatch({ control, name: 'model' });
   const { errors } = useFormState({ control });
+  const isInstructionsJudge = useWatch({ control, name: 'isInstructionsJudge' });
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
 
@@ -53,9 +68,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   // Carousel state for navigating through traces
   const [currentTraceIndex, setCurrentTraceIndex] = useState(0);
 
-  // Determine if we're in custom or built-in judge mode
-  const isCustomMode = llmTemplate === LLM_TEMPLATE.CUSTOM;
-
   // Reset results when switching modes or templates
   useEffect(() => {
     reset();
@@ -65,7 +77,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   // Handle the "Run scorer" button click
   const handleRunScorer = useCallback(async () => {
     // Validate inputs based on mode
-    if (isCustomMode ? !judgeInstructions : !llmTemplate) {
+    if (isInstructionsJudge ? !judgeInstructions : !llmTemplate) {
       return;
     }
 
@@ -76,10 +88,10 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
     try {
       // Prepare evaluation parameters based on mode
-      const evaluationParams = isCustomMode
+      const evaluationParams = isInstructionsJudge
         ? {
             itemIds: selectedItemIds,
-            locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
+            locations: traceSearchLocations,
             judgeInstructions: judgeInstructions || '',
             experimentId,
             serializedScorer,
@@ -87,7 +99,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
           }
         : {
             itemIds: selectedItemIds,
-            locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
+            locations: traceSearchLocations,
             requestedAssessments: [
               {
                 assessment_name:
@@ -104,8 +116,9 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     } catch (error) {
       // Error is already handled by the hook's error state
     }
+    // prettier-ignore
   }, [
-    isCustomMode,
+    isInstructionsJudge,
     judgeInstructions,
     llmTemplate,
     guidelines,
@@ -114,6 +127,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     evaluateTraces,
     experimentId,
     getSerializedScorerFromForm,
+    traceSearchLocations,
   ]);
 
   // Navigation handlers
@@ -139,7 +153,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     const baseName = scorerName || llmTemplate;
 
     // Custom judges or built-in judges with no results: single assessment
-    if (isCustomMode || currentEvalResult.results.length === 0) {
+    if (isInstructionsJudge || currentEvalResult.results.length === 0) {
       const assessment = convertEvaluationResultToAssessment(currentEvalResult, baseName);
       return [assessment];
     }
@@ -155,16 +169,48 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
         index,
       );
     });
-  }, [currentEvalResult, isCustomMode, llmTemplate, scorerName]);
+  }, [currentEvalResult, isInstructionsJudge, llmTemplate, scorerName]);
+
+  // Check if instructions contain {{trace}} variable (only supported when agentic judges are enabled)
+  const isTraceVariableBlocked = useMemo(() => {
+    if (isRunningAgenticJudgesEnabled()) return false;
+    if (!isInstructionsJudge || !judgeInstructions) return false;
+    const templateVariables = extractTemplateVariables(judgeInstructions);
+    return templateVariables.includes('trace');
+  }, [isInstructionsJudge, judgeInstructions]);
+
+  // Check if the selected template is unsupported for running on sample traces.
+  // Only applies when not all templates are supported (DB). Templates must either
+  // be an instructions judge or have a chat-assessments mapping.
+  const isUnsupportedTemplate = useMemo(() => {
+    if (isRunningAllScorerTemplatesEnabled()) return false;
+    if (isInstructionsJudge) return false;
+    return !ASSESSMENT_NAME_TEMPLATE_MAPPING[llmTemplate as keyof typeof ASSESSMENT_NAME_TEMPLATE_MAPPING];
+  }, [isInstructionsJudge, llmTemplate]);
 
   // Determine if run scorer button should be disabled
-  const hasNameError = Boolean((errors as any).name?.message);
   const hasInstructionsError = Boolean((errors as any).instructions?.message);
   const isRetrievalRelevance = llmTemplate === LLM_TEMPLATE.RETRIEVAL_RELEVANCE;
   const hasEmptyGuidelines = isGuidelinesTemplate(llmTemplate) && (!guidelines || !guidelines.trim());
 
   // Determine tooltip message based on why the button is disabled
   const runScorerDisabledReason = useMemo(() => {
+    // Highest precedence: template/scope not supported at all
+    if (isUnsupportedTemplate) {
+      return intl.formatMessage({
+        defaultMessage: 'This judge template is not yet supported for sample judge output',
+        description: 'Tooltip message when selected template is not supported for running on sample traces',
+      });
+    }
+
+    if (!isEvaluatingSessionsInScorersEnabled() && isSessionLevelScorer) {
+      return intl.formatMessage({
+        defaultMessage: 'Running session level scorers is not yet supported',
+        description: 'Tooltip message when scorer is session-level',
+      });
+    }
+
+    // Model checks
     if (isScorerModelSelectionEnabled() && !modelValue) {
       return intl.formatMessage({
         defaultMessage: 'Please select a model to run the judge',
@@ -172,33 +218,29 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       });
     }
 
-    if (isDirectModel(modelValue)) {
-      return intl.formatMessage({
-        defaultMessage: 'Running the judge from the UI is only supported with gateway endpoints',
-        description: 'Tooltip message when model is not a gateway endpoint',
-      });
+    const modelProvider = getModelProvider(modelValue);
+    const supportsDatabricks = shouldSupportRunningDatabricksProviderJudgesFromUI();
+    const isUnsupportedModel =
+      modelProvider === ModelProvider.OTHER || (modelProvider === ModelProvider.DATABRICKS && !supportsDatabricks);
+
+    if (isUnsupportedModel) {
+      const supportedProvider = supportsDatabricks ? 'databricks' : 'gateway';
+      return intl.formatMessage(
+        {
+          defaultMessage:
+            'Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider',
+          description:
+            'Tooltip message when model provider is not supported. supportedProvider is the required provider type, currentProvider is what the model currently uses.',
+        },
+        {
+          supportedProvider,
+          currentProvider: modelProvider,
+        },
+      );
     }
 
-    if (selectedItemIds.length === 0) {
-      return evaluationScope === ScorerEvaluationScope.TRACES
-        ? intl.formatMessage({
-            defaultMessage: 'Please select traces to run the judge',
-            description: 'Tooltip message when no traces are selected',
-          })
-        : intl.formatMessage({
-            defaultMessage: 'Please select sessions to run the judge',
-            description: 'Tooltip message when no sessions are selected',
-          });
-    }
-
-    if (!isEvaluatingSessionsInScorersEnabled() && isSessionLevelScorer) {
-      return intl.formatMessage({
-        defaultMessage: 'Session-level scorers cannot be run on individual traces',
-        description: 'Tooltip message when scorer is session-level',
-      });
-    }
-
-    if (isCustomMode) {
+    // Judge-specific validation
+    if (isInstructionsJudge) {
       // Custom judge mode
       if (!judgeInstructions) {
         return intl.formatMessage({
@@ -210,6 +252,12 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
         return intl.formatMessage({
           defaultMessage: 'Please fix the validation errors in the instructions',
           description: 'Tooltip message when instructions have validation errors',
+        });
+      }
+      if (isTraceVariableBlocked) {
+        return intl.formatMessage({
+          defaultMessage: 'The trace variable is not supported when running the judge on a sample of traces',
+          description: 'Tooltip message when instructions contain trace variable',
         });
       }
     } else {
@@ -226,22 +274,29 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
           description: 'Tooltip message when retrieval relevance template is selected',
         });
       }
-      if (hasNameError) {
-        return intl.formatMessage({
-          defaultMessage: 'Please fix the validation errors',
-          description: 'Tooltip message when there are validation errors',
-        });
-      }
+    }
+
+    if (selectedItemIds.length === 0) {
+      return evaluationScope === ScorerEvaluationScope.TRACES
+        ? intl.formatMessage({
+            defaultMessage: 'Please select traces to run the judge',
+            description: 'Tooltip message when no traces are selected',
+          })
+        : intl.formatMessage({
+            defaultMessage: 'Please select sessions to run the judge',
+            description: 'Tooltip message when no sessions are selected',
+          });
     }
     return undefined;
   }, [
     isSessionLevelScorer,
     modelValue,
-    isCustomMode,
+    isInstructionsJudge,
     judgeInstructions,
     hasInstructionsError,
-    hasNameError,
+    isTraceVariableBlocked,
     isRetrievalRelevance,
+    isUnsupportedTemplate,
     hasEmptyGuidelines,
     selectedItemIds,
     evaluationScope,

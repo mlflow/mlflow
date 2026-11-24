@@ -18,7 +18,8 @@ import LLMScorerFormRenderer, { type LLMScorerFormData } from './LLMScorerFormRe
 import CustomCodeScorerFormRenderer, { type CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
+import { formatJudgeModelError } from './utils/judgeModelErrors';
+import { SCORER_FORM_MODE, ScorerEvaluationScope, type ScorerFormMode } from './constants';
 
 interface ScorerFormRendererProps {
   mode: ScorerFormMode;
@@ -235,7 +236,12 @@ const ScorerFormRenderer: React.FC<ScorerFormRendererProps> = ({
           <Alert
             componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scorerformrenderer_140"
             type="error"
-            message={componentError || mutation.error?.message || mutation.error?.displayMessage}
+            message={
+              componentError ||
+              formatJudgeModelError(mutation.error) ||
+              mutation.error?.message ||
+              mutation.error?.displayMessage
+            }
             closable={false}
             css={{ flex: 1 }}
           />

@@ -1,0 +1,11 @@
+{"timestamp":"2026-04-20T10:00:00Z","type":"session_meta","payload":{"id":"test-session-fail","timestamp":"2026-04-20T10:00:00Z","cwd":"/tmp/test","originator":"codex-tui","cli_version":"0.118.0","source":"cli"}}
+{"timestamp":"2026-04-20T10:00:00Z","type":"event_msg","payload":{"type":"task_started"}}
+{"timestamp":"2026-04-20T10:00:00Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"run nonexistent-cmd"}]}}
+{"timestamp":"2026-04-20T10:00:01Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"call_fail_1","arguments":"{\"cmd\":\"nonexistent-cmd\"}"}}
+{"timestamp":"2026-04-20T10:00:02Z","type":"event_msg","payload":{"type":"exec_command_end","call_id":"call_fail_1","exit_code":127,"status":"failed"}}
+{"timestamp":"2026-04-20T10:00:02Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_fail_1","output":"zsh: command not found: nonexistent-cmd\nProcess exited with code 127"}}
+{"timestamp":"2026-04-20T10:00:03Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"call_ok_1","arguments":"{\"cmd\":\"echo ok\"}"}}
+{"timestamp":"2026-04-20T10:00:04Z","type":"event_msg","payload":{"type":"exec_command_end","call_id":"call_ok_1","exit_code":0,"status":"completed"}}
+{"timestamp":"2026-04-20T10:00:04Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_ok_1","output":"ok\nProcess exited with code 0"}}
+{"timestamp":"2026-04-20T10:00:05Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"The first command failed but the second succeeded."}]}}
+{"timestamp":"2026-04-20T10:00:06Z","type":"event_msg","payload":{"type":"task_complete"}}

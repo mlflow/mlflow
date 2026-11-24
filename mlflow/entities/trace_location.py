@@ -86,7 +86,7 @@ class UCSchemaLocation(TraceLocationBase):
     Represents the location of a Databricks Unity Catalog (UC) schema.
 
     Args:
-        catalog_name: The name of the Unity Catalog catalog name.
+        catalog_name: The name of the Unity Catalog catalog.
         schema_name: The name of the Unity Catalog schema.
     """
 
@@ -130,6 +130,12 @@ class UCSchemaLocation(TraceLocationBase):
         if otel_logs_table_name := d.get("otel_logs_table_name"):
             location._otel_logs_table_name = otel_logs_table_name
         return location
+
+    @classmethod
+    def from_proto(cls, proto) -> "UCSchemaLocation":
+        from mlflow.utils.databricks_tracing_utils import uc_schema_location_from_proto
+
+        return uc_schema_location_from_proto(proto)
 
 
 @dataclass
@@ -223,6 +229,12 @@ class UnityCatalog(TraceLocationBase):
         if annotations_table_name := d.get("annotations_table_name"):
             location._annotations_table_name = annotations_table_name
         return location
+
+    @classmethod
+    def from_proto(cls, proto) -> "UnityCatalog":
+        from mlflow.utils.databricks_tracing_utils import uc_table_prefix_location_from_proto
+
+        return uc_table_prefix_location_from_proto(proto)
 
 
 class TraceLocationType(str, Enum):

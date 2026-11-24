@@ -4,14 +4,42 @@ import { useEffect, useMemo, useState } from 'react';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { ModelTraceExplorerAttachmentRenderer } from './ModelTraceExplorerAttachmentRenderer';
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
 import { ModelTraceExplorerTextFieldRenderer } from './ModelTraceExplorerTextFieldRenderer';
+import { containsAttachmentUri, parseAttachmentUri } from '../attachment-utils';
 import type { Assessment } from '../ModelTrace.types';
 import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
+
+const MAX_ATTACHMENT_SEARCH_DEPTH = 10;
+
+/**
+ * Recursively extract all attachment URIs from a parsed JSON value.
+ */
+export const findAttachmentUris = (
+  value: unknown,
+  depth = 0,
+): { attachmentId: string; traceId: string; contentType: string; size?: number }[] => {
+  if (depth > MAX_ATTACHMENT_SEARCH_DEPTH) {
+    return [];
+  }
+  if (isString(value)) {
+    if (!value.startsWith('mlflow-attachment://')) return [];
+    const parsed = parseAttachmentUri(value);
+    return parsed ? [parsed] : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((v) => findAttachmentUris(v, depth + 1));
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value).flatMap((v) => findAttachmentUris(v, depth + 1));
+  }
+  return [];
+};
 
 export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 
@@ -25,7 +53,7 @@ export const ModelTraceExplorerFieldRenderer = ({
 }: {
   title: string;
   data: string;
-  renderMode: 'default' | 'json' | 'text';
+  renderMode: 'default' | 'json' | 'text' | 'table';
   chatMessageFormat?: string;
   maxVisibleMessages?: number;
   assessments?: Assessment[];
@@ -66,9 +94,8 @@ export const ModelTraceExplorerFieldRenderer = ({
         css={{
           display: 'flex',
           flexDirection: 'column',
-          gap: theme.spacing.sm,
+          gap: theme.spacing.xs,
           padding: theme.spacing.sm,
-          border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.borders.borderRadiusSm,
         }}
       >
@@ -110,7 +137,25 @@ export const ModelTraceExplorerFieldRenderer = ({
     return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.TEXT} />;
   }
 
+  if (renderMode === 'table') {
+    return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.TABLE} />;
+  }
+
   if (dataIsScalar) {
+    if (isString(parsedData)) {
+      const attachment = parseAttachmentUri(parsedData);
+      if (attachment) {
+        return (
+          <ModelTraceExplorerAttachmentRenderer
+            title={title}
+            attachmentId={attachment.attachmentId}
+            traceId={attachment.traceId}
+            contentType={attachment.contentType}
+            size={attachment.size}
+          />
+        );
+      }
+    }
     return <ModelTraceExplorerTextFieldRenderer title={title} value={String(parsedData)} />;
   }
 
@@ -120,6 +165,28 @@ export const ModelTraceExplorerFieldRenderer = ({
 
   if (isRetrieverDocuments) {
     return <ModelTraceExplorerRetrieverFieldRenderer title={title} documents={parsedData} assessments={assessments} />;
+  }
+
+  // Check for attachment URIs embedded in complex JSON structures
+  if (containsAttachmentUri(data)) {
+    const attachments = findAttachmentUris(parsedData);
+    if (attachments.length > 0) {
+      return (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          {attachments.map((att) => (
+            <ModelTraceExplorerAttachmentRenderer
+              key={att.attachmentId}
+              title=""
+              attachmentId={att.attachmentId}
+              traceId={att.traceId}
+              contentType={att.contentType}
+              size={att.size}
+            />
+          ))}
+          <ModelTraceExplorerCodeSnippet title={title} data={data} />
+        </div>
+      );
+    }
   }
 
   return <ModelTraceExplorerCodeSnippet title={title} data={data} />;

@@ -1,12 +1,22 @@
 from enum import Enum
 
 MLFLOW_GATEWAY_CALLER_HEADER = "X-MLflow-Gateway-Caller"
+MLFLOW_GATEWAY_AUTH_HEADER = "X-MLflow-Authorization"
+MLFLOW_GATEWAY_DURATION_HEADER = "X-MLflow-Gateway-Duration-Ms"
+MLFLOW_GATEWAY_OVERHEAD_HEADER = "X-MLflow-Gateway-Overhead-Duration-Ms"
 
 
 class GatewayCaller(str, Enum):
-    """Known callers of the gateway, sent via the X-MLflow-Gateway-Caller header."""
+    """
+    Built-in MLflow features that call the gateway, sent via the X-MLflow-Gateway-Caller header.
+
+    The gateway records the value on each trace so usage can be broken down by feature.
+    """
 
     JUDGE = "judge"
+    SIMULATOR = "simulator"
+    ISSUE_DETECTION = "issue_detection"
+    PROMPT_OPTIMIZATION = "prompt_optimization"
 
 
 MLFLOW_GATEWAY_HEALTH_ENDPOINT = "/health"
@@ -17,10 +27,6 @@ MLFLOW_GATEWAY_LIMITS_BASE = "/api/2.0/gateway/limits/"
 MLFLOW_GATEWAY_ROUTE_BASE = "/gateway/"
 MLFLOW_QUERY_SUFFIX = "/invocations"
 MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE = 3000
-
-# Specifies the timeout for the Gateway server to declare a request submitted to a provider has
-# timed out.
-MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = 300
 
 # Abridged retryable error codes for the interface to the Gateway Server.
 # These are modified from the standard MLflow Tracking server retry codes for the MLflowClient to
@@ -35,6 +41,17 @@ MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset([
 ])
 
 # Provider constants
+TYPESAFE_API_BASE_URL = "https://api.typesafe.ai/v1"
+TYPESAFE_SYSTEM_ONE_PATH = "systemone"
+
+# Detail returned by ordinary (chat) Gateway routes when the endpoint only serves System One
+# models. Gateway-backed judges use it to detect a System One endpoint and switch to the
+# System One route. Keep this in sync with the frontend matcher in judgeModelErrors.ts.
+SYSTEM_ONE_CHAT_ROUTE_REJECTION_DETAIL = (
+    "System One models only support structured evaluation through "
+    "/gateway/typesafe/v1/systemone. Use a chat model for chat completions."
+)
+
 MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS = 1_000_000
 # Max for Claude 3.5 Sonnet. Newer models have higher limits.
 # https://docs.anthropic.com/en/docs/about-claude/models/overview#model-comparison-table
@@ -49,3 +66,7 @@ MLFLOW_SERVING_RESPONSE_KEY = "predictions"
 # translations prior to sending a request payload to their chat endpoints.
 # to reduce the need to case-match, supported model prefixes are lowercase.
 MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES = ["llama2"]
+
+GATEWAY_DISABLED_MESSAGE = (
+    "The AI Gateway feature is disabled. Set MLFLOW_ENABLE_AI_GATEWAY=true to enable it."
+)

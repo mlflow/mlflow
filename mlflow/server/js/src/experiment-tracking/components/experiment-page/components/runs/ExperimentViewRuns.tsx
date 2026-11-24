@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ColumnApi } from '@ag-grid-community/core';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLegacyNotification } from '@databricks/design-system';
+import type { CursorPaginationProps } from '@databricks/design-system';
 import type {
   DatasetSummary,
   ExperimentEntity,
@@ -26,6 +28,8 @@ import { shouldUseGetLoggedModelsBatchAPI } from '../../../../../common/utils/Fe
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import { getDefaultSelectedColumns } from '../../models/ExperimentPageUIState';
+import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { RunsCompare } from '../../../runs-compare/RunsCompare';
 import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import type { ReduxState } from '../../../../../redux-types';
@@ -58,6 +62,7 @@ export interface ExperimentViewRunsProps extends ExperimentViewRunsOwnProps {
   moreRunsAvailable: boolean;
   requestError: ErrorWrapper | Error | null;
   refreshRuns: () => void;
+  pageSizeSelect: NonNullable<CursorPaginationProps['pageSizeSelect']>;
 }
 
 /**
@@ -86,6 +91,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     moreRunsAvailable,
     requestError,
     refreshRuns,
+    pageSizeSelect,
   } = props;
 
   const isComparingExperiments = experiments.length > 1;
@@ -238,12 +244,27 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   const autoRefreshEnabled = uiState.autoRefreshEnabled && isTabActive;
   const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
 
+  // Published by the runs table on grid-ready so the column selector's
+  // "Reset to defaults" can imperatively reset ag-grid's column state.
+  const columnApiRef = useRef<ColumnApi | null>(null);
+  const updateUIState = useUpdateExperimentViewUIState();
+  const resetColumns = useCallback(() => {
+    updateUIState((state) => ({
+      ...state,
+      selectedColumns: getDefaultSelectedColumns(),
+      columnOrder: [],
+      columnWidths: {},
+    }));
+    columnApiRef.current?.resetColumnState();
+  }, [updateUIState]);
+
   const tableElement =
     requestError instanceof Error && !isLoadingRuns ? (
       <ExperimentViewRunsRequestError error={requestError} />
     ) : (
       <ExperimentViewRunsTable
         experiments={experiments}
+        columnApiRef={columnApiRef}
         runsData={runsData}
         searchFacetsState={searchFacetsState}
         viewState={viewState}
@@ -253,6 +274,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
         rowsData={visibleRuns}
         loadMoreRunsFunc={loadMoreRunsCallback}
         moreRunsAvailable={moreRunsAvailable}
+        pageSizeSelect={pageSizeSelect}
         onDatasetSelected={datasetSelected}
         expandRows={expandRows}
         uiState={uiState}
@@ -288,6 +310,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
           uiState={uiState}
           isLoading={isLoadingRuns}
           isComparingExperiments={isComparingExperiments}
+          onResetColumns={resetColumns}
         />
         <div
           ref={ref}

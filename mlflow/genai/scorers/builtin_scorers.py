@@ -3,6 +3,7 @@ import inspect
 import json
 import logging
 import math
+import re
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -24,6 +25,7 @@ from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.judges.model_api import ModelAPI
 from mlflow.genai.judges.prompts.completeness import (
     COMPLETENESS_ASSESSMENT_NAME,
     COMPLETENESS_PROMPT,
@@ -50,7 +52,11 @@ from mlflow.genai.judges.prompts.conversational_tool_call_efficiency import (
 )
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.fluency import FLUENCY_ASSESSMENT_NAME, FLUENCY_PROMPT
+from mlflow.genai.judges.prompts.fluency import (
+    FLUENCY_ASSESSMENT_NAME,
+    FLUENCY_PROMPT,
+    FLUENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+)
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.knowledge_retention import (
@@ -74,6 +80,8 @@ from mlflow.genai.judges.prompts.user_frustration import (
     USER_FRUSTRATION_ASSESSMENT_NAME,
     USER_FRUSTRATION_PROMPT,
 )
+from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
+from mlflow.genai.judges.typesafe import _is_typesafe_model
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,
@@ -318,6 +326,8 @@ class BuiltInScorer(Judge):
 
     name: str
     required_columns: set[str] = set()
+    inference_params: dict[str, Any] | None = None
+    extra_headers: dict[str, str] | None = None
 
     @property
     @abstractmethod
@@ -336,6 +346,10 @@ class BuiltInScorer(Judge):
             description=self.description,
             aggregations=self.aggregations,
             is_session_level_scorer=self.is_session_level_scorer,
+            # Mirrors the value already inside `pydantic_model_data` so the top-level
+            # field stays consistent for consumers that read it; on deserialization
+            # the pydantic data wins.
+            session_level=self.session_level,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             builtin_scorer_class=self.__class__.__name__,
@@ -347,8 +361,6 @@ class BuiltInScorer(Judge):
     @classmethod
     def model_validate(cls, obj: SerializedScorer | dict[str, Any]) -> "BuiltInScorer":
         """Override model_validate to handle builtin scorer deserialization."""
-        from mlflow.genai.scorers import builtin_scorers
-
         if isinstance(obj, SerializedScorer):
             serialized = obj
         else:
@@ -359,17 +371,18 @@ class BuiltInScorer(Judge):
                 )
 
             try:
-                serialized = SerializedScorer(**obj)
+                serialized = SerializedScorer.from_dict(obj)
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to parse serialized scorer data: {e}"
                 )
 
-        try:
-            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
-        except AttributeError:
+        scorer_class = _get_builtin_scorer_class(serialized.builtin_scorer_class)
+        if scorer_class is None:
+            # error_class is kept from when this was a plain attribute lookup.
             raise MlflowException.invalid_parameter_value(
-                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
+                error_class="ATTRIBUTE_NOT_FOUND",
             )
 
         constructor_args = serialized.builtin_scorer_pydantic_data or {}
@@ -396,6 +409,8 @@ class RetrievalRelevance(BuiltInScorer):
     Args:
         name: The name of the scorer. Defaults to "retrieval_relevance".
         model: {{ model }}
+        inference_params: Optional dictionary of inference parameters (e.g., temperature,
+            top_p, max_tokens) to pass to the judge model for fine-grained control.
 
     Example (direct usage):
 
@@ -405,7 +420,10 @@ class RetrievalRelevance(BuiltInScorer):
         from mlflow.genai.scorers import RetrievalRelevance
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedbacks = RetrievalRelevance(name="my_retrieval_relevance")(trace=trace)
+        feedbacks = RetrievalRelevance(
+            name="my_retrieval_relevance",
+            inference_params={"temperature": 0.0},
+        )(trace=trace)
         print(feedbacks)
 
     Example (with evaluate):
@@ -489,7 +507,10 @@ class RetrievalRelevance(BuiltInScorer):
         self, span_id: str, request: str, chunks: list[dict[str, str]]
     ) -> list[Feedback]:
         """Compute the relevance of retrieved context for one retriever span."""
-        from mlflow.genai.judges.prompts.retrieval_relevance import get_prompt
+        from mlflow.genai.judges.prompts.retrieval_relevance import (
+            RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+            get_prompt,
+        )
 
         model = self.model or get_default_model()
 
@@ -497,13 +518,33 @@ class RetrievalRelevance(BuiltInScorer):
         if model == "databricks":
             from databricks.agents.evals.judges import chunk_relevance
 
+            if self.inference_params:
+                _logger.warning(
+                    "inference_params are not supported with the Databricks managed judge "
+                    "and will be ignored."
+                )
             chunk_feedbacks = chunk_relevance(
                 request=request, retrieved_context=chunks, assessment_name=self.name
             )
         else:
             for i, chunk in enumerate(chunks):
-                prompt = get_prompt(request=request, context=chunk["content"])
-                feedback = invoke_judge_model(model, prompt, assessment_name=self.name)
+                feedback = _invoke_structured_builtin_judge(
+                    model,
+                    chat_invoker=lambda chunk=chunk: invoke_judge_model(
+                        model,
+                        get_prompt(request=request, context=chunk["content"]),
+                        assessment_name=self.name,
+                        inference_params=self.inference_params,
+                        extra_headers=self.extra_headers,
+                    ),
+                    decision_invoke_params={
+                        "instructions": RETRIEVAL_RELEVANCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                        "state": {"input": request, "doc": chunk["content"]},
+                        "assessment_name": self.name,
+                        "inference_params": self.inference_params,
+                        "extra_headers": self.extra_headers,
+                    },
+                )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
                     **(sanitized_feedback.metadata or {}),
@@ -657,6 +698,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 expected_facts=expected_facts,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -764,13 +806,13 @@ class RetrievalGroundedness(BuiltInScorer):
                 context=context,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
         return feedbacks
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCallEfficiency(BuiltInScorer):
     """
@@ -848,10 +890,10 @@ class ToolCallEfficiency(BuiltInScorer):
             available_tools=available_tools,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ToolCallCorrectness(BuiltInScorer):
     """
@@ -1098,6 +1140,7 @@ class ToolCallCorrectness(BuiltInScorer):
                 check_order=self.should_consider_ordering,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
 
         # Only compare arguments if all expected calls have arguments specified
@@ -1130,6 +1173,7 @@ class ToolCallCorrectness(BuiltInScorer):
             check_order=self.should_consider_ordering,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
 
 
@@ -1146,6 +1190,8 @@ class Guidelines(BuiltInScorer):
         name: The name of the scorer. Defaults to "guidelines".
         guidelines: A single guideline text or a list of guidelines.
         model: {{ model }}
+        model_api: Model API to use. Set to ``"decisions"`` for a Databricks System One
+            model service. Direct ``typesafe:/`` models select Decisions automatically.
 
     Example (direct usage):
 
@@ -1200,6 +1246,7 @@ class Guidelines(BuiltInScorer):
     name: str = "guidelines"
     guidelines: str | list[str]
     model: str | None = None
+    model_api: ModelAPI | None = None
     required_columns: set[str] = {"inputs", "outputs"}
     description: str = (
         "Evaluate whether the agent's response follows specific constraints or instructions "
@@ -1278,8 +1325,17 @@ class Guidelines(BuiltInScorer):
             },
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
+            **({"model_api": self.model_api} if self.model_api is not None else {}),
         )
-        return _sanitize_scorer_feedback(feedback)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        # Surface the guideline text in assessment metadata so the UI can show
+        # the criterion that was checked alongside each pass/fail result.
+        guidelines_text = (
+            self.guidelines if isinstance(self.guidelines, str) else "\n".join(self.guidelines)
+        )
+        sanitized.metadata = {**(sanitized.metadata or {}), "guideline": guidelines_text}
+        return sanitized
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -1296,6 +1352,8 @@ class ExpectationsGuidelines(BuiltInScorer):
     Args:
         name: The name of the scorer. Defaults to "expectations_guidelines".
         model: {{ model }}
+        model_api: Model API to use. Set to ``"decisions"`` for a Databricks System One
+            model service. Direct ``typesafe:/`` models select Decisions automatically.
 
     Example:
 
@@ -1329,6 +1387,7 @@ class ExpectationsGuidelines(BuiltInScorer):
 
     name: str = "expectations_guidelines"
     model: str | None = None
+    model_api: ModelAPI | None = None
     required_columns: set[str] = {"inputs", "outputs"}
     description: str = (
         "Evaluate whether the agent's response follows specific constraints or instructions "
@@ -1436,8 +1495,15 @@ class ExpectationsGuidelines(BuiltInScorer):
             },
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
+            **({"model_api": self.model_api} if self.model_api is not None else {}),
         )
-        return _sanitize_scorer_feedback(feedback)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        # Surface the guideline text in assessment metadata so the UI can show
+        # the criterion that was checked alongside each pass/fail result.
+        guidelines_text = guidelines if isinstance(guidelines, str) else "\n".join(guidelines)
+        sanitized.metadata = {**(sanitized.metadata or {}), "guideline": guidelines_text}
+        return sanitized
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -1553,7 +1619,11 @@ class RelevanceToQuery(BuiltInScorer):
         # Use the existing scorer implementation with extracted/provided fields
         request = parse_inputs_to_str(fields.inputs)
         feedback = judges.is_context_relevant(
-            request=request, context=fields.outputs, name=self.name, model=self.model
+            request=request,
+            context=fields.outputs,
+            name=self.name,
+            model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1660,6 +1730,7 @@ class Safety(BuiltInScorer):
             content=parse_outputs_to_str(fields.outputs),
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1764,12 +1835,6 @@ class Correctness(BuiltInScorer):
             )
 
     def get_input_fields(self) -> list[JudgeField]:
-        """
-        Get the input fields for the Correctness judge.
-
-        Returns:
-            List of JudgeField objects defining the input fields based on the __call__ method.
-        """
         return [
             JudgeField(
                 name="inputs",
@@ -1856,6 +1921,7 @@ class Correctness(BuiltInScorer):
             expected_facts=expected_facts,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1915,12 +1981,19 @@ class Fluency(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
+            model = self.model or get_default_model()
+            instructions = (
+                FLUENCY_TYPESAFE_PROMPT_INSTRUCTIONS
+                if _is_typesafe_model(model)
+                else self.instructions
+            )
             self._judge = InstructionsJudge(
                 name=self.name,
-                instructions=self.instructions,
-                model=self.model,
+                instructions=instructions,
+                model=model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 
@@ -1958,6 +2031,8 @@ class Equivalence(BuiltInScorer):
     Args:
         name: The name of the scorer. Defaults to "equivalence".
         model: {{ model }}
+        inference_params: Optional dictionary of inference parameters (e.g., temperature,
+            top_p, max_tokens) to pass to the judge model for fine-grained control.
 
     Example (direct usage):
 
@@ -2067,6 +2142,7 @@ class Equivalence(BuiltInScorer):
         from mlflow.genai.judges.builtin import _sanitize_feedback
         from mlflow.genai.judges.prompts.equivalence import (
             EQUIVALENCE_FEEDBACK_NAME,
+            EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
             get_prompt,
         )
 
@@ -2126,11 +2202,26 @@ class Equivalence(BuiltInScorer):
         model = self.model or get_default_model()
         assessment_name = self.name or EQUIVALENCE_FEEDBACK_NAME
 
-        prompt = get_prompt(
-            output=outputs_str,
-            expected_output=expectations_str,
+        feedback = _invoke_structured_builtin_judge(
+            model,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(
+                    output=outputs_str,
+                    expected_output=expectations_str,
+                ),
+                assessment_name=assessment_name,
+                inference_params=self.inference_params,
+                extra_headers=self.extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": EQUIVALENCE_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"output": actual_output, "expected_output": expected_output},
+                "assessment_name": assessment_name,
+                "inference_params": self.inference_params,
+                "extra_headers": self.extra_headers,
+            },
         )
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
 
         return _sanitize_feedback(feedback)
 
@@ -2148,6 +2239,7 @@ class SessionLevelScorer(Judge):
     """
 
     required_columns: set[str] = {"trace"}
+    inference_params: dict[str, Any] | None = None
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
 
     @abstractmethod
@@ -2215,11 +2307,15 @@ class BuiltInSessionLevelScorer(BuiltInScorer, SessionLevelScorer):
     implementation details should inherit from SessionLevelScorer directly.
     """
 
-    # All functionality now inherited from SessionLevelScorer
-    # BuiltInScorer provides special serialization for public API
+    # Re-declared because BuiltInScorer precedes SessionLevelScorer in the MRO, so
+    # BuiltInScorer's ``set()`` default would otherwise shadow SessionLevelScorer's
+    # ``{"trace"}``, leaving session scorers with an empty (incorrect) data contract.
+    required_columns: set[str] = {"trace"}
+
+    # Remaining functionality is inherited from SessionLevelScorer;
+    # BuiltInScorer provides special serialization for public API.
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class UserFrustration(BuiltInSessionLevelScorer):
     """
@@ -2290,6 +2386,8 @@ class UserFrustration(BuiltInSessionLevelScorer):
             model=self.model,
             description=self.description,
             feedback_value_type=self.feedback_value_type,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2297,7 +2395,6 @@ class UserFrustration(BuiltInSessionLevelScorer):
         return USER_FRUSTRATION_PROMPT
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationCompleteness(BuiltInSessionLevelScorer):
     """
@@ -2368,6 +2465,8 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2375,7 +2474,6 @@ class ConversationCompleteness(BuiltInSessionLevelScorer):
         return CONVERSATION_COMPLETENESS_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalSafety(BuiltInSessionLevelScorer):
     """
@@ -2448,6 +2546,8 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2455,7 +2555,6 @@ class ConversationalSafety(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_SAFETY_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
     """
@@ -2525,6 +2624,8 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
             include_tool_calls_in_conversation=True,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2532,7 +2633,6 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_TOOL_CALL_EFFICIENCY_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
     """
@@ -2601,6 +2701,8 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2608,7 +2710,6 @@ class ConversationalRoleAdherence(BuiltInSessionLevelScorer):
         return CONVERSATIONAL_ROLE_ADHERENCE_PROMPT
 
 
-@experimental(version="3.9.0")
 @format_docstring(_MODEL_API_DOC)
 class ConversationalGuidelines(BuiltInSessionLevelScorer):
     """
@@ -2691,6 +2792,8 @@ class ConversationalGuidelines(BuiltInSessionLevelScorer):
             description=self.description,
             feedback_value_type=self.feedback_value_type,
             generate_rationale_first=True,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2718,6 +2821,7 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
 
     name: str = "last_turn_knowledge_retention"
     model: str | None = None
+    extra_headers: dict[str, str] | None = None
     description: str = (
         "Evaluate whether the last AI response in a conversation correctly retains information "
         "provided by users in earlier conversation turns."
@@ -2734,6 +2838,8 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
             model=self.model,
             description=self.description,
             feedback_value_type=self.feedback_value_type,
+            inference_params=self.inference_params,
+            extra_headers=self.extra_headers,
         )
 
     @property
@@ -2741,7 +2847,6 @@ class _LastTurnKnowledgeRetention(SessionLevelScorer):
         return KNOWLEDGE_RETENTION_PROMPT
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class KnowledgeRetention(BuiltInSessionLevelScorer):
     """
@@ -2804,11 +2909,18 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
     )
 
     def model_post_init(self, __context: Any) -> None:
-        """Propagate model parameter to the inner last_turn_scorer after initialization."""
-        if self.model is not None:
-            # Make a copy to avoid mutating the caller's scorer
+        if (
+            self.model is not None
+            or self.inference_params is not None
+            or self.extra_headers is not None
+        ):
             self.last_turn_scorer = copy.deepcopy(self.last_turn_scorer)
-            self.last_turn_scorer.model = self.model
+            if self.model is not None:
+                self.last_turn_scorer.model = self.model
+            if self.inference_params is not None:
+                self.last_turn_scorer.inference_params = self.inference_params
+            if self.extra_headers is not None:
+                self.last_turn_scorer.extra_headers = self.extra_headers
 
     def _create_judge(self) -> Judge:
         """
@@ -2926,7 +3038,6 @@ class KnowledgeRetention(BuiltInSessionLevelScorer):
         )
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Completeness(BuiltInScorer):
     """
@@ -2996,6 +3107,7 @@ class Completeness(BuiltInScorer):
                 model=self.model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 
@@ -3035,7 +3147,6 @@ class Completeness(BuiltInScorer):
         )
 
 
-@experimental(version="3.7.0")
 @format_docstring(_MODEL_API_DOC)
 class Summarization(BuiltInScorer):
     """
@@ -3102,6 +3213,7 @@ class Summarization(BuiltInScorer):
                 model=self.model,
                 description=self.description,
                 feedback_value_type=self.feedback_value_type,
+                extra_headers=self.extra_headers,
             )
         return self._judge
 
@@ -3139,6 +3251,408 @@ class Summarization(BuiltInScorer):
             outputs=outputs,
             trace=trace,
         )
+
+
+# Regex patterns for PII detection. These prioritize recall (catching PII) over
+# precision (not flagging false positives). For serious privacy workflows,
+# pair this with a dedicated library like Guardrails AI or Presidio.
+PIIType = Literal["email", "phone", "ssn", "credit_card", "ip_address"]
+
+_PII_PATTERNS: dict[str, str] = {
+    "email": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+    "phone": r"(?:(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+[1-9]\d{1,14})",
+    "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
+    "credit_card": (
+        r"\b(?:"
+        r"(?:4\d{3}|5[1-5]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}"
+        r"|3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5}"
+        r")\b"
+    ),
+    "ip_address": r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b",
+}
+
+
+def _resolve_output_text(
+    outputs: Any | None,
+    trace: Trace | None,
+) -> str | None:
+    """Resolve outputs from trace if needed and coerce to a string.
+
+    Returns None when no outputs are available so the caller can
+    produce a scorer-specific Feedback instead of crashing the
+    evaluation run.
+    """
+    if outputs is None and trace is not None:
+        outputs = resolve_outputs_from_trace(outputs, trace)
+
+    if outputs is None:
+        return None
+
+    if isinstance(outputs, str):
+        return outputs
+    return parse_outputs_to_str(outputs)
+
+
+@experimental(version="3.12.0")
+class RegexMatch(BuiltInScorer):
+    """
+    RegexMatch checks whether an output matches a regular expression pattern.
+
+    This is a deterministic rule-based scorer that runs without an LLM call.
+    Use it for hard format checks like "response must start with 'Answer:'",
+    "output must contain a valid order number", or "response must look like
+    valid SQL".
+
+    Args:
+        name: The name of the scorer. Defaults to ``"regex_match"``.
+        pattern: Regular expression to evaluate against the output. Required.
+        match_type: ``"search"`` (default, matches anywhere in the output) or
+            ``"fullmatch"`` (the entire output must match).
+        case_insensitive: If True, match ignoring case. Defaults to False.
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import RegexMatch
+
+        scorer = RegexMatch(pattern=r"^Answer:")
+        feedback = scorer(outputs="Answer: 42")
+        print(feedback.value)  # CategoricalRating.YES
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import RegexMatch
+
+        data = [
+            {"outputs": "Answer: 42"},
+            {"outputs": "The answer is 42"},
+        ]
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[RegexMatch(pattern=r"^Answer:")],
+        )
+    """
+
+    name: str = "regex_match"
+    pattern: str
+    match_type: Literal["search", "fullmatch"] = "search"
+    case_insensitive: bool = False
+    required_columns: set[str] = {"outputs"}
+    description: str = "Check whether output matches a regular expression pattern."
+    _compiled: re.Pattern[str] | None = pydantic.PrivateAttr(default=None)
+
+    @pydantic.model_validator(mode="after")
+    def _compile_pattern(self):
+        flags = re.IGNORECASE if self.case_insensitive else 0
+        try:
+            self._compiled = re.compile(self.pattern, flags)
+        except re.error as e:
+            raise ValueError(f"invalid regex pattern {self.pattern!r}: {e}")
+        return self
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    @property
+    def instructions(self) -> str:
+        return (
+            f"Check whether the output matches the regex pattern {self.pattern!r} "
+            f"using {self.match_type}."
+        )
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The output text to check against the regex pattern.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        if self.match_type == "fullmatch":
+            matched = self._compiled.fullmatch(outputs_str) is not None
+        else:
+            matched = self._compiled.search(outputs_str) is not None
+
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.YES if matched else CategoricalRating.NO,
+            rationale=(
+                f"Output {'matches' if matched else 'does not match'} pattern {self.pattern!r}"
+            ),
+        )
+
+
+@experimental(version="3.12.0")
+class PIIDetection(BuiltInScorer):
+    """
+    PIIDetection checks whether the output contains personally identifiable information.
+
+    This is a deterministic rule-based scorer that uses regex patterns to flag common
+    PII categories. It returns ``"no"`` when PII is found (the output fails the
+    privacy check) and ``"yes"`` when the output is clean.
+
+    Supported PII types:
+
+    - ``"email"``: Email addresses (RFC 5322-ish)
+    - ``"phone"``: US phone numbers and E.164 international format
+    - ``"ssn"``: US Social Security Numbers (NNN-NN-NNNN)
+    - ``"credit_card"``: Visa, Mastercard, Amex, Discover numbers
+    - ``"ip_address"``: IPv4 addresses
+
+    This scorer trades precision for recall: it will occasionally flag
+    false positives (for example, phone-shaped numbers in documentation). Use it
+    as a first-line guardrail and follow up with a dedicated library like
+    Presidio or Guardrails AI for production privacy workflows.
+
+    Args:
+        name: The name of the scorer. Defaults to ``"pii_detection"``.
+        pii_types: List of PII types to check. Defaults to all supported types.
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import PIIDetection
+
+        scorer = PIIDetection(pii_types=["email", "phone"])
+        feedback = scorer(outputs="Contact alice@example.com or call 555-123-4567")
+        print(feedback.value)  # CategoricalRating.NO
+        print(feedback.rationale)  # 'Detected PII: email, phone'
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import PIIDetection
+
+        data = [{"outputs": "Your order confirmation is ABC-123"}]
+        result = mlflow.genai.evaluate(data=data, scorers=[PIIDetection()])
+    """
+
+    name: str = "pii_detection"
+    pii_types: list[PIIType] | None = None
+    required_columns: set[str] = {"outputs"}
+    description: str = "Detect common PII (email, phone, SSN, credit card, IP) in the output."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    @property
+    def instructions(self) -> str:
+        types = self.pii_types if self.pii_types is not None else list(_PII_PATTERNS.keys())
+        return f"Check whether the output contains any of the PII types: {types}."
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The output text to scan for PII.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        types_to_check = (
+            self.pii_types if self.pii_types is not None else list(_PII_PATTERNS.keys())
+        )
+
+        detected: list[str] = [
+            pii_type
+            for pii_type in types_to_check
+            if re.search(_PII_PATTERNS[pii_type], outputs_str)
+        ]
+
+        if detected:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=f"Detected PII: {', '.join(detected)}",
+            )
+
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.YES,
+            rationale="No PII detected",
+        )
+
+
+@experimental(version="3.12.0")
+class ResponseLength(BuiltInScorer):
+    """
+    ResponseLength checks whether an output's length is within a specified range.
+
+    This is a deterministic rule-based scorer that counts characters or words
+    and returns ``"yes"`` when the length is within the specified bounds,
+    ``"no"`` otherwise. At least one of ``min_length`` or ``max_length`` must
+    be provided.
+
+    Args:
+        name: The name of the scorer. Defaults to ``"response_length"``.
+        min_length: Minimum allowed length (inclusive). Optional.
+        max_length: Maximum allowed length (inclusive). Optional.
+        unit: Unit of measurement: ``"chars"`` (default) or ``"words"``.
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ResponseLength
+
+        scorer = ResponseLength(min_length=10, max_length=500)
+        feedback = scorer(outputs="A short but valid answer.")
+        print(feedback.value)  # CategoricalRating.YES
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ResponseLength
+
+        data = [{"outputs": "This response is too long." * 100}]
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[ResponseLength(max_length=500)],
+        )
+    """
+
+    name: str = "response_length"
+    min_length: int | None = None
+    max_length: int | None = None
+    unit: Literal["chars", "words"] = "chars"
+    required_columns: set[str] = {"outputs"}
+    description: str = "Check whether the output length is within specified bounds."
+
+    @pydantic.model_validator(mode="after")
+    def _validate_bounds(self):
+        if self.min_length is None and self.max_length is None:
+            raise ValueError(
+                "ResponseLength requires at least one of `min_length` or `max_length`."
+            )
+        if self.min_length is not None and self.min_length < 0:
+            raise ValueError(f"`min_length` must be non-negative, got {self.min_length}.")
+        if self.max_length is not None and self.max_length < 0:
+            raise ValueError(f"`max_length` must be non-negative, got {self.max_length}.")
+        if (
+            self.min_length is not None
+            and self.max_length is not None
+            and self.min_length > self.max_length
+        ):
+            raise ValueError(
+                f"`min_length` ({self.min_length}) must be <= `max_length` ({self.max_length})."
+            )
+        return self
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    @property
+    def instructions(self) -> str:
+        bounds = []
+        if self.min_length is not None:
+            bounds.append(f"min={self.min_length}")
+        if self.max_length is not None:
+            bounds.append(f"max={self.max_length}")
+        return f"Check whether the output length in {self.unit} is within [{', '.join(bounds)}]."
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The output text whose length will be measured.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        length = len(outputs_str.split()) if self.unit == "words" else len(outputs_str)
+
+        if self.min_length is not None and length < self.min_length:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=(
+                    f"Output length ({length} {self.unit}) is below the minimum "
+                    f"({self.min_length} {self.unit})"
+                ),
+            )
+
+        if self.max_length is not None and length > self.max_length:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=(
+                    f"Output length ({length} {self.unit}) exceeds the maximum "
+                    f"({self.max_length} {self.unit})"
+                ),
+            )
+
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.YES,
+            rationale=f"Output length ({length} {self.unit}) is within bounds",
+        )
+
+
+def _get_builtin_scorer_class(name: object) -> type[BuiltInScorer] | None:
+    """The concrete built-in scorer class named ``name``, or ``None``.
+
+    The module also holds imported helpers and abstract bases, so a plain ``getattr`` would
+    resolve names like ``invoke_judge_model`` that must never be called as a scorer.
+    """
+    if not isinstance(name, str):
+        return None
+    cls = globals().get(name)
+    return cls if cls in _get_all_concrete_builtin_scorers() else None
 
 
 def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:

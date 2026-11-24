@@ -52,10 +52,9 @@ Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai)
 <div align="center">
    <div>
       <a href="https://mlflow.org/"><strong>Website</strong></a> ·
+      <a href="https://demo.mlflow.org/"><strong>Try Demo</strong></a> ·
       <a href="https://mlflow.org/docs/latest"><strong>Docs</strong></a> ·
-      <a href="https://github.com/mlflow/mlflow/issues/new/choose"><strong>Feature Request</strong></a> ·
       <a href="https://mlflow.org/blog"><strong>News</strong></a> ·
-      <a href="https://www.youtube.com/@mlflowoss"><strong>YouTube</strong></a> ·
       <a href="https://lu.ma/mlflow?k=c"><strong>Events</strong></a>
    </div>
 </div>
@@ -65,6 +64,14 @@ Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai)
 ## Get Started in 3 Simple Steps
 
 From zero to full-stack LLMOps in minutes. No complex setup or major code changes required. [Get Started →](https://mlflow.org/docs/latest/genai/tracing/quickstart/)
+
+> **Fastest start — set up tracing with the MLflow setup wizard**
+>
+> ```bash
+> curl -LsSf https://mlflow.org/wizard/setup.sh | sh
+> ```
+>
+> Run this from your project's Git repository with Claude Code, Codex, or OpenCode installed. The wizard guides you through connecting to an MLflow server or Databricks workspace, then launches your coding agent to add tracing to your app. Prefer to wire it up yourself? Follow the three steps below.
 
 **1. Start MLflow Server**
 
@@ -109,6 +116,8 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <br><br>
         <div>Capture complete traces of your LLM applications and agents for deep behavioral insights. Built on OpenTelemetry, supporting any LLM provider and agent framework. Monitor production quality, costs, and safety.</div><br>
         <a href="https://mlflow.org/docs/latest/genai/tracing/quickstart/">Getting Started →</a>
+        <br>
+        <a href="https://demo.mlflow.org/#/experiments/1/traces?startTimeLabel=CUSTOM&startTime=2026-04-17T16%3A47%3A15.258Z&endTime=2026-04-24T21%3A20%3A50.781Z">Try Demo →</a>
         <br><br>
     </div>
     </td>
@@ -120,6 +129,8 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <br><br>
         <div>Run systematic evaluations, track quality metrics over time, and catch regressions before they reach production. Choose from 50+ built-in metrics and LLM judges, or define your own.</div><br>
         <a href="https://mlflow.org/docs/latest/genai/eval-monitor/">Getting Started →</a>
+        <br>
+        <a href="https://demo.mlflow.org/#/experiments/1/runs/d690ad8bb7a546c5a74b79691bb32b27/evaluations">Try Demo →</a>
         <br><br>
     </div>
     </td>
@@ -133,6 +144,8 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <br><br>
         <div>Version, test, and deploy prompts with full lineage tracking. <a href="https://mlflow.org/prompt-optimization">Automatically optimize prompts</a> with state-of-the-art algorithms to improve performance.</div><br>
         <a href="https://mlflow.org/docs/latest/genai/prompt-registry/create-and-edit-prompts/">Getting Started →</a>
+        <br>
+        <a href="https://demo.mlflow.org/#/experiments/1/prompts/mlflow-demo.prompts.code-reviewer?promptVersion=4">Try Demo →</a>
         <br><br>
     </div>
     </td>
@@ -218,6 +231,7 @@ MLflow supports all agent frameworks, LLM providers, tools, and programming lang
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/vercelai"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/vercel-logo.svg" height="40"><br><sub><b>Vercel AI SDK</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/mastra"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/mastra-logo.png" height="40"><br><sub><b>Mastra</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/voltagent"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/voltagent-logo.png" height="40"><br><sub><b>VoltAgent</b></sub></a></td>
+    <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/flue"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/flue-logo.svg" height="40"><br><sub><b>Flue</b></sub></a></td>
   </tr>
 </table>
 
@@ -303,6 +317,7 @@ MLflow can be used in a variety of environments, including your local environmen
     <td align="center" width="130"><a href="https://aws.amazon.com/sagemaker-ai/experiments/"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/amazon-sagemaker-logo.png" height="40"><br><sub><b>Amazon SageMaker</b></sub></a></td>
     <td align="center" width="130"><a href="https://learn.microsoft.com/en-us/azure/machine-learning/concept-mlflow?view=azureml-api-2"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/azure-ml-logo.png" height="40"><br><sub><b>Azure ML</b></sub></a></td>
     <td align="center" width="130"><a href="https://nebius.com/services/managed-mlflow"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/nebius-logo.png" height="40"><br><sub><b>Nebius</b></sub></a></td>
+    <td align="center" width="130"><a href="https://www.redhat.com/en/products/ai/openshift-ai"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/rhoai-logo.png" height="40"><br><sub><b>Red Hat OpenShift AI</b></sub></a></td>
     <td align="center" width="130"><a href="https://mlflow.org/docs/latest/ml/tracking/"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/kubernetes-logo.png" height="40"><br><sub><b>Self-Hosted</b></sub></a></td>
   </tr>
 </table>
@@ -310,11 +325,11 @@ MLflow can be used in a variety of environments, including your local environmen
 ## 💭 Support
 
 - For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest).
-- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the right bottom.
+- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the bottom right.
 - Join the [virtual events](https://lu.ma/mlflow?k=c) like office hours and meetups.
 - To report a bug, file a documentation issue, or submit a feature request, please [open a GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).
 - For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-  or join us on [Slack](https://mlflow.org/slack).
+  or join us on [Slack](https://go.mlflow.org/slack).
 
 ## 🤝 Contributing
 
@@ -349,8 +364,9 @@ MLflow is currently maintained by the following core members with significant co
 - [Daniel Lok](https://github.com/daniellok-db)
 - [Gabriel Fu](https://github.com/gabrielfu)
 - [Harutaka Kawamura](https://github.com/harupy)
+- [Humair Khan](https://github.com/HumairAK)
 - [Joel Robin P](https://github.com/joelrobin18)
-- [Matt Prahl](https://github.com/mprahl)
+- [Matthew Prahl](https://github.com/mprahl)
 - [Pat Sukprasert](https://github.com/PattaraS)
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Tomu Hirata](https://github.com/TomeHirata)

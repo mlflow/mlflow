@@ -7,9 +7,9 @@ from typing import Any
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -50,13 +50,15 @@ show intermediate steps
 
 CRITICAL REQUIREMENT - TEMPLATE VARIABLES:
 The following variables MUST be preserved EXACTLY as shown in the original prompts.
-DO NOT modify, remove, or change the formatting of these variables in any way:
+DO NOT modify, remove, add, or change the formatting of these variables in any way:
 {template_variables}
 
 IMPORTANT: Template variables use double curly braces like {{{{variable_name}}}}.
 You MUST copy them exactly as they appear in the original prompt into your improved
 prompt. If a variable appears as {{{{question}}}} in the original, it must appear as
 {{{{question}}}} in your improvement.
+If a prompt has NO template variables (marked as 'none' above), you MUST NOT introduce
+any new {{{{...}}}} patterns. Only improve the wording and phrasing of those prompts.
 
 {custom_guidelines}
 
@@ -88,7 +90,6 @@ explanations or reasoning.
 """
 
 
-@experimental(version="3.9.0")
 class MetaPromptOptimizer(BasePromptOptimizer):
     """
     A prompt optimizer that uses metaprompting with LLMs to improve prompts in a single pass.
@@ -106,8 +107,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             Format: "<provider>:/<model>" (e.g., "openai:/gpt-5.2",
             "anthropic:/claude-sonnet-4-5-20250929")
         lm_kwargs: Optional dictionary of additional parameters to pass to the reflection
-            model (e.g., {"temperature": 1.0, "max_tokens": 4096}). These are passed
-            directly to the underlying litellm.completion() call. Default: None
+            model (e.g., {"temperature": 1.0, "max_tokens": 4096}). Default: None
         guidelines: Optional custom guidelines to provide domain-specific or task-specific
             context for prompt optimization (e.g., "This is for a finance advisor to
             project tax situations."). Default: None
@@ -412,20 +412,30 @@ class MetaPromptOptimizer(BasePromptOptimizer):
     def _validate_template_variables(
         self, original_prompts: dict[str, str], new_prompts: dict[str, str]
     ) -> bool:
-        """Validate that all template variables are preserved in new prompts."""
+        """Validate that all template variables are preserved in new prompts.
+
+        Extra variables introduced by the LLM are automatically stripped from the
+        generated prompt so that optimisation can succeed even when the model
+        erroneously adds new ``{{variable}}`` patterns.
+        """
         original_vars = self._extract_template_variables(original_prompts)
         new_vars = self._extract_template_variables(new_prompts)
 
         for name in original_prompts:
-            if original_vars[name] != new_vars[name]:
-                missing = original_vars[name] - new_vars[name]
-                extra = new_vars[name] - original_vars[name]
-                msg = f"Template variables mismatch in prompt '{name}'."
-                if missing:
-                    msg += f" Missing: {missing}."
-                if extra:
-                    msg += f" Extra: {extra}."
-                raise MlflowException(msg)
+            missing = original_vars[name] - new_vars[name]
+            extra = new_vars[name] - original_vars[name]
+
+            if missing:
+                raise MlflowException(
+                    f"Template variables mismatch in prompt '{name}'. Missing: {missing}."
+                )
+
+            if extra:
+                _logger.warning(f"Stripping extra template variables {extra} from prompt '{name}'.")
+                text = new_prompts[name]
+                for var in extra:
+                    text = text.replace("{{" + var + "}}", "")
+                new_prompts[name] = text
 
         return True
 
@@ -575,23 +585,7 @@ improve the prompt's effectiveness."""
         self, meta_prompt: str, enable_tracking: bool = True
     ) -> dict[str, str]:
         """Call the reflection model to generate improved prompts."""
-        try:
-            import litellm
-        except ImportError as e:
-            raise ImportError(
-                "litellm is required for metaprompt optimization. "
-                "Please install it with: `pip install litellm`"
-            ) from e
-
-        litellm_model = f"{self.provider}/{self.model}"
-
-        litellm_params = {
-            "model": litellm_model,
-            "messages": [{"role": "user", "content": meta_prompt}],
-            "response_format": {"type": "json_object"},  # Request JSON output
-            "max_retries": 3,
-            **self.lm_kwargs,  # Merge user-provided parameters
-        }
+        from mlflow.genai.utils.llm_utils import _call_llm
 
         content = None  # Initialize to avoid NameError in exception handler
 
@@ -603,10 +597,19 @@ improve the prompt's effectiveness."""
 
         with span_context as span:
             if enable_tracking:
-                span.set_inputs({"meta_prompt": meta_prompt, "model": litellm_model})
+                span.set_inputs({
+                    "meta_prompt": meta_prompt,
+                    "model": self.reflection_model,
+                })
 
             try:
-                response = litellm.completion(**litellm_params)
+                response = _call_llm(
+                    self.reflection_model,
+                    [{"role": "user", "content": meta_prompt}],
+                    json_mode=True,
+                    inference_params=self.lm_kwargs or None,
+                    gateway_caller=GatewayCaller.PROMPT_OPTIMIZATION,
+                )
 
                 # Extract and parse response
                 content = response.choices[0].message.content.strip()
@@ -647,7 +650,7 @@ improve the prompt's effectiveness."""
                 ) from e
             except Exception as e:
                 raise MlflowException(
-                    f"Failed to call reflection model {litellm_model}: {e}"
+                    f"Failed to call reflection model {self.reflection_model}: {e}"
                 ) from e
 
     def _compute_aggregate_score(self, results: list[EvaluationResultRecord]) -> float | None:

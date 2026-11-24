@@ -37,6 +37,7 @@ from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
+    _MLFLOW_ENABLE_UC_TRACE_UPSELL,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
@@ -58,8 +59,8 @@ from mlflow.tracing.provider import (
 )
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.autologging_utils import (
     AUTOLOGGING_CONF_KEY_IS_GLOBALLY_CONFIGURED,
@@ -241,6 +242,17 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    if (
+        _MLFLOW_ENABLE_UC_TRACE_UPSELL.get()
+        and trace_location is None
+        and is_databricks_uri(_resolve_tracking_uri())
+        and MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH not in experiment.tags
+    ):
+        if is_newly_created:
+            show_new_experiment_upsell()
+        else:
+            show_existing_experiment_upsell()
+
     if trace_location is not None and trace_location.table_prefix is None:
         trace_location = UnityCatalog(
             catalog_name=trace_location.catalog_name,
@@ -279,12 +291,24 @@ def set_experiment(
 def _sync_trace_destination_and_provider(
     resolved_location: UnityCatalog | None,
 ) -> None:
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, provider
+    from mlflow.exceptions import MlflowTracingException
+    from mlflow.tracing.provider import (
+        _MLFLOW_TRACE_USER_DESTINATION,
+        is_tracing_enabled,
+        provider,
+    )
 
-    # If the tracer provider has already been initialized, reset it so the
-    # next trace re-derives the correct processor chain from the new experiment.
+    # If the tracer provider has already been initialized, reset it so the next
+    # trace re-derives the correct processor chain from the new experiment. Skip
+    # when disabled: reset() would flip `once` off and silently re-enable tracing
+    # the user turned off (#24209). Default to resetting if the state check errors.
     if provider.once._done:
-        provider.reset()
+        try:
+            tracing_enabled = is_tracing_enabled()
+        except MlflowTracingException:
+            tracing_enabled = True
+        if tracing_enabled:
+            provider.reset()
 
     _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
 
@@ -351,7 +375,7 @@ class ActiveRun(Run):
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
 
     def __init__(self, run):
-        Run.__init__(self, run.info, run.data)
+        Run.__init__(self, run.info, run.data, run.inputs, run.outputs)
 
     def __enter__(self):
         return self
@@ -461,7 +485,7 @@ def start_run(
             unspecified. If a new run is created and ``run_name`` is not specified,
             a random name will be generated for the run.
         nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
-        parent_run_id: If specified, the current run will be nested under the the run with
+        parent_run_id: If specified, the current run will be nested under the run with
             the specified UUID. The parent run must be in the ACTIVE state.
         tags: An optional dictionary of string keys and values to set as tags on the run.
             If a run is being resumed, these tags are set on the resumed run. If a new run is
@@ -983,16 +1007,25 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
+    # Flush ALL batch span processors and their exporters' async queues.
+    # When set_destination() is called multiple times, each call creates a new
+    # tracer provider, processor, and exporter. The registry tracks all of them
+    # so we drain both layers: span queue → exporter → async DB write queue.
+    from mlflow.tracing.export.utils import flush_exporter
+    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+
     try:
-        trace_exporter = _get_trace_exporter()
+        flush_all_batch_processors(terminate=terminate)
     except Exception as e:
-        _logger.debug(f"Failed to get trace exporter: {e}", exc_info=True)
-        return
+        _logger.debug(f"Failed to flush batch processors: {e}", exc_info=True)
+
+    # When batch processor is disabled (no registry entries), the current exporter
+    # may still have buffered spans that need draining (SimpleSpanProcessor path).
     try:
-        if hasattr(trace_exporter, "_async_queue"):
-            trace_exporter._async_queue.flush(terminate=terminate)
+        if trace_exporter := _get_trace_exporter():
+            flush_exporter(trace_exporter, terminate=terminate)
     except Exception as e:
-        _logger.error(f"Failed to flush trace async logging: {e}")
+        _logger.debug(f"Failed to flush trace exporter async queue: {e}", exc_info=True)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
@@ -1174,7 +1207,7 @@ def log_metric(
             Metric(
                 key=key,
                 value=value,
-                timestamp=timestamp or get_current_time_millis(),
+                timestamp=timestamp if timestamp is not None else get_current_time_millis(),
                 step=step or 0,
                 model_id=model_id,
                 dataset_name=dataset.name if dataset is not None else None,
@@ -1183,7 +1216,7 @@ def log_metric(
         ],
         datasets=[dataset] if dataset is not None else None,
     )
-    timestamp = timestamp or get_current_time_millis()
+    timestamp = timestamp if timestamp is not None else get_current_time_millis()
     step = step or 0
     model_ids = (
         [model_id]
@@ -1319,7 +1352,7 @@ def log_metrics(
     """
     run = _get_or_start_run() if run_id is None else MlflowClient().get_run(run_id)
     run_id = run.info.run_id
-    timestamp = timestamp or get_current_time_millis()
+    timestamp = timestamp if timestamp is not None else get_current_time_millis()
     step = step or 0
     dataset_name = dataset.name if dataset is not None else None
     dataset_digest = dataset.digest if dataset is not None else None
@@ -1748,7 +1781,6 @@ def log_dict(dictionary: dict[str, Any], artifact_file: str, run_id: str | None 
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
-@experimental(version="3.9.0")
 def log_stream(
     stream: io.BufferedIOBase | io.RawIOBase, artifact_file: str, run_id: str | None = None
 ) -> None:
@@ -2284,6 +2316,7 @@ def create_experiment(
     name: str,
     artifact_location: str | None = None,
     tags: dict[str, Any] | None = None,
+    trace_location: UnityCatalog | None = None,
 ) -> str:
     """
     Create an experiment.
@@ -2293,6 +2326,10 @@ def create_experiment(
         artifact_location: The location to store run artifacts. If not provided, the server picks
             an appropriate default.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.
+        trace_location: Optional UC trace location to link to the experiment. Must be an instance
+            of ``mlflow.entities.trace_location.UnityCatalog(...)``. If ``table_prefix`` is not
+            set, it defaults to the experiment ID. Note: call ``mlflow.set_experiment`` afterward
+            to activate the experiment and sync the trace provider.
 
     Returns:
         String ID of the created experiment.
@@ -2328,7 +2365,56 @@ def create_experiment(
         Lifecycle_stage: active
         Creation timestamp: 1662004217511
     """
-    return MlflowClient().create_experiment(name, artifact_location, tags)
+    client = MlflowClient()
+    experiment_id = client.create_experiment(name, artifact_location, tags)
+
+    if trace_location is not None:
+        experiment = client.get_experiment(experiment_id)
+
+        if trace_location.table_prefix is None:
+            trace_location = UnityCatalog(
+                catalog_name=trace_location.catalog_name,
+                schema_name=trace_location.schema_name,
+                table_prefix=experiment_id,
+            )
+
+        try:
+            _resolve_experiment_to_trace_location(
+                experiment=experiment,
+                trace_location=trace_location,
+            )
+        except MlflowException as e:
+            # Attempt to soft-delete the experiment we just created so a failed
+            # trace-location link does not leave an active experiment behind.
+            # Note: delete_experiment is a soft delete; the experiment name
+            # remains reserved until permanently removed via `mlflow gc`.
+            cleanup_succeeded = False
+            try:
+                client.delete_experiment(experiment_id)
+                cleanup_succeeded = True
+            except Exception:
+                _logger.warning(
+                    "Failed to soft-delete experiment '%s' (ID: %s) after linking it to "
+                    "trace location '%s' failed. The experiment may remain active.",
+                    name,
+                    experiment_id,
+                    trace_location.full_table_prefix,
+                    exc_info=True,
+                )
+            if cleanup_succeeded:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed, so the "
+                    f"experiment was soft-deleted (its name remains reserved): {e.message}"
+                ) from e
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Experiment '{name}' (ID: {experiment_id}) was created but linking to "
+                    f"trace location '{trace_location.full_table_prefix}' failed; the "
+                    f"experiment could not be cleaned up and may remain active: {e.message}"
+                ) from e
+
+    return experiment_id
 
 
 def delete_experiment(experiment_id: str) -> None:
@@ -2364,6 +2450,55 @@ def delete_experiment(experiment_id: str) -> None:
 
     """
     MlflowClient().delete_experiment(experiment_id)
+
+
+def restore_experiment(experiment_id: str) -> None:
+    """
+    Restore a deleted experiment unless permanently deleted.
+
+    Args:
+        experiment_id: The string-ified experiment ID returned from ``create_experiment``.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        experiment_id = mlflow.create_experiment("New Experiment")
+        mlflow.delete_experiment(experiment_id)
+
+        # Examine the deleted experiment details.
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
+        print("--")
+
+        # Restore the experiment and examine the details.
+        mlflow.restore_experiment(experiment_id)
+        experiment = mlflow.get_experiment(experiment_id)
+        print(f"Name: {experiment.name}")
+        print(f"Artifact Location: {experiment.artifact_location}")
+        print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+        print(f"Last Updated timestamp: {experiment.last_update_time}")
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: deleted
+        Last Updated timestamp: 1662004217511
+        --
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: active
+        Last Updated timestamp: 1662004217512
+
+    """
+    MlflowClient().restore_experiment(experiment_id)
 
 
 def initialize_logged_model(
@@ -3030,6 +3165,41 @@ def delete_run(run_id: str) -> None:
     MlflowClient().delete_run(run_id)
 
 
+def restore_run(run_id: str) -> None:
+    """
+    Restores a deleted run with the given ID.
+
+    Args:
+        run_id: Unique identifier for the run to restore.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
+
+        run_id = run.info.run_id
+        mlflow.delete_run(run_id)
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+
+        mlflow.restore_run(run_id)
+        lifecycle_stage = mlflow.get_run(run_id).info.lifecycle_stage
+        print(f"run_id: {run_id}; lifecycle_stage: {lifecycle_stage}")
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: active
+
+    """
+    MlflowClient().restore_run(run_id)
+
+
 def set_logged_model_tags(model_id: str, tags: dict[str, Any]) -> None:
     """
     Set tags on the specified logged model.
@@ -3159,16 +3329,42 @@ def get_artifact_uri(artifact_path: str | None = None) -> str:
     )
 
 
+@overload
 def search_runs(
     experiment_ids: list[str] | None = None,
     filter_string: str = "",
     run_view_type: int = ViewType.ACTIVE_ONLY,
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: list[str] | None = None,
-    output_format: str = "pandas",
+    output_format: Literal["pandas"] = "pandas",
     search_all_experiments: bool = False,
     experiment_names: list[str] | None = None,
-) -> Union[list[Run], "pandas.DataFrame"]:
+) -> "pandas.DataFrame": ...
+
+
+@overload
+def search_runs(
+    experiment_ids: list[str] | None = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: list[str] | None = None,
+    output_format: Literal["list"] = "list",
+    search_all_experiments: bool = False,
+    experiment_names: list[str] | None = None,
+) -> list[Run]: ...
+
+
+def search_runs(
+    experiment_ids: list[str] | None = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: list[str] | None = None,
+    output_format: Literal["pandas", "list"] = "pandas",
+    search_all_experiments: bool = False,
+    experiment_names: list[str] | None = None,
+) -> "list[Run] | pandas.DataFrame":
     """
     Search for Runs that fit the specified criteria.
 
@@ -3297,81 +3493,85 @@ def search_runs(
     if output_format == "list":
         return runs  # List[mlflow.entities.run.Run]
     elif output_format == "pandas":
-        import numpy as np
-        import pandas as pd
-
-        info = {
-            "run_id": [],
-            "experiment_id": [],
-            "status": [],
-            "artifact_uri": [],
-            "start_time": [],
-            "end_time": [],
-        }
-        params = {}
-        metrics = {}
-        tags = {}
-        PARAM_NULL = None
-        METRIC_NULL = np.nan
-        TAG_NULL = None
-        for i, run in enumerate(runs):
-            info["run_id"].append(run.info.run_id)
-            info["experiment_id"].append(run.info.experiment_id)
-            info["status"].append(run.info.status)
-            info["artifact_uri"].append(run.info.artifact_uri)
-            info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
-            info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
-
-            # Params
-            param_keys = set(params.keys())
-            for key in param_keys:
-                if key in run.data.params:
-                    params[key].append(run.data.params[key])
-                else:
-                    params[key].append(PARAM_NULL)
-            new_params = set(run.data.params.keys()) - param_keys
-            for p in new_params:
-                params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
-                params[p].append(run.data.params[p])
-
-            # Metrics
-            metric_keys = set(metrics.keys())
-            for key in metric_keys:
-                if key in run.data.metrics:
-                    metrics[key].append(run.data.metrics[key])
-                else:
-                    metrics[key].append(METRIC_NULL)
-            new_metrics = set(run.data.metrics.keys()) - metric_keys
-            for m in new_metrics:
-                metrics[m] = [METRIC_NULL] * i
-                metrics[m].append(run.data.metrics[m])
-
-            # Tags
-            tag_keys = set(tags.keys())
-            for key in tag_keys:
-                if key in run.data.tags:
-                    tags[key].append(run.data.tags[key])
-                else:
-                    tags[key].append(TAG_NULL)
-            new_tags = set(run.data.tags.keys()) - tag_keys
-            for t in new_tags:
-                tags[t] = [TAG_NULL] * i
-                tags[t].append(run.data.tags[t])
-
-        data = {}
-        data.update(info)
-        for key, value in metrics.items():
-            data["metrics." + key] = value
-        for key, value in params.items():
-            data["params." + key] = value
-        for key, value in tags.items():
-            data["tags." + key] = value
-        return pd.DataFrame(data)
+        return _runs_to_pandas(runs)
     else:
         raise ValueError(
             f"Unsupported output format: {output_format}. Supported string values are 'pandas' "
             "or 'list'"
         )
+
+
+def _runs_to_pandas(runs: list[Run]) -> "pandas.DataFrame":
+    import numpy as np
+    import pandas as pd
+
+    info = {
+        "run_id": [],
+        "experiment_id": [],
+        "status": [],
+        "artifact_uri": [],
+        "start_time": [],
+        "end_time": [],
+    }
+    params = {}
+    metrics = {}
+    tags = {}
+    PARAM_NULL = None
+    METRIC_NULL = np.nan
+    TAG_NULL = None
+    for i, run in enumerate(runs):
+        info["run_id"].append(run.info.run_id)
+        info["experiment_id"].append(run.info.experiment_id)
+        info["status"].append(run.info.status)
+        info["artifact_uri"].append(run.info.artifact_uri)
+        info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+        info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
+
+        # Params
+        param_keys = set(params.keys())
+        for key in param_keys:
+            if key in run.data.params:
+                params[key].append(run.data.params[key])
+            else:
+                params[key].append(PARAM_NULL)
+        new_params = set(run.data.params.keys()) - param_keys
+        for p in new_params:
+            params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
+            params[p].append(run.data.params[p])
+
+        # Metrics
+        metric_keys = set(metrics.keys())
+        for key in metric_keys:
+            if key in run.data.metrics:
+                metrics[key].append(run.data.metrics[key])
+            else:
+                metrics[key].append(METRIC_NULL)
+        new_metrics = set(run.data.metrics.keys()) - metric_keys
+        for m in new_metrics:
+            metrics[m] = [METRIC_NULL] * i
+            metrics[m].append(run.data.metrics[m])
+
+        # Tags
+        tag_keys = set(tags.keys())
+        for key in tag_keys:
+            if key in run.data.tags:
+                tags[key].append(run.data.tags[key])
+            else:
+                tags[key].append(TAG_NULL)
+        new_tags = set(run.data.tags.keys()) - tag_keys
+        for t in new_tags:
+            tags[t] = [TAG_NULL] * i
+            tags[t].append(run.data.tags[t])
+
+    data = {}
+    data.update(info)
+    for key, value in metrics.items():
+        data["metrics." + key] = value
+    for key, value in params.items():
+        data["params." + key] = value
+    for key, value in tags.items():
+        data["tags." + key] = value
+    return pd.DataFrame(data)
 
 
 def _get_or_start_run():
@@ -3598,6 +3798,7 @@ def autolog(
         "boto3": "mlflow.bedrock",
         "mistralai": "mlflow.mistral",
         "pydantic_ai": "mlflow.pydantic_ai",
+        "typesafe_sdk": "mlflow.typesafe",
     }
 
     # Currently, GenAI libraries are not enabled by `mlflow.autolog` in Databricks,
@@ -3843,7 +4044,9 @@ def set_active_model(*, name: str | None = None, model_id: str | None = None) ->
 
 
         predict("abc")
-        traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
+        traces = mlflow.search_traces(
+            model_id=mlflow.get_active_model_id(), return_type="list", flush=True
+        )
         assert len(traces) == 1
     """
     return _set_active_model(name=name, model_id=model_id, set_by_user=True)

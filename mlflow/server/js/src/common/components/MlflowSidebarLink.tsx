@@ -2,6 +2,40 @@ import type { Location, To } from '../utils/RoutingUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
 import { Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 
+type Theme = ReturnType<typeof useDesignSystemTheme>['theme'];
+
+/**
+ * Shared visual for one sidebar row (icon + label, hover + focus
+ * states). Used by both ``MlflowSidebarLink`` (router-link rows) and
+ * the avatar dropdown trigger in ``MlflowSidebar`` so the rows share
+ * spacing, hover colour, and focus outline regardless of whether the
+ * underlying element is an ``<a>`` or a ``<button>``.
+ */
+export const getSidebarItemStyles = (theme: Theme, collapsed: boolean) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing.sm,
+  width: '100%',
+  color: theme.colors.textPrimary,
+  paddingInline: theme.spacing.sm,
+  paddingBlock: theme.spacing.sm,
+  borderRadius: theme.borders.borderRadiusSm,
+  justifyContent: collapsed ? 'center' : 'flex-start',
+  '&:hover': {
+    color: theme.colors.actionLinkHover,
+    backgroundColor: theme.colors.actionDefaultBackgroundHover,
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.colors.actionDefaultBorderFocus}`,
+    outlineOffset: 2,
+  },
+  '&[aria-current="page"]': {
+    backgroundColor: theme.colors.actionDefaultBackgroundPress,
+    color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+    fontWeight: theme.typography.typographyBoldFontWeight,
+  },
+});
+
 export const MlflowSidebarLink = ({
   className,
   to,
@@ -45,25 +79,7 @@ export const MlflowSidebarLink = ({
           to={to}
           aria-current={isActive(location) ? 'page' : undefined}
           className={className}
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.spacing.sm,
-            color: theme.colors.textPrimary,
-            paddingInline: theme.spacing.sm,
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            paddingBlock: theme.spacing.sm,
-            borderRadius: theme.borders.borderRadiusSm,
-            '&:hover': {
-              color: theme.colors.actionLinkHover,
-              backgroundColor: theme.colors.actionDefaultBackgroundHover,
-            },
-            '&[aria-current="page"]': {
-              backgroundColor: theme.colors.actionDefaultBackgroundPress,
-              color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-              fontWeight: theme.typography.typographyBoldFontWeight,
-            },
-          }}
+          css={getSidebarItemStyles(theme, collapsed)}
           onClick={() => {
             onClick?.();
           }}

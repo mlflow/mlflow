@@ -1,18 +1,30 @@
 import os
+from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.entities.assessment import (
     AssessmentError,
-    AssessmentSource,
     Expectation,
     Feedback,
     IssueReference,
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueStatus
+from mlflow.entities.issue_evidence import (
+    ISSUE_EVIDENCE_METADATA_KEY,
+    IssueEvidence,
+    IssueEvidenceStep,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, RESOURCE_DOES_NOT_EXIST
+from mlflow.tracing.client import TracingClient
+from mlflow.tracing.distributed import (
+    get_tracing_context_headers_for_http_request,
+    set_tracing_context_from_http_request_headers,
+)
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
@@ -36,12 +48,15 @@ def trace_id():
     with mlflow.start_span(name="test_span") as span:
         pass
 
+    mlflow.flush_trace_async_logging()
     return span.trace_id
 
 
 @pytest.fixture(params=["file", "sqlalchemy"], autouse=True)
 def tracking_uri(request, tmp_path, db_uri):
     """Set an MLflow Tracking URI with different type of backend."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
 
@@ -299,14 +314,25 @@ def test_log_feedback_with_value_and_error(trace_id, legacy_api):
     assert assessment.rationale is None
 
 
-def test_log_feedback_invalid_parameters():
-    with pytest.raises(MlflowException, match=r"Either `value` or `error` must be provided."):
-        Feedback(
-            trace_id="1234",
-            name="faithfulness",
-            source=_LLM_ASSESSMENT_SOURCE,
-        )
+def test_log_feedback_none_value(trace_id):
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="faithfulness",
+        value=None,
+        source=_LLM_ASSESSMENT_SOURCE,
+    )
 
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert isinstance(assessment, Feedback)
+    assert assessment.trace_id == trace_id
+    assert assessment.name == "faithfulness"
+    assert assessment.feedback.value is None
+    assert assessment.feedback.error is None
+
+
+def test_log_feedback_invalid_parameters():
     # Test with a non-AssessmentSource object that is not None
     with pytest.raises(MlflowException, match=r"`source` must be an instance of"):
         Feedback(
@@ -485,6 +511,246 @@ def test_log_issue(trace_id, tracking_uri):
     assert assessment.metadata == {"severity": "high", "affected_count": "150"}
 
 
+def test_log_issue_with_evidence(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    span_id = mlflow.get_trace(trace_id).data.spans[0].span_id
+    evidence = IssueEvidence(
+        summary="The agent answered from an empty context",
+        steps=[
+            IssueEvidenceStep(
+                span_id=span_id,
+                text="The retriever returned 0 documents",
+                highlights=["0 documents"],
+                highlight_tone="error",
+            )
+        ],
+        primary_span_id=span_id,
+    )
+
+    mlflow.log_issue(
+        trace_id=trace_id,
+        issue_id=issue.issue_id,
+        evidence=evidence,
+    )
+
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert isinstance(assessment, IssueReference)
+    # The summary doubles as the rationale, so a client without this schema still explains it.
+    assert assessment.rationale == "The agent answered from an empty context"
+    assert assessment.span_id == span_id
+    stored = IssueEvidence.from_assessment(assessment)
+    assert stored.steps == evidence.steps
+    assert stored.primary_span_id == span_id
+
+
+def test_log_issue_with_evidence_as_a_dict_preserves_explicit_fields(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    span_id = mlflow.get_trace(trace_id).data.spans[0].span_id
+
+    mlflow.log_issue(
+        trace_id=trace_id,
+        issue_id=issue.issue_id,
+        rationale="An explicit rationale wins",
+        metadata={"detector": "offline"},
+        evidence={
+            "summary": "A summary that does not overwrite the rationale",
+            "steps": [
+                {
+                    "span_id": span_id,
+                    "text": "The retriever returned 0 documents",
+                    "highlights": ["0 documents"],
+                    "highlight_tone": "warning",
+                }
+            ],
+        },
+    )
+
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert assessment.rationale == "An explicit rationale wins"
+    assert assessment.metadata["detector"] == "offline"
+    assert IssueEvidence.from_assessment(assessment) is not None
+    # Evidence that names no primary span leaves the reference span-free.
+    assert assessment.span_id is None
+
+
+def test_log_issue_rejects_evidence_citing_a_span_outside_the_trace(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+
+    with pytest.raises(MlflowException, match="not part of the trace"):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            evidence={
+                "summary": "Cites a span this trace never recorded",
+                "steps": [
+                    {
+                        "span_id": "span-does-not-exist",
+                        "text": "The retriever returned 0 documents",
+                        "highlights": ["0 documents"],
+                        "highlight_tone": "error",
+                    }
+                ],
+            },
+        )
+
+    assert mlflow.get_trace(trace_id).info.assessments == []
+
+
+def test_log_issue_rejects_a_span_override_the_evidence_does_not_explain(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    span_id = mlflow.get_trace(trace_id).data.spans[0].span_id
+    evidence = {
+        "summary": "Explains one span",
+        "steps": [
+            {
+                "span_id": span_id,
+                "text": "The retriever returned 0 documents",
+                "highlights": ["0 documents"],
+                "highlight_tone": "error",
+            }
+        ],
+    }
+
+    # The card opens the reference's span, so an override no step explains is refused rather than
+    # pointing the reader at a span the walkthrough never mentions.
+    with pytest.raises(MlflowException, match="is not cited by any evidence step"):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            span_id="span-not-in-the-evidence",
+            evidence=evidence,
+        )
+    assert mlflow.get_trace(trace_id).info.assessments == []
+
+    mlflow.log_issue(trace_id=trace_id, issue_id=issue.issue_id, span_id=span_id, evidence=evidence)
+    assert mlflow.get_trace(trace_id).info.assessments[0].span_id == span_id
+
+
+def test_log_issue_with_evidence_from_inside_the_traced_call(tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+
+    # The trace has not been exported yet, so the cited spans can only come from the active trace.
+    with mlflow.start_span(name="answer_question") as root:
+        with mlflow.start_span(name="retrieve_documents") as retrieve:
+            pass
+        mlflow.log_issue(
+            trace_id=root.trace_id,
+            issue_id=issue.issue_id,
+            evidence={
+                "summary": "Retrieved nothing",
+                "steps": [
+                    {
+                        "span_id": retrieve.span_id,
+                        "text": "The retriever returned 0 documents",
+                        "highlights": ["0 documents"],
+                        "highlight_tone": "error",
+                    }
+                ],
+                "primary_span_id": retrieve.span_id,
+            },
+        )
+
+    mlflow.flush_trace_async_logging()
+    assessment = mlflow.get_trace(root.trace_id).info.assessments[0]
+    assert assessment.span_id == retrieve.span_id
+    assert IssueEvidence.from_assessment(assessment).steps[0].span_id == retrieve.span_id
+
+
+def test_log_issue_from_inside_the_traced_call_still_rejects_an_unknown_span(tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+
+    with mlflow.start_span(name="answer_question") as root:
+        with pytest.raises(MlflowException, match="not part of the trace"):
+            mlflow.log_issue(
+                trace_id=root.trace_id,
+                issue_id=issue.issue_id,
+                evidence={
+                    "summary": "Cites a span this trace never recorded",
+                    "steps": [
+                        {
+                            "span_id": "span-does-not-exist",
+                            "text": "The retriever returned 0 documents",
+                            "highlights": ["0 documents"],
+                            "highlight_tone": "error",
+                        }
+                    ],
+                },
+            )
+
+
+def test_log_issue_without_evidence_stays_rationale_only(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+
+    mlflow.log_issue(trace_id=trace_id, issue_id=issue.issue_id, rationale="Only a rationale")
+
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert assessment.metadata is None or ISSUE_EVIDENCE_METADATA_KEY not in assessment.metadata
+    assert IssueEvidence.from_assessment(assessment) is None
+
+
 def test_log_issue_default_source(trace_id, tracking_uri):
     if tracking_uri.startswith("file:"):
         pytest.skip("Issue APIs are not supported with file-based tracking URI")
@@ -538,7 +804,7 @@ def test_log_issue_with_run_id_and_span_id(tracking_uri):
             metadata={"category": "data", "priority": "high"},
             span_id=span.span_id,
         )
-
+    mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(span.trace_id)
     assert len(trace.info.assessments) == 1
     assessment = trace.info.assessments[0]
@@ -645,6 +911,8 @@ def test_log_assessment_on_in_progress_trace(trace_id, legacy_api):
 
     assert func(1, 2) == 3
 
+    mlflow.flush_trace_async_logging()
+
     # Two assessments should be logged as a part of StartTraceV3 call
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.info.assessments) == 2
@@ -657,6 +925,144 @@ def test_log_assessment_on_in_progress_trace(trace_id, legacy_api):
     assert len(trace.info.assessments) == 1
     assert trace.info.assessments[0].name == "other"
     assert trace.info.assessments[0].feedback.value == 2.0
+
+
+def test_log_assessment_on_finished_trace_not_yet_exported():
+    @mlflow.trace
+    def func(x: int, y: int) -> int:
+        return x + y
+
+    assert func(1, 2) == 3
+    trace_id = mlflow.get_last_active_trace_id()
+
+    feedback = mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
+    expectation = mlflow.log_expectation(trace_id=trace_id, name="expectation", value="MLflow")
+    assert feedback.assessment_id is not None
+    assert expectation.assessment_id is not None
+
+    trace = mlflow.get_trace(trace_id)
+    assessments = {a.name: a for a in trace.info.assessments}
+    assert assessments.keys() == {"feedback", "expectation"}
+    assert assessments["feedback"].value == 1.0
+    assert assessments["expectation"].value == "MLflow"
+
+
+def test_log_assessment_flushes_and_retries_when_trace_not_yet_exported(trace_id):
+    store_cls = type(TracingClient().store)
+    original_create_assessment = store_cls.create_assessment
+    calls = []
+
+    # Simulate the window where the trace has left the in-memory buffer but is not yet in the
+    # store: the first write misses and the write after the flush succeeds.
+    def create_assessment(self, assessment):
+        calls.append(assessment.trace_id)
+        if len(calls) == 1:
+            raise MlflowException(
+                f"Trace with ID '{assessment.trace_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return original_create_assessment(self, assessment)
+
+    with (
+        mock.patch.object(store_cls, "create_assessment", create_assessment),
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+    ):
+        feedback = mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
+
+    mock_flush.assert_called_once()
+    assert calls == [trace_id, trace_id]
+    assert feedback.assessment_id is not None
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert assessment.name == "feedback"
+    assert assessment.value == 1.0
+
+
+def test_log_assessment_on_nonexistent_trace_raises():
+    with pytest.raises(MlflowException, match=r"Trace with ID 'tr-nonexistent' not found"):
+        mlflow.log_feedback(trace_id="tr-nonexistent", name="feedback", value=1.0)
+
+
+def test_log_assessment_with_missing_override_target_raises_without_flush(trace_id):
+    with (
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+        pytest.raises(MlflowException, match=r"Assessment with ID 'a-missing' not found"),
+    ):
+        mlflow.log_assessment(trace_id, Feedback(name="feedback", value=1.0, overrides="a-missing"))
+    mock_flush.assert_not_called()
+
+
+def test_log_issue_with_evidence_flushes_when_trace_not_yet_exported(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    span_id = mlflow.get_trace(trace_id).data.spans[0].span_id
+    original_get_trace = TracingClient.get_trace
+    calls = []
+
+    # Simulate the window where the trace has left the in-memory buffer but is not yet in the
+    # store: the first read misses and the read after the flush finds it.
+    def get_trace(self, trace_id):
+        calls.append(trace_id)
+        if len(calls) == 1:
+            raise MlflowException(
+                f"Trace with ID '{trace_id}' not found.", error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        return original_get_trace(self, trace_id)
+
+    with (
+        mock.patch.object(TracingClient, "get_trace", get_trace),
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+    ):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            evidence=IssueEvidence(
+                summary="The agent answered from an empty context",
+                steps=[IssueEvidenceStep(span_id=span_id, text="No documents", highlights=["No"])],
+                primary_span_id=span_id,
+            ),
+        )
+
+    mock_flush.assert_called_once()
+    assert calls == [trace_id, trace_id]
+    assessment = mlflow.get_trace(trace_id).info.assessments[0]
+    assert isinstance(assessment, IssueReference)
+    assert assessment.span_id == span_id
+
+
+def test_log_issue_with_evidence_raises_without_flush_on_non_not_found_error(trace_id):
+    issue = mlflow.MlflowClient()._tracing_client._create_issue(
+        experiment_id="0",
+        name="empty_retrieval",
+        description="The retriever returned nothing",
+        status=IssueStatus.PENDING,
+    )
+    with (
+        mock.patch.object(
+            TracingClient,
+            "get_trace",
+            side_effect=MlflowException("Span data is corrupted.", error_code=BAD_REQUEST),
+        ) as mock_get_trace,
+        mock.patch("mlflow.flush_trace_async_logging") as mock_flush,
+        pytest.raises(MlflowException, match=r"Span data is corrupted"),
+    ):
+        mlflow.log_issue(
+            trace_id=trace_id,
+            issue_id=issue.issue_id,
+            evidence=IssueEvidence(
+                summary="The agent answered from an empty context",
+                steps=[IssueEvidenceStep(span_id="span-1", text="No documents", highlights=["No"])],
+            ),
+        )
+    mock_get_trace.assert_called_once()
+    mock_flush.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -766,17 +1172,24 @@ def test_search_traces_with_assessments():
             value=1.0,
         )
 
+    mlflow.flush_trace_async_logging()
+
     traces = mlflow.search_traces(
         locations=["0"],
         max_results=2,
         return_type="list",
         order_by=["timestamp_ms"],
     )
-    # Verify the results
+    # Verify the results. trace_1 and trace_2 can be created within the same
+    # millisecond, and search tie-breaks equal timestamp_ms on the (random)
+    # request_id, so result position is not creation order. Key by trace id
+    # instead of asserting on a fixed position.
     assert len(traces) == 2
-    assert len(traces[0].info.assessments) == 3
+    traces_by_id = {trace.info.trace_id: trace for trace in traces}
 
-    assessments = {a.name: a for a in traces[0].info.assessments}
+    trace_1 = traces_by_id[span_1.trace_id]
+    assert len(trace_1.info.assessments) == 3
+    assessments = {a.name: a for a in trace_1.info.assessments}
     assert assessments["feedback_1"].trace_id == span_1.trace_id
     assert assessments["feedback_1"].name == "feedback_1"
     assert assessments["feedback_1"].value == 1.0
@@ -787,8 +1200,9 @@ def test_search_traces_with_assessments():
     assert assessments["feedback_2"].name == "feedback_2"
     assert assessments["feedback_2"].value == 1.0
 
-    assert len(traces[1].info.assessments) == 1
-    assessment = traces[1].info.assessments[0]
+    trace_2 = traces_by_id[span_2.trace_id]
+    assert len(trace_2.info.assessments) == 1
+    assessment = trace_2.info.assessments[0]
     assert assessment.trace_id == span_2.trace_id
     assert assessment.name == "feedback_3"
     assert assessment.value == 1.0
@@ -958,3 +1372,107 @@ def test_log_multiple_assessment_types(trace_id):
     assert assessments_by_type["issue"].name == "iss-11111"
     assert assessments_by_type["issue"].issue_name == "data_quality_issue"
     assert assessments_by_type["issue"].issue_id == "iss-11111"
+
+
+def test_log_feedback_in_distributed_trace_same_process():
+    captured_headers = {}
+    tm = InMemoryTraceManager.get_instance()
+
+    @mlflow.trace(name="root")
+    def root():
+        nonlocal captured_headers
+        captured_headers = get_tracing_context_headers_for_http_request()
+        trace_id = mlflow.get_active_trace_id()
+        with tm.get_trace(trace_id) as t:
+            assert t is not None
+            assert not t.is_remote_trace
+
+    root()
+
+    root_trace_id = mlflow.get_last_active_trace_id()
+    assert root_trace_id is not None
+
+    with set_tracing_context_from_http_request_headers(captured_headers):
+
+        @mlflow.trace(name="child")
+        def child():
+            trace_id = mlflow.get_active_trace_id()
+            return mlflow.log_feedback(
+                trace_id=trace_id,
+                name="child_was_called",
+                value="yes",
+            )
+
+        child()
+
+    mlflow.flush_trace_async_logging()
+    trace = mlflow.get_trace(root_trace_id)
+    assert len(trace.info.assessments) == 1
+    assert trace.info.assessments[0].name == "child_was_called"
+    assert trace.info.assessments[0].feedback.value == "yes"
+
+
+def test_log_feedback_in_distributed_trace_cross_process():
+    captured_headers = {}
+
+    @mlflow.trace(name="root")
+    def root():
+        nonlocal captured_headers
+        captured_headers = get_tracing_context_headers_for_http_request()
+
+    root()
+    mlflow.flush_trace_async_logging()
+
+    root_trace_id = mlflow.get_last_active_trace_id()
+    tm = InMemoryTraceManager.get_instance()
+    with tm.get_trace(root_trace_id) as t:
+        assert t is None
+
+    mock_store = mock.MagicMock()
+    mock_assessment = mock.MagicMock()
+    mock_assessment.assessment_id = "a-test-assessment-id"
+    mock_store.create_assessment.return_value = mock_assessment
+
+    with mock.patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        with set_tracing_context_from_http_request_headers(captured_headers):
+
+            @mlflow.trace(name="child")
+            def child():
+                trace_id = mlflow.get_active_trace_id()
+                return mlflow.log_feedback(
+                    trace_id=trace_id,
+                    name="child_was_called",
+                    value="yes",
+                )
+
+            result = child()
+
+        mock_store.create_assessment.assert_called_once()
+        called_assessment = mock_store.create_assessment.call_args[0][0]
+        assert called_assessment.name == "child_was_called"
+        assert called_assessment.feedback.value == "yes"
+        assert result.assessment_id == "a-test-assessment-id"
+
+
+def test_log_assessment_active_trace_not_in_memory():
+    null_cm = mock.MagicMock()
+    null_cm.__enter__.return_value = None
+    null_cm.__exit__.return_value = False
+
+    mock_store = mock.MagicMock()
+
+    with mlflow.start_span(name="root"):
+        with (
+            mock.patch.object(
+                InMemoryTraceManager.get_instance(), "get_trace", return_value=null_cm
+            ),
+            mock.patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        ):
+            result = mlflow.log_feedback(
+                trace_id=mlflow.get_active_trace_id(),
+                name="test_feedback",
+                value=1.0,
+            )
+            mock_store.create_assessment.assert_not_called()
+            assert result is not None
+            assert result.assessment_id is None

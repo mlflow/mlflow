@@ -24,17 +24,17 @@ from pydantic import PrivateAttr
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
 from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
 from mlflow.genai.scorers.trulens.utils import (
     format_rationale,
     map_scorer_inputs_to_trulens_args,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 _logger = logging.getLogger(__name__)
@@ -43,7 +43,6 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_THRESHOLD = 0.5
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class TruLensScorer(Scorer):
     """
@@ -59,6 +58,8 @@ class TruLensScorer(Scorer):
     _model: str = PrivateAttr()
     _method_name: str = PrivateAttr()
     _threshold: float = PrivateAttr()
+    _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _metric_name: str = PrivateAttr(default="")
 
     def __init__(
         self,
@@ -74,9 +75,15 @@ class TruLensScorer(Scorer):
         model = model or get_default_model()
         self._model = model
         self._threshold = threshold
+        self._metric_name = metric_name
+        self._metric_kwargs = {"threshold": threshold, **kwargs}
 
         self._provider = create_trulens_provider(model, **kwargs)
         self._method_name = get_feedback_method_name(metric_name)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
 
     def __call__(
         self,
@@ -104,11 +111,19 @@ class TruLensScorer(Scorer):
             score, reasons = feedback_method(**args)
 
             rationale = format_rationale(reasons)
-            value = CategoricalRating.YES if score >= self._threshold else CategoricalRating.NO
+            if score < 0:
+                value = None
+                error = MlflowException(
+                    f"TruLens metric {self.name} returned an unparsable judge score: {score}"
+                )
+            else:
+                value = CategoricalRating.YES if score >= self._threshold else CategoricalRating.NO
+                error = None
 
             return Feedback(
                 name=self.name,
                 value=value,
+                error=error,
                 rationale=rationale,
                 source=assessment_source,
                 metadata={
@@ -127,7 +142,6 @@ class TruLensScorer(Scorer):
             )
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 def get_scorer(
     metric_name: str,
@@ -164,7 +178,6 @@ def get_scorer(
     )
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class Groundedness(TruLensScorer):
     """
@@ -189,7 +202,6 @@ class Groundedness(TruLensScorer):
     metric_name: ClassVar[str] = "Groundedness"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextRelevance(TruLensScorer):
     """
@@ -214,7 +226,6 @@ class ContextRelevance(TruLensScorer):
     metric_name: ClassVar[str] = "ContextRelevance"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class AnswerRelevance(TruLensScorer):
     """
@@ -238,7 +249,6 @@ class AnswerRelevance(TruLensScorer):
     metric_name: ClassVar[str] = "AnswerRelevance"
 
 
-@experimental(version="3.10.0")
 @format_docstring(_MODEL_API_DOC)
 class Coherence(TruLensScorer):
     """

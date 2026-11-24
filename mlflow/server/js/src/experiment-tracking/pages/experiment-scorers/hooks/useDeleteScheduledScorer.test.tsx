@@ -3,20 +3,25 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { renderHook, waitFor } from '@testing-library/react';
 import { InternalServerError } from '@databricks/web-shared/errors';
+
 import { useDeleteScheduledScorerMutation } from './useDeleteScheduledScorer';
-import { deleteScheduledScorers } from '../api';
+import { deleteScheduledScorers, listScheduledScorers, updateScheduledScorers } from '../api';
+import { shouldPaginateScorers } from '../../../../common/utils/FeatureUtils';
 
 // Mock external dependencies
 jest.mock('../api');
 
+const mockListAllScheduledScorers = jest.mocked(listScheduledScorers);
 const mockDeleteScheduledScorers = jest.mocked(deleteScheduledScorers);
+const mockUpdateScheduledScorers = jest.mocked(updateScheduledScorers);
+const paginationEnabled = shouldPaginateScorers();
 
 describe('useDeleteScheduledScorerMutation', () => {
   let queryClient: QueryClient;
-
   const mockExperimentId = 'experiment-123';
 
   const mockScorerConfig1 = {
+    name: 'test-scorer-1',
     scorer_name: 'test-scorer-1',
     serialized_scorer: '{"name": "test-scorer-1"}',
     sample_rate: 0.5,
@@ -25,10 +30,20 @@ describe('useDeleteScheduledScorerMutation', () => {
   };
 
   const mockScorerConfig2 = {
+    name: 'test-scorer-2',
     scorer_name: 'test-scorer-2',
     serialized_scorer: '{"name": "test-scorer-2"}',
     sample_rate: 0.25,
     filter_string: 'column = "value2"',
+    scorer_version: 1,
+  };
+
+  const mockScorerConfig3 = {
+    name: 'test-scorer-3',
+    scorer_name: 'test-scorer-3',
+    serialized_scorer: '{"name": "test-scorer-3"}',
+    sample_rate: 0.75,
+    filter_string: 'column = "value3"',
     scorer_version: 1,
   };
 
@@ -53,27 +68,10 @@ describe('useDeleteScheduledScorerMutation', () => {
 
   describe('Golden Path - Successful Operations', () => {
     it('should successfully delete all scorers when no scorerNames provided', async () => {
-      // Arrange - Set up initial cache with scorers
+      // Arrange
       queryClient.setQueryData(['mlflow', 'scheduled-scorers', mockExperimentId], {
         experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-          {
-            name: 'test-scorer-2',
-            type: 'custom-code',
-            sampleRate: 25,
-            filterString: 'column = "value2"',
-            code: '',
-            version: 1,
-          },
-        ],
+        scheduledScorers: [{ name: 'test-scorer-1' }, { name: 'test-scorer-2' }],
       });
 
       mockDeleteScheduledScorers.mockResolvedValue(mockDeleteAllResponse);
@@ -94,30 +92,20 @@ describe('useDeleteScheduledScorerMutation', () => {
 
       const response = await mutationPromise;
       expect(response).toEqual(mockDeleteAllResponse);
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, undefined);
+      if (paginationEnabled) {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
+        expect(mockListAllScheduledScorers).not.toHaveBeenCalled();
+      } else {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, undefined);
+      }
 
-      // Verify cache was invalidated (not set to empty array)
-      // The cache should be marked as stale for refetching
+      // Verify cache was invalidated
       const cacheState = queryClient.getQueryState(['mlflow', 'scheduled-scorers', mockExperimentId]);
       expect(cacheState?.isInvalidated).toBe(true);
     });
 
     it('should successfully delete all scorers when empty scorerNames array provided', async () => {
-      // Arrange - Set up initial cache with scorers
-      queryClient.setQueryData(['mlflow', 'scheduled-scorers', mockExperimentId], {
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-        ],
-      });
-
+      // Arrange
       mockDeleteScheduledScorers.mockResolvedValue(mockDeleteAllResponse);
 
       const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
@@ -137,328 +125,189 @@ describe('useDeleteScheduledScorerMutation', () => {
 
       const response = await mutationPromise;
       expect(response).toEqual(mockDeleteAllResponse);
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, []);
-
-      // Verify cache was invalidated
-      const cacheState = queryClient.getQueryState(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(cacheState?.isInvalidated).toBe(true);
+      if (paginationEnabled) {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
+        expect(mockListAllScheduledScorers).not.toHaveBeenCalled();
+      } else {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, []);
+      }
     });
 
-    it('should successfully delete specific scorers and update cache', async () => {
-      // Arrange - Set up initial cache with two scorers
-      queryClient.setQueryData(['mlflow', 'scheduled-scorers', mockExperimentId], {
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-          {
-            name: 'test-scorer-2',
-            type: 'custom-code',
-            sampleRate: 25,
-            filterString: 'column = "value2"',
-            code: '',
-            version: 1,
-          },
-        ],
-      });
+    it('should delete specific scorers', async () => {
+      if (paginationEnabled) {
+        // Pagination path: fetch-filter-PATCH
+        mockListAllScheduledScorers.mockResolvedValue([mockScorerConfig1, mockScorerConfig2] as any);
 
-      const expectedDeleteResponse = {
-        experiment_id: mockExperimentId,
-        scheduled_scorers: {
+        const expectedUpdateResponse = {
+          experiment_id: mockExperimentId,
+          scheduled_scorers: {
+            scorers: [mockScorerConfig2],
+          },
+        };
+        mockUpdateScheduledScorers.mockResolvedValue(expectedUpdateResponse);
+
+        const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
+          wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+        });
+
+        const response = await result.current.mutateAsync({
+          experimentId: mockExperimentId,
+          scorerNames: ['test-scorer-1'],
+        });
+
+        expect(mockListAllScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
+        expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
           scorers: [mockScorerConfig2],
-        },
-      };
+        });
+        expect(mockDeleteScheduledScorers).not.toHaveBeenCalled();
+        expect(response).toEqual(expectedUpdateResponse);
+      } else {
+        // OSS path: pass scorer names directly to delete API
+        mockDeleteScheduledScorers.mockResolvedValue(mockDeleteAllResponse);
 
-      mockDeleteScheduledScorers.mockResolvedValue(expectedDeleteResponse);
+        const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
+          wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+        });
 
-      const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
-        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-      });
+        const response = await result.current.mutateAsync({
+          experimentId: mockExperimentId,
+          scorerNames: ['test-scorer-1'],
+        });
 
-      // Act
-      const mutationPromise = result.current.mutateAsync({
-        experimentId: mockExperimentId,
-        scorerNames: ['test-scorer-1'],
-      });
-
-      // Assert
-      const response = await mutationPromise;
-      expect(response).toEqual(expectedDeleteResponse);
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['test-scorer-1']);
-
-      // Verify cache was updated with only the remaining scorer
-      const updatedCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(updatedCache).toEqual({
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-2',
-            type: 'custom-code',
-            sampleRate: 25,
-            filterString: 'column = "value2"',
-            code: '',
-            version: 1,
-          },
-        ],
-      });
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['test-scorer-1']);
+        expect(response).toEqual(mockDeleteAllResponse);
+      }
     });
 
-    it('should delete multiple specific scorers and update cache', async () => {
-      // Arrange - Set up initial cache with three scorers
-      queryClient.setQueryData(['mlflow', 'scheduled-scorers', mockExperimentId], {
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-          {
-            name: 'test-scorer-2',
-            type: 'custom-code',
-            sampleRate: 25,
-            filterString: 'column = "value2"',
-            code: '',
-            version: 1,
-          },
-          {
-            name: 'test-scorer-3',
-            type: 'custom-code',
-            sampleRate: 75,
-            filterString: 'column = "value3"',
-            code: '',
-            version: 1,
-          },
-        ],
-      });
+    it('should delete multiple specific scorers', async () => {
+      if (paginationEnabled) {
+        // Pagination path: fetch-filter-PATCH
+        mockListAllScheduledScorers.mockResolvedValue([mockScorerConfig1, mockScorerConfig2, mockScorerConfig3] as any);
 
-      const expectedDeleteResponse = {
-        experiment_id: mockExperimentId,
-        scheduled_scorers: {
+        const expectedUpdateResponse = {
+          experiment_id: mockExperimentId,
+          scheduled_scorers: {
+            scorers: [mockScorerConfig2],
+          },
+        };
+        mockUpdateScheduledScorers.mockResolvedValue(expectedUpdateResponse);
+
+        const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
+          wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+        });
+
+        const response = await result.current.mutateAsync({
+          experimentId: mockExperimentId,
+          scorerNames: ['test-scorer-1', 'test-scorer-3'],
+        });
+
+        expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
           scorers: [mockScorerConfig2],
-        },
-      };
+        });
+        expect(response).toEqual(expectedUpdateResponse);
+      } else {
+        // OSS path: pass scorer names directly
+        mockDeleteScheduledScorers.mockResolvedValue(mockDeleteAllResponse);
 
-      mockDeleteScheduledScorers.mockResolvedValue(expectedDeleteResponse);
+        const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
+          wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+        });
 
-      const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
-        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-      });
+        const response = await result.current.mutateAsync({
+          experimentId: mockExperimentId,
+          scorerNames: ['test-scorer-1', 'test-scorer-3'],
+        });
 
-      // Act - Delete scorer-1 and scorer-3, leaving scorer-2
-      const mutationPromise = result.current.mutateAsync({
-        experimentId: mockExperimentId,
-        scorerNames: ['test-scorer-1', 'test-scorer-3'],
-      });
-
-      // Assert
-      const response = await mutationPromise;
-      expect(response).toEqual(expectedDeleteResponse);
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['test-scorer-1', 'test-scorer-3']);
-
-      // Verify cache was updated with only scorer-2
-      const updatedCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(updatedCache).toEqual({
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-2',
-            type: 'custom-code',
-            sampleRate: 25,
-            filterString: 'column = "value2"',
-            code: '',
-            version: 1,
-          },
-        ],
-      });
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['test-scorer-1', 'test-scorer-3']);
+        expect(response).toEqual(mockDeleteAllResponse);
+      }
     });
 
-    it('should handle deletion when cache does not exist', async () => {
-      // Arrange - No initial cache set
-      const initialCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(initialCache).toBeUndefined();
-
+    it('should fall back to deleteAll when all scorers are being removed', async () => {
+      mockListAllScheduledScorers.mockResolvedValue([mockScorerConfig1, mockScorerConfig2] as any);
       mockDeleteScheduledScorers.mockResolvedValue(mockDeleteAllResponse);
 
       const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
         wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
       });
 
-      // Act
-      const mutationPromise = result.current.mutateAsync({
+      const response = await result.current.mutateAsync({
         experimentId: mockExperimentId,
-        scorerNames: ['test-scorer-1'],
+        scorerNames: ['test-scorer-1', 'test-scorer-2'],
       });
 
-      // Assert
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      const response = await mutationPromise;
+      if (paginationEnabled) {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
+      } else {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['test-scorer-1', 'test-scorer-2']);
+      }
+      expect(mockUpdateScheduledScorers).not.toHaveBeenCalled();
       expect(response).toEqual(mockDeleteAllResponse);
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['test-scorer-1']);
-
-      // When there's no existing cache, removeScheduledScorersFromCache invalidates the query
-      // but invalidation on a non-existent cache doesn't create a cache entry
-      // Just verify that the operation completed successfully without error
-      const cacheAfter = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(cacheAfter).toBeUndefined();
     });
 
     it('should handle deletion when scorer names do not match existing scorers', async () => {
-      // Arrange - Set up initial cache with two scorers
-      queryClient.setQueryData(['mlflow', 'scheduled-scorers', mockExperimentId], {
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-          {
-            name: 'test-scorer-2',
-            type: 'custom-code',
-            sampleRate: 25,
-            filterString: 'column = "value2"',
-            code: '',
-            version: 1,
-          },
-        ],
-      });
+      // Arrange
+      mockListAllScheduledScorers.mockResolvedValue([mockScorerConfig1, mockScorerConfig2] as any);
 
-      const mockExistingScorersResponse = {
+      const expectedUpdateResponse = {
         experiment_id: mockExperimentId,
         scheduled_scorers: {
           scorers: [mockScorerConfig1, mockScorerConfig2],
         },
       };
-
-      // Backend returns all scorers unchanged when deleting non-existent scorer
-      mockDeleteScheduledScorers.mockResolvedValue(mockExistingScorersResponse);
+      mockUpdateScheduledScorers.mockResolvedValue(expectedUpdateResponse);
 
       const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
         wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
       });
 
       // Act
-      const mutationPromise = result.current.mutateAsync({
+      const response = await result.current.mutateAsync({
         experimentId: mockExperimentId,
         scorerNames: ['non-existent-scorer'],
       });
 
-      // Assert
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      const response = await mutationPromise;
-      expect(response).toEqual(mockExistingScorersResponse);
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['non-existent-scorer']);
-
-      // Verify cache still has both scorers (nothing was deleted)
-      const updatedCache = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(updatedCache).toEqual({
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-          {
-            name: 'test-scorer-2',
-            type: 'custom-code',
-            sampleRate: 25,
-            filterString: 'column = "value2"',
-            code: '',
-            version: 1,
-          },
-        ],
-      });
+      if (paginationEnabled) {
+        // Assert - no scorers removed, PATCHes back the same list
+        expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
+          scorers: [mockScorerConfig1, mockScorerConfig2],
+        });
+        expect(response).toEqual(expectedUpdateResponse);
+      } else {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['non-existent-scorer']);
+        expect(response).toEqual(mockDeleteAllResponse);
+      }
     });
   });
 
   describe('Edge Cases and Error Conditions', () => {
-    it('should handle deleteScheduledScorers API failure when deleting specific scorers', async () => {
-      // Arrange - Set up initial cache
-      queryClient.setQueryData(['mlflow', 'scheduled-scorers', mockExperimentId], {
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-        ],
+    // Pagination-only: listAll failure during selective delete
+    if (paginationEnabled) {
+      it('should handle listAllScheduledScorers API failure when deleting specific scorers', async () => {
+        const networkError = new InternalServerError({});
+        mockListAllScheduledScorers.mockRejectedValue(networkError);
+
+        const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
+          wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+        });
+
+        await expect(
+          result.current.mutateAsync({
+            experimentId: mockExperimentId,
+            scorerNames: ['test-scorer-1'],
+          }),
+        ).rejects.toThrow(InternalServerError);
+
+        expect(mockListAllScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
+        expect(mockUpdateScheduledScorers).not.toHaveBeenCalled();
       });
-
-      const networkError = new InternalServerError({});
-      mockDeleteScheduledScorers.mockRejectedValue(networkError);
-
-      const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
-        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
-      });
-
-      // Act & Assert
-      await expect(
-        result.current.mutateAsync({
-          experimentId: mockExperimentId,
-          scorerNames: ['test-scorer-1'],
-        }),
-      ).rejects.toThrow(InternalServerError);
-
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['test-scorer-1']);
-
-      // Verify cache was not modified due to error
-      const cacheAfterError = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
-      expect(cacheAfterError).toEqual({
-        experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-        ],
-      });
-    });
+    }
 
     it('should handle deleteScheduledScorers API failure when deleting all scorers', async () => {
-      // Arrange - Set up initial cache
+      // Arrange
       queryClient.setQueryData(['mlflow', 'scheduled-scorers', mockExperimentId], {
         experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-        ],
+        scheduledScorers: [{ name: 'test-scorer-1' }],
       });
 
       const deleteError = new InternalServerError({});
@@ -475,49 +324,44 @@ describe('useDeleteScheduledScorerMutation', () => {
         }),
       ).rejects.toThrow(InternalServerError);
 
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, undefined);
+      if (paginationEnabled) {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId);
+      } else {
+        expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, undefined);
+      }
 
       // Verify cache was not modified due to error
       const cacheAfterError = queryClient.getQueryData(['mlflow', 'scheduled-scorers', mockExperimentId]);
       expect(cacheAfterError).toEqual({
         experimentId: mockExperimentId,
-        scheduledScorers: [
-          {
-            name: 'test-scorer-1',
-            type: 'custom-code',
-            sampleRate: 50,
-            filterString: 'column = "value1"',
-            code: '',
-            version: 1,
-          },
-        ],
+        scheduledScorers: [{ name: 'test-scorer-1' }],
       });
     });
 
-    it('should return response correctly', async () => {
-      // Arrange
-      const customResponse = {
-        experiment_id: mockExperimentId,
-        scheduled_scorers: {
-          scorers: [mockScorerConfig1],
-        },
-      };
+    // Pagination-only: updateScheduledScorers failure during selective delete
+    if (paginationEnabled) {
+      it('should handle updateScheduledScorers API failure during selective delete', async () => {
+        // Arrange
+        mockListAllScheduledScorers.mockResolvedValue([mockScorerConfig1, mockScorerConfig2] as any);
+        const updateError = new InternalServerError({});
+        mockUpdateScheduledScorers.mockRejectedValue(updateError);
 
-      mockDeleteScheduledScorers.mockResolvedValue(customResponse);
+        const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
+          wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+        });
 
-      const { result } = renderHook(() => useDeleteScheduledScorerMutation(), {
-        wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+        // Act & Assert
+        await expect(
+          result.current.mutateAsync({
+            experimentId: mockExperimentId,
+            scorerNames: ['test-scorer-1'],
+          }),
+        ).rejects.toThrow(InternalServerError);
+
+        expect(mockUpdateScheduledScorers).toHaveBeenCalledWith(mockExperimentId, {
+          scorers: [mockScorerConfig2],
+        });
       });
-
-      // Act
-      const response = await result.current.mutateAsync({
-        experimentId: mockExperimentId,
-        scorerNames: ['test-scorer-2'],
-      });
-
-      // Assert - verify the response is returned as-is
-      expect(response).toEqual(customResponse);
-      expect(mockDeleteScheduledScorers).toHaveBeenCalledWith(mockExperimentId, ['test-scorer-2']);
-    });
+    }
   });
 });

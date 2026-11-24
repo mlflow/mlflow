@@ -24,8 +24,14 @@ export const useModelTraceExplorerPreferences = () => {
   return useContext(ModelTraceExplorerPreferencesContext);
 };
 
-export const ModelTraceExplorerPreferencesProvider = ({ children }: { children: React.ReactNode }) => {
-  const [renderMode, setRenderMode] = useState<ModelTraceExplorerRenderMode>('default');
+export const ModelTraceExplorerPreferencesProvider = ({
+  children,
+  initialRenderMode = 'default',
+}: {
+  children: React.ReactNode;
+  initialRenderMode?: ModelTraceExplorerRenderMode;
+}) => {
+  const [renderMode, setRenderMode] = useState<ModelTraceExplorerRenderMode>(initialRenderMode);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedState] = useState<boolean | undefined>(undefined);
   const [activeView, setActiveViewState] = useState<'summary' | 'detail' | undefined>(undefined);
 

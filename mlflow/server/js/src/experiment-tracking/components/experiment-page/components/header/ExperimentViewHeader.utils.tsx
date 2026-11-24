@@ -1,5 +1,9 @@
 import { FormattedMessage } from 'react-intl';
-import { EXPERIMENT_PAGE_FEEDBACK_URL, ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  // prettier-ignore
+  EXPERIMENT_PAGE_FEEDBACK_URL,
+  ExperimentPageTabName,
+} from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { WorkflowType } from '@mlflow/mlflow/src/common/contexts/WorkflowTypeContext';
 import {
   BeakerIcon,
@@ -9,10 +13,12 @@ import {
   GavelIcon,
   ListIcon,
   ModelsIcon,
+  PlayIcon,
   PlusMinusSquareIcon,
   SpeechBubbleIcon,
   TextBoxIcon,
   UserGroupIcon,
+  BugIcon,
 } from '@databricks/design-system';
 import { shouldEnableWorkflowBasedNavigation } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
@@ -36,11 +42,14 @@ export const getTabDisplayIcon = (tabName: ExperimentPageTabName | undefined) =>
 
   switch (tabName) {
     case ExperimentPageTabName.Overview:
+    case ExperimentPageTabName.Dashboard:
       return <ChartLineIcon />;
     case ExperimentPageTabName.Runs:
       return <ListIcon />;
     case ExperimentPageTabName.Traces:
       return <ForkHorizontalIcon />;
+    case ExperimentPageTabName.Issues:
+      return <BugIcon />;
     case ExperimentPageTabName.Models:
       return <ModelsIcon />;
     case ExperimentPageTabName.ChatSessions:
@@ -54,10 +63,14 @@ export const getTabDisplayIcon = (tabName: ExperimentPageTabName | undefined) =>
       return <GavelIcon />;
     case ExperimentPageTabName.Prompts:
       return <TextBoxIcon />;
+    case ExperimentPageTabName.Playground:
+      return <PlayIcon />;
     case ExperimentPageTabName.LabelingSessions:
       return <UserGroupIcon />;
     case ExperimentPageTabName.LabelingSchemas:
       return <TextBoxIcon />;
+    case ExperimentPageTabName.ReviewQueue:
+      return <UserGroupIcon />;
     default:
       return <BeakerIcon />;
   }
@@ -70,7 +83,7 @@ export const getTabDisplayName = (tabName: ExperimentPageTabName, workflowType: 
   return getMLTabDisplayName(tabName);
 };
 
-export const getGenAITabDisplayName = (tabName: ExperimentPageTabName) => {
+const getGenAITabDisplayName = (tabName: ExperimentPageTabName) => {
   switch (tabName) {
     case ExperimentPageTabName.Models:
       return (
@@ -91,13 +104,20 @@ export const getGenAITabDisplayName = (tabName: ExperimentPageTabName) => {
   }
 };
 
-export const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
+const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
   switch (tabName) {
     case ExperimentPageTabName.Overview:
       return (
         <FormattedMessage
           defaultMessage="Overview"
           description="Label for the overview tab in the MLflow experiment navbar"
+        />
+      );
+    case ExperimentPageTabName.Dashboard:
+      return (
+        <FormattedMessage
+          defaultMessage="Dashboard"
+          description="Label for the dashboard tab in the MLflow experiment navbar"
         />
       );
     case ExperimentPageTabName.Runs:
@@ -114,6 +134,8 @@ export const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
           description="Label for the traces tab in the MLflow experiment navbar"
         />
       );
+    case ExperimentPageTabName.Issues:
+      return <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />;
     case ExperimentPageTabName.SingleChatSession:
     case ExperimentPageTabName.ChatSessions:
       return (
@@ -164,11 +186,25 @@ export const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
           description="Label for the prompts tab in the MLflow experiment navbar"
         />
       );
+    case ExperimentPageTabName.Playground:
+      return (
+        <FormattedMessage
+          defaultMessage="Playground"
+          description="Label for the playground tab in the MLflow experiment navbar"
+        />
+      );
     case ExperimentPageTabName.Models:
       return (
         <FormattedMessage
           defaultMessage="Models"
           description="Label for the versions tab in the MLflow experiment navbar"
+        />
+      );
+    case ExperimentPageTabName.ReviewQueue:
+      return (
+        <FormattedMessage
+          defaultMessage="Review"
+          description="Label for the review tab in the MLflow experiment navbar"
         />
       );
     default:

@@ -2,8 +2,9 @@ import datetime
 import json
 import math
 import re
-from dataclasses import dataclass, field
-from typing import Optional
+import warnings
+from dataclasses import KW_ONLY, InitVar, dataclass, field
+from typing import ClassVar, Optional
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,7 @@ from mlflow.types.schema import (
     AnyType,
     Array,
     ColSpec,
+    Map,
     Object,
     ParamSchema,
     ParamSpec,
@@ -174,6 +176,73 @@ def test_schema_creation_errors():
         Schema({"col1": ColSpec(DataType.string)})
 
 
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [ColSpec("string", "a"), ColSpec("double", "a")],
+        [ColSpec("string", "a"), ColSpec("double", "b"), ColSpec("long", "a")],
+        [
+            TensorSpec(np.dtype("float64"), (-1,), "a"),
+            TensorSpec(np.dtype("uint8"), (-1,), "a"),
+        ],
+    ],
+)
+def test_schema_creation_warns_on_duplicated_names(inputs):
+    with pytest.warns(FutureWarning, match=r"Duplicated input names found in schema: \['a'\]"):
+        Schema(inputs)
+
+
+def test_schema_creation_warns_on_duplicated_names_of_mixed_types():
+    inputs = [
+        ColSpec("string", 1),
+        ColSpec("double", 1),
+        ColSpec("string", "a"),
+        ColSpec("double", "a"),
+    ]
+    with pytest.warns(FutureWarning, match=r"Duplicated input names found in schema: \[1, 'a'\]"):
+        Schema(inputs)
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [ColSpec("string", "")],
+        [ColSpec("string", "a"), ColSpec("double", "")],
+        [TensorSpec(np.dtype("float64"), (-1,), "")],
+    ],
+)
+def test_schema_creation_warns_on_empty_names(inputs):
+    with pytest.warns(FutureWarning, match="Creating Schema with empty input names is deprecated"):
+        Schema(inputs)
+
+
+def test_schema_creation_does_not_report_empty_names_as_duplicates():
+    with warnings.catch_warnings(record=True) as record:
+        warnings.simplefilter("always")
+        Schema([ColSpec("string", ""), ColSpec("double", "")])
+    messages = [str(w.message) for w in record if issubclass(w.category, FutureWarning)]
+    assert len(messages) == 1
+    assert "Creating Schema with empty input names is deprecated" in messages[0]
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        [ColSpec("string", "a"), ColSpec("double", "b")],
+        [ColSpec("string"), ColSpec("double")],
+        [
+            TensorSpec(np.dtype("float64"), (-1,), "a"),
+            TensorSpec(np.dtype("uint8"), (-1,), "b"),
+        ],
+        [TensorSpec(np.dtype("float64"), (-1,))],
+    ],
+)
+def test_schema_creation_does_not_warn_on_valid_names(inputs):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        Schema(inputs)
+
+
 def test_get_schema_type(dict_of_ndarrays):
     schema = _infer_schema(dict_of_ndarrays)
     assert ["float64"] * 4 == schema.numpy_types()
@@ -268,6 +337,28 @@ def test_schema_inference_on_pandas_series():
         s.rename("test", inplace=True)
         assert "test" in _infer_schema(s).input_names()
         assert len(_infer_schema(s).input_names()) == 1
+
+
+def test_schema_inference_on_unnamed_pandas_series_with_missing_values():
+    # Unnamed optional inputs are not allowed, so an unnamed Series is always required
+    schema = _infer_schema(pd.Series([1, None, 3]))
+    assert schema == Schema([ColSpec(DataType.double)])
+    schema = _infer_schema(pd.Series(np.array(["a", None], dtype=object)))
+    assert schema == Schema([ColSpec(DataType.string)])
+
+
+def test_schema_inference_on_pandas_string_dtype():
+    # pandas 3.0 infers string columns as the dedicated StringDtype by default
+    # instead of numpy object. Schema inference must still map it to DataType.string.
+    schema = _infer_schema(pd.Series(["a", "b", "c"], dtype=pd.StringDtype()))
+    assert schema == Schema([ColSpec(DataType.string)])
+
+    schema = _infer_schema(pd.DataFrame({"text": pd.array(["a", "b"], dtype=pd.StringDtype())}))
+    assert schema == Schema([ColSpec(DataType.string, "text")])
+
+    # missing values yield an optional column
+    schema = _infer_schema(pd.Series(["a", None], dtype=pd.StringDtype(), name="input"))
+    assert schema == Schema([ColSpec(DataType.string, name="input", required=False)])
 
 
 def test_get_tensor_shape(dict_of_ndarrays):
@@ -940,6 +1031,29 @@ def test_param_spec_to_and_from_dict():
     }
     assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
 
+    spec = ParamSpec("datetime_none", DataType.datetime, None, None)
+    assert spec.to_dict() == {
+        "name": "datetime_none",
+        "type": "datetime",
+        "default": None,
+        "shape": None,
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
+    spec = ParamSpec(
+        "datetime_array_with_none",
+        DataType.datetime,
+        [np.datetime64("2023-06-26 00:00:00"), None],
+        (-1,),
+    )
+    assert spec.to_dict() == {
+        "name": "datetime_array_with_none",
+        "type": "datetime",
+        "default": ["2023-06-26T00:00:00", None],
+        "shape": (-1,),
+    }
+    assert ParamSpec.from_json_dict(**json.loads(json.dumps(spec.to_dict()))) == spec
+
 
 def test_param_spec_from_dict_backward_compatibility():
     spec = ParamSpec("str_param", DataType.string, "str_a", None)
@@ -1391,6 +1505,75 @@ def test_merge_property_example():
     assert prop2.to_dict() == prop2_dict
 
 
+@pytest.mark.parametrize(
+    ("concrete", "any_type", "expected"),
+    [
+        (
+            Property(name="a", dtype=DataType.long),
+            Property(name="a", dtype=AnyType(), required=False),
+            Property(name="a", dtype=DataType.long, required=False),
+        ),
+        (Array(DataType.long), Array(AnyType()), Array(DataType.long)),
+        (Map(DataType.long), Map(AnyType()), Map(DataType.long)),
+        # nested values
+        (
+            Property(name="a", dtype=Array(DataType.long)),
+            Property(name="a", dtype=AnyType(), required=False),
+            Property(name="a", dtype=Array(DataType.long), required=False),
+        ),
+        (
+            Object([Property(name="z", dtype=DataType.long)]),
+            Object([Property(name="z", dtype=AnyType(), required=False)]),
+            Object([Property(name="z", dtype=DataType.long, required=False)]),
+        ),
+        (Array(Array(DataType.long)), Array(Array(AnyType())), Array(Array(DataType.long))),
+        (
+            Array(Object([Property(name="z", dtype=DataType.long)])),
+            Array(Object([Property(name="z", dtype=AnyType(), required=False)])),
+            Array(Object([Property(name="z", dtype=DataType.long, required=False)])),
+        ),
+        (
+            Map(Object([Property(name="z", dtype=DataType.long)])),
+            Map(Object([Property(name="z", dtype=AnyType(), required=False)])),
+            Map(Object([Property(name="z", dtype=DataType.long, required=False)])),
+        ),
+        (Map(Array(DataType.long)), Map(Array(AnyType())), Map(Array(DataType.long))),
+    ],
+)
+def test_merge_with_anytype_is_order_independent(concrete, any_type, expected):
+    assert concrete._merge(any_type) == expected
+    assert any_type._merge(concrete) == expected
+
+
+@pytest.mark.parametrize(
+    ("required1", "required2", "expected_required"),
+    [(True, True, True), (True, False, False), (False, True, False), (False, False, False)],
+)
+def test_merge_property_with_anytype_keeps_required_semantics(
+    required1, required2, expected_required
+):
+    concrete = Property(name="a", dtype=DataType.long, required=required1)
+    any_type = Property(name="a", dtype=AnyType(), required=required2)
+    expected = Property(name="a", dtype=DataType.long, required=expected_required)
+    assert concrete._merge(any_type) == expected
+    assert any_type._merge(concrete) == expected
+
+
+@pytest.mark.parametrize(
+    ("type1", "type2"),
+    [
+        (Property(name="a", dtype=DataType.long), Property(name="a", dtype=DataType.string)),
+        (Array(DataType.long), Array(DataType.string)),
+        (Map(DataType.long), Map(DataType.string)),
+    ],
+)
+def test_merge_incompatible_concrete_types_still_raises(type1, type2):
+    with pytest.raises(MlflowException, match="incompatible"):
+        type1._merge(type2)
+    with pytest.raises(MlflowException, match="incompatible"):
+        type2._merge(type1)
+
+
 def test_infer_colspec_type():
     data = {"role": "system", "content": "Translate every message you receive to French."}
     dtype = _infer_colspec_type(data)
@@ -1804,6 +1987,116 @@ def test_convert_dataclass_to_schema_complex():
     ]
 
 
+@pytest.mark.parametrize("as_list", [False, True])
+def test_convert_dataclass_to_schema_nested_inheritance(as_list):
+    @dataclass
+    class Base:
+        role: str
+        count: int | None
+
+    @dataclass
+    class Message(Base):
+        content: str
+
+    annotation = list[Message] if as_list else Message
+
+    @dataclass
+    class Request:
+        message: annotation
+
+    column = convert_dataclass_to_schema(Request).to_dict()[0]
+    nested = column["items"] if as_list else column
+    assert nested["properties"] == {
+        "role": {"type": "string", "required": True},
+        "count": {"type": "long", "required": False},
+        "content": {"type": "string", "required": True},
+    }
+
+
+def test_convert_dataclass_to_schema_nested_inherited_only():
+    @dataclass
+    class Base:
+        value: int
+
+    @dataclass
+    class Child(Base):
+        pass
+
+    @dataclass
+    class Request:
+        child: Child
+
+    assert convert_dataclass_to_schema(Request).inputs[0].type == Object([
+        Property("value", DataType.long)
+    ])
+
+
+def test_convert_dataclass_to_schema_nested_override():
+    @dataclass
+    class Base:
+        value: int
+
+    @dataclass
+    class Child(Base):
+        value: str | None
+
+    @dataclass
+    class Request:
+        child: Child
+
+    assert convert_dataclass_to_schema(Request).inputs[0].type == Object([
+        Property("value", DataType.string, required=False)
+    ])
+
+
+def test_convert_dataclass_to_schema_nested_inherited_pseudo_fields():
+    @dataclass
+    class Base:
+        category: ClassVar[str] = "message"
+        init_only: InitVar[int] = 0
+        _: KW_ONLY
+
+    @dataclass
+    class Child(Base):
+        value: int = 1
+
+    @dataclass
+    class Request:
+        child: Child
+
+    assert convert_dataclass_to_schema(Request).inputs[0].type == Object([
+        Property("value", DataType.long)
+    ])
+
+
+def test_convert_dataclass_to_schema_nested_diamond_inheritance():
+    @dataclass
+    class Base:
+        value: int = 0
+
+    @dataclass
+    class Left(Base):
+        value: str = ""
+
+    @dataclass
+    class Right(Base):
+        extra: int = 0
+
+    @dataclass
+    class Child(Right, Left):
+        own: int = 0
+
+    @dataclass
+    class Request:
+        child: Child
+
+    assert convert_dataclass_to_schema(Request).inputs[0].type == Object([
+        Property("value", DataType.long),
+        Property("extra", DataType.long),
+        Property("own", DataType.long),
+    ])
+
+
 def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Union
     @dataclass
@@ -1851,6 +2144,107 @@ def test_convert_dataclass_to_schema_invalid():
         (
             {"a": [None, "string"]},
             Schema([ColSpec(type=Array(DataType.string), name="a", required=False)]),
+        ),
+        # The order in which None appears must not affect the inferred schema
+        (
+            {"a": [{"k": None}, {"k": 1}]},
+            Schema([
+                ColSpec(
+                    type=Array(Object([Property("k", DataType.long, required=False)])), name="a"
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": 1}, {"k": None}]},
+            Schema([
+                ColSpec(
+                    type=Array(Object([Property("k", DataType.long, required=False)])), name="a"
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": [None]}, {"k": [1]}]},
+            Schema([ColSpec(type=Array(Object([Property("k", Array(DataType.long))])), name="a")]),
+        ),
+        (
+            {"a": [{"k": [1]}, {"k": [None]}]},
+            Schema([ColSpec(type=Array(Object([Property("k", Array(DataType.long))])), name="a")]),
+        ),
+        (
+            {"a": [{"k": None}, {"k": [1]}]},
+            Schema([
+                ColSpec(
+                    type=Array(Object([Property("k", Array(DataType.long), required=False)])),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": [1]}, {"k": None}]},
+            Schema([
+                ColSpec(
+                    type=Array(Object([Property("k", Array(DataType.long), required=False)])),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": {"z": None}}, {"k": {"z": 1}}]},
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property("k", Object([Property("z", DataType.long, required=False)]))
+                        ])
+                    ),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": {"z": 1}}, {"k": {"z": None}}]},
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property("k", Object([Property("z", DataType.long, required=False)]))
+                        ])
+                    ),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": [{"z": None}]}, {"k": [{"z": 1}]}]},
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property(
+                                "k",
+                                Array(Object([Property("z", DataType.long, required=False)])),
+                            )
+                        ])
+                    ),
+                    name="a",
+                )
+            ]),
+        ),
+        (
+            {"a": [{"k": [{"z": 1}]}, {"k": [{"z": None}]}]},
+            Schema([
+                ColSpec(
+                    type=Array(
+                        Object([
+                            Property(
+                                "k",
+                                Array(Object([Property("z", DataType.long, required=False)])),
+                            )
+                        ])
+                    ),
+                    name="a",
+                )
+            ]),
         ),
         (
             {"a": {"x": None}},

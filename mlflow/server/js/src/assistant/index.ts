@@ -6,6 +6,12 @@
 export { AssistantProvider, useAssistant } from './AssistantContext';
 export { AssistantChatPanel } from './AssistantChatPanel';
 export {
+  useCoverFloatingBottomObstructions,
+  useRegisterFloatingObstruction,
+  useFloatingObstructionWidth,
+} from './useFloatingObstruction';
+export { AssistantSparkleIcon } from './AssistantIconButton';
+export {
   AssistantRouteContextProvider,
   useRegisterAssistantContext,
   useAssistantPageContext,

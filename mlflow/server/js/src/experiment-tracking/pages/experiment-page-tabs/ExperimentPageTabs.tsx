@@ -1,5 +1,11 @@
-import React, { useEffect } from 'react';
-import { Button, PageWrapper, Spacer, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Button,
+  GenericSkeleton,
+  PageWrapper,
+  ParagraphSkeleton,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
 import { useNavigate, useParams, Outlet, useLocation, matchPath } from '../../../common/utils/RoutingUtils';
@@ -7,23 +13,48 @@ import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxStoreCompat';
 import { ExperimentPageHeaderWithDescription } from '../../components/experiment-page/components/ExperimentPageHeaderWithDescription';
 import { coerceToEnum } from '@databricks/web-shared/utils';
-import { ExperimentKind, ExperimentPageTabName } from '../../constants';
+import { ExperimentKind, ExperimentPageTabName, MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG } from '../../constants';
 import {
-  shouldEnableExperimentPageSideTabs,
   shouldEnableExperimentOverviewTab,
+  shouldEnableNewEvalRunsUi,
   shouldEnableWorkflowBasedNavigation,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  createTraceLocationForDestinationPath,
+  createTraceLocationForExperiment,
+  isV4TraceLocation,
+  shouldUseTracesV4API,
+} from '@databricks/web-shared/genai-traces-table';
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
-import { useExperimentKind } from '../../utils/ExperimentKindUtils';
+import { isGenAIExperimentKind, useExperimentKind } from '../../utils/ExperimentKindUtils';
 import { useInferExperimentKind } from '../../components/experiment-page/hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from '../../components/experiment-page/components/header/ExperimentViewInferredKindModal';
 import Routes, { RoutePaths } from '../../routes';
 import { useGetExperimentPageActiveTabByRoute } from '../../components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
 import { useNavigateToExperimentPageTab } from '../../components/experiment-page/hooks/useNavigateToExperimentPageTab';
-import { ExperimentPageSubTabSelector } from './ExperimentPageSubTabSelector';
+
 import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
+import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
+import { ExperimentViewSavedViewsButton } from '../../components/experiment-page/components/header/ExperimentViewSavedViewsButton';
+import { SharedViewActionsBridgeProvider } from '../../components/experiment-page/hooks/useSharedViewActionsBridge';
+import type { ExperimentEntity } from '../../types';
+import { ExperimentPageBreadcrumbs } from './ExperimentPageBreadcrumbs';
+import { ExperimentPageMainContent } from './ExperimentPageMainContent';
+import { ExperimentPageRevampProvider } from './ExperimentPageRevampContext';
+import {
+  ExperimentPageShellExperimentActions,
+  ExperimentPageShellExperimentDescription,
+} from './ExperimentPageShellExperimentActions';
+import { ExperimentPageLayoutProvider } from './ExperimentPageLayout';
+
+// Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
+const RunEvaluationButton = React.lazy(() =>
+  import('../experiment-evaluation-runs/RunEvaluationButton').then((module) => ({
+    default: module.RunEvaluationButton,
+  })),
+);
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -54,6 +85,10 @@ const ExperimentPageTabsImpl = () => {
   // Put the experiment in the redux store so that the logged models page can transition smoothly
   useExperimentReduxStoreCompat(experiment);
 
+  const { headerHidden } = useHeaderVisibility();
+  // Shared by the breadcrumb row's Edit experiment item and the description under it.
+  const [editingExperiment, setEditingExperiment] = useState(false);
+
   // For showstopper experiment fetch errors, we want it to hit the error boundary
   // so that the user can see the error message
   if (experimentError instanceof PredefinedError) {
@@ -64,9 +99,25 @@ const ExperimentPageTabsImpl = () => {
   const canUpdateExperimentKind = true;
 
   const experimentKind = useExperimentKind(experimentTags);
+  const destinationPath = experimentTags?.find(
+    (tag) => tag.key === MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG,
+  )?.value;
+  const traceSearchLocations = useMemo(() => {
+    if (!experimentId) {
+      return [];
+    }
+
+    // Resolve experiment-level destination path in one place and pass it through
+    // SqlWarehouseContext so trace consumers don't need to re-run flag/tag logic.
+    if (destinationPath && shouldUseTracesV4API()) {
+      return [createTraceLocationForDestinationPath(destinationPath)];
+    }
+
+    return [createTraceLocationForExperiment(experimentId)];
+  }, [destinationPath, experimentId]);
+  const hasV4Location = traceSearchLocations.some(isV4TraceLocation);
   // We won't try to infer the experiment kind if it's already set, but we also wait for experiment to load
   const isExperimentKindInferenceEnabled = Boolean(experiment && !experimentKind);
-  const shouldShowExperimentPageSideTabs = shouldEnableExperimentPageSideTabs();
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 
   const {
@@ -80,7 +131,21 @@ const ExperimentPageTabsImpl = () => {
     enabled: isExperimentKindInferenceEnabled,
     experimentTags,
     updateExperimentKind,
+    hasV4Location,
   });
+
+  const displayExperimentKind =
+    (experimentKind && experimentKind !== ExperimentKind.NO_INFERRED_TYPE ? experimentKind : undefined) ??
+    (inferredExperimentKind && inferredExperimentKind !== ExperimentKind.NO_INFERRED_TYPE
+      ? inferredExperimentKind
+      : undefined) ??
+    ExperimentKind.GENAI_DEVELOPMENT;
+  const revampFlagEnabled = shouldEnableNewEvalRunsUi();
+  const [experimentPageLayoutContainer, setExperimentPageLayoutContainer] = useState<HTMLElement | null>(null);
+  const showRevamp =
+    Boolean(experiment && !inferringExperimentType) &&
+    revampFlagEnabled &&
+    isGenAIExperimentKind(displayExperimentKind);
 
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
   const { pathname } = useLocation();
@@ -123,7 +188,7 @@ const ExperimentPageTabsImpl = () => {
                   // If the experiment kind is GENAI_DEVELOPMENT, navigate to Overview tab if enabled
                   // and not using FileStore backend, otherwise Traces
                   const targetTab =
-                    shouldEnableExperimentOverviewTab() && isFileStore === false
+                    shouldEnableExperimentOverviewTab(hasV4Location) && isFileStore === false
                       ? ExperimentPageTabName.Overview
                       : ExperimentPageTabName.Traces;
                   navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), {
@@ -162,35 +227,84 @@ const ExperimentPageTabsImpl = () => {
     minHeight: 0,
   };
 
-  return (
-    <>
-      <ExperimentPageHeaderWithDescription
-        experiment={experiment}
-        loading={loadingExperiment || inferringExperimentType}
-        onNoteUpdated={refetchExperiment}
-        error={experimentError}
-        inferredExperimentKind={inferredExperimentKind}
-        refetchExperiment={refetchExperiment}
-        experimentKindSelector={
-          !enableWorkflowBasedNavigation ? (
-            <ExperimentViewHeaderKindSelector
-              value={experimentKind}
-              inferredExperimentKind={inferredExperimentKind}
-              onChange={(kind) => updateExperimentKind({ experimentId, kind })}
-              isUpdating={updatingExperimentKind || inferringExperimentType}
-              key={inferredExperimentKind}
-              readOnly={!canUpdateExperimentKind}
-            />
-          ) : null
-        }
-      />
-      {!shouldShowExperimentPageSideTabs && (
-        <>
-          <ExperimentPageSubTabSelector experimentId={experimentId} activeTab={activeTab} />
-          <Spacer size="sm" shrinks={false} />
-        </>
+  // Saved-views controls live in the header (the page-level action cluster) rather than the runs
+  // toolbar, since a view is a container over the toolbar's column/filter/sort selectors. The Views
+  // dropdown reads saved-view tags and the active-view URL param only, and the Save modal
+  // reconstructs the current view from its localStorage persistKey — so no live uiState needs to be
+  // plumbed up here. Sharing lives inside the Views dropdown's "Save & share current view…" entry
+  // rather than a separate button. Runs-only for now; traces parity fills the same slot separately.
+  const headerSavedViewsSlot =
+    activeTab === ExperimentPageTabName.Runs && experiment ? (
+      <ExperimentViewSavedViewsButton experiment={experiment as unknown as ExperimentEntity} />
+    ) : undefined;
+
+  const isEvaluationRunsListRoute = Boolean(matchPath(RoutePaths.experimentPageTabEvaluationRuns, pathname));
+  const pageActions = (
+    <ExperimentPageShellExperimentActions
+      experiment={experiment}
+      setEditing={setEditingExperiment}
+      pageAction={
+        isEvaluationRunsListRoute ? (
+          <React.Suspense fallback={<GenericSkeleton css={{ width: 124, height: theme.general.heightSm }} loading />}>
+            <RunEvaluationButton experimentId={experimentId} isPageAction />
+          </React.Suspense>
+        ) : (
+          headerSavedViewsSlot
+        )
+      }
+    />
+  );
+  // Review queue focus mode hides the page header; with the shell that is the breadcrumb row.
+  const mainContent = showRevamp ? (
+    <ExperimentPageMainContent
+      breadcrumbs={
+        headerHidden ? undefined : <ExperimentPageBreadcrumbs experiment={experiment as unknown as ExperimentEntity} />
+      }
+      pageActions={headerHidden ? undefined : pageActions}
+      headerDescription={
+        headerHidden ? undefined : (
+          <ExperimentPageShellExperimentDescription
+            experiment={experiment}
+            editing={editingExperiment}
+            setEditing={setEditingExperiment}
+            onNoteUpdated={refetchExperiment}
+          />
+        )
+      }
+    >
+      {outletComponent}
+    </ExperimentPageMainContent>
+  ) : (
+    <div css={contentWrapperCss}>{outletComponent}</div>
+  );
+
+  const pageContents = (
+    // Bridges the runs shared-view Override/Discard actions (published from ExperimentView, rendered
+    // via the outlet below) up to the header Views dropdown, which lives above the outlet.
+    <SharedViewActionsBridgeProvider>
+      {!headerHidden && !showRevamp && (
+        <ExperimentPageHeaderWithDescription
+          experiment={experiment}
+          loading={loadingExperiment || inferringExperimentType}
+          onNoteUpdated={refetchExperiment}
+          error={experimentError}
+          inferredExperimentKind={inferredExperimentKind}
+          savedViewsSlot={headerSavedViewsSlot}
+          experimentKindSelector={
+            !enableWorkflowBasedNavigation ? (
+              <ExperimentViewHeaderKindSelector
+                value={experimentKind}
+                inferredExperimentKind={inferredExperimentKind}
+                onChange={(kind) => updateExperimentKind({ experimentId, kind })}
+                isUpdating={updatingExperimentKind || inferringExperimentType}
+                key={inferredExperimentKind}
+                readOnly={!canUpdateExperimentKind}
+              />
+            ) : null
+          }
+        />
       )}
-      {shouldShowExperimentPageSideTabs && !enableWorkflowBasedNavigation ? (
+      {!enableWorkflowBasedNavigation ? (
         <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
           {loadingExperiment || inferringExperimentType ? (
             <ExperimentPageSideNavSkeleton />
@@ -200,12 +314,41 @@ const ExperimentPageTabsImpl = () => {
               activeTab={activeTab}
             />
           )}
-          <div css={contentWrapperCss}>{outletComponent}</div>
+          {mainContent}
         </div>
       ) : (
-        <div css={contentWrapperCss}>{outletComponent}</div>
+        mainContent
       )}
-    </>
+    </SharedViewActionsBridgeProvider>
+  );
+
+  return (
+    <ExperimentPageRevampProvider enabled={showRevamp}>
+      {revampFlagEnabled ? (
+        // The shell has its own vertical padding, so the page keeps it only outside the shell. The wrapper
+        // stays mounted either way, so switching in and out of the shell does not remount the page.
+        // It is also the layout container the traces drawer is scoped to while the Assistant is open.
+        <ExperimentPageLayoutProvider value={experimentPageLayoutContainer}>
+          <div
+            ref={setExperimentPageLayoutContainer}
+            data-testid="experiment-page-layout"
+            data-experiment-page-layout="true"
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+              paddingTop: showRevamp ? 0 : theme.spacing.md,
+              paddingBottom: showRevamp ? 0 : theme.spacing.md,
+            }}
+          >
+            {pageContents}
+          </div>
+        </ExperimentPageLayoutProvider>
+      ) : (
+        pageContents
+      )}
+    </ExperimentPageRevampProvider>
   );
 };
 
@@ -213,18 +356,22 @@ const ExperimentPageTabs = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
-    <div
-      css={{
-        flex: 1,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: theme.spacing.md,
-        height: '100%',
-      }}
-    >
-      <ExperimentPageTabsImpl />
-    </div>
+    <HeaderVisibilityProvider>
+      <div
+        css={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          ...(shouldEnableNewEvalRunsUi()
+            ? { paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }
+            : { padding: theme.spacing.md }),
+          height: '100%',
+        }}
+      >
+        <ExperimentPageTabsImpl />
+      </div>
+    </HeaderVisibilityProvider>
   );
 };
 

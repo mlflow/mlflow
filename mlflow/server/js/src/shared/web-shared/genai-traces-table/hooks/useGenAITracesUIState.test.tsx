@@ -42,7 +42,7 @@ const memoryStore: Record<string, any> = {};
 
 jest.mock('../../hooks/useLocalStorage', () => {
   const actual = jest.requireActual<typeof import('../../hooks/useLocalStorage')>('../../hooks/useLocalStorage');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require('react');
 
   return {
@@ -59,7 +59,7 @@ jest.mock('../../hooks/useLocalStorage', () => {
 
 jest.mock('./useColumnsURL', () => ({
   useColumnsURL: () => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const React = require('react');
     const [urlColumnIds, setUrlColumnIds] = React.useState(undefined);
     return [urlColumnIds, setUrlColumnIds] as const;

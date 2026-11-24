@@ -6,10 +6,9 @@ import uuid
 from importlib import reload
 from pathlib import Path
 from unittest import mock
-from urllib.parse import urlparse
-from urllib.request import url2pathname
 
 import pytest
+from sqlalchemy.engine import make_url
 
 import mlflow
 from mlflow.environment_variables import (
@@ -31,6 +30,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _get_tracking_scheme,
+    _has_existing_mlruns_data,
     _resolve_custom_scheme,
     _resolve_tracking_uri,
     _use_tracking_uri,
@@ -52,6 +52,7 @@ from tests.tracing.helper import get_tracer_tracking_uri
 pytestmark = pytest.mark.notrackingurimock
 
 
+@pytest.mark.skip(reason="FileStore is no longer supported")
 def test_tracking_scheme_with_existing_mlruns(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     mlruns_dir = tmp_path / "mlruns"
@@ -69,6 +70,53 @@ def test_tracking_scheme_without_existing_mlruns(tmp_path, monkeypatch):
     assert isinstance(store, SqlAlchemyStore)
 
 
+@pytest.mark.parametrize(
+    ("setup", "expected"),
+    [
+        (lambda mlruns_dir: None, False),
+        (
+            lambda mlruns_dir: (
+                (mlruns_dir / "not-an-experiment").mkdir(),
+                (mlruns_dir / "not-an-experiment" / "meta.yaml").touch(),
+            ),
+            False,
+        ),
+        (lambda mlruns_dir: (mlruns_dir / "0").mkdir(), False),
+        (
+            lambda mlruns_dir: (
+                (mlruns_dir / "0").mkdir(),
+                (mlruns_dir / "0" / "meta.yaml").touch(),
+            ),
+            True,
+        ),
+    ],
+)
+def test_has_existing_mlruns_data(tmp_path, monkeypatch, setup, expected):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    setup(mlruns_dir)
+
+    assert _has_existing_mlruns_data() is expected
+
+
+def test_has_existing_mlruns_data_when_mlruns_is_missing(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+    assert _has_existing_mlruns_data() is False
+
+
+def test_has_existing_mlruns_data_handles_filesystem_errors():
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.os.scandir",
+        side_effect=OSError,
+    ) as scandir:
+        assert _has_existing_mlruns_data() is False
+
+    scandir.assert_called_once()
+
+
+@pytest.mark.skip(reason="FileStore is no longer supported")
 def test_get_store_with_existing_mlruns_data(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     mlruns_dir = tmp_path / "mlruns"
@@ -101,24 +149,21 @@ def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
     assert isinstance(store, SqlAlchemyStore)
 
 
-def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
+@pytest.mark.parametrize("dirname", ["cwd", "a+b", "a%2Bb", "a#b", "a b"])
+def test_default_sqlite_tracking_uri_respects_cwd(tmp_path, monkeypatch, dirname):
+    cwd = tmp_path / dirname
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
     with _use_tracking_uri(None):
         store = _get_store()
 
     assert isinstance(store, SqlAlchemyStore)
-    sqlite_uri = store.db_uri
-    assert sqlite_uri.startswith("sqlite:")
-    parsed = urlparse(sqlite_uri)
-    path = parsed.path
-    if not parsed.netloc and path.startswith("//"):
-        path = path[1:]
-    if parsed.netloc:
-        path = f"//{parsed.netloc}{path}"
-    db_path = Path(url2pathname(path))
-    assert db_path.parent == tmp_path
+    db_path = Path(make_url(store.db_uri).database)
+    assert db_path.parent == cwd
+    assert db_path.exists()
 
 
+@pytest.mark.skip(reason="FileStore is no longer supported")
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     store = _get_store("other/path")
@@ -126,6 +171,7 @@ def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
     assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
 
 
+@pytest.mark.skip(reason="FileStore is no longer supported")
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
 def test_get_store_file_store_from_env(tmp_path, monkeypatch, uri):
     monkeypatch.chdir(tmp_path)
@@ -306,8 +352,7 @@ def test_get_store_databricks(monkeypatch):
         "DATABRICKS_TOKEN": "abcdef",
     }.items():
         monkeypatch.setenv(k, v)
-    with mock.patch("databricks.sdk.WorkspaceClient"):
-        store = _get_store()
+    store = _get_store()
     assert isinstance(store, DatabricksTracingRestStore)
     assert store.get_host_creds().use_databricks_sdk
     assert _get_tracking_scheme() == "databricks"
@@ -372,6 +417,7 @@ def test_standard_store_registry_with_mocked_entrypoint():
         )
 
 
+@pytest.mark.skip(reason="FileStore is no longer supported")
 def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     reload(mlflow.tracking._tracking_service.utils)
@@ -465,6 +511,7 @@ def test_resolve_tracking_uri_with_no_param():
         assert _resolve_tracking_uri() == "databricks://tracking_zlkjdas"
 
 
+@pytest.mark.skip(reason="FileStore is no longer supported")
 def test_store_object_can_be_serialized_by_pickle(tmp_path):
     """
     This test ensures a store object generated by `_get_store` can be serialized by pickle
@@ -488,13 +535,14 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
         assert get_tracking_uri() == path.absolute().resolve().as_uri()
 
 
-def test_set_tracking_uri_update_trace_provider():
+def test_set_tracking_uri_update_trace_provider(tmp_path):
     default_uri = mlflow.get_tracking_uri()
+    sqlite_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     try:
-        assert get_tracer_tracking_uri() != "file:///tmp"
+        assert get_tracer_tracking_uri() != sqlite_uri
 
-        set_tracking_uri("file:///tmp")
-        assert get_tracer_tracking_uri() == "file:///tmp"
+        set_tracking_uri(sqlite_uri)
+        assert get_tracer_tracking_uri() == sqlite_uri
 
         set_tracking_uri("https://foo")
         assert get_tracer_tracking_uri() == "https://foo"

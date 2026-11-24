@@ -1,6 +1,7 @@
 import type { RouteHandle } from '../common/utils/RoutingUtils';
 import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
+import { shouldEnableNewEvalRunsUi } from '../common/utils/FeatureUtils';
 import { PageId, RoutePaths } from './routes';
 
 const getPromptPagesRouteDefs = () => {
@@ -60,15 +61,43 @@ const getExperimentPageRouteDefs = () => {
       handle: { getPageTitle: (params) => `Experiment ${params['experimentId']}` } satisfies RouteHandle,
       children: [
         {
+          path: RoutePaths.experimentPageTabJourneyOverview,
+          pageId: PageId.experimentPageTabJourneyOverview,
+          element: createLazyRouteElement(
+            () => import('./pages/experiment-overview/ExperimentGenAIJourneyOverviewPage'),
+          ),
+          handle: {
+            getPageTitle: (params) => `Overview - Experiment ${params['experimentId']}`,
+            getAssistantPrompts: () => [
+              'How do I get started with MLflow for my agent?',
+              'Find common failure modes in recent traces.',
+              'How do I set up evaluation?',
+            ],
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabOverview,
           pageId: PageId.experimentPageTabOverview,
           element: createLazyRouteElement(() => import('./pages/experiment-overview/ExperimentGenAIOverviewPage')),
           handle: {
-            getPageTitle: (params) => `Overview - Experiment ${params['experimentId']}`,
+            getPageTitle: (params) => `Dashboard - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
-              'How do I get started with MLflow GenAI?',
               'What is the trend of token usage?',
               'Why did the error rate spike?',
+              'Which tools are slowest?',
+            ],
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabDashboard,
+          pageId: PageId.experimentPageTabDashboard,
+          element: createLazyRouteElement(() => import('./pages/experiment-overview/ExperimentGenAIOverviewPage')),
+          handle: {
+            getPageTitle: (params) => `Dashboard - Experiment ${params['experimentId']}`,
+            getAssistantPrompts: () => [
+              'What is the trend of token usage?',
+              'Why did the error rate spike?',
+              'Which tools are slowest?',
             ],
           } satisfies RouteHandle,
         },
@@ -84,6 +113,11 @@ const getExperimentPageRouteDefs = () => {
               'What parameters differ between runs?',
             ],
           } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabTraceDetail,
+          pageId: PageId.experimentPageTabTraceDetail,
+          element: createLazyRouteElement(() => import('./pages/experiment-traces/ExperimentTraceDetailRedirect')),
         },
         {
           path: RoutePaths.experimentPageTabTraces,
@@ -156,6 +190,20 @@ const getExperimentPageRouteDefs = () => {
             ],
           } satisfies RouteHandle,
         },
+        // Registered only with the new evaluation runs UI, so the flag-off router keeps sending this path to
+        // the issue detection run page's `/evaluation-runs/:runUuid/*` route.
+        ...(shouldEnableNewEvalRunsUi()
+          ? [
+              {
+                path: RoutePaths.experimentPageTabEvaluationRunDetails,
+                pageId: PageId.experimentPageTabEvaluationRunDetails,
+                element: createLazyRouteElement(() => import('./pages/eval-run-details/EvalRunDetailsPage')),
+                handle: {
+                  getPageTitle: (params) => `Eval Run ${params['runUuid']} - Experiment ${params['experimentId']}`,
+                } satisfies RouteHandle,
+              },
+            ]
+          : []),
         {
           path: RoutePaths.experimentPageTabScorers,
           pageId: PageId.experimentPageTabScorers,
@@ -170,10 +218,34 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabReviewQueue,
+          pageId: PageId.experimentPageTabReviewQueue,
+          element: createLazyRouteElement(() => import('./pages/experiment-review-queue/ExperimentReviewQueuePage')),
+          handle: {
+            getPageTitle: (params) => `Review - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabIssues,
+          pageId: PageId.experimentPageTabIssues,
+          element: createLazyRouteElement(() => import('./pages/experiment-issues/ExperimentIssuesPage')),
+          handle: {
+            getPageTitle: (params) => `Issues - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabIssueDetectionRuns,
+          pageId: PageId.experimentPageTabIssueDetectionRuns,
+          element: createLazyRouteElement(() => import('./pages/experiment-issues/ExperimentIssueDetectionRunsPage')),
+          handle: {
+            getPageTitle: (params) => `Issue detection run history - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
           element: createLazyRouteElement(() => {
-            return import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage');
+            return import('./pages/experiment-evaluation-datasets-v2/ExperimentEvaluationDatasetsRouter');
           }),
           handle: {
             getPageTitle: (params) => `Datasets - Experiment ${params['experimentId']}`,
@@ -185,9 +257,34 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabDatasetDetail,
+          pageId: PageId.experimentPageTabDatasetDetail,
+          element: createLazyRouteElement(() => {
+            return import('./pages/experiment-evaluation-datasets-v2/ExperimentEvaluationDatasetDetailPage');
+          }),
+          handle: {
+            getPageTitle: (params) => `Dataset ${params['datasetId']} - Experiment ${params['experimentId']}`,
+            getAssistantPrompts: () => [
+              'How to add a new record to this dataset?',
+              'How do I use this dataset for evaluation?',
+              'What format should my dataset be in?',
+            ],
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabPlayground,
+          pageId: PageId.experimentPageTabPlayground,
+          element: createLazyRouteElement(() => import('./pages/playground/PlaygroundPage')),
+          handle: {
+            getPageTitle: (params) => `Playground - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabPrompts,
           pageId: PageId.experimentPageTabPrompts,
-          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptsPage')),
+          element: createLazyRouteElement(() => {
+            return import('./pages/prompts/ExperimentPromptsPage');
+          }),
           handle: {
             getPageTitle: (params) => `Prompts - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
@@ -200,7 +297,9 @@ const getExperimentPageRouteDefs = () => {
         {
           path: RoutePaths.experimentPageTabPromptDetails,
           pageId: PageId.experimentPageTabPromptDetails,
-          element: createLazyRouteElement(() => import('./pages/prompts/ExperimentPromptDetailsPage')),
+          element: createLazyRouteElement(() => {
+            return import('./pages/prompts/ExperimentPromptDetailsPage');
+          }),
           handle: {
             getPageTitle: (params) => `Prompt: ${params['promptName']}`,
             getAssistantPrompts: () => [
@@ -226,8 +325,28 @@ export const getRouteDefs = () => [
     } satisfies RouteHandle,
   },
   {
-    path: RoutePaths.settingsPage,
+    path: RoutePaths.settingsSectionPage,
     element: createLazyRouteElement(() => import('../settings/SettingsPage')),
+    pageId: PageId.settingsPage,
+    handle: {
+      getPageTitle: (params) => {
+        const section = params['section'];
+        switch (section) {
+          case 'general':
+            return 'Settings – General';
+          case 'llm-connections':
+            return 'Settings – LLM Connections';
+          case 'webhooks':
+            return 'Settings – Webhooks';
+          default:
+            return 'Settings';
+        }
+      },
+    } satisfies RouteHandle,
+  },
+  {
+    path: RoutePaths.settingsPage,
+    element: createLazyRouteElement(() => import('../settings/SettingsEntryRedirect')),
     pageId: PageId.settingsPage,
     handle: { getPageTitle: () => 'Settings' } satisfies RouteHandle,
   },
@@ -284,24 +403,6 @@ export const getRouteDefs = () => [
         'What parameters were used?',
         'How does this run compare to others?',
       ],
-    } satisfies RouteHandle,
-  },
-  {
-    path: RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab,
-    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
-    pageId: 'mlflow.issue-detection-run-details',
-    handle: {
-      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
-      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
-    } satisfies RouteHandle,
-  },
-  {
-    path: RoutePaths.experimentPageTabIssueDetectionRunDetails,
-    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
-    pageId: 'mlflow.issue-detection-run-details',
-    handle: {
-      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
-      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
     } satisfies RouteHandle,
   },
   {

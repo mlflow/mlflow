@@ -18,15 +18,22 @@ pytest tests/test_skinny_client_omits_sql_libs.py
 # After verifying skinny client does not include store specific requirements,
 # we are installing sqlalchemy store requirements as our example store for the test suite.
 # SQL Alchemy serves as a simple, fully featured option to test skinny client store scenarios.
-python -m pip install sqlalchemy alembic cryptography
+uv pip install --system sqlalchemy alembic cryptography
 
 # Given the example store does not delete dependencies, we verify non store related dependencies
 # after the example store setup. This verifies both the example store and skinny client do not add
 # unintended libraries.
 pytest tests/test_skinny_client_omits_data_science_libs.py
 
+# Verify that mlflow.types.chat can be imported without numpy (issue #21779)
+pytest tests/test_skinny_client_anthropic_import.py
+
+# Verify that flavor autologging works without numpy and pandas (issue #27005)
+uv pip install --system openai langchain-core dspy
+pytest tests/test_skinny_client_flavor_autolog.py -k "not llama_index_autolog_traces"
+
 # Install numpy that is required by mlflow.types.schema and pre-installed in DBR.
-python -m pip install numpy
+uv pip install --system numpy
 
 pytest \
   tests/test_runs.py \
@@ -42,7 +49,11 @@ pytest \
   tests/utils/test_doctor.py \
   --import-mode=importlib
 
-python -m pip install pandas
+# llama-index-core requires numpy, so test it after numpy is installed and before pandas is
+uv pip install --system llama-index-core
+pytest tests/test_skinny_client_flavor_autolog.py -k llama_index_autolog_traces
+
+uv pip install --system pandas
 pytest tests/test_skinny_client_autolog_without_scipy.py
 
 test $err = 0

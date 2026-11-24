@@ -7,16 +7,15 @@ Cross version testing is a testing strategy to ensure ML integrations in MLflow 
 
 ## Key files
 
-| File (relative path from the root)              | Role                                                           |
-| :---------------------------------------------- | :------------------------------------------------------------- |
-| [`mlflow/ml-package-versions.yml`][]            | Define which versions to test for each ML package.             |
-| [`dev/set_matrix.py`][]                         | Generate a test matrix from `ml-package-versions.yml`.         |
-| [`dev/update_ml_package_versions.py`][]         | Update `ml-package-versions.yml` when releasing a new version. |
-| [`.github/workflows/cross-version-tests.yml`][] | Define a Github Actions workflow for cross version testing.    |
+| File (relative path from the root)              | Role                                                                    |
+| :---------------------------------------------- | :---------------------------------------------------------------------- |
+| [`mlflow/ml-package-versions.yml`][]            | Define which versions to test for each ML package.                      |
+| [`flavors matrix`][flavors-cli]                 | Generate a test matrix from `ml-package-versions.yml` (`dev/flavors/`). |
+| [`flavors update`][flavors-cli]                 | Update `ml-package-versions.yml` when releasing a new version.          |
+| [`.github/workflows/cross-version-tests.yml`][] | Define a Github Actions workflow for cross version testing.             |
 
 [`mlflow/ml-package-versions.yml`]: ../../mlflow/ml-package-versions.yml
-[`dev/set_matrix.py`]: ../../dev/set_matrix.py
-[`dev/update_ml_package_versions.py`]: ../../dev/update_ml_package_versions.py
+[flavors-cli]: ../../dev/flavors/
 [`.github/workflows/cross-version-tests.yml`]: ./cross-version-tests.yml
 
 ## Configuration keys in `ml-package-versions.yml`

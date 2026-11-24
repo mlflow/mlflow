@@ -21,6 +21,7 @@ const EndpointPage = () => {
     handleSubmit,
     handleCancel,
     handleNameUpdate,
+    handleUsageTrackingUpdate,
   } = useEditEndpointForm(endpointId ?? '');
 
   return (
@@ -39,6 +40,7 @@ const EndpointPage = () => {
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         onNameUpdate={handleNameUpdate}
+        onUsageTrackingUpdate={handleUsageTrackingUpdate}
       />
     </FormProvider>
   );

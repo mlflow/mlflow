@@ -7,6 +7,7 @@ import {
   AssessmentTypeValue,
   AssessmentDimensionKey,
   createAssessmentFilter,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -42,7 +43,9 @@ export function useHasAssessmentsOutsideTimeRange(enabled: boolean) {
 
   const hasAssessments = useMemo(() => {
     if (!countData?.data_points) return false;
-    return countData.data_points.length > 0;
+    return countData.data_points.some(
+      (dp) => dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME] !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
+    );
   }, [countData?.data_points]);
 
   return {

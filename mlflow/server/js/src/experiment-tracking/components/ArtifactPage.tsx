@@ -32,6 +32,7 @@ import { asyncGetLoggedModel } from '../hooks/logged-models/useGetLoggedModelQue
 import type { KeyValueEntity } from '../../common/types';
 
 type ArtifactPageImplProps = {
+  experimentId: string;
   runUuid?: string;
   initialSelectedArtifactPath?: string;
   artifactRootUri?: string;
@@ -53,6 +54,8 @@ type ArtifactPageImplState = {
   errorThrown: boolean;
   activeNodeIsDirectory: boolean;
   fallbackEntityTags?: Partial<KeyValueEntity>[];
+  fallbackArtifactRootUri?: string;
+  fallbackLoggedModelId?: string;
 };
 
 export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactPageImplState> {
@@ -122,9 +125,12 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
       // in order to correctly resolve artifact storage path.
       if (isFallbackToLoggedModelArtifacts) {
         const loggedModelData = await asyncGetLoggedModel(loggedModelId, true);
+        if (this.props.loggedModelId !== loggedModelId || !this.props.isFallbackToLoggedModelArtifacts) return;
         fallbackEntityTags = loggedModelData?.model?.info?.tags;
         this.setState({
           fallbackEntityTags,
+          fallbackArtifactRootUri: loggedModelData?.model?.info?.artifact_uri,
+          fallbackLoggedModelId: loggedModelId,
         });
       }
       await this.props.listArtifactsLoggedModelApi(
@@ -192,7 +198,10 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
       });
     }
     // If the component eventually falls back to logged model artifacts, poll artifacts for the current run
-    if (!prevProps.isFallbackToLoggedModelArtifacts && this.props.isFallbackToLoggedModelArtifacts) {
+    if (
+      this.props.isFallbackToLoggedModelArtifacts &&
+      (!prevProps.isFallbackToLoggedModelArtifacts || prevProps.loggedModelId !== this.props.loggedModelId)
+    ) {
       this.pollArtifactsForCurrentRun();
     }
   }
@@ -218,8 +227,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     if (this.renderErrorCondition(shouldRenderError)) {
       const failedReq = requests[0];
       if (failedReq && failedReq.error) {
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        console.error(failedReq.error);
+        // error is handled by the component below
       }
       const errorDescription = (() => {
         const error = failedReq?.error;
@@ -233,6 +241,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
         <ArtifactViewErrorState
           css={{ flex: this.props.useAutoHeight ? 1 : 'unset', height: this.props.useAutoHeight ? 'auto' : undefined }}
           data-testid="artifact-view-error"
+          error={failedReq?.error}
           description={errorDescription}
         />
       );
@@ -240,6 +249,13 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     return (
       <ArtifactView
         {...this.props}
+        artifactRootUri={
+          this.props.isFallbackToLoggedModelArtifacts
+            ? this.state.fallbackLoggedModelId === this.props.loggedModelId
+              ? this.state.fallbackArtifactRootUri
+              : undefined
+            : this.props.artifactRootUri
+        }
         entityTags={this.state.fallbackEntityTags ?? this.props.entityTags}
         handleActiveNodeChange={this.handleActiveNodeChange}
         useAutoHeight={this.props.useAutoHeight}
@@ -250,8 +266,8 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   render() {
     return (
       <RequestStateWrapper
+        // prettier-ignore
         requestIds={this.listArtifactRequestIds}
-        // eslint-disable-next-line no-trailing-spaces
       >
         {this.renderArtifactView}
       </RequestStateWrapper>
@@ -326,7 +342,9 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
   const initialSelectedArtifactPath = initialSelectedArtifactPathMatch?.[1] || undefined;
 
   const { apis } = state;
-  const artifactRootUri = ownProps.artifactRootUri ?? getArtifactRootUri(runUuid, state);
+  const artifactRootUri = isFallbackToLoggedModelArtifacts
+    ? undefined
+    : (ownProps.artifactRootUri ?? (ownProps.isLoggedModelsMode ? undefined : getArtifactRootUri(runUuid, state)));
 
   // Autoselect most recently created logged model
   let selectedPath = initialSelectedArtifactPath;

@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules import SubprocessCheckCall
 
 
-def test_subprocess_check_call(index_path: Path) -> None:
+def test_subprocess_check_call(index: SymbolIndex) -> None:
     code = """
 import subprocess
 
@@ -22,7 +23,7 @@ subprocess.check_call(["echo", "hello"])
 subprocess.run(["echo", "hello"])
 """
     config = Config(select={SubprocessCheckCall.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 1
     assert isinstance(results[0].rule, SubprocessCheckCall)
     assert results[0].range == Range(Position(4, 0))

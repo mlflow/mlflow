@@ -6,13 +6,13 @@ type ComponentIds = 'mlflow.gateway.edit-endpoint.usage-tracking' | 'mlflow.gate
 export interface UsageTrackingConfiguratorProps {
   value: boolean;
   onChange: (value: boolean) => void;
-  componentIdPrefix?: ComponentIds;
+  componentId?: ComponentIds;
 }
 
 export const UsageTrackingConfigurator = ({
   value,
   onChange,
-  componentIdPrefix = 'mlflow.gateway.edit-endpoint.usage-tracking',
+  componentId = 'mlflow.gateway.edit-endpoint.usage-tracking',
 }: UsageTrackingConfiguratorProps) => {
   const { theme } = useDesignSystemTheme();
 
@@ -20,7 +20,7 @@ export const UsageTrackingConfigurator = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Switch
-          componentId={`${componentIdPrefix}.toggle`}
+          componentId={`${componentId}.toggle`}
           checked={value}
           onChange={(checked) => onChange(checked)}
           aria-label="Enable usage tracking"

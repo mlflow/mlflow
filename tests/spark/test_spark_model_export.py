@@ -1,3 +1,4 @@
+import importlib.metadata
 import inspect
 import json
 import logging
@@ -390,13 +391,14 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
-def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs_tmpdir):
+def test_sparkml_model_log(
+    tmp_path, tmp_sqlite_uri, spark_model_iris, should_start_run, use_dfs_tmpdir
+):
     old_tracking_uri = mlflow.get_tracking_uri()
     dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
-        tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri(f"file://{tracking_dir}")
+        mlflow.set_tracking_uri(tmp_sqlite_uri)
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
@@ -460,20 +462,19 @@ def test_load_spark_model_from_models_uri(
         mock_download_artifacts.reset_mock()
         mlflow.spark.load_model(f"models:/{model_name}@Champion")
         mock_download_artifacts.assert_called_once_with("", None, **kwargs)
-        assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
+        get_model_version_by_alias_mock.assert_called_with(model_name, "Champion")
 
 
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_estimator_model_log(
-    tmp_path, spark_model_estimator, should_start_run, use_dfs_tmpdir
+    tmp_path, tmp_sqlite_uri, spark_model_estimator, should_start_run, use_dfs_tmpdir
 ):
     old_tracking_uri = mlflow.get_tracking_uri()
     dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
-        tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri(f"file://{tracking_dir}")
+        mlflow.set_tracking_uri(tmp_sqlite_uri)
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
@@ -746,11 +747,19 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     _assert_pip_requirements(model_info.model_uri, mlflow.spark.get_default_pip_requirements())
 
 
+def _patch_pyspark_version(pyspark_version):
+    real_version = importlib.metadata.version
+    return mock.patch(
+        "importlib.metadata.version",
+        side_effect=lambda name: pyspark_version if name == "pyspark" else real_version(name),
+    )
+
+
 def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
     expected_mlflow_version = _mlflow_major_version_string()
     unsuffixed_version = "2.4.0"
     for dev_suffix in [".dev0", ".dev", ".dev1", "dev.a", ".devb"]:
-        with mock.patch("importlib_metadata.version", return_value=unsuffixed_version + dev_suffix):
+        with _patch_pyspark_version(unsuffixed_version + dev_suffix):
             with mlflow.start_run():
                 model_info = mlflow.spark.log_model(spark_model_iris.model, artifact_path="model")
             _assert_pip_requirements(
@@ -758,7 +767,7 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
             )
 
     for unaffected_version in ["2.0", "2.3.4", "2"]:
-        with mock.patch("importlib_metadata.version", return_value=unaffected_version):
+        with _patch_pyspark_version(unaffected_version):
             pip_deps = _get_pip_deps(mlflow.spark.get_default_conda_env())
             assert any(x == f"pyspark=={unaffected_version}" for x in pip_deps)
 

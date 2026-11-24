@@ -55,6 +55,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         profile: str | None = None,
         created_by: str | None = None,
         last_updated_by: str | None = None,
+        version: dict[str, Any] | int | None = None,
     ):
         """Initialize the EvaluationDataset."""
         self.dataset_id = dataset_id
@@ -65,6 +66,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         self._profile = profile
         self.created_by = created_by
         self.last_updated_by = last_updated_by
+        self.version = version
         self._experiment_ids = None
         self._records = None
 
@@ -263,7 +265,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         elif isinstance(records, list) and records and isinstance(records[0], Trace):
             record_dicts = self._process_trace_records(records)
         else:
-            record_dicts = records
+            # Copy so the source and tags filled in below don't leak into the caller's records
+            record_dicts = [dict(r) if isinstance(r, dict) else r for r in records]
 
         self._validate_record_dicts(record_dicts)
 
@@ -286,13 +289,19 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         context_tags = context_registry.resolve_tags()
         if user_tag := context_tags.get(MLFLOW_USER):
             for record in record_dicts:
-                if "tags" not in record:
-                    record["tags"] = {}
-                if MLFLOW_USER not in record["tags"]:
-                    record["tags"][MLFLOW_USER] = user_tag
+                record["tags"] = {MLFLOW_USER: user_tag, **(record.get("tags") or {})}
 
         tracking_store.upsert_dataset_records(dataset_id=self.dataset_id, records=record_dicts)
         self._records = None
+
+        # The upsert updates the digest, schema, and profile in the backend; refresh them so
+        # this object's identity matches its records when logged as a run input.
+        updated_dataset = tracking_store.get_dataset(self.dataset_id)
+        self._digest = updated_dataset.digest
+        self._schema = updated_dataset.schema
+        self._profile = updated_dataset.profile
+        self.last_update_time = updated_dataset.last_update_time
+        self.last_updated_by = updated_dataset.last_updated_by
 
         return self
 
@@ -413,8 +422,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             DatasetGranularity based on existing records, or UNKNOWN if empty/unparseable
         """
         if self._schema is None:
-            if self.has_records():
-                return self._classify_input_fields(set(self.records[0].inputs.keys()))
+            if self._records:
+                return self._classify_input_fields(set(self._records[0].inputs.keys()))
             return DatasetGranularity.UNKNOWN
         try:
             schema = json.loads(self._schema)
@@ -479,6 +488,14 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             dataset_record_ids=record_ids,
         )
         self._records = None  # Clear cached records
+
+        # The deletion updates the profile in the backend; refresh it so this object's
+        # metadata matches its records when logged as a run input.
+        updated_dataset = tracking_store.get_dataset(self.dataset_id)
+        self._profile = updated_dataset.profile
+        self.last_update_time = updated_dataset.last_update_time
+        self.last_updated_by = updated_dataset.last_updated_by
+
         return deleted_count
 
     @record_usage_event(DatasetToDataFrameEvent)
@@ -589,6 +606,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             "last_updated_by": self.last_updated_by,
             "experiment_ids": self.experiment_ids,
         })
+        if self.version is not None:
+            result["version"] = self.version
 
         result["records"] = [record.to_dict() for record in self.records]
 
@@ -619,6 +638,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             profile=data.get("profile"),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
+            version=data.get("version"),
         )
         if "experiment_ids" in data:
             dataset._experiment_ids = data["experiment_ids"]

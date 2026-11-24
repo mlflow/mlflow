@@ -2,7 +2,7 @@
 name = "uv-dependency-management-example"
 version = "0.1.0"
 description = "Example showing MLflow uv dependency management"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = ["mlflow", "scikit-learn", "numpy"]
 
 [project.optional-dependencies]
@@ -12,5 +12,5 @@ serving = ["flask"]
 ml = ["xgboost"]
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61,<=82.0.1"]
 build-backend = "setuptools.build_meta"

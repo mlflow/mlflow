@@ -1,4 +1,3 @@
-import importlib
 import json
 import time
 from unittest import mock
@@ -16,21 +15,24 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import Feedback, LoggedModelOutput, SpanType, Trace
+from mlflow.entities import Feedback, LoggedModelOutput, SpanLogLevel, SpanType, Trace
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
+from tests.dspy.helper import DSPY_3_5_0_OR_NEWER, DSPY_VERSION, REASONING_LM_FIELD
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
 
 if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking import MlflowClient
 
 
-_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+_DSPY_UNDER_2_6 = DSPY_VERSION < Version("2.6.0rc1")
 
-_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
+_DSPY_3_0_4_OR_NEWER = DSPY_VERSION >= Version("3.0.4")
 
-_DSPY_3_0_4_OR_NEWER = _DSPY_VERSION >= Version("3.0.4")
+_DSPY_3_2_0_OR_NEWER = DSPY_VERSION >= Version("3.2.0")
+
+_DSPY_3_3_0_OR_NEWER = DSPY_VERSION >= Version("3.3.0")
 
 
 # Test module
@@ -53,7 +55,7 @@ class DummyLMWithUsage(DummyLM):
     # and DummyLM.__call__ cannot be overridden in 2.5.x
     if _DSPY_3_0_4_OR_NEWER:
 
-        def __call__(self, prompt=None, messages=None, **kwargs):
+        def __call__(self, prompt=None, **kwargs):
             if dspy.settings.usage_tracker:
                 dspy.settings.usage_tracker.add_usage(
                     "openai/gpt-4.1",
@@ -64,7 +66,7 @@ class DummyLMWithUsage(DummyLM):
                     },
                 )
 
-            return super().__call__(prompt, messages, **kwargs)
+            return super().__call__(prompt=prompt, **kwargs)
 
 
 def test_autolog_lm():
@@ -94,12 +96,74 @@ def test_autolog_lm():
     assert spans[0].model_name == "dummy"
 
 
+@pytest.mark.parametrize(
+    ("model_type", "expected_span_type"),
+    [
+        ("chat", SpanType.CHAT_MODEL),
+        ("text", SpanType.LLM),
+        ("responses", SpanType.CHAT_MODEL),
+        ("auto", SpanType.CHAT_MODEL),
+    ],
+)
+def test_autolog_lm_span_type(model_type, expected_span_type):
+    mlflow.dspy.autolog()
+
+    # Some DSPy versions parse the response based on `model_type` (e.g. as a Responses API
+    # response for "responses"), which `DummyLM`'s output doesn't match, so skip parsing.
+    class StaticLM(DummyLM):
+        @with_callbacks
+        def __call__(self, prompt=None, **kwargs):
+            return ["test output"]
+
+    lm = StaticLM([{"output": "test output"}])
+    # `DummyLM` always passes `model_type="chat"` to `BaseLM.__init__`
+    lm.model_type = model_type
+    lm("test input")
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    spans = trace.data.spans
+    assert len(spans) == 1
+    assert spans[0].span_type == expected_span_type
+    assert spans[0].attributes["model_type"] == model_type
+
+
+@pytest.mark.skipif(
+    not DSPY_3_5_0_OR_NEWER, reason="XMLAdapter is the default adapter in DSPy 3.5+"
+)
+def test_autolog_cot_default_adapter():
+    mlflow.dspy.autolog()
+
+    dspy.settings.configure(
+        lm=DummyLM([{"answer": "test output", "plan": "No more responses"}]), adapter=None
+    )
+
+    cot = dspy.ChainOfThought("question -> answer")
+    result = cot(question="How are you?")
+    assert result.answer == "test output"
+    assert result.reasoning == "No more responses"
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.status == "OK"
+    spans = trace.data.spans
+    assert [span.name for span in spans] == [
+        "ChainOfThought.forward",
+        "Predict.forward",
+        "XMLAdapter.format",
+        "DummyLM.__call__",
+        "XMLAdapter.parse",
+    ]
+    assert spans[2].span_type == SpanType.PARSER
+    assert spans[3].span_type == SpanType.CHAT_MODEL
+    assert spans[4].span_type == SpanType.PARSER
+    assert spans[0].outputs == {"reasoning": "No more responses", "answer": "test output"}
+
+
 def test_autolog_cot():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
         lm=DummyLMWithUsage({
-            "How are you?": {"answer": "test output", "reasoning": "No more responses"}
+            "How are you?": {"answer": "test output", REASONING_LM_FIELD: "No more responses"}
         })
     )
 
@@ -109,38 +173,39 @@ def test_autolog_cot():
     assert result["answer"] == "test output"
     assert result["reasoning"] == "No more responses"
 
+    # DSPy 3.5 calls the LM once per candidate instead of once with `n=3`
+    num_lm_calls = 3 if DSPY_3_5_0_OR_NEWER else 1
+    expected_usage = {
+        TokenUsageKey.INPUT_TOKENS: 5 * num_lm_calls,
+        TokenUsageKey.OUTPUT_TOKENS: 7 * num_lm_calls,
+        TokenUsageKey.TOTAL_TOKENS: 12 * num_lm_calls,
+    }
+
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0] is not None
     assert traces[0].info.status == "OK"
     assert traces[0].info.execution_time_ms > 0
     if _DSPY_3_0_4_OR_NEWER:
-        assert traces[0].info.token_usage == {
-            TokenUsageKey.INPUT_TOKENS: 5,
-            TokenUsageKey.OUTPUT_TOKENS: 7,
-            TokenUsageKey.TOTAL_TOKENS: 12,
-        }
+        assert traces[0].info.token_usage == expected_usage
 
     spans = traces[0].data.spans
-    assert len(spans) == 7
+    assert len(spans) == 6 + num_lm_calls
     assert spans[0].name == "ChainOfThought.forward"
     assert spans[0].span_type == SpanType.CHAIN
+    # CHAIN spans default to DEBUG; LLM children to INFO (asserted below).
+    assert spans[0].log_level == SpanLogLevel.DEBUG
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs == {"question": "How are you?"}
     assert spans[0].outputs == {"answer": "test output", "reasoning": "No more responses"}
-    assert (
-        spans[0].attributes["signature"] == "question -> answer"
-        if _DSPY_UNDER_2_6
-        else "question -> reasoning, answer"
+    assert spans[0].attributes["signature"] == (
+        "question -> answer" if _DSPY_UNDER_2_6 else "question -> reasoning, answer"
     )
     if _DSPY_3_0_4_OR_NEWER:
-        assert spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == {
-            TokenUsageKey.INPUT_TOKENS: 5,
-            TokenUsageKey.OUTPUT_TOKENS: 7,
-            TokenUsageKey.TOTAL_TOKENS: 12,
-        }
+        assert spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == expected_usage
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
+    assert spans[1].log_level == SpanLogLevel.INFO
     assert spans[1].inputs["question"] == "How are you?"
     assert spans[1].outputs == {"answer": "test output", "reasoning": "No more responses"}
     assert spans[2].name == "ChatAdapter.format"
@@ -150,34 +215,75 @@ def test_autolog_cot():
         "demos": mock.ANY,
         "signature": mock.ANY,
     }
-    assert spans[3].name == "DummyLMWithUsage.__call__"
-    assert spans[3].span_type == SpanType.CHAT_MODEL
-    assert spans[3].inputs == {
-        "prompt": None,
-        "messages": mock.ANY,
-        "n": 3,
-        "temperature": 0.7,
-    }
-    assert len(spans[3].outputs) == 3
-    assert spans[3].model_name == "dummy"
+    if DSPY_3_5_0_OR_NEWER:
+        # DSPy 3.5 passes an lm15 `Request` as `prompt`; generation options live inside it.
+        expected_lm_inputs = {
+            "prompt": mock.ANY,
+            "cache": None,
+            "rollout_id": mock.ANY,
+            "options": {},
+        }
+    else:
+        expected_lm_inputs = {
+            "prompt": None,
+            "messages": mock.ANY,
+            "n": 3,
+            "temperature": 0.7,
+        }
+    if _DSPY_3_3_0_OR_NEWER and DSPY_VERSION < Version("3.4.0"):
+        # DSPy 3.3.x added `*items` and `request` to `BaseLM.__call__`; 3.4.0 removed them.
+        # The span records every bound argument. `items` is empty because
+        # `DummyLMWithUsage.__call__` forwards to `super()` entirely by keyword.
+        expected_lm_inputs |= {"items": [], "request": None}
+    for i in range(num_lm_calls):
+        lm_span = spans[3 + i]
+        assert lm_span.name == "DummyLMWithUsage.__call__"
+        assert lm_span.span_type == SpanType.CHAT_MODEL
+        assert lm_span.inputs == expected_lm_inputs
+        if DSPY_3_5_0_OR_NEWER:
+            # The trace UI renders these lm15 `Request` and `Response` fields as chat messages
+            request = lm_span.inputs["prompt"]
+            assert "Your input fields are:" in request["system"]
+            assert request["config"]["temperature"] == 0.7
+            assert [message["role"] for message in request["messages"]] == ["user"]
+            assert [part["type"] for part in request["messages"][0]["parts"]] == ["text"]
+            assert "How are you?" in request["messages"][0]["parts"][0]["text"]
+            response = lm_span.outputs["message"]
+            assert response["role"] == "assistant"
+            assert [part["type"] for part in response["parts"]] == ["text"]
+            assert "test output" in response["parts"][0]["text"]
+        else:
+            assert len(lm_span.outputs) == 3
+        assert lm_span.model_name == "dummy"
     # Output parser will run per completion output (n=3)
     for i in range(3):
-        assert spans[4 + i].name == "ChatAdapter.parse"
-        assert spans[4 + i].span_type == SpanType.PARSER
-        assert "question -> reasoning, answer" in spans[4 + i].inputs["signature"]
+        parse_span = spans[3 + num_lm_calls + i]
+        assert parse_span.name == "ChatAdapter.parse"
+        assert parse_span.span_type == SpanType.PARSER
+        assert f"question -> {REASONING_LM_FIELD}, answer" in parse_span.inputs["signature"]
 
 
 def test_mlflow_callback_exception():
-    from litellm import ContextWindowExceededError
+    # dspy 3.2.0+ replaced litellm's ContextWindowExceededError with its own.
+    # ChatAdapter only skips the JSONAdapter fallback for dspy.ContextWindowExceededError,
+    # so we must raise the appropriate type to keep the expected span count.
+    if _DSPY_3_2_0_OR_NEWER:
+        ContextWindowExceededError = dspy.ContextWindowExceededError
+    else:
+        from litellm import ContextWindowExceededError
 
     mlflow.dspy.autolog()
 
     class ErrorLM(dspy.LM):
         @with_callbacks
-        def __call__(self, prompt=None, messages=None, **kwargs):
+        def __call__(self, prompt=None, **kwargs):
             time.sleep(0.1)
-            # pdpy.ChatAdapter falls back to JSONAdapter unless it's not ContextWindowExceededError
-            raise ContextWindowExceededError("Error", "invalid model", "provider")
+            if _DSPY_3_2_0_OR_NEWER:
+                raise dspy.ContextWindowExceededError(message="Error")
+            else:
+                from litellm import ContextWindowExceededError as _CWE
+
+                raise _CWE("Error", "invalid model", "provider")
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
 
@@ -210,14 +316,33 @@ def test_mlflow_callback_exception():
 
 
 @pytest.mark.skipif(
-    _DSPY_VERSION < Version("2.5.42"),
+    DSPY_VERSION < Version("2.5.42"),
     reason="DSPy callback does not handle Tool in versions < 2.5.42",
 )
 def test_autolog_react():
     mlflow.dspy.autolog()
 
-    dspy.settings.configure(
-        lm=DummyLMWithUsage([
+    if DSPY_3_5_0_OR_NEWER:
+        # DSPy 3.5 rewrote ReAct around native tool calls and a `submit` tool, without the
+        # trailing ChainOfThought extraction step.
+        answers = [
+            {
+                "next_thought": "I need to search for the highest mountain in the world",
+                "tool_calls": {
+                    "tool_calls": [
+                        {"name": "search", "args": {"query": "Highest mountain in the world"}}
+                    ]
+                },
+            },
+            {
+                "next_thought": "I found the highest mountain in the world",
+                "tool_calls": {
+                    "tool_calls": [{"name": "submit", "args": {"answer": "Mount Everest"}}]
+                },
+            },
+        ]
+    else:
+        answers = [
             {
                 "next_thought": "I need to search for the highest mountain in the world",
                 "next_tool_name": "search",
@@ -232,9 +357,8 @@ def test_autolog_react():
                 "answer": "Mount Everest",
                 "reasoning": "No more responses",
             },
-        ]),
-        adapter=dspy.ChatAdapter(),
-    )
+        ]
+    dspy.settings.configure(lm=DummyLMWithUsage(answers), adapter=dspy.ChatAdapter())
 
     def search(query: str) -> list[str]:
         return "Mount Everest"
@@ -250,37 +374,42 @@ def test_autolog_react():
     assert trace.info.execution_time_ms > 0
     if _DSPY_3_0_4_OR_NEWER:
         assert trace.info.token_usage == {
-            TokenUsageKey.INPUT_TOKENS: 15,
-            TokenUsageKey.OUTPUT_TOKENS: 21,
-            TokenUsageKey.TOTAL_TOKENS: 36,
+            TokenUsageKey.INPUT_TOKENS: 5 * len(answers),
+            TokenUsageKey.OUTPUT_TOKENS: 7 * len(answers),
+            TokenUsageKey.TOTAL_TOKENS: 12 * len(answers),
         }
 
-    spans = trace.data.spans
-    assert len(spans) == 15
-    assert [span.name for span in spans] == [
-        "ReAct.forward",
-        "Predict.forward",
-        "ChatAdapter.format",
-        "DummyLMWithUsage.__call__",
-        "ChatAdapter.parse",
-        "Tool.search",
-        "Predict.forward",
-        "ChatAdapter.format",
-        "DummyLMWithUsage.__call__",
-        "ChatAdapter.parse",
-        "ChainOfThought.forward",
+    predict_spans = [
         "Predict.forward",
         "ChatAdapter.format",
         "DummyLMWithUsage.__call__",
         "ChatAdapter.parse",
     ]
+    if DSPY_3_5_0_OR_NEWER:
+        expected_span_names = [
+            "ReAct.forward",
+            *predict_spans,
+            "Tool.search",
+            *predict_spans,
+            "Tool.submit",
+        ]
+    else:
+        expected_span_names = [
+            "ReAct.forward",
+            *predict_spans,
+            "Tool.search",
+            *predict_spans,
+            "ChainOfThought.forward",
+            *predict_spans,
+        ]
+    spans = trace.data.spans
+    assert [span.name for span in spans] == expected_span_names
 
-    assert spans[3].span_type == SpanType.CHAT_MODEL
-    assert spans[3].model_name == "dummy"
-    assert spans[8].span_type == SpanType.CHAT_MODEL
-    assert spans[8].model_name == "dummy"
-    assert spans[13].span_type == SpanType.CHAT_MODEL
-    assert spans[13].model_name == "dummy"
+    lm_spans = [span for span in spans if span.name == "DummyLMWithUsage.__call__"]
+    assert len(lm_spans) == len(answers)
+    for span in lm_spans:
+        assert span.span_type == SpanType.CHAT_MODEL
+        assert span.model_name == "dummy"
 
 
 def test_autolog_retriever():
@@ -350,7 +479,7 @@ def test_autolog_custom_module():
         lm=DummyLMWithUsage([
             {
                 "answer": "test output",
-                "reasoning": "No more responses",
+                REASONING_LM_FIELD: "No more responses",
             },
         ])
     )
@@ -503,7 +632,9 @@ def test_autolog_set_retriever_schema():
 
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
+        lm=DummyLM([
+            {"answer": answer, REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
+        ])
     )
 
     with mlflow.start_run():
@@ -541,7 +672,7 @@ def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema)
             [
                 {
                     "answer": "test output",
-                    "reasoning": "No more responses",
+                    REASONING_LM_FIELD: "No more responses",
                 },
             ]
             * 2
@@ -606,7 +737,7 @@ def test_autolog_log_compile(log_compiles):
             return program
 
     mlflow.dspy.autolog(log_compiles=log_compiles)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
@@ -648,7 +779,7 @@ def test_autolog_log_compile_log_model_output_when_failure(log_compiles):
             raise Exception("test error")
 
     mlflow.dspy.autolog(log_compiles=log_compiles)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
@@ -676,7 +807,7 @@ def test_autolog_log_compile_disable():
             return program
 
     mlflow.dspy.autolog(log_compiles=True)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
@@ -714,7 +845,7 @@ def test_autolog_log_nested_compile():
             return program
 
     mlflow.dspy.autolog(log_compiles=True)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     program = dspy.ChainOfThought("question -> answer")
     optimizer = DummyOptimizer()
@@ -730,13 +861,13 @@ def test_autolog_log_nested_compile():
 
 
 skip_if_evaluate_callback_unavailable = pytest.mark.skipif(
-    Version(importlib.metadata.version("dspy")) < Version("2.6.12"),
+    DSPY_VERSION < Version("2.6.12"),
     reason="evaluate callback is available since 2.6.12",
 )
 
 
 # Evaluate.call starts to return dspy.Prediction since 2.7.0
-is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0")
+is_2_7_or_newer = DSPY_VERSION >= Version("2.7.0")
 
 
 @skip_when_testing_trace_sdk
@@ -897,7 +1028,7 @@ def test_autolog_nested_evals():
 @pytest.mark.parametrize("call_args", ["args", "kwargs", "mixed"])
 def test_autolog_log_traces_from_evals(call_args):
     mlflow.dspy.autolog(log_evals=True, log_traces_from_eval=True)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     class DummyProgram(dspy.Module):
         def forward(self, question):
@@ -918,7 +1049,7 @@ def test_autolog_log_traces_from_evals(call_args):
     else:
         result = evaluator(program, answer_exact_match, devset=examples)
 
-    if _DSPY_VERSION >= Version("3.0.0"):
+    if DSPY_VERSION >= Version("3.0.0"):
         from dspy.evaluate.evaluate import EvaluationResult
 
         assert isinstance(result, EvaluationResult)
@@ -950,7 +1081,7 @@ def test_autolog_log_traces_from_evals(call_args):
 @skip_if_evaluate_callback_unavailable
 def test_autolog_log_traces_from_evals_log_error_assessment():
     mlflow.dspy.autolog(log_evals=True, log_traces_from_eval=True)
-    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", REASONING_LM_FIELD: "reason"}]))
 
     class DummyProgram(dspy.Module):
         def forward(self, question):
@@ -1061,7 +1192,7 @@ def test_autolog_log_compile_with_evals():
 def test_autolog_link_traces_loaded_model_custom_module():
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
+        lm=DummyLM([{"answer": "test output", REASONING_LM_FIELD: "No more responses"}] * 5)
     )
     dspy_model = CoT()
 
@@ -1085,7 +1216,7 @@ def test_autolog_link_traces_loaded_model_custom_module():
 def test_autolog_link_traces_loaded_model_custom_module_pyfunc():
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
+        lm=DummyLM([{"answer": "test output", REASONING_LM_FIELD: "No more responses"}] * 5)
     )
     dspy_model = CoT()
 
@@ -1111,7 +1242,7 @@ def test_autolog_link_traces_active_model():
     mlflow.set_active_model(model_id=model.model_id)
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}] * 5)
+        lm=DummyLM([{"answer": "test output", REASONING_LM_FIELD: "No more responses"}] * 5)
     )
     dspy_model = CoT()
 
@@ -1136,7 +1267,7 @@ def test_autolog_link_traces_active_model():
 def test_model_loading_set_active_model_id_without_fetching_logged_model():
     mlflow.dspy.autolog()
     dspy.settings.configure(
-        lm=DummyLM([{"answer": "test output", "reasoning": "No more responses"}])
+        lm=DummyLM([{"answer": "test output", REASONING_LM_FIELD: "No more responses"}])
     )
     dspy_model = CoT()
 

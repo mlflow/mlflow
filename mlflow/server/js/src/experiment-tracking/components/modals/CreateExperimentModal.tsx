@@ -28,7 +28,29 @@ type CreateExperimentModalImplProps = {
   navigate: NavigateFunction;
 };
 
-export class CreateExperimentModalImpl extends Component<CreateExperimentModalImplProps> {
+type CreateExperimentModalImplState = {
+  experimentName: string;
+};
+
+export class CreateExperimentModalImpl extends Component<
+  CreateExperimentModalImplProps,
+  CreateExperimentModalImplState
+> {
+  state: CreateExperimentModalImplState = {
+    experimentName: '',
+  };
+
+  handleValuesChange = (changedValues: any) => {
+    if (EXP_NAME_FIELD in changedValues) {
+      this.setState({ experimentName: changedValues[EXP_NAME_FIELD] ?? '' });
+    }
+  };
+
+  handleClose = () => {
+    this.setState({ experimentName: '' });
+    this.props.onClose();
+  };
+
   handleCreateExperiment = async (values: any) => {
     // get values of input fields
     const experimentName = values[EXP_NAME_FIELD];
@@ -55,16 +77,21 @@ export class CreateExperimentModalImpl extends Component<CreateExperimentModalIm
 
   render() {
     const { isOpen } = this.props;
+    const { experimentName } = this.state;
     return (
       <GenericInputModal
         title="Create Experiment"
         okText="Create"
         isOpen={isOpen}
         handleSubmit={this.handleCreateExperiment}
-        onClose={this.props.onClose}
+        onClose={this.handleClose}
+        okButtonProps={{ disabled: !experimentName.trim() }}
       >
-        {/* @ts-expect-error TS(2322): Type '{ validator: ((rule: any, value: any, callba... Remove this comment to see the full error message */}
-        <CreateExperimentForm validator={this.debouncedExperimentNameValidator} />
+        <CreateExperimentForm
+          // @ts-expect-error TS(2322): injectIntl wrapper loses custom prop types
+          validator={this.debouncedExperimentNameValidator}
+          onValuesChange={this.handleValuesChange}
+        />
       </GenericInputModal>
     );
   }

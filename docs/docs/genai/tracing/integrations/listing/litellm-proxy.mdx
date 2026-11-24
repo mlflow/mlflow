@@ -1,6 +1,10 @@
 ---
+title: Tracing LiteLLM Proxy
+description: Trace LiteLLM Proxy gateway requests with MLflow for full observability into unified LLM routing, load balancing, and spend tracking.
 sidebar_position: 102
 sidebar_label: LiteLLM Proxy
+keywords: [litellm, proxy, tracing, mlflow, ai gateway, load balancing, llm]
+image: /images/llms/litellm-proxy/litellm-proxy-tracing.png
 ---
 
 import Tabs from "@theme/Tabs";
@@ -19,7 +23,7 @@ import { Users, BookOpen, Scale } from "lucide-react";
 
 <ImageBox src="/images/llms/litellm-proxy/litellm-proxy-tracing.png" alt="LiteLLM Proxy Tracing" />
 
-:::tip Looking for LiteLLM SDK?
+:::tip[Looking for LiteLLM SDK?]
 This guide covers the **LiteLLM Proxy Server**. If you're using the LiteLLM Python SDK directly in your application, see the [LiteLLM SDK Integration](/genai/tracing/integrations/listing/litellm) guide instead.
 :::
 
@@ -131,7 +135,7 @@ If you don't have access to configure the LiteLLM Proxy server, you can trace ca
 <Tabs groupId="programming-language">
   <TabItem value="python" label="Python" default>
 ```bash
-pip install 'mlflow[genai]' openai
+pip install mlflow openai
 ```
   </TabItem>
   <TabItem value="typescript" label="TypeScript">

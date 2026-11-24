@@ -1,11 +1,13 @@
 package org.mlflow.tracking.creds;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Paths;
 
-import org.ini4j.Ini;
-import org.ini4j.Profile;
+import org.apache.commons.configuration2.INIConfiguration;
+import org.apache.commons.configuration2.SubnodeConfiguration;
+import org.apache.commons.configuration2.ex.ConfigurationException;
 
 public class DatabricksConfigHostCredsProvider extends DatabricksHostCredsProvider {
   private static final String CONFIG_FILE_ENV_VAR = "DATABRICKS_CONFIG_FILE";
@@ -40,23 +42,26 @@ public class DatabricksConfigHostCredsProvider extends DatabricksHostCredsProvid
         " (" + basePath + "). Please run 'databricks configure' using the Databricks CLI.");
     }
 
-    Ini ini;
+    INIConfiguration ini;
     try {
-      ini = new Ini(new File(basePath));
-    } catch (IOException e) {
+      ini = new INIConfiguration();
+      try (FileReader reader = new FileReader(basePath)) {
+        ini.read(reader);
+      }
+    } catch (IOException | ConfigurationException e) {
       throw new IllegalStateException("Failed to load databrickscfg file at " + basePath, e);
     }
 
-    Profile.Section section;
+    SubnodeConfiguration section;
     if (profile == null) {
-      section = ini.get("DEFAULT");
-      if (section == null) {
+      section = ini.getSection("DEFAULT");
+      if (section == null || section.isEmpty()) {
         throw new IllegalStateException("Could not find 'DEFAULT' section within config file" +
           " (" + basePath + "). Please run 'databricks configure' using the Databricks CLI.");
       }
     } else {
-      section = ini.get(profile);
-      if (section == null) {
+      section = ini.getSection(profile);
+      if (section == null || section.isEmpty()) {
         throw new IllegalStateException("Could not find '" + profile + "' section within config" +
           " file  (" + basePath + "). Please run 'databricks configure --profile " + profile + "'" +
           " using the Databricks CLI.");
@@ -64,11 +69,11 @@ public class DatabricksConfigHostCredsProvider extends DatabricksHostCredsProvid
     }
     assert (section != null);
 
-    String host = section.get("host");
-    String username = section.get("username");
-    String password = section.get("password");
-    String token = section.get("token");
-    boolean insecure = section.get("insecure", "false").toLowerCase().equals("true");
+    String host = section.getString("host");
+    String username = section.getString("username");
+    String password = section.getString("password");
+    String token = section.getString("token");
+    boolean insecure = "true".equalsIgnoreCase(section.getString("insecure", "false"));
 
     if (host == null) {
       throw new IllegalStateException("No 'host' configured within Databricks config file" +

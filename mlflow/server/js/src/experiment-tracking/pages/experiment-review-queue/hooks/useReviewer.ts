@@ -1,0 +1,44 @@
+import type { IntlShape } from 'react-intl';
+
+import { useCurrentUserQuery } from '../../../../account/hooks';
+
+/** Reserved fallback reviewer on a bare no-auth server (no authenticated user). */
+export const DEFAULT_REVIEWER = 'default';
+
+/**
+ * Display label for a user identity. The reserved no-auth `default` user
+ * queue is shown as "Default"; real usernames are shown as-is.
+ */
+export const displayUser = (user: string, intl: IntlShape): string =>
+  user === DEFAULT_REVIEWER
+    ? intl.formatMessage({
+        defaultMessage: 'Default',
+        description: 'Display name shown for the reserved no-auth default review user',
+      })
+    : user;
+
+/**
+ * The current reviewer's identity. Authenticated deployments (basic-auth /
+ * account plugin) resolve the real username; a bare no-auth server has no
+ * `/users/current`, so the query misses and we fall back to the reserved
+ * default user. Used to scope "my queues" and to stamp `completed_by` /
+ * `created_by`.
+ */
+export const useReviewer = (): string => {
+  const { data: currentUser } = useCurrentUserQuery();
+  return currentUser?.user?.username || DEFAULT_REVIEWER;
+};
+
+/**
+ * Whether the reviewer identity returned by `useReviewer` is settled. While
+ * `/users/current` is still loading on an authenticated server, `useReviewer`
+ * falls back to the reserved `default` user — indistinguishable from a genuine
+ * no-auth server. Stamping a write (`created_by` / `completed_by`) in that
+ * window would mis-attribute it to `default`, so callers gate those actions on
+ * this. Once the query settles the reviewer is correct on both auth (real
+ * username) and no-auth (`default`) servers.
+ */
+export const useIsReviewerResolved = (): boolean => {
+  const { isLoading } = useCurrentUserQuery();
+  return !isLoading;
+};

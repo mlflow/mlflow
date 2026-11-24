@@ -1,27 +1,32 @@
 import { ExperimentPageTabName } from '../../../constants';
 
-const TIME_RANGE_PARAMS = ['startTimeLabel', 'startTime', 'endTime'];
+const PRESERVED_QUERY_PARAMS = ['startTimeLabel', 'startTime', 'endTime', 'workflowType', 'workspace'];
 
 export const isTracesRelatedTab = (tabName: ExperimentPageTabName) => {
   return (
     tabName === ExperimentPageTabName.Overview ||
+    tabName === ExperimentPageTabName.Dashboard ||
     tabName === ExperimentPageTabName.Traces ||
     tabName === ExperimentPageTabName.SingleChatSession ||
     tabName === ExperimentPageTabName.ChatSessions
   );
 };
 
-export const getTimeRangeQueryString = (search: string): string | undefined => {
+/**
+ * Builds a query string preserving only the params that should carry across
+ * experiment tab navigations (time range filters, workflow type, and workspace).
+ */
+export const getPreservedQueryString = (search: string): string | undefined => {
   const searchParams = new URLSearchParams(search);
-  const timeRangeParams = new URLSearchParams();
+  const preservedParams = new URLSearchParams();
 
-  for (const param of TIME_RANGE_PARAMS) {
+  for (const param of PRESERVED_QUERY_PARAMS) {
     const value = searchParams.get(param);
     if (value) {
-      timeRangeParams.set(param, value);
+      preservedParams.set(param, value);
     }
   }
 
-  const result = timeRangeParams.toString();
+  const result = preservedParams.toString();
   return result ? `?${result}` : undefined;
 };

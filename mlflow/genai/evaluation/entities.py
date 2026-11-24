@@ -3,7 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -14,7 +14,66 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
 from mlflow.genai.evaluation.context import get_context
+from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.evaluation.utils import is_none_or_nan
+from mlflow.genai.utils.trace_utils import extract_inputs_from_trace, extract_outputs_from_trace
+
+
+def _assertion_outcome(
+    value: Any,
+    error_msg: str | None,
+    rationale: str | None,
+    pass_if: Callable[[Any], bool] | None,
+) -> tuple[bool, str | None]:
+    """Decide whether one scorer value passes, plus a failure detail."""
+    if error_msg is not None:
+        return False, error_msg
+    if pass_if is not None:
+        try:
+            return bool(pass_if(value)), rationale or f"value={value!r}"
+        except Exception as e:
+            return False, f"pass_if raised {type(e).__name__}: {e}"
+    # CategoricalRating is a StrEnum, so yes/no ratings arrive as strings. Only an
+    # explicit yes/no is a recognized rating; any other string (e.g. "pass") falls
+    # through to the pass_if hint below.
+    if isinstance(value, str) and (rating := value.strip().lower()) in ("yes", "no"):
+        return rating == "yes", rationale or f"value={value!r}"
+    # pd.api.types.is_bool also covers NumPy bool_ from the dataframe.
+    if pd.api.types.is_bool(value):
+        return bool(value), rationale or f"value={value!r}"
+    hint = (
+        f"returned {value!r}; assertions need a yes/no rating or a bool. "
+        f"Declare pass_if=... on the scorer to define what counts as passing."
+    )
+    # Always append the hint; a rationale augments it rather than replacing it.
+    return False, f"{rationale}; {hint}" if rationale else hint
+
+
+@dataclass
+class ScorerStat:
+    """Statistics for a single scorer's invocations during evaluation.
+
+    Tracks the total number of invocations and how many failed with errors.
+    """
+
+    failure_count: int = 0
+    total_count: int = 0
+
+    def record_invocation(self, *, failed: bool) -> None:
+        """Record a scorer invocation."""
+        self.total_count += 1
+        if failed:
+            self.failure_count += 1
+
+    def merge(self, other: "ScorerStat") -> None:
+        """Merge stats from another ScorerStat."""
+        self.failure_count += other.failure_count
+        self.total_count += other.total_count
+
+    @property
+    def has_failures(self) -> bool:
+        """Check if this scorer had any failures."""
+        return self.failure_count > 0
 
 
 @dataclass
@@ -54,12 +113,14 @@ class EvalItem:
             trace: The trace to create an EvalItem from.
 
         Returns:
-            An EvalItem with the trace set and request_id from the trace.
+            An EvalItem with the trace set, request_id from the trace, and the inputs and outputs
+            of the trace's root span, as ``mlflow.genai.evaluate`` takes them from a trace.
+            Unlike ``mlflow.genai.evaluate``, it does not take expectations from the trace.
         """
         return cls(
             request_id=trace.info.trace_id,
-            inputs=None,
-            outputs=None,
+            inputs=extract_inputs_from_trace(trace),
+            outputs=extract_outputs_from_trace(trace),
             expectations=None,
             trace=trace,
         )
@@ -168,6 +229,8 @@ class EvalResult:
     assessments: list[Feedback] = field(default_factory=list)
     """Error message encountered in processing the eval item."""
     eval_error: str | None = None
+    """Statistics for each scorer that ran on this eval item."""
+    scorer_stats: dict[str, ScorerStat] = field(default_factory=dict)
 
     def to_pd_series(self) -> pd.Series:
         """Converts the EvalResult to a flattened pd.Series."""
@@ -198,6 +261,16 @@ class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
     result_df: pd.DataFrame | None
+    # Per-scorer ``pass_if`` predicates, keyed by scorer name. Populated by the
+    # evaluation harness from the scorers that declare one. In-process only.
+    pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
+    # Run-level conditions parsed from ``evaluate(quality_criteria=...)``. In-process only.
+    quality_criteria: list[QualityCriteriaRule] = field(default_factory=list)
+    # Names of the feedback this run's scorers produced, keyed by trace ID. Populated by the
+    # evaluation harness so ``passed`` checks only those ``/value`` columns of each row, skipping
+    # dataset expectations and feedback logged on the traces outside this run. ``None`` checks
+    # every ``/value`` column. In-process only.
+    scorer_feedback_names_by_trace: dict[str, set[str]] | None = None
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -214,6 +287,88 @@ class EvaluationResult:
             f"  result_df: {result_df_str}\n"
             ")"
         )
+
+    @property
+    def passed(self) -> bool:
+        """``True`` when every scorer passed for every row and every condition in
+        ``quality_criteria`` holds.
+
+        A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
+        Declare ``@scorer(pass_if=...)`` to define passing for other values.
+        Only the feedback this run's scorers produced is checked. Dataset expectations
+        and feedback logged on the traces outside this run stay in ``result_df`` but
+        don't affect ``passed``. A run does not pass when its per-row results are
+        unavailable or when no scorer produced a value for any row.
+
+        Usage::
+
+            result = mlflow.genai.evaluate(...)
+            assert result.passed, result.reason
+        """
+        return not self._failures()
+
+    @property
+    def reason(self) -> str:
+        """Human-readable explanation of which scorers failed and why.
+
+        Empty string when all scorers passed.
+        """
+        failures = self._failures()
+        if not failures:
+            return ""
+        if len(failures) == 1:
+            return failures[0]
+        return f"{len(failures)} assertions failed:\n" + "\n".join(f"  - {f}" for f in failures)
+
+    def _failures(self) -> list[str]:
+        failures = self._row_failures()
+        for rule in self.quality_criteria:
+            if failure := rule.check(self.metrics):
+                failures.append(failure)
+        return failures
+
+    def _row_failures(self) -> list[str]:
+        if self.result_df is None:
+            return [
+                "per-row results are unavailable (the result table could not be built), "
+                "so the run cannot be checked"
+            ]
+
+        value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
+
+        failures: list[str] = []
+        num_scored = 0
+        for _, row in self.result_df.iterrows():
+            row_value_cols = value_cols
+            if self.scorer_feedback_names_by_trace is not None:
+                # Filter per row: a trace the scorers skipped can still carry feedback with the
+                # same name that was logged outside this run.
+                names = self.scorer_feedback_names_by_trace.get(row.get("trace_id"), set())
+                row_value_cols = [c for c in value_cols if c.removesuffix("/value") in names]
+            for col in row_value_cols:
+                scorer_name = col.removesuffix("/value")
+                value = row.get(col)
+                error_msg = row.get(f"{scorer_name}/error_message")
+                error_msg = None if is_none_or_nan(error_msg) else error_msg
+                # Skip cells a scorer did not produce for this row.
+                if error_msg is None and is_none_or_nan(value):
+                    continue
+                num_scored += 1
+                rationale = row.get(f"{scorer_name}/rationale")
+                rationale = None if is_none_or_nan(rationale) else rationale
+                passed, detail = _assertion_outcome(
+                    value, error_msg, rationale, self.pass_criteria.get(scorer_name)
+                )
+                if not passed:
+                    failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
+        # Skipping a single missing cell is fine, but a run where no scorer produced a
+        # value for any row has no evidence to pass on.
+        if num_scored == 0:
+            failures.append(
+                "no scorer produced a value for any row; check that the scorers return a "
+                "value and receive the inputs they need"
+            )
+        return failures
 
     # For backwards compatibility
     @property

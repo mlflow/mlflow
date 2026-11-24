@@ -226,7 +226,7 @@ def test_run_databricks_validations(
         "mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request"
     ) as db_api_req_mock:
         # Test bad tracking URI
-        mlflow.set_tracking_uri(tmp_path.as_uri())
+        mlflow.set_tracking_uri(f"sqlite:///{tmp_path / 'mlflow.db'}")
         with pytest.raises(ExecutionException, match="MLflow tracking URI must be of"):
             run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0

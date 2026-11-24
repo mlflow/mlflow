@@ -1,12 +1,3 @@
-"""
-E2E integration tests for async scorer invocation via the MLflow server.
-
-These tests spin up a real MLflow server with job execution enabled and test
-the full flow of invoking scorers on traces asynchronously.
-
-The MLflow AI Gateway is mocked to avoid real LLM calls during testing.
-"""
-
 import json
 import os
 import signal
@@ -221,6 +212,8 @@ def client(tmp_path_factory: pytest.TempPathFactory, mock_gateway_server: str) -
             "_MLFLOW_ALLOWED_JOB_NAME_LIST": "invoke_scorer",
             # Point gateway calls to our mock server
             "MLFLOW_GATEWAY_URI": mock_gateway_server,
+            # Disable remote catalog lookups for mock gateway models.
+            "MLFLOW_MODEL_CATALOG_URI": "",
             # Set batch size to 2 for testing job batching behavior
             "MLFLOW_SERVER_SCORER_INVOKE_BATCH_SIZE": "2",
         },
@@ -279,7 +272,7 @@ def mock_gateway_server():
 
     port = get_safe_port()
     server = HTTPServer(("127.0.0.1", port), MockGatewayHandler)
-    thread = threading.Thread(target=server.serve_forever)
+    thread = threading.Thread(name="scorer-invocation-server", target=server.serve_forever)
     thread.daemon = True
     thread.start()
     yield f"http://127.0.0.1:{port}"

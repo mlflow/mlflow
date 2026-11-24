@@ -1,5 +1,6 @@
 ---
 title: Budget Alerts & Limits
+description: Control AI Gateway spending with budget policies. Set daily, weekly, or monthly cost thresholds to trigger webhook alerts or block requests when LLM spend exceeds limits.
 ---
 
 import useBaseUrl from "@docusaurus/useBaseUrl";
@@ -58,6 +59,8 @@ HTTP/1.1 429 Too Many Requests
   "detail": "Budget limit exceeded for policy 'bp-abc123'. Limit: $500.00 USD per 1 month. Request rejected."
 }
 ```
+
+If usage tracking is on for the endpoint, the gateway records each rejected request as an error trace. This trace has the same user and caller metadata as a request that the gateway accepts.
 
 ## Time Windows
 

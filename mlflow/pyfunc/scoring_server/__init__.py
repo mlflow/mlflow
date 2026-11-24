@@ -36,7 +36,7 @@ from mlflow.environment_variables import (
 # ALl of the mlflow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
-from mlflow.types import ParamSchema, Schema
+from mlflow.types import DataType, ParamSchema, Schema
 from mlflow.utils import reraise
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
@@ -104,59 +104,6 @@ def load_model_with_mlflow_config(model_uri):
     return load_model(model_uri, **extra_kwargs)
 
 
-# Keep this method to maintain compatibility with MLServer
-# https://github.com/SeldonIO/MLServer/blob/caa173ab099a4ec002a7c252cbcc511646c261a6/runtimes/mlflow/mlserver_mlflow/runtime.py#L13C5-L13C31
-def infer_and_parse_json_input(json_input, schema: Schema = None):
-    """
-    Args:
-        json_input: A JSON-formatted string representation of TF serving input or a Pandas
-                    DataFrame, or a stream containing such a string representation.
-        schema: Optional schema specification to be used during parsing.
-    """
-    if isinstance(json_input, dict):
-        decoded_input = json_input
-    else:
-        try:
-            decoded_input = json.loads(json_input)
-        except json.decoder.JSONDecodeError as ex:
-            raise MlflowException(
-                message=(
-                    "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                    f" formatted string. Error: '{ex}'. Input: \n{json_input}\n"
-                ),
-                error_code=BAD_REQUEST,
-            )
-    if isinstance(decoded_input, dict):
-        format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
-        if len(format_keys) != 1:
-            message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
-            raise MlflowException(
-                message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
-                error_code=BAD_REQUEST,
-            )
-        input_format = format_keys.pop()
-        if input_format in (INSTANCES, INPUTS):
-            return parse_tf_serving_input(decoded_input, schema=schema)
-
-        elif input_format in (DF_SPLIT, DF_RECORDS):
-            # NB: skip the dataframe_ prefix
-            pandas_orient = input_format[10:]
-            return dataframe_from_parsed_json(
-                decoded_input[input_format], pandas_orient=pandas_orient, schema=schema
-            )
-    elif isinstance(decoded_input, list):
-        message = "Received a list"
-        raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
-            error_code=BAD_REQUEST,
-        )
-    else:
-        message = f"Received unexpected input type '{type(decoded_input)}'"
-        raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
-        )
-
-
 def _decode_json_input(json_input):
     """
     Args:
@@ -171,7 +118,9 @@ def _decode_json_input(json_input):
 
     try:
         decoded_input = json.loads(json_input)
-    except json.decoder.JSONDecodeError as ex:
+    except (json.decoder.JSONDecodeError, UnicodeDecodeError) as ex:
+        # json.loads() decodes bytes before parsing them, so a payload that is
+        # not valid UTF-8 raises UnicodeDecodeError rather than JSONDecodeError.
         raise MlflowInvalidInputException(
             "Ensure that input is a valid JSON formatted string. "
             f"Error: '{ex!r}'\nInput: \n{json_input}\n"
@@ -251,7 +200,24 @@ def parse_csv_input(csv_input, schema: Schema = None):
             return pd.read_csv(csv_input)
         else:
             dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
-            return pd.read_csv(csv_input, dtype=dtypes)
+            # `read_csv` rejects datetime dtypes, so read those columns as strings and convert
+            # them afterwards with `astype`, the conversion schema enforcement applies to string
+            # columns. Unlike `pd.to_datetime` on the JSON path, it parses each value separately,
+            # so a column can mix formats such as `2024-01-01 10:00:00` and `2024-01-03T00:00:00`
+            datetime_dtype = DataType.datetime.to_pandas()
+            datetime_columns = [name for name, dtype in dtypes.items() if dtype == datetime_dtype]
+            for name in datetime_columns:
+                dtypes[name] = str
+            df = pd.read_csv(csv_input, dtype=dtypes)
+            for name in datetime_columns:
+                # Unnamed schemas key `dtypes` by column position, while CSV labels are strings
+                if not schema.has_input_names():
+                    if name >= len(df.columns):
+                        continue
+                    name = df.columns[name]
+                if name in df.columns:
+                    df[name] = df[name].astype(datetime_dtype)
+            return df
     except Exception as e:
         _handle_serving_error(
             error_message=(
@@ -361,7 +327,12 @@ def invocations(data, content_type, model, input_schema):
     if mime_type == CONTENT_TYPE_CSV:
         # Convert from CSV to pandas
         if isinstance(data, bytes):
-            data = data.decode("utf-8")
+            try:
+                data = data.decode("utf-8")
+            except UnicodeDecodeError as ex:
+                raise MlflowInvalidInputException(
+                    f"Ensure that input is a valid UTF-8 encoded string. Error: '{ex!r}'"
+                ) from ex
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
         params = None
@@ -508,9 +479,7 @@ def init(model: PyFuncModel):
                 media_type="application/json",
             )
 
-    @app.route("/ping", methods=["GET"])
-    @app.route("/health", methods=["GET"])
-    async def ping(request: Request):
+    async def ping():
         """
         Determine if the container is working and healthy.
         We declare it healthy if we can load the model successfully.
@@ -519,14 +488,17 @@ def init(model: PyFuncModel):
         status = 200 if health else 404
         return Response(content="\n", status_code=status, media_type="application/json")
 
-    @app.route("/version", methods=["GET"])
-    async def version(request: Request):
+    app.get("/ping")(ping)
+    app.get("/health")(ping)
+
+    @app.get("/version")
+    async def version():
         """
         Returns the current mlflow version.
         """
         return Response(content=VERSION, status_code=200, media_type="application/json")
 
-    @app.route("/invocations", methods=["POST"])
+    @app.post("/invocations")
     @_async_catch_mlflow_exception
     async def transformation(request: Request):
         """

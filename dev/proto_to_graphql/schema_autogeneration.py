@@ -163,12 +163,20 @@ def apply_schema_extension(referenced_class_name):
         return referenced_class_name
 
 
+def _is_repeated(field):
+    # `FieldDescriptor.label` was removed in protobuf 7; `is_repeated` is missing in 5.x and older.
+    try:
+        return field.is_repeated
+    except AttributeError:
+        return field.label == FieldDescriptor.LABEL_REPEATED
+
+
 def get_graphene_type_for_field(field, is_input):
     if field.type == FieldDescriptor.TYPE_ENUM:
         referenced_class_name = apply_schema_extension(
             get_descriptor_full_pascal_name(field.enum_type)
         )
-        if field.label == FieldDescriptor.LABEL_REPEATED:
+        if _is_repeated(field):
             return f"graphene.List(graphene.NonNull({referenced_class_name}))"
         else:
             return f"graphene.Field({referenced_class_name})"
@@ -183,13 +191,13 @@ def get_graphene_type_for_field(field, is_input):
                 get_descriptor_full_pascal_name(field.message_type)
             )
             field_type_base = f"graphene.Field({referenced_class_name})"
-        if field.label == FieldDescriptor.LABEL_REPEATED:
+        if _is_repeated(field):
             return f"graphene.List(graphene.NonNull({referenced_class_name}))"
         else:
             return field_type_base
     else:
         field_type_base = PROTO_TO_GRAPHENE_TYPE[field.type]
-        if field.label == FieldDescriptor.LABEL_REPEATED:
+        if _is_repeated(field):
             return f"graphene.List({field_type_base})"
         else:
             return f"{field_type_base}()"

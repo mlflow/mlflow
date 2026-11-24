@@ -23,7 +23,8 @@ class SpanStatusCode(str, Enum):
         Convert the SpanStatusCode to the corresponding OpenTelemetry protobuf enum name.
         """
         proto_code = OtelStatus.StatusCode
-        mapping = {
+        # `EnumTypeWrapper.Name` is untyped upstream, hence the explicit value type.
+        mapping: dict[SpanStatusCode, str] = {
             SpanStatusCode.UNSET: proto_code.Name(proto_code.STATUS_CODE_UNSET),
             SpanStatusCode.OK: proto_code.Name(proto_code.STATUS_CODE_OK),
             SpanStatusCode.ERROR: proto_code.Name(proto_code.STATUS_CODE_ERROR),
@@ -67,7 +68,7 @@ class SpanStatus:
     status_code: SpanStatusCode
     description: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """
         If user provides a string status code, validate it and convert to
         the corresponding enum value.
@@ -91,8 +92,11 @@ class SpanStatus:
         try:
             status_code = getattr(trace_api.StatusCode, self.status_code.name)
         except AttributeError:
+            # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
             raise MlflowException(
-                f"Invalid status code: {self.status_code}", error_code=INVALID_PARAMETER_VALUE
+                f"Invalid status code: {self.status_code}",
+                error_code=INVALID_PARAMETER_VALUE,
+                error_class="ATTRIBUTE_NOT_FOUND",
             )
         return trace_api.Status(status_code, self.description)
 
@@ -112,7 +116,7 @@ class SpanStatus:
             )
         return cls(status_code, otel_status.description or "")
 
-    def to_otel_proto_status(self):
+    def to_otel_proto_status(self) -> OtelStatus:
         """
         Convert to OpenTelemetry protobuf Status for OTLP export.
 
@@ -132,7 +136,7 @@ class SpanStatus:
         return status
 
     @classmethod
-    def from_otel_proto_status(cls, otel_proto_status) -> SpanStatus:
+    def from_otel_proto_status(cls, otel_proto_status: OtelStatus) -> SpanStatus:
         """
         Create a SpanStatus from an OpenTelemetry protobuf Status.
 

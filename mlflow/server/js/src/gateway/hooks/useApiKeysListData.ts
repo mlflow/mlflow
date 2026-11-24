@@ -12,7 +12,7 @@ interface UseApiKeysListDataParams {
 }
 
 export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataParams) => {
-  const { data: secrets, isLoading: isLoadingSecrets } = useSecretsQuery();
+  const { data: secrets, isLoading: isLoadingSecrets, error: secretsError } = useSecretsQuery();
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
   const { data: modelDefinitions, isLoading: isLoadingModelDefinitions } = useModelDefinitionsQuery();
   const { data: bindings, isLoading: isLoadingBindings } = useBindingsQuery();
@@ -125,7 +125,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
   );
 
   const availableProviders = secrets
-    ? Array.from(new Set(secrets.map((s) => s.provider).filter((p): p is string => !!p)))
+    ? Array.from(new Set(secrets.map((s) => s.provider).filter((p): p is string => Boolean(p))))
     : [];
 
   const filteredSecrets = useMemo(() => {
@@ -150,6 +150,7 @@ export const useApiKeysListData = ({ searchFilter, filter }: UseApiKeysListDataP
     secrets: secrets ?? [],
     filteredSecrets,
     isLoading,
+    error: secretsError,
     availableProviders,
     getModelDefinitionsForSecret,
     getEndpointsForSecret,

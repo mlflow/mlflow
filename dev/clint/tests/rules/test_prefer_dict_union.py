@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 from clint.rules import PreferDictUnion
 
@@ -17,9 +18,9 @@ from clint.rules import PreferDictUnion
         pytest.param("{**a.b.c, **d}", id="chained_attribute"),
     ],
 )
-def test_flag(index_path: Path, code: str) -> None:
+def test_flag(index: SymbolIndex, code: str) -> None:
     config = Config(select={PreferDictUnion.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 1
     assert isinstance(results[0].rule, PreferDictUnion)
 
@@ -40,7 +41,7 @@ def test_flag(index_path: Path, code: str) -> None:
         pytest.param("{**a,\n**b}", id="multi_line"),
     ],
 )
-def test_no_flag(index_path: Path, code: str) -> None:
+def test_no_flag(index: SymbolIndex, code: str) -> None:
     config = Config(select={PreferDictUnion.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 0

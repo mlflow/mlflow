@@ -61,7 +61,7 @@ export const useFetchJobStatus = ({
     cacheTime: 0,
     refetchOnWindowFocus: false,
     retry: false,
-    enabled: enabled && !!jobId,
+    enabled: enabled && Boolean(jobId),
     refetchInterval: (data, query) => {
       if (isJobComplete(data?.status) || query.state.error) {
         return false;

@@ -13,3 +13,10 @@ Evaluation Checklist:
 - Flow: Do sentences transition smoothly, or is the text choppy?
 - Variety: Is there variation in sentence structure and vocabulary?
 """
+
+FLUENCY_TYPESAFE_PROMPT_INSTRUCTIONS = (
+    FLUENCY_PROMPT
+    + """
+The result is "yes" if the text is fluent according to these criteria, and "no" otherwise.
+"""
+)

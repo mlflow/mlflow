@@ -2,11 +2,12 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules import GetArtifactUri
 
 
-def test_get_artifact_uri_in_rst_example(index_path: Path) -> None:
+def test_get_artifact_uri_in_rst_example(index: SymbolIndex) -> None:
     code = """
 Documentation
 =============
@@ -23,14 +24,14 @@ Here's an example:
         print(model_uri)
 """
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(Path("test.rst"), code, config, index_path)
+    violations = lint_file(Path("test.rst"), code, config, index)
     assert len(violations) == 1
     assert violations[0].rule.name == GetArtifactUri.name
     assert violations[0].range == Range(Position(12, 20))
 
 
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
-def test_get_artifact_uri_in_markdown_example(index_path: Path, suffix: str) -> None:
+def test_get_artifact_uri_in_markdown_example(index: SymbolIndex, suffix: str) -> None:
     code = """
 # Documentation
 
@@ -46,13 +47,13 @@ with mlflow.start_run():
 ```
 """
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(Path("test").with_suffix(suffix), code, config, index_path)
+    violations = lint_file(Path("test").with_suffix(suffix), code, config, index)
     assert len(violations) == 1
     assert violations[0].rule.name == GetArtifactUri.name
     assert violations[0].range == Range(Position(10, 16))
 
 
-def test_get_artifact_uri_not_in_regular_python_files(index_path: Path) -> None:
+def test_get_artifact_uri_not_in_regular_python_files(index: SymbolIndex) -> None:
     code = """
 import mlflow
 
@@ -61,11 +62,11 @@ with mlflow.start_run():
     print(model_uri)
 """
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 0
 
 
-def test_get_artifact_uri_without_log_model_allowed(index_path: Path) -> None:
+def test_get_artifact_uri_without_log_model_allowed(index: SymbolIndex) -> None:
     code = """
 Documentation
 =============
@@ -81,5 +82,5 @@ Here's an example:
     loaded_model = mlflow.sklearn.load_model(model_uri)
 """
     config = Config(select={GetArtifactUri.name}, example_rules=[GetArtifactUri.name])
-    violations = lint_file(Path("test.rst"), code, config, index_path)
+    violations = lint_file(Path("test.rst"), code, config, index)
     assert len(violations) == 0

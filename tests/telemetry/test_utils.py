@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+import mlflow.telemetry.utils
 from mlflow.telemetry.constant import (
     CONFIG_STAGING_URL,
     CONFIG_URL,
@@ -12,6 +13,7 @@ from mlflow.telemetry.constant import (
 )
 from mlflow.telemetry.schemas import Environment
 from mlflow.telemetry.utils import (
+    _detect_agent,
     _detect_environment,
     _get_config_url,
     fetch_ui_telemetry_config,
@@ -30,6 +32,18 @@ from mlflow.telemetry.utils import (
 )
 def test_detect_environment_from_env_var(monkeypatch, env_var, expected):
     monkeypatch.setenv(env_var, "some_value")
+    assert _detect_environment() == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("demo", Environment.DEMO.value),
+        ("staging", None),
+    ],
+)
+def test_detect_environment_deployment_env(monkeypatch, value, expected):
+    monkeypatch.setenv("MLFLOW_DEPLOYMENT_ENV", value)
     assert _detect_environment() == expected
 
 
@@ -65,6 +79,68 @@ def test_detect_environment_none():
     assert _detect_environment() is None
 
 
+@pytest.mark.parametrize(
+    ("environment", "expected"),
+    [
+        ({"AI_AGENT": "custom-agent"}, "custom-agent"),
+        ({"AI_AGENT": "codex-custom"}, "codex-custom"),
+        ({"AI_AGENT": "claude-code_2-1-232_agent"}, "claude-code"),
+        ({"CODEX_THREAD_ID": "thread-id"}, "codex"),
+        ({"GEMINI_CLI": "1"}, "gemini-cli"),
+        ({"COPILOT_CLI": "1"}, "copilot-cli"),
+        ({"OPENCODE": "1"}, "opencode"),
+        ({"CLINE_ACTIVE": "true"}, "cline"),
+        ({"CLAUDECODE": "1"}, "claude-code"),
+        ({"CURSOR_TRACE_ID": "trace-id"}, "cursor"),
+        ({"CURSOR_AGENT": "1"}, "cursor-cli"),
+        ({"KIRO_AGENT_PATH": "/path/to/kiro"}, "kiro"),
+        ({"PI_CODING_AGENT": "1"}, "pi"),
+    ],
+)
+def test_detect_agent(clear_os_environ, environment, expected):
+    for name, value in environment.items():
+        clear_os_environ.setenv(name, value)
+    assert _detect_agent() == expected
+
+
+@pytest.mark.parametrize("agent", ["", "contains spaces", "agent@1", "x" * 65])
+def test_detect_agent_ignores_invalid_ai_agent(clear_os_environ, agent):
+    clear_os_environ.setenv("AI_AGENT", agent)
+    assert _detect_agent() is None
+
+
+def test_detect_agent_none(clear_os_environ):
+    assert _detect_agent() is None
+
+
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {"COPILOT_MODEL": "gpt-5"},
+        {"COPILOT_ALLOW_ALL": "1"},
+        {"COPILOT_GITHUB_TOKEN": "token"},
+        {"TERM_PROGRAM": "kiro"},
+    ],
+)
+def test_detect_agent_ignores_non_agent_markers(clear_os_environ, environment):
+    for name, value in environment.items():
+        clear_os_environ.setenv(name, value)
+    assert _detect_agent() is None
+
+
+@pytest.mark.parametrize(
+    "environment",
+    [
+        {"AGENT": "amp", "CLAUDECODE": "1"},
+        {"CLAUDE_CODE": "1", "CLAUDE_CODE_IS_COWORK": "1"},
+    ],
+)
+def test_detect_agent_ignores_unsupported_claude_variants(clear_os_environ, environment):
+    for name, value in environment.items():
+        clear_os_environ.setenv(name, value)
+    assert _detect_agent() is None
+
+
 def test_is_telemetry_disabled(monkeypatch, bypass_env_check):
     assert is_telemetry_disabled() is False
 
@@ -77,6 +153,29 @@ def test_is_telemetry_disabled(monkeypatch, bypass_env_check):
     with monkeypatch.context() as m:
         m.setenv("DO_NOT_TRACK", "true")
         assert is_telemetry_disabled() is True
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("true", True),
+        ("TRUE", True),
+        ("1", True),
+        ("false", False),
+        ("0", False),
+    ],
+)
+def test_is_telemetry_disabled_do_not_track_values(monkeypatch, bypass_env_check, value, expected):
+    monkeypatch.setenv("DO_NOT_TRACK", value)
+    assert is_telemetry_disabled() is expected
+
+
+def test_is_telemetry_disabled_does_not_disable_in_databricks(monkeypatch, bypass_env_check):
+    # Running inside DBR / model serving must not disable telemetry — events
+    # are routed to the workspace via _forward_to_databricks. The OSS branch
+    # is independently gated inside TelemetryClient._process_records.
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_DATABRICKS", True)
+    assert is_telemetry_disabled() is False
 
 
 def test_get_config_url(bypass_env_check):

@@ -113,6 +113,9 @@ def test_export_warn_invalid_attributes():
     trace_dict = pop_trace(_DATABRICKS_REQUEST_ID_1)
     trace = Trace.from_dict(trace_dict)
     stored_span = trace.data.spans[0]
+    # NB: `mlflow.spanLogLevel` is intentionally absent — this test exports the
+    # LiveSpan directly without going through `span.end()`, which is where
+    # log-level resolution happens. Production traces always go through end().
     assert stored_span.attributes == {
         "mlflow.traceRequestId": trace_id,
         "mlflow.spanType": "UNKNOWN",

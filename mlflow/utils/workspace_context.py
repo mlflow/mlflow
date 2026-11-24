@@ -96,3 +96,30 @@ class WorkspaceContext:
         else:
             MLFLOW_WORKSPACE.set(self._prev_env_raw)
         self._prev_env_raw = None
+
+
+class ServerWorkspaceContext:
+    """
+    Context manager that sets only the server request workspace ContextVars for the duration
+    of the block. Unlike ``WorkspaceContext``, it does not touch the process environment.
+    """
+
+    def __init__(self, workspace: str | None):
+        self._workspace = workspace
+        self._workspace_token: Token[str | None] | None = None
+        self._resolved_token: Token[bool] | None = None
+
+    def __enter__(self) -> str | None:
+        _validate_workspace(self._workspace)
+        self._resolved_token = _IS_WORKSPACE_RESOLVED.set(True)
+        self._workspace_token = _WORKSPACE.set(self._workspace)
+        return self._workspace
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if self._workspace_token is not None:
+            _WORKSPACE.reset(self._workspace_token)
+            self._workspace_token = None
+
+        if self._resolved_token is not None:
+            _IS_WORKSPACE_RESOLVED.reset(self._resolved_token)
+            self._resolved_token = None

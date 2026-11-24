@@ -1,3 +1,5 @@
+from typing import Any
+
 import pydantic
 import pytest
 
@@ -88,6 +90,173 @@ def test_chat_request():
 
     with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         chat.RequestPayload(**{})
+
+
+def test_chat_request_preserves_nested_array_items():
+    # Regression test for https://github.com/mlflow/mlflow/issues/23040.
+    # Nested array schemas (e.g. list[list[str]]) must round-trip through the
+    # request model without losing the inner `items` field; otherwise the
+    # gateway forwards a malformed schema and providers reject it with
+    # `array schema missing items`.
+    nested_items = {
+        "type": "array",
+        "items": {"type": "string"},
+    }
+    payload = chat.RequestPayload(**{
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "send",
+                    "description": "Send a message.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "buttons": {
+                                "type": "array",
+                                "items": nested_items,
+                            },
+                        },
+                    },
+                },
+            }
+        ],
+    })
+
+    dumped = payload.model_dump(exclude_none=True)
+    inner = dumped["tools"][0]["function"]["parameters"]["properties"]["buttons"]["items"]
+    assert inner == nested_items
+
+
+def test_chat_request_preserves_nested_object_properties():
+    # Regression test for https://github.com/mlflow/mlflow/issues/26359.
+    # Nested object schemas must round-trip through the request model without
+    # losing `properties` and `required`; otherwise the gateway forwards a bare
+    # `{"type": "object"}` and the model returns empty or guessed arguments for it.
+    nested_object = {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string"},
+            "method": {"type": "string", "enum": ["GET", "POST"]},
+            "auth": {
+                "type": "object",
+                "properties": {"token": {"type": "string"}},
+                "required": ["token"],
+            },
+        },
+        "required": ["url", "method"],
+    }
+    payload = chat.RequestPayload(**{
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "make_request",
+                    "description": "Make an HTTP request.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "request": nested_object,
+                            "batch": {"type": "array", "items": nested_object},
+                        },
+                        "required": ["request"],
+                    },
+                },
+            }
+        ],
+    })
+
+    dumped = payload.model_dump(exclude_none=True)
+    properties = dumped["tools"][0]["function"]["parameters"]["properties"]
+    assert properties["request"] == nested_object
+    assert properties["batch"]["items"] == nested_object
+
+
+@pytest.mark.parametrize(
+    "properties",
+    [
+        {"city": {"type": "string", "required": True}},
+        {
+            "request": {
+                "type": "object",
+                "properties": {"url": {"type": "string", "required": True}},
+            }
+        },
+        {
+            "request": {
+                "type": "object",
+                "properties": {"url": {"type": "string"}},
+                "required": True,
+            }
+        },
+    ],
+    ids=["flat_param", "nested_param", "nested_object"],
+)
+def test_chat_request_rejects_non_list_required_in_tool_params(properties: dict[str, Any]):
+    # `required` is validated on every tool parameter, so the draft-03 style
+    # `"required": true` is rejected instead of being silently dropped.
+    with pytest.raises(pydantic.ValidationError, match="Input should be a valid list"):
+        chat.RequestPayload(**{
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "get_weather",
+                        "description": "Get the weather.",
+                        "parameters": {"type": "object", "properties": properties},
+                    },
+                }
+            ],
+        })
+
+
+def test_chat_request_accepts_json_schema_response_format_envelope():
+    schema = {
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+        "required": ["answer"],
+    }
+    payload = chat.RequestPayload(**{
+        "messages": [{"role": "user", "content": "hi"}],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "answer_schema",
+                "schema": schema,
+                "description": "A response with a single answer field.",
+            },
+        },
+    })
+
+    dumped = payload.model_dump(exclude_none=True)
+    assert dumped["response_format"]["json_schema"] == {
+        "name": "answer_schema",
+        "schema": schema,
+        "strict": True,
+        "description": "A response with a single answer field.",
+    }
+
+
+def test_chat_request_rejects_flat_json_schema_response_format():
+    with pytest.raises(pydantic.ValidationError, match="Field required") as exc_info:
+        chat.RequestPayload(**{
+            "messages": [{"role": "user", "content": "hi"}],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "type": "object",
+                    "properties": {"answer": {"type": "string"}},
+                    "required": ["answer"],
+                },
+            },
+        })
+
+    error_locations = {error["loc"] for error in exc_info.value.errors()}
+    assert ("response_format", "json_schema", "name") in error_locations
+    assert ("response_format", "json_schema", "schema") in error_locations
 
 
 def test_chat_response():
@@ -191,3 +360,90 @@ def test_chat_stream_response():
         ],
     })
     assert response_no_usage.usage is None
+
+
+def test_chat_request_keeps_cache_control_on_content_parts():
+    messages = [
+        {
+            "role": "system",
+            "content": [
+                {"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}},
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/a.png"},
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                },
+                {"type": "text", "text": "Question", "cache_control": {"type": "ephemeral"}},
+            ],
+        },
+    ]
+
+    payload = chat.RequestPayload(messages=messages)
+
+    assert payload.model_dump(exclude_none=True)["messages"] == messages
+    # The gateway server re-validates the dumped payload after the guardrails run.
+    assert chat.RequestPayload(**payload.model_dump()) == payload
+
+
+def test_chat_request_without_cache_control_serializes_as_before():
+    payload = chat.RequestPayload(
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe"},
+                    {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+                ],
+            }
+        ]
+    )
+
+    assert payload.model_dump()["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/a.png", "detail": None},
+                },
+            ],
+            "tool_calls": None,
+            "refusal": None,
+            "tool_call_id": None,
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "cache_control",
+    [
+        {"type": "persistent"},
+        {"ttl": "1h"},
+    ],
+)
+def test_chat_request_rejects_invalid_cache_control(cache_control):
+    with pytest.raises(pydantic.ValidationError, match="cache_control"):
+        chat.RequestPayload(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "Doc", "cache_control": cache_control}],
+                }
+            ]
+        )
+
+
+def test_chat_request_keeps_unknown_cache_control_ttl():
+    part = {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral", "ttl": "24h"}}
+
+    payload = chat.RequestPayload(messages=[{"role": "user", "content": [part]}])
+
+    assert payload.model_dump(exclude_none=True)["messages"] == [
+        {"role": "user", "content": [part]}
+    ]

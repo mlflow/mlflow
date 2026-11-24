@@ -125,6 +125,13 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   const onSubmit = () => {
     // Do not accept form if no value provided while it's required
     if (valueRequired && !formValues.value.trim()) {
+      form.setError('value', {
+        type: 'required',
+        message: intl.formatMessage({
+          defaultMessage: 'A tag value is required',
+          description: 'Key-value tag editor modal > Value required error message',
+        }),
+      });
       return;
     }
 
@@ -248,7 +255,11 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
                 defaultMessage: 'Type a value',
                 description: 'Key-value tag editor modal > Value input placeholder',
               })}
+              validationState={form.formState.errors.value ? 'error' : undefined}
             />
+            {form.formState.errors.value && (
+              <FormUI.Message type="error" message={form.formState.errors.value.message} />
+            )}
           </div>
         </div>
         <Tooltip

@@ -1,15 +1,14 @@
 import asyncio
-import base64
 import re
-from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import anthropic
 import pytest
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
 import mlflow.anthropic
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -187,6 +186,7 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     span = traces[0].data.spans[0]
     assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
+    assert span.log_level == SpanLogLevel.INFO
     assert span.inputs == DUMMY_CREATE_MESSAGE_REQUEST
     # Only keep input_tokens / output_tokens fields in usage dict.
     span.outputs["usage"] = {
@@ -194,6 +194,10 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     }
     # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
     span.outputs.pop("container", None)
+    # Remove 'stop_details' key added in anthropic v0.88.0
+    span.outputs.pop("stop_details", None)
+    if "diagnostics" in Message.model_fields:
+        assert span.outputs.pop("diagnostics") is None
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -202,6 +206,7 @@ def test_messages_autolog(is_async, mock_litellm_cost):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     if not IS_TRACING_SDK_ONLY:
@@ -229,11 +234,6 @@ def test_messages_autolog(is_async, mock_litellm_cost):
 def test_messages_autolog_multi_modal(is_async):
     mlflow.anthropic.autolog()
 
-    image_dir = Path(__file__).parent.parent / "resources" / "images"
-    with open(image_dir / "test.png", "rb") as f:
-        image_bytes = f.read()
-        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-
     dummy_multi_modal_request = {
         "model": "test_model",
         "messages": [
@@ -246,7 +246,7 @@ def test_messages_autolog_multi_modal(is_async):
                         "source": {
                             "type": "base64",
                             "media_type": "image/png",
-                            "data": image_base64,
+                            "data": ANY,
                         },
                     },
                 ],
@@ -272,6 +272,7 @@ def test_messages_autolog_multi_modal(is_async):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
@@ -388,6 +389,10 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     }
     # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
     span.outputs.pop("container", None)
+    # Remove 'stop_details' key added in anthropic v0.88.0
+    span.outputs.pop("stop_details", None)
+    if "diagnostics" in Message.model_fields:
+        assert span.outputs.pop("diagnostics") is None
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -396,6 +401,7 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     if not IS_TRACING_SDK_ONLY:
@@ -411,6 +417,22 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+
+
+def test_messages_autolog_with_diagnostics(is_async):
+    if "diagnostics" not in Message.model_fields:
+        pytest.skip("anthropic SDK does not support message diagnostics")
+    from anthropic.types import Diagnostics
+
+    diagnostics = Diagnostics(cache_miss_reason=None)
+    response = DUMMY_CREATE_MESSAGE_RESPONSE.model_copy(update={"diagnostics": diagnostics})
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, response, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].outputs["diagnostics"] == diagnostics.model_dump()
 
 
 DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE = Message(
@@ -442,20 +464,68 @@ def test_messages_autolog_with_cached_tokens(is_async, mock_litellm_cost):
     assert traces[0].info.status == "OK"
     span = traces[0].data.spans[0]
 
+    # Anthropic's input_tokens (50) excludes cache tokens. After normalization:
+    # input_tokens = 50 + 25 (cache_read) + 15 (cache_creation) = 90
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
-        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.INPUT_TOKENS: 90,
         TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.TOTAL_TOKENS: 110,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }
 
     assert traces[0].info.token_usage == {
-        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.INPUT_TOKENS: 90,
         TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.TOTAL_TOKENS: 110,
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
+    }
+
+
+def test_messages_autolog_captures_1hr_cache_creation_breakdown(is_async, mock_litellm_cost):
+    # The per-TTL cache_creation breakdown was added in a later Anthropic SDK version.
+    if "cache_creation" not in Usage.model_fields:
+        pytest.skip("anthropic SDK does not report the cache_creation TTL breakdown")
+    from anthropic.types import CacheCreation
+
+    response = Message(
+        id="test_id",
+        content=[TextBlock(text="cached answer", type="text", citations=None)],
+        model="test_model",
+        role="assistant",
+        stop_reason="end_turn",
+        stop_sequence=None,
+        type="message",
+        usage=Usage(
+            input_tokens=50,
+            output_tokens=20,
+            cache_creation_input_tokens=15,
+            cache_read_input_tokens=25,
+            cache_creation=CacheCreation(
+                ephemeral_5m_input_tokens=5,
+                ephemeral_1h_input_tokens=10,
+            ),
+        ),
+    )
+
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, response, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+
+    # The 1-hour portion (10) is a subset of cache_creation_input_tokens (15), so it does not
+    # affect input-token normalization: input_tokens = 50 + 25 + 15 = 90.
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 90,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 110,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: 10,
     }
 
 

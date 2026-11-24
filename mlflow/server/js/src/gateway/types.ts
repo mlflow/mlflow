@@ -5,6 +5,7 @@ export interface Provider {
 export interface ProviderModel {
   model: string;
   provider: string;
+  mode?: string | null;
   supports_function_calling: boolean;
   supports_vision?: boolean;
   supports_reasoning?: boolean;
@@ -42,6 +43,11 @@ export interface AuthMode {
 export interface ProviderConfig {
   auth_modes: AuthMode[];
   default_mode: string;
+  /**
+   * Whether the MLflow server's own environment already carries a credential for this provider
+   * (e.g. it was started with `OPENAI_API_KEY` set). Absent on servers that predate the field.
+   */
+  env_credentials_available?: boolean;
 }
 
 export interface ProvidersResponse {
@@ -82,7 +88,7 @@ export interface GetSecretInfoResponse {
 
 export interface UpdateSecretRequest {
   secret_id: string;
-  secret_value: Record<string, string>;
+  secret_value?: Record<string, string>;
   auth_config?: Record<string, string>;
   updated_by?: string;
 }
@@ -128,6 +134,11 @@ export interface GatewayEndpointModelConfig {
   fallback_order?: number;
 }
 
+export interface EndpointTag {
+  key: string;
+  value?: string;
+}
+
 export interface Endpoint {
   endpoint_id: string;
   name: string;
@@ -143,7 +154,19 @@ export interface Endpoint {
   };
   experiment_id?: string;
   usage_tracking?: boolean;
+  tags?: EndpointTag[];
 }
+
+export interface SetEndpointTagRequest {
+  endpoint_id: string;
+  key: string;
+  value: string;
+}
+
+export type SetEndpointTagResponse = Record<string, never>;
+
+/** Identifies the coding agent associated with an endpoint (stored as a tag). */
+export type CodingAgentType = 'claude-code' | 'codex' | 'gemini-cli';
 
 export interface CreateEndpointRequest {
   name?: string;
@@ -283,7 +306,7 @@ export interface ListUsersResponse {
 // Budget Policy types
 export type BudgetUnit = 'USD';
 export type DurationUnit = 'MINUTES' | 'HOURS' | 'DAYS' | 'WEEKS' | 'MONTHS';
-export type TargetScope = 'GLOBAL' | 'WORKSPACE';
+export type TargetScope = 'GLOBAL' | 'WORKSPACE' | 'ENDPOINT' | 'USER';
 export type BudgetAction = 'ALERT' | 'REJECT';
 
 export interface BudgetDuration {
@@ -303,6 +326,8 @@ export interface BudgetPolicy {
   created_by?: string | null;
   last_updated_by?: string | null;
   workspace?: string | null;
+  // Endpoint ID for ENDPOINT scope, username for USER scope.
+  target_value?: string | null;
 }
 
 export interface CreateBudgetPolicyRequest {
@@ -311,6 +336,7 @@ export interface CreateBudgetPolicyRequest {
   duration: BudgetDuration;
   target_scope: TargetScope;
   budget_action: BudgetAction;
+  target_value?: string;
 }
 
 export interface CreateBudgetPolicyResponse {
@@ -328,6 +354,7 @@ export interface UpdateBudgetPolicyRequest {
   duration?: BudgetDuration;
   target_scope?: TargetScope;
   budget_action?: BudgetAction;
+  target_value?: string;
 }
 
 export interface UpdateBudgetPolicyResponse {
@@ -348,4 +375,112 @@ export interface BudgetPolicyWindow {
 
 export interface ListBudgetWindowsResponse {
   windows: BudgetPolicyWindow[];
+}
+
+// Guardrail types — aligned with backend proto (service.proto)
+export type GuardrailStage = 'BEFORE' | 'AFTER';
+export type GuardrailAction = 'VALIDATION' | 'SANITIZATION';
+
+/** Matches GatewayGuardrail proto message. */
+export interface GatewayGuardrail {
+  guardrail_id: string;
+  name: string;
+  scorer?: {
+    scorer_id: string;
+    scorer_version: number;
+    serialized_scorer?: string;
+  };
+  stage: GuardrailStage;
+  action: GuardrailAction;
+  action_endpoint_id?: string;
+  created_by?: string;
+  created_at: number;
+  last_updated_by?: string;
+  last_updated_at: number;
+}
+
+/** Matches GatewayGuardrailConfig proto message. */
+export interface GatewayGuardrailConfig {
+  endpoint_id: string;
+  guardrail_id: string;
+  execution_order?: number;
+  created_by?: string;
+  created_at: number;
+  guardrail?: GatewayGuardrail;
+}
+
+/** Request for POST /mlflow/gateway/guardrails/create */
+export interface CreateGatewayGuardrailRequest {
+  name: string;
+  scorer_id: string;
+  scorer_version: number;
+  stage: GuardrailStage;
+  action: GuardrailAction;
+  action_endpoint_id?: string;
+}
+
+export interface CreateGatewayGuardrailResponse {
+  guardrail: GatewayGuardrail;
+}
+
+/** Request for GET /mlflow/gateway/guardrails/get */
+export interface GetGatewayGuardrailRequest {
+  guardrail_id: string;
+}
+
+export interface GetGatewayGuardrailResponse {
+  guardrail: GatewayGuardrail;
+}
+
+/** Request for DELETE /mlflow/gateway/guardrails/delete */
+export interface DeleteGatewayGuardrailRequest {
+  guardrail_id: string;
+}
+
+/** Request for GET /mlflow/gateway/guardrails/list */
+export interface ListGatewayGuardrailsRequest {
+  max_results?: number;
+  page_token?: string;
+}
+
+export interface ListGatewayGuardrailsResponse {
+  guardrails: GatewayGuardrail[];
+  next_page_token?: string;
+}
+
+/** Request for POST /mlflow/gateway/guardrails/add-to-endpoint */
+export interface AddGuardrailToEndpointRequest {
+  endpoint_id: string;
+  guardrail_id: string;
+  execution_order?: number;
+}
+
+export interface AddGuardrailToEndpointResponse {
+  config: GatewayGuardrailConfig;
+}
+
+/** Request for DELETE /mlflow/gateway/guardrails/remove-from-endpoint */
+export interface RemoveGuardrailFromEndpointRequest {
+  endpoint_id: string;
+  guardrail_id: string;
+}
+
+/** Request for GET /mlflow/gateway/guardrails/list-for-endpoint */
+export interface ListEndpointGuardrailConfigsRequest {
+  endpoint_id: string;
+}
+
+export interface ListEndpointGuardrailConfigsResponse {
+  configs: GatewayGuardrailConfig[];
+}
+
+/** Request for PATCH /mlflow/gateway/guardrails/update-config */
+export interface UpdateEndpointGuardrailConfigRequest {
+  endpoint_id: string;
+  guardrail_id: string;
+  execution_order?: number;
+}
+
+export interface UpdateEndpointGuardrailConfigResponse {
+  config: GatewayGuardrailConfig;
 }

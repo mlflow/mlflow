@@ -214,7 +214,7 @@ with mlflow.start_run():
     )
 ```
 
-:::warning attention
+:::warning[attention]
 The `stop` parameter can be used to specify the stop sequence for the `llm/v1/chat` and `llm/v1/completions` tasks.
 We emulate the behavior of the `stop` parameter in the OpenAI APIs by passing the
 [stopping_criteria](https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationMixin.generate.stopping_criteria)

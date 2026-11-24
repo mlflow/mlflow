@@ -10,6 +10,7 @@ from packaging.version import Version
 from mlflow.crewai.autolog import (
     patched_class_call,
     patched_native_tool_call,
+    patched_single_native_tool_call,
     patched_standalone_call,
 )
 from mlflow.telemetry.events import AutologgingEvent
@@ -47,15 +48,20 @@ def autolog(
     _memory_method = (
         "_save_to_memory" if CREWAI_VERSION >= Version("1.10.0") else "_create_long_term_memory"
     )
+    # crewai 1.14.5 renamed the module and class: base_agent_executor_mixin.CrewAgentExecutorMixin
+    # -> base_agent_executor.BaseAgentExecutor
+    _executor_path = (
+        "crewai.agents.agent_builder.base_agent_executor.BaseAgentExecutor"
+        if CREWAI_VERSION >= Version("1.14.5")
+        else "crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin"
+    )
     class_method_map = {
         "crewai.Crew": ["kickoff", "kickoff_for_each", "train"],
         "crewai.Agent": ["execute_task"],
         "crewai.Task": ["execute_sync"],
         "crewai.LLM": ["call"],
         "crewai.Flow": ["kickoff"],
-        "crewai.agents.agent_builder.base_agent_executor_mixin.CrewAgentExecutorMixin": [
-            _memory_method
-        ],
+        _executor_path: [_memory_method],
     }
     standalone_method_map = {}
 
@@ -74,13 +80,22 @@ def autolog(
 
     # Modern Tool calling support for CrewAI >= 0.114.0
     if CREWAI_VERSION >= Version("0.114.0"):
-        standalone_method_map.update({
-            "crewai.agents.crew_agent_executor": ["execute_tool_and_check_finality"]
-        })
+        tool_module = (
+            "crewai.agents.agent_executor"
+            if CREWAI_VERSION >= Version("1.15.29")
+            else "crewai.agents.crew_agent_executor"
+        )
+        standalone_method_map.update({tool_module: ["execute_tool_and_check_finality"]})
 
     # Native function calling support for CrewAI >= 1.9.0
     native_tool_method_map = {}
-    if CREWAI_VERSION >= Version("1.9.0"):
+    native_tool_patch = patched_native_tool_call
+    if CREWAI_VERSION >= Version("1.15.29"):
+        native_tool_method_map["crewai.agents.agent_executor.AgentExecutor"] = [
+            "_execute_single_native_tool_call"
+        ]
+        native_tool_patch = patched_single_native_tool_call
+    elif CREWAI_VERSION >= Version("1.9.0"):
         native_tool_method_map["crewai.agents.crew_agent_executor.CrewAgentExecutor"] = [
             "_handle_native_tool_calls"
         ]
@@ -88,7 +103,7 @@ def autolog(
     try:
         _apply_patches(standalone_method_map, _import_module, patched_standalone_call)
         _apply_patches(class_method_map, _import_class, patched_class_call)
-        _apply_patches(native_tool_method_map, _import_class, patched_native_tool_call)
+        _apply_patches(native_tool_method_map, _import_class, native_tool_patch)
     except (AttributeError, ModuleNotFoundError) as e:
         _logger.error("An exception happens when applying auto-tracing to crewai. Exception: %s", e)
 

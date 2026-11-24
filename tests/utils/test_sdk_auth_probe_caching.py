@@ -1,192 +1,161 @@
-"""Tests for the SDK auth probe caching optimisation.
-
-Background
-----------
-``WorkspaceClient.__init__`` performs SDK auth initialisation for a URI:
-it reads env vars, fetches ``/.well-known/databricks-config``, walks the
-auth chain (pat → basic → metadata-service → oauth-m2m), and fetches the
-OIDC discovery document.  This is expensive (2-4 HTTPS round-trips with
-``oauth-m2m``).
-
-Before this fix, every call to ``get_host_creds()`` — which happens on
-every MLflow REST request — re-ran this initialisation by constructing a
-throwaway ``WorkspaceClient``.  After the fix, the probe runs once at
-store construction time and the result is reused for all subsequent
-requests.
-
-These tests verify:
-1. ``should_use_databricks_sdk`` correctly probes once and returns a bool.
-2. ``_get_databricks_host_creds_impl`` skips the probe when given a
-   pre-computed value.
-3. ``get_databricks_host_creds`` preserves backward-compat (still probes).
-4. The store's ``get_host_creds`` callback makes no network calls after
-   store construction.
-5. ``WorkspaceClient.__init__`` (SDK auth initialisation) is called once
-   per store, not once per request.
-"""
-
-from unittest.mock import MagicMock, patch
+import os
+import pickle
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 import pytest
 
-pytest.importorskip("databricks.sdk", reason="databricks-sdk not installed")
+from mlflow.exceptions import MlflowException
+from mlflow.tracking._tracking_service.utils import _get_databricks_rest_store
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+
+pytest.importorskip("databricks.sdk")
 
 _HOST = "https://test.cloud.databricks.com"
 
 
-def _mock_config():
-    return MagicMock(
-        host=_HOST,
-        username=None,
-        password=None,
-        token=None,
-        insecure=False,
-        client_id=None,
-        client_secret=None,
-    )
-
-
-@pytest.fixture(autouse=True)
-def _enable_db_sdk(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
-
-
 @pytest.fixture
-def mock_ws_client():
-    with patch("databricks.sdk.WorkspaceClient") as mock_cls:
-        mock_cls.return_value = MagicMock()
-        yield mock_cls
+def store(monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", _HOST)
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
+    monkeypatch.setenv("DATABRICKS_CONFIG_FILE", str(tmp_path / ".databrickscfg"))
+    monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
+    return _get_databricks_rest_store("databricks")
 
 
-# -- should_use_databricks_sdk -------------------------------------------------
+def test_repeated_requests_probe_once(store):
+    client = SimpleNamespace(config=SimpleNamespace(host=_HOST, workspace_id="123"))
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=client) as probe,
+        mock.patch("mlflow.store.tracking.rest_store.call_endpoint") as call_endpoint,
+    ):
+        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="probe-test") as pool:
+            list(pool.map(store.delete_experiment, range(10)))
+
+    probe.assert_called_once_with()
+    assert call_endpoint.call_count == 10
+    for call in call_endpoint.call_args_list:
+        creds = call.args[0]
+        assert creds.use_databricks_sdk
+        assert creds.host == _HOST
+        assert creds.workspace_id == "123"
 
 
-def test_probe_returns_true_when_sdk_auth_succeeds(mock_ws_client):
-    from mlflow.utils.databricks_utils import should_use_databricks_sdk
-
-    assert should_use_databricks_sdk("databricks") is True
-    assert mock_ws_client.call_count == 1
-
-
-def test_probe_returns_false_when_sdk_auth_fails(mock_ws_client):
-    mock_ws_client.side_effect = Exception("no creds")
-    from mlflow.utils.databricks_utils import should_use_databricks_sdk
-
-    assert should_use_databricks_sdk("databricks") is False
+def test_retries_failed_probe(store):
+    client = SimpleNamespace(config=SimpleNamespace(host=_HOST, workspace_id="123"))
+    with mock.patch("databricks.sdk.WorkspaceClient", side_effect=[ValueError(), client]) as probe:
+        fallback = store.get_host_creds()
+        assert not fallback.use_databricks_sdk
+        assert fallback.token == "test-token"
+        assert store.get_host_creds().use_databricks_sdk
+        assert store.get_host_creds().workspace_id == "123"
+        assert probe.call_args_list == [mock.call(), mock.call()]
 
 
-def test_probe_returns_false_when_db_sdk_disabled(monkeypatch):
+def test_sdk_only_host_and_workspace_id(store):
+    client = SimpleNamespace(config=SimpleNamespace(host="https://sdk-host", workspace_id="321"))
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient", return_value=client) as probe,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_databricks_creds_config",
+            side_effect=MlflowException("No legacy credentials"),
+        ) as legacy,
+    ):
+        for _ in range(2):
+            creds = store.get_host_creds()
+            assert creds.host == "https://sdk-host"
+            assert creds.workspace_id == "321"
+            assert creds.use_databricks_sdk
+            assert creds.token is None
+
+    probe.assert_called_once_with()
+    assert legacy.call_args_list == [mock.call("databricks")] * 2
+
+
+def test_store_reprobes_with_new_configuration(store, monkeypatch):
+    new_host = "https://other.cloud.databricks.com"
+    with mock.patch(
+        "databricks.sdk.WorkspaceClient",
+        side_effect=[
+            SimpleNamespace(config=SimpleNamespace(host=_HOST, workspace_id="1")),
+            SimpleNamespace(config=SimpleNamespace(host=new_host, workspace_id="2")),
+        ],
+    ) as probe:
+        assert store.get_host_creds().workspace_id == "1"
+        monkeypatch.setenv("DATABRICKS_HOST", new_host)
+        monkeypatch.setenv("DATABRICKS_TOKEN", "rotated-token")
+        creds = store.get_host_creds()
+        assert creds.workspace_id == "2"
+        assert creds.host == new_host
+        assert creds.token == "rotated-token"
+        assert probe.call_args_list == [mock.call(), mock.call()]
+
+
+def test_profile_file_change_reprobes(store, monkeypatch):
+    config_file = Path(os.environ["DATABRICKS_CONFIG_FILE"])
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "team")
+    with mock.patch("databricks.sdk.WorkspaceClient") as probe:
+        for timestamp, host in enumerate(("one", "two"), start=1):
+            config_file.write_text(f"[team]\nhost = https://{host}\ntoken = test-token\n")
+            os.utime(config_file, (timestamp, timestamp))
+            for _ in range(2):
+                assert store.get_host_creds().host == f"https://{host}"
+    assert probe.call_args_list == [mock.call(profile="team")] * 2
+
+
+def test_ambient_workspace_is_resolved_per_call(store, monkeypatch):
+    monkeypatch.delenv("DATABRICKS_HOST")
+    hosts = ["https://first", "https://second"]
+    clients = [SimpleNamespace(config=SimpleNamespace(host=host)) for host in hosts]
+    with mock.patch("databricks.sdk.WorkspaceClient", side_effect=clients) as probe:
+        assert [store.get_host_creds().host for _ in hosts] == hosts
+        assert probe.call_args_list == [mock.call(), mock.call()]
+
+
+def test_disabled_sdk_skips_probe(store, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "false")
-    from mlflow.utils.databricks_utils import should_use_databricks_sdk
-
-    assert should_use_databricks_sdk("databricks") is False
-
-
-# -- _get_databricks_host_creds_impl: pre-computed vs legacy -------------------
-
-
-def test_impl_skips_probe_when_precomputed_true(mock_ws_client):
-    from mlflow.utils.databricks_utils import _get_databricks_host_creds_impl
-
-    with patch(
-        "mlflow.utils.databricks_utils._get_databricks_creds_config",
-        return_value=_mock_config(),
-    ):
-        creds = _get_databricks_host_creds_impl("databricks", _use_databricks_sdk=True)
-
-    assert creds.use_databricks_sdk is True
-    assert mock_ws_client.call_count == 0
+    with mock.patch("databricks.sdk.WorkspaceClient") as probe:
+        creds = store.get_host_creds()
+    assert not creds.use_databricks_sdk
+    assert creds.token == "test-token"
+    probe.assert_not_called()
 
 
-def test_impl_skips_probe_when_precomputed_false(mock_ws_client):
-    from mlflow.utils.databricks_utils import _get_databricks_host_creds_impl
-
-    with patch(
-        "mlflow.utils.databricks_utils._get_databricks_creds_config",
-        return_value=_mock_config(),
-    ):
-        creds = _get_databricks_host_creds_impl("databricks", _use_databricks_sdk=False)
-
-    assert creds.use_databricks_sdk is False
-    assert mock_ws_client.call_count == 0
+def test_direct_calls_probe_each_time(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    with mock.patch("databricks.sdk.WorkspaceClient") as probe:
+        for _ in range(2):
+            assert get_databricks_host_creds("databricks://team").use_databricks_sdk
+    assert probe.call_args_list == [mock.call(profile="team")] * 2
 
 
-def test_impl_probes_every_call_when_none(mock_ws_client):
-    from mlflow.utils.databricks_utils import _get_databricks_host_creds_impl
-
-    with patch(
-        "mlflow.utils.databricks_utils._get_databricks_creds_config",
-        return_value=_mock_config(),
-    ):
-        for _ in range(5):
-            _get_databricks_host_creds_impl("databricks", _use_databricks_sdk=None)
-
-    assert mock_ws_client.call_count == 5
+def test_unpickled_store_probes_again(store):
+    with mock.patch("databricks.sdk.WorkspaceClient") as probe:
+        assert store.get_host_creds().use_databricks_sdk
+        restored = pickle.loads(pickle.dumps(store))
+        assert restored.get_host_creds().use_databricks_sdk
+        assert probe.call_args_list == [mock.call(), mock.call()]
 
 
-# -- get_databricks_host_creds: backward compatibility -------------------------
+def test_secret_scope_reads_current_token(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    store = _get_databricks_rest_store("databricks://scope:prefix")
+    dbutils = mock.Mock()
+    dbutils.secrets.get.side_effect = [_HOST, "first", _HOST, "second"]
+    monkeypatch.setattr("mlflow.utils.databricks_utils._get_dbutils", lambda: dbutils)
+    with mock.patch("databricks.sdk.WorkspaceClient") as probe:
+        assert store.get_host_creds().token == "first"
+        assert store.get_host_creds().token == "second"
 
-
-def test_public_api_still_probes_every_call(mock_ws_client):
-    from mlflow.utils.databricks_utils import get_databricks_host_creds
-
-    with patch(
-        "mlflow.utils.databricks_utils._get_databricks_creds_config",
-        return_value=_mock_config(),
-    ):
-        for _ in range(5):
-            get_databricks_host_creds("databricks")
-
-    assert mock_ws_client.call_count == 5
-
-
-# -- Store-level: get_host_creds makes no network calls after construction -----
-
-
-def test_get_host_creds_makes_no_http_calls_after_store_construction(mock_ws_client):
-    """After a Databricks store is constructed, its get_host_creds callback
-    should return credentials without making any HTTP requests.  This is
-    the user-facing contract: REST request latency is not inflated by
-    redundant OIDC discovery round-trips.
-    """
-    from mlflow.tracking._tracking_service.utils import _get_databricks_rest_store
-
-    with patch(
-        "mlflow.utils.databricks_utils._get_databricks_creds_config",
-        return_value=_mock_config(),
-    ):
-        store = _get_databricks_rest_store("databricks")
-
-        # Track all HTTP calls made after construction.
-        with patch("urllib3.HTTPSConnectionPool.urlopen") as mock_urlopen:
-            for _ in range(50):
-                store.get_host_creds()
-
-        # No HTTP calls — all auth discovery happened during construction.
-        assert mock_urlopen.call_count == 0
-
-
-def test_store_construction_initialises_sdk_auth_once(mock_ws_client):
-    """WorkspaceClient.__init__ performs SDK auth initialisation for a URI
-    (env-var parsing, OIDC discovery, auth-chain walk).  Before this fix,
-    this happened on every REST request because each get_host_creds call
-    constructed a throwaway WorkspaceClient.  After the fix, it happens
-    once during store construction.
-
-    This test asserts that WorkspaceClient is constructed exactly once for
-    the lifetime of a store, regardless of how many requests are made.
-    """
-    from mlflow.tracking._tracking_service.utils import _get_databricks_rest_store
-
-    with patch(
-        "mlflow.utils.databricks_utils._get_databricks_creds_config",
-        return_value=_mock_config(),
-    ):
-        store = _get_databricks_rest_store("databricks")
-
-        for _ in range(50):
-            store.get_host_creds()
-
-    # 1 construction during store creation, 0 during get_host_creds calls.
-    # Before the fix this was 51 (1 + 50).
-    assert mock_ws_client.call_count == 1
+    assert probe.call_args_list == [mock.call(host=_HOST, token=t) for t in ("first", "second")]
+    assert (
+        dbutils.secrets.get.call_args_list
+        == [
+            mock.call(scope="scope", key="prefix-host"),
+            mock.call(scope="scope", key="prefix-token"),
+        ]
+        * 2
+    )

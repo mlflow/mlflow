@@ -426,7 +426,9 @@ import mlflow.pyfunc.model
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
+    _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT,
     _MLFLOW_TESTING,
+    MLFLOW_ALLOW_MODEL_CODE_EXECUTION,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
@@ -550,6 +552,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
+    parse_dbr_runtime_major_minor,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -575,6 +578,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _get_flavor_configuration_from_ml_model_file,
     _get_overridden_pyfunc_model_config,
+    _is_model_code_loading_allowed,
     _validate_and_copy_file_to_directory,
     _validate_and_get_model_config_from_file,
     _validate_and_prepare_target_save_path,
@@ -588,7 +592,11 @@ from mlflow.utils.requirements_utils import (
 )
 from mlflow.utils.spark_utils import is_spark_connect_mode
 from mlflow.utils.uv_utils import copy_uv_project_files
-from mlflow.utils.virtualenv import _get_python_env, _get_virtualenv_name
+from mlflow.utils.virtualenv import (
+    _get_python_env,
+    _get_virtualenv_name,
+    _normalize_env_symlinks,
+)
 from mlflow.utils.warnings_utils import color_warning
 
 try:
@@ -738,7 +746,10 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
                     f"with schema '{input_schema}'. "
                     f"Error: {e}"
                 )
-            raise MlflowException.invalid_parameter_value(message)
+            # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
+            raise MlflowException.invalid_parameter_value(
+                message, error_class="SCHEMA_ENFORCEMENT_FAILED"
+            )
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):
         _logger.warning(
@@ -938,9 +949,14 @@ class PyFuncModel:
 
         self.input_schema = self.metadata.get_input_schema()
         self.params_schema = self.metadata.get_params_schema()
-        data, params = _validate_prediction_input(
-            data, params, self.input_schema, self.params_schema, self.loader_module
-        )
+        # A signature inferred from type hints describes `predict`'s batch input, so it does not
+        # apply to the single input of `predict_stream`
+        if self.metadata._is_signature_from_type_hint():
+            params = _enforce_params_schema(params, self.params_schema)
+        else:
+            data, params = _validate_prediction_input(
+                data, params, self.input_schema, self.params_schema, self.loader_module
+            )
         data = _convert_llm_input_data(data)
         if isinstance(data, list):
             # `predict_stream` only accepts single input.
@@ -1104,7 +1120,20 @@ def load_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                 release without warning.
+
+    Set ``MLFLOW_ALLOW_MODEL_CODE_EXECUTION=false`` to refuse loading PyFunc models, because a
+    PyFunc model names the Python module that loads it. This setting also refuses trusted PyFunc
+    models outside Databricks Runtime and Databricks Model Serving.
     """
+
+    # Inferring pip requirements loads the user's own model while saving it.
+    if not _is_model_code_loading_allowed() and not _MLFLOW_IN_CAPTURE_MODULE_PROCESS.get():
+        raise MlflowException(
+            "Loading PyFunc models is disallowed because a PyFunc model names the Python module "
+            "that loads it, which can run arbitrary code. If you trust this model, set "
+            f"environment variable '{MLFLOW_ALLOW_MODEL_CODE_EXECUTION.name}' to 'true' to "
+            "load it."
+        )
 
     lineage_header_info = None
     if (
@@ -1299,7 +1328,6 @@ def _load_model_or_server(
             port=server_port,
             host="127.0.0.1",
             timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-            enable_mlserver=False,
             synchronous=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -1896,6 +1924,7 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path, env_manage
         if os.path.exists(cache_path):
             shutil.rmtree(cache_path)
 
+        _normalize_env_symlinks(env_root_dir)
         return archive_directory(env_root_dir, archive_path)
     finally:
         shutil.rmtree(env_root_dir, ignore_errors=True)
@@ -1963,7 +1992,7 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
         versions or different platform machines. As such, if you connect to a different cluster
         that is running a different runtime version on Databricks, you will need to execute this
         API in a notebook and retrieve the generated archive to your local machine. Each
-        environment snapshot is unique to the the model, the runtime version of your remote
+        environment snapshot is unique to the model, the runtime version of your remote
         Databricks cluster, and the specification of the udf execution environment.
         When using the prebuilt env in `mlflow.pyfunc.spark_udf`, MLflow will verify
         whether the spark UDF sandbox environment matches the prebuilt env requirements and will
@@ -2016,8 +2045,8 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
     # Archive the environment directory as a `tar.gz` format archive file,
     # and then move the archive file to the destination directory.
     # Note:
-    # - all symlink files in the input directory are kept as it is in the
-    #  archive file.
+    # - internal symlinks are relative, and external symlink targets are copied
+    #  into the environment before archiving for safe extraction by Spark.
     # - the destination directory could be UC-volume fuse mounted directory
     #  which only supports limited filesystem operations, so to ensure it works,
     #  we generate the archive file under /tmp and then move it into the
@@ -2260,10 +2289,19 @@ def spark_udf(
         )
 
     # Databricks connect can use `spark.addArtifact` to upload artifact to NFS.
-    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it
-    # Note for Databricks Serverless runtime (notebook REPL), it runs on Servereless VM that
-    # can't access NFS, so it needs to use `spark.addArtifact`.
-    use_dbconnect_artifact = is_dbconnect_mode and not is_in_databricks_shared_cluster_runtime()
+    # But for Databricks shared cluster runtime, it can directly write to NFS, so exclude it.
+    # For Databricks Serverless runtime (notebook REPL), spark.addArtifact may not reliably
+    # make archives available to UDF executor sandboxes. As a temporary workaround, set
+    # _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT=true to skip the addArtifact path
+    # and let each executor fetch the model directly from the MLflow artifact store instead.
+    use_dbconnect_artifact = (
+        is_dbconnect_mode
+        and not is_in_databricks_shared_cluster_runtime()
+        and not (
+            is_in_databricks_serverless_runtime()
+            and _MLFLOW_SPARK_UDF_SERVERLESS_SKIP_DBCONNECT_ARTIFACT.get()
+        )
+    )
 
     if use_dbconnect_artifact:
         udf_sandbox_info = get_dbconnect_udf_sandbox_info(spark)
@@ -2273,15 +2311,17 @@ def spark_udf(
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
                 "of version >= 2.18.0"
             )
-        # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
-        # It's safe to apply `Version`.
-        dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
-        if dbr_runtime_version < Version("15.4"):
+        # Compare on the leading (major, minor) components instead of constructing a `Version`,
+        # which crashes with `InvalidVersion` on newer image strings whose minor is non-numeric
+        # (e.g. "18.x-aarch64-photon-scala2"). A `.x` minor denotes the latest uncut minor of that
+        # major, always ahead of any released minor, so it sorts above every concrete minor.
+        dbr_runtime_version = parse_dbr_runtime_major_minor(udf_sandbox_info.runtime_version)
+        if dbr_runtime_version < (15, 4):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires Databricks runtime version >= 15.4."
             )
-        if dbr_runtime_version == Version("15.4"):
+        if dbr_runtime_version == (15, 4):
             if spark.conf.get("spark.databricks.pyspark.udf.isolation.enabled").lower() == "true":
                 # The connected cluster is standard (shared) mode.
                 if (
@@ -2654,7 +2694,6 @@ e.g., struct<a:int, b:array<int>>.
                         port=server_port,
                         host=host,
                         timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                        enable_mlserver=False,
                         synchronous=False,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
@@ -2797,7 +2836,7 @@ e.g., struct<a:int, b:array<int>>.
                     raise MlflowException(
                         message="Cannot apply udf because no column names specified. The udf "
                         f"expects {len(input_schema.inputs)} columns with types: "
-                        "{input_schema.inputs}. Input column names could not be inferred from the"
+                        f"{input_schema.inputs}. Input column names could not be inferred from the"
                         " model signature (column names not found).",
                         error_code=INVALID_PARAMETER_VALUE,
                     )

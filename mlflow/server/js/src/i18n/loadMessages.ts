@@ -12,18 +12,10 @@
 export const DEFAULT_LOCALE = 'en';
 
 export async function loadMessages(locale: any) {
+  // No compiled messages for the default locale — react-intl renders the
+  // inline `defaultMessage` from each <FormattedMessage> / formatMessage call.
   if (locale === DEFAULT_LOCALE) {
     return {};
-  }
-  if (locale === 'dev') {
-    const pseudoMessages = {};
-    const defaultMessages = await import('../lang/default/en.json');
-    const { generateENXA } = await import('@formatjs/cli/src/pseudo_locale');
-    Object.entries(defaultMessages).forEach(
-      // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-      ([key, value]) => (pseudoMessages[key] = generateENXA(value)),
-    );
-    return pseudoMessages;
   }
 
   try {

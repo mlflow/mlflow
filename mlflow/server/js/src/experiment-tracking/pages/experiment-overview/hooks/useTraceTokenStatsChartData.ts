@@ -40,7 +40,9 @@ export interface UseTraceTokenStatsChartDataResult {
  *
  * @returns Processed chart data, loading state, and error state
  */
-export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult {
+export function useTraceTokenStatsChartData({
+  enabled = true,
+}: { enabled?: boolean } = {}): UseTraceTokenStatsChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
     useOverviewChartContext();
   // Fetch token stats with p50, p90, p99 aggregations grouped by time
@@ -61,9 +63,12 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
     ],
     timeIntervalSeconds,
     filters,
+    enabled,
   });
 
-  // Fetch overall average tokens (without time bucketing) for the header
+  // Fetch overall average tokens (without time bucketing) for the header.
+  // Uses [SUM, AVG] so React Query deduplicates with the identical call
+  // in useTraceTokenUsageChartData.
   const {
     data: avgTokensData,
     isLoading: isLoadingAvg,
@@ -74,8 +79,9 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
     endTimeMs,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TOTAL_TOKENS,
-    aggregations: [{ aggregation_type: AggregationType.AVG }],
+    aggregations: [{ aggregation_type: AggregationType.SUM }, { aggregation_type: AggregationType.AVG }],
     filters,
+    enabled,
   });
 
   const tokenStatsDataPoints = useMemo(() => tokenStatsData?.data_points || [], [tokenStatsData?.data_points]);

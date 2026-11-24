@@ -128,8 +128,7 @@ export const parseLoggedModelMetricOrderByColumnId = (metricColumnId: string) =>
       datasetDigest: parsed.datasetDigest,
     };
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to parse metric column ID:', error);
+    // fail silently, return fallback below
     return fallback;
   }
 };

@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 
 import {
+  Button,
   Overflow,
+  PencilIcon,
   Tag,
   Typography,
   useDesignSystemTheme,
@@ -28,6 +31,7 @@ import {
   type TokenUsage,
 } from './ModelTraceExplorerTokenUsageHoverCard';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
+import { useModelTraceExplorerUpdateTraceContext } from './contexts/UpdateTraceContext';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
 import { ModelTraceHeaderStatusTag } from './ModelTraceHeaderStatusTag';
@@ -41,8 +45,10 @@ const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_detai
 export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: ModelTrace['info'] }) => {
   const { theme } = useDesignSystemTheme();
   const [showNotification, setShowNotification] = useState(false);
+  const [showCopyError, setShowCopyError] = useState(false);
   const { rootNode } = useModelTraceExplorerViewState();
   const { experimentId } = useParams();
+  const { onEditTags } = useModelTraceExplorerUpdateTraceContext();
   const tags = Object.entries(modelTraceInfo.tags ?? {}).filter(([key]) => isUserFacingTag(key));
 
   const [modelTraceId, modelTraceIdToDisplay] = useMemo(() => {
@@ -84,15 +90,21 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
     return undefined;
   }, [rootNode]);
 
-  const handleTagClick = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleTagClick = async (text: string) => {
+    const success = await copyToClipboard(text);
+    handleCopy(success);
   };
 
   const getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40);
 
-  const handleCopy = useCallback(() => {
-    setShowNotification(true);
-    setTimeout(() => setShowNotification(false), 2000);
+  const handleCopy = useCallback((success: boolean = true) => {
+    if (success) {
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), 2000);
+    } else {
+      setShowCopyError(true);
+      setTimeout(() => setShowCopyError(false), 2000);
+    }
   }, []);
 
   return (
@@ -150,7 +162,10 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           traceMetadata={(modelTraceInfo as ModelTraceInfoV3)?.trace_metadata}
           getTruncatedLabel={getTruncatedLabel}
         />
-        {tags.length > 0 && (
+        {/* Render the Tags section when there are tags, or when the caller opted into editing (so the
+            "Add tags" affordance shows even with zero tags). With `onEditTags` undefined the condition
+            collapses to the prior `tags.length > 0`, leaving v3 and other consumers unchanged. */}
+        {(tags.length > 0 || Boolean(onEditTags)) && (
           <div
             css={{
               display: 'flex',
@@ -163,30 +178,52 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
             <Typography.Text size="md" color="secondary">
               <FormattedMessage defaultMessage="Tags" description="Label for the tags section" />
             </Typography.Text>
-            <Overflow noMargin>
-              {tags.map(([key, value]) => {
-                const fullText = `${key}: ${value}`;
+            {tags.length > 0 && (
+              <Overflow noMargin>
+                {tags.map(([key, value]) => {
+                  const fullText = `${key}: ${value}`;
 
-                return (
-                  <Tooltip
-                    key={key}
-                    componentId="shared.model-trace-explorer.header-details.tooltip"
-                    content={fullText}
-                  >
-                    <Tag
-                      componentId="shared.model-trace-explorer.header-details.tag"
-                      onClick={() => {
-                        handleTagClick(fullText);
-                        handleCopy();
-                      }}
-                      css={{ cursor: 'pointer' }}
+                  return (
+                    <Tooltip
+                      key={key}
+                      componentId="shared.model-trace-explorer.header-details.tooltip"
+                      content={fullText}
                     >
-                      {getTruncatedLabel(`${key}: ${value}`)}
-                    </Tag>
-                  </Tooltip>
-                );
-              })}
-            </Overflow>
+                      <Tag
+                        componentId="shared.model-trace-explorer.header-details.tag"
+                        onClick={() => {
+                          handleTagClick(fullText);
+                        }}
+                        css={{ cursor: 'pointer' }}
+                      >
+                        {getTruncatedLabel(`${key}: ${value}`)}
+                      </Tag>
+                    </Tooltip>
+                  );
+                })}
+              </Overflow>
+            )}
+            {onEditTags && (
+              <Button
+                componentId="shared.model-trace-explorer.header-details.edit-tags"
+                size="small"
+                type="tertiary"
+                icon={<PencilIcon />}
+                onClick={() => onEditTags(modelTraceInfo)}
+              >
+                {tags.length > 0 ? (
+                  <FormattedMessage
+                    defaultMessage="Edit"
+                    description="Label for the button that edits a trace's tags"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Add tags"
+                    description="Label for the button that adds tags to a trace with none"
+                  />
+                )}
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -197,6 +234,19 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
               <FormattedMessage
                 defaultMessage="Copied to clipboard"
                 description="Success message for the notification"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {showCopyError && (
+        <Notification.Provider>
+          <Notification.Root severity="error" componentId={BASE_NOTIFICATION_COMPONENT_ID}>
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Failed to copy to clipboard"
+                description="Error message when clipboard copy fails"
               />
             </Notification.Title>
           </Notification.Root>

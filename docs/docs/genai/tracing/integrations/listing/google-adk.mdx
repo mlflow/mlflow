@@ -1,6 +1,10 @@
 ---
+title: Tracing Google Agent Development Kit (ADK)
+description: Trace Google Agent Development Kit agent executions with MLflow via OpenTelemetry for full observability into modular AI agent workflows.
 sidebar_position: 5
 sidebar_label: Google ADK
+keywords: [google adk, tracing, mlflow, ai agent, opentelemetry, google]
+image: /images/llms/tracing/google-adk-tracing.png
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
@@ -15,7 +19,7 @@ import { APILink } from "@site/src/components/APILink";
 ## Step 1: Install libraries
 
 ```bash
-pip install 'mlflow[genai]>=3.6.0' google-adk opentelemetry-exporter-otlp-proto-http
+pip install 'mlflow>=3.6.0' google-adk opentelemetry-exporter-otlp-proto-http
 ```
 
 ## Step 2: Start the MLflow Tracking Server

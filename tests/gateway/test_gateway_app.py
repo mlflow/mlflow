@@ -90,6 +90,17 @@ def test_health(client: TestClient):
     assert response.json() == {"status": "OK"}
 
 
+def test_runtime_feature_toggle_does_not_disable_legacy_standalone_app(
+    client: TestClient, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_AI_GATEWAY", "false")
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "OK"}
+
+
 def test_favicon(client: TestClient):
     response = client.get("/favicon.ico")
     assert response.status_code == 200
@@ -249,6 +260,7 @@ def test_dynamic_route():
                 "object": "chat.completion",
                 "created": 1677858242,
                 "model": "gpt-4o-mini",
+                "provider": "openai",
                 "usage": {
                     "prompt_tokens": 13,
                     "completion_tokens": 7,

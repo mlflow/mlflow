@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import type {
   Assessment,
@@ -6,7 +6,7 @@ import type {
   ModelTraceSpanNode,
   RawModelTraceChatMessage,
 } from './ModelTrace.types';
-import { ModelSpanType, type ModelTraceSpanV3 } from './ModelTrace.types';
+import { ModelSpanType, SpanLogLevel, type ModelTraceSpanV3 } from './ModelTrace.types';
 import {
   MOCK_CHAT_SPAN,
   MOCK_CHAT_TOOL_CALL_SPAN,
@@ -23,8 +23,10 @@ import {
   MOCK_V3_TRACE,
 } from './ModelTraceExplorer.test-utils';
 import {
+  getSpanLogLevel,
   parseModelTraceToTree,
   parseModelTraceToTreeWithMultipleRoots,
+  parseSpanLogLevel,
   searchTree,
   searchTreeBySpanId,
   getMatchesFromSpan,
@@ -41,7 +43,12 @@ import {
   getTotalTokens,
   getTraceCost,
   convertOtelAttributesToMap,
+  decodeLinkTraceId,
+  getTraceHref,
   isSessionLevelAssessment,
+  createTraceV4SerializedLocation,
+  parseTraceV4SerializedLocation,
+  tryDeserializeAttribute,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -365,6 +372,52 @@ describe('searchTree', () => {
         matchIndex: 0,
       }),
     ]);
+  });
+
+  // searchTree used to recurse once per span and merge results with push(...spread),
+  // so a large trace could exhaust the call stack or exceed the argument limit --
+  // which threw inside a useMemo and took down the whole panel.
+  const buildSearchableNode = (key: string, children: ModelTraceSpanNode[] = []): ModelTraceSpanNode => ({
+    key,
+    title: key,
+    start: 0,
+    end: 1,
+    inputs: { question: `${key}-needle` },
+    outputs: {},
+    attributes: {},
+    events: [],
+    assessments: [],
+    traceId: 'trace-id',
+    children,
+  });
+
+  it('should handle a tree deeper than the call stack allows', () => {
+    // ~2-3 stack frames per level in the old recursive implementation, so this is
+    // comfortably past the engine limit while staying cheap to build
+    const depth = 12000;
+    let node = buildSearchableNode('span-0');
+    for (let i = 1; i < depth; i++) {
+      node = buildSearchableNode(`span-${i}`, [node]);
+    }
+
+    const matchesPerSpan = searchTree(buildSearchableNode('solo'), 'needle', TEST_SPAN_FILTER_STATE).matches.length;
+    expect(matchesPerSpan).toBeGreaterThan(0);
+
+    const { filteredTreeNodes, matches } = searchTree(node, 'needle', TEST_SPAN_FILTER_STATE);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    expect(matches).toHaveLength(depth * matchesPerSpan);
+  });
+
+  it('should preserve match ordering across a very wide level', () => {
+    const width = 5000;
+    const children = Array.from({ length: width }, (_, i) => buildSearchableNode(`child-${i}`));
+    const root = buildSearchableNode('root', children);
+
+    const { matches } = searchTree(root, 'needle', TEST_SPAN_FILTER_STATE);
+
+    // a span's own matches come before its children's, and children keep their order
+    expect(matches.map((match) => match.span.key)).toEqual(['root', ...children.map((child) => child.key)]);
   });
 });
 
@@ -1185,6 +1238,8 @@ describe('convertOtelAttributesToMap', () => {
         { key: 'bool_attr', value: { bool_value: true } },
         { key: 'int_attr', value: { int_value: 42 } },
         { key: 'double_attr', value: { double_value: 3.14 } },
+        // an empty AnyValue is how OTLP represents null
+        { key: 'null_attr', value: {} },
       ],
     } as any;
 
@@ -1198,6 +1253,65 @@ describe('convertOtelAttributesToMap', () => {
         bool_attr: true,
         int_attr: 42,
         double_attr: 3.14,
+        null_attr: null,
+      },
+    });
+  });
+
+  it('should recursively decode kvlist and array values', () => {
+    // shape returned by OTLP-based endpoints (e.g. V3 traces/get) for
+    // dict-valued attributes like mlflow.spanInputs / mlflow.spanOutputs
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        {
+          key: 'mlflow.spanInputs',
+          value: {
+            kvlist_value: {
+              values: [
+                {
+                  key: 'messages',
+                  value: {
+                    array_value: {
+                      values: [
+                        {
+                          kvlist_value: {
+                            values: [
+                              { key: 'role', value: { string_value: 'user' } },
+                              { key: 'content', value: { string_value: 'How are you?' } },
+                            ],
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+                { key: 'n', value: { int_value: 1 } },
+                // null fields are serialized as kvlist entries without a value
+                { key: 'stop' },
+              ],
+            },
+          },
+        },
+        { key: 'empty_kvlist', value: { kvlist_value: {} } },
+        { key: 'empty_array', value: { array_value: {} } },
+        { key: 'int64_as_string', value: { int_value: '1783916154' } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        'mlflow.spanInputs': {
+          messages: [{ role: 'user', content: 'How are you?' }],
+          n: 1,
+          stop: null,
+        },
+        empty_kvlist: {},
+        empty_array: [],
+        int64_as_string: 1783916154,
       },
     });
   });
@@ -1303,6 +1417,86 @@ describe('convertOtelAttributesToMap', () => {
       span_id: '1',
       events: [{ attributes: { converted: 'value' } }],
     });
+  });
+
+  it('should normalize OTLP-format links (base64 ids, key-value array attributes)', () => {
+    // shape returned by OTLP-based endpoints (V3 traces/get): base64-encoded
+    // ids and K/V-list attributes that the links UI expects as tr-<hex> + map
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'r/bfSxmZcIKSljvv1ZuvFA==',
+          span_id: 'OMvyqZzI1C0=',
+          attributes: [
+            { key: 'relationship', value: { string_value: 'triggered_by' } },
+            { key: 'handoff', value: { string_value: 'research' } },
+          ],
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'tr-aff6df4b1999708292963befd59baf14',
+          span_id: '38cbf2a99cc8d42d',
+          attributes: {
+            relationship: 'triggered_by',
+            handoff: 'research',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should leave already-normalized links (tr- id, map attributes) unchanged', () => {
+    // shape returned by the artifact route: already tr-<hex> + hex span id + map
+    const modelTraceSpan = {
+      span_id: '1',
+      links: [
+        {
+          trace_id: 'tr-aff6df4b1999708292963befd59baf14',
+          span_id: '38cbf2a99cc8d42d',
+          attributes: { relationship: 'triggered_by' },
+        },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual(modelTraceSpan);
+  });
+});
+
+describe('decodeLinkTraceId', () => {
+  it('should decode a base64-encoded trace id to tr-<hex>', () => {
+    expect(decodeLinkTraceId('r/bfSxmZcIKSljvv1ZuvFA==')).toBe('tr-aff6df4b1999708292963befd59baf14');
+  });
+
+  it('should leave a tr- prefixed id unchanged', () => {
+    expect(decodeLinkTraceId('tr-aff6df4b1999708292963befd59baf14')).toBe('tr-aff6df4b1999708292963befd59baf14');
+  });
+
+  it('should leave a V4 trace:/ id unchanged', () => {
+    expect(decodeLinkTraceId('trace:/catalog.schema/abc123')).toBe('trace:/catalog.schema/abc123');
+  });
+
+  it('should return an empty string for nullish input', () => {
+    expect(decodeLinkTraceId(undefined)).toBe('');
+    expect(decodeLinkTraceId(null)).toBe('');
+  });
+});
+
+describe('getTraceHref', () => {
+  it('uses only the canonical trace ID query parameter', () => {
+    const href = getTraceHref('tr-linked', MOCK_TRACE_INFO_V3);
+
+    expect(href).toContain('traceId=tr-linked');
+    expect(href).not.toContain('selectedEvaluationId');
   });
 });
 
@@ -1440,5 +1634,291 @@ describe('prettyPrintChatMessage - audio parts', () => {
     const result = prettyPrintChatMessage(message);
     expect(result?.content).toBe('');
     expect(result?.audioParts).toEqual([{ data: 'audiodata', format: 'wav' }]);
+  });
+});
+
+describe('createTraceV4SerializedLocation', () => {
+  it('should serialize MLFLOW_EXPERIMENT location to experiment ID', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'MLFLOW_EXPERIMENT',
+        mlflow_experiment: { experiment_id: '123' },
+      }),
+    ).toBe('123');
+  });
+
+  it('should serialize UC_SCHEMA location to catalog.schema', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'UC_SCHEMA',
+        uc_schema: { catalog_name: 'catalog', schema_name: 'schema' },
+      }),
+    ).toBe('catalog.schema');
+  });
+
+  it('should serialize UC_TABLE_PREFIX location to catalog.schema.prefix', () => {
+    expect(
+      createTraceV4SerializedLocation({
+        type: 'UC_TABLE_PREFIX',
+        uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
+      }),
+    ).toBe('catalog.schema.prefix');
+  });
+});
+
+describe('parseTraceV4SerializedLocation', () => {
+  it('should parse 1-part string as MLFLOW_EXPERIMENT', () => {
+    expect(parseTraceV4SerializedLocation('123')).toEqual({
+      type: 'MLFLOW_EXPERIMENT',
+      mlflow_experiment: { experiment_id: '123' },
+    });
+  });
+
+  it('should parse 2-part string as UC_SCHEMA', () => {
+    expect(parseTraceV4SerializedLocation('catalog.schema')).toEqual({
+      type: 'UC_SCHEMA',
+      uc_schema: { catalog_name: 'catalog', schema_name: 'schema' },
+    });
+  });
+
+  it('should parse 3-part string as UC_TABLE_PREFIX', () => {
+    expect(parseTraceV4SerializedLocation('catalog.schema.prefix')).toEqual({
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: { catalog_name: 'catalog', schema_name: 'schema', table_prefix: 'prefix' },
+    });
+  });
+});
+
+describe('tryDeserializeAttribute', () => {
+  it('preserves already decoded OTLP values without parsing or coercing them', () => {
+    const spy = jest.spyOn(JSON, 'parse');
+    try {
+      for (const value of [undefined, null, true, 42, 1.25, [], [5], [false], { key: 5 }]) {
+        expect(tryDeserializeAttribute(value)).toBe(value);
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('skips JSON.parse for plain attributes and missing values', () => {
+    const spy = jest.spyOn(JSON, 'parse');
+    try {
+      for (const value of ['CHAIN', 'provider:model', 'falsehood', undefined]) {
+        expect(tryDeserializeAttribute(value as string)).toBe(value);
+      }
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it.each(['true', 'false', 'null', ' \t\r\ntrue ', '-0', '1e-5', '{"x":["🙂",null]}'])(
+    'preserves JSON parsing for %j',
+    (value) => expect(tryDeserializeAttribute(value)).toEqual(JSON.parse(value)),
+  );
+
+  it.each([
+    ['small int', '42', 42],
+    ['float', '3.14', 3.14],
+    // These are floats whose JSON text is not JS's canonical number formatting; they must keep
+    // deserializing to numbers (the round-trip precision guard applies only to integer literals).
+    ['float with trailing .0', '1.0', 1],
+    ['scientific notation float', '1e-05', 0.00001],
+    ['string', '"hello"', 'hello'],
+    ['object', '{"a":1}', { a: 1 }],
+    ['array', '[1,2,3]', [1, 2, 3]],
+  ])('parses %s into its JSON value', (_label, raw, expected) => {
+    expect(tryDeserializeAttribute(raw)).toEqual(expected);
+  });
+
+  it.each([
+    ['non-JSON string', 'not json'],
+    ['malformed JSON', '{'],
+  ])('returns the original string unchanged for %s', (_label, raw) => {
+    expect(tryDeserializeAttribute(raw)).toBe(raw);
+  });
+
+  it('keeps a large int64-range numeric string as-is instead of losing precision', () => {
+    // 2051281657916407550 and 2051281657916407549 differ only in the last digit, well within
+    // IEEE-754 double's rounding granularity at this magnitude (~512) — JSON.parse would
+    // otherwise silently collapse both to the same corrupted number, 2051281657916407600.
+    expect(tryDeserializeAttribute('2051281657916407550')).toBe('2051281657916407550');
+    expect(tryDeserializeAttribute('2051281657916407549')).toBe('2051281657916407549');
+  });
+
+  it('keeps an unsafe integer whose shortest representation matches its input text', () => {
+    // 1000000000000000100 parses to the double 1000000000000000128, but JS prints the shortest
+    // text that round-trips ('1000000000000000100'), so a re-stringify check would wrongly
+    // accept the corrupted number — only the safe-integer range check catches this.
+    expect(tryDeserializeAttribute('1000000000000000100')).toBe('1000000000000000100');
+  });
+
+  it('keeps a whitespace-padded unsafe integer as-is', () => {
+    // `JSON.parse` accepts surrounding whitespace, so the guard has to match on trimmed text.
+    expect(tryDeserializeAttribute(' 9007199254740993 ')).toBe(' 9007199254740993 ');
+  });
+
+  it('keeps a numeric string far beyond int64 range as-is', () => {
+    const huge = '1' + '0'.repeat(400);
+    expect(tryDeserializeAttribute(huge)).toBe(huge);
+  });
+});
+
+describe('parseSpanLogLevel', () => {
+  it.each([
+    // wire shape: JSON-stringified int from the artifact endpoint
+    ['"30" string', '30', SpanLogLevel.WARNING],
+    ['"10" string', '10', SpanLogLevel.DEBUG],
+    // wire shape: int_value extracted by convertOtelAttributesToMap
+    ['number 30', 30, SpanLogLevel.WARNING],
+    ['number 50', 50, SpanLogLevel.CRITICAL],
+  ])('parses %s into the right SpanLogLevel', (_label, raw, expected) => {
+    expect(parseSpanLogLevel(raw)).toBe(expected);
+  });
+
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+    // tryDeserializeAttribute returns the original string when it fails to parse JSON
+    ['non-numeric string', 'NOPE'],
+    ['malformed JSON', '{'],
+  ])('returns undefined for %s', (_label, raw) => {
+    expect(parseSpanLogLevel(raw)).toBeUndefined();
+  });
+});
+
+describe('getSpanLogLevel', () => {
+  const makeSpan = (logLevel: SpanLogLevel | undefined): ModelTraceSpanNode =>
+    ({
+      key: 's',
+      type: ModelSpanType.LLM,
+      start: 0,
+      end: 1,
+      attributes: {},
+      assessments: [],
+      traceId: '',
+      logLevel,
+    }) as ModelTraceSpanNode;
+
+  it('returns the level set on the node', () => {
+    expect(getSpanLogLevel(makeSpan(SpanLogLevel.WARNING))).toBe(SpanLogLevel.WARNING);
+    expect(getSpanLogLevel(makeSpan(SpanLogLevel.DEBUG))).toBe(SpanLogLevel.DEBUG);
+  });
+
+  it('treats unset as DEBUG so old/unclassified spans stay visible by default', () => {
+    expect(getSpanLogLevel(makeSpan(undefined))).toBe(SpanLogLevel.DEBUG);
+  });
+});
+
+describe('searchTree log-level filter', () => {
+  // Build a small tree with mixed log levels so the threshold predicate can be
+  // exercised independently of the search and span-type filters.
+  const makeNode = (
+    key: string,
+    level: SpanLogLevel | undefined,
+    children: ModelTraceSpanNode[] = [],
+  ): ModelTraceSpanNode =>
+    ({
+      key,
+      title: key,
+      type: ModelSpanType.LLM,
+      start: 0,
+      end: 1,
+      inputs: {},
+      outputs: {},
+      attributes: {},
+      assessments: [],
+      events: [],
+      traceId: '',
+      children,
+      logLevel: level,
+    }) as ModelTraceSpanNode;
+
+  const buildTree = () =>
+    makeNode('root', SpanLogLevel.WARNING, [
+      makeNode('child-info', SpanLogLevel.INFO),
+      makeNode('child-debug', SpanLogLevel.DEBUG),
+      makeNode('child-error', SpanLogLevel.ERROR),
+    ]);
+
+  it('keeps every span when threshold is DEBUG (default behavior)', () => {
+    const filterState = { ...TEST_SPAN_FILTER_STATE, minLogLevel: SpanLogLevel.DEBUG };
+    const { filteredTreeNodes } = searchTree(buildTree(), '', filterState);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-info', 'child-debug', 'child-error']);
+  });
+
+  it('hides spans below the threshold but keeps parents of matched children when showParents is on', () => {
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.WARNING,
+      showParents: true,
+    };
+    const { filteredTreeNodes } = searchTree(buildTree(), '', filterState);
+
+    expect(filteredTreeNodes).toHaveLength(1);
+    // Only the ERROR child survives; root is preserved by showParents.
+    expect(filteredTreeNodes[0].key).toBe('root');
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-error']);
+  });
+
+  it('drops a sub-threshold parent (cutting it out of the tree) when showParents is off', () => {
+    // Re-shape the tree so the only above-threshold span is a grandchild,
+    // forcing the filter to surface it without an above-threshold parent.
+    const tree = makeNode('root', SpanLogLevel.DEBUG, [
+      makeNode('mid', SpanLogLevel.DEBUG, [makeNode('leaf', SpanLogLevel.ERROR)]),
+    ]);
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.WARNING,
+      showParents: false,
+    };
+    const { filteredTreeNodes } = searchTree(tree, '', filterState);
+
+    // root and mid are below threshold and get cut out; leaf bubbles up.
+    expect(filteredTreeNodes.map((n) => n.key)).toEqual(['leaf']);
+  });
+
+  it('always shows spans with exceptions even when below the level threshold', () => {
+    const tree: ModelTraceSpanNode = makeNode('root', SpanLogLevel.WARNING, [
+      {
+        ...makeNode('child-with-exception', SpanLogLevel.DEBUG),
+        events: [{ name: 'exception', attributes: {} }],
+      } as ModelTraceSpanNode,
+    ]);
+    const filterState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.ERROR,
+      showExceptions: true,
+      showParents: true,
+    };
+    const { filteredTreeNodes } = searchTree(tree, '', filterState);
+
+    expect(filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['child-with-exception']);
+  });
+
+  it('treats spans with no level attribute as DEBUG so they stay visible at the default threshold', () => {
+    const tree = makeNode('root', SpanLogLevel.WARNING, [
+      makeNode('unset-child', undefined), // no mlflow.spanLogLevel attribute
+    ]);
+    // DEBUG threshold (default): unset child stays (DEBUG >= DEBUG).
+    const debugState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.DEBUG,
+      showParents: true,
+    };
+    expect(searchTree(tree, '', debugState).filteredTreeNodes[0].children?.map((c) => c.key)).toEqual(['unset-child']);
+
+    // INFO threshold drops the unset child (DEBUG < INFO); root has no surviving children
+    // but is preserved on its own merit (WARNING >= INFO).
+    const infoState = {
+      ...TEST_SPAN_FILTER_STATE,
+      minLogLevel: SpanLogLevel.INFO,
+      showParents: true,
+    };
+    expect(searchTree(tree, '', infoState).filteredTreeNodes[0].children?.map((c) => c.key)).toEqual([]);
   });
 });

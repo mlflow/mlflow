@@ -7,12 +7,16 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   GenericSkeleton,
+  LinkIcon,
   Modal,
+  Notification,
+  Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
-import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorer';
-import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawer';
+import { ModelTraceExplorer } from '../../model-trace-explorer/ModelTraceExplorerEntrypoint';
+import { ModelTraceExplorerDrawer } from '../../model-trace-explorer/ModelTraceExplorerDrawerEntrypoint';
 import { ModelTraceExplorerSkeleton } from '../../model-trace-explorer/ModelTraceExplorerSkeleton';
 import { shouldUseModelTraceExplorerDrawerUI } from '../../model-trace-explorer/FeatureUtils';
 import { useModelTraceExplorerContext } from '../../model-trace-explorer/ModelTraceExplorerContext';
@@ -20,7 +24,7 @@ import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
 
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
-import { AssistantAwareDrawer } from '../../../../common/components/AssistantAwareDrawer';
+import { GenAITracesTableContext } from '../GenAITracesTableContext';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
 import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace, useGetTraceByFullTraceId } from '../hooks/useGetTrace';
@@ -31,6 +35,7 @@ import type {
   SaveAssessmentsQuery,
 } from '../types';
 import { convertTraceInfoV3ToRunEvalEntry, getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../utils/TraceUtils';
+import { copyToClipboard } from '../../../../common/utils/copyToClipboard';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
@@ -56,6 +61,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     assessmentInfos,
     getTrace,
     saveAssessmentsQuery,
+    selectedSpanId,
   }: {
     experimentId: string;
     runUuid?: string;
@@ -68,6 +74,8 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     assessmentInfos: AssessmentInfo[];
     getTrace?: GetTraceFunction;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
+    /** Opens the single-trace view on this span, for a caller that knows which span it means. */
+    selectedSpanId?: string;
   }) => {
     const { theme } = useDesignSystemTheme();
     const [showAddToEvaluationDatasetModal, setShowAddToEvaluationDatasetModal] = useState(false);
@@ -123,15 +131,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     }, [evaluations, nextEvaluationIdx, onChangeEvaluationId]);
 
     const evaluation = useMemo(() => evaluations?.find(findEval), [evaluations, findEval]);
-    const nextEvaluation = useMemo(
-      () => (nextEvaluationIdx && evaluations ? evaluations?.[nextEvaluationIdx] : undefined),
-      [evaluations, nextEvaluationIdx],
-    );
-    const previousEvaluation = useMemo(
-      () => (previousEvaluationIdx && evaluations ? evaluations?.[previousEvaluationIdx] : undefined),
-      [evaluations, previousEvaluationIdx],
-    );
-
     const tracesTableConfig = useGenAITracesTableConfig();
 
     // --- Auto-polling until trace is complete if the backend supports returning partial spans ---
@@ -139,17 +138,17 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     const shouldEnablePolling = spansLocation === TRACKING_STORE_SPANS_LOCATION;
 
     // prettier-ignore
-    const traceQueryResult = useGetTrace(
+    const traceQueryResult = useGetTrace({
       getTrace,
-      evaluation?.currentRunValue?.traceInfo,
-      shouldEnablePolling,
-    );
+      traceInfo:evaluation?.currentRunValue?.traceInfo,
+      enablePolling: shouldEnablePolling,
+    });
     // prettier-ignore
-    const compareToTraceQueryResult = useGetTrace(
+    const compareToTraceQueryResult = useGetTrace({
       getTrace,
-      evaluation?.otherRunValue?.traceInfo,
-      shouldEnablePolling,
-    );
+      traceInfo:evaluation?.otherRunValue?.traceInfo,
+      enablePolling: shouldEnablePolling,
+    });
     // In case that the selected evaluation is not provided upstream (but the list is loaded), we lazily fetch the full trace data here
     const shouldFetchTraceBySearchParamId = useMemo(
       () => Boolean(evaluations) && !evaluation && Boolean(selectedEvaluationId),
@@ -159,18 +158,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     const traceBySearchParamQueryResult = useGetTraceByFullTraceId(
       getTrace,
       shouldFetchTraceBySearchParamId ? selectedEvaluationId : undefined,
-    );
-
-    // Prefetching the next and previous traces to optimize performance
-    // prettier-ignore
-    useGetTrace(
-      getTrace,
-      nextEvaluation?.currentRunValue?.traceInfo,
-    );
-    // prettier-ignore
-    useGetTrace(
-      getTrace,
-      previousEvaluation?.currentRunValue?.traceInfo,
     );
 
     // is true if only one of the two runs has a trace
@@ -236,10 +223,20 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
           ((shouldFetchTraceBySearchParamId && traceBySearchParamQueryResult?.data) || isSingleTraceView) &&
           !isNil(currentTraceQueryResult.data) ? (
-            <div css={{ height: 'calc(100% - 34px)', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
+            <div
+              css={{
+                height: '100%',
+                marginLeft: -theme.spacing.lg,
+                marginRight: -theme.spacing.lg,
+                marginBottom: -theme.spacing.lg,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
+                selectedSpanId={selectedSpanId}
               />
             </div>
           ) : (
@@ -338,6 +335,19 @@ const ModalWrapper = ({
 }) => {
   const { theme, classNamePrefix } = useDesignSystemTheme();
   const useRadixModal = false;
+  const [showCopiedNotification, setShowCopiedNotification] = useState(false);
+  const [showCopyError, setShowCopyError] = useState(false);
+
+  const handleShareClick = useCallback(async () => {
+    const success = await copyToClipboard(window.location.href);
+    if (success) {
+      setShowCopiedNotification(true);
+      setTimeout(() => setShowCopiedNotification(false), 2000);
+    } else {
+      setShowCopyError(true);
+      setTimeout(() => setShowCopyError(false), 2000);
+    }
+  }, []);
 
   return (
     <div
@@ -352,7 +362,31 @@ const ModalWrapper = ({
       <Modal
         componentId="mlflow.evaluations_review.modal"
         visible
-        title={renderModalTitle()}
+        title={
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            <Tooltip
+              componentId="mlflow.evaluations_review.modal.share-tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="Copy link to trace"
+                  description="Tooltip for the share trace button"
+                />
+              }
+            >
+              <Button
+                componentId="mlflow.evaluations_review.modal.share-button"
+                icon={<LinkIcon />}
+                size="small"
+                type="tertiary"
+                onClick={handleShareClick}
+                css={{ flexShrink: 0 }}
+              >
+                <FormattedMessage defaultMessage="Share" description="Label for the share trace button" />
+              </Button>
+            </Tooltip>
+          </div>
+        }
         onCancel={handleClose}
         size="wide"
         verticalSizing="maxed_out"
@@ -431,6 +465,32 @@ const ModalWrapper = ({
           </div>
         </div>
       </Modal>
+      {showCopiedNotification && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.evaluations_review.modal.share-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Copied to clipboard"
+                description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {showCopyError && (
+        <Notification.Provider>
+          <Notification.Root severity="error" componentId="mlflow.evaluations_review.modal.share-error-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Failed to copy to clipboard"
+                description="Error message when clipboard copy fails"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
     </div>
   );
 };
@@ -438,12 +498,22 @@ const ModalWrapper = ({
 // prettier-ignore
 const ModelTraceExplorerModalBody = ({
   traceData,
+  selectedSpanId,
 }: {
   traceData: ModelTrace;
+  selectedSpanId?: string;
 }) => {
+  // The explorer picks its selected node up from `selectedSpanId` on mount only, so stepping to
+  // another trace would otherwise land on that trace's root while the URL names a span. Remount
+  // it per trace and span when a caller asks for one; callers that pass none keep one instance.
+  const spanSelectionKey = selectedSpanId
+    ? `${isV3ModelTraceInfo(traceData.info) ? traceData.info.trace_id : ''}-${selectedSpanId}`
+    : undefined;
   return (
     <ModelTraceExplorer
+      key={spanSelectionKey}
       modelTrace={traceData}
+      selectedSpanId={selectedSpanId}
     />
   );
 };

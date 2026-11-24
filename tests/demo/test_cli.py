@@ -1,9 +1,3 @@
-"""Tests for the mlflow demo CLI command.
-
-Includes both quick help/registration tests and functional tests that
-invoke the actual CLI command with a mocked server.
-"""
-
 import socket
 import sys
 from unittest import mock
@@ -20,6 +14,7 @@ from mlflow.demo.generators.traces import DEMO_VERSION_TAG
 from mlflow.demo.registry import demo_registry
 from mlflow.genai.datasets import search_datasets
 from mlflow.genai.prompts import search_prompts
+from mlflow.utils.process import ShellCommandException
 
 
 @pytest.fixture(autouse=True)
@@ -101,7 +96,7 @@ def test_cli_creates_traces():
 
     # Filter for demo traces only (exclude evaluation traces created by evaluate())
     demo_traces = [t for t in all_traces if t.info.trace_metadata.get(DEMO_VERSION_TAG)]
-    assert len(demo_traces) == 34
+    assert len(demo_traces) == 42
 
 
 def test_cli_creates_evaluation_datasets():
@@ -188,3 +183,19 @@ def test_cli_unreachable_server_error():
 def test_check_server_connection_fails_for_bad_url():
     with pytest.raises(click.ClickException, match="Cannot connect to MLflow server"):
         _check_server_connection("http://localhost:59999", max_retries=1, timeout=1)
+
+
+def test_cli_reports_a_failed_server():
+    runner = CliRunner()
+
+    with mock.patch(
+        "mlflow.server._run_server",
+        side_effect=ShellCommandException("The job runner failed, so the server stopped."),
+    ):
+        result = runner.invoke(demo, ["--no-browser"], input="n\n")
+
+    assert result.exit_code == 1
+    assert (
+        "The MLflow server failed: The job runner failed, so the server stopped." in result.output
+    )
+    assert "Traceback" not in result.output

@@ -21,6 +21,7 @@ def _check(
     creation_time,
     last_update_time,
     workspace,
+    effective_trace_archival_retention,
 ):
     assert isinstance(exp, Experiment)
     assert exp.experiment_id == exp_id
@@ -30,6 +31,7 @@ def _check(
     assert exp.creation_time == creation_time
     assert exp.last_update_time == last_update_time
     assert exp.workspace == workspace
+    assert exp.effective_trace_archival_retention == effective_trace_archival_retention
 
 
 def test_creation_and_hydration():
@@ -40,6 +42,7 @@ def test_creation_and_hydration():
     creation_time = get_current_time_millis()
     last_update_time = get_current_time_millis()
     expected_workspace = DEFAULT_WORKSPACE_NAME
+    effective_trace_archival_retention = "30d"
     exp = Experiment(
         exp_id,
         name,
@@ -47,6 +50,7 @@ def test_creation_and_hydration():
         lifecycle_stage,
         creation_time=creation_time,
         last_update_time=last_update_time,
+        effective_trace_archival_retention=effective_trace_archival_retention,
     )
     _check(
         exp,
@@ -57,6 +61,7 @@ def test_creation_and_hydration():
         creation_time,
         last_update_time,
         expected_workspace,
+        effective_trace_archival_retention,
     )
 
     as_dict = {
@@ -67,6 +72,7 @@ def test_creation_and_hydration():
         "tags": {},
         "creation_time": creation_time,
         "last_update_time": last_update_time,
+        "effective_trace_archival_retention": effective_trace_archival_retention,
         "trace_location": None,
         "workspace": expected_workspace,
     }
@@ -82,6 +88,7 @@ def test_creation_and_hydration():
         creation_time,
         last_update_time,
         expected_workspace,
+        effective_trace_archival_retention,
     )
 
     exp3 = Experiment.from_dictionary(as_dict)
@@ -94,6 +101,7 @@ def test_creation_and_hydration():
         creation_time,
         last_update_time,
         expected_workspace,
+        effective_trace_archival_retention,
     )
 
 
@@ -108,7 +116,7 @@ def test_string_repr():
     )
     assert str(exp) == (
         "<Experiment: artifact_location='hi', creation_time=1662004217511, "
-        "experiment_id=0, last_update_time=1662004217511, "
+        "effective_trace_archival_retention=None, experiment_id=0, last_update_time=1662004217511, "
         "lifecycle_stage='active', name='myname', tags={}, "
         "trace_location=None, workspace='default'>"
     )
@@ -163,3 +171,28 @@ def test_trace_location_setter_overrides_lazy():
     override = UnityCatalog("other_cat", "other_sch", "other_pfx")
     exp.trace_location = override
     assert exp.trace_location is override
+
+
+def test_experiment_roundtrip_preserves_workspace():
+    exp_with_workspace = Experiment(
+        experiment_id="1",
+        name="test",
+        artifact_location="/tmp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+        workspace="other_workspace",
+    )
+    proto_with_workspace = exp_with_workspace.to_proto()
+    assert proto_with_workspace.workspace == "other_workspace"
+    recovered_with_workspace = Experiment.from_proto(proto_with_workspace)
+    assert recovered_with_workspace.workspace == "other_workspace"
+
+    exp_without_workspace = Experiment(
+        experiment_id="2",
+        name="test",
+        artifact_location="/tmp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+    )
+    proto_without_workspace = exp_without_workspace.to_proto()
+    assert proto_without_workspace.HasField("workspace")
+    recovered_without_workspace = Experiment.from_proto(proto_without_workspace)
+    assert recovered_without_workspace.workspace == DEFAULT_WORKSPACE_NAME

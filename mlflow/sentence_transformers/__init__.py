@@ -50,6 +50,7 @@ from mlflow.utils.model_utils import (
     _copy_extra_files,
     _download_artifact_from_uri,
     _get_flavor_configuration_from_uri,
+    _is_model_code_loading_allowed,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
 )
@@ -435,11 +436,9 @@ def _get_load_kwargs():
     load_kwargs = {}
     # The trust_remote_code is supported since Sentence Transformers 2.3.0
     if Version(sentence_transformers.__version__) >= Version("2.3.0"):
-        # Always set trust_remote_code=True because we save the entire repository files in
-        # the model artifacts, so there is no risk of running untrusted code unless the logged
-        # artifact is modified by a malicious actor, which is much more broader security
-        # concern that even cannot be prevented by setting trust_remote_code=False.
-        load_kwargs["trust_remote_code"] = True
+        # The entire repository is saved in the model artifacts, so its code is trusted unless
+        # model code execution is disallowed, in which case the library refuses to run it.
+        load_kwargs["trust_remote_code"] = _is_model_code_loading_allowed()
     return load_kwargs
 
 
@@ -538,9 +537,13 @@ class _SentenceTransformerModelWrapper:
             # Wrap the output to OpenAI format only when the input is dict `{"input": ... }`
             if self.task and list(sentences.columns)[0] == _LLM_V1_EMBEDDING_INPUT_KEY:
                 convert_output_to_llm_v1_format = True
-            sentences = sentences.iloc[:, 0]
-            if type(sentences[0]) == list:
+            # `model.encode` rejects `pd.Series`/`DataFrame` since sentence-transformers v5.4
+            # (https://github.com/huggingface/sentence-transformers/pull/3554)
+            sentences = sentences.iloc[:, 0].tolist()
+            if sentences and type(sentences[0]) == list:
                 sentences = sentences[0]
+        elif type(sentences) == pd.Series:
+            sentences = sentences.tolist()
 
         # The encode API has additional parameters that we can add as kwargs.
         # See https://www.sbert.net/docs/package_reference/SentenceTransformer.html#sentence_transformers.SentenceTransformer.encode

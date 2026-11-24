@@ -157,7 +157,6 @@ def _extract_predict_fn(model: Any) -> Callable[..., Any] | None:
 
     Args:
         model: A model object that has a predict method.
-        raw_model: A raw model object that has a predict method.
 
     Returns: The predict function.
     """
@@ -765,6 +764,11 @@ class BuiltInEvaluator(ModelEvaluator):
         ):
             return
 
+        # Model outputs may have indexes unrelated to the input, unlike labels from the dataset.
+        # Drop only output indexes so table assignment matches the positional metric path.
+        if isinstance(y_pred, pd.Series):
+            y_pred = y_pred.array
+
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
         if not isinstance(metric_prefix, str):
             metric_prefix = ""
@@ -791,7 +795,7 @@ class BuiltInEvaluator(ModelEvaluator):
         # Include other_output_columns used in evaluation to the eval table
         if other_output_columns is not None and len(self.other_output_columns_for_eval) > 0:
             for column in self.other_output_columns_for_eval:
-                data[column] = other_output_columns[column]
+                data[column] = other_output_columns[column].array
 
         columns = {}
         for metric_name, metric_value in self.metrics_values.items():

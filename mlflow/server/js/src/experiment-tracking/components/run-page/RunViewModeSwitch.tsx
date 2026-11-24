@@ -1,8 +1,9 @@
-import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Tabs } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams, useSearchParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
+import { getPreservedQueryString } from '../../pages/experiment-page-tabs/side-nav/utils';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState, type ReactNode } from 'react';
 import type { KeyValueEntity } from '../../../common/types';
@@ -42,9 +43,6 @@ const TAB_LABELS: Record<RunPageTabName, ReactNode> = {
   [RunPageTabName.TRACES]: (
     <FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />
   ),
-  [RunPageTabName.ISSUES]: (
-    <FormattedMessage defaultMessage="Issues" description="Run details page > tab selector > issues tab" />
-  ),
   [RunPageTabName.ARTIFACTS]: (
     <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
   ),
@@ -71,7 +69,7 @@ export const RunViewModeSwitch = ({
 }: RunViewModeSwitchProps) => {
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
   const navigate = useNavigate();
-  const { theme } = useDesignSystemTheme();
+  const [searchParams] = useSearchParams();
   const currentTab = useRunViewActiveTab();
   const [removeTabMargin, setRemoveTabMargin] = useState(TABS_WITHOUT_MARGIN.includes(currentTab));
 
@@ -82,15 +80,18 @@ export const RunViewModeSwitch = ({
 
     setRemoveTabMargin(TABS_WITHOUT_MARGIN.includes(newTabKey as RunPageTabName));
 
+    const timeRangeSearch = getPreservedQueryString(searchParams.toString());
+    const withSearchParams = (route: string) => (timeRangeSearch ? `${route}${timeRangeSearch}` : route);
+
     if (newTabKey === RunPageTabName.OVERVIEW) {
       const route = getBaseRoute ? getBaseRoute(experimentId, runUuid) : Routes.getRunPageRoute(experimentId, runUuid);
-      navigate(route);
+      navigate(withSearchParams(route));
       return;
     }
     const route = getTabRoute
       ? getTabRoute(experimentId, runUuid, newTabKey)
       : Routes.getRunPageTabRoute(experimentId, runUuid, newTabKey);
-    navigate(route);
+    navigate(withSearchParams(route));
   };
 
   return (

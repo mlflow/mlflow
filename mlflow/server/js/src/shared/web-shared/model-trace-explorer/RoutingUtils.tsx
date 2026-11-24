@@ -16,11 +16,14 @@ import React, { useCallback, useMemo } from 'react';
 import {
   generatePath,
   useParams as useParamsDirect,
+  useHref as useHrefDirect,
   Link as LinkDirect,
   useLocation as useLocationDirect,
+  useNavigate as useNavigateDirect,
   BrowserRouter,
   type To,
 } from 'react-router-dom';
+import { Typography } from '@databricks/design-system';
 
 /**
  * Workspace utilities — minimal self-contained copies for web-shared.
@@ -37,11 +40,12 @@ const WORKSPACE_QUERY_PARAM = 'workspace';
  * Mirrors getActiveWorkspace() from WorkspaceUtils.ts — uses the same storage key
  * that the main app writes to, so it reads the correct value at runtime.
  */
-const getActiveWorkspace = (): string | null => {
+export const getActiveWorkspace = (): string | null => {
   if (typeof window === 'undefined') {
     return null;
   }
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
   } catch {
     return null;
@@ -226,6 +230,11 @@ const useParams = useParamsDirect;
 
 const useLocation = useLocationDirect;
 
+// Not workspace-prefixed: callers navigate to a path read from the current location, which already carries it.
+const useNavigate = useNavigateDirect;
+
+const useHref = (to: To) => useHrefDirect(prefixRouteWithWorkspaceForTo(to));
+
 const Link = React.forwardRef<
   HTMLAnchorElement,
   ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
@@ -254,4 +263,4 @@ export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
 };
 
-export { generatePath, useParams, Link, useLocation, BrowserRouter };
+export { generatePath, useParams, Link, useLocation, useNavigate, useHref, BrowserRouter };

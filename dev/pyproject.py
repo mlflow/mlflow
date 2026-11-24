@@ -96,6 +96,7 @@ TRACING_INCLUDE_FILES = [
     "mlflow.mistral*",
     "mlflow.openai*",
     "mlflow.strands*",
+    "mlflow.typesafe*",
     "mlflow.haystack*",
     # Other necessary modules
     "mlflow.azure*",
@@ -122,8 +123,8 @@ TRACING_EXCLUDE_FILES = [
     "mlflow/protos/databricks_uc_registry_messages_pb2.py",
     "mlflow/protos/databricks_uc_registry_service_pb2.py",
     "mlflow/protos/model_registry_pb2.py",
-    "mlflow/protos/unity_catalog_oss_messages_pb2.py",
-    "mlflow/protos/unity_catalog_oss_service_pb2.py",
+    "mlflow/protos/unity_catalog_messages_pb2.py",
+    "mlflow/protos/unity_catalog_service_pb2.py",
     # Test files
     "tests",
     "tests.*",
@@ -157,6 +158,20 @@ def format_content_with_taplo(content: str) -> str:
     )
 
 
+DEPENDENCY_POLICY_NOTE = """\
+# Dependency version ranges express compatibility, not security. We do not raise version
+# floors to exclude dependency versions with known CVEs; patched versions are already
+# installable within the existing ranges, and pinning them is the responsibility of the
+# application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
+"""
+
+
+def insert_dependency_policy_note(toml_content: str) -> str:
+    return toml_content.replace(
+        "\ndependencies = [", "\n" + DEPENDENCY_POLICY_NOTE + "dependencies = [", 1
+    )
+
+
 def write_toml_file_if_changed(
     file_path: Path, description: str, toml_data: dict[str, Any]
 ) -> None:
@@ -164,7 +179,7 @@ def write_toml_file_if_changed(
     Write a TOML file with description only if content has changed.
     Formats content with taplo before comparison.
     """
-    new_content = description + "\n" + toml.dumps(toml_data)
+    new_content = description + "\n" + insert_dependency_policy_note(toml.dumps(toml_data))
     formatted_content = format_content_with_taplo(new_content)
     write_file_if_changed(file_path, formatted_content)
 
@@ -297,7 +312,7 @@ def build(package_type: PackageType) -> None:
 
     data = {
         "build-system": {
-            "requires": ["setuptools"],
+            "requires": ["setuptools<=82.0.1"],
             "build-backend": "setuptools.build_meta",
         },
         "project": {
@@ -340,6 +355,7 @@ def build(package_type: PackageType) -> None:
                     "azureml-core>=1.2.0",
                     # Required to log artifacts to SFTP artifact locations
                     "pysftp",
+                    "paramiko<4",
                     # Required by the mlflow.projects module, when running projects against
                     # a remote Kubernetes cluster
                     "kubernetes",
@@ -351,6 +367,8 @@ def build(package_type: PackageType) -> None:
                     # Required to use MySQL, PostgreSQL, or SQL Server as the backend store
                     "PyMySQL",
                     "psycopg2-binary",
+                    # Default driver for postgresql:// URLs in SQLAlchemy 2.1+
+                    "psycopg[binary]",
                     "pymssql",
                 ],
                 "databricks": [
@@ -361,15 +379,10 @@ def build(package_type: PackageType) -> None:
                     "botocore",
                     "databricks-agents>=1.2.0,<2.0",
                 ],
-                "mlserver": [
-                    # Required to serve models through MLServer
-                    "mlserver>=1.2.0,!=1.3.1,<2.0.0",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
-                ],
                 "gateway": gateways_requirements,
                 "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
-                "mcp": ["fastmcp<3,>=2.0.0", "click!=8.3.0"],
+                "mcp": ["fastmcp<4,>=2.7.0", "click!=8.3.0"],
                 "azure": [
                     # Required to log artifacts and models to Azure Blob Storage
                     "azure-storage-blob>=12",
@@ -455,7 +468,9 @@ def build(package_type: PackageType) -> None:
     else:
         out_path = Path("pyproject.toml")
         original_manual_content = out_path.read_text().split(SEPARATOR)[1]
-        generated_part = package_type.description() + "\n" + toml.dumps(data)
+        generated_part = (
+            package_type.description() + "\n" + insert_dependency_policy_note(toml.dumps(data))
+        )
         formatted_generated_part = format_content_with_taplo(generated_part)
         formatted_full_content = formatted_generated_part + SEPARATOR + original_manual_content
 
@@ -478,11 +493,16 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",
+            "agent/setup/templates/**/*.md",
         ]
     }
 
     if package_type != PackageType.SKINNY:
-        package_data["mlflow"] += ["models/container/**/*", "server/js/build/**/*"]
+        package_data["mlflow"] += [
+            "models/container/**/*",
+            "server/js/build/**/*",
+            "utils/model_catalog/*.json",
+        ]
 
     return package_data
 

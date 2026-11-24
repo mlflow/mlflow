@@ -19,7 +19,10 @@ export {
 
 export { useTableSort } from './hooks/useTableSort';
 
-export { GenAiTracesTable } from './GenAITracesTable';
+/**
+ * @deprecated Use `GenAITracesTableBodyContainer` and `GenAITracesTableToolbar` instead for new use cases.
+ */
+export { GenAiTracesTableDeprecated } from './GenAITracesTable';
 export { useGenAiExperimentRunsForComparison } from './hooks/useGenAiExperimentRunsForComparison';
 export { useGenAiTraceEvaluationArtifacts } from './hooks/useGenAiTraceEvaluationArtifacts';
 export {
@@ -43,6 +46,7 @@ export { GenAITracesTableContext, GenAITracesTableProvider } from './GenAITraces
 export { MarkdownConverterProvider as GenAiTracesMarkdownConverterProvider } from './utils/MarkdownUtils';
 
 export { RunColorCircle } from './components/RunColorCircle';
+export { DetectIssuesButton } from './components/DetectIssuesButton';
 
 export { useSelectedColumns } from './hooks/useGenAITracesUIState';
 export { useTableSortURL } from './hooks/useTableSortURL';
@@ -70,6 +74,8 @@ export {
   RUN_EVALUATION_RESULTS_TAB_SINGLE_RUN,
 } from './utils/EvaluationLogging';
 
+export { SIMULATION_GOAL_KEY, SIMULATION_PERSONA_KEY } from './utils/SessionGroupingUtils';
+
 export {
   getTracesTagKeys,
   getTraceInfoInputs,
@@ -79,7 +85,11 @@ export {
   formatTraceId,
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
+  RESULT_ASSESSMENT_NAME,
+  MLFLOW_SOURCE_RUN_KEY,
 } from './utils/TraceUtils';
+
+export { RunName } from './cellRenderers/RunName';
 
 export {
   INPUTS_COLUMN_ID,
@@ -96,9 +106,15 @@ export {
   SIMULATION_PERSONA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
+  USER_COLUMN_ID,
   ISSUE_ID_COLUMN_ID,
   ISSUES_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
+  createAssessmentColumnId,
 } from './hooks/useTableColumns';
+
+export { ExperimentViewTracesStatusLabels } from './cellRenderers/StatusRenderer';
 
 export { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
 
@@ -109,8 +125,19 @@ export {
   createTestColumns,
 } from './test-fixtures/EvaluatedTraceTestUtils';
 
-export { shouldUseTracesV4API, shouldUseLongRunningTracesAPI } from './utils/FeatureUtils';
-export { createTraceLocationForExperiment, createTraceLocationForUCSchema } from './utils/TraceLocationUtils';
+export {
+  shouldUseTracesV4API,
+  shouldUseLongRunningTracesAPI,
+  shouldUseInfinitePaginatedTraces,
+} from './utils/FeatureUtils';
+export {
+  createTraceLocationForExperiment,
+  createTraceLocationForUCSchema,
+  createTraceLocationForUCTablePrefix,
+  createTraceLocationForDestinationPath,
+  isTablePrefixDestinationPath,
+  isV4TraceLocation,
+} from './utils/TraceLocationUtils';
 export type { GetTraceFunction } from './hooks/useGetTrace';
 export { useFetchTraceV4LazyQuery, useFetchTraceV4Query, getTraceV4QueryKey } from './hooks/useFetchTraceV4';
 export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
@@ -119,8 +146,14 @@ export { groupTracesBySession } from './sessions-table/utils';
 export { GenAITracesTableBodySkeleton } from './GenAITracesTableBodySkeleton';
 export { useGetTraces } from './hooks/useGetTraces';
 export { useGetTrace } from './hooks/useGetTrace';
-export { ActiveEvaluationContext } from './hooks/useActiveEvaluation';
+export {
+  ActiveEvaluationContext,
+  SELECTED_EVALUATION_ID_PARAM,
+  useActiveEvaluation,
+} from './hooks/useActiveEvaluation';
+export { isSqlWarehouseTimeoutError } from './utils/ErrorUtils';
 export {
   GenAiTraceTableRowSelectionProvider,
   useGenAiTraceTableRowSelection,
+  useIsInsideGenAiTraceTableRowSelectionProvider,
 } from './hooks/useGenAiTraceTableRowSelection';

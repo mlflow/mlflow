@@ -7,7 +7,7 @@ const DAYS_TO_CONSIDER = 14;
 const DUPLICATE_LABEL = "duplicate";
 
 const duplicateMessage = (author, issueNumber, keeperPR) =>
-  `@${author} This PR appears to reference the same issue (#${issueNumber}) as #${keeperPR} (opened earlier). If your change is already covered, please consider closing this PR.`;
+  `@${author} This PR appears to reference the same issue (#${issueNumber}) as #${keeperPR} (opened earlier). Closing as a duplicate.`;
 
 // GraphQL query to fetch open PRs created in the last 14 days
 const QUERY = `
@@ -25,6 +25,7 @@ const QUERY = `
           url
           author { login }
           authorAssociation
+          labels(first: 20) { nodes { name } }
           closingIssuesReferences(first: 10) {
             nodes {
               number
@@ -42,6 +43,9 @@ const shouldProcessPR = (pr) => {
   if (memberAssociations.includes(pr.authorAssociation)) {
     return false;
   }
+  // Skip PRs already labeled as duplicate
+  const labels = pr.labels?.nodes?.map((l) => l.name) ?? [];
+  if (labels.includes(DUPLICATE_LABEL)) return false;
   return true;
 };
 
@@ -115,7 +119,7 @@ module.exports = async ({ context, github }) => {
     console.log(`Found ${prsByIssue.size} issues with associated PRs`);
 
     // Process each issue that has multiple PRs
-    let labelCount = 0;
+    let closedCount = 0;
     for (const [issueNumber, prs] of prsByIssue.entries()) {
       if (prs.length <= 1) {
         // Only one PR for this issue, no duplicates
@@ -132,9 +136,18 @@ module.exports = async ({ context, github }) => {
       console.log(`  Keeping PR #${keeper.number} (oldest, created ${keeper.createdAt})`);
 
       for (const pr of duplicates) {
-        console.log(`  Labeling PR #${pr.number} as duplicate (created ${pr.createdAt})`);
+        console.log(`  Closing PR #${pr.number} as duplicate (created ${pr.createdAt})`);
 
-        // Add duplicate label
+        // Close first so a failure here leaves the PR open and unlabeled,
+        // letting the next run retry. If we labeled first and then failed
+        // to close, shouldProcessPR would skip the PR forever.
+        await github.rest.pulls.update({
+          owner,
+          repo,
+          pull_number: pr.number,
+          state: "closed",
+        });
+
         await github.rest.issues.addLabels({
           owner,
           repo,
@@ -142,7 +155,6 @@ module.exports = async ({ context, github }) => {
           labels: [DUPLICATE_LABEL],
         });
 
-        // Post comment encouraging author to close if duplicate
         await github.rest.issues.createComment({
           owner,
           repo,
@@ -150,11 +162,11 @@ module.exports = async ({ context, github }) => {
           body: duplicateMessage(pr.author.login, issueNumber, keeper.number),
         });
 
-        labelCount++;
+        closedCount++;
       }
     }
 
-    console.log(`Labeled ${labelCount} duplicate PRs.`);
+    console.log(`Closed ${closedCount} duplicate PRs.`);
   } catch (error) {
     if (error.status === 429 || error.message?.includes("rate limit")) {
       console.log(`Rate limit hit. Exiting gracefully.`);

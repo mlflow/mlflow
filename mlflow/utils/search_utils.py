@@ -6,10 +6,11 @@ import operator
 import re
 import shlex
 from dataclasses import asdict, dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, ClassVar
 
 import sqlparse
 from packaging.version import Version
+from sqlparse.engine.grouping import group_comparison
 from sqlparse.sql import (
     Comparison,
     Identifier,
@@ -42,6 +43,14 @@ if TYPE_CHECKING:
 
 # MSSQL collation for case-sensitive string comparisons
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
+
+# Escapes that `json.dumps` can write but PostgreSQL's jsonb rejects: `\u0000`, and surrogate
+# escapes that aren't part of a high-low pair. `json.dumps` writes lowercase hex.
+_POSTGRES_UNDECODABLE_JSON_ESCAPES = (
+    r"\\u0000"
+    r"|\\ud[89ab][0-9a-f]{2}(?!\\ud[c-f][0-9a-f]{2})"
+    r"|(?<!\\ud[89ab][0-9a-f]{2})\\ud[c-f][0-9a-f]{2}"
+)
 
 
 def _convert_like_pattern_to_regex(pattern: str, flags: int = 0):
@@ -188,6 +197,7 @@ class SearchUtils:
         list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
     )
     DATASET_ATTRIBUTES = {"name", "digest", "context"}
+    LIST_SUPPORTED_KEYS: ClassVar[frozenset[str] | None] = frozenset({"run_id"})
     VALID_SEARCH_ATTRIBUTE_KEYS = set(
         RunInfo.get_searchable_attributes()
         + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
@@ -254,14 +264,14 @@ class SearchUtils:
         }[comparator]
 
     @staticmethod
-    def get_sql_comparison_func(comparator, dialect):
+    def get_sql_comparison_func(comparator, dialect, *, ilike_escape=None):
         import sqlalchemy as sa
 
         def comparison_func(column, value):
             if comparator == "LIKE":
                 return column.like(value)
             elif comparator == "ILIKE":
-                return column.ilike(value)
+                return column.ilike(value, escape=ilike_escape)
             elif comparator == "IN":
                 return column.in_(value)
             elif comparator == "NOT IN":
@@ -303,6 +313,12 @@ class SearchUtils:
                     sa.bindparam("value", value=value, unique=True)
                 )
 
+            if comparator in ("IN", "NOT IN"):
+                column_ref = f"{column.class_.__tablename__}.{column.key}"
+                return sa.text(f"(BINARY {column_ref} {comparator} :values)").bindparams(
+                    sa.bindparam("values", value=list(value), expanding=True, unique=True)
+                )
+
             return comparison_func(column, value)
 
         def sqlite_comparison_func(column, value):
@@ -323,6 +339,43 @@ class SearchUtils:
             MSSQL: mssql_comparison_func,
             MYSQL: mysql_comparison_func,
         }[dialect]
+
+    @staticmethod
+    def get_sql_expression_comparison_func(comparator, dialect):
+        """Like get_sql_comparison_func, but safe for any SQL expression.
+
+        The MySQL path in get_sql_comparison_func reads ``column.class_.__tablename__``
+        to build raw BINARY SQL, which non-column expressions (CASE, subqueries, a
+        collated column) do not have. This wraps the value with ``func.binary()``
+        for case-sensitive comparison instead. Other dialects pass through to
+        get_sql_comparison_func.
+        """
+        import sqlalchemy as sa
+
+        if dialect != MYSQL:
+            return SearchUtils.get_sql_comparison_func(comparator, dialect)
+
+        def mysql_safe_func(expression, value):
+            if isinstance(expression.type, sa.types.String):
+                if comparator == "LIKE":
+                    return expression.like(sa.func.binary(value))
+                elif comparator == "ILIKE":
+                    # binary() would make this case-sensitive, and a plain LIKE
+                    # depends on the expression's collation. ilike() lowers both
+                    # sides, as the mapped-column path does.
+                    return expression.ilike(value)
+                elif comparator == "IN":
+                    return expression.in_([sa.func.binary(v) for v in value])
+                elif comparator == "NOT IN":
+                    return ~expression.in_([sa.func.binary(v) for v in value])
+                elif comparator == "RLIKE":
+                    # Cast to binary to avoid errors like `Character set 'utf8mb4_0900_ai_ci'
+                    # cannot be used in conjunction with 'binary' in call to regexp_like`.
+                    return sa.cast(expression, sa.LargeBinary).op("REGEXP")(sa.func.binary(value))
+                value = sa.func.binary(value)
+            return SearchUtils.get_comparison_func(comparator)(expression, value)
+
+        return mysql_safe_func
 
     @staticmethod
     def translate_key_alias(key):
@@ -419,10 +472,10 @@ class SearchUtils:
 
     @classmethod
     def validate_list_supported(cls, key: str) -> None:
-        if key != "run_id":
+        if cls.LIST_SUPPORTED_KEYS is not None and key not in cls.LIST_SUPPORTED_KEYS:
             raise MlflowException(
-                "Only the 'run_id' attribute supports comparison with a list of quoted "
-                "string values.",
+                f"Only {sorted(cls.LIST_SUPPORTED_KEYS)} attributes support "
+                "comparison with a list of quoted string values.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -452,12 +505,14 @@ class SearchUtils:
                         f"Found {token.value}",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                return token.value
+                if token.ttype == TokenType.Literal.Number.Integer:
+                    return int(token.value)
+                return float(token.value)
             elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
                 cls.validate_list_supported(key)
-                return cls._parse_run_ids(token)
+                return cls._parse_list_from_sql_token(token)
             else:
                 raise MlflowException(
                     f"Expected a quoted string value for attributes. Got value {token.value}",
@@ -471,11 +526,11 @@ class SearchUtils:
             elif isinstance(token, Parenthesis):
                 if key not in ("name", "digest", "context"):
                     raise MlflowException(
-                        "Only the dataset 'name' and 'digest' supports comparison with a list of "
-                        "quoted string values.",
+                        "Only the dataset 'name', 'digest', and 'context' support comparison "
+                        "with a list of quoted string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                return cls._parse_run_ids(token)
+                return cls._parse_list_from_sql_token(token)
             else:
                 raise MlflowException(
                     "Expected a quoted string value for dataset attributes. "
@@ -526,6 +581,18 @@ class SearchUtils:
             )
 
     @classmethod
+    def _validate_list_comparator(cls, identifier_type, comparator):
+        # Reject `IN` / `NOT IN` for entity types that don't support it before parsing the
+        # value, so users get an "Invalid comparator" error instead of a value-type error.
+        comparator = comparator.upper()
+        if comparator in ("IN", "NOT IN"):
+            # The `is_*` helpers raise on an unsupported comparator; their return values
+            # are intentionally ignored.
+            cls.is_metric(identifier_type, comparator)
+            cls.is_param(identifier_type, comparator)
+            cls.is_tag(identifier_type, comparator)
+
+    @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
@@ -548,6 +615,7 @@ class SearchUtils:
 
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
 
@@ -602,7 +670,8 @@ class SearchUtils:
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_METRIC_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_METRIC_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -624,7 +693,7 @@ class SearchUtils:
         if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -654,7 +723,7 @@ class SearchUtils:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}",
+                    f"'{cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -666,7 +735,7 @@ class SearchUtils:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_DATASET_COMPARATORS}",
+                    f"not one of '{cls.VALID_DATASET_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -699,7 +768,8 @@ class SearchUtils:
             lhs = getattr(run.info, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         elif cls.is_dataset(key_type, comparator):
             if key == "context":
                 return any(
@@ -748,7 +818,8 @@ class SearchUtils:
             lhs = getattr(model.info, key)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(model.info, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         else:
             raise MlflowException(
                 f"Invalid model search expression type '{key_type}'",
@@ -1042,19 +1113,13 @@ class SearchUtils:
         cls._check_valid_identifier_list(parsed)
         return parsed
 
-    @classmethod
-    def _parse_run_ids(cls, token):
-        run_id_list = cls._parse_list_from_sql_token(token)
-        # Because MySQL IN clause is case-insensitive, but all run_ids only contain lower
-        # case letters, so that we filter out run_ids containing upper case letters here.
-        return [run_id for run_id in run_id_list if run_id.islower()]
-
 
 class SearchExperimentsUtils(SearchUtils):
-    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "creation_time", "last_update_time"}
+    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "experiment_id", "creation_time", "last_update_time"}
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "experiment_id", "creation_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"creation_time", "last_update_time"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"}
+    LIST_SUPPORTED_KEYS = frozenset({"experiment_id"})
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
@@ -1085,7 +1150,7 @@ class SearchExperimentsUtils(SearchUtils):
             identifier = cls._ATTRIBUTE_IDENTIFIER
         else:
             entity_type, key = tokens
-            valid_entity_types = ("attribute", "tag", "tags")
+            valid_entity_types = ("attribute", "attributes", "tag", "tags")
             if entity_type not in valid_entity_types:
                 raise MlflowException.invalid_parameter_value(
                     f"Invalid entity type '{entity_type}'. "
@@ -1137,6 +1202,7 @@ class SearchExperimentsUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1269,6 +1335,20 @@ class SearchModelUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name"}
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = {"name", "creation_timestamp", "last_updated_timestamp"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    LIST_SUPPORTED_KEYS = frozenset({"name"})
+
+    @classmethod
+    def is_querying_prompt(cls, parsed_filters: list[dict[str, Any]]) -> bool:
+        for f in parsed_filters:
+            if f["type"] != "tag" or f["key"] != IS_PROMPT_TAG_KEY:
+                continue
+
+            return (f["comparator"] == "=" and f["value"].lower() == "true") or (
+                f["comparator"] == "!=" and f["value"].lower() == "false"
+            )
+
+        # Query should return only normal models by default
+        return False
 
     @classmethod
     def _does_registered_model_match_clauses(cls, model, sed):
@@ -1396,9 +1476,14 @@ class SearchModelUtils(SearchUtils):
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
+        if len(stripped_comparison) == 2:
+            raise MlflowException.invalid_parameter_value(
+                "IS NULL / IS NOT NULL is not supported for registered model search."
+            )
         left, comparator, right = stripped_comparison
         comp = cls._get_model_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1417,13 +1502,8 @@ class SearchModelUtils(SearchUtils):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                if key != "run_id":
-                    raise MlflowException(
-                        "Only the 'run_id' attribute supports comparison with a list of quoted "
-                        "string values.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                return cls._parse_run_ids(token)
+                cls.validate_list_supported(key)
+                return cls._parse_list_from_sql_token(token)
             else:
                 raise MlflowException(
                     "Expected a quoted string value or a list of quoted string values for "
@@ -1463,8 +1543,9 @@ class SearchModelVersionUtils(SearchUtils):
         "creation_timestamp",
         "last_updated_timestamp",
     }
-    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN"}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IN", "NOT IN"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    LIST_SUPPORTED_KEYS = frozenset({"name", "run_id"})
 
     @classmethod
     def _does_model_version_match_clauses(cls, mv, sed):
@@ -1587,9 +1668,14 @@ class SearchModelVersionUtils(SearchUtils):
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
+        if len(stripped_comparison) == 2:
+            raise MlflowException.invalid_parameter_value(
+                "IS NULL / IS NOT NULL is not supported for model version search."
+            )
         left, comparator, right = stripped_comparison
         comp = cls._get_model_version_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1608,13 +1694,8 @@ class SearchModelVersionUtils(SearchUtils):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                if key != "run_id":
-                    raise MlflowException(
-                        "Only the 'run_id' attribute supports comparison with a list of quoted "
-                        "string values.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                return cls._parse_run_ids(token)
+                cls.validate_list_supported(key)
+                return cls._parse_list_from_sql_token(token)
             elif token.ttype in cls.NUMERIC_VALUE_TYPES:
                 if key not in cls.NUMERIC_ATTRIBUTES:
                     raise MlflowException(
@@ -1735,7 +1816,17 @@ class SearchTraceUtils(SearchUtils):
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
-    VALID_ASSESSMENT_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
+    NUMERIC_ASSESSMENT_COMPARATORS = {">", ">=", "<", "<="}
+    VALID_ASSESSMENT_COMPARATORS = {
+        "!=",
+        "=",
+        *NUMERIC_ASSESSMENT_COMPARATORS,
+        "LIKE",
+        "ILIKE",
+        "RLIKE",
+        "IS NULL",
+        "IS NOT NULL",
+    }
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -2001,8 +2092,11 @@ class SearchTraceUtils(SearchUtils):
 
         For equality comparisons, we match either the raw JSON primitive value
         (for booleans and numeric values) or the JSON-serialized value (for strings).
+        Pattern comparisons (LIKE, ILIKE, RLIKE) match the decoded string for JSON strings
+        and the raw JSON text for other values.
         """
         import sqlalchemy as sa
+        from sqlalchemy.dialects.postgresql import JSONB
 
         def mysql_json_equality_inequality_comparison(
             column: "ColumnElement", value: str
@@ -2036,8 +2130,69 @@ class SearchTraceUtils(SearchUtils):
                 clause = sa.not_(clause)
             return clause
 
-        if comparator not in ("=", "!="):
-            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
+        def json_numeric_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
+            # `CAST(... AS DOUBLE)` is only valid on MySQL 8.0.17+. Numeric coercion via addition
+            # (`column + 0.0`) yields a floating comparison and renders identically across MySQL
+            # versions, including 5.7.
+            numeric_value = column + 0.0 if dialect == MYSQL else sa.cast(column, sa.Float)
+            numeric_column = sa.case(
+                (
+                    sa.func.lower(column).in_([
+                        "true",
+                        "false",
+                        "null",
+                        "nan",
+                        "infinity",
+                        "-infinity",
+                    ]),
+                    sa.null(),
+                ),
+                (sa.func.substring(column, 1, 1).in_(['"', "[", "{"]), sa.null()),
+                else_=numeric_value,
+            )
+            return SearchUtils.get_comparison_func(comparator)(numeric_column, float(value))
+
+        def json_pattern_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
+            # Match pattern comparators against the decoded string for JSON strings, and
+            # against the raw text for other values (e.g. `4` or `true`). The CASE keeps
+            # non-string values, such as `NaN` (invalid JSON), from being parsed. Strings the
+            # database can't decode are also matched against their raw text, so that a single
+            # such value doesn't make every search on the assessment name fail.
+            decodable = sa.func.substring(column, 1, 1) == '"'
+            if dialect == SQLITE:
+                decoded = sa.func.json_extract(column, "$", type_=sa.Text)
+            elif dialect == POSTGRES:
+                decoded = sa.cast(column, JSONB).op("#>>", return_type=sa.Text)(
+                    sa.literal_column("'{}'")
+                )
+                decodable = sa.and_(
+                    decodable,
+                    sa.not_(column.bool_op("~")(_POSTGRES_UNDECODABLE_JSON_ESCAPES)),
+                )
+            elif dialect == MYSQL:
+                decoded = sa.func.json_unquote(column, type_=sa.Text)
+                # `JSON_UNQUOTE` raises on unpaired surrogate escapes, `JSON_VALID` doesn't
+                decodable = sa.and_(decodable, sa.func.json_valid(column) == 1)
+            else:
+                # `JSON_VALUE` returns at most 4000 characters (NULL in lax mode beyond that),
+                # so decode with `OPENJSON`, whose default `value` column is nvarchar(max).
+                # Wrapping in an array avoids depending on whether the server version accepts
+                # a scalar as the JSON document root.
+                elements = sa.func.openjson("[" + column + "]").table_valued(
+                    sa.column("value", sa.Text)
+                )
+                decoded = sa.select(elements.c.value).scalar_subquery()
+            expression = sa.case((decodable, decoded), else_=column)
+            # Explicit string type so the MySQL BINARY and MSSQL collation handling applies
+            expression = sa.type_coerce(expression, sa.Text)
+            return SearchTraceUtils.get_sql_expression_comparison_func(comparator, dialect)(
+                expression, value
+            )
+
+        if comparator in SearchTraceUtils.NUMERIC_ASSESSMENT_COMPARATORS:
+            return json_numeric_comparison
+        elif comparator not in ("=", "!="):
+            return json_pattern_comparison
         elif dialect == MYSQL:
             return mysql_json_equality_inequality_comparison
         else:
@@ -2129,8 +2284,20 @@ class SearchTraceUtils(SearchUtils):
                 )
         elif identifier_type == cls._SPAN_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                if key in {"name", "type"}:
+                    return cls._parse_span_filter_literal(token.value)
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
+                if key in {"name", "type"}:
+                    # Normalize SQL literals before the existing Python-literal list validator.
+                    value = "".join(
+                        repr(cls._parse_span_filter_literal(item.value))
+                        if item.ttype
+                        in (TokenType.Literal.String.Single, TokenType.Literal.String.Symbol)
+                        else item.value
+                        for item in token.flatten()
+                    )
+                    token = Token(token.ttype, value)
                 return cls._parse_attribute_lists(token)
             else:
                 raise MlflowException(
@@ -2139,12 +2306,22 @@ class SearchTraceUtils(SearchUtils):
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        elif identifier_type in (
-            cls._FEEDBACK_IDENTIFIER,
-            cls._EXPECTATION_IDENTIFIER,
-            cls._ISSUE_IDENTIFIER,
-        ):
-            # Feedback and expectation values are stored as JSON, so we expect string values
+        elif identifier_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif token.ttype in cls.NUMERIC_VALUE_TYPES:
+                if token.ttype == TokenType.Literal.Number.Integer:
+                    return int(token.value)
+                elif token.ttype == TokenType.Literal.Number.Float:
+                    return float(token.value)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value or numeric value for "
+                    f"{identifier_type} (e.g. 'my-value' or 0.8). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif identifier_type == cls._ISSUE_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
@@ -2161,6 +2338,11 @@ class SearchTraceUtils(SearchUtils):
                 f"Expected one of {cls._VALID_IDENTIFIERS}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    @classmethod
+    def _parse_span_filter_literal(cls, literal):
+        value = cls._strip_quotes(literal, expect_quoted_value=True)
+        return value.replace("''", "'") if literal.startswith("'") else value
 
     @classmethod
     def _parse_attribute_lists(cls, token):
@@ -2188,6 +2370,29 @@ class SearchTraceUtils(SearchUtils):
         ):
             return False
         return True
+
+    @classmethod
+    def _validate_assessment_comparison_value(cls, identifier_type, comparator, token):
+        if identifier_type not in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+            return
+
+        is_numeric_assessment_comparison = comparator in cls.NUMERIC_ASSESSMENT_COMPARATORS
+        msg = (
+            f"Expected a numeric value for {identifier_type} when using comparator "
+            f"'{comparator}'. Got value {token.value}"
+            if is_numeric_assessment_comparison
+            else "Expected a quoted string value for "
+            f"{identifier_type} (e.g. 'my-value'). Got value "
+            f"{token.value}"
+        )
+        if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            if is_numeric_assessment_comparison:
+                raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
+        elif token.ttype in cls.NUMERIC_VALUE_TYPES:
+            if not is_numeric_assessment_comparison:
+                raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
+        else:
+            raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
 
     @classmethod
     def _validate_comparison(cls, tokens):
@@ -2227,6 +2432,9 @@ class SearchTraceUtils(SearchUtils):
 
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
+        cls._validate_assessment_comparison_value(
+            comp.get("type"), comp.get("comparator"), stripped_comparison[2]
+        )
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
 
         if comp.get("type") == cls._SPAN_IDENTIFIER:
@@ -2367,6 +2575,16 @@ class SearchEvaluationDatasetsUtils(SearchUtils):
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "created_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"created_time", "last_update_time"}
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    LIST_SUPPORTED_KEYS = frozenset({"name"})
+
+    @classmethod
+    def _get_comparison(cls, comparison):
+        comp = super()._get_comparison(comparison)
+        if isinstance(comp["value"], tuple) and comp["comparator"] != "IN":
+            raise MlflowException.invalid_parameter_value(
+                "List values for 'name' are only supported with the IN comparator."
+            )
+        return comp
 
     @classmethod
     def _invalid_statement_token(cls, token):
@@ -2479,7 +2697,8 @@ class SearchLoggedModelsUtils(SearchUtils):
             lhs = model.tags.get(key, None)
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(model, key)
-            value = int(value)
+            if isinstance(value, str):
+                value = int(value)
         elif hasattr(model, key):
             lhs = getattr(model, key)
         else:
@@ -2491,11 +2710,7 @@ class SearchLoggedModelsUtils(SearchUtils):
 
         return SearchUtils.get_comparison_func(comparator)(lhs, value)
 
-    @classmethod
-    def validate_list_supported(cls, key: str) -> None:
-        """
-        Override to allow logged model attributes to be used with IN/NOT IN.
-        """
+    LIST_SUPPORTED_KEYS = None
 
     @classmethod
     def filter_logged_models(
@@ -2695,6 +2910,63 @@ class SearchLoggedModelsPaginationToken:
             )
 
 
+class SearchMCPServerUtils(SearchUtils):
+    """Utility class for parsing MCP server search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "display_name",
+        "status",
+        "has_access_endpoints",
+        "created_at",
+        "last_updated_at",
+    }
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+
+    LIST_SUPPORTED_KEYS = frozenset({"status", "name"})
+
+
+class SearchMCPServerVersionUtils(SearchUtils):
+    """Utility class for parsing MCP server version search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "version", "status", "created_at", "last_updated_at"}
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+    LIST_SUPPORTED_KEYS = frozenset({"status"})
+
+    @classmethod
+    def _process_statement(cls, statement):
+        # Normalize the keyword-typed field without changing quoted filter values.
+        for index, token in enumerate(statement.tokens):
+            if token.ttype == TokenType.Keyword and token.value == "version":
+                statement.tokens[index] = Identifier([Token(TokenType.Name, token.value)])
+        group_comparison(statement)
+        return super()._process_statement(statement)
+
+
+class SearchMCPAccessEndpointUtils(SearchUtils):
+    """Utility class for parsing MCP access endpoint search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "status",
+        "server_name",
+        "transport_type",
+        "created_at",
+        "last_updated_at",
+    }
+    NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+    LIST_SUPPORTED_KEYS = frozenset({"server_name"})
+
+    @classmethod
+    def _process_statement(cls, statement):
+        # sqlparse treats server_name as a SQL keyword, so it does not group
+        # comparisons using this valid endpoint attribute.
+        for index, token in enumerate(statement.tokens):
+            if token.ttype == TokenType.Keyword and token.value == "server_name":
+                statement.tokens[index] = Identifier([Token(TokenType.Name, token.value)])
+        group_comparison(statement)
+        return super()._process_statement(statement)
+
+
 class SearchIssuesUtils(SearchUtils):
     """Utility class for parsing issue search filters."""
 
@@ -2765,3 +3037,137 @@ class SearchIssuesUtils(SearchUtils):
             "comparator": comparator,
             "value": value,
         }
+
+
+# ---------------------------------------------------------------------------
+# Skill registry search utilities (RFC-0008)
+# ---------------------------------------------------------------------------
+
+# ORM column names, matching the MCP registry convention (SearchMCPServerUtils).
+_SKILL_REGISTRY_NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+# IS NULL / IS NOT NULL excluded; skill registry tags are always key=value.
+_SKILL_REGISTRY_TAG_COMPARATORS = {"=", "!=", "LIKE", "ILIKE"}
+
+# Field names that sqlparse lexes as SQL keywords, which prevents them from
+# forming Comparison tokens. Downstream fields that are also keywords (e.g.
+# source, ref, key, alias) must be added here.
+_SQLPARSE_KEYWORD_FIELDS = {"organization", "version"}
+
+
+def _quote_keyword_fields(text: str) -> str:
+    """Backtick-quote keyword field names so sqlparse treats them as identifiers.
+
+    Uses sqlparse's own lexer, so quoted values, quoted identifiers, and
+    dotted tag keys (e.g. ``tags.mlflow.organization``) are left untouched
+    exactly as the parser sees them. ``_get_identifier`` trims the backticks.
+    """
+    return "".join(
+        f"`{value}`"
+        if ttype in TokenType.Keyword and value.lower() in _SQLPARSE_KEYWORD_FIELDS
+        else value
+        for ttype, value in sqlparse.lexer.tokenize(text)
+    )
+
+
+def _to_number(value):
+    # Parsing already rejected non-numeric tokens for these attributes.
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return float(value)
+
+
+class _SkillRegistrySearchBase(SearchUtils):
+    """Base class for skill registry search utils, quoting sqlparse keywords."""
+
+    @classmethod
+    def parse_search_filter(cls, filter_string):
+        if filter_string:
+            filter_string = _quote_keyword_fields(filter_string)
+        parsed = super().parse_search_filter(filter_string)
+        for comparison in parsed:
+            cls._validate_registry_comparison(comparison)
+        return parsed
+
+    @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        # The inherited check only allows run_id, whose error message would
+        # confuse skill registry callers.
+        if key != "status":
+            raise MlflowException.invalid_parameter_value(
+                f"Only 'status' supports IN and NOT IN comparisons, got '{key}'."
+            )
+
+    @classmethod
+    def _validate_registry_comparison(cls, comparison):
+        # The inherited parser does not check operators, so an unsupported one
+        # (e.g. ``tags.team > 'a'``) would otherwise reach SQL. Validate against
+        # the vocabulary this search surface declares and normalize case.
+        type_ = comparison["type"]
+        key = comparison["key"]
+        if type_ == cls._TAG_IDENTIFIER:
+            allowed = cls.VALID_TAG_COMPARATORS
+        elif type_ == cls._ATTRIBUTE_IDENTIFIER:
+            if key in cls.NUMERIC_ATTRIBUTES:
+                allowed = cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
+            else:
+                allowed = cls.VALID_STRING_ATTRIBUTE_COMPARATORS
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid filter type '{type_}' for '{key}'. "
+                "Only attributes and tags.<key> are supported."
+            )
+        comparator = comparison["comparator"].upper()
+        if comparator not in allowed:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid comparator '{comparison['comparator']}' for {type_} '{key}'. "
+                f"Supported comparators: {sorted(allowed)}"
+            )
+        if type_ == cls._ATTRIBUTE_IDENTIFIER and key in cls.NUMERIC_ATTRIBUTES:
+            # The base parser keeps the raw token text, which would bind a string
+            # against an integer column. PostgreSQL rejects that comparison
+            # outright, and other engines only coerce it by accident.
+            comparison["value"] = _to_number(comparison["value"])
+        # A parenthesized value parses as a tuple, which only IN and NOT IN accept.
+        # Without this check ``status = ('active')`` would compare a column to a
+        # tuple and fail in the database instead of here.
+        takes_list = comparator in ("IN", "NOT IN")
+        if isinstance(comparison["value"], (list, tuple, set)) != takes_list:
+            expected = "a parenthesized list of values" if takes_list else "a single value"
+            raise MlflowException.invalid_parameter_value(
+                f"Comparator '{comparator}' for {type_} '{key}' requires {expected}, "
+                f"got {comparison['value']!r}."
+            )
+        comparison["comparator"] = comparator
+
+
+class SearchSkillUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing skill search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "organization",
+        "description",
+        "search_text",
+        "status",
+        "source_type",
+        *_SKILL_REGISTRY_NUMERIC_ATTRIBUTES,
+    }
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS
+
+
+class SearchSkillVersionUtils(_SkillRegistrySearchBase):
+    """Utility class for parsing skill version search filters."""
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "status",
+        "organization",
+        "source_type",
+        "digest",
+        "version",
+        *_SKILL_REGISTRY_NUMERIC_ATTRIBUTES,
+    }
+    # A skill version number is a monotonic integer, so it compares numerically.
+    NUMERIC_ATTRIBUTES = _SKILL_REGISTRY_NUMERIC_ATTRIBUTES | {"version"}
+    VALID_TAG_COMPARATORS = _SKILL_REGISTRY_TAG_COMPARATORS

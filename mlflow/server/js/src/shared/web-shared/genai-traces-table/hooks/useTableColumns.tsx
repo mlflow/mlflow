@@ -14,6 +14,7 @@ import {
   MLFLOW_INTERNAL_PREFIX,
   shouldUseTraceInfoV3,
 } from '../utils/TraceUtils';
+import { KnownEvaluationResultAssessmentTargetLabel } from '../components/GenAiEvaluationTracesReview.utils';
 
 export const USER_COLUMN_ID = 'user';
 export const SESSION_COLUMN_ID = 'session';
@@ -39,6 +40,8 @@ export const SIMULATION_PERSONA_COLUMN_ID = 'simulation_persona';
 export const LINKED_PROMPTS_COLUMN_ID = 'prompt';
 export const ISSUE_ID_COLUMN_ID = 'issue.id';
 export const ISSUES_COLUMN_ID = 'issues';
+export const GIT_BRANCH_COLUMN_ID = 'git_branch';
+export const GIT_COMMIT_COLUMN_ID = 'git_commit';
 
 export const SORTABLE_INFO_COLUMNS = [EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID];
 // Columns that are sortable by the server. Server-side sorting should be prioritized over client-side sorting.
@@ -106,7 +109,7 @@ export const useTableColumns = (
             description: 'Column label for request',
           }),
           type: TracesTableColumnType.INPUT,
-          group: TracesTableColumnGroup.INFO,
+          group: TracesTableColumnGroup.BASE,
           filterOrder: 0,
         },
       ];
@@ -138,7 +141,7 @@ export const useTableColumns = (
             description: 'Column label for trace ID',
           }),
           type: TracesTableColumnType.TRACE_INFO,
-          group: TracesTableColumnGroup.INFO,
+          group: TracesTableColumnGroup.BASE,
         },
         {
           id: TRACE_NAME_COLUMN_ID,
@@ -156,7 +159,7 @@ export const useTableColumns = (
             description: 'Column label for response',
           }),
           type: TracesTableColumnType.TRACE_INFO,
-          group: TracesTableColumnGroup.INFO,
+          group: TracesTableColumnGroup.BASE,
           filterOrder: 0,
         },
         {
@@ -217,6 +220,24 @@ export const useTableColumns = (
           label: intl.formatMessage({
             defaultMessage: 'Source',
             description: 'Column label for source',
+          }),
+          type: TracesTableColumnType.TRACE_INFO,
+          group: TracesTableColumnGroup.INFO,
+        },
+        {
+          id: GIT_BRANCH_COLUMN_ID,
+          label: intl.formatMessage({
+            defaultMessage: 'Git branch',
+            description: 'Column label for the git branch the trace was produced on',
+          }),
+          type: TracesTableColumnType.TRACE_INFO,
+          group: TracesTableColumnGroup.INFO,
+        },
+        {
+          id: GIT_COMMIT_COLUMN_ID,
+          label: intl.formatMessage({
+            defaultMessage: 'Git commit',
+            description: 'Column label for the git commit hash the trace was produced on',
           }),
           type: TracesTableColumnType.TRACE_INFO,
           group: TracesTableColumnGroup.INFO,
@@ -308,7 +329,9 @@ export const useTableColumns = (
             if (!expectationColumns[expectationName]) {
               expectationColumns[expectationName] = {
                 id: createExpectationColumnId(expectationName),
-                label: expectationName,
+                label: KnownEvaluationResultAssessmentTargetLabel[expectationName]
+                  ? intl.formatMessage(KnownEvaluationResultAssessmentTargetLabel[expectationName])
+                  : expectationName,
                 type: TracesTableColumnType.EXPECTATION,
                 group: TracesTableColumnGroup.EXPECTATION,
                 expectationName,

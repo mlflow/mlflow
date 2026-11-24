@@ -9,6 +9,7 @@ export interface FeatureDefinition {
   summary: ReactNode;
   docsLink: string;
   hasDrawer?: boolean;
+  componentId: string;
 }
 
 export const featureDefinitions: FeatureDefinition[] = [
@@ -24,6 +25,7 @@ export const featureDefinitions: FeatureDefinition[] = [
     ),
     docsLink: 'https://mlflow.org/docs/latest/llms/tracing/index.html',
     hasDrawer: true,
+    componentId: 'mlflow.home.feature_card.tracing',
   },
   {
     id: 'evaluation',
@@ -36,6 +38,7 @@ export const featureDefinitions: FeatureDefinition[] = [
       />
     ),
     docsLink: 'https://mlflow.org/docs/latest/llms/llm-evaluate/index.html',
+    componentId: 'mlflow.home.feature_card.evaluation',
   },
   {
     id: 'prompts',
@@ -48,6 +51,7 @@ export const featureDefinitions: FeatureDefinition[] = [
       />
     ),
     docsLink: 'https://mlflow.org/docs/latest/genai/prompt-registry/',
+    componentId: 'mlflow.home.feature_card.prompts',
   },
   {
     id: 'ai-gateway',
@@ -60,6 +64,7 @@ export const featureDefinitions: FeatureDefinition[] = [
       />
     ),
     docsLink: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/',
+    componentId: 'mlflow.home.feature_card.ai_gateway',
   },
   {
     id: 'experiments',
@@ -72,5 +77,6 @@ export const featureDefinitions: FeatureDefinition[] = [
       />
     ),
     docsLink: 'https://mlflow.org/docs/latest/ml/tracking/quickstart/',
+    componentId: 'mlflow.home.feature_card.experiments',
   },
 ];

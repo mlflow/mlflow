@@ -1,20 +1,23 @@
 name: JS
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - mlflow/server/js/**
+      - .github/actions/check-component-ids/**
+      - .github/actions/js-build-cache-key/**
+      - .github/actions/setup-node/**
       - .github/workflows/js.yml
     branches:
       - master
       - branch-[0-9]+.[0-9]+
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths:
       - mlflow/server/js/**
+      - .github/actions/check-component-ids/**
+      - .github/actions/js-build-cache-key/**
+      - .github/actions/setup-node/**
       - .github/workflows/js.yml
 
 concurrency:
@@ -25,22 +28,38 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+cache-mode: none
+
 jobs:
-  js:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+  check-component-ids:
     permissions:
       contents: read
-    timeout-minutes: 30
+    timeout-minutes: 5
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check componentId registry
+        uses: ./.github/actions/check-component-ids
+
+  js:
+    permissions:
+      contents: read
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
         option: [--testPathPattern, --testPathIgnorePatterns]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: mlflow/server/js
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
@@ -62,12 +81,48 @@ jobs:
         run: |
           yarn type-check
       - name: Run tests
-        run: |
-          yarn test --silent ${{ matrix.option }} src/experiment-tracking/components
-      - name: Run build
         env:
-          # Prevent warnings (emitted from react-pdf) from being treated as errors
-          # https://github.com/wojtekmaj/react-pdf/issues/280
-          CI: false
+          MATRIX_OPTION: ${{ matrix.option }}
+        # --maxWorkers=2: Jest's default (3) leaks module cache across test
+        # files and peaks ~15 GB RSS on the 16 GB runner; 2 keeps peak ~13 GB.
         run: |
+          "$GITHUB_WORKSPACE/dev/profile.sh" \
+            yarn test --silent --maxWorkers=2 $MATRIX_OPTION src/experiment-tracking/components
+      - name: Upload profile metrics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: profile-metrics-${{ strategy.job-index }}
+          path: /tmp/profile-metrics.csv
+          # TODO: Uncomment once `gh run download` supports non-zipped artifacts.
+          # https://github.com/cli/cli/issues/13012
+          # archive: false
+          retention-days: 3
+          if-no-files-found: ignore
+
+  build:
+    permissions:
+      contents: read
+    cache-mode: write-only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mlflow/server/js
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        id: cache-key
+        uses: ./.github/actions/js-build-cache-key
+      - run: |
+          yarn install --immutable
+      - run: |
           yarn build
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: mlflow/server/js/build
+          key: ${{ steps.cache-key.outputs.key }}

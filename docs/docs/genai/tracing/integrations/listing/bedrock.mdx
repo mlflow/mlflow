@@ -1,6 +1,10 @@
 ---
+title: Tracing Amazon Bedrock with MLflow
+description: Trace Amazon Bedrock foundation model calls with MLflow for full observability into LLM interactions across providers like Anthropic, Cohere, Meta, and Mistral.
 sidebar_position: 4.5
 sidebar_label: Bedrock
+keywords: [bedrock, tracing, mlflow, aws, foundation models, llm]
+image: /images/llms/tracing/bedrock-tracing-agent.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -35,7 +39,7 @@ MLflow trace automatically captures the following information about Amazon Bedro
 <StepHeader number={1} title="Install Dependencies" />
 
 ```bash
-pip install 'mlflow[genai]' boto3
+pip install mlflow boto3
 ```
 
 <StepHeader number={2} title="Start MLflow Server" />

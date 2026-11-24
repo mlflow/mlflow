@@ -82,14 +82,15 @@ export const TraceTokenStatsChart: React.FC<TraceTokenStatsChartProps> = ({ titl
                 content={
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.token_stats.view_traces_link"
                     linkConfig={{
                       experimentId: experimentIds[0],
                       timeIntervalSeconds,
-                      componentId: 'mlflow.overview.usage.token_stats.view_traces_link',
                     }}
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Line
                 type="monotone"

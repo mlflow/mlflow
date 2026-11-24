@@ -20,6 +20,8 @@ export function getDatasetSourceUrl(datasetWithTags: RunDatasetWithTags): string
         return parsed.uri ?? null;
       case DatasetSourceTypes.HUGGING_FACE:
         return parsed.path ? `https://huggingface.co/datasets/${parsed.path}` : null;
+      case DatasetSourceTypes.LOCAL:
+        return parsed.uri ?? null;
       default:
         return null;
     }

@@ -90,6 +90,8 @@ export const ExperimentListView = () => {
   const checkedKeys = Object.entries(rowSelection)
     .filter(([_, value]) => value)
     .map(([key, _]) => key);
+  // Row selection survives search and pagination, so only checked experiments in the current list can be deleted
+  const checkedExperiments = (experiments ?? []).filter(({ experimentId }) => checkedKeys.includes(experimentId));
 
   const isEmptyState = !isLoading && !error && !experiments?.length && !searchFilter && !tagsFilter.length;
   // creation is disabled if workspaces are enabled and a workspace is not selected
@@ -148,7 +150,7 @@ export const ExperimentListView = () => {
                 componentId="mlflow.experiment_list_view.bulk_delete_button"
                 onClick={() => setShowBulkDeleteExperimentModal(true)}
                 data-testid="delete-experiments-button"
-                disabled={checkedKeys.length < 1}
+                disabled={checkedExperiments.length < 1}
                 danger
               >
                 <FormattedMessage
@@ -206,8 +208,9 @@ export const ExperimentListView = () => {
                 type={tagsFilter.length > 0 ? 'primary' : undefined}
               >
                 <FormattedMessage
-                  defaultMessage="Tag"
-                  description="Button to open the tags filter popover in the experiments page"
+                  defaultMessage="Tag{count, plural, =0 {} other { · #}}"
+                  description="Button to open the tags filter popover in the experiments page. Shows an interpunct (·) followed by the count of active tag filters when any are applied."
+                  values={{ count: tagsFilter.length }}
                 />
               </Button>
             </Popover.Trigger>
@@ -219,7 +222,7 @@ export const ExperimentListView = () => {
         <ExperimentListTable
           experiments={experiments}
           isLoading={isLoading}
-          isFiltered={Boolean(searchFilter)}
+          isFiltered={Boolean(searchFilter) || tagsFilter.length > 0}
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
           cursorPaginationProps={{
@@ -240,7 +243,7 @@ export const ExperimentListView = () => {
         onExperimentCreated={invalidateExperimentList}
       />
       <BulkDeleteExperimentModal
-        experiments={(experiments ?? []).filter(({ experimentId }) => checkedKeys.includes(experimentId))}
+        experiments={checkedExperiments}
         isOpen={showBulkDeleteExperimentModal}
         onClose={() => setShowBulkDeleteExperimentModal(false)}
         onExperimentsDeleted={() => {

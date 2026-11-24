@@ -6,6 +6,7 @@ from mlflow.entities.model_registry.model_version_deployment_job_state import (
 )
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.model_registry_pb2 import ModelVersionTag as ProtoModelVersionTag
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
@@ -144,6 +145,10 @@ class ModelVersion(_ModelRegistryEntity):
         """Dictionary of tag key (string) -> tag value for the current model version."""
         return self._tags
 
+    def _is_prompt(self):
+        """Check if the model version is a prompt version."""
+        return self._tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+
     @property
     def aliases(self) -> list[str]:
         """List of aliases (string) for the current model version."""
@@ -204,8 +209,10 @@ class ModelVersion(_ModelRegistryEntity):
             proto.status_message if proto.HasField("status_message") else None,
             run_link=proto.run_link,
             aliases=proto.aliases,
-            deployment_job_state=ModelVersionDeploymentJobState.from_proto(
-                proto.deployment_job_state
+            deployment_job_state=(
+                ModelVersionDeploymentJobState.from_proto(proto.deployment_job_state)
+                if proto.HasField("deployment_job_state")
+                else None
             ),
         )
         for tag in proto.tags:
@@ -243,6 +250,6 @@ class ModelVersion(_ModelRegistryEntity):
         ])
         model_version.aliases.extend(self.aliases)
         if self.deployment_job_state is not None:
-            ModelVersionDeploymentJobState.to_proto(self.deployment_job_state)
+            model_version.deployment_job_state.CopyFrom(self.deployment_job_state.to_proto())
         # TODO: Include params, metrics, and model ID in proto
         return model_version

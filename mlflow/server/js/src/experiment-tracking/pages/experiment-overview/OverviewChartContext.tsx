@@ -21,6 +21,14 @@ export interface OverviewChartContextValue {
   tooltipLinkText?: React.ReactNode;
   /** Optional filter expressions applied to all chart queries */
   filters?: string[];
+  /**
+   * Optional filter strings (in Traces page URL format `column::operator::value[::key]`,
+   * where the trailing `::key` segment is optional and only used for filters that
+   * disambiguate within a column group like assessment filters) to apply when navigating
+   * from chart tooltip "View traces" links to the Traces tab. Distinct from `filters`,
+   * which uses the metrics-API DSL.
+   */
+  tracesNavigationFilters?: string[];
 }
 
 export const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
@@ -44,6 +52,7 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
   tooltipLinkUrlBuilder,
   tooltipLinkText,
   filters,
+  tracesNavigationFilters,
 }) => {
   const value = useMemo(
     () => ({
@@ -56,6 +65,7 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
       tooltipLinkUrlBuilder,
       tooltipLinkText,
       filters,
+      tracesNavigationFilters,
     }),
     [
       experimentIds,
@@ -67,6 +77,7 @@ export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
       tooltipLinkUrlBuilder,
       tooltipLinkText,
       filters,
+      tracesNavigationFilters,
     ],
   );
 

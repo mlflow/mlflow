@@ -396,12 +396,12 @@ def _infer_signature_from_type_hints(
 
     try:
         input_schema = _infer_schema_from_list_type_hint(type_hints.input)
-    except InvalidTypeHintException:
+    except InvalidTypeHintException as e:
         raise MlflowException.invalid_parameter_value(
             "The `predict` function has unsupported type hints for the model input "
             "arguments. Update it to one of supported type hints, or remove type hints "
-            "to bypass this check. Error: {e}"
-        )
+            f"to bypass this check. Error: {e.message}"
+        ) from e
     except Exception as e:
         warnings.warn(f"Failed to infer signature from type hint: {e.message}", stacklevel=3)
         return None
@@ -542,17 +542,6 @@ def _infer_signature_from_input_example(
         try:
             output_schema = _infer_schema(prediction)
         except Exception:
-            # try assign output schema if failing to infer it from prediction for langchain models
-            try:
-                from mlflow.langchain.model import _LangChainModelWrapper
-                from mlflow.langchain.utils.chat import _ChatResponse
-            except ImportError:
-                pass
-            else:
-                if isinstance(wrapped_model, _LangChainModelWrapper) and isinstance(
-                    prediction, _ChatResponse
-                ):
-                    output_schema = prediction.get_schema()
             if output_schema is None:
                 _logger.warning(
                     "Failed to infer model output schema from prediction result, setting "

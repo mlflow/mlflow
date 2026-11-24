@@ -1,0 +1,205 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "MiniMaxAI/MiniMax-M2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 196608,
+        "max_output": 196608
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.45,
+        "output_per_million_tokens": 1.8,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "Qwen/Qwen3.5-397B-A17B-FP8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 3.6,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "Qwen/Qwen3.6-27B-FP8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.32,
+        "output_per_million_tokens": 3.2,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "deepseek-ai/DeepSeek-V4-Flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.14,
+        "output_per_million_tokens": 0.28,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "google/gemma-4-31B-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.14,
+        "output_per_million_tokens": 0.56,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "lukealonso/GLM-5.1-NVFP4-MTP": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 202752,
+        "max_output": 202752
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.4,
+        "output_per_million_tokens": 4.4,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "moonshotai/Kimi-K2.6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.96,
+        "output_per_million_tokens": 4.0,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "openai/gpt-oss-120b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    },
+    "openai/gpt-oss-20b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.07,
+        "output_per_million_tokens": 0.28,
+        "cache_read_per_million_tokens": 0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-22"
+    }
+  }
+}

@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from fastapi import FastAPI
 from flask import Flask
@@ -6,7 +8,11 @@ from werkzeug.test import Client
 
 from mlflow.server import security
 from mlflow.server.fastapi_security import init_fastapi_security
-from mlflow.server.security_utils import is_allowed_host_header, is_api_endpoint
+from mlflow.server.security_utils import (
+    is_allowed_host_header,
+    is_api_endpoint,
+    is_health_endpoint,
+)
 
 
 def test_default_allowed_hosts():
@@ -75,16 +81,30 @@ def test_cors_protection(
         assert response.headers.get("Access-Control-Allow-Origin") == expected_cors_header
 
 
-def test_insecure_cors_mode(test_app, monkeypatch: pytest.MonkeyPatch):
+def test_wildcard_cors_disables_credentials(
+    test_app, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
     monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "*")
-    security.init_security_middleware(test_app)
-    client = Client(test_app)
+    # The "mlflow" logger sets propagate=False, so caplog's root handler does not
+    # see records. Attach caplog's handler directly to the security logger.
+    security_logger = logging.getLogger("mlflow.server.security")
+    security_logger.addHandler(caplog.handler)
+    try:
+        with caplog.at_level("WARNING", logger="mlflow.server.security"):
+            security.init_security_middleware(test_app)
+    finally:
+        security_logger.removeHandler(caplog.handler)
+    assert any("disabling credentialed CORS" in record.message for record in caplog.records)
 
+    client = Client(test_app)
     response = client.post(
         "/api/2.0/mlflow/experiments/list", headers={"Origin": "http://evil.com"}
     )
     assert response.status_code == 200
-    assert response.headers.get("Access-Control-Allow-Origin") == "http://evil.com"
+    # The load-bearing security guarantee: no Access-Control-Allow-Credentials: true.
+    # Without that header, browsers strip cookies/Authorization on cross-origin
+    # requests, so an attacker page cannot ride the victim's authenticated session.
+    assert response.headers.get("Access-Control-Allow-Credentials") != "true"
 
 
 @pytest.mark.parametrize(
@@ -257,6 +277,77 @@ def test_endpoint_security_bypass(
     assert response.status_code == expected_status
 
 
+@pytest.mark.parametrize("endpoint", ["/health", "/version"])
+def test_is_health_endpoint_handles_static_prefix(endpoint, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("_MLFLOW_STATIC_PREFIX", raising=False)
+    assert is_health_endpoint(endpoint)
+    assert not is_health_endpoint(f"/myprefix{endpoint}")
+
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    # Only the registered (prefixed) route is exempt: the bare path has no route
+    # behind it under a prefix, so it must not waive host validation.
+    assert is_health_endpoint(f"/myprefix{endpoint}")
+    assert not is_health_endpoint(endpoint)
+    assert not is_health_endpoint(f"/otherprefix{endpoint}")
+    assert not is_health_endpoint(f"/myprefix{endpoint}z")
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "expected_status"),
+    [
+        ("/myprefix/health", 200),
+        ("/myprefix/version", 200),
+        ("/myprefix/test", 403),
+        # No route exists here under a prefix, so it must not skip host validation.
+        ("/health", 403),
+    ],
+)
+def test_flask_health_exempt_from_host_validation_with_static_prefix(
+    endpoint, expected_status, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    monkeypatch.setenv("MLFLOW_SERVER_ALLOWED_HOSTS", "localhost")
+
+    app = Flask(__name__)
+    for route in ("/myprefix/health", "/myprefix/version", "/myprefix/test"):
+        app.add_url_rule(route, route, lambda: "OK")
+    security.init_security_middleware(app)
+
+    response = Client(app).get(endpoint, headers={"Host": "evil.com"})
+    assert response.status_code == expected_status
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "expected_status"),
+    [
+        ("/myprefix/health", 200),
+        ("/myprefix/version", 200),
+        ("/myprefix/api/2.0/mlflow/experiments/list", 403),
+        ("/health", 403),
+    ],
+)
+def test_fastapi_health_exempt_from_host_validation_with_static_prefix(
+    endpoint, expected_status, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    monkeypatch.setenv("MLFLOW_SERVER_ALLOWED_HOSTS", "localhost")
+
+    app = FastAPI()
+
+    @app.get("/myprefix/health")
+    @app.get("/myprefix/version")
+    @app.get("/myprefix/api/2.0/mlflow/experiments/list")
+    async def endpoints():
+        return {"ok": True}
+
+    init_fastapi_security(app)
+
+    response = TestClient(app, raise_server_exceptions=False).get(
+        endpoint, headers={"Host": "evil.com"}
+    )
+    assert response.status_code == expected_status
+
+
 @pytest.mark.parametrize(
     ("hostname", "expected_valid"),
     [
@@ -267,13 +358,101 @@ def test_endpoint_security_bypass(
         ("localhost", True),
         ("[::1]", True),
         ("192.168.1.1:8080", True),
+        ("10.0.0.5:5000", True),
+        ("172.31.255.255:443", True),
         ("[::1]:8080", True),
         ("evil.com", False),
+        ("172.15.0.1", False),
+        ("172.32.0.1", False),
+        ("10.example.com", False),
+        ("10.example.com:5000", False),
+        ("192.168.example.com", False),
+        ("172.16.example.com:8080", False),
+        ("172.31.foo.bar", False),
+        ("10.1", False),
+        ("10.0.0.1.", False),
+        ("fc00::1", True),
+        ("fd00:abcd::5", True),
+        ("fc00:evil.com", False),
+        ("fd00:evil.com:5000", False),
+        ("fc00::1%evil.com", False),
     ],
 )
 def test_host_validation(hostname, expected_valid):
     hosts = security.get_allowed_hosts()
     assert is_allowed_host_header(hosts, hostname) == expected_valid
+
+
+@pytest.mark.parametrize(
+    ("host_header", "expected_valid"),
+    [
+        ("192.168.1.5", True),
+        ("192.168.1.5:8080", True),
+        ("192.168.example.com", False),
+        ("192.168.example.com:8080", False),
+        ("team.company.com", True),
+        ("mlflow.internal:5000", True),
+        ("mlflow.internal:5001", False),
+    ],
+)
+def test_host_validation_with_configured_patterns(host_header, expected_valid):
+    allowed_hosts = ["192.168.*", "*.company.com", "mlflow.internal:5000"]
+    assert is_allowed_host_header(allowed_hosts, host_header) == expected_valid
+
+
+@pytest.mark.parametrize(
+    ("pattern", "host_header", "expected_valid"),
+    [
+        ("10.0.0.*:5000", "10.0.0.5:5000", True),
+        ("10.0.0.*:5000", "10.0.0.example.com:5000", False),
+        ("192.168.*:*", "192.168.1.1:8080", True),
+        ("192.168.*:*", "192.168.example.com:8080", False),
+        ("192.168.*.*", "192.168.1.1", True),
+        ("192.168.*.*", "192.168.example.com", False),
+        ("192.168.*.nip.io", "192.168.1.5.nip.io", True),
+        ("10.*.svc.cluster.local", "10.mlflow.svc.cluster.local", True),
+        ("db:*", "db:5000", True),
+    ],
+)
+def test_host_validation_ip_shaped_patterns(pattern, host_header, expected_valid):
+    assert is_allowed_host_header([pattern], host_header) == expected_valid
+
+
+@pytest.mark.parametrize(
+    ("host_header", "expected_status"),
+    [
+        ("10.0.0.5:5000", 200),
+        ("10.example.com:5000", 403),
+        ("192.168.example.com", 403),
+    ],
+)
+def test_flask_default_hosts_match_private_ranges_by_ip(test_app, host_header, expected_status):
+    security.init_security_middleware(test_app)
+
+    response = Client(test_app).get("/test", headers={"Host": host_header})
+    assert response.status_code == expected_status
+
+
+@pytest.mark.parametrize(
+    ("host_header", "expected_status"),
+    [
+        ("10.0.0.5:5000", 200),
+        ("10.example.com:5000", 403),
+        ("192.168.example.com", 403),
+        ("fc00:evil.com", 403),
+    ],
+)
+def test_fastapi_default_hosts_match_private_ranges_by_ip(host_header, expected_status):
+    app = FastAPI()
+
+    @app.get("/test")
+    async def endpoint():
+        return {"ok": True}
+
+    init_fastapi_security(app)
+
+    response = TestClient(app).get("/test", headers={"Host": host_header})
+    assert response.status_code == expected_status
 
 
 @pytest.mark.parametrize(
@@ -317,6 +496,22 @@ def test_is_api_endpoint(path, expected):
     assert is_api_endpoint(path) == expected
 
 
+def test_is_api_endpoint_handles_static_prefix(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("_MLFLOW_STATIC_PREFIX", raising=False)
+    assert not is_api_endpoint("/myprefix/api/2.0/mlflow/experiments/list")
+    assert not is_api_endpoint("/myprefix/ajax-api/3.0/jobs/search")
+
+    monkeypatch.setenv("_MLFLOW_STATIC_PREFIX", "/myprefix")
+    assert is_api_endpoint("/myprefix/api/2.0/mlflow/experiments/list")
+    assert is_api_endpoint("/myprefix/ajax-api/3.0/jobs/search")
+    # The prefixed path replaces the unprefixed one, which no longer matches.
+    assert not is_api_endpoint("/api/2.0/mlflow/experiments/list")
+    assert not is_api_endpoint("/myprefix/health")
+    # artifact_router stays unprefixed, so its routes must still be recognized.
+    assert is_api_endpoint("/api/2.0/mlflow-artifacts/artifacts/x")
+    assert is_api_endpoint("/ajax-api/2.0/mlflow-artifacts/artifacts/x")
+
+
 @pytest.mark.parametrize(
     ("origin", "expect_cors_header"),
     [
@@ -334,6 +529,50 @@ def test_fastapi_cors_allows_localhost_origins(fastapi_client, origin, expect_co
         assert response.headers.get("access-control-allow-origin") == origin
     else:
         assert response.headers.get("access-control-allow-origin") is None
+
+
+def test_fastapi_wildcard_cors_disables_credentials(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "*")
+    # The "mlflow" logger sets propagate=False, so caplog's root handler does not
+    # see records. Attach caplog's handler directly to the security logger.
+    security_logger = logging.getLogger("mlflow.server.fastapi_security")
+    security_logger.addHandler(caplog.handler)
+
+    app = FastAPI()
+
+    @app.api_route("/api/2.0/mlflow/experiments/list", methods=["GET", "POST", "OPTIONS"])
+    async def api_endpoint():
+        return {"ok": True}
+
+    try:
+        with caplog.at_level("WARNING", logger="mlflow.server.fastapi_security"):
+            init_fastapi_security(app)
+    finally:
+        security_logger.removeHandler(caplog.handler)
+    assert any("disabling credentialed CORS" in record.message for record in caplog.records)
+
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.post(
+        "/api/2.0/mlflow/experiments/list",
+        headers={"Host": "localhost", "Origin": "http://evil.com"},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-credentials") != "true"
+
+    # Browsers read Access-Control-Allow-Credentials from the preflight (OPTIONS)
+    # response before deciding whether to send a credentialed request. Verify the
+    # preflight does not advertise credential support either.
+    preflight = client.options(
+        "/api/2.0/mlflow/experiments/list",
+        headers={
+            "Host": "localhost",
+            "Origin": "http://evil.com",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert preflight.headers.get("access-control-allow-credentials") != "true"
 
 
 def test_fastapi_cors_allows_configured_origin(monkeypatch: pytest.MonkeyPatch):

@@ -1,9 +1,7 @@
-import importlib.metadata
+import functools
 import json
 import logging
 from typing import Any, AsyncIterator, Iterator
-
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities import SpanType
@@ -12,20 +10,20 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.openai.constant import FLAVOR_NAME
-from mlflow.openai.utils.chat_schema import set_span_chat_attributes
+from mlflow.openai.utils.chat_schema import _parse_chat_completion_usage, set_span_chat_attributes
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
-    TokenUsageKey,
     TraceMetadataKey,
 )
 from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.utils import get_installed_version
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -63,7 +61,7 @@ def autolog(
         disable_openai_agent_tracer: If ``True``, disable the OpenAI Agent SDK tracer. If ``False``,
             enable the OpenAI Agent SDK tracer. Default to ``True``.
     """
-    if Version(importlib.metadata.version("openai")).major < 1:
+    if (version := get_installed_version("openai")) is not None and version.major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
 
     # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
@@ -81,12 +79,13 @@ def autolog(
     try:
         from agents.run import AgentRunner
 
-        from mlflow.openai._agent_tracer import _patched_agent_run
+        from mlflow.openai._agent_tracer import _patched_agent_run, _patched_agent_run_streamed
 
         # NB: The OpenAI's built-in tracer does not capture inputs/outputs of the
         # root span, which is not inconvenient. Therefore, we add a patch for the
         # runner.run() method instead.
         safe_patch(FLAVOR_NAME, AgentRunner, "run", _patched_agent_run)
+        safe_patch(FLAVOR_NAME, AgentRunner, "run_streamed", _patched_agent_run_streamed)
 
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
@@ -140,6 +139,14 @@ def _autolog(
     for task in (AsyncChatCompletions, AsyncCompletions, AsyncEmbeddings):
         safe_patch(FLAVOR_NAME, task, "create", async_patched_call)
 
+    try:
+        from openai.resources.images import AsyncImages, Images
+
+        safe_patch(FLAVOR_NAME, Images, "generate", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncImages, "generate", async_patched_call)
+    except ImportError:
+        pass
+
     if hasattr(AsyncChatCompletions, "parse"):
         # In openai>=1.92.0, `AsyncChatCompletions` has a `parse` method:
         # https://github.com/openai/openai-python/commit/0e358ed66b317038705fb38958a449d284f3cb88
@@ -163,8 +170,24 @@ def _autolog(
         safe_patch(FLAVOR_NAME, AsyncResponses, "parse", async_patched_call)
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
+    try:
+        from openai.resources.decisions import AsyncDecisions, Decisions
+    except ImportError:
+        pass
+    else:
+        safe_patch(FLAVOR_NAME, Decisions, "create", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncDecisions, "create", async_patched_call)
 
-def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
+
+def _is_decisions_api(task: type) -> bool:
+    try:
+        from openai.resources.decisions import AsyncDecisions, Decisions
+    except ImportError:
+        return False
+    return issubclass(task, (Decisions, AsyncDecisions))
+
+
+def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
@@ -178,6 +201,14 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
         Embeddings: SpanType.EMBEDDING,
         AsyncEmbeddings: SpanType.EMBEDDING,
     }
+
+    try:
+        from openai.resources.images import AsyncImages, Images
+
+        span_type_mapping[Images] = SpanType.TOOL
+        span_type_mapping[AsyncImages] = SpanType.TOOL
+    except ImportError:
+        pass
 
     try:
         # Only available in openai>=1.40.0
@@ -202,7 +233,15 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
     except ImportError:
         pass
 
-    return span_type_mapping.get(task, (SpanType.UNKNOWN, None))
+    if _is_decisions_api(task):
+        return SpanType.LLM
+
+    # Walk the MRO so subclasses (e.g. third-party wrappers like
+    # `DatabricksOpenAI`'s `ChatCompletions`) resolve to the right type.
+    for base_cls, span_type in span_type_mapping.items():
+        if issubclass(task, base_cls):
+            return span_type
+    return SpanType.UNKNOWN
 
 
 def _try_parse_raw_response(response: Any) -> Any:
@@ -286,10 +325,12 @@ def _start_span(
     inputs: dict[str, Any],
     run_id: str,
 ):
-    span_type = _get_span_type_and_message_format(instance.__class__)
+    span_type = _get_span_type(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
-    if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
+    if _is_decisions_api(instance.__class__):
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai_decisions"
+    elif span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
     # If there is an active span, create a child span under it, otherwise create a new trace
@@ -320,29 +361,119 @@ def _end_span_on_success(
 
     result = _try_parse_raw_response(raw_result)
 
+    if isinstance(result, (Stream, AsyncStream)):
+        output = []
+        finished = False
+
+        def _finish_stream(error=None):
+            nonlocal finished
+            if finished:
+                return
+            finished = True
+            if error is not None:
+                _end_span_on_exception(span, error)
+            else:
+                chunk = output[-1] if output else None
+                _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+
+        original_close = result.close
+
     if isinstance(result, Stream):
         # If the output is a stream, we add a hook to store the intermediate chunks
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
-            output = []
-            for i, chunk in enumerate(stream):
-                _add_span_event(span, i, chunk)
-                output.append(chunk)
-                yield chunk
-            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+            try:
+                for i, chunk in enumerate(stream):
+                    _add_span_event(span, i, chunk)
+                    output.append(chunk)
+                    yield chunk
+            except Exception as e:
+                # The SDK raises mid-stream (e.g. an error event from the server). End the
+                # span with an error status, otherwise the trace is never exported.
+                _finish_stream(e)
+                raise
+            finally:
+                _finish_stream()
 
-        result._iterator = _stream_output_logging_hook(result._iterator)
+        @functools.wraps(original_close)
+        def _close():
+            try:
+                close_result = original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
+
+        # `ChatCompletionStream.close()` (the `chat.completions.stream()` helper) closes the
+        # underlying HTTP response directly instead of calling `Stream.close()`. The SDK also
+        # closes the response while iterating (e.g. before re-raising a mid-stream error), so
+        # only finish here when the close comes from outside the iteration.
+        original_response_close = result.response.close
+        logging_iterator = _stream_output_logging_hook(result._iterator)
+
+        @functools.wraps(original_response_close)
+        def _response_close():
+            try:
+                close_result = original_response_close()
+            except BaseException as e:
+                if not logging_iterator.gi_running:
+                    _finish_stream(e)
+                raise
+            if not logging_iterator.gi_running:
+                _finish_stream()
+            return close_result
+
+        result._iterator = logging_iterator
+        result.close = _close
+        result.response.close = _response_close
     elif isinstance(result, AsyncStream):
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
-            output = []
-            async for chunk in stream:
-                _add_span_event(span, len(output), chunk)
-                output.append(chunk)
-                yield chunk
-            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
+            try:
+                async for chunk in stream:
+                    _add_span_event(span, len(output), chunk)
+                    output.append(chunk)
+                    yield chunk
+            except GeneratorExit:
+                raise
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            finally:
+                _finish_stream()
 
-        result._iterator = _stream_output_logging_hook(result._iterator)
+        @functools.wraps(original_close)
+        async def _close():
+            try:
+                close_result = await original_close()
+            except BaseException as e:
+                _finish_stream(e)
+                raise
+            _finish_stream()
+            return close_result
+
+        # `AsyncChatCompletionStream.close()` (the `chat.completions.stream()` helper) closes
+        # the underlying HTTP response directly instead of calling `AsyncStream.close()`. See
+        # the sync branch above for why the close is ignored while iterating.
+        original_response_aclose = result.response.aclose
+        logging_iterator = _stream_output_logging_hook(result._iterator)
+
+        @functools.wraps(original_response_aclose)
+        async def _response_aclose():
+            try:
+                close_result = await original_response_aclose()
+            except BaseException as e:
+                if not logging_iterator.ag_running:
+                    _finish_stream(e)
+                raise
+            if not logging_iterator.ag_running:
+                _finish_stream()
+            return close_result
+
+        result._iterator = logging_iterator
+        result.close = _close
+        result.response.aclose = _response_aclose
     else:
         try:
             set_span_chat_attributes(span, inputs, result)
@@ -365,23 +496,33 @@ def _process_last_chunk(
             output = None
         elif is_responses_api:
             output = _reconstruct_response_from_stream(output)
-        elif output[0].object in ["text_completion", "chat.completion.chunk"]:
+        elif completion_chunks := _filter_completion_stream_chunks(output):
             # Reconstruct a completion object from streaming chunks
-            output = _reconstruct_completion_from_stream(output)
+            output = _reconstruct_completion_from_stream(completion_chunks)
             # Set usage information on span if available
-            if usage := getattr(chunk, "usage", None):
-                usage_dict = {
-                    TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                    TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                    TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-                }
-                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+            if usage := _get_completion_stream_usage(completion_chunks):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, _parse_chat_completion_usage(usage))
 
         _end_span_on_success(span, inputs, output, is_responses_api)
     except Exception as e:
         _logger.warning(
             f"Encountered unexpected error when autologging processes the chunks in response: {e}"
         )
+
+
+def _filter_completion_stream_chunks(chunks: list[Any]) -> list[Any]:
+    return [
+        chunk
+        for chunk in chunks
+        if getattr(chunk, "object", None) in {"text_completion", "chat.completion.chunk"}
+    ]
+
+
+def _get_completion_stream_usage(chunks: list[Any]) -> Any:
+    for chunk in reversed(chunks):
+        if usage := getattr(chunk, "usage", None):
+            return usage
+    return None
 
 
 def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
@@ -391,6 +532,10 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     This preserves the structure and metadata that would be present in a non-streaming
     completion response, including ID, model, timestamps, usage, etc.
     """
+    chunks = _filter_completion_stream_chunks(chunks)
+    if not chunks:
+        return None
+
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
         def _extract_content(chunk: Any) -> str:
@@ -423,16 +568,36 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
             return "".join(text_parts)
         return content
 
+    tool_calls: list[dict[str, Any]] = []
+    finish_reason = "stop"
+    for chunk in chunks:
+        if not chunk.choices:
+            continue
+        chunk_choice = chunk.choices[0]
+        if chunk_choice.finish_reason:
+            finish_reason = chunk_choice.finish_reason
+        for tool_call_delta in getattr(chunk_choice.delta, "tool_calls", None) or []:
+            while tool_call_delta.index >= len(tool_calls):
+                tool_calls.append({
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                })
+            tool_call = tool_calls[tool_call_delta.index]
+            if tool_call_delta.id:
+                tool_call["id"] = tool_call_delta.id
+            if function := tool_call_delta.function:
+                tool_call["function"]["name"] += function.name or ""
+                tool_call["function"]["arguments"] += function.arguments or ""
+
+    content = "".join(map(_extract_content, chunks))
     message = ChatCompletionMessage(
-        role="assistant", content="".join(map(_extract_content, chunks))
+        role="assistant",
+        content=None if tool_calls and not content else content,
+        tool_calls=tool_calls or None,
     )
 
-    # Extract metadata from the last chunk
     last_chunk = chunks[-1]
-    finish_reason = "stop"
-    if choices := getattr(last_chunk, "choices", None):
-        if chunk_choice := choices[0]:
-            finish_reason = getattr(chunk_choice, "finish_reason") or finish_reason
 
     choice = Choice(index=0, message=message, finish_reason=finish_reason)
 
@@ -462,9 +627,15 @@ def _reconstruct_response_from_stream(chunks: list[Any]) -> Any:
 
 def _is_responses_final_event(chunk: Any) -> bool:
     try:
-        from openai.types.responses import ResponseCompletedEvent
+        from openai.types.responses import (
+            ResponseCompletedEvent,
+            ResponseFailedEvent,
+            ResponseIncompleteEvent,
+        )
 
-        return isinstance(chunk, ResponseCompletedEvent)
+        return isinstance(
+            chunk, (ResponseCompletedEvent, ResponseIncompleteEvent, ResponseFailedEvent)
+        )
     except ImportError:
         return False
 

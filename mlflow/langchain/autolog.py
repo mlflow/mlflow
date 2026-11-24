@@ -74,12 +74,26 @@ def autolog(
             "merge",
             _patched_callback_manager_merge,
         )
-    except Exception:
-        logger.debug("Failed to patch RunnableSequence or BaseCallbackManager.", exc_info=True)
+    except Exception as e:
+        logger.warning(
+            f"Failed to apply RunnableSequence.batch or BaseCallbackManager.merge patch: {e}"
+        )
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
     )
+
+
+def _is_langgraph_lifecycle_manager(manager) -> bool:
+    """
+    LangGraph >= 1.1.8 dispatches graph lifecycle events (``on_interrupt`` / ``on_resume``)
+    through dedicated callback managers defined in ``langgraph.callbacks``. They only accept
+    ``GraphCallbackHandler`` subclasses, but they inherit from ``BaseCallbackManager``, so the
+    patched ``__init__`` would otherwise inject the MLflow tracer into them and LangGraph would
+    then call hooks the tracer does not implement. Identify them by module rather than by
+    importing the private manager classes, which keeps langgraph an optional dependency.
+    """
+    return type(manager).__module__ == "langgraph.callbacks"
 
 
 def _patched_callback_manager_init(original, self, *args, **kwargs):
@@ -89,6 +103,9 @@ def _patched_callback_manager_init(original, self, *args, **kwargs):
     original(self, *args, **kwargs)
 
     if not AutoLoggingConfig.init(FLAVOR_NAME).log_traces:
+        return
+
+    if _is_langgraph_lifecycle_manager(self):
         return
 
     for handler in self.inheritable_handlers:

@@ -1,6 +1,6 @@
 import { Button, ParagraphSkeleton, PencilIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelVersionTableAliasesCell } from '../../../../model-registry/components/aliases/ModelVersionTableAliasesCell';
-import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
+import type { PromptModelConfig, RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import Utils from '../../../../common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -140,7 +140,7 @@ export const PromptVersionMetadata = ({
       {/* Model Config Section */}
       {(() => {
         const modelConfig = getModelConfigFromTags(registeredPromptVersion?.tags);
-        const hasModelConfig = !!modelConfig;
+        const hasModelConfig = Boolean(modelConfig);
 
         // Only show section if there's config or ability to edit
         if (!hasModelConfig && !showEditModelConfigModal) return null;
@@ -156,7 +156,7 @@ export const PromptVersionMetadata = ({
             <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
               {hasModelConfig ? (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, flex: 1 }}>
-                  {Object.entries(modelConfig).map(([key, value]) => {
+                  {Object.entries(modelConfig as PromptModelConfig).map(([key, value]) => {
                     if (value === undefined || value === null) return null;
                     if (Array.isArray(value) && value.length === 0) return null;
 

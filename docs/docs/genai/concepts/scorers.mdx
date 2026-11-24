@@ -1,3 +1,7 @@
+---
+description: Learn about MLflow Scorers, evaluation functions that assess LLM and AI agent output quality across dimensions like correctness and safety.
+---
+
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
 import { APILink } from "@site/src/components/APILink";
@@ -289,7 +293,7 @@ traces_with_feedback = mlflow.search_traces(
     max_results=20,  # Minimum 10 required for alignment
 )
 
-# Align the judge with human preferences (uses default DSPy-SIMBA optimizer)
+# Align the judge with human preferences (uses default MemAlign optimizer)
 aligned_judge = quality_judge.align(traces_with_feedback)
 
 # The aligned judge now better matches your team's quality standards

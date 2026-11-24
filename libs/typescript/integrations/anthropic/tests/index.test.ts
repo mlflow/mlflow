@@ -68,13 +68,17 @@ describe('tracedAnthropic', () => {
 
     const tokenUsage = trace.info.tokenUsage;
     expect(tokenUsage).toBeDefined();
-    expect(typeof tokenUsage?.input_tokens).toBe('number');
-    expect(typeof tokenUsage?.output_tokens).toBe('number');
-    expect(typeof tokenUsage?.total_tokens).toBe('number');
+    // input_tokens includes cache read and cache creation tokens
+    expect(tokenUsage?.input_tokens).toBe(128 + 64 + 32);
+    expect(tokenUsage?.output_tokens).toBe(256);
+    expect(tokenUsage?.total_tokens).toBe(128 + 64 + 32 + 256);
+    expect(tokenUsage?.cache_read_input_tokens).toBe(64);
+    expect(tokenUsage?.cache_creation_input_tokens).toBe(32);
 
     const span = trace.data.spans[0];
     expect(span.name).toBe('Messages');
     expect(span.spanType).toBe(mlflow.SpanType.LLM);
+    expect(span.logLevel).toBe(mlflow.SpanLogLevel.INFO);
     expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
     expect(span.inputs).toEqual({
       model: 'claude-3-7-sonnet-20250219',

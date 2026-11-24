@@ -3,7 +3,7 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.genai.datasets import get_dataset
 from mlflow.genai.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers import (
@@ -12,8 +12,8 @@ from mlflow.genai.optimize.optimizers import (
     MetaPromptOptimizer,
 )
 from mlflow.genai.prompts import load_prompt
-from mlflow.genai.scorers import builtin_scorers
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.builtin_scorers import _get_builtin_scorer_class
 from mlflow.genai.scorers.registry import get_scorer
 from mlflow.protos.prompt_optimization_pb2 import (
     OPTIMIZER_TYPE_GEPA,
@@ -26,6 +26,10 @@ from mlflow.telemetry.events import OptimizePromptsJobEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import set_experiment, start_run
+from mlflow.utils.validation import (
+    _validate_judge_inference_params,
+    _validate_third_party_scorer_data,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -176,7 +180,7 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
 
     scorers = []
     for name in scorer_names:
-        scorer_class = getattr(builtin_scorers, name, None)
+        scorer_class = _get_builtin_scorer_class(name)
         if scorer_class is not None:
             try:
                 scorer = scorer_class()
@@ -188,13 +192,18 @@ def _load_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]:
         # Load from the registered scorer store if not a built-in scorer
         try:
             scorer = get_scorer(name=name, experiment_id=experiment_id)
-            scorers.append(scorer)
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Scorer '{name}' not found. It is neither a built-in scorer "
                 f"(e.g., 'Correctness', 'Safety') nor a registered scorer in "
                 f"experiment '{experiment_id}'. Error: {e}"
             )
+        # Scorers registered before the server checked scorer payloads can carry options the
+        # server now rejects, so the same checks run on the stored form here.
+        serialized = scorer.model_dump()
+        _validate_third_party_scorer_data(serialized)
+        _validate_judge_inference_params(serialized)
+        scorers.append(scorer)
 
     return scorers
 
@@ -227,9 +236,12 @@ def _build_predict_fn(prompt_uri: str) -> Callable[..., Any]:
         provider = model_config["provider"]
         model_name = model_config["model_name"]
     except (KeyError, TypeError, AttributeError) as e:
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException(
             f"Prompt {prompt_uri} doesn't have a model configuration that sets provider and "
-            "model_name, which are required for optimization."
+            "model_name, which are required for optimization.",
+            error_code=INVALID_PARAMETER_VALUE,
+            error_class="ATTRIBUTE_NOT_FOUND",
         ) from e
 
     litellm_model = f"{provider}/{model_name}"

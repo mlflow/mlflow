@@ -121,7 +121,7 @@ def test_conversation_simulator_basic_simulation(
     assert len(all_traces[0]) == 2  # 2 traces
     assert all(t is simulation_mocks["trace"] for t in all_traces[0])
     assert simulation_mocks["invoke"].call_count == 4  # 2 turns * 2 calls each
-    assert simulation_mocks["update_trace"].call_count == 2
+    assert len(simulation_mocks["context_calls"]) == 2  # one per turn
 
 
 def test_conversation_simulator_max_turns_stopping(
@@ -200,6 +200,87 @@ def test_conversation_simulator_goal_achieved_stopping(
     goal_check_call = simulation_mocks["invoke"].call_args_list[1]
     goal_check_prompt = goal_check_call.kwargs["messages"][0].content
     assert "achieved" in goal_check_prompt.lower()
+
+
+_GOAL_CHECK_RESPONSE = '{"rationale": "Done", "result": "yes"}'
+
+
+@pytest.mark.parametrize(
+    ("user_model", "env_var", "provider_response", "expected_temperature"),
+    [
+        (
+            "anthropic:/claude-opus-5-5",
+            "ANTHROPIC_API_KEY",
+            {
+                "id": "msg_1",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-opus-5-5",
+                "content": [{"type": "text", "text": _GOAL_CHECK_RESPONSE}],
+                "stop_reason": "end_turn",
+                "usage": {"input_tokens": 1, "output_tokens": 1},
+            },
+            None,
+        ),
+        (
+            "openai:/gpt-4o-mini",
+            "OPENAI_API_KEY",
+            {
+                "id": "chatcmpl-1",
+                "object": "chat.completion",
+                "created": 0,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": _GOAL_CHECK_RESPONSE},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+            },
+            0.0,
+        ),
+    ],
+)
+def test_check_goal_achieved_temperature_in_provider_request(
+    monkeypatch, user_model, env_var, provider_response, expected_temperature
+):
+    monkeypatch.setenv(env_var, "test-key")
+    simulator = ConversationSimulator(test_cases=[{"goal": "Book a table"}], user_model=user_model)
+
+    with patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=provider_response
+    ) as mock_send:
+        assert simulator._check_goal_achieved([], "Booked a table.", "Book a table")
+
+    mock_send.assert_called_once()
+    payload = mock_send.call_args.kwargs["payload"]
+    assert payload.get("temperature") == expected_temperature
+
+
+@pytest.mark.parametrize(
+    ("goal_check_result", "expected_turns"),
+    [("yes", 1), ("no", 2)],
+)
+def test_conversation_simulator_anthropic_goal_check_stopping(
+    simple_test_case, mock_predict_fn, simulation_mocks, goal_check_result, expected_turns
+):
+    goal_check_response = f'{{"rationale": "Checked", "result": "{goal_check_result}"}}'
+    simulation_mocks["invoke"].side_effect = ["Test message", goal_check_response] * 2
+
+    simulator = ConversationSimulator(
+        test_cases=[simple_test_case],
+        max_turns=2,
+        user_model="anthropic:/claude-opus-5-5",
+    )
+
+    all_traces = simulator.simulate(mock_predict_fn)
+
+    assert len(all_traces[0]) == expected_turns
+    assert simulation_mocks["invoke"].call_count == 2 * expected_turns
+    goal_check_calls = simulation_mocks["invoke"].call_args_list[1::2]
+    assert all(call.kwargs["inference_params"] is None for call in goal_check_calls)
 
 
 def test_conversation_simulator_context_passing(test_case_with_context, simulation_mocks):
@@ -611,7 +692,7 @@ def test_user_agent_class_receives_context(simple_test_case, mock_predict_fn, si
     assert captured_contexts[1].is_first_turn is False
 
 
-def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_context):
+def test_conversation_simulator_sets_simulation_metadata(mock_predict_fn_with_context):
     long_goal = "A" * 500
     long_persona = "B" * 500
     context = {"user_id": "U001", "session_id": "S001"}
@@ -635,17 +716,14 @@ def test_conversation_simulator_sets_span_attributes(mock_predict_fn_with_contex
         assert len(first_test_case_traces) == 2
 
         for trace in first_test_case_traces:
-            root_span = trace.data.spans[0]
-            metadata = trace.info.request_metadata
+            metadata = trace.info.trace_metadata
 
-            assert root_span.attributes["mlflow.simulation.goal"] == long_goal
-            assert root_span.attributes["mlflow.simulation.persona"] == long_persona
-            assert root_span.attributes["mlflow.simulation.context"] == context
+            assert TraceMetadataKey.TRACE_SESSION in metadata
             assert metadata["mlflow.simulation.goal"] == long_goal[:_MAX_METADATA_LENGTH]
             assert metadata["mlflow.simulation.persona"] == long_persona[:_MAX_METADATA_LENGTH]
 
 
-def test_conversation_simulator_uses_default_persona_and_empty_context(mock_predict_fn):
+def test_conversation_simulator_uses_default_persona(mock_predict_fn):
     with patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke:
         mock_invoke.side_effect = [
             "Test message",
@@ -660,11 +738,11 @@ def test_conversation_simulator_uses_default_persona_and_empty_context(mock_pred
         all_traces = simulator.simulate(mock_predict_fn)
 
         trace = all_traces[0][0]
-        root_span = trace.data.spans[0]
+        metadata = trace.info.trace_metadata
 
-        assert root_span.attributes["mlflow.simulation.goal"] == "Test goal"
-        assert root_span.attributes["mlflow.simulation.persona"] == DEFAULT_PERSONA
-        assert root_span.attributes["mlflow.simulation.context"] == {}
+        assert metadata["mlflow.simulation.goal"] == "Test goal"
+        assert metadata["mlflow.simulation.persona"] == DEFAULT_PERSONA
+        assert TraceMetadataKey.TRACE_SESSION in metadata
 
 
 def test_conversation_simulator_logs_expectations_to_first_trace(mock_predict_fn):
@@ -1012,11 +1090,11 @@ def test_conversation_simulator_with_simulation_guidelines(mock_predict_fn):
         prompt = generate_call.kwargs["messages"][0].content
         assert "Ask clarifying questions before proceeding" in prompt
 
-        # Verify simulation_guidelines are in trace metadata
         trace = all_traces[0][0]
-        metadata = trace.info.request_metadata
+        metadata = trace.info.trace_metadata
         assert "mlflow.simulation.simulation_guidelines" in metadata
         assert (
             metadata["mlflow.simulation.simulation_guidelines"]
             == "Ask clarifying questions before proceeding"
         )
+        assert TraceMetadataKey.TRACE_SESSION in metadata

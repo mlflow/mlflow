@@ -1,4 +1,3 @@
-import importlib
 import json
 from unittest import mock
 
@@ -9,9 +8,11 @@ from dspy.utils.dummies import DummyLM, dummy_rm
 from packaging.version import Version
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.types.schema import ColSpec, Schema
 
+from tests.dspy.helper import DSPY_3_5_0_OR_NEWER, DSPY_VERSION, REASONING_LM_FIELD
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
@@ -20,11 +21,9 @@ from tests.helper_functions import (
     pyfunc_serve_and_score_model,
 )
 
-_DSPY_VERSION = Version(importlib.metadata.version("dspy"))
+_DSPY_UNDER_2_6 = DSPY_VERSION < Version("2.6.0")
 
-_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0")
-
-_DSPY_2_6_23_OR_OLDER = _DSPY_VERSION <= Version("2.6.23")
+_DSPY_2_6_23_OR_OLDER = DSPY_VERSION <= Version("2.6.23")
 skip_if_2_6_23_or_older = pytest.mark.skipif(
     _DSPY_2_6_23_OR_OLDER,
     reason="Streaming API is only supported in dspy 2.6.24 or later.",
@@ -32,11 +31,14 @@ skip_if_2_6_23_or_older = pytest.mark.skipif(
 
 _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
+# dspy 3.3.0 changed CoT's output field order: reasoning now precedes answer
+_DSPY_3_3_OR_NEWER = DSPY_VERSION >= Version("3.3.0")
+
 
 @pytest.fixture
 def dummy_model():
     return DummyLM([
-        {"answer": answer, _REASONING_KEYWORD: "reason"} for answer in ["4", "6", "8", "10"]
+        {"answer": answer, REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
     ])
 
 
@@ -58,13 +60,6 @@ class NumericalCoT(dspy.Module):
         return self.prog(question=question).answer
 
 
-@pytest.fixture(autouse=True)
-def reset_dspy_settings():
-    yield
-
-    dspy.settings.configure(lm=None, rm=None)
-
-
 use_dspy_model_save_param = pytest.param(
     True,
     marks=pytest.mark.skipif(
@@ -76,7 +71,7 @@ use_dspy_model_save_param = pytest.param(
 
 @pytest.mark.parametrize("use_dspy_model_save", [use_dspy_model_save_param, False])
 def test_basic_save(use_dspy_model_save):
-    if use_dspy_model_save and _DSPY_VERSION <= Version("2.6.0"):
+    if use_dspy_model_save and DSPY_VERSION <= Version("2.6.0"):
         pytest.skip("'use_dspy_model_save' = True does not support dspy <= 2.6.0")
 
     dspy_model = CoT()
@@ -161,7 +156,9 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     def dummy_metric(*args, **kwargs):
         return 1.0
 
-    model = DummyLM([{"answer": answer, "reasoning": "reason"} for answer in ["4", "6", "8", "10"]])
+    model = DummyLM([
+        {"answer": answer, REASONING_LM_FIELD: "reason"} for answer in ["4", "6", "8", "10"]
+    ])
     rm = dummy_rm(passages=["dummy1", "dummy2", "dummy3"])
     dspy.settings.configure(lm=model, rm=rm)
 
@@ -189,8 +186,8 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     original_settings = dict(dspy.settings.config)
     original_settings["traces"] = None
 
-    # Clear the lm setting to test the loading logic.
-    dspy.settings.configure(lm=None)
+    # Clear the lm and adapter settings to test the loading logic.
+    dspy.settings.configure(lm=None, adapter=None)
 
     model_url = model_info.model_uri
 
@@ -218,12 +215,16 @@ def test_dspy_save_preserves_object_state(use_dspy_model_save):
     assert loaded_settings["lm"].model == original_settings["lm"].model
     assert loaded_settings["lm"].model_type == original_settings["lm"].model_type
     assert loaded_settings["rm"].__dict__ == original_settings["rm"].__dict__
+    # Adapters don't define `__eq__`, and the loaded one is a new (unpickled) instance
+    assert type(loaded_settings["adapter"]) is type(original_settings["adapter"])
 
     del (
         loaded_settings["lm"],
         original_settings["lm"],
         loaded_settings["rm"],
         original_settings["rm"],
+        loaded_settings["adapter"],
+        original_settings["adapter"],
     )
 
     assert original_settings == loaded_settings
@@ -293,6 +294,31 @@ def test_serving_logged_model(dummy_model):
 
     assert _REASONING_KEYWORD in json_response["predictions"]
     assert "answer" in json_response["predictions"]
+
+
+@pytest.mark.skipif(
+    not DSPY_3_5_0_OR_NEWER, reason="XMLAdapter is the default adapter in DSPy 3.5+"
+)
+def test_save_load_and_serve_with_default_adapter(dummy_model):
+    dspy.settings.configure(lm=dummy_model, adapter=None)
+
+    input_example = {"question": "What is 2 + 2?"}
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(CoT(), name="model", input_example=input_example)
+    dspy.settings.configure(lm=None)
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(input_example) == {"reasoning": "reason", "answer": "6"}
+
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=json.dumps({"inputs": [input_example]}),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+    assert json.loads(response.content)["predictions"] == {"reasoning": "reason", "answer": "6"}
 
 
 def test_log_model_multi_inputs(dummy_model):
@@ -369,6 +395,13 @@ def test_save_chat_model_with_string_output(dummy_model):
     assert "message" in response["choices"][0]
     # The content should just be a string.
     assert response["choices"][0]["message"]["content"] == "4"
+
+
+def test_save_model_with_invalid_task(tmp_path):
+    with pytest.raises(MlflowException, match="Invalid task: llm/v1/unknown at"):
+        mlflow.dspy.save_model(
+            dspy.Predict("question -> answer"), tmp_path / "model", task="llm/v1/unknown"
+        )
 
 
 def test_serve_chat_model(dummy_model):
@@ -449,10 +482,16 @@ def test_infer_signature_from_input_examples(dummy_model):
 
         loaded_model = Model.load(model_info.model_uri)
         assert loaded_model.signature.inputs == Schema([ColSpec("string")])
-        assert loaded_model.signature.outputs == Schema([
-            ColSpec(name="answer", type="string"),
-            ColSpec(name=_REASONING_KEYWORD, type="string"),
-        ])
+        if _DSPY_3_3_OR_NEWER:
+            assert loaded_model.signature.outputs == Schema([
+                ColSpec(name=_REASONING_KEYWORD, type="string"),
+                ColSpec(name="answer", type="string"),
+            ])
+        else:
+            assert loaded_model.signature.outputs == Schema([
+                ColSpec(name="answer", type="string"),
+                ColSpec(name=_REASONING_KEYWORD, type="string"),
+            ])
 
 
 @skip_if_2_6_23_or_older
@@ -488,14 +527,14 @@ def test_predict_stream_success(dummy_model):
     def dummy_streamify(*args, **kwargs):
         # In dspy>=3, `StreamResponse` requires `is_last_chunk` argument.
         # https://github.com/stanfordnlp/dspy/pull/8587
-        extra_kwargs = {"is_last_chunk": False} if _DSPY_VERSION.major >= 3 else {}
+        extra_kwargs = {"is_last_chunk": False} if DSPY_VERSION.major >= 3 else {}
         yield dspy.streaming.StreamResponse(
             predict_name="prog.predict",
             signature_field_name="answer",
             chunk="2",
             **extra_kwargs,
         )
-        extra_kwargs = {"is_last_chunk": True} if _DSPY_VERSION.major >= 3 else {}
+        extra_kwargs = {"is_last_chunk": True} if DSPY_VERSION.major >= 3 else {}
         yield dspy.streaming.StreamResponse(
             predict_name="prog.predict",
             signature_field_name=_REASONING_KEYWORD,
@@ -509,14 +548,14 @@ def test_predict_stream_success(dummy_model):
             results.append(o)
 
     assert len(results) == 2
-    extra_kwargs = {"is_last_chunk": False} if _DSPY_VERSION.major >= 3 else {}
+    extra_kwargs = {"is_last_chunk": False} if DSPY_VERSION.major >= 3 else {}
     assert results[0] == {
         "predict_name": "prog.predict",
         "signature_field_name": "answer",
         "chunk": "2",
         **extra_kwargs,
     }
-    extra_kwargs = {"is_last_chunk": True} if _DSPY_VERSION.major >= 3 else {}
+    extra_kwargs = {"is_last_chunk": True} if DSPY_VERSION.major >= 3 else {}
     assert results[1] == {
         "predict_name": "prog.predict",
         "signature_field_name": _REASONING_KEYWORD,
@@ -556,3 +595,67 @@ def test_predict_output(dummy_model):
 
     assert isinstance(result, dict)
     assert result == {"answer": "4", "custom_field": "custom_value"}
+
+
+def test_load_model_disallows_pickle_deserialization_legacy_pkl(monkeypatch):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=False,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
+        mlflow.dspy.load_model(model_info.model_uri)
+
+
+@pytest.mark.skipif(
+    DSPY_VERSION <= Version("3.1.0"),
+    reason="'use_dspy_model_save' = True does not support dspy <= 3.1.0",
+)
+@pytest.mark.parametrize(("env_value", "expected_allow_pickle"), [("false", False), ("true", True)])
+def test_load_model_forwards_allow_pickle_to_dspy(env_value, expected_allow_pickle, monkeypatch):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=True,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", env_value)
+    with mock.patch("dspy.load") as mock_load:
+        try:
+            mlflow.dspy.load_model(model_info.model_uri)
+        except Exception:
+            pass  # downstream code may fail on the MagicMock; only the kwarg matters here
+
+    mock_load.assert_called_once()
+    assert mock_load.call_args.kwargs["allow_pickle"] is expected_allow_pickle
+
+
+@pytest.mark.skipif(
+    DSPY_VERSION <= Version("3.1.0"),
+    reason="'use_dspy_model_save' = True does not support dspy <= 3.1.0",
+)
+def test_load_model_wraps_dspy_error_when_pickle_disabled(monkeypatch):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=True,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with mock.patch("dspy.load", side_effect=ValueError("pickle disallowed by dspy")):
+        with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
+            mlflow.dspy.load_model(model_info.model_uri)

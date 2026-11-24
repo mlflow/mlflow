@@ -1,17 +1,17 @@
 import {
+  Alert,
   Button,
+  Checkbox,
   Empty,
   Input,
   KeyIcon,
   LinkIcon,
-  PencilIcon,
   SearchIcon,
   Spinner,
   Table,
   TableCell,
   TableHeader,
   TableRow,
-  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -26,46 +26,103 @@ import {
   DEFAULT_VISIBLE_COLUMNS,
   type ToggleableApiKeysColumn,
 } from './ApiKeysColumnsButton';
-import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../../types';
-import { useState } from 'react';
+import { BulkDeleteApiKeyModal } from './BulkDeleteApiKeyModal';
+import type { SecretInfo, Endpoint, EndpointBinding } from '../../types';
+import { useMemo, useState } from 'react';
 
 interface ApiKeysListProps {
+  onCreateClick?: () => void;
   onKeyClick?: (secret: SecretInfo) => void;
-  onEditClick?: (secret: SecretInfo) => void;
-  onDeleteClick?: (
-    secret: SecretInfo,
-    modelDefinitions: ModelDefinition[],
-    endpoints: Endpoint[],
-    bindingCount: number,
-  ) => void;
   onEndpointsClick?: (secret: SecretInfo, endpoints: Endpoint[]) => void;
   onBindingsClick?: (secret: SecretInfo, bindings: EndpointBinding[]) => void;
+  onApiKeyDeleted?: () => void;
 }
 
 export const ApiKeysList = ({
+  onCreateClick,
   onKeyClick,
-  onEditClick,
-  onDeleteClick,
   onEndpointsClick,
   onBindingsClick,
+  onApiKeyDeleted,
 }: ApiKeysListProps) => {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
   const [searchFilter, setSearchFilter] = useState('');
   const [filter, setFilter] = useState<ApiKeysFilter>({ providers: [] });
   const [visibleColumns, setVisibleColumns] = useState<ToggleableApiKeysColumn[]>(DEFAULT_VISIBLE_COLUMNS);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [deleteModalSecrets, setDeleteModalSecrets] = useState<SecretInfo[]>([]);
 
   const {
     secrets,
     filteredSecrets,
     isLoading,
+    error,
     availableProviders,
-    getModelDefinitionsForSecret,
     getEndpointsForSecret,
     getBindingsForSecret,
     getEndpointCount,
     getBindingCount,
   } = useApiKeysListData({ searchFilter, filter });
+
+  const selectedSecrets = useMemo(
+    () => filteredSecrets.filter((s) => rowSelection[s.secret_id]),
+    [filteredSecrets, rowSelection],
+  );
+
+  const selectedCount = selectedSecrets.length;
+  const allSelected = filteredSecrets.length > 0 && filteredSecrets.every((s) => rowSelection[s.secret_id]);
+  const someSelected = selectedCount > 0 && !allSelected;
+
+  const handleSelectAll = () => {
+    if (allSelected) {
+      setRowSelection({});
+    } else {
+      const next: Record<string, boolean> = {};
+      filteredSecrets.forEach((s) => {
+        next[s.secret_id] = true;
+      });
+      setRowSelection(next);
+    }
+  };
+
+  const handleSelectRow = (secretId: string) => {
+    setRowSelection((prev) => {
+      const next = { ...prev };
+      if (next[secretId]) {
+        delete next[secretId];
+      } else {
+        next[secretId] = true;
+      }
+      return next;
+    });
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteModalSecrets(selectedSecrets);
+  };
+
+  const handleDeleteSuccess = () => {
+    setDeleteModalSecrets([]);
+    setRowSelection({});
+    onApiKeyDeleted?.();
+  };
+
+  if (error && !secrets.length) {
+    return (
+      <Alert
+        componentId="mlflow.gateway.api-keys.error"
+        type="error"
+        message={
+          <FormattedMessage
+            defaultMessage="Failed to load API keys. Please check your connection and try again."
+            description="Gateway > API keys list > Error loading API keys"
+          />
+        }
+        closable={false}
+      />
+    );
+  }
 
   if (isLoading || !secrets.length) {
     if (isLoading) {
@@ -127,7 +184,7 @@ export const ApiKeysList = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Input
-          componentId="mlflow.gateway.api-keys-list.search"
+          componentId="mlflow.gateway.api-keys.search"
           prefix={<SearchIcon />}
           placeholder={formatMessage({
             defaultMessage: 'Search API Keys',
@@ -140,81 +197,113 @@ export const ApiKeysList = ({
         />
         <ApiKeysFilterButton availableProviders={availableProviders} filter={filter} onFilterChange={setFilter} />
         <ApiKeysColumnsButton visibleColumns={visibleColumns} onColumnsChange={setVisibleColumns} />
+        <div css={{ marginLeft: 'auto', display: 'flex', gap: theme.spacing.sm }}>
+          <Button componentId="mlflow.gateway.api-keys.create-button" type="primary" onClick={onCreateClick}>
+            <FormattedMessage defaultMessage="Create" description="Gateway > API keys list > Create button" />
+          </Button>
+          <Button
+            componentId="mlflow.gateway.api-keys.bulk-delete-button"
+            disabled={selectedCount === 0}
+            danger
+            onClick={handleDeleteClick}
+          >
+            {selectedCount > 0 ? (
+              <FormattedMessage
+                defaultMessage="Delete ({count})"
+                description="Gateway > API keys list > Delete button with count"
+                values={{ count: selectedCount }}
+              />
+            ) : (
+              <FormattedMessage defaultMessage="Delete" description="Gateway > API keys list > Delete button" />
+            )}
+          </Button>
+        </div>
       </div>
 
       <Table
         scrollable
+        noMinHeight
         empty={getEmptyState()}
         css={{
-          border: `1px solid ${theme.colors.borderDecorative}`,
+          borderLeft: `1px solid ${theme.colors.border}`,
+          borderRight: `1px solid ${theme.colors.border}`,
+          borderTop: `1px solid ${theme.colors.border}`,
+          borderBottom: filteredSecrets.length === 0 ? `1px solid ${theme.colors.border}` : 'none',
           borderRadius: theme.general.borderRadiusBase,
+          overflow: 'hidden',
         }}
       >
         <TableRow isHeader>
-          <TableHeader componentId="mlflow.gateway.api-keys-list.name-header" css={{ flex: 2 }}>
+          <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+            <Checkbox
+              componentId="mlflow.gateway.api-keys.select-all-checkbox"
+              isChecked={someSelected ? null : allSelected}
+              onChange={handleSelectAll}
+            />
+          </TableCell>
+          <TableHeader componentId="mlflow.gateway.api-keys.name-header" css={{ flex: 2 }}>
             <FormattedMessage defaultMessage="Key name" description="API key name column header" />
           </TableHeader>
           {visibleColumns.includes(ApiKeysColumn.PROVIDER) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.provider-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.provider-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Provider" description="Provider column header" />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.ENDPOINTS) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.endpoints-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.endpoints-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Endpoints" description="Endpoints using this key column header" />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.USED_BY) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.used-by-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.used-by-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Used by" description="Used by column header" />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.LAST_UPDATED) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.updated-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.updated-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Last updated" description="Last updated column header" />
             </TableHeader>
           )}
           {visibleColumns.includes(ApiKeysColumn.CREATED) && (
-            <TableHeader componentId="mlflow.gateway.api-keys-list.created-header" css={{ flex: 1 }}>
+            <TableHeader componentId="mlflow.gateway.api-keys.created-header" css={{ flex: 1 }}>
               <FormattedMessage defaultMessage="Created" description="Created column header" />
             </TableHeader>
           )}
-          <TableHeader
-            componentId="mlflow.gateway.api-keys-list.actions-header"
-            css={{ flex: 0, minWidth: 96, maxWidth: 96 }}
-          />
         </TableRow>
         {filteredSecrets.map((secret) => {
-          const secretModels = getModelDefinitionsForSecret(secret.secret_id);
           const endpointCount = getEndpointCount(secret.secret_id);
           const bindingCount = getBindingCount(secret.secret_id);
 
           return (
             <TableRow key={secret.secret_id}>
+              <TableCell css={{ flex: 0, minWidth: 40, maxWidth: 40 }}>
+                <Checkbox
+                  componentId="mlflow.gateway.api-keys.row-checkbox"
+                  isChecked={Boolean(rowSelection[secret.secret_id])}
+                  onChange={() => handleSelectRow(secret.secret_id)}
+                />
+              </TableCell>
               <TableCell css={{ flex: 2 }}>
-                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                  <KeyIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onKeyClick?.(secret)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        onKeyClick?.(secret);
-                      }
-                    }}
-                    css={{
-                      color: theme.colors.actionPrimaryBackgroundDefault,
-                      fontWeight: theme.typography.typographyBoldFontWeight,
-                      cursor: 'pointer',
-                      '&:hover': {
-                        textDecoration: 'underline',
-                      },
-                    }}
-                  >
-                    {secret.secret_name}
-                  </span>
-                </div>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onKeyClick?.(secret)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      onKeyClick?.(secret);
+                    }
+                  }}
+                  css={{
+                    color: theme.colors.actionPrimaryBackgroundDefault,
+                    fontWeight: theme.typography.typographyBoldFontWeight,
+                    cursor: 'pointer',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                  }}
+                >
+                  {secret.secret_name}
+                </span>
               </TableCell>
               {visibleColumns.includes(ApiKeysColumn.PROVIDER) && (
                 <TableCell css={{ flex: 1 }}>
@@ -277,7 +366,11 @@ export const ApiKeysList = ({
                     >
                       <LinkIcon css={{ color: theme.colors.textSecondary, fontSize: 14 }} />
                       <Typography.Text css={{ color: 'inherit' }}>
-                        {bindingCount} {bindingCount === 1 ? 'resource' : 'resources'}
+                        <FormattedMessage
+                          defaultMessage="{count, plural, one {# resource} other {# resources}}"
+                          description="Gateway > API keys list > Used by column binding count"
+                          values={{ count: bindingCount }}
+                        />
                       </Typography.Text>
                     </button>
                   ) : (
@@ -295,36 +388,18 @@ export const ApiKeysList = ({
                   <TimeAgo date={new Date(secret.created_at)} />
                 </TableCell>
               )}
-              <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
-                <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-                  <Button
-                    componentId="mlflow.gateway.api-keys-list.edit-button"
-                    type="primary"
-                    icon={<PencilIcon />}
-                    aria-label={formatMessage({
-                      defaultMessage: 'Edit API key',
-                      description: 'Gateway > API keys list > Edit API key button aria label',
-                    })}
-                    onClick={() => onEditClick?.(secret)}
-                  />
-                  <Button
-                    componentId="mlflow.gateway.api-keys-list.delete-button"
-                    type="primary"
-                    icon={<TrashIcon />}
-                    aria-label={formatMessage({
-                      defaultMessage: 'Delete API key',
-                      description: 'Gateway > API keys list > Delete API key button aria label',
-                    })}
-                    onClick={() =>
-                      onDeleteClick?.(secret, secretModels, getEndpointsForSecret(secret.secret_id), bindingCount)
-                    }
-                  />
-                </div>
-              </TableCell>
             </TableRow>
           );
         })}
       </Table>
+
+      <BulkDeleteApiKeyModal
+        open={deleteModalSecrets.length > 0}
+        secrets={deleteModalSecrets}
+        getEndpointsForSecret={getEndpointsForSecret}
+        onClose={() => setDeleteModalSecrets([])}
+        onSuccess={handleDeleteSuccess}
+      />
     </div>
   );
 };

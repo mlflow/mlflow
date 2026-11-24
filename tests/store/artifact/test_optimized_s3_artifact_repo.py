@@ -168,6 +168,29 @@ def test_get_s3_client_region_name_set_correctly_with_non_throwing_response(s3_a
         )
 
 
+def test_get_region_name_client_error_without_region_header():
+    from botocore.exceptions import ClientError
+
+    from mlflow.exceptions import MlflowException
+
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        s3_client_mock = mock.Mock()
+        mock_get_s3_client.return_value = s3_client_mock
+        error = ClientError(
+            {
+                "Error": {"Code": "403", "Message": "Forbidden"},
+                "ResponseMetadata": {"HTTPHeaders": {}},
+            },
+            "head_bucket",
+        )
+        s3_client_mock.head_bucket.side_effect = error
+
+        with pytest.raises(MlflowException, match="AWS_DEFAULT_REGION"):
+            OptimizedS3ArtifactRepository("s3://mock-bucket/some/path")
+
+        s3_client_mock.head_bucket.assert_called_once()
+
+
 def test_s3_client_config_set_correctly(s3_artifact_root):
     repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
     s3_client = repo._get_s3_client()
@@ -219,6 +242,79 @@ def test_log_artifacts_in_parallel_when_necessary(
     ) as multipart_upload_mock:
         repo.log_artifacts(tmp_path)
         multipart_upload_mock.assert_called_once_with(ANY, ANY, mock_s3_bucket, "some/path/a.txt")
+
+
+@pytest.mark.parametrize(
+    ("repository_extra_args", "environment_extra_args", "expected_extra_args"),
+    [
+        (
+            {"ServerSideEncryption": "AES256"},
+            None,
+            {"ServerSideEncryption": "AES256"},
+        ),
+        (
+            {"ServerSideEncryption": "AES256"},
+            (
+                '{"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "key-id", '
+                '"SSEKMSEncryptionContext": "context", "BucketKeyEnabled": true}'
+            ),
+            {
+                "ServerSideEncryption": "aws:kms",
+                "SSEKMSKeyId": "key-id",
+                "SSEKMSEncryptionContext": "context",
+                "BucketKeyEnabled": True,
+            },
+        ),
+    ],
+)
+def test_multipart_upload_passes_s3_upload_encryption_args(
+    s3_artifact_root,
+    tmp_path,
+    monkeypatch,
+    repository_extra_args,
+    environment_extra_args,
+    expected_extra_args,
+):
+    if environment_extra_args:
+        monkeypatch.setenv("MLFLOW_S3_UPLOAD_EXTRA_ARGS", environment_extra_args)
+    s3_client = mock.Mock()
+    s3_client.create_multipart_upload.return_value = {"UploadId": "upload-id"}
+    local_file = tmp_path / "artifact"
+    local_file.touch()
+    repo = OptimizedS3ArtifactRepository(
+        posixpath.join(s3_artifact_root, "path"),
+        s3_upload_extra_args=repository_extra_args,
+    )
+
+    repo._multipart_upload(s3_client, local_file, "bucket", "path/artifact")
+
+    s3_client.create_multipart_upload.assert_called_once_with(
+        Bucket="bucket",
+        Key="path/artifact",
+        **expected_extra_args,
+    )
+
+
+def test_multipart_upload_does_not_pass_non_encryption_upload_args(
+    s3_artifact_root, tmp_path, monkeypatch
+):
+    monkeypatch.setenv(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        '{"ServerSideEncryption": "AES256", "ACL": "bucket-owner-full-control"}',
+    )
+    s3_client = mock.Mock()
+    s3_client.create_multipart_upload.return_value = {"UploadId": "upload-id"}
+    local_file = tmp_path / "artifact"
+    local_file.touch()
+    repo = OptimizedS3ArtifactRepository(posixpath.join(s3_artifact_root, "path"))
+
+    repo._multipart_upload(s3_client, local_file, "bucket", "path/artifact")
+
+    s3_client.create_multipart_upload.assert_called_once_with(
+        Bucket="bucket",
+        Key="path/artifact",
+        ServerSideEncryption="AES256",
+    )
 
 
 @pytest.mark.parametrize(

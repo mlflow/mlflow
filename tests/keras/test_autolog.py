@@ -1,5 +1,6 @@
 import json
 import math
+import re
 
 import keras
 import numpy as np
@@ -10,6 +11,7 @@ from mlflow.models import Model
 from mlflow.tracking.fluent import flush_async_logging
 from mlflow.types import Schema, TensorSpec
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 
 
 @pytest.fixture(autouse=True)
@@ -60,7 +62,9 @@ def test_default_autolog_behavior():
 
     # Assert training configs are logged correctly.
     assert int(model_info["batch_size"]) == batch_size
-    assert model_info["optimizer_name"] == "adam"
+    # Keras >= 3.15 uniquifies optimizer names, so the 2nd/3rd optimizer created in
+    # the same process is logged as "adam_1"/"adam_2" instead of "adam".
+    assert re.fullmatch(r"adam(_\d+)?", model_info["optimizer_name"])
     assert math.isclose(float(model_info["optimizer_learning_rate"]), 0.001, rel_tol=1e-6)
 
     assert "loss" in run_metrics
@@ -149,7 +153,9 @@ def test_custom_autolog_behavior(
 
     # Assert training configs are logged correctly.
     assert int(model_info["batch_size"]) == batch_size
-    assert model_info["optimizer_name"] == "adam"
+    # Keras >= 3.15 uniquifies optimizer names, so the 2nd/3rd optimizer created in
+    # the same process is logged as "adam_1"/"adam_2" instead of "adam".
+    assert re.fullmatch(r"adam(_\d+)?", model_info["optimizer_name"])
     assert math.isclose(float(model_info["optimizer_learning_rate"]), 0.001, rel_tol=1e-6)
 
     assert "loss" in run_metrics
@@ -220,3 +226,71 @@ def test_keras_autolog_log_datasets(log_datasets, log_models):
             assert mlflow.last_logged_model() is not None
     else:
         assert len(run_inputs.model_inputs) == 0
+
+
+def test_autolog_logs_positional_validation_data_as_eval_dataset():
+    mlflow.keras.autolog(log_models=False)
+
+    data = np.random.uniform(size=(8, 28, 28, 3)).astype(np.float32)
+    label = np.random.randint(2, size=8)
+    val_data = np.random.uniform(size=(4, 28, 28, 3)).astype(np.float32)
+    val_label = np.random.randint(2, size=4)
+
+    # x, y, batch_size, epochs, verbose, callbacks, validation_split, validation_data
+    model = _create_keras_model()
+    model.fit(data, label, 4, 1, 0, None, 0.0, (val_data, val_label))
+    flush_async_logging()
+
+    run = mlflow.get_run(mlflow.last_active_run().info.run_id)
+    contexts = {
+        tag.value
+        for dataset_input in run.inputs.dataset_inputs
+        for tag in dataset_input.tags
+        if tag.key == MLFLOW_DATASET_CONTEXT
+    }
+    assert contexts == {"train", "eval"}
+
+
+def test_autolog_does_not_modify_user_callbacks_across_fit_calls():
+    mlflow.keras.autolog(log_models=False, log_datasets=False)
+
+    data = np.random.uniform(size=(8, 28, 28, 3))
+    label = np.random.randint(2, size=8)
+    history = keras.callbacks.History()
+    callbacks = [history]
+
+    run_ids = []
+    for _ in range(2):
+        _create_keras_model().fit(data, label, epochs=1, callbacks=callbacks)
+        run_ids.append(mlflow.last_active_run().info.run_id)
+        assert callbacks == [history]
+
+    flush_async_logging()
+    assert mlflow.active_run() is None
+    runs = mlflow.search_runs(output_format="list")
+    assert {r.info.run_id for r in runs} == set(run_ids)
+    for run in runs:
+        assert run.info.status == "FINISHED"
+        assert "loss" in run.data.metrics
+
+
+def test_autolog_logs_positional_fit_args_and_respects_positional_callbacks():
+    mlflow.keras.autolog(log_models=False, log_datasets=False)
+
+    data = np.random.uniform(size=(8, 28, 28, 3))
+    label = np.random.randint(2, size=8)
+    history = keras.callbacks.History()
+    callbacks = [history]
+
+    # x, y, batch_size, epochs, verbose, callbacks
+    model = _create_keras_model()
+    model.fit(data, label, 4, 3, 0, callbacks)
+
+    assert callbacks == [history]
+    assert history.params["epochs"] == 3
+    run = mlflow.last_active_run()
+    assert run.data.params["epochs"] == "3"
+    assert run.data.params["batch_size"] == "4"
+    flush_async_logging()
+    run = mlflow.get_run(run.info.run_id)
+    assert "loss" in run.data.metrics

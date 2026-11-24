@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   useDesignSystemTheme,
   ParagraphSkeleton,
   PlusIcon,
@@ -7,13 +8,16 @@ import {
   Spacer,
   SplitButton,
   DropdownMenu,
+  CursorPagination,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import ScorerCardContainer from './ScorerCardContainer';
 import ScorerModalRenderer from './ScorerModalRenderer';
 import ScorerEmptyStateRenderer from './ScorerEmptyStateRenderer';
+import { shouldPaginateScorers } from '../../../common/utils/FeatureUtils';
 import { useGetScheduledScorers } from './hooks/useGetScheduledScorers';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE } from './constants';
+import { useSelectedScorerName } from './hooks/useSelectedScorerName';
+import { SCORER_FORM_MODE } from './constants';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 
 interface ExperimentScorersContentContainerProps {
@@ -25,9 +29,12 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
   const intl = useIntl();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [initialScorerType, setInitialScorerType] = useState<ScorerFormData['scorerType']>('llm');
-
   const scheduledScorersResult = useGetScheduledScorers(experimentId);
+  const selectedScorerName = useSelectedScorerName();
   const scorers = scheduledScorersResult.data?.scheduledScorers || [];
+  const isLoading = scheduledScorersResult.isLoading;
+  const isError = scheduledScorersResult.isError;
+  const error = scheduledScorersResult.error;
 
   const handleNewLLMScorerClick = () => {
     setInitialScorerType('llm');
@@ -40,19 +47,19 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
   };
 
   // If no scorers exist and we're not currently showing the modal, show empty state
-  const shouldShowEmptyState = scorers.length === 0 && !isModalVisible && !scheduledScorersResult.isLoading;
+  const shouldShowEmptyState = scorers.length === 0 && !isModalVisible && !isLoading;
 
   const closeModal = () => {
     setIsModalVisible(false);
   };
 
   // Handle error state - throw error to be caught by PanelBoundary
-  if (scheduledScorersResult.isError && scheduledScorersResult.error) {
-    throw scheduledScorersResult.error;
+  if (isError && error) {
+    throw error;
   }
 
   // Handle loading state
-  if (scheduledScorersResult.isLoading) {
+  if (isLoading) {
     return (
       <div
         css={{
@@ -77,9 +84,35 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
     );
   }
 
+  // A link can name a judge registered in another experiment, which this page doesn't list.
+  const selectedScorerNotFoundAlert =
+    selectedScorerName && !scorers.some((scorer) => scorer.name === selectedScorerName) ? (
+      <Alert
+        componentId="mlflow.experiment-scorers.selected-scorer-not-found"
+        type="info"
+        closable={false}
+        css={{ marginBottom: theme.spacing.sm }}
+        message={
+          <FormattedMessage
+            defaultMessage="The judge “{name}” isn't registered in this experiment."
+            description="Shown on the judges page when a link names a judge that this experiment doesn't have"
+            values={{ name: selectedScorerName }}
+          />
+        }
+      />
+    ) : null;
+
   // Show empty state when there are no scorers
   if (shouldShowEmptyState) {
-    return (
+    return selectedScorerNotFoundAlert ? (
+      <div css={{ display: 'flex', flexDirection: 'column', height: '100%', padding: theme.spacing.sm }}>
+        {selectedScorerNotFoundAlert}
+        <ScorerEmptyStateRenderer
+          onAddLLMScorerClick={handleNewLLMScorerClick}
+          onAddCustomCodeScorerClick={handleNewCustomCodeScorerClick}
+        />
+      </div>
+    ) : (
       <ScorerEmptyStateRenderer
         onAddLLMScorerClick={handleNewLLMScorerClick}
         onAddCustomCodeScorerClick={handleNewCustomCodeScorerClick}
@@ -130,6 +163,7 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
         </SplitButton>
       </div>
       <Spacer size="sm" />
+      {selectedScorerNotFoundAlert}
       {/* Content area */}
       <div
         css={{
@@ -146,7 +180,12 @@ const ExperimentScorersContentContainer: React.FC<ExperimentScorersContentContai
           }}
         >
           {scorers.map((scorer) => (
-            <ScorerCardContainer key={scorer.name} scorer={scorer} experimentId={experimentId} />
+            <ScorerCardContainer
+              key={scorer.name}
+              scorer={scorer}
+              experimentId={experimentId}
+              {...(scorer.name === selectedScorerName ? { initiallyExpanded: true } : {})}
+            />
           ))}
         </div>
       </div>

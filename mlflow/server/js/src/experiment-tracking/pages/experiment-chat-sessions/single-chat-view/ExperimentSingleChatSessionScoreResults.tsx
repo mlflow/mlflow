@@ -12,7 +12,7 @@ import { first } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ResizableBox } from 'react-resizable';
-import { isEvaluatingTracesInDetailsViewEnabled } from '../../../../shared/web-shared/model-trace-explorer/FeatureUtils';
+import { isEvaluatingTracesInDetailsViewEnabled } from '@databricks/web-shared/model-trace-explorer';
 import { useRunScorerInTracesViewConfiguration } from '../../experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { ScorerEvaluationScope } from '../../experiment-scorers/constants';
 
@@ -160,3 +160,6 @@ const RunJudgeContextProvider = ({
     </ModelTraceExplorerRunJudgesContextProvider>
   );
 };
+
+/** Lets judges run on a whole session from its assessments pane, and refreshes the session when they finish. */
+export { RunJudgeContextProvider as SessionRunJudgesContextProvider };

@@ -12,13 +12,14 @@ import { FormattedMessage } from '@databricks/i18n';
 import type { ModelTrace } from '../ModelTrace.types';
 import { ModelTraceExplorer } from '../ModelTraceExplorer';
 import { getTraceArtifact } from './mlflow-fetch-utils';
-import { getActiveWorkspace } from '@mlflow/mlflow/src/workspaces/utils/WorkspaceUtils';
+import { getActiveWorkspace } from '../RoutingUtils';
 
 const MLFLOW_DOCS_URI = 'https://mlflow.org/docs/latest/llms/tracing/index.html?ref=jupyter-notebook-widget';
 
 const getMlflowUILinkForTrace = (traceId: string, experimentId: string) => {
   const queryParams = new URLSearchParams();
   queryParams.append('selectedEvaluationId', traceId);
+  queryParams.append('traceId', traceId);
   queryParams.append('compareRunsMode', 'TRACES');
   const workspace = getActiveWorkspace();
   if (workspace) {
@@ -76,7 +77,7 @@ export const ModelTraceExplorerOSSNotebookRenderer = () => {
     );
   }
 
-  // some error occured
+  // some error occurred
   if (!traceData) {
     return (
       <div css={{ paddingTop: theme.spacing.md, width: 'calc(100% - 2px)' }}>
@@ -87,7 +88,7 @@ export const ModelTraceExplorerOSSNotebookRenderer = () => {
               <Typography.Paragraph>
                 <FormattedMessage
                   defaultMessage="An error occurred while attempting to fetch trace data (ID: {traceId}). Please ensure that the MLflow tracking server is running, and that the trace data exists. Error details:"
-                  description="An error message explaining that an error occured while fetching trace data"
+                  description="An error message explaining that an error occurred while fetching trace data"
                   values={{ traceId: traceIds[activeTraceIndex] }}
                 />
               </Typography.Paragraph>

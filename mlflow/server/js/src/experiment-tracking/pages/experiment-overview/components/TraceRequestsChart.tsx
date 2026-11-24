@@ -40,10 +40,10 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ title })
     () => (
       <ScrollableTooltip
         formatter={tooltipFormatter}
+        componentId="mlflow.overview.usage.traces.view_traces_link"
         linkConfig={{
           experimentId: experimentIds[0],
           timeIntervalSeconds,
-          componentId: 'mlflow.overview.usage.traces.view_traces_link',
         }}
       />
     ),
@@ -87,7 +87,11 @@ export const TraceRequestsChart: React.FC<TraceRequestsChartProps> = ({ title })
             >
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
-              <Tooltip content={tooltipContent} cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }} />
+              <Tooltip
+                content={tooltipContent}
+                cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
+              />
               <Bar dataKey="count" fill={theme.colors.blue400} radius={[4, 4, 0, 0]} />
               {avgRequests > 0 && (
                 <ReferenceLine

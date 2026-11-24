@@ -3,11 +3,10 @@ import { RUNS_VISIBILITY_MODE } from '../../../components/experiment-page/models
 
 interface ExperimentEvaluationRunsRowVisibilityContextValue {
   isRowHidden: (rowUuid: string, rowIndex: number, runStatus?: string) => boolean;
-  toggleRowVisibility: (rowUuid: string) => void;
+  toggleRowVisibility: (rowUuid: string, rowIndex: number, runStatus?: string) => void;
   setVisibilityMode: (mode: RUNS_VISIBILITY_MODE) => void;
   visibilityMode: RUNS_VISIBILITY_MODE;
   usingCustomVisibility: boolean;
-  allRunsHidden: boolean;
 }
 
 const ExperimentEvaluationRunsRowVisibilityContext = createContext<ExperimentEvaluationRunsRowVisibilityContextValue>({
@@ -16,67 +15,66 @@ const ExperimentEvaluationRunsRowVisibilityContext = createContext<ExperimentEva
   setVisibilityMode: () => {},
   visibilityMode: RUNS_VISIBILITY_MODE.SHOWALL,
   usingCustomVisibility: false,
-  allRunsHidden: false,
 });
 
+const isVisibleByMode = (mode: RUNS_VISIBILITY_MODE, rowIndex: number, runStatus?: string): boolean => {
+  if (mode === RUNS_VISIBILITY_MODE.HIDEALL) return false;
+  if (mode === RUNS_VISIBILITY_MODE.FIRST_10_RUNS) return rowIndex < 10;
+  if (mode === RUNS_VISIBILITY_MODE.FIRST_20_RUNS) return rowIndex < 20;
+  if (mode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS) {
+    return !['FINISHED', 'FAILED', 'KILLED'].includes(runStatus ?? '');
+  }
+  return true;
+};
+
 export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { children: React.ReactNode }) => {
-  const [hiddenRuns, setHiddenRuns] = useState<Set<string>>(new Set());
+  // stores explicit overrides: if row should be visible, set to true, and if row should be hidden, set to false.
+  const [rowVisibilityOverrides, setRowVisibilityOverrides] = useState<Record<string, boolean>>({});
   const [visibilityMode, setVisibilityModeState] = useState<RUNS_VISIBILITY_MODE>(RUNS_VISIBILITY_MODE.SHOWALL);
 
   const isRowHidden = useCallback(
     (rowUuid: string, rowIndex: number, runStatus?: string) => {
-      // If custom mode, check the hiddenRuns set
-      if (visibilityMode === RUNS_VISIBILITY_MODE.CUSTOM) {
-        return hiddenRuns.has(rowUuid);
+      // Check explicit override - if set, use it directly
+      if (rowVisibilityOverrides[rowUuid] !== undefined) {
+        return !rowVisibilityOverrides[rowUuid];
       }
 
-      // For other modes, apply the mode logic
-      if (visibilityMode === RUNS_VISIBILITY_MODE.HIDEALL) {
-        return true;
-      }
-
-      if (visibilityMode === RUNS_VISIBILITY_MODE.FIRST_10_RUNS) {
-        return rowIndex >= 10;
-      }
-
-      if (visibilityMode === RUNS_VISIBILITY_MODE.FIRST_20_RUNS) {
-        return rowIndex >= 20;
-      }
-
-      if (visibilityMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS) {
-        return ['FINISHED', 'FAILED', 'KILLED'].includes(runStatus ?? '');
-      }
-
-      // SHOWALL mode - show everything
-      return false;
+      return !isVisibleByMode(visibilityMode, rowIndex, runStatus);
     },
-    [hiddenRuns, visibilityMode],
+    [rowVisibilityOverrides, visibilityMode],
   );
 
-  const toggleRowVisibility = useCallback((rowUuid: string) => {
-    setHiddenRuns((prevHiddenRuns) => {
-      const newHiddenRuns = new Set(prevHiddenRuns);
-      if (newHiddenRuns.has(rowUuid)) {
-        newHiddenRuns.delete(rowUuid);
-      } else {
-        newHiddenRuns.add(rowUuid);
-      }
-      return newHiddenRuns;
-    });
-    // Switch to custom mode when manually toggling
-    setVisibilityModeState(RUNS_VISIBILITY_MODE.CUSTOM);
-  }, []);
+  const toggleRowVisibility = useCallback(
+    (rowUuid: string, rowIndex: number, runStatus?: string) => {
+      setRowVisibilityOverrides((prev) => {
+        const newVisibilityOverrides = { ...prev };
+
+        const visibleByMode = isVisibleByMode(visibilityMode, rowIndex, runStatus);
+
+        // Calculate current effective visibility
+        const currentlyVisible = prev[rowUuid] !== undefined ? prev[rowUuid] : visibleByMode;
+
+        // Flip visibility
+        const newVisible = !currentlyVisible;
+
+        if (newVisible === visibleByMode) {
+          delete newVisibilityOverrides[rowUuid];
+        } else {
+          newVisibilityOverrides[rowUuid] = newVisible;
+        }
+
+        return newVisibilityOverrides;
+      });
+    },
+    [visibilityMode],
+  );
 
   const setVisibilityMode = useCallback((mode: RUNS_VISIBILITY_MODE) => {
     setVisibilityModeState(mode);
-    // Clear custom hidden runs when switching to a predefined mode
-    if (mode !== RUNS_VISIBILITY_MODE.CUSTOM) {
-      setHiddenRuns(new Set());
-    }
+    setRowVisibilityOverrides({});
   }, []);
 
-  const usingCustomVisibility = visibilityMode === RUNS_VISIBILITY_MODE.CUSTOM && hiddenRuns.size > 0;
-  const allRunsHidden = visibilityMode === RUNS_VISIBILITY_MODE.HIDEALL;
+  const usingCustomVisibility = Object.keys(rowVisibilityOverrides).length > 0;
 
   const value = useMemo(
     () => ({
@@ -85,9 +83,8 @@ export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { ch
       setVisibilityMode,
       visibilityMode,
       usingCustomVisibility,
-      allRunsHidden,
     }),
-    [isRowHidden, toggleRowVisibility, setVisibilityMode, visibilityMode, usingCustomVisibility, allRunsHidden],
+    [isRowHidden, toggleRowVisibility, setVisibilityMode, visibilityMode, usingCustomVisibility],
   );
 
   return (

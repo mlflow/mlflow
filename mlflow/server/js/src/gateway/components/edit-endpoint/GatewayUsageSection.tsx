@@ -6,9 +6,16 @@ import { prefixRouteWithWorkspace } from '../../../workspaces/utils/WorkspaceUti
 interface GatewayUsageSectionProps {
   experimentId: string;
   tooltipLinkUrlBuilder?: (experimentId: string, timestampMs: number, timeIntervalSeconds: number) => string;
+  additionalControls?: React.ReactNode;
+  filters?: string[];
 }
 
-export const GatewayUsageSection = ({ experimentId, tooltipLinkUrlBuilder }: GatewayUsageSectionProps) => {
+export const GatewayUsageSection = ({
+  experimentId,
+  tooltipLinkUrlBuilder,
+  additionalControls,
+  filters,
+}: GatewayUsageSectionProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -35,6 +42,7 @@ export const GatewayUsageSection = ({ experimentId, tooltipLinkUrlBuilder }: Gat
       <GatewayChartsPanel
         experimentIds={[experimentId]}
         showTokenStats
+        additionalControls={additionalControls}
         tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
         tooltipLinkText={
           tooltipLinkUrlBuilder ? (
@@ -44,6 +52,7 @@ export const GatewayUsageSection = ({ experimentId, tooltipLinkUrlBuilder }: Gat
             />
           ) : undefined
         }
+        filters={filters}
       />
     </div>
   );

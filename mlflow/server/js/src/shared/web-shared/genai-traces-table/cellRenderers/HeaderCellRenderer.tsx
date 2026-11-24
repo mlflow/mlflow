@@ -33,7 +33,7 @@ export const HeaderCellRenderer = (props: HeaderContext<EvalTraceComparisonEntry
       }}
     >
       <div>{groupName}</div>
-      {groupId === TracesTableColumnGroup.INFO ? null : visibleCount === totalCount ? (
+      {groupId === TracesTableColumnGroup.BASE ? null : visibleCount === totalCount ? (
         <div
           css={{
             color: theme.colors.textSecondary,

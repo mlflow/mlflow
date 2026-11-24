@@ -1,4 +1,6 @@
 ---
+title: Prompt Management in MLflow
+description: Version, track, and manage prompts for LLM applications and AI agents with the MLflow Prompt Registry. Collaborate on prompt engineering across your organization.
 sidebar_position: 1
 sidebar_label: Overview
 ---
@@ -13,7 +15,7 @@ import TabItem from "@theme/TabItem";
 
 **MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your LLM applications and AI agents. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
 
-:::tip Key Features
+:::tip[Key Features]
 
 - **Reusability** - Store and manage prompts in a centralized registry and reuse them across multiple applications.
 - **Version Control** - Track the evolution of your prompts with Git-inspired commit-based versioning and side-by-side comparison of prompt versions with diff highlighting.
@@ -220,8 +222,8 @@ You can discover prompts by name, tag or other registry fields:
 ```python
 import mlflow
 
-# Fluent API: returns a flat list of all matching prompts
-prompts = mlflow.genai.search_prompts(filter_string="task='summarization'")
+# Fluent API: returns a flat list of all matching prompts, ordered by name
+prompts = mlflow.genai.search_prompts(filter_string="task='summarization'", order_by=["name ASC"])
 print(f"Found {len(prompts)} prompts")
 
 # For pagination control, use the client API:

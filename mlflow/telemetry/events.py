@@ -1,14 +1,32 @@
 import inspect
-import os
 import sys
+from collections import Counter
 from enum import Enum
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
+from urllib.parse import urlparse
 
 from mlflow.entities import Feedback
+from mlflow.entities.issue import IssueSeverity, IssueStatus
+from mlflow.entities.mcp_server import MCPStatus
+from mlflow.entities.skill import SkillStatus
+from mlflow.entities.skill_source import SkillSourceType
+from mlflow.environment_variables import (
+    _MLFLOW_SERVER_JOB_ID,
+    _MLFLOW_SERVER_JOB_NAME,
+    MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
+)
+from mlflow.exceptions import MlflowException
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
+    KNOWN_FLAVORS,
     MODULES_TO_CHECK_IMPORT,
 )
+from mlflow.telemetry.issue_detection_utils import (
+    count_issues_by_category,
+    get_issue_detection_trigger,
+    normalize_issue_categories,
+)
+from mlflow.utils.skill_uris import parse_skill_uri
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.base import Scorer
@@ -18,6 +36,38 @@ GENAI_EVALUATION_PATH = "mlflow/genai/evaluation/base"
 GENAI_SCORERS_PATH = "mlflow/genai/scorers/base"
 GENAI_EVALUATE_FUNCTION = "_run_harness"
 SCORER_RUN_FUNCTION = "run"
+
+
+def _bound_flavor(flavor_name: str | None) -> str | None:
+    if not flavor_name:
+        return None
+    # Reduce values like "mlflow.sklearn" or "pyfunc.ChatModel" to the base flavor.
+    base = flavor_name.removeprefix("mlflow.").split(".", 1)[0]
+    return base if base in KNOWN_FLAVORS else "other"
+
+
+# Built-in model-URI schemes, used to bound the telemetry `source_scheme` value. The
+# artifact-repository registry is intentionally not used, since plugins can register
+# schemes at runtime, which would make the value unbounded.
+_KNOWN_MODEL_URI_SCHEMES = {
+    "runs",
+    "models",
+    "file",
+    "s3",
+    "r2",
+    "b2",
+    "gs",
+    "wasbs",
+    "abfss",
+    "dbfs",
+    "ftp",
+    "sftp",
+    "hdfs",
+    "viewfs",
+    "http",
+    "https",
+    "mlflow-artifacts",
+}
 
 
 def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
@@ -39,6 +89,30 @@ def _get_scorer_class_name_for_tracking(scorer: "Scorer") -> str:
 
         if isinstance(scorer, RagasScorer):
             return f"Ragas:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.guardrails import GuardrailsScorer
+
+        if isinstance(scorer, GuardrailsScorer):
+            return f"Guardrails:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.phoenix import PhoenixScorer
+
+        if isinstance(scorer, PhoenixScorer):
+            return f"Phoenix:{scorer.name}"
+    except ImportError:
+        pass
+
+    try:
+        from mlflow.genai.scorers.trulens import TruLensScorer
+
+        if isinstance(scorer, TruLensScorer):
+            return f"TruLens:{scorer.name}"
     except ImportError:
         pass
 
@@ -87,7 +161,10 @@ class StartTraceEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         # Capture the set of currently imported packages at trace start time to
         # understand the flavor of the trace.
-        return {"imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules]}
+        return {
+            "imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules],
+            "format": "genai_semconv" if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get() else "native",
+        }
 
 
 class LogAssessmentEvent(Event):
@@ -128,7 +205,7 @@ class GenAIEvaluateEvent(Event):
         if eval_data is not None:
             from mlflow.genai.evaluation.utils import _get_eval_data_type
 
-            record_params.update(_get_eval_data_type(eval_data))
+            record_params["eval_data_type"] = _get_eval_data_type(eval_data)
 
         # Track scorer information
         scorers = arguments.get("scorers") or []
@@ -136,7 +213,7 @@ class GenAIEvaluateEvent(Event):
             {
                 "class": _get_scorer_class_name_for_tracking(scorer),
                 "kind": scorer.kind.value,
-                "scope": "session" if scorer.is_session_level_scorer else "response",
+                "scope": "session" if scorer.is_session_level_scorer else "trace",
             }
             for scorer in scorers
             if isinstance(scorer, Scorer)
@@ -153,6 +230,17 @@ class GenAIEvaluateEvent(Event):
             return None
 
         return telemetry_data
+
+
+class CompareEvaluationsEvent(Event):
+    name: str = "compare_evaluations"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "greater_is_better_provided": arguments.get("greater_is_better") is not None,
+            "log_results": bool(arguments.get("log_results")),
+        }
 
 
 class CreateLoggedModelEvent(Event):
@@ -210,6 +298,54 @@ class CreateModelVersionEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         tags = arguments.get("tags") or {}
         return {"is_prompt": _is_prompt(tags)}
+
+
+class LogModelEvent(Event):
+    # End-to-end log_model; CreateLoggedModelEvent covers only the create-record sub-step.
+    name: str = "log_model"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        flavor = arguments.get("flavor")
+        kwargs = arguments.get("kwargs") or {}
+        flavor_name = kwargs.get("flavor_name")
+        if not flavor_name and flavor is not None:
+            flavor_name = getattr(flavor, "__name__", None)
+        return {
+            "flavor": _bound_flavor(flavor_name),
+            "registered": arguments.get("registered_model_name") is not None,
+        }
+
+
+class RegisterModelEvent(Event):
+    # End-to-end register_model (create model + optional env_pack + create version + await).
+    name: str = "register_model"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        # Lazy import to avoid an events -> env_pack -> models.model -> events import cycle.
+        from mlflow.utils.env_pack import EnvPackType
+
+        env_pack = arguments.get("env_pack")
+        if env_pack is None:
+            env_pack_kind = None
+        else:
+            kind = env_pack if isinstance(env_pack, str) else getattr(env_pack, "name", None)
+            env_pack_kind = kind if kind in get_args(EnvPackType) else "other"
+
+        # urlparse handles both `scheme:/path` (e.g. dbfs:/, runs:/) and `scheme://host/path`.
+        scheme = urlparse(arguments.get("model_uri") or "").scheme
+        if not scheme:
+            source_scheme = "local"
+        else:
+            source_scheme = scheme if scheme in _KNOWN_MODEL_URI_SCHEMES else "other"
+
+        return {"env_pack": env_pack_kind, "source_scheme": source_scheme}
+
+
+class EnvPackEvent(Event):
+    # Recorded manually from env packing; status/duration cover packing only, not the caller.
+    name: str = "env_pack"
 
 
 class CreateDatasetEvent(Event):
@@ -402,6 +538,178 @@ class McpRunEvent(Event):
     name: str = "mcp_run"
 
 
+# MCP Server Registry Events
+class McpRegistryCreateServerVersionEvent(Event):
+    """Tracked on the store (server-side), so this fires for creations via UI,
+    REST API, and SDK — including the inner create from register_mcp_server_from_url.
+    """
+
+    name: str = "mcp_registry_create_server_version"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        server_json = arguments.get("server_json") or {}
+        # `tools` may be omitted (a NOT_SET sentinel), explicitly None, or a list.
+        # Only a real sequence has a meaningful count; anything else is "not provided".
+        tools = arguments.get("tools")
+        status = arguments.get("status") or MCPStatus.DRAFT
+        return {
+            "status": status.value if hasattr(status, "value") else status,
+            "has_source": arguments.get("source") is not None,
+            "num_tools": len(tools) if isinstance(tools, (list, tuple)) else None,
+            "has_remotes": bool(server_json.get("remotes")),
+        }
+
+
+class McpRegistryRegisterServerFromUrlEvent(Event):
+    """SDK-only: fires from register_mcp_server_from_url, not UI/REST creations.
+
+    Successful URL registration also triggers McpRegistryCreateServerVersionEvent
+    from the inner store call; analytics consumers should expect both events
+    per successful register_mcp_server_from_url invocation.
+    """
+
+    name: str = "mcp_registry_register_server_from_url"
+
+    _KNOWN_SCHEMES = {"http", "https", "file", "ftp", "ftps", "s3", "gs", "abfss"}
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        url = arguments.get("url") or ""
+        scheme = urlparse(url).scheme.lower()
+        if scheme in cls._KNOWN_SCHEMES:
+            url_scheme = scheme
+        elif not scheme or len(scheme) == 1:
+            url_scheme = "file"
+        else:
+            url_scheme = "other"
+        return {
+            "url_scheme": url_scheme,
+        }
+
+
+class McpRegistryCreateAccessEndpointEvent(Event):
+    name: str = "mcp_registry_create_access_endpoint"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        transport_type = arguments.get("transport_type")
+        return {
+            "transport_type": transport_type.value
+            if hasattr(transport_type, "value")
+            else str(transport_type)
+            if transport_type
+            else None,
+            "uses_alias": arguments.get("server_alias") is not None,
+        }
+
+
+# Skill Registry Events
+class SkillRegistryCreateSkillVersionEvent(Event):
+    """Store-side single-version creation; bulk registration has its own event."""
+
+    name: str = "skill_registry_create_skill_version"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        source_type = arguments.get("source_type")
+        try:
+            source_type = SkillSourceType(source_type).value if source_type is not None else None
+        except (TypeError, ValueError):
+            source_type = "other"
+        try:
+            status = SkillStatus(arguments.get("status", SkillStatus.ACTIVE)).value
+        except (TypeError, ValueError):
+            status = "other"
+        return {"source_type": source_type, "status": status}
+
+
+class SkillRegistryBulkRegisterSkillsEvent(Event):
+    name: str = "skill_registry_bulk_register_skills"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        definitions = arguments.get("skill_definitions")
+        return {"num_skills": len(definitions) if isinstance(definitions, list) else None}
+
+
+class SkillRegistryRegisterSkillEvent(Event):
+    """Client workflow; successful registration also emits a store creation event."""
+
+    name: str = "skill_registry_register_skill"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        # Import lazily: importing mlflow.genai during telemetry initialization creates a cycle.
+        from mlflow.genai.skill_content.sources import resolve_source_type
+
+        try:
+            resolved = resolve_source_type(arguments.get("source"))
+            source_type = "local" if resolved.is_local else resolved.source_type.value
+        except (MlflowException, TypeError, ValueError):
+            source_type = "other"
+        return {
+            "source_type": source_type if source_type in {"local", "git", "oci", "zip"} else "other"
+        }
+
+
+class SkillRegistryImportSkillsEvent(Event):
+    name: str = "skill_registry_import_skills"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        return {"filters_by_name": arguments.get("skill_names") is not None}
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any]:
+        # Returned versions may be reused, so this is not a count of newly created versions.
+        return {"num_returned": len(result)} if isinstance(result, list) else {}
+
+
+class SkillRegistryPullEvent(Event):
+    name: str = "skill_registry_pull"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any]:
+        try:
+            parsed = parse_skill_uri(arguments.get("uri"))
+            if parsed.version is not None:
+                reference_type = "version"
+            elif parsed.alias is not None and parsed.alias != "latest":
+                reference_type = "alias"
+            else:
+                reference_type = "latest"
+        except (MlflowException, TypeError, ValueError):
+            reference_type = "other"
+        return {"reference_type": reference_type}
+
+
+class TrackingServerStartEvent(Event):
+    name: str = "tracking_server_start"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        backend_store_uri = arguments.get("backend_store_uri") or ""
+        scheme = urlparse(backend_store_uri).scheme
+        # Treat empty schemes (relative paths) and single-letter schemes
+        # (Windows drive letters like C:\) as local file storage.
+        # Strip SQLAlchemy driver suffixes (e.g. mysql+pymysql → mysql).
+        backend_store_type = "file" if not scheme or len(scheme) == 1 else scheme.split("+")[0]
+
+        app_name = arguments.get("app_name")
+        return {
+            "auth_enabled": app_name == "basic-auth",
+            "app_name": app_name,
+            "backend_store_type": backend_store_type,
+            "serve_artifacts": bool(arguments.get("serve_artifacts")),
+            "artifacts_only": bool(arguments.get("artifacts_only")),
+            "expose_prometheus": arguments.get("expose_prometheus") is not None,
+            "enable_workspaces": bool(arguments.get("enable_workspaces")),
+            "workers": arguments.get("workers"),
+            "dev": bool(arguments.get("dev")),
+        }
+
+
 class GatewayStartEvent(Event):
     name: str = "gateway_start"
 
@@ -457,6 +765,17 @@ class GatewayListEndpointsEvent(Event):
         }
 
 
+class GatewayCreateModelDefinitionEvent(Event):
+    name: str = "gateway_create_model_definition"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "model_name": arguments.get("model_name"),
+            "provider": arguments.get("provider"),
+        }
+
+
 # Gateway Budget Policy CRUD Events
 class GatewayCreateBudgetPolicyEvent(Event):
     name: str = "gateway_create_budget_policy"
@@ -487,6 +806,33 @@ class GatewayDeleteBudgetPolicyEvent(Event):
 
 class GatewayListBudgetPoliciesEvent(Event):
     name: str = "gateway_list_budget_policies"
+
+
+# Gateway Guardrail CRUD Events
+class GatewayCreateGuardrailEvent(Event):
+    name: str = "gateway_create_guardrail"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
+        }
+
+
+class GatewayUpdateGuardrailEvent(Event):
+    name: str = "gateway_update_guardrail"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
+        }
+
+
+class GatewayDeleteGuardrailEvent(Event):
+    name: str = "gateway_delete_guardrail"
 
 
 # Gateway Secret CRUD Events
@@ -530,6 +876,8 @@ class GatewayInvocationType(str, Enum):
     ANTHROPIC_PASSTHROUGH_MESSAGES = "anthropic_passthrough_messages"
     GEMINI_PASSTHROUGH_GENERATE_CONTENT = "gemini_passthrough_generate_content"
     GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT = "gemini_passthrough_stream_generate_content"
+    TYPESAFE_PASSTHROUGH_SYSTEM_ONE = "typesafe_passthrough_system_one"
+    RAW_PROXY = "raw_proxy"
 
 
 class GatewayInvocationEvent(Event):
@@ -538,6 +886,14 @@ class GatewayInvocationEvent(Event):
 
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
+
+
+class AgentSetupEvent(Event):
+    name: str = "agent_setup"
+
+
+class MlflowTestEvent(Event):
+    name: str = "mlflow_test"
 
 
 class TracingContextPropagation(Event):
@@ -600,10 +956,22 @@ class AutologgingEvent(Event):
     name: str = "autologging"
 
 
+class TraceAttachmentsEvent(Event):
+    name: str = "trace_attachments"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        if attachments := arguments.get("attachments"):
+            content_types = Counter(att.content_type for att in attachments.values())
+            return {"content_types": dict(content_types)}
+        return None
+
+
 class TraceSource(str, Enum):
     """Source of a trace received by the MLflow server."""
 
     MLFLOW_PYTHON_CLIENT = "MLFLOW_PYTHON_CLIENT"
+    EXTERNAL_OTEL_CLIENT = "EXTERNAL_OTEL_CLIENT"
     UNKNOWN = "UNKNOWN"
 
 
@@ -675,9 +1043,8 @@ class ScorerCallEvent(Event):
             ONLINE_SESSION_SCORER_JOB_NAME,
             ONLINE_TRACE_SCORER_JOB_NAME,
         )
-        from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
 
-        job_name = os.environ.get(MLFLOW_SERVER_JOB_NAME_ENV_VAR)
+        job_name = _MLFLOW_SERVER_JOB_NAME.get()
         if job_name in (ONLINE_TRACE_SCORER_JOB_NAME, ONLINE_SESSION_SCORER_JOB_NAME):
             callsite = "online_scoring"
         else:
@@ -696,7 +1063,7 @@ class ScorerCallEvent(Event):
         return {
             "scorer_class": _get_scorer_class_name_for_tracking(scorer_instance),
             "scorer_kind": scorer_instance.kind.value,
-            "is_session_level_scorer": scorer_instance.is_session_level_scorer,
+            "scope": "session" if scorer_instance.is_session_level_scorer else "trace",
             "callsite": callsite,
         }
 
@@ -716,16 +1083,45 @@ class DiscoverIssuesEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        return {
+        trigger = get_issue_detection_trigger()
+        params = {
+            "trigger": trigger,
             "model": arguments.get("model"),
             "trace_count": len(arguments.get("traces") or []),
-            "categories": arguments.get("categories"),
+            "categories": normalize_issue_categories(arguments.get("categories")),
         }
+        if trigger != "sdk" and (job_id := _MLFLOW_SERVER_JOB_ID.get()):
+            params["job_id"] = job_id
+        return params
 
     @classmethod
     def parse_result(cls, result: Any) -> dict[str, Any] | None:
         return {
-            "issue_count": len(result.issues),
-            "total_traces_analyzed": result.total_traces_analyzed,
-            "total_cost_usd": result.total_cost_usd,
+            "issue_count": len(result.issues) if result else None,
+            "issue_counts_by_category": count_issues_by_category(result.issues) if result else None,
+            "total_traces_analyzed": result.total_traces_analyzed if result else None,
+            "total_cost_usd": result.total_cost_usd if result else None,
         }
+
+
+class UpdateIssueEvent(Event):
+    name: str = "update_issue"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        status = arguments.get("status")
+        if isinstance(status, IssueStatus):
+            status = status.value
+        severity = arguments.get("severity")
+        if isinstance(severity, IssueSeverity):
+            severity = severity.value
+        return {
+            "status": status,
+            "has_name": arguments.get("name") is not None,
+            "has_description": arguments.get("description") is not None,
+            "severity": severity,
+        }
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any]:
+        return {"source_run_id": result.source_run_id} if result else {}

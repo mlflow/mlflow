@@ -7,10 +7,26 @@ const mockNavigate = jest.fn();
 const mockUseParams = jest.fn();
 const mockUseLocation = jest.fn();
 
+function mockGeneratePath(pattern: string, params: Record<string, string>): string {
+  let result = pattern;
+  for (const [key, value] of Object.entries(params)) {
+    result = result.replace(`:${key}`, value);
+  }
+  return result;
+}
+
 jest.mock('@mlflow/mlflow/src/common/utils/RoutingUtils', () => ({
   useNavigate: () => mockNavigate,
   useParams: () => mockUseParams(),
   useLocation: () => mockUseLocation(),
+  generatePath: mockGeneratePath,
+}));
+
+jest.mock('../../../routes', () => ({
+  RoutePaths: {
+    experimentPageTabOverview: '/experiments/:experimentId/overview/:overviewTab',
+    experimentPageTabDashboard: '/experiments/:experimentId/dashboard/:overviewTab',
+  },
 }));
 
 describe('useOverviewTab', () => {
@@ -78,7 +94,7 @@ describe('useOverviewTab', () => {
         result.current[1](OverviewTab.Quality);
       });
 
-      expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/overview/quality', { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith('/experiments/123/dashboard/quality', { replace: true });
     });
 
     it('should preserve query params when changing tabs', () => {
@@ -92,7 +108,7 @@ describe('useOverviewTab', () => {
       });
 
       expect(mockNavigate).toHaveBeenCalledWith(
-        '/experiments/123/overview/tool-calls?startTimeLabel=LAST_7_DAYS&foo=bar',
+        '/experiments/123/dashboard/tool-calls?startTimeLabel=LAST_7_DAYS&foo=bar',
         { replace: true },
       );
     });
@@ -107,7 +123,7 @@ describe('useOverviewTab', () => {
         result.current[1](OverviewTab.Usage);
       });
 
-      expect(mockNavigate).toHaveBeenCalledWith('/experiments/456/overview/usage', { replace: true });
+      expect(mockNavigate).toHaveBeenCalledWith('/experiments/456/dashboard/usage', { replace: true });
     });
   });
 

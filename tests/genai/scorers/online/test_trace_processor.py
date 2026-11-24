@@ -1,11 +1,23 @@
+import contextlib
 import json
+import threading
 import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mlflow.entities import Trace, TraceData, TraceInfo
+from mlflow.entities import AssessmentSourceType, Trace, TraceData, TraceInfo
+from mlflow.exceptions import MlflowException
+from mlflow.genai import scorer
+from mlflow.genai.evaluation.rate_limiter import NoOpRateLimiter, RPSRateLimiter
+from mlflow.genai.judges.adapters.rate_limit_retry_adapters import (
+    _RETRY_ADAPTER_REGISTRY,
+    RateLimitRetryAdapter,
+    register_retry_adapter,
+)
+from mlflow.genai.scorers.base import _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.builtin_scorers import Completeness
+from mlflow.genai.scorers.online.container_scoring import OnlineContainerScorer
 from mlflow.genai.scorers.online.entities import OnlineScorer, OnlineScoringConfig
 from mlflow.genai.scorers.online.sampler import OnlineScorerSampler
 from mlflow.genai.scorers.online.trace_checkpointer import (
@@ -16,6 +28,7 @@ from mlflow.genai.scorers.online.trace_checkpointer import (
 from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.genai.scorers.online.trace_processor import (
     OnlineTraceScoringProcessor,
+    TraceScoringTask,
 )
 
 
@@ -110,6 +123,58 @@ def test_process_traces_updates_checkpoint_when_no_traces(
     assert checkpoint.trace_id is None
 
 
+def test_process_traces_skips_until_buffered_window_advances(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineTraceScoringTimeWindow(
+        min_trace_timestamp_ms=1000, max_trace_timestamp_ms=900
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineTraceScoringCheckpoint(
+        timestamp_ms=1000, trace_id="tr-001"
+    )
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    processor.process_traces()
+    processor.process_traces()
+
+    mock_trace_loader.fetch_trace_infos_in_range.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_not_called()
+
+
+def test_process_traces_repairs_future_checkpoint(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    current_time_ms = 1_000_000
+    future_timestamp_ms = current_time_ms + 86_400_000
+    mock_checkpoint_manager.calculate_time_window.return_value = OnlineTraceScoringTimeWindow(
+        min_trace_timestamp_ms=future_timestamp_ms,
+        max_trace_timestamp_ms=future_timestamp_ms,
+    )
+    mock_checkpoint_manager.get_checkpoint.return_value = OnlineTraceScoringCheckpoint(
+        timestamp_ms=future_timestamp_ms, trace_id="tr-001"
+    )
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    with patch("mlflow.genai.scorers.online.trace_processor.time.time", return_value=1000):
+        processor.process_traces()
+
+    mock_trace_loader.fetch_trace_infos_in_range.assert_not_called()
+    mock_checkpoint_manager.persist_checkpoint.assert_called_once()
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == current_time_ms
+    assert checkpoint.trace_id is None
+
+
 def test_process_traces_updates_checkpoint_when_full_traces_empty(
     mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
 ):
@@ -138,6 +203,27 @@ def test_process_traces_updates_checkpoint_when_full_traces_empty(
     checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
     assert checkpoint.timestamp_ms == 2000
     assert checkpoint.trace_id is None
+
+
+def test_process_traces_uses_search_timestamp_for_checkpoint(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [make_trace("tr-001", 86_401_500)]
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    with patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute:
+        mock_compute.return_value = []
+        processor.process_traces()
+
+    checkpoint = mock_checkpoint_manager.persist_checkpoint.call_args[0][0]
+    assert checkpoint.timestamp_ms == 1500
+    assert checkpoint.trace_id == "tr-001"
 
 
 def test_process_traces_filters_checkpoint_boundary(
@@ -454,3 +540,369 @@ def test_create_factory_method():
     assert isinstance(processor._trace_loader, OnlineTraceLoader)
     assert isinstance(processor._checkpoint_manager, OnlineTraceCheckpointManager)
     assert isinstance(processor._sampler, OnlineScorerSampler)
+
+
+# ── Rate limiting tests ──
+
+
+def test_execute_scoring_uses_aimd_rate_limiter_by_default(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured_limiter = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured_limiter["rate_limiter"] = rate_limiter
+        captured_limiter["max_retries"] = max_retries
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "auto")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert isinstance(captured_limiter["rate_limiter"], RPSRateLimiter)
+    assert captured_limiter["rate_limiter"]._adaptive is True
+
+
+def test_execute_scoring_uses_noop_rate_limiter_when_disabled(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured_limiter = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured_limiter["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert isinstance(captured_limiter["rate_limiter"], NoOpRateLimiter)
+
+
+def test_execute_scoring_passes_max_retries_from_env(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["max_retries"] = max_retries
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_RETRIES", "5")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert captured["max_retries"] == 5
+
+
+def test_execute_scoring_uses_fixed_rate_limiter_for_numeric_rate(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "25")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert isinstance(captured["rate_limiter"], RPSRateLimiter)
+    assert captured["rate_limiter"]._adaptive is False
+    assert captured["rate_limiter"]._rps == pytest.approx(25.0)
+
+
+def test_execute_scoring_honors_scorer_rate_limit_env(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, monkeypatch
+):
+    trace = make_trace("tr-001", 1500)
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [make_trace_info("tr-001", 1500)]
+    mock_trace_loader.fetch_traces.return_value = [trace]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "25")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "7")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert captured["rate_limiter"]._rps == pytest.approx(7.0)
+
+
+def test_execute_scoring_scales_rate_by_distinct_scorers(
+    mock_trace_loader, mock_checkpoint_manager, monkeypatch
+):
+    # Disjoint scorer subsets across traces: 3 distinct scorers run, so rate is 10 * 3, not the
+    # per-trace peak of 2.
+    configs = [
+        make_online_scorer(Completeness(name="a"), filter_string="tags.env = 'prod'"),
+        make_online_scorer(Completeness(name="b"), filter_string="tags.env = 'prod'"),
+        make_online_scorer(Completeness(name="c"), filter_string="tags.env = 'staging'"),
+    ]
+    sampler = OnlineScorerSampler(configs)
+
+    def mock_fetch_trace_infos(exp_id, min_ts, max_ts, filter_str, limit):
+        if "prod" in filter_str:
+            return [make_trace_info("tr-prod", 1500)]
+        return [make_trace_info("tr-staging", 1600)]
+
+    mock_trace_loader.fetch_trace_infos_in_range.side_effect = mock_fetch_trace_infos
+    mock_trace_loader.fetch_traces.return_value = [
+        make_trace("tr-prod", 1500),
+        make_trace("tr-staging", 1600),
+    ]
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+    )
+
+    captured = {}
+
+    def capture_compute(eval_item, scorers, rate_limiter=None, max_retries=0):
+        captured["rate_limiter"] = rate_limiter
+        return MagicMock(assessments=[])
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "10")
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores", side_effect=capture_compute),
+        patch("mlflow.genai.evaluation.rate_limiter.eval_retry_context"),
+    ):
+        processor.process_traces()
+
+    assert captured["rate_limiter"]._rps == pytest.approx(30.0)
+
+
+def test_execute_scoring_wraps_in_eval_retry_context(
+    mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers
+):
+    traces = [make_trace(f"tr-{i:03d}", 1000 + i * 100) for i in range(3)]
+    mock_trace_loader.fetch_trace_infos_in_range.return_value = [
+        make_trace_info(f"tr-{i:03d}", 1000 + i * 100) for i in range(3)
+    ]
+    mock_trace_loader.fetch_traces.return_value = traces
+
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler_with_scorers,
+        experiment_id="exp1",
+    )
+
+    entered_threads: list[str] = []
+    main_thread_name = threading.current_thread().name
+
+    class _TrackingCtx:
+        def __enter__(self):
+            entered_threads.append(threading.current_thread().name)
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    with (
+        patch("mlflow.genai.evaluation.harness._compute_eval_scores") as mock_compute,
+        patch(
+            "mlflow.genai.evaluation.rate_limiter.eval_retry_context",
+            side_effect=lambda: _TrackingCtx(),
+        ),
+    ):
+        mock_compute.return_value = MagicMock(assessments=[])
+        processor.process_traces()
+
+    # One context entry per trace
+    assert len(entered_threads) == 3
+    # Every entry happened on a worker thread, not the main thread
+    assert all(t != main_thread_name for t in entered_threads)
+
+
+def test_register_retry_adapter_deduplicates_by_name():
+    original = list(_RETRY_ADAPTER_REGISTRY)
+    try:
+        adapter_v1 = RateLimitRetryAdapter(
+            name="test-dedup",
+            is_adapter_active=lambda: False,
+            disable_internal_retries=contextlib.nullcontext,
+        )
+        adapter_v2 = RateLimitRetryAdapter(
+            name="test-dedup",
+            is_adapter_active=lambda: True,
+            disable_internal_retries=contextlib.nullcontext,
+        )
+        register_retry_adapter(adapter_v1)
+        register_retry_adapter(adapter_v2)
+
+        names = [a.name for a in _RETRY_ADAPTER_REGISTRY]
+        assert names.count("test-dedup") == 1
+        match = next(a for a in _RETRY_ADAPTER_REGISTRY if a.name == "test-dedup")
+        # v2 should have replaced v1
+        assert match.is_adapter_active() is True
+    finally:
+        _RETRY_ADAPTER_REGISTRY[:] = original
+
+
+def test_custom_scorers_run_in_containers_and_other_scorers_on_the_host(
+    mock_trace_loader, mock_checkpoint_manager
+):
+    @scorer
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    custom = make_online_scorer(output_length)
+    builtin = make_online_scorer(Completeness())
+    sampler = OnlineScorerSampler([custom, builtin], run_custom_scorers_on_host=False)
+    container_scorer = MagicMock(spec=OnlineContainerScorer)
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+        container_scorer=container_scorer,
+    )
+    trace = make_trace("tr-1")
+    tasks = {
+        "tr-1": TraceScoringTask(
+            trace=trace,
+            scorers=[sampler.scorer("output_length"), sampler.scorer("completeness")],
+            timestamp_ms=1000,
+        )
+    }
+
+    with (
+        patch.object(processor, "_execute_scoring_on_host") as on_host,
+        patch.object(processor, "_log_error_assessments") as log_errors,
+    ):
+        processor._execute_scoring(tasks)
+
+        host_tasks = on_host.call_args.args[0]
+        assert [s.name for s in host_tasks["tr-1"].scorers] == ["completeness"]
+        work, on_failure = container_scorer.score.call_args.args
+        assert work == [(custom, [trace])]
+
+        on_failure(custom, [trace], "scorer crashed")
+        error, scorers, failed_trace = log_errors.call_args.args
+        assert str(error) == "scorer crashed"
+        assert scorers == [sampler.scorer("output_length")]
+        assert failed_trace is trace
+
+
+def test_create_loads_custom_scorers_without_their_code_when_given_a_container_scorer():
+    @scorer
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    container_scorer = MagicMock(spec=OnlineContainerScorer)
+    processor = OnlineTraceScoringProcessor.create(
+        "exp1", [make_online_scorer(output_length)], MagicMock(), container_scorer=container_scorer
+    )
+
+    assert isinstance(processor._sampler.scorer("output_length"), _UnexecutedDecoratorScorer)
+
+
+def test_error_assessments_of_custom_scorers_have_a_code_source(
+    mock_trace_loader, mock_checkpoint_manager
+):
+    @scorer
+    def output_length(outputs) -> int:
+        return len(str(outputs))
+
+    sampler = OnlineScorerSampler(
+        [make_online_scorer(output_length), make_online_scorer(Completeness())],
+        run_custom_scorers_on_host=False,
+    )
+    processor = OnlineTraceScoringProcessor(
+        trace_loader=mock_trace_loader,
+        checkpoint_manager=mock_checkpoint_manager,
+        sampler=sampler,
+        experiment_id="exp1",
+        container_scorer=MagicMock(spec=OnlineContainerScorer),
+    )
+
+    with patch("mlflow.genai.evaluation.harness._log_assessments") as log_assessments:
+        processor._log_error_assessments(
+            MlflowException("scorer crashed"),
+            [sampler.scorer("output_length"), sampler.scorer("completeness")],
+            make_trace("tr-1"),
+        )
+
+    sources = {
+        a.name: (a.source.source_type, a.source.source_id)
+        for a in log_assessments.call_args.kwargs["assessments"]
+    }
+    assert sources == {
+        "output_length": (AssessmentSourceType.CODE, "output_length"),
+        "completeness": (AssessmentSourceType.LLM_JUDGE, "default"),
+    }

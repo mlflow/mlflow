@@ -1,4 +1,4 @@
-import { makeRequest } from '../../src/clients/utils';
+import { makeRequest, MlflowHttpError } from '../../src/clients/utils';
 
 describe('makeRequest', () => {
   const mockHeaderProvider = () => Promise.resolve({ 'Content-Type': 'application/json' });
@@ -103,6 +103,57 @@ describe('makeRequest', () => {
       ).rejects.toThrow(`HTTP 503: Service Unavailable - ${errorResponseBody}`);
 
       expect(mockResponse.text).toHaveBeenCalled();
+    });
+
+    it('should throw an MlflowHttpError carrying status and error_code', async () => {
+      const errorResponseBody = JSON.stringify({
+        error_code: 'RESOURCE_DOES_NOT_EXIST',
+        message: 'Experiment not found',
+      });
+
+      const mockResponse = {
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: jest.fn().mockResolvedValue(errorResponseBody),
+      };
+
+      jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse as any);
+
+      await expect(
+        makeRequest(
+          'GET',
+          'http://localhost:5000/api/2.0/mlflow/experiments/get-by-name',
+          mockHeaderProvider,
+        ),
+      ).rejects.toMatchObject({
+        name: 'MlflowHttpError',
+        status: 404,
+        statusText: 'Not Found',
+        body: errorResponseBody,
+        errorCode: 'RESOURCE_DOES_NOT_EXIST',
+      });
+    });
+
+    it('should leave errorCode undefined when body is not JSON', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: jest.fn().mockResolvedValue('upstream timeout'),
+      };
+
+      jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse as any);
+
+      const err = await makeRequest(
+        'GET',
+        'http://localhost:5000/api/2.0/mlflow/experiments/get',
+        mockHeaderProvider,
+      ).catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(MlflowHttpError);
+      expect((err as MlflowHttpError).status).toBe(500);
+      expect((err as MlflowHttpError).errorCode).toBeUndefined();
     });
 
     it('should truncate large response bodies to prevent memory issues', async () => {

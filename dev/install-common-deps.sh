@@ -44,13 +44,13 @@ sudo apt clean
 df -h
 
 python --version
-pip install --upgrade pip!=25.1 setuptools wheel
-pip --version
+uv pip install --system --upgrade setuptools wheel
+uv --version
 
 if [[ "$SKINNY" == "true" ]]; then
-  pip install ./libs/skinny
+  uv pip install --system ./libs/skinny
 else
-  pip install .[extras,gateway,mcp] --upgrade
+  uv pip install --system .[extras,gateway,mcp] --upgrade
 fi
 
 req_files=""
@@ -66,14 +66,14 @@ else
 fi
 
 if [[ ! -z $req_files ]]; then
-  retry-with-backoff pip install $req_files
+  retry-with-backoff uv pip install --system $req_files
 fi
 
 # Install `mlflow-test-plugin`
-pip install tests/resources/mlflow-test-plugin
+uv pip install --system tests/resources/mlflow-test-plugin
 
 # Print current environment info
-pip install aiohttp
+uv pip install --system aiohttp
 which mlflow
 
 # Print mlflow version

@@ -1,7 +1,7 @@
 import ast
 import logging
 from contextvars import ContextVar
-from typing import Any, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Optional, Sequence
 from uuid import UUID
 
 import pydantic
@@ -34,9 +34,8 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
-from mlflow.version import IS_TRACING_SDK_ONLY
 
-if not IS_TRACING_SDK_ONLY:
+if TYPE_CHECKING:
     from mlflow.pyfunc.context import Context
 
 
@@ -270,7 +269,19 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                         f"Token for span {st.span} is not found. "
                         "Cannot detach the span from context."
                     )
-                detach_span_from_context(st.token)
+                try:
+                    detach_span_from_context(st.token)
+                except ValueError:
+                    # ContextVar token was created in a different async/thread context.
+                    # This happens when langchain dispatches callbacks across threads
+                    # (e.g., batch/abatch). The span has already ended successfully;
+                    # the detach failure only means the OTel context stack won't be
+                    # restored, which is harmless since the originating context is
+                    # already gone.
+                    _logger.debug(
+                        f"Could not detach span {st.span.name} from context "
+                        "(token created in a different context)."
+                    )
 
     def flush(self):
         """Flush the state of the tracer."""
@@ -280,7 +291,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         for st in self._run_span_mapping.values():
             if st.token:
                 _logger.debug(f"Found leaked span {st.span}. Force ending it.")
-                detach_span_from_context(st.token)
+                try:
+                    detach_span_from_context(st.token)
+                except ValueError:
+                    _logger.debug(
+                        f"Could not detach leaked span {st.span} "
+                        "(token created in a different context)."
+                    )
 
         self._run_span_mapping = {}
         self._run_audio_format = {}
@@ -379,11 +396,23 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def _extract_and_set_model_name(self, span: LiveSpan, kwargs: dict[str, Any]):
         invocation_params = kwargs.get("invocation_params", {})
-        if model := invocation_params.get("model"):
+        metadata = kwargs.get("metadata") or {}
+        # `ls_model_name` is standardized; some providers use `model_name` instead of `model`.
+        model = (
+            metadata.get("ls_model_name")
+            or invocation_params.get("model")
+            or invocation_params.get("model_name")
+        )
+        if model:
             span.set_attribute(SpanAttributeKey.MODEL, model)
-        if _type := invocation_params.get("_type"):
-            # LangChain's _type field follows the pattern "<provider>" or "<provider>-chat"
-            provider = _type.removesuffix("-chat")
+        # `ls_provider` is LangChain's standardized provider field, so prefer it. `_type` is a
+        # free-form model-type label that does not reliably encode the provider; it is a
+        # best-effort fallback where stripping a leading "chat-" or trailing "-chat" recovers the
+        # common "chat-<provider>" and "<provider>-chat" forms but not other shapes.
+        if provider := metadata.get("ls_provider"):
+            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
+        elif _type := invocation_params.get("_type"):
+            provider = _type.removesuffix("-chat").removeprefix("chat-")
             span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_tool_definitions(self, kwargs: dict[str, Any]) -> list[ChatTool]:

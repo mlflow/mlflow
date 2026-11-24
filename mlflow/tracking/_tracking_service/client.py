@@ -60,7 +60,6 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.metric_value_conversion_utils import convert_metric_value_to_float_if_possible
 from mlflow.utils import chunk_list
-from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations, get_combined_run_operations
 from mlflow.utils.databricks_utils import get_workspace_url, is_in_databricks_notebook
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE, MLFLOW_USER
@@ -913,11 +912,19 @@ class TrackingServiceClient:
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         return self.store.delete_logged_model_tag(model_id, key)
 
-    def log_model_artifact(self, model_id: str, local_path: str) -> None:
-        self._get_artifact_repo(model_id, resource="logged_model").log_artifact(local_path)
+    def log_model_artifact(
+        self, model_id: str, local_path: str, artifact_path: str | None = None
+    ) -> None:
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifact(
+            local_path, artifact_path
+        )
 
-    def log_model_artifacts(self, model_id: str, local_dir: str) -> None:
-        self._get_artifact_repo(model_id, resource="logged_model").log_artifacts(local_dir)
+    def log_model_artifacts(
+        self, model_id: str, local_dir: str, artifact_path: str | None = None
+    ) -> None:
+        self._get_artifact_repo(model_id, resource="logged_model").log_artifacts(
+            local_dir, artifact_path
+        )
 
     def search_logged_models(
         self,
@@ -1109,7 +1116,6 @@ class TrackingServiceClient:
 
         return self.store.link_traces_to_run(trace_ids, run_id)
 
-    @experimental(version="3.5.0")
     def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Unlink multiple traces from a run by removing entity associations.

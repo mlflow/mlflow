@@ -1,0 +1,271 @@
+// Proto definition for MLflow review queues.
+// A review queue is a named bundle of attached items, questions (label
+// schemas), and assigned users, scoped to an experiment. The data layer
+// lives in `mlflow/store/tracking/dbmodels/models.py` and
+// `mlflow/genai/review_queues/`.
+syntax = "proto2";
+
+package mlflow.review_queues;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+
+// What kind of object a queue item points at. v1 ships TRACE only; the
+// zero-value UNSPECIFIED is a defensive sentinel the handler must reject
+// explicitly because `validate_required` on a proto2 optional enum only
+// enforces HasField, not value validity.
+enum ReviewItemType {
+  REVIEW_ITEM_TYPE_UNSPECIFIED = 0;
+  TRACE = 1;
+}
+
+// The flavor of a review queue. USER queues are a single reviewer's
+// personal worklist (name == the user, all experiment schemas); CUSTOM
+// queues are a curated, possibly collaborative task (arbitrary name,
+// 0..N users, a chosen schema subset). Same UNSPECIFIED caveat as
+// ReviewItemType.
+enum ReviewQueueType {
+  REVIEW_QUEUE_TYPE_UNSPECIFIED = 0;
+  USER = 1;
+  CUSTOM = 2;
+}
+
+// Shared-pool workflow status of a single attached item, per
+// `(queue, item)`. Any assigned user can move an item to COMPLETE or
+// DECLINED; reopening clears the attribution back to PENDING. Status
+// never changes as a side effect of writing an assessment. Same
+// UNSPECIFIED caveat as the other enums.
+enum ReviewStatus {
+  REVIEW_STATUS_UNSPECIFIED = 0;
+  PENDING = 1;
+  COMPLETE = 2;
+  DECLINED = 3;
+}
+
+// Full review-queue entity. `users` and `schema_ids` are the queue's
+// association sets; `schema_ids` is empty for a USER queue (it resolves
+// to all of the experiment's schemas at read time). Attached items are
+// paged separately via ListReviewQueueItems.
+message ReviewQueue {
+  // Server-generated identifier (prefix `rq-`).
+  optional string queue_id = 1;
+  // Parent experiment ID.
+  optional string experiment_id = 2;
+  // Queue name. For a USER queue this is the (normalized) user identifier.
+  optional string name = 3;
+  optional ReviewQueueType queue_type = 4;
+  // The queue's owner. On an authenticated server this is server-stamped to the
+  // creating user and is the basis for owner-level authorization (an EDIT user
+  // may manage the queues they own); it can be reassigned (MANAGE-only) via
+  // UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+  // may be unset. For a USER queue it is the assigned user (attribution only).
+  optional string created_by = 5;
+  optional int64 creation_time_ms = 6;
+  optional int64 last_update_time_ms = 7;
+  // Assigned-user pool (0..N; exactly one == name for a USER queue).
+  repeated string users = 8;
+  // Attached label-schema ids (the chosen subset for a CUSTOM queue;
+  // empty for a USER queue).
+  repeated string schema_ids = 9;
+
+  // Field 10 was `is_default` (the special default queue); removed in favor of
+  // treating the no-auth catch-all as the reserved `default` USER queue.
+  reserved 10;
+  reserved "is_default";
+}
+
+// One item attached to a queue plus its shared-pool workflow status.
+message ReviewQueueItem {
+  optional string queue_id = 1;
+  optional ReviewItemType item_type = 2;
+  // Item ID (a trace ID in v1; UUID/hex, case-sensitive).
+  optional string item_id = 3;
+  optional ReviewStatus status = 4;
+  // Set only when status is COMPLETE or DECLINED; absent otherwise.
+  optional string completed_by = 5;
+  optional int64 completed_time_ms = 6;
+  optional int64 creation_time_ms = 7;
+  optional int64 last_update_time_ms = 8;
+}
+
+// Create a review queue. The server enforces the user-vs-custom
+// invariants (a USER queue must have exactly one user equal to its name
+// and no schemas; a CUSTOM queue may not use the reserved name
+// `default`). Collisions on `(experiment_id, name)` return
+// RESOURCE_ALREADY_EXISTS.
+message CreateReviewQueue {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional string name = 2 [(validate_required) = true];
+  optional ReviewQueueType queue_type = 3 [(validate_required) = true];
+  optional string created_by = 4;
+  repeated string users = 5;
+  repeated string schema_ids = 6;
+
+  message Response {
+    optional ReviewQueue review_queue = 1;
+  }
+}
+
+// Get-or-create a user's personal queue for an experiment. Atomic and
+// idempotent on `(experiment_id, name=user)`: concurrent callers
+// converge on the single user queue.
+message GetOrCreateUserQueue {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional string user = 2 [(validate_required) = true];
+  optional string created_by = 3;
+
+  message Response {
+    optional ReviewQueue review_queue = 1;
+  }
+}
+
+// Fetch one queue by `queue_id`.
+message GetReviewQueue {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string queue_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional ReviewQueue review_queue = 1;
+  }
+}
+
+// Fetch one queue by `(experiment_id, name)`.
+message GetReviewQueueByName {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional string name = 2 [(validate_required) = true];
+
+  message Response {
+    optional ReviewQueue review_queue = 1;
+  }
+}
+
+// List an experiment's queues, newest first. When `user` is set, only
+// queues that user is assigned to are returned.
+message ListReviewQueues {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+  optional string user = 2;
+  optional int32 max_results = 3;
+  optional string page_token = 4;
+
+  // When set, return only queues that already contain this item (a trace id),
+  // resolved via the per-item index on `review_queue_items`. Mirrors `user` as
+  // an optional server-side filter; combine with an unfiltered list to surface
+  // which queues a trace is already a member of.
+  optional string item_id = 6;
+
+  // Field 5 was `ensure_default` (no-auth default-queue seeding); removed with
+  // the default queue. The no-auth catch-all is the reserved `default` USER
+  // queue, seeded via GetOrCreateUserQueue.
+  reserved 5;
+  reserved "ensure_default";
+
+  message Response {
+    repeated ReviewQueue review_queues = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+// Edit a CUSTOM queue's name, assigned users, attached schemas, and/or owner.
+// `queue_type` is immutable and USER queues reject this RPC. Singular fields use
+// proto2 presence (HasField); only the repeated sets need explicit `update_*`
+// flags, since a repeated field can't tell "absent" from "empty" on the wire
+// (when the flag is true the list, possibly empty, replaces the set). `name`
+// renames the queue. `new_owner` reassigns ownership (`created_by`) and is
+// MANAGE-gated — owners can't transfer their own queue — whereas an owning EDIT
+// user may perform the other edits.
+message UpdateReviewQueue {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string queue_id = 1 [(validate_required) = true];
+  optional bool update_users = 2;
+  repeated string users = 3;
+  optional bool update_schema_ids = 4;
+  repeated string schema_ids = 5;
+  optional string name = 6;
+  optional string new_owner = 7;
+
+  message Response {
+    optional ReviewQueue review_queue = 1;
+  }
+}
+
+// Delete a queue and its user / item / schema associations. No-op when
+// the queue doesn't exist (idempotent).
+message DeleteReviewQueue {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string queue_id = 1 [(validate_required) = true];
+
+  message Response {}
+}
+
+// Attach items to a queue. Idempotent per item (re-attaching preserves
+// the existing status). The response covers every requested item_id,
+// in request order.
+message AddItemsToReviewQueue {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string queue_id = 1 [(validate_required) = true];
+  optional ReviewItemType item_type = 2;
+  repeated string item_ids = 3;
+
+  message Response {
+    repeated ReviewQueueItem items = 1;
+  }
+}
+
+// Detach items from a queue. No-op for items not attached.
+message RemoveItemsFromReviewQueue {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string queue_id = 1 [(validate_required) = true];
+  repeated string item_ids = 2;
+
+  message Response {}
+}
+
+// List a queue's attached items, newest-attached first, optionally
+// filtered by status.
+message ListReviewQueueItems {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string queue_id = 1 [(validate_required) = true];
+  // Optional filter. The handler treats both "field absent" and
+  // "field == REVIEW_STATUS_UNSPECIFIED" as "no filter".
+  optional ReviewStatus status = 2;
+  optional int32 max_results = 3;
+  optional string page_token = 4;
+
+  message Response {
+    repeated ReviewQueueItem items = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+// Set the shared-pool status of an attached item. `completed_by` is
+// required for COMPLETE / DECLINED and must be absent for PENDING
+// (reopen clears attribution).
+message SetReviewQueueItemStatus {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string queue_id = 1 [(validate_required) = true];
+  optional string item_id = 2 [(validate_required) = true];
+  optional ReviewStatus status = 3 [(validate_required) = true];
+  optional string completed_by = 4;
+
+  message Response {
+    optional ReviewQueueItem item = 1;
+  }
+}

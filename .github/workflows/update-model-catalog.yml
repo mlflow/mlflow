@@ -1,0 +1,250 @@
+name: Update Model Catalog
+
+on:
+  schedule:
+    # Off the top of the hour when GitHub delays scheduled runs most.
+    # Every 30 minutes, refresh the live catalog (GitHub Release assets).
+    - cron: "47 * * * *"
+    - cron: "17 1-23 * * *"
+    # Once a day, also file a catalog PR. Must not overlap the entries above, since
+    # `create-pr` keys off `github.event.schedule`.
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - mlflow/utils/model_catalog/*.json
+  pull_request:
+    paths:
+      - .github/workflows/update-model-catalog.yml
+      - dev/publish_model_catalog.sh
+      - dev/update_model_catalog.py
+      - libs/typescript/integrations/claude-code/scripts/sync-anthropic-pricing.mjs
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  # Only PR runs are safe to cancel. The `create-pr` and `publish` jobs push
+  # changes and tags, and are skipped on `pull_request`.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+env:
+  CATALOG_PATHS: mlflow/utils/model_catalog/ libs/typescript/integrations/claude-code/src/anthropicPricing.ts
+
+jobs:
+  sync:
+    if: github.repository == 'mlflow/mlflow' && github.event_name != 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Pin both jobs to the same commit so the patch applies cleanly in `create-pr`
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+
+      - name: Fetch and transform model catalog
+        run: |
+          uv run python dev/update_model_catalog.py
+
+      - name: Regenerate claude-code pricing snapshot
+        working-directory: libs/typescript
+        run: |
+          # --ignore-scripts skips the root `prepare` script, which builds every
+          # workspace package; sync:pricing only needs node and prettier.
+          npm ci --ignore-scripts
+          npm run -C integrations/claude-code sync:pricing
+
+      - name: Run pre-commit on generated files
+        run: |
+          uv sync --locked --only-group lint
+          uv run --no-sync pre-commit install --install-hooks
+          uv run --no-sync pre-commit run install-bin -a -v
+          # pre-commit exits 1 when it auto-fixes files (e.g. prettier reformats JSON).
+          # That's expected — the fixes are picked up by the subsequent git diff.
+          uv run --no-sync pre-commit run --files mlflow/utils/model_catalog/*.json || true
+
+      - name: Check for changes and create patch
+        id: diff
+        run: |
+          # Intent-to-add so new files (e.g. a new provider catalog) show up in the diff
+          git add -N -- $CATALOG_PATHS
+          git --no-pager diff --stat -- $CATALOG_PATHS
+          if git diff --quiet -- $CATALOG_PATHS; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff -- $CATALOG_PATHS > model-catalog.patch
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name != 'pull_request'
+        with:
+          name: model-catalog-json
+          path: mlflow/utils/model_catalog/*.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: steps.diff.outputs.changed == 'true'
+        with:
+          name: model-catalog-patch
+          path: model-catalog.patch
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-live:
+    needs: sync
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: model-catalog-json
+          path: ${{ runner.temp }}/catalog
+
+      - name: Publish to GitHub Releases if changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CATALOG_DIR: ${{ runner.temp }}/catalog
+          CURRENT_DIR: ${{ runner.temp }}/current
+        run: |
+          # Skip unchanged catalogs: `--clobber` briefly removes each asset while re-uploading.
+          if gh release download model-catalog/latest --pattern '*.json' --dir "$CURRENT_DIR" \
+            && diff -r "$CURRENT_DIR" "$CATALOG_DIR"; then
+            echo "Live catalog is up to date."
+            exit 0
+          fi
+          bash dev/publish_model_catalog.sh --catalog-dir "$CATALOG_DIR"
+
+  create-pr:
+    needs: sync
+    if: >-
+      (github.event.schedule == '17 0 * * *' || github.event_name == 'workflow_dispatch')
+      && needs.sync.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: mlflow
+          repositories: mlflow
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: model-catalog-patch
+
+      - name: Apply patch
+        run: |
+          git apply model-catalog.patch
+          rm model-catalog.patch
+
+      - name: Create or update pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          # Log API requests to diagnose labels occasionally being applied twice
+          GH_DEBUG: api
+        run: |
+          branch="update-model-catalog"
+          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing_pr" ]; then
+            # Pushing restarts CI (~45 min) and drops the PR from the merge queue, so leave a PR
+            # that is still in CI or about to merge alone; a later run picks up the new changes.
+            # Push anyway if its checks failed or it has been stuck for 3 hours.
+            checks_rc=0
+            gh pr checks "$existing_pr" > /dev/null || checks_rc=$?
+            pushed_at=$(gh pr view "$existing_pr" --json commits --jq '.commits[-1].committedDate | fromdate')
+            if [ "$checks_rc" -ne 1 ] && [ $(( $(date +%s) - pushed_at )) -lt 10800 ]; then
+              echo "PR #$existing_pr is still in CI or the merge queue — skipping update."
+              exit 0
+            fi
+          fi
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          git checkout -b "$branch"
+          git add $CATALOG_PATHS
+          git commit -m "Update model catalog from upstream sources"
+          git push -f -u origin "$branch"
+          if [ -n "$existing_pr" ]; then
+            echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
+            gh pr edit "$existing_pr" \
+              --remove-reviewer TomeHirata \
+              --add-label auto-repair \
+              --add-label team-review
+            echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
+          else
+            pr_url=$(gh pr create \
+              --title "Update model catalog from upstream sources" \
+              --body "Scheduled refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+              --label auto-repair \
+              --label team-review)
+            echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enable auto-merge
+        if: steps.pr.outputs.is_new_pr == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          output=$(gh pr merge "$PR_NUMBER" --auto --squash 2>&1) && exit 0
+          echo "$output" | grep -qi "auto-merge is already enabled" && exit 0
+          echo "$output" >&2
+          exit 1
+
+  publish:
+    if: github.repository == 'mlflow/mlflow' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: true
+
+      - name: Update model-catalog/latest tag
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          git tag -f model-catalog/latest "$GITHUB_SHA"
+          git push -f origin refs/tags/model-catalog/latest

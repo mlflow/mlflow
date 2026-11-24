@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+// eslint-disable-next-line no-restricted-imports -- TODO(FEINF-5856)
 import {
   ReactFlow,
   useReactFlow,
   useNodesInitialized,
   ReactFlowProvider,
+  Panel,
   applyNodeChanges,
   type OnNodesChange,
 } from '@xyflow/react';
@@ -15,14 +17,18 @@ import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import type { WorkflowLayout, WorkflowNode, WorkflowFlowNode, WorkflowFlowEdge } from './GraphView.types';
 import { workflowNodeTypes } from './GraphViewWorkflowNode';
 import { WorkflowEdgeMarkerDefs, workflowEdgeTypes } from './GraphViewWorkflowEdge';
+import { GraphViewFloatingToolbar } from './GraphViewFloatingToolbar';
 
-interface GraphViewWorkflowCanvasProps {
+export interface GraphViewWorkflowCanvasProps {
   layout: WorkflowLayout;
   selectedNodeId: string | null;
   highlightedPathNodeIds: Set<string>;
   highlightedPathEdgeIds: Set<string>;
   onSelectNode: (node: WorkflowNode | null) => void;
   onViewSpanDetails: (span: ModelTraceSpanNode) => void;
+  isGraphExpanded: boolean;
+  onToggleGraphExpand: () => void;
+  renderNodeIcon?: (spanType: string, hasException: boolean) => React.ReactNode;
 }
 
 // Inner component that uses React Flow hooks
@@ -33,9 +39,12 @@ const GraphViewWorkflowCanvasInner = ({
   highlightedPathEdgeIds,
   onSelectNode,
   onViewSpanDetails,
+  isGraphExpanded,
+  onToggleGraphExpand,
+  renderNodeIcon,
 }: GraphViewWorkflowCanvasProps) => {
   const { theme } = useDesignSystemTheme();
-  const { fitView, getZoom, setCenter } = useReactFlow();
+  const { fitView, getZoom, setCenter, zoomIn, zoomOut } = useReactFlow();
 
   // Create a map from node ID to node for callbacks
   const nodeMap = useMemo(() => {
@@ -69,28 +78,25 @@ const GraphViewWorkflowCanvasInner = ({
           isSelected: node.id === selectedNodeId,
           isOnHighlightedPath: highlightedPathNodeIds.has(node.id),
           onViewSpanDetails: stableOnViewSpanDetails,
+          renderIcon: renderNodeIcon,
           nodeWidth: node.width,
           nodeHeight: node.height,
         },
       }),
     );
-  }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, stableOnViewSpanDetails]);
+  }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, stableOnViewSpanDetails, renderNodeIcon]);
 
   const [nodes, setNodes] = useState<WorkflowFlowNode[]>(buildFlowNodes);
 
   // Update nodes when layout or selection changes, preserving user-dragged positions
-  const layoutVersionRef = useRef(0);
   const prevLayoutRef = useRef(layout);
   useEffect(() => {
     const layoutChanged = prevLayoutRef.current !== layout;
     prevLayoutRef.current = layout;
 
     if (layoutChanged) {
-      // Full layout change: reset positions from the new layout
-      layoutVersionRef.current++;
       setNodes(buildFlowNodes());
     } else {
-      // Only selection/highlight changed: update data but keep current positions
       setNodes((prev) =>
         prev.map((flowNode) => {
           const layoutNode = nodeMap.get(flowNode.id);
@@ -188,8 +194,26 @@ const GraphViewWorkflowCanvasInner = ({
     onSelectNode(null);
   }, [onSelectNode]);
 
+  const handleFitView = useCallback(() => {
+    fitView({ padding: 0.2, duration: 200 });
+  }, [fitView]);
+
+  const handleZoomIn = useCallback(() => {
+    zoomIn({ duration: 200 });
+  }, [zoomIn]);
+
+  const handleZoomOut = useCallback(() => {
+    zoomOut({ duration: 200 });
+  }, [zoomOut]);
+
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <div css={{ flex: 1, width: '100%', height: '100%', position: 'relative' }}>
+    <div
+      css={{ flex: 1, width: '100%', height: '100%', position: 'relative' }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {/* SVG marker definitions for edge arrows */}
       <WorkflowEdgeMarkerDefs />
 
@@ -213,7 +237,26 @@ const GraphViewWorkflowCanvasInner = ({
         style={{
           backgroundColor: theme.colors.backgroundPrimary,
         }}
-      />
+      >
+        <Panel
+          position="bottom-right"
+          css={{
+            margin: 0,
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease-in-out',
+            pointerEvents: isHovered ? 'auto' : 'none',
+            '&:focus-within': { opacity: 1, pointerEvents: 'auto' },
+          }}
+        >
+          <GraphViewFloatingToolbar
+            isGraphExpanded={isGraphExpanded}
+            onToggleGraphExpand={onToggleGraphExpand}
+            onFitView={handleFitView}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+          />
+        </Panel>
+      </ReactFlow>
     </div>
   );
 };
@@ -222,7 +265,7 @@ const GraphViewWorkflowCanvasInner = ({
  * React Flow canvas for rendering the aggregated workflow graph.
  * Provides zoom and pan functionality for workflow visualization.
  */
-export const GraphViewWorkflowCanvas = (props: GraphViewWorkflowCanvasProps) => {
+export const GraphViewWorkflowCanvas = (props: GraphViewWorkflowCanvasProps): JSX.Element => {
   return (
     <ReactFlowProvider>
       <GraphViewWorkflowCanvasInner {...props} />

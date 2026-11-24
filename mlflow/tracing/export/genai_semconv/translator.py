@@ -71,7 +71,11 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
             try:
                 genai_attrs.update(converter.translate(inputs, outputs))
             except Exception:
-                _logger.debug("Failed to convert messages for format %r, skipping", message_format)
+                _logger.debug(
+                    "Failed to convert messages for format %r, skipping",
+                    message_format,
+                    exc_info=True,
+                )
 
     # Fallback: carry mlflow.chat.tools → gen_ai.tool.definitions if converter didn't set it
     if GenAiSemconvKey.TOOL_DEFINITIONS not in genai_attrs:
@@ -80,8 +84,14 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
                 chat_tools if isinstance(chat_tools, str) else json.dumps(chat_tools)
             )
 
-    # Merge: Keep non-mlflow.* attrs, add GenAI attrs
-    merged_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
+    # Merge: Keep non-mlflow.* attrs (but preserve mlflow.traceTag.* so user tags survive
+    # OTLP export even in GenAI semconv mode), then overlay GenAI attrs.
+    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+    merged_attrs = {
+        k: v
+        for k, v in original_attrs.items()
+        if not k.startswith("mlflow.") or k.startswith(prefix)
+    }
     merged_attrs.update(genai_attrs)
 
     new_name = _build_genai_span_name(span.name, genai_attrs)
@@ -116,12 +126,44 @@ def _translate_universal_attributes(span: ReadableSpan) -> dict[str, Any]:
 
     # 5. Tool attributes (for TOOL spans)
     if span_type == SpanType.TOOL:
+        if tool_name := _get_tool_or_agent_name(span, GenAiSemconvKey.TOOL_NAME, "execute_tool"):
+            genai_attrs[GenAiSemconvKey.TOOL_NAME] = tool_name
         if (inputs := get_otel_attribute(span, SpanAttributeKey.INPUTS)) is not None:
             genai_attrs[GenAiSemconvKey.TOOL_CALL_ARGUMENTS] = json.dumps(inputs)
         if (outputs := get_otel_attribute(span, SpanAttributeKey.OUTPUTS)) is not None:
             genai_attrs[GenAiSemconvKey.TOOL_CALL_RESULT] = json.dumps(outputs)
 
+    # 6. Agent name (for AGENT spans)
+    if span_type == SpanType.AGENT:
+        if agent_name := _get_tool_or_agent_name(span, GenAiSemconvKey.AGENT_NAME, "invoke_agent"):
+            genai_attrs[GenAiSemconvKey.AGENT_NAME] = agent_name
+
     return genai_attrs
+
+
+def _get_tool_or_agent_name(span: ReadableSpan, name_key: str, operation: str) -> str | None:
+    """
+    Get the tool or agent name for a TOOL or AGENT span.
+
+    Instrumentations that follow GenAI semconv (e.g., Strands, Semantic Kernel) set the name
+    attribute and already name the span "{operation} {name}". Otherwise, the span name is the
+    tool or agent name, unless it is empty or just the operation.
+    """
+    name = (span.attributes or {}).get(name_key)
+    if isinstance(name, str):
+        # MLflow span APIs JSON-serialize attribute values, while instrumentations that write to
+        # the OTel span directly store the raw string.
+        try:
+            decoded = json.loads(name)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, str):
+            name = decoded
+        if name:
+            return name
+    if span.name and span.name != operation:
+        return span.name
+    return None
 
 
 def _get_converter(
@@ -145,6 +187,10 @@ def _get_converter(
             from mlflow.gemini.genai_semconv_converter import GeminiConverter
 
             return GeminiConverter()
+        case "bedrock":
+            from mlflow.bedrock.genai_semconv_converter import BedrockConverseConverter
+
+            return BedrockConverseConverter()
         case _:
             from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
 
@@ -153,15 +199,20 @@ def _get_converter(
 
 def _build_genai_span_name(original_name: str, genai_attrs: dict[str, Any]) -> str:
     """
-    Build GenAI semconv span name: "{operation} {model}" (e.g., "chat gpt-4o").
+    Build GenAI semconv span name: "{operation} {model}" (e.g., "chat gpt-4o"), or
+    "{operation} {name}" with the tool or agent name (e.g., "execute_tool get_weather").
 
-    Falls back to the original span name if operation or model is missing.
+    Falls back to the operation alone, or to the original span name if there is no operation.
     """
     operation = genai_attrs.get(GenAiSemconvKey.OPERATION_NAME)
-    model = genai_attrs.get(GenAiSemconvKey.REQUEST_MODEL)
+    target = (
+        genai_attrs.get(GenAiSemconvKey.TOOL_NAME)
+        or genai_attrs.get(GenAiSemconvKey.AGENT_NAME)
+        or genai_attrs.get(GenAiSemconvKey.REQUEST_MODEL)
+    )
 
-    if operation and model:
-        return f"{operation} {model}"
+    if operation and target:
+        return f"{operation} {target}"
     return operation or original_name
 
 
@@ -176,7 +227,12 @@ def _get_genai_span_kind(genai_attrs: dict[str, Any], original_kind: SpanKind) -
 
 
 def _create_passthrough_span(span: ReadableSpan, original_attrs: dict[str, Any]) -> ReadableSpan:
-    cleaned_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
+    prefix = SpanAttributeKey.TRACE_TAG_PREFIX
+    cleaned_attrs = {
+        k: v
+        for k, v in original_attrs.items()
+        if not k.startswith("mlflow.") or k.startswith(prefix)
+    }
     return _build_readable_span(span, name=span.name, attributes=cleaned_attrs, kind=span.kind)
 
 

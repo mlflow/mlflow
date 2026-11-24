@@ -7,6 +7,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.entities.paged_list import PagedList
 
 
 @pytest.mark.parametrize(
@@ -124,3 +125,44 @@ def test_runs_artifact_repo_tracking_uri_passed_as_keyword():
         )
         assert isinstance(runs_repo.repo, S3ArtifactRepository)
         mock_get_artifact_uri.assert_called_once()
+
+
+def test_get_logged_model_artifact_repo_uses_models_uri():
+    with (
+        mock.patch(
+            "mlflow.store.artifact.runs_artifact_repo.RunsArtifactRepository.get_underlying_uri",
+            return_value="mlflow-artifacts:/1/some-run-id/artifacts/model",
+        ),
+        mock.patch(
+            "mlflow.store.artifact.runs_artifact_repo.mlflow.tracking.MlflowClient"
+        ) as mock_mlflow_client,
+        mock.patch(
+            "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"
+        ) as mock_get_artifact_repo,
+    ):
+        runs_repo = RunsArtifactRepository(
+            artifact_uri="runs:/some-run-id/model",
+            tracking_uri="http://test-tracking-server:5000",
+            registry_uri="sqlite:///mlflow.db",
+        )
+        mock_get_artifact_repo.reset_mock()
+
+        run = Mock()
+        run.info.experiment_id = "123"
+        mock_mlflow_client.return_value.get_run.return_value = run
+
+        matched_model = Mock()
+        matched_model.source_run_id = "some-run-id"
+        matched_model.model_id = "m-123456"
+        mock_mlflow_client.return_value.search_logged_models.return_value = PagedList(
+            [matched_model], token=None
+        )
+
+        repo = runs_repo._get_logged_model_artifact_repo(run_id="some-run-id", name="model")
+
+        assert repo == mock_get_artifact_repo.return_value
+        mock_get_artifact_repo.assert_called_once_with(
+            "models:/m-123456",
+            tracking_uri="http://test-tracking-server:5000",
+            registry_uri="sqlite:///mlflow.db",
+        )

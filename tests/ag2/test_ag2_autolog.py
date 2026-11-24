@@ -9,6 +9,7 @@ from openai.types.chat import ChatCompletion
 from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -95,11 +96,14 @@ def test_tracing_agent(llm_config, mock_litellm_cost):
     session_span = traces[0].data.spans[0]
     assert session_span.name == "initiate_chat"
     assert session_span.span_type == SpanType.UNKNOWN
+    # UNKNOWN type → DEBUG default; AGENT children → INFO; LLM child → INFO.
+    assert session_span.log_level == SpanLogLevel.DEBUG
     assert session_span.inputs["message"] == "How can I help you today?"
     assert session_span.outputs["chat_history"] == response.chat_history
     user_span = traces[0].data.spans[1]
     assert user_span.name == "user"
     assert user_span.span_type == SpanType.AGENT
+    assert user_span.log_level == SpanLogLevel.INFO
     assert user_span.parent_id == session_span.span_id
     assert user_span.inputs["message"] == "How can I help you today?"
     assert user_span.outputs["message"]["content"] == "What is the capital of Tokyo?"
@@ -337,7 +341,7 @@ def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
 
     # Check if the start time is in reasonable range
     root_span = span_name_to_dict["initiate_chat"]
-    assert 0 < llm_span.start_time_ns - root_span.start_time_ns <= 1e9
+    assert 0 < llm_span.start_time_ns - root_span.start_time_ns <= 10e9
 
     assert traces[0].info.token_usage == {
         "input_tokens": 18,

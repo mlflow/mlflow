@@ -3,11 +3,10 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
-    import litellm
-
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage, ToolDefinition
 
@@ -35,6 +34,29 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
+
+# The judge's rationale is free text that may contain unescaped double quotes (e.g. when it
+# quotes JSON from the trace), while the result is a fixed enum, number, or boolean. These
+# patterns recover both fields from such malformed output, in either key order. The greedy
+# rationale capture can swallow field or object boundaries, so recovery is skipped when the
+# decoded rationale looks like it spans more than the rationale value (see
+# `_is_unambiguous_rationale`).
+_RESULT_VALUE_PATTERN = r'"[^"\\]*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null'
+_RATIONALE_THEN_RESULT_PATTERN = re.compile(
+    r'^\s*\{\s*"rationale"\s*:\s*"(?P<rationale>.*)"\s*,'
+    rf'\s*"result"\s*:\s*(?P<result>{_RESULT_VALUE_PATTERN})\s*\}}\s*$',
+    re.DOTALL,
+)
+_RESULT_THEN_RATIONALE_PATTERN = re.compile(
+    rf'^\s*\{{\s*"result"\s*:\s*(?P<result>{_RESULT_VALUE_PATTERN})\s*,'
+    r'\s*"rationale"\s*:\s*"(?P<rationale>.*)"\s*\}\s*$',
+    re.DOTALL,
+)
+# Matches a double quote that is not escaped (preceded by an even number of backslashes).
+_UNESCAPED_QUOTE_PATTERN = re.compile(r'(?<!\\)((?:\\\\)*)"')
+# Matches a `", "key":` field boundary, which signals that the greedy rationale capture spans
+# extra fields of the outer object.
+_FIELD_BOUNDARY_PATTERN = re.compile(r'"\s*,\s*"[^"]*"\s*:')
 
 
 def _check_databricks_agents_installed() -> None:
@@ -129,6 +151,71 @@ def call_chat_completions(
     return _call_chat_completions(user_prompt, system_prompt, tools, model, use_case)
 
 
+def _is_unambiguous_rationale(rationale: str) -> bool:
+    """
+    Return False if the decoded rationale may span outer object boundaries, i.e. its braces or
+    brackets are unbalanced (truncated output or concatenated objects) or it contains a field
+    boundary outside any nested braces or brackets (extra fields). Inside nested braces or
+    brackets, string literals are skipped so braces within embedded JSON strings are not
+    counted. Top-level quotes are free rationale text, so they are not treated as strings.
+    """
+    depth = 0
+    in_string = False
+    escaped = False
+    top_level_chars = []
+    for char in rationale:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif depth > 0 and char == '"':
+            in_string = True
+        elif char in "{[":
+            depth += 1
+        elif char in "}]":
+            depth -= 1
+            if depth < 0:
+                return False
+        elif depth == 0:
+            top_level_chars.append(char)
+    return (
+        depth == 0
+        and not in_string
+        and not _FIELD_BOUNDARY_PATTERN.search("".join(top_level_chars))
+    )
+
+
+def _lenient_parse_judge_output(llm_output: str) -> dict[str, Any] | None:
+    """
+    Recover ``result`` and ``rationale`` from judge output that is not valid JSON because the
+    rationale contains unescaped double quotes. Returns None if the output doesn't match the
+    expected two-field shape.
+    """
+    patterns = (_RATIONALE_THEN_RESULT_PATTERN, _RESULT_THEN_RATIONALE_PATTERN)
+    match = next((m for p in patterns if (m := p.match(llm_output))), None)
+    if match is None:
+        return None
+
+    try:
+        result = json.loads(match.group("result"))
+    except json.JSONDecodeError:
+        return None
+    raw_rationale = match.group("rationale")
+    escaped_rationale = _UNESCAPED_QUOTE_PATTERN.sub(r'\1\\"', raw_rationale)
+    try:
+        rationale = json.loads(f'"{escaped_rationale}"', strict=False)
+    except json.JSONDecodeError:
+        rationale = raw_rationale
+    # Check after decoding so that quotes the model did escape (e.g. `{\"a\": 1}` next to an
+    # unescaped quote) are scanned as plain quotes rather than as an extra escape layer.
+    if not _is_unambiguous_rationale(rationale):
+        return None
+    return {"result": result, "rationale": rationale}
+
+
 def _parse_databricks_judge_response(
     llm_output: str | None,
     assessment_name: str,
@@ -162,12 +249,16 @@ def _parse_databricks_judge_response(
         response_data = json.loads(llm_output)
     except json.JSONDecodeError as e:
         _logger.debug(f"Invalid JSON response from Databricks judge: {e}", exc_info=True)
-        return Feedback(
-            name=assessment_name,
-            error=f"Invalid JSON response from Databricks judge: {e}\n\nLLM output: {llm_output}",
-            source=source,
-            trace_id=trace_id,
-        )
+        response_data = _lenient_parse_judge_output(llm_output)
+        if response_data is None:
+            return Feedback(
+                name=assessment_name,
+                error=(
+                    f"Invalid JSON response from Databricks judge: {e}\n\nLLM output: {llm_output}"
+                ),
+                source=source,
+                trace_id=trace_id,
+            )
 
     if "result" not in response_data:
         return Feedback(
@@ -186,11 +277,11 @@ def _parse_databricks_judge_response(
     )
 
 
-def create_litellm_message_from_databricks_response(
+def _create_message_from_databricks_response(
     response_data: dict[str, Any],
-) -> Any:
+) -> "ChatMessage":
     """
-    Convert Databricks OpenAI-style response to litellm Message.
+    Convert Databricks OpenAI-style response to a ChatMessage.
 
     Handles both string content and reasoning model outputs.
 
@@ -198,12 +289,12 @@ def create_litellm_message_from_databricks_response(
         response_data: Parsed JSON response from Databricks.
 
     Returns:
-        litellm.Message object.
+        ChatMessage object.
 
     Raises:
         ValueError: If response format is invalid.
     """
-    import litellm
+    from mlflow.types.llm import ChatMessage
 
     choices = response_data.get("choices", [])
     if not choices:
@@ -211,21 +302,8 @@ def create_litellm_message_from_databricks_response(
 
     message_data = choices[0].get("message", {})
 
-    # Create litellm Message with tool calls if present
-    tool_calls_data = message_data.get("tool_calls")
-    tool_calls = None
-    if tool_calls_data:
-        tool_calls = [
-            litellm.ChatCompletionMessageToolCall(
-                id=tc["id"],
-                type=tc.get("type", "function"),
-                function=litellm.Function(
-                    name=tc["function"]["name"],
-                    arguments=tc["function"]["arguments"],
-                ),
-            )
-            for tc in tool_calls_data
-        ]
+    # tool_calls come as plain dicts; ChatMessage.__post_init__ auto-converts to ToolCall
+    tool_calls = message_data.get("tool_calls")
 
     content = message_data.get("content")
     if isinstance(content, list):
@@ -234,7 +312,11 @@ def create_litellm_message_from_databricks_response(
         ]
         content = "\n".join(content_parts) if content_parts else None
 
-    return litellm.Message(
+    # ChatMessage requires content when tool_calls is absent; use empty string as fallback
+    if content is None and not tool_calls:
+        content = ""
+
+    return ChatMessage(
         role=message_data.get("role", "assistant"),
         content=content,
         tool_calls=tool_calls,
@@ -242,7 +324,7 @@ def create_litellm_message_from_databricks_response(
 
 
 def _run_databricks_agentic_loop(
-    messages: list["litellm.Message"],
+    messages: list["ChatMessage"],
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
     use_case: str | None = None,
@@ -255,7 +337,7 @@ def _run_databricks_agentic_loop(
     tool-calling loop until the LLM produces a final answer.
 
     Args:
-        messages: Initial litellm Message objects for the conversation.
+        messages: Initial ChatMessage objects for the conversation.
         trace: Optional trace for tool calling. If provided, enables tool use.
         on_final_answer: Callback to process the final LLM response content.
             Receives the content string (or None if empty) and should return
@@ -307,7 +389,7 @@ def _run_databricks_agentic_loop(
                 raise MlflowException("Empty response from Databricks judge")
 
             parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
-            message = create_litellm_message_from_databricks_response(parsed_json)
+            message = _create_message_from_databricks_response(parsed_json)
 
             if not message.tool_calls:
                 return on_final_answer(message.content)
@@ -348,14 +430,13 @@ def _invoke_databricks_default_judge(
     Raises:
         MlflowException: If databricks-agents is not installed or max iterations exceeded.
     """
-    import litellm
+    from mlflow.types.llm import ChatMessage
 
     try:
-        # Convert initial prompt to litellm Messages (same pattern as litellm adapter)
         if isinstance(prompt, str):
-            messages = [litellm.Message(role="user", content=prompt)]
+            messages = [ChatMessage(role="user", content=prompt)]
         else:
-            messages = [litellm.Message(role=msg.role, content=msg.content) for msg in prompt]
+            messages = [ChatMessage(role=msg.role, content=msg.content) for msg in prompt]
 
         # Define callback to parse final answer into Feedback
         def parse_judge_response(content: str | None) -> Feedback:
@@ -387,7 +468,7 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
     ) -> bool:
         return model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL
 
-    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+    def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         if input_params.base_url is not None or input_params.extra_headers is not None:
             raise MlflowException(
                 "base_url and extra_headers are not supported for Databricks Managed Judge. "

@@ -1,4 +1,4 @@
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { renderWithIntl } from '../../../../common/utils/TestUtils.react18';
@@ -14,6 +14,20 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+
+import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+
+// The tests below cover the plain cost format; the new eval runs UI's estimated format has its own test.
+jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('@mlflow/mlflow/src/common/utils/FeatureUtils')>(
+    '@mlflow/mlflow/src/common/utils/FeatureUtils',
+  ),
+  shouldEnableNewEvalRunsUi: jest.fn(() => false),
+}));
+
+afterEach(() => {
+  jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+});
 
 // Disable pointer events check for DialogCombobox which masks the elements we want to click
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -153,6 +167,17 @@ describe('TraceCostOverTimeChart', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Total Cost')).toBeInTheDocument();
+      });
+    });
+
+    it('marks the total cost as estimated with the new eval runs UI', async () => {
+      jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(true);
+      setupTraceMetricsHandler(mockDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('≈$0.10')).toBeInTheDocument();
       });
     });
 

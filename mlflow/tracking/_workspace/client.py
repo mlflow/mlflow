@@ -1,7 +1,20 @@
 from __future__ import annotations
 
-from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
+from mlflow.entities.workspace import (
+    TraceArchivalConfig,
+    Workspace,
+    WorkspaceDeletionMode,
+)
 from mlflow.tracking._workspace.registry import get_workspace_store
+
+
+def _resolve_trace_archival_settings(
+    trace_archival_config: TraceArchivalConfig | None,
+) -> tuple[str | None, str | None]:
+    if trace_archival_config is None:
+        return None, None
+
+    return trace_archival_config.location, trace_archival_config.retention
 
 
 class WorkspaceProviderClient:
@@ -33,6 +46,7 @@ class WorkspaceProviderClient:
         name: str,
         description: str | None = None,
         default_artifact_root: str | None = None,
+        trace_archival_config: TraceArchivalConfig | None = None,
     ) -> Workspace:
         """Create a new workspace.
 
@@ -40,15 +54,21 @@ class WorkspaceProviderClient:
             name: The workspace name (lowercase alphanumeric with optional internal hyphens).
             description: Optional description of the workspace.
             default_artifact_root: Optional artifact root URI; falls back to server default.
+            trace_archival_config: Optional Python-side grouping for trace archival settings.
 
         Returns:
             The newly created workspace.
         """
+        trace_archival_location, trace_archival_retention = _resolve_trace_archival_settings(
+            trace_archival_config
+        )
         return self.store.create_workspace(
             Workspace(
                 name=name,
                 description=description,
                 default_artifact_root=default_artifact_root,
+                trace_archival_location=trace_archival_location,
+                trace_archival_retention=trace_archival_retention,
             )
         )
 
@@ -60,6 +80,7 @@ class WorkspaceProviderClient:
         name: str,
         description: str | None = None,
         default_artifact_root: str | None = None,
+        trace_archival_config: TraceArchivalConfig | None = None,
     ) -> Workspace:
         """Update metadata for an existing workspace.
 
@@ -67,15 +88,21 @@ class WorkspaceProviderClient:
             name: The name of the workspace to update.
             description: New description, or ``None`` to leave unchanged.
             default_artifact_root: New artifact root URI, empty string to clear, or ``None``.
+            trace_archival_config: Optional Python-side grouping for trace archival settings.
 
         Returns:
             The updated workspace.
         """
+        trace_archival_location, trace_archival_retention = _resolve_trace_archival_settings(
+            trace_archival_config
+        )
         return self.store.update_workspace(
             Workspace(
                 name=name,
                 description=description,
                 default_artifact_root=default_artifact_root,
+                trace_archival_location=trace_archival_location,
+                trace_archival_retention=trace_archival_retention,
             )
         )
 

@@ -1,6 +1,7 @@
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.get_root_span import GetRootSpanTool
 from mlflow.genai.judges.tools.get_span import GetSpanTool
+from mlflow.genai.judges.tools.get_span_image import GetSpanImageTool, SpanImageResult
 from mlflow.genai.judges.tools.get_span_performance_and_timing_report import (
     GetSpanPerformanceAndTimingReportTool,
 )
@@ -26,6 +27,8 @@ __all__ = [
     "GetTracesInSession",
     "GetRootSpanTool",
     "GetSpanTool",
+    "GetSpanImageTool",
+    "SpanImageResult",
     "GetSpanPerformanceAndTimingReportTool",
     "SpanResult",
     "GetTraceInfoTool",

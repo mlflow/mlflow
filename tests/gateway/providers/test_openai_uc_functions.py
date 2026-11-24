@@ -196,6 +196,7 @@ async def test_uc_functions(monkeypatch):
             "object": "chat.completion",
             "created": 1677858242,
             "model": "gpt-4o-mini",
+            "provider": "openai",
             "choices": [
                 {
                     "index": 0,
@@ -385,6 +386,7 @@ async def test_uc_functions_user_defined_functions(monkeypatch):
             "object": "chat.completion",
             "created": 1677858242,
             "model": "gpt-4o-mini",
+            "provider": "openai",
             "choices": [
                 {
                     "index": 0,

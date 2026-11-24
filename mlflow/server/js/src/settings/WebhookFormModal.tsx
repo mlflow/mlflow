@@ -275,7 +275,7 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilt
                     return (
                       <Checkbox
                         key={key}
-                        componentId={`mlflow.settings.webhooks.event-${key}`}
+                        componentId="mlflow.settings.webhooks.event-checkbox"
                         isChecked={field.value.includes(key)}
                         onChange={(checked) => {
                           const next = checked ? [...field.value, key] : field.value.filter((k: string) => k !== key);

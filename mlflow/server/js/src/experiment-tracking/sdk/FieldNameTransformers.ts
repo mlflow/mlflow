@@ -77,6 +77,7 @@ const transformExperimentEntity = (snakeCaseExperimentEntity: any): Omit<Experim
   ...snakeCaseExperimentEntity,
   artifactLocation: snakeCaseExperimentEntity.artifact_location,
   creationTime: snakeCaseExperimentEntity.creation_time,
+  effectiveTraceArchivalRetention: snakeCaseExperimentEntity.effective_trace_archival_retention,
   experimentId: snakeCaseExperimentEntity.experiment_id,
   lastUpdateTime: snakeCaseExperimentEntity.last_update_time,
   lifecycleStage: snakeCaseExperimentEntity.lifecycle_stage,

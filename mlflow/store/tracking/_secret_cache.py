@@ -36,8 +36,9 @@ size (default 1000 entries).
 import json
 import os
 import time
+import weakref
 from collections import OrderedDict
-from threading import RLock, Thread
+from threading import Event, RLock, Thread
 from typing import Any
 
 from mlflow.utils.crypto import _encrypt_with_aes_gcm, decrypt_with_aes_gcm
@@ -50,6 +51,25 @@ _DEFAULT_CACHE_MAX_SIZE = 1000
 
 SECRETS_CACHE_TTL_ENV_VAR = "MLFLOW_SERVER_SECRETS_CACHE_TTL"
 SECRETS_CACHE_MAX_SIZE_ENV_VAR = "MLFLOW_SERVER_SECRETS_CACHE_MAX_SIZE"
+
+
+def _cleanup_loop(
+    ref: "weakref.ref[EphemeralCacheEncryption]",
+    stop_event: Event,
+    interval: int,
+) -> None:
+    """Background thread that proactively purges expired bucket keys.
+
+    Uses a weak reference so the thread does not prevent garbage collection
+    of the owning EphemeralCacheEncryption instance.  When the instance is
+    collected the weak reference returns None and the loop exits.
+    """
+    while not stop_event.wait(timeout=interval):
+        obj = ref()
+        if obj is None:
+            break
+        obj._purge_expired_keys()
+        del obj  # drop strong ref before sleeping again
 
 
 class EphemeralCacheEncryption:
@@ -79,21 +99,24 @@ class EphemeralCacheEncryption:
         self._previous_bucket: int | None = None
         self._previous_key: bytes | None = None
         self._lock = RLock()
-        self._shutdown = False
+        self._stop_event = Event()
 
-        # Start background cleanup thread
+        # Register a weak-ref callback that fires the stop event when this
+        # instance is garbage-collected, so the cleanup thread exits promptly.
+        # Pass the Event object directly (not a bound method on self) to avoid
+        # preventing GC via a reference cycle.
+        stop = self._stop_event
+        weakref.finalize(self, stop.set)
+
+        # Start background cleanup thread using a weak reference so the thread
+        # does not prevent garbage collection of this instance.
         self._cleanup_thread = Thread(
-            target=self._cleanup_loop,
+            target=_cleanup_loop,
+            args=(weakref.ref(self), self._stop_event, self._key_rotation_seconds),
             daemon=True,
             name="EphemeralCacheEncryption-cleanup",
         )
         self._cleanup_thread.start()
-
-    def _cleanup_loop(self) -> None:
-        """Background thread that proactively purges expired bucket keys."""
-        while not self._shutdown:
-            time.sleep(self._key_rotation_seconds)
-            self._purge_expired_keys()
 
     def _purge_expired_keys(self) -> None:
         """Purge any bucket keys that are more than 1 bucket old."""

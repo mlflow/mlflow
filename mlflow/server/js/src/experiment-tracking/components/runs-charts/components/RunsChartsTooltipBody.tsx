@@ -1,14 +1,5 @@
 import { isNil } from 'lodash';
-import {
-  Button,
-  CloseIcon,
-  PinIcon,
-  PinFillIcon,
-  LegacyTooltip,
-  VisibleIcon,
-  Typography,
-  Tooltip,
-} from '@databricks/design-system';
+import { Button, CloseIcon, PinIcon, PinFillIcon, VisibleIcon, Typography, Tooltip } from '@databricks/design-system';
 import type { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -41,6 +32,7 @@ interface RunsChartsContextMenuContentDataType {
   onTogglePin?: (runUuid: string) => void;
   onHideRun?: (runUuid: string, isCurrentlyVisible: boolean) => void;
   getDataTraceLink?: (experimentId: string, traceUuid: string) => string;
+  compactRunDescription?: boolean;
 }
 
 type RunsChartContextMenuHoverDataType = RunsChartsCardConfig;
@@ -284,7 +276,7 @@ export const RunsChartsTooltipBody = ({
   RunsChartContextMenuHoverDataType,
   RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {
-  const { runs, onTogglePin, onHideRun, getDataTraceLink } = contextData;
+  const { runs, onTogglePin, onHideRun, getDataTraceLink, compactRunDescription } = contextData;
   const [experimentId] = useExperimentIds();
   const activeRun = runs?.find((run) => run.uuid === runUuid);
 
@@ -337,7 +329,11 @@ export const RunsChartsTooltipBody = ({
 
       {description && (
         <div css={styles.description}>
-          <Typography.Paragraph color="secondary" withoutMargins ellipsis={{ rows: 2, tooltip: description }}>
+          <Typography.Paragraph
+            color="secondary"
+            withoutMargins
+            ellipsis={{ rows: compactRunDescription ? 1 : 2, tooltip: description }}
+          >
             {description}
           </Typography.Paragraph>
         </div>

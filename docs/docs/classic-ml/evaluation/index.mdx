@@ -11,7 +11,7 @@ import TabItem from "@theme/TabItem";
 
 # Model Evaluation
 
-:::warning Classic ML Evaluation System
+:::warning[Classic ML Evaluation System]
 
 This documentation covers MLflow's **classic evaluation system** (`mlflow.models.evaluate`) which uses `EvaluationMetric` and `make_metric` for custom metrics.
 
@@ -178,12 +178,12 @@ result = mlflow.models.evaluate(
     model_type="classifier",
     evaluator_config={
         "log_explainer": True,
-        "explainer_type": "exact",
+        "explainability_algorithm": "permutation",
     },
 )
 ```
 
-Common options: `log_explainer` (log SHAP explainer), `explainer_type` (SHAP type: "exact", "permutation", "partition"), `pos_label` (positive class label for binary classification), `average` (averaging strategy for multiclass: "macro", "micro", "weighted").
+Common options: `log_explainer` (log SHAP explainer), `explainability_algorithm` (SHAP type: "exact", "permutation", "partition", "kernel"), `pos_label` (positive class label for binary classification), `average` (averaging strategy for multiclass: "macro", "micro", "weighted").
 
 ### Evaluation Results
 
@@ -200,9 +200,6 @@ for metric_name, value in result.metrics.items():
 # Access artifacts (plots, tables)
 for artifact_name, path in result.artifacts.items():
     print(f"{artifact_name}: {path}")
-
-# Access evaluation table
-eval_table = result.tables["eval_results_table"]
 ```
 
 ### Model Validation
@@ -216,6 +213,7 @@ Validate evaluation metrics against thresholds:
 
 ```python
 from mlflow.models import MetricThreshold
+from mlflow.models.evaluation.validation import ModelValidationFailedException
 
 # Evaluate model
 result = mlflow.models.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
@@ -233,7 +231,7 @@ try:
         validation_thresholds=thresholds,
     )
     print("Model meets all thresholds")
-except mlflow.exceptions.ModelValidationFailedException as e:
+except ModelValidationFailedException as e:
     print(f"Validation failed: {e}")
 ```
 
@@ -259,7 +257,6 @@ model.fit(X_train, y_train)
 
 # Generate predictions
 predictions = model.predict(X_test)
-prediction_probabilities = model.predict_proba(X_test)[:, 1]
 
 # Create evaluation dataset with predictions
 eval_dataset = pd.DataFrame({
@@ -286,15 +283,7 @@ with mlflow.start_run():
 - `targets`: Column name containing ground truth labels
 - `model_type`: Task type (`"classifier"` or `"regressor"`)
 
-When evaluating classification models with probability scores, include a column with probabilities for metrics like ROC-AUC:
-
-```python
-eval_dataset = pd.DataFrame({
-    "prediction": predictions,
-    "prediction_proba": prediction_probabilities,  # For ROC-AUC
-    "target": y_test,
-})
-```
+Without a model, the classifier evaluator reads only the predicted labels, so metrics and plots that need class probabilities (ROC AUC, PR AUC, log loss, ROC and precision-recall curves) are not computed. To get them, pass a model logged with the `sklearn`, `xgboost`, or `catboost` flavor whose underlying estimator exposes `predict_proba`, such as an sklearn classifier. Plain Python functions, such as the one in [Function Evaluation](#function-evaluation), and custom pyfunc models don't produce these metrics.
 
 ## Function Evaluation
 
@@ -355,7 +344,7 @@ Define custom evaluation metrics and create specialized visualizations.
 
 ### Custom Metrics
 
-:::note Classic System Only
+:::note[Classic System Only]
 
 The `make_metric` function is part of MLflow's classic evaluation system.
 
@@ -450,7 +439,7 @@ with mlflow.start_run():
 Custom artifact functions receive three parameters:
 
 - `eval_df`: DataFrame with predictions, targets, and input features
-- `builtin_metrics`: Dictionary of computed metrics
+- `builtin_metrics`: Dictionary mapping metric names to `MetricValue` objects. Get the scalar value of metric `name` with `builtin_metrics[name].aggregate_results[name]`.
 - `artifacts_dir`: Directory path to save artifact files
 
 Return a dictionary mapping artifact names to file paths.
@@ -514,9 +503,7 @@ result = mlflow.models.evaluate(
     model_type="classifier",
     evaluator_config={
         "log_explainer": True,
-        "explainer_type": "exact",
-        "max_error_examples": 100,
-        "log_model_explanations": True,
+        "explainability_algorithm": "permutation",
     },
 )
 ```
@@ -524,9 +511,7 @@ result = mlflow.models.evaluate(
 **Configuration Options:**
 
 - `log_explainer`: Whether to save the SHAP explainer as a model (default: False)
-- `explainer_type`: SHAP algorithm type - "exact", "permutation", or "partition"
-- `max_error_examples`: Number of misclassified examples to explain in detail
-- `log_model_explanations`: Whether to log individual prediction explanations
+- `explainability_algorithm`: SHAP algorithm type - "exact", "permutation", "partition", or "kernel" (default: chosen automatically). "exact" grows exponentially with the number of features, so use it only for models with few features.
 
 ### Using Saved Explainers
 

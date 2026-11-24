@@ -1,0 +1,154 @@
+diff --git a/bin/511.index.js b/bin/511.index.js
+index 221c7311917d78b0618815ef98f123c8197df4ef..c6690fd2b3399d948664e3ed94e803e6434024ec 100644
+--- a/bin/511.index.js
++++ b/bin/511.index.js
+@@ -1788,7 +1788,7 @@ async function command(params) {
+         if (buildContext.bundler !== "vite") {
+             break run_post_build_script;
+         }
+-        external_child_process_.execSync("npx vite", {
++        external_child_process_.execSync("yarn vite", {
+             cwd: buildContext.projectDirPath,
+             env: Object.assign(Object.assign({}, process.env), { [constants/* VITE_PLUGIN_SUB_SCRIPTS_ENV_NAMES.RUN_POST_BUILD_SCRIPT */.TE.RUN_POST_BUILD_SCRIPT]: JSON.stringify({
+                     resourcesDirPath,
+diff --git a/bin/main.js b/bin/main.js
+index eab64bcc1d6303fcd26a2b69953e84baf6148bfd..ea5140c1bbcfb7fd8b7cee12e4f345f0f3fe2803 100755
+--- a/bin/main.js
++++ b/bin/main.js
+@@ -72,8 +72,19 @@ function getProxyFetchOptions(params) {
+     var _a, _b, _c;
+     const { npmConfigGetCwd } = params;
+     const cfg = (() => {
+-        const output = external_child_process_.execSync("npm config get", { cwd: npmConfigGetCwd })
+-            .toString("utf8");
++        let output;
++        try {
++            output = external_child_process_.execSync("npm config get", { cwd: npmConfigGetCwd })
++                .toString("utf8");
++        }
++        catch (error) {
++            if (String(error).includes("npm: not found")) {
++                output = "";
++            }
++            else {
++                throw error;
++            }
++        }
+         return output
+             .split("\n")
+             .filter(line => !line.startsWith(";"))
+@@ -202,7 +213,7 @@ function getBuildContext(params) {
+         }
+         let output;
+         try {
+-            output = external_child_process_.execSync("npx vite", {
++            output = external_child_process_.execSync("yarn vite", {
+                 cwd: projectDirPath,
+                 stdio: ["pipe", "pipe", "ignore"],
+                 env: Object.assign(Object.assign({}, process.env), { [constants/* VITE_PLUGIN_SUB_SCRIPTS_ENV_NAMES.RESOLVE_VITE_CONFIG */.TE.RESOLVE_VITE_CONFIG]: "true" })
+@@ -210,7 +221,7 @@ function getBuildContext(params) {
+                 .toString("utf8");
+         }
+         catch (error) {
+-            throw new Error(`Failed to run \`npx vite\`: ${error}`);
++            throw new Error(`Failed to run \`yarn vite\`: ${error}`);
+         }
+         (0,assert/* assert */.h)(output.includes(constants/* VITE_PLUGIN_SUB_SCRIPTS_ENV_NAMES.RESOLVE_VITE_CONFIG */.TE.RESOLVE_VITE_CONFIG), "Seems like the Keycloakify's Vite plugin is not installed.");
+         const resolvedViteConfigStr = output
+@@ -596,7 +607,7 @@ function getBuildContext(params) {
+             return getProxyFetchOptions({
+                 npmConfigGetCwd: (function callee(upCount) {
+                     const dirPath = (0,external_path_.resolve)((0,external_path_.join)(...[projectDirPath, ...Array(upCount).fill("..")]));
+-                    (0,assert/* assert */.h)(dirPath !== external_path_.sep, "Couldn't find a place to run 'npm config get'");
++                    (0,assert/* assert */.h)(dirPath !== external_path_.sep, "Couldn't find a place to run 'npm or yarn config'");
+                     try {
+                         external_child_process_.execSync("npm config get", {
+                             cwd: dirPath,
+@@ -604,7 +615,11 @@ function getBuildContext(params) {
+                         });
+                     }
+                     catch (error) {
+-                        if (String(error).includes("ENOWORKSPACES")) {
++                        const errorString = String(error);
++                        if (errorString.includes("npm: not found")) {
++                            return dirPath;
++                        }
++                        if (errorString.includes("ENOWORKSPACES")) {
+                             return callee(upCount + 1);
+                         }
+                         throw error;
+diff --git a/vite-plugin/index.js b/vite-plugin/index.js
+index f4210e10b1aacc24f07b67f0d849e44936f12939..f61128bbd0b0e239bd9a9f7519e4ecc3023e57df 100644
+--- a/vite-plugin/index.js
++++ b/vite-plugin/index.js
+@@ -286,8 +286,19 @@ function getProxyFetchOptions(params) {
+     var _a, _b, _c;
+     const { npmConfigGetCwd } = params;
+     const cfg = (() => {
+-        const output = external_child_process_.execSync("npm config get", { cwd: npmConfigGetCwd })
+-            .toString("utf8");
++        let output;
++        try {
++            output = external_child_process_.execSync("npm config get", { cwd: npmConfigGetCwd })
++                .toString("utf8");
++        }
++        catch (error) {
++            if (String(error).includes("npm: not found")) {
++                output = "";
++            }
++            else {
++                throw error;
++            }
++        }
+         return output
+             .split("\n")
+             .filter(line => !line.startsWith(";"))
+@@ -416,7 +427,7 @@ function getBuildContext(params) {
+         }
+         let output;
+         try {
+-            output = external_child_process_.execSync("npx vite", {
++            output = external_child_process_.execSync("yarn vite", {
+                 cwd: projectDirPath,
+                 stdio: ["pipe", "pipe", "ignore"],
+                 env: Object.assign(Object.assign({}, process.env), { [constants.VITE_PLUGIN_SUB_SCRIPTS_ENV_NAMES.RESOLVE_VITE_CONFIG]: "true" })
+@@ -424,7 +435,7 @@ function getBuildContext(params) {
+                 .toString("utf8");
+         }
+         catch (error) {
+-            throw new Error(`Failed to run \`npx vite\`: ${error}`);
++            throw new Error(`Failed to run \`yarn vite\`: ${error}`);
+         }
+         (0,assert/* assert */.h)(output.includes(constants.VITE_PLUGIN_SUB_SCRIPTS_ENV_NAMES.RESOLVE_VITE_CONFIG), "Seems like the Keycloakify's Vite plugin is not installed.");
+         const resolvedViteConfigStr = output
+@@ -810,7 +821,7 @@ function getBuildContext(params) {
+             return getProxyFetchOptions({
+                 npmConfigGetCwd: (function callee(upCount) {
+                     const dirPath = (0,external_path_.resolve)((0,external_path_.join)(...[projectDirPath, ...Array(upCount).fill("..")]));
+-                    (0,assert/* assert */.h)(dirPath !== external_path_.sep, "Couldn't find a place to run 'npm config get'");
++                    (0,assert/* assert */.h)(dirPath !== external_path_.sep, "Couldn't find a place to run 'npm or yarn config'");
+                     try {
+                         external_child_process_.execSync("npm config get", {
+                             cwd: dirPath,
+@@ -818,7 +829,11 @@ function getBuildContext(params) {
+                         });
+                     }
+                     catch (error) {
+-                        if (String(error).includes("ENOWORKSPACES")) {
++                        const errorString = String(error);
++                        if (errorString.includes("npm: not found")) {
++                            return dirPath;
++                        }
++                        if (errorString.includes("ENOWORKSPACES")) {
+                             return callee(upCount + 1);
+                         }
+                         throw error;
+@@ -1173,7 +1188,7 @@ async function maybeDelegateCommandToCustomHandler(params) {
+         return { hasBeenHandled: false };
+     }
+     try {
+-        external_child_process_.execSync(`npx ${BIN_NAME}`, {
++        external_child_process_.execSync(`yarn ${BIN_NAME}`, {
+             stdio: "inherit",
+             env: Object.assign(Object.assign({}, process.env), { [constants.CUSTOM_HANDLER_ENV_NAMES.COMMAND_NAME]: commandName, [constants.CUSTOM_HANDLER_ENV_NAMES.BUILD_CONTEXT]: JSON.stringify(buildContext) })
+         });

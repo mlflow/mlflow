@@ -1,25 +1,20 @@
-import { useCallback } from 'react';
 import {
-  type getArtifactBytesContent,
+  type ArtifactRequestOptions,
   getArtifactContent,
   getArtifactLocationUrl,
   getLoggedModelArtifactLocationUrl,
 } from '../../../../common/utils/ArtifactUtils';
-import type { KeyValueEntity } from '../../../../common/types';
+import { fetchArtifactPreferPresigned } from '../../../utils/PresignedArtifactUtils';
 
-type FetchArtifactParams = {
-  experimentId?: string;
+export type FetchArtifactParams = {
   runUuid: string;
   path: string;
   isLoggedModelsMode?: boolean;
   loggedModelId?: string;
-  entityTags?: Partial<KeyValueEntity>[];
+  artifactRootUri?: string;
 };
 
-type GetArtifactContentFn = typeof getArtifactContent | typeof getArtifactBytesContent;
-
-// Internal util, strips leading slash from the path if it exists
-const normalizeArtifactPath = (path: string) => (path.startsWith('/') ? path.substring(1) : path);
+type GetArtifactContentFn<T = unknown> = (artifactLocation: string, options?: ArtifactRequestOptions) => Promise<T>;
 
 // Internal util that generates the artifact location URL for the workspace API
 const getWorkspaceArtifactLocationUrl = (params: FetchArtifactParams) => {
@@ -31,18 +26,23 @@ const getWorkspaceArtifactLocationUrl = (params: FetchArtifactParams) => {
 };
 
 /**
- * A function that provides a unified function for fetching artifacts, either from the workspace API or SPN API.
+ * Fetch a run or logged-model artifact through the configured artifact service.
  */
-export const fetchArtifactUnified = (
+export function fetchArtifactUnified(params: FetchArtifactParams): Promise<string>;
+export function fetchArtifactUnified<T>(
+  params: FetchArtifactParams,
+  getArtifactDataFn: GetArtifactContentFn<T>,
+): Promise<T>;
+export function fetchArtifactUnified(
   params: FetchArtifactParams,
   getArtifactDataFn: GetArtifactContentFn = getArtifactContent,
-) => {
+): Promise<unknown> {
   const workspaceAPIArtifactLocation = getWorkspaceArtifactLocationUrl(params);
 
-  return getArtifactDataFn(workspaceAPIArtifactLocation);
-};
+  return fetchArtifactPreferPresigned(params, workspaceAPIArtifactLocation, getArtifactDataFn);
+}
 
 export type FetchArtifactUnifiedFn<T = string> = (
   params: FetchArtifactParams,
-  getArtifactDataFn: GetArtifactContentFn,
+  getArtifactDataFn: GetArtifactContentFn<T>,
 ) => Promise<T>;

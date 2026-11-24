@@ -21,9 +21,9 @@ def test_assistant_help(runner):
 
 
 def test_configure_cli_not_found(runner):
-    with mock.patch("mlflow.assistant.cli.shutil.which", return_value=None):
+    with mock.patch("mlflow.assistant.providers.claude_code.shutil.which", return_value=None):
         result = runner.invoke(commands, ["--configure"], input="1\n")
-        assert "not installed" in result.output
+        assert "not available" in result.output
 
 
 def test_configure_auth_failure(runner):
@@ -32,7 +32,9 @@ def test_configure_auth_failure(runner):
     mock_result.stderr = "unauthorized"
 
     with (
-        mock.patch("mlflow.assistant.cli.shutil.which", return_value="/usr/bin/claude"),
+        mock.patch(
+            "mlflow.assistant.providers.claude_code.shutil.which", return_value="/usr/bin/claude"
+        ),
         mock.patch(
             "mlflow.assistant.providers.claude_code.subprocess.run",
             return_value=mock_result,
@@ -40,8 +42,7 @@ def test_configure_auth_failure(runner):
     ):
         result = runner.invoke(commands, ["--configure"], input="1\n")
         assert result.exit_code == 0
-        # Should show error about authentication
-        assert "Not authenticated" in result.output or "not installed" in result.output.lower()
+        assert "not authenticated" in result.output.lower()
 
 
 def test_configure_experiment_fetch_failure(runner):
@@ -50,7 +51,9 @@ def test_configure_experiment_fetch_failure(runner):
     mock_result.stderr = ""
 
     with (
-        mock.patch("mlflow.assistant.cli.shutil.which", return_value="/usr/bin/claude"),
+        mock.patch(
+            "mlflow.assistant.providers.claude_code.shutil.which", return_value="/usr/bin/claude"
+        ),
         mock.patch(
             "mlflow.assistant.providers.claude_code.subprocess.run",
             return_value=mock_result,
@@ -69,7 +72,8 @@ def test_configure_experiment_fetch_failure(runner):
         assert "Could not fetch experiments" in result.output
 
 
-def test_configure_success(runner, tmp_path):
+def test_configure_success(runner, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     mock_result = mock.Mock()
     mock_result.returncode = 0
     mock_result.stderr = ""
@@ -84,7 +88,9 @@ def test_configure_success(runner, tmp_path):
     mock_config.set_provider = mock_set_provider
 
     with (
-        mock.patch("mlflow.assistant.cli.shutil.which", return_value="/usr/bin/claude"),
+        mock.patch(
+            "mlflow.assistant.providers.claude_code.shutil.which", return_value="/usr/bin/claude"
+        ),
         mock.patch(
             "mlflow.assistant.providers.claude_code.subprocess.run",
             return_value=mock_result,
@@ -98,7 +104,6 @@ def test_configure_success(runner, tmp_path):
             return_value=mock_config,
         ),
         mock.patch.object(mock_config, "save"),
-        runner.isolated_filesystem(temp_dir=tmp_path),
     ):
         # Input: provider=1, connect=y, experiment=1, project_path, model=default, skill_location=1
         result = runner.invoke(
@@ -127,7 +132,9 @@ def test_configure_tilde_expansion(runner):
     home_dir = os.path.expanduser("~")
 
     with (
-        mock.patch("mlflow.assistant.cli.shutil.which", return_value="/usr/bin/claude"),
+        mock.patch(
+            "mlflow.assistant.providers.claude_code.shutil.which", return_value="/usr/bin/claude"
+        ),
         mock.patch(
             "mlflow.assistant.providers.claude_code.subprocess.run",
             return_value=mock_result,
@@ -172,7 +179,9 @@ def test_configure_relative_path(runner):
     mock_config.set_provider = mock_set_provider
 
     with (
-        mock.patch("mlflow.assistant.cli.shutil.which", return_value="/usr/bin/claude"),
+        mock.patch(
+            "mlflow.assistant.providers.claude_code.shutil.which", return_value="/usr/bin/claude"
+        ),
         mock.patch(
             "mlflow.assistant.providers.claude_code.subprocess.run",
             return_value=mock_result,

@@ -1,3 +1,4 @@
+import os
 from unittest import mock
 
 import pytest
@@ -11,12 +12,30 @@ from mlflow.genai.discovery.job import (
 
 
 @pytest.mark.parametrize(
-    ("provider", "secret_value", "expected_credentials"),
+    ("provider", "secret_value", "auth_config", "expected_credentials"),
     [
-        ("openai", {"api_key": "test-key"}, {"OPENAI_API_KEY": "test-key"}),
-        ("anthropic", {"api_key": "test-key"}, {"ANTHROPIC_API_KEY": "test-key"}),
-        ("gemini", {"api_key": "test-key"}, {"GEMINI_API_KEY": "test-key"}),
-        ("azure", {"api_key": "test-key"}, {"AZURE_OPENAI_API_KEY": "test-key"}),
+        ("openai", {"api_key": "test-key"}, {}, {"OPENAI_API_KEY": "test-key"}),
+        (
+            "openai",
+            {"api_key": "test-key"},
+            {"api_base": "https://custom.example.com/v1"},
+            {
+                "OPENAI_API_KEY": "test-key",
+                "OPENAI_API_BASE": "https://custom.example.com/v1",
+            },
+        ),
+        ("anthropic", {"api_key": "test-key"}, {}, {"ANTHROPIC_API_KEY": "test-key"}),
+        ("gemini", {"api_key": "test-key"}, {}, {"GEMINI_API_KEY": "test-key"}),
+        (
+            "azure",
+            {"api_key": "test-key"},
+            {"api_base": "https://my-resource.openai.azure.com", "api_version": "2024-02-01"},
+            {
+                "AZURE_API_KEY": "test-key",
+                "AZURE_API_BASE": "https://my-resource.openai.azure.com",
+                "AZURE_API_VERSION": "2024-02-01",
+            },
+        ),
         (
             "bedrock",
             {
@@ -24,6 +43,7 @@ from mlflow.genai.discovery.job import (
                 "aws_secret_access_key": "secret-key",
                 "aws_session_token": "session-token",
             },
+            {},
             {
                 "AWS_ACCESS_KEY_ID": "access-key",
                 "AWS_SECRET_ACCESS_KEY": "secret-key",
@@ -32,11 +52,15 @@ from mlflow.genai.discovery.job import (
         ),
     ],
 )
-def test_fetch_provider_credentials_success(provider, secret_value, expected_credentials):
+def test_fetch_provider_credentials_success(
+    provider, secret_value, auth_config, expected_credentials
+):
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = secret_value
+    mock_store.get_secret_info.return_value.auth_config = auth_config
     credentials = _fetch_provider_credentials(mock_store, provider, "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
     assert credentials == expected_credentials
 
 
@@ -49,16 +73,20 @@ def test_fetch_provider_credentials_unknown_provider():
 def test_fetch_provider_credentials_case_insensitive():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
+    mock_store.get_secret_info.return_value.auth_config = {}
     credentials = _fetch_provider_credentials(mock_store, "OpenAI", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
     assert credentials == {"OPENAI_API_KEY": "test-key"}
 
 
 def test_fetch_provider_credentials_missing_api_key():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {}
+    mock_store.get_secret_info.return_value.auth_config = {}
     credentials = _fetch_provider_credentials(mock_store, "openai", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
     assert credentials == {}
 
 
@@ -68,11 +96,38 @@ def test_fetch_provider_credentials_bedrock_missing_optional_token():
         "aws_access_key_id": "access-key",
         "aws_secret_access_key": "secret-key",
     }
+    mock_store.get_secret_info.return_value.auth_config = {}
     credentials = _fetch_provider_credentials(mock_store, "bedrock", "secret-123")
     mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
     assert credentials == {
         "AWS_ACCESS_KEY_ID": "access-key",
         "AWS_SECRET_ACCESS_KEY": "secret-key",
+    }
+
+
+def test_fetch_provider_credentials_none_auth_config():
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
+    mock_store.get_secret_info.return_value.auth_config = None
+    credentials = _fetch_provider_credentials(mock_store, "openai", "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
+    assert credentials == {"OPENAI_API_KEY": "test-key"}
+
+
+def test_fetch_provider_credentials_azure_partial_auth_config():
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
+    mock_store.get_secret_info.return_value.auth_config = {
+        "api_base": "https://my-resource.openai.azure.com"
+    }
+    credentials = _fetch_provider_credentials(mock_store, "azure", "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
+    assert credentials == {
+        "AZURE_API_KEY": "test-key",
+        "AZURE_API_BASE": "https://my-resource.openai.azure.com",
     }
 
 
@@ -93,6 +148,7 @@ def test_invoke_issue_detection_job_success():
     mock_result.issues = [mock.MagicMock(), mock.MagicMock(), mock.MagicMock()]
     mock_result.total_traces_analyzed = 2
     mock_result.total_cost_usd = 0.15
+    mock_result.new_issue_count = 1
 
     with (
         mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
@@ -113,10 +169,14 @@ def test_invoke_issue_detection_job_success():
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FINISHED)
         )
-        mock_client.set_tag.assert_called_once_with("run-123", "total_cost_usd", 0.15)
+        mock_client.set_tag.assert_any_call("run-123", "total_cost_usd", 0.15)
+        # The count the sampler actually analyzed, which the run's own `total_traces` tag -- set
+        # from the submitted trace ids when the run was created -- can be larger than.
+        mock_client.set_tag.assert_any_call("run-123", "total_traces_analyzed", 2)
 
         assert result["summary"] == "Found 3 issues"
         assert result["issues"] == 3
+        assert result["new_issue_count"] == 1
         assert result["total_traces_analyzed"] == 2
         assert result["total_cost_usd"] == 0.15
 
@@ -151,6 +211,62 @@ def test_invoke_issue_detection_job_with_endpoint():
         mock_discover_issues.assert_called_once()
         call_args = mock_discover_issues.call_args
         assert call_args.kwargs["model"] == "gateway:/my-endpoint"
+
+
+def test_invoke_issue_detection_job_propagates_username_for_gateway_auth(monkeypatch):
+    # setenv (not delenv) so monkeypatch restores both after the job overwrites os.environ
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "")
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
+    captured_env = {}
+
+    def _capture_env(*args, **kwargs):
+        captured_env["username"] = os.environ.get("MLFLOW_TRACKING_USERNAME")
+        captured_env["password"] = os.environ.get("MLFLOW_TRACKING_PASSWORD")
+        return mock.MagicMock(issues=[], total_traces_analyzed=1, total_cost_usd=0.0)
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.genai.discovery.job.discover_issues", side_effect=_capture_env
+        ) as mock_discover_issues,
+    ):
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="gateway:/my-endpoint",
+            username="alice",
+        )
+
+    mock_client_cls.assert_called_once()
+    mock_discover_issues.assert_called_once()
+    assert captured_env == {"username": "alice", "password": "internal-token"}
+
+
+def test_invoke_issue_detection_job_skips_username_propagation_when_none(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "unchanged")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "unchanged")
+    monkeypatch.setenv("_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", "internal-token")
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient"),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as mock_discover_issues,
+    ):
+        mock_discover_issues.return_value = mock.MagicMock(
+            issues=[], total_traces_analyzed=1, total_cost_usd=0.0
+        )
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="gateway:/my-endpoint",
+        )
+
+    assert os.environ["MLFLOW_TRACKING_USERNAME"] == "unchanged"
+    assert os.environ["MLFLOW_TRACKING_PASSWORD"] == "unchanged"
 
 
 def test_invoke_issue_detection_job_batches_large_trace_list():
@@ -203,3 +319,41 @@ def test_invoke_issue_detection_job_failure_marks_run_failed():
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FAILED)
         )
+
+
+def test_invoke_issue_detection_job_forwards_the_saved_priorities():
+    # The settings the experiment carries only mean something if they reach the pipeline, and
+    # the job is the one hop between the handler and `discover_issues` that can drop them.
+    mock_client = mock.MagicMock()
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
+    ):
+        mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+            model="openai:/gpt-4o",
+            instructions="Only report high severity issues.",
+        )
+
+    assert discover.call_args.kwargs["instructions"] == "Only report high severity issues."
+
+
+def test_invoke_issue_detection_job_without_priorities_passes_none():
+    mock_client = mock.MagicMock()
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as discover,
+    ):
+        mock_client._tracing_client.batch_get_traces.return_value = [mock.MagicMock()]
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=["trace-1"],
+            categories=["correctness"],
+            run_id="run-123",
+        )
+
+    assert discover.call_args.kwargs["instructions"] is None

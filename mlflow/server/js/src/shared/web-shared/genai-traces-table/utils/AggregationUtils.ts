@@ -6,6 +6,7 @@ import {
   ASSESSMENT_SESSION_METADATA_KEY,
   INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from '../../model-trace-explorer/constants';
+import { NOTES_ASSESSMENT_NAME } from '../../model-trace-explorer/assessments-pane/AssessmentsPaneNotesSection';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
@@ -23,6 +24,7 @@ import {
 } from '../components/GenAiEvaluationTracesReview.utils';
 import type {
   AssessmentAggregates,
+  AssessmentCountMetrics,
   AssessmentRunCounts,
   AssessmentInfo,
   EvalTraceComparisonEntry,
@@ -75,14 +77,21 @@ const PASS_FAIL_VALUES: string[] = [
 ];
 /**
  * Computes global metadata for each of the assessments.
+ *
+ * @param scorerDescriptionsByName Optional map from scorer name to description string.
+ *   When provided, custom scorers (source_type === 'CODE') that have an entry in this
+ *   map will show "{scorer_name} — {description}" in their tooltip instead of the
+ *   generic "This assessment is produced by a custom metric." fallback.
  */
 export function getAssessmentInfos(
   intl: IntlShape,
   currentEvaluationResults: RunEvaluationTracesDataEntry[],
   otherEvaluationResults: RunEvaluationTracesDataEntry[] | undefined,
+  scorerDescriptionsByName?: Record<string, string>,
 ): AssessmentInfo[] {
   const assessmentInfos: Record<string, AssessmentInfo> = {};
   // Compute dtypes in the first pass.
+  // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
   const assessmentDtypes: Record<string, AssessmentDType | undefined> = {
     [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: 'pass-fail',
   };
@@ -110,8 +119,8 @@ export function getAssessmentInfos(
       ...overallAssessmentsByName,
       ...retrievalAssessmentsByName,
     ]) {
-      // Skip internal assessments that are implementation details of the issue discovery pipeline
-      if (assessmentName === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE) {
+      // Skip internal assessments
+      if (assessmentName === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE || assessmentName === NOTES_ASSESSMENT_NAME) {
         continue;
       }
       assessmentNames.add(assessmentName);
@@ -223,18 +232,27 @@ export function getAssessmentInfos(
           assessmentName in KnownEvaluationResultAssessmentValueMissingTooltip
             ? intl.formatMessage(KnownEvaluationResultAssessmentValueMissingTooltip[assessmentName])
             : '';
+        const customScorerName = assessment?.source?.sourceId;
+        const customScorerDescription =
+          customScorerName && scorerDescriptionsByName ? scorerDescriptionsByName[customScorerName] : undefined;
+        // A registered scorer description takes precedence even when the scorer's name collides
+        // with a built-in judge name (for example a custom scorer named "correctness").
+        const isRegisteredScorer =
+          assessment?.source?.sourceType === 'CODE' || assessment?.source?.sourceType === 'AI_JUDGE';
         const description =
-          assessmentName in KnownEvaluationResultAssessmentValueDescription
-            ? intl.formatMessage(KnownEvaluationResultAssessmentValueDescription[assessmentName])
-            : assessment?.source?.sourceType === 'HUMAN'
-              ? intl.formatMessage({
-                  defaultMessage: 'This assessment is produced by a human judge.',
-                  description: 'Human judge assessment description',
-                })
-              : intl.formatMessage({
-                  defaultMessage: 'This assessment is produced by a custom metric.',
-                  description: 'Custom judge assessment description',
-                });
+          isRegisteredScorer && customScorerDescription
+            ? `${customScorerName} \u2014 ${customScorerDescription}`
+            : assessmentName in KnownEvaluationResultAssessmentValueDescription
+              ? intl.formatMessage(KnownEvaluationResultAssessmentValueDescription[assessmentName])
+              : assessment?.source?.sourceType === 'HUMAN'
+                ? intl.formatMessage({
+                    defaultMessage: 'This assessment is produced by a human judge.',
+                    description: 'Human judge assessment description',
+                  })
+                : intl.formatMessage({
+                    defaultMessage: 'This assessment is produced by a custom metric.',
+                    description: 'Custom judge assessment description',
+                  });
 
         const uniqueValues = new Set<AssessmentValueType>();
         // If no assessments exist for this name, add undefined to track missing assessments
@@ -331,9 +349,35 @@ export function getNumericAggregate(numericValues: number[]): NumericAggregate |
     return undefined;
   }
 
+  const valueCounts = new Map<number, number>();
+  for (const value of numericValues) {
+    valueCounts.set(value, (valueCounts.get(value) ?? 0) + 1);
+  }
+  return getNumericAggregateFromCounts(valueCounts);
+}
+
+export function getNumericAggregateFromCounts(valueCounts: Map<number, number>): NumericAggregate | undefined {
+  if (valueCounts.size === 0) {
+    return undefined;
+  }
+
+  let min = Infinity;
+  let max = -Infinity;
+  let sum = 0;
+  let total = 0;
+  for (const [value, count] of valueCounts) {
+    if (value < min) min = value;
+    if (value > max) max = value;
+    sum += value * count;
+    total += count;
+  }
+
+  if (total === 0) {
+    return undefined;
+  }
+
+  const average = sum / total;
   const numericAggregateCounts: NumericAggregateCount[] = [];
-  const min = Math.min(...numericValues);
-  const max = Math.max(...numericValues);
 
   // Set a minimum bucket size of 0.01, since the data is displayed in 2 decimal places.
   // Show at most 10 buckets.
@@ -341,31 +385,32 @@ export function getNumericAggregate(numericValues: number[]): NumericAggregate |
   let maxCount = 0;
 
   if (min === max) {
-    numericAggregateCounts.push({ lower: min, upper: max, count: numericValues.length });
+    numericAggregateCounts.push({ lower: min, upper: max, count: total });
+    maxCount = total;
   } else {
     for (let i = min; i < max; i += bucketSize) {
       numericAggregateCounts.push({ lower: i, upper: Math.min(i + bucketSize, max), count: 0 });
     }
-  }
+    numericAggregateCounts.sort((a, b) => a.lower - b.lower);
 
-  numericAggregateCounts.sort((a, b) => a.lower - b.lower);
-  for (const numericValue of numericValues) {
-    const bucket = numericAggregateCounts.find(
-      (bucket) =>
-        numericValue >= bucket.lower &&
-        (numericValue < bucket.upper || (numericValue === bucket.upper && numericValue === max)),
-    );
-    if (bucket) {
-      bucket.count++;
-      maxCount = Math.max(maxCount, bucket.count);
+    for (const [value, count] of valueCounts) {
+      const bucket = numericAggregateCounts.find(
+        (b) => value >= b.lower && (value < b.upper || (value === b.upper && value === max)),
+      );
+      if (bucket) {
+        bucket.count += count;
+        maxCount = Math.max(maxCount, bucket.count);
+      }
     }
   }
-  return { min, max, maxCount, counts: numericAggregateCounts };
+
+  return { min, max, maxCount, average, counts: numericAggregateCounts };
 }
 
 export function getAssessmentNumericAggregates(
   assessmentInfo: AssessmentInfo,
   evalResults: RunEvaluationTracesDataEntry[],
+  excludeErroredValues = false,
 ): NumericAggregate | undefined {
   if (assessmentInfo.dtype !== 'numeric') {
     return undefined;
@@ -375,7 +420,11 @@ export function getAssessmentNumericAggregates(
       const assessments = assessmentInfo.isOverall
         ? evalResult.overallAssessments
         : evalResult.responseAssessmentsByName[assessmentInfo.name];
-      const result = assessments
+      const result = (
+        excludeErroredValues
+          ? assessments?.filter((assessment) => !doesAssessmentContainErrors(assessment))
+          : assessments
+      )
         ?.map((assessment) => getEvaluationResultAssessmentValue(assessment))
         .filter((value) => value !== undefined && typeof value === 'number');
       return result;
@@ -387,6 +436,7 @@ export function getAssessmentNumericAggregates(
 function getAssessmentRunValueCounts(
   assessmentInfo: AssessmentInfo,
   evalResults: RunEvaluationTracesDataEntry[],
+  excludeErroredValues = false,
 ): AssessmentRunCounts | undefined {
   if (assessmentInfo.dtype === 'numeric') {
     return undefined;
@@ -398,7 +448,7 @@ function getAssessmentRunValueCounts(
       : evalResult.responseAssessmentsByName[assessmentInfo.name];
     const valueCountsBySourceId =
       assessments && assessments.length > 0
-        ? getUniqueValueCountsBySourceId(assessmentInfo, assessments)
+        ? getUniqueValueCountsBySourceId(assessmentInfo, assessments, excludeErroredValues)
         : [{ value: undefined, count: 1 }];
     const keysToCount = assessmentInfo.containsErrors
       ? [ERROR_KEY, ...assessmentInfo.uniqueValues]
@@ -410,29 +460,6 @@ function getAssessmentRunValueCounts(
     }
   });
   return valueCounts;
-}
-
-function getAssessmentRunNumericValues(
-  assessmentInfo: AssessmentInfo,
-  evalResults: RunEvaluationTracesDataEntry[],
-): number[] | undefined {
-  if (assessmentInfo.dtype !== 'numeric') {
-    return undefined;
-  }
-  const values: number[] = [];
-  evalResults.forEach((evalResult) => {
-    const assessment = assessmentInfo.isOverall
-      ? first(evalResult.overallAssessments)
-      : first(evalResult.responseAssessmentsByName[assessmentInfo.name]);
-    if (assessment) {
-      const value = getEvaluationResultAssessmentValue(assessment);
-
-      if (!isNil(value)) {
-        values.push(Number(value));
-      }
-    }
-  });
-  return values;
 }
 
 function getRootCauseAssessmentCount(
@@ -454,14 +481,25 @@ export function getAssessmentAggregates(
   assessmentInfo: AssessmentInfo,
   evalResults: EvalTraceComparisonEntry[],
   allAssessmentFilters: AssessmentFilter[],
+  /** Leaves errored assessments out of value counts and numeric averages (eval run comparison only). */
+  { excludeErroredValues = false }: { excludeErroredValues?: boolean } = {},
 ): AssessmentAggregates {
   const currentEvalResults = evalResults.map((entry) => entry.currentRunValue).filter((entry) => !isNil(entry));
   const otherEvalResults = evalResults.map((entry) => entry.otherRunValue).filter((entry) => !isNil(entry));
 
-  const currentAssessmentAggregates = getAssessmentRunValueCounts(assessmentInfo, currentEvalResults);
-  const otherAssessmentAggregates = getAssessmentRunValueCounts(assessmentInfo, otherEvalResults);
+  const currentAssessmentAggregates = getAssessmentRunValueCounts(
+    assessmentInfo,
+    currentEvalResults,
+    excludeErroredValues,
+  );
+  const otherAssessmentAggregates = getAssessmentRunValueCounts(assessmentInfo, otherEvalResults, excludeErroredValues);
 
-  const currentNumericAggregates = getAssessmentNumericAggregates(assessmentInfo, currentEvalResults);
+  const currentNumericAggregates = getAssessmentNumericAggregates(
+    assessmentInfo,
+    currentEvalResults,
+    excludeErroredValues,
+  );
+  const otherNumericAggregates = getAssessmentNumericAggregates(assessmentInfo, otherEvalResults, excludeErroredValues);
 
   const assessmentFilters = allAssessmentFilters.filter((filter) => filter.assessmentName === assessmentInfo.name);
 
@@ -469,11 +507,57 @@ export function getAssessmentAggregates(
     assessmentInfo,
     currentCounts: currentAssessmentAggregates,
     otherCounts: otherAssessmentAggregates,
-    currentNumericValues: getAssessmentRunNumericValues(assessmentInfo, currentEvalResults),
-    otherNumericValues: getAssessmentRunNumericValues(assessmentInfo, otherEvalResults),
+    currentNumericAverage: currentNumericAggregates?.average,
+    otherNumericAverage: otherNumericAggregates?.average,
     currentNumericAggregate: currentNumericAggregates,
     currentNumRootCause: getRootCauseAssessmentCount(assessmentInfo, currentEvalResults),
     otherNumRootCause: getRootCauseAssessmentCount(assessmentInfo, otherEvalResults),
+    assessmentFilters,
+  };
+}
+
+/**
+ * N-run analog of {@link getAssessmentAggregates}: computes per-run aggregates (ordered baseline-first) for
+ * an assessment across `numRuns` runs, reusing the same per-run helpers. Also back-fills the 2-run
+ * current/other fields from indices 0/1. Consumers read a run's score/delta via `getDisplayScoreAndChangeForRun`.
+ */
+export function getAssessmentAggregatesMulti(
+  assessmentInfo: AssessmentInfo,
+  evalResults: EvalTraceComparisonEntry[],
+  allAssessmentFilters: AssessmentFilter[],
+  numRuns: number,
+): AssessmentAggregates {
+  const perRunEvalResults: RunEvaluationTracesDataEntry[][] = [];
+  for (let runIndex = 0; runIndex < numRuns; runIndex++) {
+    perRunEvalResults.push(
+      evalResults
+        .map((entry) => entry.runValues?.[runIndex])
+        .filter((entry): entry is RunEvaluationTracesDataEntry => !isNil(entry)),
+    );
+  }
+
+  const countsByRun = perRunEvalResults.map((results) => getAssessmentRunValueCounts(assessmentInfo, results));
+  const numericAggregateByRun = perRunEvalResults.map((results) =>
+    getAssessmentNumericAggregates(assessmentInfo, results),
+  );
+  const numericAverageByRun = numericAggregateByRun.map((aggregate) => aggregate?.average);
+  const numRootCauseByRun = perRunEvalResults.map((results) => getRootCauseAssessmentCount(assessmentInfo, results));
+
+  const assessmentFilters = allAssessmentFilters.filter((filter) => filter.assessmentName === assessmentInfo.name);
+
+  return {
+    assessmentInfo,
+    currentCounts: countsByRun[0],
+    otherCounts: countsByRun[1],
+    currentNumericAverage: numericAverageByRun[0],
+    otherNumericAverage: numericAverageByRun[1],
+    currentNumericAggregate: numericAggregateByRun[0],
+    currentNumRootCause: numRootCauseByRun[0] ?? 0,
+    otherNumRootCause: numRootCauseByRun[1] ?? 0,
+    countsByRun,
+    numericAverageByRun,
+    numRootCauseByRun,
+    numericAggregateByRun,
     assessmentFilters,
   };
 }
@@ -733,6 +817,7 @@ function getAssessmentBarChartValueText(
 export function getUniqueValueCountsBySourceId(
   assessmentInfo: AssessmentInfo,
   assessments: RunEvaluationResultAssessment[],
+  excludeErroredValues = false,
 ): {
   value: AssessmentValueType | undefined;
   count: number;
@@ -767,7 +852,7 @@ export function getUniqueValueCountsBySourceId(
     latestAssessment: RunEvaluationResultAssessment;
   }[] = [];
   for (const value of uniqueValues) {
-    const assessmentsWithValue = filteredAssessments.filter(
+    const assessmentsWithValue = (excludeErroredValues ? validAssessments : filteredAssessments).filter(
       (assessment) => getEvaluationResultAssessmentValue(assessment) === value,
     );
     const count = assessmentsWithValue.length;
@@ -784,4 +869,89 @@ export function getUniqueValueCountsBySourceId(
   }
 
   return valueCounts;
+}
+
+function buildCountsFromMetrics(
+  assessmentInfo: AssessmentInfo,
+  metricsData: AssessmentCountMetrics['data'],
+): AssessmentRunCounts {
+  const relevant = metricsData.filter((m) => m.assessmentName === assessmentInfo.name);
+  const counts: AssessmentRunCounts = new Map();
+
+  for (const metric of relevant) {
+    const typedValue = parseMetricAssessmentValue(metric.assessmentValue);
+    counts.set(typedValue, metric.count);
+  }
+
+  return counts;
+}
+
+function toNumericCounts(counts: AssessmentRunCounts): Map<number, number> {
+  const result = new Map<number, number>();
+  for (const [key, count] of counts) {
+    if (typeof key === 'number') {
+      result.set(key, count);
+    }
+  }
+  return result;
+}
+
+/**
+ * Converts a raw string value from the metrics API into a typed AssessmentValueType.
+ * The API JSON-encodes assessment values, so "\"yes\"" → "yes",
+ * "true" → true, "1.0" → 1.0, etc.
+ *
+ * "null" maps to ERROR_KEY because the metrics API only returns null for assessments
+ * that exist but have a null value (i.e. errored assessments). Truly missing assessments
+ * (no row at all) are excluded by the inner join and don't appear in the response.
+ */
+function parseMetricAssessmentValue(rawValue: string): AssessmentValueType {
+  try {
+    const parsed = JSON.parse(rawValue);
+    return parsed ?? ERROR_KEY;
+  } catch {
+    return rawValue;
+  }
+}
+
+/**
+ * Builds AssessmentAggregates from server-side count metrics.
+ * Used when infinite pagination is enabled to get accurate counts across all traces.
+ * Handles both categorical (pass-fail, boolean, string) and numeric assessments.
+ * Optionally accepts comparison run metrics data for `otherCounts`.
+ */
+export function buildAggregatesFromCountMetrics(
+  assessmentInfo: AssessmentInfo,
+  metricsData: AssessmentCountMetrics['data'],
+  allAssessmentFilters: AssessmentFilter[],
+  otherMetricsData?: AssessmentCountMetrics['data'],
+): AssessmentAggregates {
+  const currentCounts = buildCountsFromMetrics(assessmentInfo, metricsData);
+  const otherCounts = otherMetricsData ? buildCountsFromMetrics(assessmentInfo, otherMetricsData) : undefined;
+  const assessmentFilters = allAssessmentFilters.filter((f) => f.assessmentName === assessmentInfo.name);
+
+  if (assessmentInfo.dtype === 'numeric') {
+    const currentNumericCounts = toNumericCounts(currentCounts);
+    const otherNumericCounts = otherCounts ? toNumericCounts(otherCounts) : undefined;
+    const currentAggregate = getNumericAggregateFromCounts(currentNumericCounts);
+    const otherAggregate = otherNumericCounts ? getNumericAggregateFromCounts(otherNumericCounts) : undefined;
+    return {
+      assessmentInfo,
+      currentNumericAverage: currentAggregate?.average,
+      otherNumericAverage: otherAggregate?.average,
+      currentNumericAggregate: currentAggregate,
+      currentNumRootCause: 0,
+      otherNumRootCause: 0,
+      assessmentFilters,
+    };
+  }
+
+  return {
+    assessmentInfo,
+    currentCounts,
+    otherCounts,
+    currentNumRootCause: 0,
+    otherNumRootCause: 0,
+    assessmentFilters,
+  };
 }

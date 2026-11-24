@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.markdown_link import MarkdownLink
 
 
-def test_markdown_link(index_path: Path) -> None:
+def test_markdown_link(index: SymbolIndex) -> None:
     code = '''
 # Bad
 def function_with_markdown_link():
@@ -31,7 +32,7 @@ def function_with_rest_link():
 '''
 
     config = Config(select={MarkdownLink.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 3
     assert all(isinstance(v.rule, MarkdownLink) for v in violations)
     assert violations[0].range == Range(Position(3, 4))
@@ -39,7 +40,7 @@ def function_with_rest_link():
     assert violations[2].range == Range(Position(13, 4))
 
 
-def test_markdown_link_disable_on_end_line(index_path: Path) -> None:
+def test_markdown_link_disable_on_end_line(index: SymbolIndex) -> None:
     code = '''
 def func():
     """
@@ -68,13 +69,13 @@ def func_without_disable():
 '''
 
     config = Config(select={MarkdownLink.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     # Only the last function without disable comment should have a violation
     assert len(violations) == 1
     assert isinstance(violations[0].rule, MarkdownLink)
 
 
-def test_markdown_link_disable_multiple_rules(index_path: Path) -> None:
+def test_markdown_link_disable_multiple_rules(index: SymbolIndex) -> None:
     code = '''
 def func():
     """
@@ -97,7 +98,7 @@ def func_without_markdown_disable():
 '''
 
     config = Config(select={MarkdownLink.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     # Only the last function should have a violation (markdown-link not disabled)
     assert len(violations) == 1
     assert isinstance(violations[0].rule, MarkdownLink)

@@ -6,7 +6,6 @@ import type {
   IsFullWidthRowParams,
   SuppressKeyboardEventParams,
 } from '@ag-grid-community/core';
-import type { SpinnerProps } from '@databricks/design-system';
 import { Spinner, useDesignSystemTheme } from '@databricks/design-system';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -76,9 +75,7 @@ export const createParamFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_
 const createMetricFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_METRIC}-${key}`;
 const createTagFieldName = (key: string) => `${EXPERIMENT_FIELD_PREFIX_TAG}-${key}`;
 
-const UntrackedSpinner: React.FC<React.PropsWithChildren<SpinnerProps>> = ({ loading, ...props }) => {
-  return Spinner({ loading: false, ...props });
-};
+const UntrackedSpinner = () => <Spinner loading={false} />;
 
 /**
  * A default listener that suppresses default agGrid keyboard events on the row actions cell renderer.
@@ -280,6 +277,12 @@ export const useRunsColumnDefinitions = ({
       width: getActionsColumnWidth(isComparingRuns),
       maxWidth: getActionsColumnWidth(isComparingRuns),
       resizable: false,
+      // Structural selection column: must stay pinned far-left and never reorder.
+      // `lockPosition` anchors it to the first (leftmost) slot so neither applyColumnState nor
+      // resetColumnState can shuffle it (it has no colId and would otherwise get
+      // pushed after the listed pinned columns). suppressMovable blocks user drag.
+      lockPosition: true,
+      suppressMovable: true,
       suppressKeyboardEvent: RowActionsCellRendererSuppressKeyboardEvents,
     });
 
@@ -305,6 +308,8 @@ export const useRunsColumnDefinitions = ({
       initialWidth: isRunColumnDynamicSized ? undefined : RUN_NAME_COLUMN_WIDTH,
       flex: isRunColumnDynamicSized ? 1 : undefined,
       resizable: !isComparingRuns,
+      // Always-visible anchor column: allow resize but lock its position.
+      suppressMovable: true,
       suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
     });
 
@@ -331,6 +336,8 @@ export const useRunsColumnDefinitions = ({
         'is-ordered-by': cellClassIsOrderedBy,
       },
       initialWidth: 150,
+      // Always-visible anchor column: allow resize but lock its position.
+      suppressMovable: true,
     });
 
     // Datasets column - guarded by a feature flag
@@ -577,5 +584,5 @@ export const EXPERIMENTS_DEFAULT_COLUMN_SETUP = {
   resizable: true,
   filter: true,
   suppressMenu: true,
-  suppressMovable: true,
+  suppressMovable: false,
 };

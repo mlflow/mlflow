@@ -27,6 +27,7 @@ import sklearn
 import statsmodels
 import tensorflow
 import transformers
+import typesafe_sdk
 import xgboost
 
 import mlflow
@@ -75,6 +76,7 @@ library_to_mlflow_module_genai = {
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
+    typesafe_sdk: mlflow.typesafe,
     autogen: mlflow.ag2,
     # TODO: once Python 3.10 is introduced, enable smolagents
     # smolagents: mlflow.smolagents,
@@ -456,10 +458,10 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
 
     # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
     if is_databricks or disable:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
         assert trace is None
     else:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id(), flush=True)
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1

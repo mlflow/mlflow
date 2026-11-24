@@ -6,7 +6,6 @@ from contextlib import contextmanager
 from functools import lru_cache, partial
 from pathlib import Path
 from typing import Generator
-from urllib.parse import unquote
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -16,10 +15,7 @@ from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
-from mlflow.utils.databricks_utils import (
-    _get_databricks_host_creds_impl,
-    should_use_databricks_sdk,
-)
+from mlflow.utils.databricks_utils import DatabricksStoreHostCreds
 from mlflow.utils.file_utils import path_to_local_file_uri, path_to_local_sqlite_uri
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
@@ -42,17 +38,14 @@ def _has_existing_mlruns_data() -> bool:
     """
     from mlflow.store.tracking.file_store import FileStore
 
-    mlruns_path = Path(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-    if not mlruns_path.exists():
-        return False
-
     try:
-        for item in mlruns_path.iterdir():
-            if item.is_dir() and item.name.isdigit():
-                for f in item.iterdir():
-                    if f.name == FileStore.META_DATA_FILE_NAME:
+        with os.scandir(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH) as entries:
+            for entry in entries:
+                if entry.is_dir() and entry.name.isdigit():
+                    metadata_path = os.path.join(entry.path, FileStore.META_DATA_FILE_NAME)
+                    if os.path.lexists(metadata_path):
                         return True
-    except (OSError, PermissionError):
+    except OSError:
         return False
 
     return False
@@ -175,7 +168,7 @@ def get_tracking_uri() -> str:
         if default_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH:
             return path_to_local_file_uri(os.path.abspath(default_uri))
         if default_uri.startswith("sqlite:///"):
-            sqlite_path = unquote(default_uri[len("sqlite:///") :])
+            sqlite_path = default_uri[len("sqlite:///") :]
             db_path = os.path.abspath(sqlite_path)
             return path_to_local_sqlite_uri(db_path)
         return default_uri
@@ -209,10 +202,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    use_sdk = should_use_databricks_sdk(store_uri)
-    return DatabricksTracingRestStore(
-        partial(_get_databricks_host_creds_impl, store_uri, _use_databricks_sdk=use_sdk)
-    )
+    return DatabricksTracingRestStore(DatabricksStoreHostCreds(store_uri))
 
 
 def _get_databricks_uc_rest_store(store_uri, **_):

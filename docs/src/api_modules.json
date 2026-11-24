@@ -54,6 +54,7 @@
   "mlflow.tracing": "api_reference/python_api/mlflow.tracing.html",
   "mlflow.transformers": "api_reference/python_api/mlflow.transformers.html",
   "mlflow.types": "api_reference/python_api/mlflow.types.html",
+  "mlflow.typesafe": "api_reference/python_api/mlflow.typesafe.html",
   "mlflow.utils": "api_reference/python_api/mlflow.utils.html",
   "mlflow.webhooks": "api_reference/python_api/mlflow.webhooks.html",
   "mlflow.xgboost": "api_reference/python_api/mlflow.xgboost.html",
@@ -64,5 +65,6 @@
   "mlflow.python": "api_reference/python_api/index.html",
   "mlflow.rest": "api_reference/rest-api.html",
   "mlflow.typescript": "api_reference/typescript_api/index.html",
-  "mlflow.llms.deployments.api": "api_reference/llms/deployments/api.html"
+  "mlflow.llms.deployments.api": "api_reference/llms/deployments/api.html",
+  "mlflow.genai.mcp_server_registry.api": "api_reference/genai/mcp-server-registry/api.html"
 }

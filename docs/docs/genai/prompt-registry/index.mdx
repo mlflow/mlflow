@@ -170,7 +170,7 @@ Once you have multiple versions of a prompt, you can compare them to understand 
 
 ### 4. Load and Use the Prompt
 
-To use a prompt in your LLM application or AI agent, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object.
+To use a prompt in your LLM application or AI agent, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.model_registry.PromptVersion.format"/> method of the prompt object.
 
 ```python
 import mlflow
@@ -230,11 +230,21 @@ while True:
 print(f"Total prompts across pages: {len(all_prompts)}")
 ```
 
-## Prompt Object
+:::tip
 
-The `Prompt` object is the core entity in MLflow Prompt Registry. It represents a versioned template text that can contain variables for dynamic content.
+Any registered prompt can be loaded directly into the
+[**LLM Playground**](/genai/prompt-registry/playground) for interactive testing against an
+[AI Gateway](/genai/governance/ai-gateway) endpoint. Chat-typed prompts preserve
+their full message structure, and any stored **model config** is applied
+automatically.
 
-Key attributes of a Prompt object:
+:::
+
+## PromptVersion Object
+
+The <APILink fn="mlflow.entities.model_registry.PromptVersion">`PromptVersion`</APILink> object is what <APILink fn="mlflow.genai.register_prompt"/> and <APILink fn="mlflow.genai.load_prompt"/> return. It represents one version of a registered prompt: a template text that can contain variables for dynamic content. The `Prompt` entity, returned by <APILink fn="mlflow.genai.search_prompts"/>, is the prompt itself (name, description, and prompt-level tags) and groups its versions.
+
+Key attributes of a `PromptVersion` object:
 
 - `Name`: A unique identifier for the prompt.
 - `Template`: The content of the prompt, which can be either:
@@ -640,6 +650,10 @@ langchain_prompt = PromptTemplate.from_template(prompt.to_single_brace_format())
 print(langchain_prompt.input_variables)
 # Output: ['num_sentences', 'sentences']
 ```
+
+#### Q: Can I test a registered prompt in the MLflow UI?
+
+A: Yes. Open the [**LLM Playground**](/genai/prompt-registry/playground) and click **Load prompt from registry** to pull any prompt version into the conversation. Chat-typed prompts keep their full message structure, text-typed prompts load as a single user message, and any stored **model config** (model, temperature, max_tokens, response format) is applied automatically.
 
 #### Q: Is Prompt Registry integrated with the Prompt Engineering UI?
 

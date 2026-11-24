@@ -26,12 +26,28 @@ sys.path.insert(0, os.path.abspath("../.."))
 sys.path.insert(0, os.path.abspath("."))
 
 import languagesections
+import sphinx.ext.napoleon as _napoleon
 from docutils.nodes import Text
 from docutils.parsers.rst import directives
 from sphinx.addnodes import pending_xref
 from sphinx.directives.code import CodeBlock
 
 import mlflow
+
+# Pydantic's BaseModel always has MockValSer placeholders for __pydantic_validator__ and
+# __pydantic_serializer__. Accessing __qualname__ on them raises PydanticUserError instead
+# of AttributeError, crashing Napoleon's _skip_member. Wrap it before Napoleon's setup()
+# registers it so MockValSer objects are silently skipped.
+_original_napoleon_skip_member = _napoleon._skip_member
+
+
+def _napoleon_skip_member_safe(app, what, name, obj, skip, options):
+    if "MockValSer" in type(obj).__name__:
+        return True
+    return _original_napoleon_skip_member(app, what, name, obj, skip, options)
+
+
+_napoleon._skip_member = _napoleon_skip_member_safe
 
 # -- General configuration ------------------------------------------------
 

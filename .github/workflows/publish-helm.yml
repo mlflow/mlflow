@@ -1,0 +1,67 @@
+name: Publish Helm chart
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      dry_run:
+        description: Package locally without accessing GHCR
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published stable release tag (vX.Y.Z)
+        required: true
+        type: string
+      dry_run:
+        description: Package locally without accessing GHCR
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: publish-helm-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  publish:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_tag }}
+          persist-credentials: false
+
+      - name: Package and publish chart
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Expected a stable vX.Y.Z release tag, got $RELEASE_TAG" >&2
+            exit 1
+          fi
+          version="${RELEASE_TAG#v}"
+          helm package charts --version "$version" --app-version "$version"
+          if [[ "$DRY_RUN" != "true" ]]; then
+            printf '%s' "$GH_TOKEN" | helm registry login ghcr.io \
+              --username "$GITHUB_ACTOR" --password-stdin
+            helm push "mlflow-$version.tgz" oci://ghcr.io/mlflow/charts
+          fi

@@ -2,14 +2,14 @@ import invariant from 'invariant';
 import { first, isString } from 'lodash';
 
 import type {
+  ModelTrace,
   ModelTraceSpan,
   Assessment,
   Expectation,
   Feedback,
   ModelTraceInfoV3,
   ModelTraceLocation,
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
+  ModelTraceSearchLocation,
   ModelTraceSpanV3,
 } from './ModelTrace.types';
 import { fetchAPI, getAjaxUrl } from './ModelTraceExplorer.request.utils';
@@ -40,6 +40,26 @@ export const createAssessment = ({
 
 export const fetchTraceInfoV3 = ({ traceId }: { traceId: string }) =>
   fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}`));
+
+export type FetchTraceInfoV3Response = {
+  trace?: {
+    trace_info?: ModelTrace['info'];
+  };
+};
+
+// V4 trace-info response: the trace info is returned at the response root.
+export type GetTraceInfoV4Response = ModelTraceInfoV3;
+
+// Either the V3-wrapped or V4-root trace-info response, as returned by the
+// trace-info query which dispatches between the two APIs at runtime.
+export type ModelTraceInfoQueryResponse = FetchTraceInfoV3Response | GetTraceInfoV4Response;
+
+export const fetchBatchTraceInfosV3 = async ({
+  traceIds,
+}: {
+  traceIds: string[];
+}): Promise<{ trace_infos: ModelTraceInfoV3[] }> =>
+  fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/traces/batchGetInfos'), 'POST', { trace_ids: traceIds });
 
 export type UpdateAssessmentPayload = {
   // we only support updating these fields
@@ -190,15 +210,15 @@ export const searchTracesV4 = async ({
   signal?: AbortSignal;
   orderBy?: string[];
   filter?: string;
-  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  locations?: ModelTraceSearchLocation[];
   pageSize?: number;
 }) => {
-  const payload: Record<string, any> = {
+  const payload = {
     locations,
     filter,
     max_results: pageSize ?? 1000,
     order_by: orderBy,
-  };
+  } satisfies Record<string, any>;
   const queryResponse = await fetchAPI(getAjaxUrl('ajax-api/4.0/mlflow/traces/search'), 'POST', payload, signal);
 
   const json = queryResponse as { trace_infos: ModelTraceInfoV3[]; next_page_token?: string };

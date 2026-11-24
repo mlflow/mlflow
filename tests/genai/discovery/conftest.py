@@ -2,6 +2,8 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.genai.scorers.base import Scorer
 
 
@@ -18,6 +20,7 @@ def _create_trace(
     session_id=None,
     span_type=SpanType.CHAIN,
     error_span=False,
+    execution_duration_ms="default",
 ):
     @mlflow.trace(name="agent", span_type=span_type)
     def _run(question):
@@ -35,7 +38,22 @@ def _create_trace(
         return response
 
     _run(request)
-    return mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    # Override execution_duration if explicitly requested
+    if execution_duration_ms != "default":
+        trace_info = TraceInfo(
+            trace_id=trace.info.trace_id,
+            trace_location=trace.info.trace_location,
+            request_time=trace.info.timestamp_ms,
+            execution_duration=execution_duration_ms,
+            state=trace.info.state,
+            trace_metadata=trace.info.trace_metadata,
+            tags=trace.info.tags,
+        )
+        trace = Trace(trace_info, trace.data)
+
+    return trace
 
 
 @pytest.fixture
@@ -45,12 +63,14 @@ def make_trace():
         response="MLflow is an ML platform.",
         session_id=None,
         error_span=False,
+        execution_duration_ms="default",
     ):
         return _create_trace(
             request=request,
             response=response,
             session_id=session_id,
             error_span=error_span,
+            execution_duration_ms=execution_duration_ms,
         )
 
     return _make

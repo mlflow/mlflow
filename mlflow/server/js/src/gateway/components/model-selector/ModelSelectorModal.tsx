@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useIntl, FormattedMessage } from 'react-intl';
 import {
   Button,
@@ -27,6 +27,14 @@ interface ModelSelectorModalProps {
   onClose: () => void;
   onSelect: (model: ProviderModel) => void;
   provider: string;
+  /** Current model name value, used to pre-populate the modal when editing */
+  initialValue?: string;
+  /**
+   * Lifts this modal above a host that raises its own stacking context. Needed when the form it
+   * belongs to is itself inside a raised modal, which would otherwise render over it. Left unset,
+   * the design system's default applies.
+   */
+  zIndex?: number;
 }
 
 interface CapabilityFilter {
@@ -41,7 +49,14 @@ interface FilterState {
   capabilities: CapabilityFilter;
 }
 
-export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: ModelSelectorModalProps) => {
+export const ModelSelectorModal = ({
+  isOpen,
+  onClose,
+  onSelect,
+  provider,
+  initialValue,
+  zIndex,
+}: ModelSelectorModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
@@ -51,9 +66,40 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
     capabilities: { tools: false, reasoning: false, promptCaching: false, structuredOutput: false },
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const { data: models, isLoading } = useModelsQuery({ provider: provider || undefined });
   const isCustomMode = customModelName.trim().length > 0;
+
+  // Pre-populate modal state when opening with an existing value.
+  // Initialize from initialValue immediately (as custom) even before models load,
+  // then upgrade to a known-model selection once models arrive.
+  useEffect(() => {
+    if (!isOpen) {
+      setHasInitialized(false);
+      return;
+    }
+
+    if (!initialValue) {
+      return;
+    }
+
+    // Always initialize from initialValue when opening, even if models are not yet loaded
+    if (!hasInitialized) {
+      setSelectedModelId(null);
+      setCustomModelName(initialValue);
+      setHasInitialized(true);
+    }
+
+    // Once models are available, switch to a known-model selection if a match is found
+    if (models) {
+      const knownModel = models.find((m) => m.model === initialValue);
+      if (knownModel) {
+        setSelectedModelId(knownModel.model);
+        setCustomModelName('');
+      }
+    }
+  }, [isOpen, initialValue, models, hasInitialized]);
 
   const hasActiveFilters = Object.values(filters.capabilities).some(Boolean);
   const filterCount = Object.values(filters.capabilities).filter(Boolean).length;
@@ -154,6 +200,7 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
       visible={isOpen}
       onCancel={handleClose}
       size="wide"
+      zIndex={zIndex}
       footer={
         <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <div>
@@ -241,7 +288,13 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
                 </div>
               </Button>
             </Popover.Trigger>
-            <Popover.Content align="end" css={{ padding: theme.spacing.md, minWidth: 200 }}>
+            <Popover.Content
+              align="end"
+              css={{ padding: theme.spacing.md, minWidth: 200 }}
+              // Raising the modal has to raise what opens inside it too, or this popover lands
+              // behind the dialog that hosts it.
+              style={zIndex === undefined ? undefined : { zIndex: zIndex + 10 }}
+            >
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
                 <div css={{ fontWeight: theme.typography.typographyBoldFontWeight, marginBottom: theme.spacing.xs }}>
                   <FormattedMessage defaultMessage="Capabilities" description="Filter section label for capabilities" />
@@ -458,7 +511,7 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider }: Mode
             })}
             value={customModelName}
             onChange={(e) => handleCustomModelChange(e.target.value)}
-            disabled={!!selectedModelId}
+            disabled={Boolean(selectedModelId)}
           />
           <Typography.Text color="secondary" size="sm">
             <FormattedMessage

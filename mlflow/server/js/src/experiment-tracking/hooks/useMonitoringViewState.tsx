@@ -3,7 +3,7 @@ import { useSearchParams } from '../../common/utils/RoutingUtils';
 
 const QUERY_PARAM_KEY = 'viewState';
 
-export type MonitoringViewState = 'charts' | 'logs' | 'insights';
+export type MonitoringViewState = 'charts' | 'logs';
 
 /**
  * Query param-powered hook that returns the view state from the URL.

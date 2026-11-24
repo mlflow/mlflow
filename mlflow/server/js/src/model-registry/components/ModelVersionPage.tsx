@@ -14,8 +14,10 @@ import {
   deleteModelVersionApi,
   transitionModelVersionStageApi,
   getModelVersionArtifactApi,
+  shouldNotifyModelVersionArtifactError,
   parseMlModelFile,
 } from '../actions';
+import type { ModelVersionArtifactMetadata } from '../actions';
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getModelVersion, getModelVersionSchemas } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
@@ -77,6 +79,7 @@ const ModelVersionAssistantContextProvider = ({ modelName, version }: { modelNam
 export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplProps, ModelVersionPageImplState> {
   listTransitionRequestId: any;
   pollIntervalId: any;
+  artifactMetadata?: ModelVersionArtifactMetadata;
 
   initGetModelVersionDetailsRequestId = getUUID();
   getRunRequestId = getUUID();
@@ -111,8 +114,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
           this.props.deleteModelVersionApi(modelName, version, undefined, true);
           navigate(ModelRegistryRoutes.getModelPageRoute(modelName));
         } else {
-          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-          console.error(e);
+          // fail silently for non-RESOURCE_DOES_NOT_EXIST errors
         }
       });
     }
@@ -124,29 +126,45 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // be removed after the availability of experimentId.
   getModelVersionDetailAndRunInfo(isInitialLoading: any) {
     const { modelName, version } = this.props;
-    return this.props
-      .getModelVersionApi(
+    const modelVersion = Promise.resolve(
+      this.props.getModelVersionApi(
         modelName,
         version,
         isInitialLoading === true ? this.initGetModelVersionDetailsRequestId : this.getModelVersionDetailsRequestId,
-      )
-      .then(({ value }: any) => {
-        // Do not fetch run info if there is no run_id (e.g. model version created directly from a logged model)
-        if (value && !value[getProtoField('model_version')].run_link && value[getProtoField('model_version')]?.run_id) {
-          this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
-        }
-      });
+      ),
+    ).then((response: any) => response?.value?.[getProtoField('model_version')]);
+    const runRoots = new Map<string, Promise<string | undefined>>();
+    const getRunArtifactRootUri = (runId: string) => {
+      let root = runRoots.get(runId);
+      if (!root) {
+        root = Promise.resolve(this.props.getRunApi(runId, this.getRunRequestId)).then(
+          (response: any) => response?.value?.run?.info?.artifactUri,
+        );
+        runRoots.set(runId, root);
+      }
+      return root;
+    };
+    this.artifactMetadata = { modelVersion, getRunArtifactRootUri };
+    return modelVersion.then((value) => {
+      // Do not fetch run info if there is no run_id (e.g. model version created directly from a logged model)
+      if (value && !value.run_link && value.run_id) {
+        // Run metadata is optional for the page and may be inaccessible to registry readers.
+        return getRunArtifactRootUri(value.run_id).catch(() => undefined);
+      }
+      return undefined;
+    });
   }
   // We need this for getting mlModel artifact file,
   // this will be replaced with a single backend call in the future when supported
   getModelVersionMlModelFile() {
     const { modelName, version } = this.props;
     this.props
-      .getModelVersionArtifactApi(modelName, version)
+      .getModelVersionArtifactApi(modelName, version, undefined, this.artifactMetadata)
       .then((content: any) =>
         this.props.parseMlModelFile(modelName, version, content.value, this.initGetMlModelFileRequestId),
       )
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (shouldNotifyModelVersionArtifactError(error)) Utils.logErrorAndNotifyUser(error);
         // Failure of this call chain should not block the page. Here we remove
         // `initGetMlModelFileRequestId` from `criticalInitialRequestIds`
         // to unblock RequestStateWrapper from rendering its content
@@ -179,18 +197,18 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   handleEditDescription = (description: any) => {
     const { modelName, version } = this.props;
-    return (
-      this.props
-        .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
-        .then(this.loadData)
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        .catch(console.error)
-    );
+    return this.props
+      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
+      .then(this.loadData)
+      .catch(() => {
+        // fail silently
+      });
   };
 
   componentDidMount() {
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    this.loadData(true).catch(console.error);
+    this.loadData(true).catch(() => {
+      // fail silently
+    });
     this.loadModelDataWithAliases();
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
     this.getModelVersionMlModelFile();
@@ -203,8 +221,9 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // Make a new initial load if model version or name has changed
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
     if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      this.loadData(true).catch(console.error);
+      this.loadData(true).catch(() => {
+        // fail silently
+      });
       this.getModelVersionMlModelFile();
     }
   }
@@ -220,8 +239,8 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
       <PageContainer>
         <ModelVersionAssistantContextProvider modelName={modelName} version={version} />
         <RequestStateWrapper
+          // prettier-ignore
           requestIds={this.state.criticalInitialRequestIds}
-          // eslint-disable-next-line no-trailing-spaces
         >
           {(loading: any, hasError: any, requests: any) => {
             if (hasError) {

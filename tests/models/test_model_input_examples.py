@@ -6,7 +6,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
-import sklearn.neighbors as knn
+import sklearn.linear_model as logreg_module
 from scipy.sparse import csc_matrix, csr_matrix
 from sklearn import datasets
 from sklearn.base import BaseEstimator, ClassifierMixin
@@ -17,6 +17,7 @@ from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
     _Example,
     _read_sparse_matrix_from_json,
+    convert_input_example_to_serving_input,
     parse_inputs_data,
 )
 from mlflow.types import DataType
@@ -272,6 +273,30 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
             )
 
 
+def test_dataframe_input_example_missing_values_serialize_as_null():
+    df = pd.DataFrame({
+        "double": [1.0, np.nan],
+        "float": np.array([np.nan, 2.0], np.float32),
+        "string": ["a", None],
+        "datetime": pd.to_datetime(["2020-01-01", None]),
+    })
+
+    def reject_constant(token):
+        raise ValueError(f"Invalid JSON constant: {token}")
+
+    def loads(serialized):
+        return json.loads(serialized, parse_constant=reject_constant)
+
+    expected = {
+        "columns": ["double", "float", "string", "datetime"],
+        "data": [[1.0, None, "a", "2020-01-01T00:00:00"], [None, 2.0, None, None]],
+    }
+    example = _Example(df)
+    assert loads(example.json_input_example) == expected
+    assert loads(example.json_serving_input) == {"dataframe_split": expected}
+    assert loads(convert_input_example_to_serving_input(df)) == {"dataframe_split": expected}
+
+
 class DummySklearnModel(BaseEstimator, ClassifierMixin):
     def __init__(self, output_shape=(1,)):
         self.output_shape = output_shape
@@ -324,7 +349,12 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
     example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, name=artifact_path, input_example=example)
+        model_info = mlflow.sklearn.log_model(
+            model,
+            name=artifact_path,
+            input_example=example,
+            serialization_format="cloudpickle",
+        )
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == expected_signature
@@ -338,6 +368,7 @@ def test_infer_signature_from_example_can_be_disabled():
             name=artifact_path,
             input_example=np.array([[1]]),
             signature=False,
+            serialization_format="cloudpickle",
         )
 
     mlflow_model = Model.load(model_info.model_uri)
@@ -356,7 +387,12 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(ErrorModel(), name="model", input_example=np.array([[1]]))
+            mlflow.sklearn.log_model(
+                ErrorModel(),
+                name="model",
+                input_example=np.array([[1]]),
+                serialization_format="cloudpickle",
+            )
         assert any(
             "Failed to validate serving input example" in call[0][0]
             for call in mock_warning.call_args_list
@@ -366,7 +402,7 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 @pytest.fixture(scope="module")
 def iris_model():
     X, y = datasets.load_iris(return_X_y=True, as_frame=True)
-    return knn.KNeighborsClassifier().fit(X, y)
+    return logreg_module.LogisticRegression().fit(X, y)
 
 
 @pytest.mark.parametrize(
@@ -423,7 +459,10 @@ def test_infer_signature_on_scalar_input_examples(input_example):
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            IdentitySklearnModel(), name=artifact_path, input_example=input_example
+            IdentitySklearnModel(),
+            name=artifact_path,
+            input_example=input_example,
+            serialization_format="cloudpickle",
         )
 
     mlflow_model = Model.load(model_info.model_uri)

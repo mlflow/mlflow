@@ -3,18 +3,24 @@ import { ExperimentKind } from '../../../constants';
 import { ExperimentPageTabName } from '../../../constants';
 import {
   ChartLineIcon,
+  BugIcon,
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
   ListIcon,
   ModelsIcon,
+  PlayIcon,
   PlusMinusSquareIcon,
   SpeechBubbleIcon,
   TextBoxIcon,
   UserGroupIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { enableScorersUI, shouldEnableExperimentOverviewTab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import {
+  shouldEnableExperimentIssuesTab,
+  shouldEnableExperimentOverviewTab,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { SERVER_FEATURE_KEYS, useFeatureEnabled, useServerInfo } from '../../../hooks/useServerInfo';
 
 export const FULL_WIDTH_CLASS_NAME = 'mlflow-experiment-page-side-nav-full';
 export const COLLAPSED_CLASS_NAME = 'mlflow-experiment-page-side-nav-collapsed';
@@ -32,7 +38,7 @@ export type ExperimentPageSideNavConfig = {
 
 export type ExperimentPageSideNavSectionKey = 'top-level' | 'observability' | 'evaluation' | 'prompts-versions';
 
-export const ExperimentPageSideNavGenAIConfig = {
+const ExperimentPageSideNavGenAIConfig = {
   observability: [
     {
       label: (
@@ -44,6 +50,23 @@ export const ExperimentPageSideNavGenAIConfig = {
       icon: <ForkHorizontalIcon />,
       tabName: ExperimentPageTabName.Traces,
       componentId: 'mlflow.experiment-side-nav.genai.traces',
+    },
+    {
+      label: <FormattedMessage defaultMessage="Issues" description="Label for the experiment Issues tab" />,
+      icon: <BugIcon />,
+      tabName: ExperimentPageTabName.Issues,
+      componentId: 'mlflow.experiment-side-nav.genai.issues',
+    },
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Dashboard"
+          description="Label for the dashboard tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <ChartLineIcon />,
+      tabName: ExperimentPageTabName.Dashboard,
+      componentId: 'mlflow.experiment-side-nav.genai.dashboard',
     },
     {
       label: (
@@ -58,6 +81,17 @@ export const ExperimentPageSideNavGenAIConfig = {
     },
   ],
   evaluation: [
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Review"
+          description="Label for the review tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <UserGroupIcon />,
+      tabName: ExperimentPageTabName.ReviewQueue,
+      componentId: 'mlflow.experiment-side-nav.genai.review-queue',
+    },
     {
       label: (
         <FormattedMessage
@@ -85,6 +119,17 @@ export const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
+          defaultMessage="Playground"
+          description="Label for the playground tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <PlayIcon />,
+      tabName: ExperimentPageTabName.Playground,
+      componentId: 'mlflow.experiment-side-nav.genai.playground',
+    },
+    {
+      label: (
+        <FormattedMessage
           defaultMessage="Prompts"
           description="Label for the prompts tab in the MLflow experiment navbar"
         />
@@ -107,7 +152,7 @@ export const ExperimentPageSideNavGenAIConfig = {
   ],
 };
 
-export const ExperimentPageSideNavCustomModelConfig = {
+const ExperimentPageSideNavCustomModelConfig = {
   'top-level': [
     {
       label: (
@@ -177,17 +222,23 @@ export const getExperimentPageSideNavSectionLabel = (
 export const useExperimentPageSideNavConfig = ({
   experimentKind,
   hasTrainingRuns = false,
+  hasV4Location,
 }: {
   experimentKind: ExperimentKind;
   hasTrainingRuns?: boolean;
+  hasV4Location?: boolean;
 }): ExperimentPageSideNavConfig => {
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
+  const { data: serverInfo } = useServerInfo();
+
   if (
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
+    const overviewEnabled = shouldEnableExperimentOverviewTab(hasV4Location);
     const baseConfig = {
       'top-level': [
-        ...(shouldEnableExperimentOverviewTab()
+        ...(overviewEnabled
           ? [
               {
                 label: (
@@ -219,7 +270,19 @@ export const useExperimentPageSideNavConfig = ({
           : []),
       ],
       ...ExperimentPageSideNavGenAIConfig,
-      evaluation: enableScorersUI()
+      observability: ExperimentPageSideNavGenAIConfig.observability.filter(
+        ({ tabName }) =>
+          (overviewEnabled || tabName !== ExperimentPageTabName.Dashboard) &&
+          (tabName !== ExperimentPageTabName.Issues ||
+            (shouldEnableExperimentIssuesTab() && serverInfo?.store_type === 'SqlStore')),
+      ),
+      'prompts-versions': gatewayEnabled
+        ? ExperimentPageSideNavGenAIConfig['prompts-versions']
+        : ExperimentPageSideNavGenAIConfig['prompts-versions'].filter(
+            ({ tabName }) => tabName !== ExperimentPageTabName.Playground,
+          ),
+      // Scorers remain coupled to Gateway until those dependencies are decoupled.
+      evaluation: gatewayEnabled
         ? [
             {
               label: (

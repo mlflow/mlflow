@@ -1,7 +1,11 @@
 ---
+title: Tracing LangGraph🦜🕸️
+description: Trace LangGraph stateful multi-agent workflows with MLflow for full observability into graph-based AI agent orchestration.
 sidebar_position: 3
 sidebar_label: LangGraph
 toc_max_heading_level: 2
+keywords: [langgraph, tracing, mlflow, multi-agent, stateful, langchain, agent]
+image: /images/llms/tracing/langgraph-agent-trace.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -54,7 +58,7 @@ Start the MLflow server following the [Self-Hosting Guide](/self-hosting), if yo
 ### 2. Install dependencies
 
 ```bash
-pip install langgraph langchain-openai 'mlflow[genai]'
+pip install langchain langgraph langchain-openai mlflow
 ```
 
 ### 3. Enable tracing
@@ -77,11 +81,9 @@ from typing import Literal
 
 import mlflow
 
-from langchain_core.messages import AIMessage, ToolCall
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain.agents import create_agent
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
 
 # Enabling tracing for LangGraph (LangChain)
 mlflow.langchain.autolog()
@@ -102,7 +104,7 @@ def get_weather(city: Literal["nyc", "sf"]):
 
 llm = ChatOpenAI(model="gpt-4o-mini")
 tools = [get_weather]
-graph = create_react_agent(llm, tools)
+graph = create_agent(llm, tools)
 
 # Invoke the graph
 result = graph.invoke({"messages": [{"role": "user", "content": "what is the weather in sf?"}]})
@@ -235,7 +237,7 @@ This way, the span for the `check_code` node will have child spans, which record
 
 ![LangGraph Child Span](/images/llms/tracing/langgraph-child-span.png)
 
-:::info Async Context Propagation
+:::info[Async Context Propagation]
 When using async methods like `ainvoke()` with manual `@mlflow.trace` decorators inside LangGraph nodes or tools, enable inline tracer execution to ensure proper context propagation:
 
 ```python

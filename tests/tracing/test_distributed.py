@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import sys
@@ -9,6 +10,8 @@ from typing import Iterator
 import requests
 
 import mlflow
+from mlflow.tracing.attachments import Attachment
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
@@ -18,6 +21,24 @@ from tests.helper_functions import get_safe_port
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
 REQUEST_TIMEOUT = 30
+_TRACE_POLL_TIMEOUT = 10  # seconds to wait for subprocess spans to be exported
+
+
+def _wait_for_trace(trace_id: str, expected_span_count: int) -> "mlflow.entities.Trace":
+    """Poll until the trace contains the expected number of spans or timeout expires."""
+    deadline = time.time() + _TRACE_POLL_TIMEOUT
+    trace = None
+    while time.time() < deadline:
+        mlflow.flush_trace_async_logging()
+        trace = mlflow.get_trace(trace_id)
+        if trace is not None and len(trace.data.spans) >= expected_span_count:
+            return trace
+        time.sleep(0.1)
+    spans_found = len(trace.data.spans) if trace else 0
+    raise AssertionError(
+        f"Expected {expected_span_count} spans in trace {trace_id} within "
+        f"{_TRACE_POLL_TIMEOUT}s, got {spans_found}"
+    )
 
 
 @contextmanager
@@ -29,7 +50,10 @@ def flask_server(
     health_endpoint: str = "/health",
 ) -> Iterator[str]:
     """Context manager to run a Flask server in a subprocess."""
-    with subprocess.Popen([sys.executable, str(server_script_path), str(port)]) as proc:
+    server_env = {**os.environ, "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING": "false"}
+    with subprocess.Popen(
+        [sys.executable, str(server_script_path), str(port)], env=server_env
+    ) as proc:
         base_url = f"http://127.0.0.1:{port}"
 
         try:
@@ -124,10 +148,8 @@ def test_distributed_tracing_e2e(tmp_path):
             assert payload["trace_id"] == client_span.trace_id
             assert payload["parent_id"] == client_span.span_id
 
-    mlflow.flush_trace_async_logging()
-    trace = mlflow.get_trace(client_span.trace_id)
-
-    assert trace is not None, "Trace not found"
+    # Poll until the server subprocess's BatchSpanProcessor has exported its span.
+    trace = _wait_for_trace(client_span.trace_id, expected_span_count=2)
     spans = trace.data.spans
     assert len(spans) == 2
 
@@ -171,10 +193,7 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
                 assert payload["nested_call_resp"]["parent_id"] == child_span1_id
                 child_span2_id = payload["nested_call_resp"]["span_id"]
 
-    mlflow.flush_trace_async_logging()
-    trace = mlflow.get_trace(client_span.trace_id)
-
-    assert trace is not None, "Trace not found"
+    trace = _wait_for_trace(client_span.trace_id, expected_span_count=3)
     spans = trace.data.spans
     assert len(spans) == 3
 
@@ -188,3 +207,38 @@ def test_distributed_tracing_e2e_nested_call(tmp_path):
     assert child_span2.name == "server-handler2"
     assert child_span1.span_id == child_span1_id
     assert child_span2.span_id == child_span2_id
+
+
+@skip_when_testing_trace_sdk
+def test_remote_span_attachments_are_uploaded(async_logging_enabled, monkeypatch):
+    # The batch span processor can export the server span after the remote context has exited,
+    # which drops the whole span, so the async path is tested with the async export queue only.
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
+
+    with mlflow.start_span("client-root") as client_span:
+        client_span.set_inputs({
+            "image": Attachment(content_type="image/png", content_bytes=b"client image")
+        })
+        headers = get_tracing_context_headers_for_http_request()
+    mlflow.flush_trace_async_logging()
+
+    # The client trace is no longer in memory, so the server side registers a remote trace,
+    # the same as in a separate process.
+    with set_tracing_context_from_http_request_headers(headers):
+        with mlflow.start_span("server-handler") as server_span:
+            server_span.set_inputs({
+                "image": Attachment(content_type="image/png", content_bytes=b"server image")
+            })
+
+    trace = _wait_for_trace(client_span.trace_id, expected_span_count=2)
+    artifact_repo = TracingClient()._get_artifact_repo_for_trace(trace.info)
+    stored_attachments = {
+        span.name: artifact_repo.download_trace_attachment(
+            Attachment.parse_ref(span.inputs["image"])["attachment_id"]
+        )
+        for span in trace.data.spans
+    }
+    assert stored_attachments == {
+        "client-root": b"client image",
+        "server-handler": b"server image",
+    }

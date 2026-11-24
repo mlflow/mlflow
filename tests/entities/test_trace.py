@@ -26,6 +26,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracing.utils.truncation import _get_max_length
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import (
     milliseconds_to_proto_timestamp,
@@ -100,6 +101,7 @@ def test_json_deserialization(monkeypatch):
                 "mlflow.trace.sizeBytes": mock.ANY,
                 "mlflow.trace.sizeStats": mock.ANY,
                 "mlflow.trace_schema.version": "3",
+                "mlflow.trace.infoFinalized": "true",
             },
             "tags": {
                 "mlflow.traceName": "predict",
@@ -111,6 +113,7 @@ def test_json_deserialization(monkeypatch):
             "spans": [
                 {
                     "name": "predict",
+                    "kind": "SPAN_KIND_INTERNAL",
                     "trace_id": mock.ANY,
                     "span_id": mock.ANY,
                     "parent_span_id": None,
@@ -124,13 +127,16 @@ def test_json_deserialization(monkeypatch):
                     "attributes": {
                         "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                         "mlflow.spanType": '"UNKNOWN"',
+                        "mlflow.spanLogLevel": "10",
                         "mlflow.spanFunctionName": '"predict"',
                         "mlflow.spanInputs": '{"x": 2, "y": 5}',
                         "mlflow.spanOutputs": "8",
                     },
+                    "links": [],
                 },
                 {
                     "name": "add_one_with_custom_name",
+                    "kind": "SPAN_KIND_INTERNAL",
                     "trace_id": mock.ANY,
                     "span_id": mock.ANY,
                     "parent_span_id": mock.ANY,
@@ -144,6 +150,7 @@ def test_json_deserialization(monkeypatch):
                     "attributes": {
                         "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                         "mlflow.spanType": '"LLM"',
+                        "mlflow.spanLogLevel": "20",
                         "mlflow.spanFunctionName": '"add_one"',
                         "mlflow.spanInputs": '{"z": 7}',
                         "mlflow.spanOutputs": "8",
@@ -151,6 +158,7 @@ def test_json_deserialization(monkeypatch):
                         "datetime": json.dumps(str(datetime_now)),
                         "metadata": '{"foo": "bar"}',
                     },
+                    "links": [],
                 },
             ],
         },
@@ -375,7 +383,14 @@ def test_from_v2_dict():
     assert trace.info.trace_metadata["mlflow.traceOutputs"] == "8"
 
 
-def test_request_response_smart_truncation():
+@pytest.fixture
+def clear_truncation_max_length_cache():
+    _get_max_length.cache_clear()
+    yield
+    _get_max_length.cache_clear()
+
+
+def test_request_response_smart_truncation(clear_truncation_max_length_cache):
     @mlflow.trace
     def f(messages: list[dict[str, Any]]) -> dict[str, Any]:
         return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 1000}}]}
@@ -394,7 +409,7 @@ def test_request_response_smart_truncation():
     assert trace_info.response_preview.startswith("Hi!")
 
 
-def test_request_response_smart_truncation_non_chat_format():
+def test_request_response_smart_truncation_non_chat_format(clear_truncation_max_length_cache):
     # Non-chat request/response will be naively truncated
     @mlflow.trace
     def f(question: str) -> list[str]:
@@ -514,6 +529,20 @@ def test_trace_to_and_from_proto():
     assert trace_from_proto.to_dict() == trace.to_dict()
 
 
+@pytest.mark.parametrize("output", ["hello", '"quoted"', '{"a": 1}', "[1, 2]"])
+def test_trace_proto_roundtrip_keeps_string_outputs(output):
+    @mlflow.trace
+    def f():
+        return output
+
+    f()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    trace_from_proto = Trace.from_proto(trace.to_proto())
+
+    assert trace_from_proto.data.spans[0].outputs == output
+
+
 def test_trace_from_dict_load_old_trace():
     trace_dict = {
         "info": {
@@ -577,3 +606,19 @@ def test_trace_from_dict_load_old_trace():
     assert trace.data.spans[0].outputs == "def"
     assert trace.data.spans[0].start_time_ns == 1761106494524157000
     assert trace.data.spans[0].end_time_ns == 1761106494584860000
+
+
+def test_trace_repr_and_trace_id():
+    trace_info = create_test_trace_info("tr-12345")
+    trace = Trace(info=trace_info, data=TraceData())
+
+    # Verify repr outputs valid Python representation with quotes
+    assert repr(trace) == "Trace(trace_id='tr-12345')"
+
+    # Verify trace_id property matches trace.info.trace_id
+    assert trace.trace_id == "tr-12345"
+    assert trace.trace_id == trace.info.trace_id
+
+    # Verify defensive repr when info is None
+    trace_no_info = Trace(info=None, data=TraceData())
+    assert repr(trace_no_info) == "Trace(trace_id=None)"

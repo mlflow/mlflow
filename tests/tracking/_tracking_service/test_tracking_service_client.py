@@ -66,7 +66,7 @@ def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):
         get_repo_mock.assert_called_once_with(uri_for_repo, tracking_uri=databricks_uri)
 
 
-def test_artifact_repo_is_cached_per_run_id(tmp_path):
+def test_artifact_repo_is_cached_per_run_id(db_uri):
     uri = "ftp://user:pass@host/path"
     with mock.patch(
         "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_run",
@@ -75,17 +75,14 @@ def test_artifact_repo_is_cached_per_run_id(tmp_path):
             None,
         ),
     ):
-        tracking_uri = tmp_path.as_uri()
-        artifact_repo = TrackingServiceClient(tracking_uri)._get_artifact_repo("some_run_id")
-        another_artifact_repo = TrackingServiceClient(tracking_uri)._get_artifact_repo(
-            "some_run_id"
-        )
+        artifact_repo = TrackingServiceClient(db_uri)._get_artifact_repo("some_run_id")
+        another_artifact_repo = TrackingServiceClient(db_uri)._get_artifact_repo("some_run_id")
         assert artifact_repo is another_artifact_repo
 
 
 @pytest.fixture
-def tracking_client_log_batch(tmp_path):
-    client = TrackingServiceClient(tmp_path.as_uri())
+def tracking_client_log_batch(db_uri):
+    client = TrackingServiceClient(db_uri)
     exp_id = client.create_experiment("test_log_batch")
     run = client.create_run(exp_id)
     return client, run.info.run_id

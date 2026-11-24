@@ -4,7 +4,6 @@ import shutil
 import sys
 import time
 import urllib
-import warnings
 from os.path import join
 
 from mlflow.entities.model_registry import (
@@ -22,7 +21,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_NONE,
     get_canonical_stage,
 )
-from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE, MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
@@ -62,8 +61,8 @@ from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
     _REGISTERED_MODEL_ALIAS_LATEST,
-    _validate_model_alias_name,
-    _validate_model_alias_name_reserved,
+    _validate_alias_name,
+    _validate_alias_name_reserved,
     _validate_model_version,
     _validate_model_version_tag,
     _validate_registered_model_tag,
@@ -134,15 +133,18 @@ class FileStore(AbstractStore):
         """
 
         super().__init__()
-        warnings.warn(
-            "The filesystem model registry backend (e.g., './mlruns') is deprecated as of "
-            "February 2026. Consider transitioning to a database backend (e.g., "
-            "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
-            "See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
-            "for migration guidance.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        if not MLFLOW_ALLOW_FILE_STORE.get():
+            raise MlflowException(
+                "The filesystem model registry backend (e.g., './mlruns') is in maintenance "
+                "mode and will not receive further updates. Please migrate "
+                "to a database backend (e.g., 'sqlite:///mlflow.db') to access the latest "
+                "MLflow features. The `mlflow migrate-filestore` tool migrates your existing "
+                "data losslessly. See "
+                "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+                "for migration guidance. If the filesystem backend is required for your "
+                "workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         # Create models directory if needed
         if not exists(self.models_directory):
@@ -844,7 +846,7 @@ class FileStore(AbstractStore):
 
     def _fetch_file_model_version_if_exists(self, name, version) -> FileModelVersion:
         _validate_model_name(name)
-        _validate_model_version(version)
+        version = _validate_model_version(version)
         registered_model_version_dir = self._get_model_version_dir(name, version)
         if not exists(registered_model_version_dir):
             raise MlflowException(
@@ -1008,7 +1010,7 @@ class FileStore(AbstractStore):
 
     def _get_registered_model_alias_path(self, name, alias):
         _validate_model_name(name)
-        _validate_model_alias_name(alias)
+        _validate_alias_name(alias)
         registered_model_path = self._get_registered_model_path(name)
         if not exists(registered_model_path):
             raise MlflowException(
@@ -1032,7 +1034,7 @@ class FileStore(AbstractStore):
             None
         """
         alias_path = self._get_registered_model_alias_path(name, alias)
-        _validate_model_alias_name_reserved(alias)
+        _validate_alias_name_reserved(alias)
         self._fetch_file_model_version_if_exists(name, version)
         make_containing_dirs(alias_path)
         write_to(alias_path, self._writeable_value(version))
@@ -1068,7 +1070,9 @@ class FileStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         if alias.lower() == _REGISTERED_MODEL_ALIAS_LATEST:
-            latest_version = next(v for v in self.get_latest_versions(name) if v is not None)
+            # `get_latest_versions` returns the latest version of each stage, so the
+            # highest version must be selected explicitly.
+            latest_version = max(self.get_latest_versions(name), key=lambda mv: int(mv.version))
             return self.get_model_version(name, latest_version.version)
 
         alias_path = self._get_registered_model_alias_path(name, alias)

@@ -1,12 +1,31 @@
 import json
 import logging
+import os
 import time
+import urllib.parse
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Sequence
+from typing import TYPE_CHECKING, Literal, Sequence
 
 import mlflow
+
+if TYPE_CHECKING:
+    from mlflow.genai.label_schemas.label_schemas import (
+        InputCategorical,
+        InputNumeric,
+        InputPassFail,
+        InputText,
+        LabelSchema,
+        LabelSchemaType,
+    )
+    from mlflow.genai.review_queues import (
+        ReviewItemType,
+        ReviewQueue,
+        ReviewQueueItem,
+        ReviewQueueType,
+        ReviewStatus,
+    )
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
@@ -17,6 +36,9 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE,
+    MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS,
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
@@ -32,15 +54,16 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     NOT_FOUND,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.host_policy import _SERVER_SERVE_ARTIFACTS_ENV_VAR
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
+from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent, TraceAttachmentsEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import (
-    GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
     SpansLocation,
     TraceMetadataKey,
     TraceTagKey,
@@ -51,7 +74,12 @@ from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 from mlflow.tracking._tracking_service.utils import _get_store, _resolve_tracking_uri
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
-from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
+from mlflow.utils.thread_utils import map_with_context
+from mlflow.utils.uri import (
+    add_databricks_profile_info_to_artifact_uri,
+    is_databricks_uri,
+    is_http_uri,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -108,6 +136,30 @@ class TracingClient:
             tracking_uri=self.tracking_uri if is_databricks_uri(self.tracking_uri) else None,
         )
 
+    def _resolve_uc_trace_location(self, experiment_id: str | None) -> str | None:
+        """
+        Resolve the Unity Catalog trace location string (``catalog.schema.table_prefix``) for an
+        experiment.
+
+        Traces stored in Unity Catalog are addressed by a location rather than a plain trace ID.
+        The location is not derivable from the trace ID alone, so it is resolved from the
+        experiment's trace destination tag (see ``Experiment.trace_location``). Returns ``None``
+        for non-UC / non-Databricks experiments or on resolution failure.
+        """
+        if experiment_id is None or not is_databricks_uri(self.tracking_uri):
+            return None
+        try:
+            # `full_table_prefix` raises if the location carries no table prefix, so it is
+            # resolved inside the try to keep this a best-effort lookup.
+            location = self.store.get_experiment(experiment_id).trace_location
+            return location.full_table_prefix if location is not None else None
+        except Exception as e:
+            _logger.debug(
+                f"Failed to resolve Unity Catalog trace location for experiment "
+                f"{experiment_id}: {e}"
+            )
+            return None
+
     def delete_traces(
         self,
         experiment_id: str,
@@ -150,19 +202,26 @@ class TracingClient:
         """
         location, _ = parse_trace_id_v4(trace_id)
         if location is not None:
-            start_time = time.time()
+            # For a V4 trace, load spans from the v4 BatchGetTraces endpoint.
+            # BatchGetTraces returns an empty list if the trace is not found, which is
+            # retried with exponential backoff (capped per-interval) up to
+            # MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS in total.
+            deadline = time.monotonic() + MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.get()
+            initial_interval = max(0.0, MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.get())
+            max_interval = max(0.0, MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS.get())
             attempt = 0
-            while time.time() - start_time < GET_TRACE_V4_RETRY_TIMEOUT_SECONDS:
-                # For a V4 trace, load spans from the v4 BatchGetTraces endpoint.
-                # BatchGetTraces returns an empty list if the trace is not found, which will be
-                # retried up to GET_TRACE_V4_RETRY_TIMEOUT_SECONDS seconds.
+            while True:
                 if traces := self.store.batch_get_traces([trace_id], location):
                     return traces[0]
 
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+
+                interval = min(initial_interval * 2**attempt, max_interval, remaining)
                 attempt += 1
-                interval = 2**attempt
                 _logger.debug(
-                    f"Trace not found, retrying in {interval} seconds (attempt {attempt})"
+                    f"Trace not found, retrying in {interval:.2f} seconds (attempt {attempt})"
                 )
                 time.sleep(interval)
 
@@ -173,9 +232,12 @@ class TracingClient:
         else:
             try:
                 trace_info = self.get_trace_info(trace_id)
-                # if the trace is stored in the tracking store, load spans from the tracking store
-                # otherwise, load spans from the artifact repository
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                # if the trace is stored in the tracking store or archive repo, load spans via the
+                # store/server path; otherwise, load spans from the artifact repository
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) in (
+                    SpansLocation.TRACKING_STORE,
+                    SpansLocation.ARCHIVE_REPO,
+                ):
                     try:
                         return self.store.get_trace(trace_id)
                     except MlflowNotImplementedException:
@@ -393,10 +455,10 @@ class TracingClient:
             return self._load_traces_by_location(trace_infos_by_location, executor)
 
     def _download_spans_from_batch_get_traces(
-        self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
+        self, trace_ids: list[str], location: str | None, executor: ThreadPoolExecutor
     ) -> list[Trace]:
         """
-        Fetch full traces including spans from the BatchGetTrace v4 endpoint.
+        Fetch full traces including spans from the store batch-get path.
         BatchGetTrace endpoint only support up to 10 traces in a single call.
         """
         traces = []
@@ -406,7 +468,7 @@ class TracingClient:
 
         batch_size = _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE.get()
         batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
-        for minibatch_traces in executor.map(_fetch_minibatch, batches):
+        for minibatch_traces in map_with_context(executor, _fetch_minibatch, batches):
             traces.extend(minibatch_traces)
         return traces
 
@@ -420,16 +482,18 @@ class TracingClient:
             if location == SpansLocation.ARTIFACT_REPO:
                 traces.extend(
                     tr
-                    for tr in executor.map(
+                    for tr in map_with_context(
+                        executor,
                         self._download_spans_from_artifact_repo,
                         location_trace_infos,
                     )
                     if tr
                 )
             else:
+                batch_get_location = None if location == SpansLocation.ARCHIVE_REPO else location
                 traces.extend(
                     self._download_spans_from_batch_get_traces(
-                        [t.trace_id for t in location_trace_infos], location, executor
+                        [t.trace_id for t in location_trace_infos], batch_get_location, executor
                     )
                 )
         return traces
@@ -439,7 +503,8 @@ class TracingClient:
         Download trace data for the given trace_info and returns a Trace object.
         If the download fails (e.g., the trace data is missing or corrupted), returns None.
 
-        This is used for traces logged via v3 endpoint, where spans are stored in artifact store.
+        This is used for traces whose spans are fetched directly from artifact storage, including
+        the existing artifact-backed path.
         """
         is_online_trace = is_uuid(trace_info.trace_id)
         is_databricks = is_databricks_uri(self.tracking_uri)
@@ -489,13 +554,19 @@ class TracingClient:
                 location = f"{uc_tp.catalog_name}.{uc_tp.schema_name}.{uc_tp.table_prefix}"
                 trace_infos_by_location[location].append(trace_info)
             elif trace_info.trace_location.mlflow_experiment:
-                # New traces in SQL store store spans in the tracking store, while for old traces or
-                # traces with File store, spans are stored in artifact repository.
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                # DB-backed experiment traces use the tracking store. Legacy artifact-backed traces
+                # and archived traces are grouped by their spans-location tag so they can be
+                # fetched through the correct non-DB retrieval path.
+                spans_location = trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+                if spans_location == SpansLocation.TRACKING_STORE:
                     # location is not used for traces with mlflow experiment location in tracking
                     # store, so we use None as the location
                     trace_infos_by_location[None].append(trace_info)
+                elif spans_location in (SpansLocation.ARTIFACT_REPO, SpansLocation.ARCHIVE_REPO):
+                    trace_infos_by_location[spans_location].append(trace_info)
                 else:
+                    # Older traces may not set spansLocation and should continue to use the
+                    # artifact-backed trace-data path.
                     trace_infos_by_location[SpansLocation.ARTIFACT_REPO].append(trace_info)
             else:
                 _logger.warning(f"Unsupported location: {trace_info.trace_location}. Skipping.")
@@ -581,16 +652,17 @@ class TracingClient:
                 "will automatically be stringified when the trace is logged."
             )
 
+        if key in IMMUTABLE_TAGS:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
+            return
+
         # Trying to set the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 trace.info.tags[key] = str(value)
                 return
 
-        if key in IMMUTABLE_TAGS:
-            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
-        else:
-            self.store.set_trace_tag(trace_id, key, str(value))
+        self.store.set_trace_tag(trace_id, key, str(value))
 
     def delete_trace_tag(self, trace_id: str, key: str):
         """
@@ -601,6 +673,12 @@ class TracingClient:
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
+        # Allow users to clear archival-failure markers so the scheduler can retry after
+        # manual intervention, while keeping other internal storage tags immutable.
+        if key in IMMUTABLE_TAGS and key != TraceTagKey.ARCHIVAL_FAILURE:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
+            return
+
         # Trying to delete the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
@@ -613,10 +691,7 @@ class TracingClient:
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
 
-        if key in IMMUTABLE_TAGS:
-            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
-        else:
-            self.store.delete_trace_tag(trace_id, key)
+        self.store.delete_trace_tag(trace_id, key)
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
@@ -653,7 +728,9 @@ class TracingClient:
             )
             return assessment
 
-        # If the trace is the active trace, add the assessment to it in-memory
+        # If the trace is the active trace, add the assessment to it in-memory.
+        # Exception: remote (distributed) traces use a dummy in-memory entry that is discarded
+        # when the context exits, so assessments must be persisted directly to the backend.
         if trace_id == mlflow.get_active_trace_id():
             with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
                 if trace is None:
@@ -661,8 +738,24 @@ class TracingClient:
                         f"Trace {trace_id} is active but not found in the in-memory buffer. "
                         "Something is wrong with trace handling. Skipping assessment logging."
                     )
+                    return assessment
+                if trace.is_remote_trace:
+                    return self.store.create_assessment(assessment)
                 trace.info.assessments.append(assessment)
             return assessment
+
+        try:
+            return self.store.create_assessment(assessment)
+        except MlflowException as e:
+            # The store also raises RESOURCE_DOES_NOT_EXIST when the `overrides` target is
+            # missing; flushing pending trace writes cannot fix that, so re-raise it as is.
+            if e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST) or (
+                assessment.overrides and assessment.overrides in e.message
+            ):
+                raise
+        # A trace that just ended in this process may not have been exported yet when async
+        # trace logging is enabled, so flush pending trace writes and retry once.
+        mlflow.flush_trace_async_logging()
         return self.store.create_assessment(assessment)
 
     def update_assessment(
@@ -703,6 +796,19 @@ class TracingClient:
 
     def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
         artifact_uri = get_artifact_uri_for_trace(trace_info)
+        if (
+            urllib.parse.urlparse(artifact_uri).scheme == "mlflow-artifacts"
+            and not is_http_uri(self.tracking_uri)
+            # Check the server's serve-artifacts flag before importing `mlflow.server`, which
+            # requires Flask and isn't available in skinny client installations.
+            and os.environ.get(_SERVER_SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
+        ):
+            # Inside a tracking server (e.g. AI Gateway usage tracking), the tracking URI is the
+            # backend store URI, so `mlflow-artifacts:` can't be resolved over HTTP. Resolve it to
+            # `--artifacts-destination` the same way the server's trace artifact handlers do.
+            from mlflow.server import handlers
+
+            return handlers._get_trace_repo_from_uri(artifact_uri)
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
@@ -724,6 +830,7 @@ class TracingClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
+    @record_usage_event(TraceAttachmentsEvent)
     def _upload_attachments(
         self,
         trace_info: TraceInfo,
@@ -808,6 +915,10 @@ class TracingClient:
         source_run_id: str | None = None,
         categories: list[str] | None = None,
         created_by: str | None = None,
+        *,
+        issue_id: str | None = None,
+        last_seen_timestamp: int | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Issue:
         """
         Create a new issue in the tracking store.
@@ -818,14 +929,26 @@ class TracingClient:
             description: Detailed description of the issue.
             status: Issue status. Defaults to IssueStatus.PENDING if not provided.
             severity: Optional severity level indicator.
-            root_causes: Optional list of root cause analyses.
+            root_causes: Deprecated. Use description and trace evidence for causal explanation.
             source_run_id: Optional MLflow run ID that discovered this issue.
             categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
+            issue_id: Optional iss-* ID (at most 36 characters); reuse returns a conflict.
+            last_seen_timestamp: Latest observation in milliseconds; defaults to creation time.
+            metadata: String metadata map (at most 100 entries).
 
         Returns:
             The created Issue entity.
         """
+        options = {
+            key: value
+            for key, value in {
+                "issue_id": issue_id,
+                "last_seen_timestamp": last_seen_timestamp,
+                "metadata": metadata,
+            }.items()
+            if value is not None
+        }
         return self.store.create_issue(
             experiment_id=experiment_id,
             name=name,
@@ -836,16 +959,315 @@ class TracingClient:
             source_run_id=source_run_id,
             categories=categories,
             created_by=created_by,
+            **options,
         )
 
-    def _get_issue(self, issue_id: str) -> Issue:
+    def _get_issue(self, issue_id: str, *, experiment_id: str | None = None) -> Issue:
         """
         Get an issue by ID.
 
         Args:
             issue_id: The ID of the issue to retrieve.
+            experiment_id: Parent experiment for Databricks routing.
 
         Returns:
             The Issue entity.
         """
+        if is_databricks_uri(self.tracking_uri):
+            return self.store.get_issue(issue_id, experiment_id=experiment_id)
         return self.store.get_issue(issue_id)
+
+    def _update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+        *,
+        categories: list[str] | None = None,
+        last_seen_timestamp: int | None = None,
+        last_updated_by: str | None = None,
+        metadata: dict[str, str] | None = None,
+        delete_metadata_keys: list[str] | None = None,
+        experiment_id: str | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+            categories: Replacement categories; [] clears them and None leaves them unchanged.
+            last_seen_timestamp: Latest observation in milliseconds since the epoch.
+            last_updated_by: Update actor, overridden by the authenticated HTTP user when available.
+            metadata: Entries to merge with existing metadata.
+            delete_metadata_keys: Metadata keys to remove; cannot overlap metadata updates.
+            experiment_id: Parent experiment for Databricks routing.
+
+        Returns:
+            The updated Issue entity.
+        """
+        options = {
+            key: value
+            for key, value in {
+                "issue_id": issue_id,
+                "status": status,
+                "name": name,
+                "description": description,
+                "severity": severity,
+                "categories": categories,
+                "last_seen_timestamp": last_seen_timestamp,
+                "last_updated_by": last_updated_by,
+                "metadata": metadata,
+                "delete_metadata_keys": delete_metadata_keys,
+            }.items()
+            if value is not None
+        }
+        if is_databricks_uri(self.tracking_uri):
+            options["experiment_id"] = experiment_id
+        return self.store.update_issue(**options)
+
+    def _search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        include_trace_count: bool = False,
+        *,
+        name: str | None = None,
+        statuses: list[str] | None = None,
+        severities: list[str] | None = None,
+        categories: list[str] | None = None,
+        order_by: list[str] | None = None,
+        include_total_count: bool = False,
+        view: Literal["basic", "full"] | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
+            name: Case-insensitive literal substring of the name (not a wildcard pattern).
+            statuses: Accepted status values, ORed within the list.
+            severities: Accepted severity values, ORed within the list.
+            categories: Match any category, ignoring case and surrounding whitespace.
+                Different filter fields are ANDed.
+            order_by: Field and optional ASC/DESC; supports name, status, severity and timestamps.
+                Issue ID breaks ties. Omit to retain the legacy severity/count/creation ordering.
+            include_total_count: Return the matching count before pagination in total_count.
+            view: "basic" returns an empty description and may omit metadata, depending on
+                the backend. "full" returns complete issues.
+                The default is "full".
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        options = {
+            key: value
+            for key, value in {
+                "experiment_id": experiment_id,
+                "filter_string": filter_string,
+                "max_results": max_results,
+                "page_token": page_token,
+                "include_trace_count": include_trace_count,
+                "name": name,
+                "statuses": statuses,
+                "severities": severities,
+                "categories": categories,
+                "order_by": order_by,
+                "include_total_count": include_total_count,
+                "view": view,
+            }.items()
+            if value is not None
+        }
+        if not include_total_count:
+            options.pop("include_total_count")
+        return self.store.search_issues(**options)
+
+    # ----- Label schemas (tracking-store CRUD) -----
+
+    def _create_label_schema(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        type: "LabelSchemaType | str",
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText",
+        instruction: str | None = None,
+        enable_comment: bool = False,
+    ) -> "LabelSchema":
+        """Create a new label schema.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Schema name. Free text shown to reviewers as the label
+                prompt and used as the assessment key; unique within the
+                experiment.
+            type: ``"feedback"`` or ``"expectation"``.
+            input: One of :py:class:`InputPassFail` / :py:class:`InputCategorical`
+                / :py:class:`InputNumeric` / :py:class:`InputText`.
+            instruction: Optional supplementary guidance (<=1000 chars).
+            enable_comment: UI hint; persisted but not consumed server-side.
+
+        Returns:
+            The created :py:class:`LabelSchema` with backend-generated
+            ``schema_id`` and audit fields populated.
+        """
+        return self.store.create_label_schema(
+            experiment_id=experiment_id,
+            name=name,
+            type=type,
+            input=input,
+            instruction=instruction,
+            enable_comment=enable_comment,
+        )
+
+    def _get_label_schema(self, schema_id: str) -> "LabelSchema":
+        return self.store.get_label_schema(schema_id)
+
+    def _get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
+        return self.store.get_label_schema_by_name(experiment_id, name)
+
+    def _list_label_schemas(
+        self,
+        experiment_id: str,
+        max_results: int = 100,
+        page_token: str | None = None,
+    ) -> "PagedList[LabelSchema]":
+        return self.store.list_label_schemas(
+            experiment_id, max_results=max_results, page_token=page_token
+        )
+
+    def _update_label_schema(
+        self,
+        schema_id: str,
+        *,
+        name: str | None = None,
+        instruction: str | None = None,
+        enable_comment: bool | None = None,
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText | None" = None,
+    ) -> "LabelSchema":
+        """Sparse-update a label schema.
+
+        ``type`` is immutable post-create and is not accepted. Fields left as
+        ``None`` are unchanged on the server. ``enable_comment=None`` is
+        treated as "unchanged"; pass ``True`` or ``False`` to set explicitly.
+
+        Returns:
+            The updated :py:class:`LabelSchema`.
+        """
+        return self.store.update_label_schema(
+            schema_id,
+            name=name,
+            instruction=instruction,
+            enable_comment=enable_comment,
+            input=input,
+        )
+
+    def _delete_label_schema(self, schema_id: str) -> None:
+        """Delete a label schema. No-op when the schema doesn't exist."""
+        return self.store.delete_label_schema(schema_id)
+
+    # ----- Review queues (tracking-store CRUD) -----
+
+    def _create_review_queue(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        queue_type: "ReviewQueueType | str",
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        # `created_by` (the owner) is stamped server-side, never by the client.
+        return self.store.create_review_queue(
+            experiment_id,
+            name=name,
+            queue_type=queue_type,
+            users=users,
+            schema_ids=schema_ids,
+        )
+
+    def _get_or_create_user_queue(self, experiment_id: str, *, user: str) -> "ReviewQueue":
+        return self.store.get_or_create_user_queue(experiment_id, user=user)
+
+    def _get_review_queue(self, queue_id: str) -> "ReviewQueue":
+        return self.store.get_review_queue(queue_id)
+
+    def _get_review_queue_by_name(self, experiment_id: str, name: str) -> "ReviewQueue":
+        return self.store.get_review_queue_by_name(experiment_id, name=name)
+
+    def _list_review_queues(
+        self,
+        experiment_id: str,
+        *,
+        user: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> "PagedList[ReviewQueue]":
+        return self.store.list_review_queues(
+            experiment_id, user=user, max_results=max_results, page_token=page_token
+        )
+
+    def _update_review_queue(
+        self,
+        queue_id: str,
+        *,
+        name: str | None = None,
+        new_owner: str | None = None,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        return self.store.update_review_queue(
+            queue_id, name=name, new_owner=new_owner, users=users, schema_ids=schema_ids
+        )
+
+    def _delete_review_queue(self, queue_id: str) -> None:
+        return self.store.delete_review_queue(queue_id)
+
+    def _add_items_to_review_queue(
+        self,
+        queue_id: str,
+        *,
+        item_ids: list[str],
+        item_type: "ReviewItemType | str" = "trace",
+    ) -> "list[ReviewQueueItem]":
+        return self.store.add_items_to_review_queue(
+            queue_id, item_ids=item_ids, item_type=item_type
+        )
+
+    def _remove_items_from_review_queue(self, queue_id: str, *, item_ids: list[str]) -> None:
+        return self.store.remove_items_from_review_queue(queue_id, item_ids=item_ids)
+
+    def _list_review_queue_items(
+        self,
+        queue_id: str,
+        *,
+        status: "ReviewStatus | str | None" = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> "PagedList[ReviewQueueItem]":
+        return self.store.list_review_queue_items(
+            queue_id, status=status, max_results=max_results, page_token=page_token
+        )
+
+    def _set_review_queue_item_status(
+        self,
+        queue_id: str,
+        *,
+        item_id: str,
+        status: "ReviewStatus | str",
+        completed_by: str | None = None,
+    ) -> "ReviewQueueItem":
+        return self.store.set_review_queue_item_status(
+            queue_id, item_id=item_id, status=status, completed_by=completed_by
+        )

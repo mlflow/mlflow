@@ -1,0 +1,19 @@
+# Integrations that import an @mlflow/* symbol newer than the version their
+# package.json declares as the floor -- the same class as mlflow#24167 (opencode
+# dropped session metadata against the published @mlflow/core). The min-version
+# gate (check-min-mlflow-deps.sh) does not fail on an allowlisted entry while it
+# still violates its floor, so pre-existing violations can be fixed incrementally
+# while the gate blocks *new* regressions immediately. The one exception: once an
+# allowlisted entry starts type-checking against its floor again, the gate fails
+# to force its removal (so the list can't silently rot). This list is currently
+# empty -- every integration type-checks against its declared floor.
+#
+# To fix an entry, first check whether the missing symbol was ever published
+# ('npm view @mlflow/core versions', then 'npm pack @mlflow/core@latest' and grep
+# the extracted dist/*.d.ts). If it exists in a version newer than the floor,
+# raise the @mlflow/* floor in package.json to that version. If it exists in no
+# published version, raising the floor cannot help -- inline the value in the
+# integration instead (see integrations/openclaw/src/service.ts). Then delete
+# the entry from here -- the gate fails until you do, naming the entry to remove.
+#
+# One integration directory name per line (matches integrations/<name>).

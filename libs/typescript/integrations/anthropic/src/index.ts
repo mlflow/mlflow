@@ -296,16 +296,34 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
     return undefined;
   }
 
+  // Anthropic reports input_tokens excluding cache tokens. Normalize to include them,
+  // consistent with mlflow.anthropic.autolog and the cost calculation.
+  const inputTokens: number =
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    (usage.input_tokens ?? 0) +
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    (usage.cache_read_input_tokens ?? 0) +
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    (usage.cache_creation_input_tokens ?? 0);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const inputTokens = usage.input_tokens;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const outputTokens = usage.output_tokens;
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  const totalTokens = usage.total_tokens ?? (inputTokens ?? 0) + (outputTokens ?? 0);
+  const outputTokens: number = usage.output_tokens ?? 0;
 
-  return {
-    input_tokens: inputTokens ?? 0,
-    output_tokens: outputTokens ?? 0,
-    total_tokens: totalTokens ?? 0,
+  const result: TokenUsage = {
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    total_tokens: inputTokens + outputTokens,
   };
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (usage.cache_read_input_tokens != null) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    result.cache_read_input_tokens = usage.cache_read_input_tokens;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (usage.cache_creation_input_tokens != null) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    result.cache_creation_input_tokens = usage.cache_creation_input_tokens;
+  }
+
+  return result;
 }

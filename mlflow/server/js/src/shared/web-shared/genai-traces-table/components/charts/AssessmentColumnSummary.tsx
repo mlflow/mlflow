@@ -1,6 +1,7 @@
 import { isNil } from 'lodash';
 import React, { useMemo } from 'react';
 
+import { Tag } from '@databricks/design-system';
 import type { ThemeType } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
 
@@ -12,9 +13,7 @@ import {
   type AssessmentInfo,
   type AssessmentValueType,
 } from '../../types';
-import { AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS, AGGREGATE_SCORE_CHANGE_TEXT_COLOR } from '../../utils/Colors';
 import { getDisplayOverallScoreAndChange } from '../../utils/DisplayUtils';
-import { withAlpha } from '../GenAiEvaluationTracesReview.utils';
 
 export const AssessmentColumnSummary = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
@@ -28,6 +27,9 @@ export const AssessmentColumnSummary = React.memo(
     currentRunDisplayName,
     compareToRunDisplayName,
     collapsedHeader,
+    categoricalChartLayout,
+    displayScoreOverride,
+    baselineDeltaPill,
   }: {
     theme: ThemeType;
     intl: IntlShape;
@@ -43,6 +45,12 @@ export const AssessmentColumnSummary = React.memo(
     currentRunDisplayName?: string;
     compareToRunDisplayName?: string;
     collapsedHeader?: boolean;
+    /** Layout of the categorical chart; defaults to the stacked layout. */
+    categoricalChartLayout?: 'stacked' | 'inline';
+    /** Shown instead of the score computed from the aggregates. */
+    displayScoreOverride?: string;
+    /** Shown after the score, e.g. the change from a baseline run. */
+    baselineDeltaPill?: React.ReactNode;
   }) => {
     const dtypeAggregateLabel = useMemo(() => {
       if (assessmentInfo.dtype === 'pass-fail') {
@@ -119,33 +127,18 @@ export const AssessmentColumnSummary = React.memo(
                 fontWeight: theme.typography.typographyBoldFontWeight,
               }}
             >
-              {displayScore}
+              {displayScoreOverride ?? displayScore}
             </div>
+            {baselineDeltaPill}
             {/* Diff score */}
             {!isNil(displayScoreChange) && compareToRunDisplayName && (
-              <div
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  height: '20px',
-                  gap: theme.spacing.xs,
-                  padding: `2px ${theme.spacing.xs}px`,
-                  fontSize: theme.typography.fontSizeMd,
-                  fontWeight: 'normal',
-                  borderRadius: theme.general.borderRadiusBase,
-                  color: AGGREGATE_SCORE_CHANGE_TEXT_COLOR,
-                  backgroundColor:
-                    changeDirection === 'none'
-                      ? ''
-                      : changeDirection === 'up'
-                        ? AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS.up
-                        : changeDirection === 'down'
-                          ? AGGREGATE_SCORE_CHANGE_BACKGROUND_COLORS.down
-                          : withAlpha(theme.colors.textSecondary, 0.1),
-                }}
+              <Tag
+                componentId="mlflow.genai-traces-table.assessment-column-summary.score-change"
+                color={changeDirection === 'up' ? 'lime' : changeDirection === 'down' ? 'coral' : undefined}
+                css={{ alignSelf: 'center', marginRight: 0 }}
               >
                 {displayScoreChange}
-              </div>
+              </Tag>
             )}
           </div>
         </div>
@@ -164,6 +157,7 @@ export const AssessmentColumnSummary = React.memo(
               toggleAssessmentFilter={toggleAssessmentFilter}
               currentRunDisplayName={currentRunDisplayName}
               compareToRunDisplayName={compareToRunDisplayName}
+              layout={categoricalChartLayout}
             />
           ))}
       </div>

@@ -23,7 +23,6 @@ describe('unit tests', () => {
       tag1: { key: 'tag1', value: 'value1' },
       tag2: { key: 'tag2', value: 'value2' },
     },
-    // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn((opts) => (c: any) => c) },
     handleAddTag: () => {},
     handleSaveEdit: () => {},
