@@ -127,36 +127,36 @@ print(aligned_judge.instructions)
 #   - Use neutral, descriptive language..."
 ```
 
-## Correcting What the Judge Learned
+## Correcting What the Judge Learned (Unalignment)
 
-MemAlign offers two ways to correct an aligned judge. Choose based on whether the problem is a distilled rule or the feedback itself:
+Use `unalign` to correct an aligned judge. It can be called in two ways, depending on whether the problem is a distilled rule or the feedback itself:
 
-| Situation                                                                                               | Method                       | Effect on the returned judge                                                                                                                                                               |
-| ------------------------------------------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| The feedback examples are still useful, but a distilled rule is incorrect, too broad, or contradictory. | `remove_guidelines(indices)` | Removes exactly the selected rules. Keeps all episodic examples available for retrieval, and preserves the remaining guidelines' source-trace mappings.                                    |
-| Particular traces contain incorrect or outdated feedback that should no longer be used as examples.     | `unalign(traces)`            | Removes those traces' examples from episodic memory. Drops a guideline when all of its recorded source traces are included in the removal; guidelines shared with other traces can remain. |
+| Situation                                                                                               | Call                             | Effect on the returned judge                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The feedback examples are still useful, but a distilled rule is incorrect, too broad, or contradictory. | `unalign(guideline_indices=...)` | Removes exactly the selected rules. Keeps all episodic examples available for retrieval, and preserves the remaining guidelines' source-trace mappings.                                    |
+| Particular traces contain incorrect or outdated feedback that should no longer be used as examples.     | `unalign(traces=...)`            | Removes those traces' examples from episodic memory. Drops a guideline when all of its recorded source traces are included in the removal; guidelines shared with other traces can remain. |
 
-For example, correctly labeled polite replies might produce an overly broad rule such as "Every polite reply must start with Hello". Use `remove_guidelines()` to drop that rule while keeping the useful examples. If a rude reply was incorrectly labeled polite, use `unalign()` to remove that trace's examples instead. If an unwanted guideline survives because it also has other source traces, remove that guideline explicitly too.
+For example, correctly labeled polite replies might produce an overly broad rule such as "Every polite reply must start with Hello". Use `guideline_indices` to drop that rule while keeping the useful examples. If a rude reply was incorrectly labeled polite, pass that trace in `traces` to remove its examples instead. If an unwanted guideline survives because it also has other source traces, pass its index in `guideline_indices` too; you can pass both arguments in one call.
 
-Both methods return a judge, so use the returned judge (and register it if you want to keep the change). Neither method deletes the stored MLflow traces or their assessments; they only change what the judge keeps in memory.
+`unalign` returns a new judge and leaves the original unchanged, so use the returned judge (and register it if you want to keep the change). The returned judge keeps the MemAlign settings (reflection model, retrieval size, embedding model, and retrieval fields) and scorer settings such as `timeout` and `aggregations`. `unalign` does not delete the stored MLflow traces or their assessments; it only changes what the judge keeps in memory.
 
-## Removing Specific Guidelines
+### Removing Specific Guidelines
 
-To list the learned guidelines, use `guidelines`. To drop specific ones (for example, contradictory guidelines), pass their 0-based positions to `remove_guidelines`. It returns a new judge and leaves the original unchanged. Examples, MemAlign settings (reflection model, retrieval size, and embedding model), and scorer settings such as `timeout` and `aggregations` are kept.
+To list the learned guidelines, use `guidelines`. Pass the 0-based positions of the ones to drop as `guideline_indices`:
 
 ```python
 for i, guideline in enumerate(aligned_judge.guidelines):
     print(i, guideline)
 
-cleaned_judge = aligned_judge.remove_guidelines([3, 17])
+cleaned_judge = aligned_judge.unalign(guideline_indices=[3, 17])
 cleaned_judge.register()
 ```
 
-Indices refer to the current list, so call `guidelines` again on the new judge before removing more. A later `align` can distill a removed guideline again (for example, after feedback on one of its source traces changes), so check `guidelines` after each alignment.
+Indices refer to `guidelines` as it was before the call, so call `guidelines` again on the new judge before removing more. A later `align` can distill a removed guideline again (for example, after feedback on one of its source traces changes), so check `guidelines` after each alignment.
 
-## Removing Feedback (Unalignment)
+### Removing Feedback
 
-If requirements change or feedback was incorrect, you can remove the feedback from specific traces:
+If requirements change or feedback was incorrect, remove the feedback from specific traces:
 
 ```python
 import mlflow
