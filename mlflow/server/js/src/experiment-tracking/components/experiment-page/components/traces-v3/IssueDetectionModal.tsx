@@ -12,6 +12,7 @@ import {
   Alert,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { PermissionError } from '@databricks/web-shared/errors';
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { SelectTracesModal } from '../../../SelectTracesModal';
@@ -509,7 +510,17 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           <Alert
             componentId="mlflow.traces.issue-detection-modal.error"
             type="error"
-            message={issueDetectionError.message}
+            message={
+              issueDetectionError instanceof PermissionError
+                ? intl.formatMessage(
+                    {
+                      defaultMessage: '{error} Contact your experiment admin for access.',
+                      description: 'Issue detection permission error with guidance for requesting experiment access',
+                    },
+                    { error: issueDetectionError.message },
+                  )
+                : issueDetectionError.message
+            }
             closable
             onClose={() => resetIssueDetection()}
             css={{ marginBottom: theme.spacing.md }}

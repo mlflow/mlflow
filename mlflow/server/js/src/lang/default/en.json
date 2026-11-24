@@ -7239,6 +7239,10 @@
     "defaultMessage": "Provider",
     "description": "Dimension toggle option for provider"
   },
+  "L8CCtf": {
+    "defaultMessage": "{error} Contact your experiment admin for access.",
+    "description": "Issue detection permission error with guidance for requesting experiment access"
+  },
   "L8czct": {
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
