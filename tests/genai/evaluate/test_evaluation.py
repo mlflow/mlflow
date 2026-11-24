@@ -2508,8 +2508,13 @@ def test_evaluate_skips_scorers_on_rows_where_predict_fn_raised():
         {"inputs": {"q": "boom"}, "expectations": {"expected": "BOOM"}},
         {"inputs": {"q": "world"}},
     ]
-    result = mlflow.genai.evaluate(data=data, scorers=[ok, ignores_outputs], predict_fn=predict_fn)
+    with mock.patch("mlflow.genai.evaluation.harness.emit_metric_usage_event") as mock_emit:
+        result = mlflow.genai.evaluate(
+            data=data, scorers=[ok, ignores_outputs], predict_fn=predict_fn
+        )
 
+    assert mock_emit.call_args.args[1] == 3
+    assert mock_emit.call_args.kwargs["scored_trace_count"] == 2
     assert sorted(scored) == [
         ("ignores_outputs", "hello"),
         ("ignores_outputs", "world"),

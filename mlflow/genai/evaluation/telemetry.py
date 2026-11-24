@@ -28,17 +28,22 @@ def emit_metric_usage_event(
     session_count: int | None,
     aggregated_metrics: dict[str, float],
     session_count_by_scorer: dict[int, int] | None = None,
+    scored_trace_count: int | None = None,
 ):
     """Emit usage events for custom and built-in scorers when running on Databricks"""
     if not is_databricks_uri(mlflow.get_tracking_uri()):
         return
+
+    # Rows whose predict_fn raised are in `trace_count` but skip single-turn scorers.
+    if scored_trace_count is None:
+        scored_trace_count = trace_count
 
     # Keyed by id(scorer): same-named scorers may group sessions at different levels.
     session_count_by_scorer = session_count_by_scorer or {}
 
     def _count(scorer: Scorer) -> int | None:
         if not getattr(scorer, "is_session_level_scorer", False):
-            return trace_count
+            return scored_trace_count
         return session_count_by_scorer.get(id(scorer), session_count)
 
     custom_metrics = [s for s in scorers if _is_custom_scorer(s)]

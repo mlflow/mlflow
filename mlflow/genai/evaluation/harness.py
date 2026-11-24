@@ -801,6 +801,7 @@ def run(
             num_session_groups,
             aggregated_metrics,
             session_count_by_scorer=session_count_by_scorer,
+            scored_trace_count=len(eval_items) - predict_error_count,
         )
     except Exception as e:
         _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
