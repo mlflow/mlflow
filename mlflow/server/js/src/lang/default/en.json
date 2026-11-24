@@ -3411,6 +3411,10 @@
     "defaultMessage": "Clear filters",
     "description": "Usage overview > clear metrics filters button"
   },
+  "8pqDXb": {
+    "defaultMessage": "The run timed out.",
+    "description": "Fallback reason in a timed out issue detection notification"
+  },
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"

@@ -20,6 +20,8 @@ export interface SubmittedIssueDetectionJob {
   startTimeMs?: number;
 }
 
+type TrackedIssueDetectionJob = SubmittedIssueDetectionJob & { observedOnly?: boolean };
+
 type StoredSubmittedIssueDetectionJob = Omit<SubmittedIssueDetectionJob, 'experimentId'>;
 
 export const ISSUE_DETECTION_SUBMITTED_JOBS_STORAGE_KEY = 'mlflow.issueDetection.submittedJobs';
@@ -247,7 +249,7 @@ const TrackedIssueDetectionJobNotification = ({
   onTerminalStatus,
   onStopTracking,
 }: {
-  job: SubmittedIssueDetectionJob;
+  job: TrackedIssueDetectionJob;
   onTerminalStatus: (
     job: SubmittedIssueDetectionJob,
     status: JobStatus,
@@ -257,6 +259,7 @@ const TrackedIssueDetectionJobNotification = ({
   onStopTracking: (job: SubmittedIssueDetectionJob) => void;
 }) => {
   const workspace = useActiveWorkspace();
+  const sawActiveStatus = useRef(false);
   const { status, result, error, errorMessage } = useFetchJobStatus({
     jobId: job.jobId,
     enabled: job.workspace === undefined || job.workspace === workspace,
@@ -280,10 +283,14 @@ const TrackedIssueDetectionJobNotification = ({
   }, [job, onStopTracking]);
 
   useEffect(() => {
-    if (status && isJobComplete(status)) {
-      onTerminalStatus(job, status, result, errorMessage);
+    if (status === JobStatus.PENDING || status === JobStatus.RUNNING) {
+      sawActiveStatus.current = true;
+    } else if (status && isJobComplete(status)) {
+      // A stale RUNNING run can point to an already-ended job; it must not re-announce on reload.
+      if (job.observedOnly && !sawActiveStatus.current) onStopTracking(job);
+      else onTerminalStatus(job, status, result, errorMessage);
     }
-  }, [job, onTerminalStatus, result, status, errorMessage]);
+  }, [job, onTerminalStatus, onStopTracking, result, status, errorMessage]);
 
   return null;
 };
@@ -294,7 +301,7 @@ export const IssueDetectionJobNotifications = () => {
   const [searchParams] = useSearchParams();
   const [notification, notificationContextHolder] = useLegacyNotification();
 
-  const [trackedJobs, setTrackedJobs] = useState<SubmittedIssueDetectionJob[]>(() => getSubmittedIssueDetectionJobs());
+  const [trackedJobs, setTrackedJobs] = useState<TrackedIssueDetectionJob[]>(() => getSubmittedIssueDetectionJobs());
   const [startedNotificationJobs, setStartedNotificationJobs] = useState<SubmittedIssueDetectionJob[]>([]);
   const notifiedStartJobIdsRef = useRef<Set<string>>(new Set());
   const notifiedCompletionJobIdsRef = useRef<Set<string>>(new Set());
@@ -330,7 +337,9 @@ export const IssueDetectionJobNotifications = () => {
                 ...(event.type === ISSUE_DETECTION_JOB_OBSERVED_EVENT ? existing : job),
                 startTimeMs: existing.startTimeMs ?? job.startTimeMs,
               }
-            : job;
+            : event.type === ISSUE_DETECTION_JOB_OBSERVED_EVENT
+              ? { ...job, observedOnly: true }
+              : job;
           return appendSubmittedJob(currentJobs, trackedJob);
         });
       }
@@ -486,12 +495,18 @@ export const IssueDetectionJobNotifications = () => {
               <div>
                 {started}
                 <div>
-                  {shortReason || (
-                    <FormattedMessage
-                      defaultMessage="The run ended with an error."
-                      description="Fallback reason in a failed issue detection notification"
-                    />
-                  )}
+                  {shortReason ||
+                    (status === JobStatus.TIMEOUT ? (
+                      <FormattedMessage
+                        defaultMessage="The run timed out."
+                        description="Fallback reason in a timed out issue detection notification"
+                      />
+                    ) : (
+                      <FormattedMessage
+                        defaultMessage="The run ended with an error."
+                        description="Fallback reason in a failed issue detection notification"
+                      />
+                    ))}
                 </div>
                 <Typography.Link
                   componentId="mlflow.traces.issue-detection.failed-toast.view-details"
