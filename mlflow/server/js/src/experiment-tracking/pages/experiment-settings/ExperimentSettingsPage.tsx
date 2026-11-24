@@ -8,7 +8,6 @@ import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import type { ExperimentEntity } from '../../types';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
-import { useExperimentPermission } from '../../hooks/useExperimentPermission';
 import { useExperimentPageRevampContext } from '../experiment-page-tabs/ExperimentPageRevampContext';
 import { ExperimentSettingsContent } from './ExperimentSettingsContent';
 import { SETTING_CELL_CLASS_NAME } from './SettingCell';
@@ -110,9 +109,6 @@ export const ExperimentSettingsPage = () => {
         : null,
     [shownData],
   );
-  // Look up permissions alongside the experiment, so the controls don't render disabled and then enable.
-  useExperimentPermission(experimentId, ['EDIT', 'MANAGE']);
-
   if (error instanceof PredefinedError) {
     throw error;
   }

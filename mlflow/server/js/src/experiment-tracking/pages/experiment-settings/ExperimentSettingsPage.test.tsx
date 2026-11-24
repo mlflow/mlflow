@@ -13,6 +13,7 @@ import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { createMLflowRoutePath, useNavigate } from '../../../common/utils/RoutingUtils';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { MlflowService } from '../../sdk/MlflowService';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
@@ -400,46 +401,53 @@ describe('ExperimentSettingsPage', () => {
   });
 
   describe('with authentication enabled', () => {
-    const permissionsLoaded = async () => {
-      await waitFor(() => expect(mockedAccountApi.listMyPermissions).toHaveBeenCalled());
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      });
-    };
+    // Like the experiment's ⋯ menu, Settings offers every control, and the server refuses what the user can't do.
+    const refusedByServer = () => new ErrorWrapper('Permission denied', 403);
 
-    test('has no Permissions section, even for an admin', async () => {
-      authEnabledAs({ isAdmin: true });
-      renderPage();
-
-      await screen.findByRole('region', { name: 'About' });
-      await permissionsLoaded();
-      expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
-        'About',
-        'Actions',
-      ]);
-      expect(screen.queryByRole('button', { name: 'Manage permissions' })).not.toBeInTheDocument();
-    });
-
-    test('disables editing and deleting with only READ permission', async () => {
+    test('offers every control to a user with only READ permission', async () => {
       authEnabledAs({ isAdmin: false, permission: 'READ' });
       server.use(experimentQuery(() => makeExperiment([{ key: 'team', value: 'search' }])));
       renderPage();
 
       const aboutSection = await screen.findByRole('region', { name: 'About' });
-      await permissionsLoaded();
-      expect(within(aboutSection).getByRole('textbox', { name: 'Experiment name' })).toBeDisabled();
-      expect(within(aboutSection).getByRole('button', { name: 'Edit tags' })).toBeDisabled();
-      expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+      expect(screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)).toEqual([
+        'About',
+        'Actions',
+      ]);
+      expect(within(aboutSection).getByRole('textbox', { name: 'Experiment name' })).toBeEnabled();
+      expect(within(aboutSection).getByRole('button', { name: 'Edit tags' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
     });
 
-    test('allows editing but not deleting with EDIT permission', async () => {
-      authEnabledAs({ isAdmin: false, permission: 'EDIT' });
+    test('says why when the server refuses a rename', async () => {
+      authEnabledAs({ isAdmin: false, permission: 'READ' });
+      const updateExperiment = jest.spyOn(MlflowService, 'updateExperiment').mockRejectedValue(refusedByServer());
+      renderPage();
+
+      const input = await screen.findByRole('textbox', { name: 'Experiment name' });
+      await userEvent.clear(input);
+      await userEvent.paste('Renamed experiment');
+      await userEvent.tab();
+
+      expect(await screen.findByText('Unable to save the experiment name: Permission denied')).toBeVisible();
+      expect(updateExperiment).toHaveBeenCalledWith({ experiment_id: '123', new_name: 'Renamed experiment' });
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
+    });
+
+    test('says why when the server refuses a tag change', async () => {
+      authEnabledAs({ isAdmin: false, permission: 'READ' });
+      jest.spyOn(MlflowService, 'setExperimentTag').mockRejectedValue(refusedByServer());
       renderPage();
 
       const aboutSection = await screen.findByRole('region', { name: 'About' });
-      await waitFor(() => expect(within(aboutSection).getByRole('textbox', { name: 'Experiment name' })).toBeEnabled());
-      expect(within(aboutSection).getByRole('button', { name: 'Edit tags' })).toBeEnabled();
-      expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
+      await userEvent.click(within(aboutSection).getByRole('button', { name: 'Edit tags' }));
+      const dialog = await screen.findByRole('dialog', { name: 'Add tags' });
+      const textboxes = within(dialog).getAllByRole('textbox');
+      await userEvent.click(textboxes[textboxes.length - 2]);
+      await userEvent.paste('newkey');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+      expect(await within(dialog).findByText('Permission denied')).toBeVisible();
     });
   });
 
@@ -721,7 +729,7 @@ describe('ExperimentSettingsPage', () => {
       expect(setTag).not.toHaveBeenCalled();
     });
 
-    test("shows the server's reason when saving fails, and saves again on Retry", async () => {
+    test('shows that saving failed, and saves again on Retry', async () => {
       const setTag = jest
         .spyOn(MlflowService, 'setExperimentTag')
         .mockRejectedValueOnce(new Error('Retention exceeds the server maximum'))
@@ -730,12 +738,9 @@ describe('ExperimentSettingsPage', () => {
 
       await userEvent.type(await findRetentionInput(), '400');
       expect(
-        await screen.findByText(
-          'Unable to save the trace archival retention: Retention exceeds the server maximum',
-          undefined,
-          AUTOSAVE_WAIT,
-        ),
+        await screen.findByText('Unable to save the trace archival retention.', undefined, AUTOSAVE_WAIT),
       ).toBeInTheDocument();
+      expect(screen.queryByText(/Retention exceeds the server maximum/)).not.toBeInTheDocument();
 
       await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
 
@@ -746,18 +751,25 @@ describe('ExperimentSettingsPage', () => {
       );
     });
 
-    test('cannot be changed with only READ permission', async () => {
+    test('says why when the server refuses the change', async () => {
       authEnabledAs({ isAdmin: false, permission: 'READ' });
       server.use(experimentQuery(() => makeExperiment([retentionTag('30d')])));
+      jest.spyOn(MlflowService, 'setExperimentTag').mockRejectedValue(new ErrorWrapper('Permission denied', 403));
       renderPage();
 
-      const input = await screen.findByRole('textbox', { name: 'Trace archival retention' });
-      await waitFor(() => expect(mockedAccountApi.listMyPermissions).toHaveBeenCalled());
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      });
+      const input = await findRetentionInput();
       expect(input).toHaveValue('30');
-      expect(input).toBeDisabled();
+      await userEvent.clear(input);
+      await userEvent.type(input, '14');
+
+      expect(
+        await screen.findByText(
+          'Unable to save the trace archival retention: Permission denied',
+          undefined,
+          AUTOSAVE_WAIT,
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
     });
   });
 });

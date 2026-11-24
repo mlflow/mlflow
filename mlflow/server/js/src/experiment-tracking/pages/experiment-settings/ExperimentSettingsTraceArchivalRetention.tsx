@@ -28,13 +28,11 @@ const retentionKey = ({ amount, unit }: RetentionDraft) => formatTraceArchivalRe
 
 export interface ExperimentSettingsTraceArchivalRetentionProps {
   experiment: ExperimentEntity;
-  canEdit: boolean;
   refetchExperiment?: () => Promise<unknown>;
 }
 
 const TraceArchivalRetentionRow = ({
   experiment,
-  canEdit,
   refetchExperiment,
 }: ExperimentSettingsTraceArchivalRetentionProps) => {
   const intl = useIntl();
@@ -48,7 +46,6 @@ const TraceArchivalRetentionRow = ({
   const savedValue = useMemo(() => parseTraceArchivalRetention(savedRetention), [savedRetention]);
   const { draft, updateDraft, saveNow, retry, error } = useSettingAutosave<RetentionDraft>({
     savedValue,
-    isEditable: canEdit,
     getKey: retentionKey,
     validate: ({ amount, unit }) => getTraceArchivalRetentionValidationError(amount, unit, intl),
     save: async (value) => {
@@ -91,7 +88,6 @@ const TraceArchivalRetentionRow = ({
               amountAriaLabelledBy={labelId}
               amountAriaDescribedBy={error ? errorId : undefined}
               componentId="mlflow.experiment_settings.trace_archival_retention"
-              disabled={!canEdit}
               error={Boolean(error)}
               onAmountBlur={() => saveNow()}
               onAmountChange={(amount) => updateDraft({ amount, unit: draft.unit })}
@@ -107,12 +103,13 @@ const TraceArchivalRetentionRow = ({
               <SettingSaveErrorMessage
                 id={errorId}
                 message={
+                  // Like the experiment name: a refused change says why, and other failures get one message.
                   error.kind === 'invalid' ? (
                     error.message
-                  ) : error.reason ? (
+                  ) : error.kind === 'permission' ? (
                     <FormattedMessage
                       defaultMessage="Unable to save the trace archival retention: {reason}"
-                      description="Inline error shown when saving the experiment trace archival retention fails, with the server's reason"
+                      description="Inline error shown when the server refuses a change to the experiment trace archival retention, with its reason, such as Permission denied"
                       values={{ reason: error.reason }}
                     />
                   ) : (
@@ -122,9 +119,8 @@ const TraceArchivalRetentionRow = ({
                     />
                   )
                 }
-                onRetry={error.kind === 'request' ? retry : undefined}
+                onRetry={error.kind === 'invalid' ? undefined : retry}
                 componentId="mlflow.experiment_settings.trace_archival_retention_retry"
-                retryDisabled={!canEdit}
               />
             )}
           </div>

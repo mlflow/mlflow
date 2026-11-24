@@ -9,22 +9,15 @@ const nameKey = (name: string) => name.trim();
 
 export interface ExperimentSettingsNameInputProps {
   initialName: string;
-  isEditable: boolean;
   labelId: string;
   onSave: (name: string) => Promise<void>;
 }
 
-export const ExperimentSettingsNameInput = ({
-  initialName,
-  isEditable,
-  labelId,
-  onSave,
-}: ExperimentSettingsNameInputProps) => {
+export const ExperimentSettingsNameInput = ({ initialName, labelId, onSave }: ExperimentSettingsNameInputProps) => {
   const intl = useIntl();
   const errorId = useElementId('experiment-name-error');
   const { draft, updateDraft, saveNow, retry, error } = useSettingAutosave({
     savedValue: initialName,
-    isEditable,
     getKey: nameKey,
     validate: (name) =>
       name.trim()
@@ -43,7 +36,6 @@ export const ExperimentSettingsNameInput = ({
         aria-labelledby={labelId}
         aria-describedby={error ? errorId : undefined}
         aria-invalid={Boolean(error)}
-        disabled={!isEditable}
         validationState={error ? 'error' : undefined}
         value={draft}
         onBlur={() => {
@@ -64,10 +56,16 @@ export const ExperimentSettingsNameInput = ({
         <SettingSaveErrorMessage
           id={errorId}
           message={
-            // Like managed MLflow, a failed rename gets one message: server errors such as a duplicate
+            // A refused rename says why. Other failures get one message: server errors such as a duplicate
             // name come back as raw database text.
             error.kind === 'invalid' ? (
               error.message
+            ) : error.kind === 'permission' ? (
+              <FormattedMessage
+                defaultMessage="Unable to save the experiment name: {reason}"
+                description="Inline error shown when the server refuses an experiment rename, with its reason, such as Permission denied"
+                values={{ reason: error.reason }}
+              />
             ) : (
               <FormattedMessage
                 defaultMessage="Unable to save the experiment name."
@@ -75,9 +73,8 @@ export const ExperimentSettingsNameInput = ({
               />
             )
           }
-          onRetry={error.kind === 'request' ? retry : undefined}
+          onRetry={error.kind === 'invalid' ? undefined : retry}
           componentId="mlflow.experiment_settings.name_retry"
-          retryDisabled={!isEditable}
         />
       )}
     </div>

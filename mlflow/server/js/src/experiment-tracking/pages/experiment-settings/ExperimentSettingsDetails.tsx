@@ -14,6 +14,7 @@ import { ExperimentSettingsNameInput } from './ExperimentSettingsNameInput';
 import { ExperimentSettingsTraceArchivalRetention } from './ExperimentSettingsTraceArchivalRetention';
 import { ExperimentSettingsValue } from './ExperimentSettingsValue';
 import { SettingCell } from './SettingCell';
+import { getPermissionDeniedReason } from './useSettingAutosave';
 
 const CopyValueButton = ({
   componentId,
@@ -37,11 +38,10 @@ const CopyValueButton = ({
 
 interface ExperimentSettingsTagsProps {
   experiment: ExperimentEntity;
-  canEdit: boolean;
   refetchExperiment?: () => Promise<unknown>;
 }
 
-const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: ExperimentSettingsTagsProps) => {
+const ExperimentSettingsTags = ({ experiment, refetchExperiment }: ExperimentSettingsTagsProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const [isSavingTags, setIsSavingTags] = useState(false);
@@ -100,7 +100,10 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
       if (failure) {
         serverTagsAfterPartialSave.current = serverTags;
         const error = failure.reason;
-        setSaveTagsError(error instanceof ErrorWrapper ? error.getMessageField() : error?.message);
+        setSaveTagsError(
+          getPermissionDeniedReason(error) ??
+            (error instanceof ErrorWrapper ? error.getMessageField() : error?.message),
+        );
         // Rejecting keeps the editor open with the error and the user's edits.
         throw error;
       }
@@ -135,28 +138,15 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
             {userFacingTags.map((tag) => (
               <KeyValueTag key={tag.key} tag={tag} enableFullViewModal />
             ))}
-            <Tooltip
-              componentId="mlflow.experiment_settings.tags.edit_tooltip"
-              content={
-                canEdit
-                  ? editTagsLabel
-                  : intl.formatMessage({
-                      defaultMessage: 'You do not have permission to edit tags on this experiment.',
-                      description: 'Tooltip shown when the user cannot edit experiment tags in Settings',
-                    })
-              }
-            >
-              <span>
-                <Button
-                  componentId="mlflow.experiment_settings.tags.edit"
-                  type="tertiary"
-                  size="small"
-                  icon={<PencilIcon />}
-                  aria-label={editTagsLabel}
-                  onClick={canEdit ? showTagAssignmentModal : undefined}
-                  disabled={!canEdit}
-                />
-              </span>
+            <Tooltip componentId="mlflow.experiment_settings.tags.edit_tooltip" content={editTagsLabel}>
+              <Button
+                componentId="mlflow.experiment_settings.tags.edit"
+                type="tertiary"
+                size="small"
+                icon={<PencilIcon />}
+                aria-label={editTagsLabel}
+                onClick={showTagAssignmentModal}
+              />
             </Tooltip>
           </div>
           {TagAssignmentModal}
@@ -168,7 +158,6 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
 
 export interface ExperimentSettingsDetailsProps {
   experiment: ExperimentEntity;
-  canEdit: boolean;
   saveExperimentName: (name: string) => Promise<void>;
   refetchExperiment?: () => Promise<unknown>;
 }
@@ -176,7 +165,6 @@ export interface ExperimentSettingsDetailsProps {
 /** The About section: name, ID, artifact location, tags and, with trace archival on, its retention. */
 export const ExperimentSettingsDetails = ({
   experiment,
-  canEdit,
   saveExperimentName,
   refetchExperiment,
 }: ExperimentSettingsDetailsProps) => {
@@ -197,7 +185,6 @@ export const ExperimentSettingsDetails = ({
             <ExperimentSettingsValue>
               <ExperimentSettingsNameInput
                 initialName={experiment.name}
-                isEditable={canEdit}
                 labelId={labelId}
                 onSave={saveExperimentName}
               />
@@ -253,12 +240,8 @@ export const ExperimentSettingsDetails = ({
             />
           </ExperimentSettingsValue>
         </SettingCell.Static>
-        <ExperimentSettingsTags experiment={experiment} canEdit={canEdit} refetchExperiment={refetchExperiment} />
-        <ExperimentSettingsTraceArchivalRetention
-          experiment={experiment}
-          canEdit={canEdit}
-          refetchExperiment={refetchExperiment}
-        />
+        <ExperimentSettingsTags experiment={experiment} refetchExperiment={refetchExperiment} />
+        <ExperimentSettingsTraceArchivalRetention experiment={experiment} refetchExperiment={refetchExperiment} />
       </div>
     </section>
   );

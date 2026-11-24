@@ -2995,10 +2995,6 @@
     "defaultMessage": "Identical:",
     "description": "MCP compare identical sections heading"
   },
-  "7ZJrV5": {
-    "defaultMessage": "You do not have permission to edit tags on this experiment.",
-    "description": "Tooltip shown when the user cannot edit experiment tags in Settings"
-  },
   "7ZcrHA": {
     "defaultMessage": "Source",
     "description": "Metadata label for the dataset record source (origin: trace, document, or human)"
@@ -3094,6 +3090,10 @@
   "7ritzC": {
     "defaultMessage": "Optional. Define a JSON schema for structured LLM responses.",
     "description": "Hint for the structured output field in the prompt creation modal"
+  },
+  "7sIFOJ": {
+    "defaultMessage": "Unable to save the trace archival retention: {reason}",
+    "description": "Inline error shown when the server refuses a change to the experiment trace archival retention, with its reason, such as Permission denied"
   },
   "7teFL4": {
     "defaultMessage": "Search metric charts",
@@ -10415,10 +10415,6 @@
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
   },
-  "V0/XKX": {
-    "defaultMessage": "Unable to save the trace archival retention: {reason}",
-    "description": "Inline error shown when saving the experiment trace archival retention fails, with the server's reason"
-  },
   "V0IJuy": {
     "defaultMessage": "Allow the assistant to run {toolName}?",
     "description": "Title of the prompt asking the user to approve a tool call"
@@ -11142,6 +11138,10 @@
   "X3Uuiw": {
     "defaultMessage": "Off",
     "description": "Usage tracking disabled state"
+  },
+  "X6/fKP": {
+    "defaultMessage": "Unable to save the experiment name: {reason}",
+    "description": "Inline error shown when the server refuses an experiment rename, with its reason, such as Permission denied"
   },
   "X6P8tX": {
     "defaultMessage": "No models found",
@@ -15530,10 +15530,6 @@
   "kNTkr+": {
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
-  },
-  "kNUsZ6": {
-    "defaultMessage": "You need Manage permission on this experiment to delete it.",
-    "description": "Tooltip shown when the user cannot delete the experiment in Settings"
   },
   "kQ9rmr": {
     "defaultMessage": "Operator",

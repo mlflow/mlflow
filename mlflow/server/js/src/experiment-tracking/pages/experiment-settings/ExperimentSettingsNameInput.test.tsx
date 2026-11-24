@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import type { ReactNode } from 'react';
 import { IntlProvider } from 'react-intl';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import type { ExperimentSettingsNameInputProps } from './ExperimentSettingsNameInput';
 import { ExperimentSettingsNameInput } from './ExperimentSettingsNameInput';
 
@@ -20,7 +21,6 @@ const renderNameInput = (props: Partial<ExperimentSettingsNameInputProps> = {}) 
       <span id="experiment-name-label">Experiment name</span>
       <ExperimentSettingsNameInput
         initialName="Original name"
-        isEditable
         labelId="experiment-name-label"
         onSave={onSave}
         {...props}
@@ -248,12 +248,7 @@ describe('ExperimentSettingsNameInput', () => {
     const nameInput = (onSave: ExperimentSettingsNameInputProps['onSave']) => (
       <>
         <span id="experiment-name-label">Experiment name</span>
-        <ExperimentSettingsNameInput
-          initialName="Original name"
-          isEditable
-          labelId="experiment-name-label"
-          onSave={onSave}
-        />
+        <ExperimentSettingsNameInput initialName="Original name" labelId="experiment-name-label" onSave={onSave} />
       </>
     );
     const { rerender } = render(nameInput(firstSave), { wrapper: ProvidersWrapper });
@@ -290,6 +285,25 @@ describe('ExperimentSettingsNameInput', () => {
     expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
   });
 
+  it('says why when the server refuses the rename', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const { onSave } = renderNameInput({
+      onSave: jest
+        .fn<ExperimentSettingsNameInputProps['onSave']>()
+        .mockRejectedValue(new ErrorWrapper('Permission denied', 403)),
+    });
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.paste('Renamed');
+    await user.tab();
+    await act(async () => Promise.resolve());
+
+    expect(onSave).toHaveBeenCalledWith('Renamed');
+    expect(await screen.findByText('Unable to save the experiment name: Permission denied')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeVisible();
+  });
+
   it('saves the original name again when it is restored while another save is in flight', async () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     let finishFirstSave: () => void = () => undefined;
@@ -305,12 +319,7 @@ describe('ExperimentSettingsNameInput', () => {
     const nameInput = (initialName: string) => (
       <>
         <span id="experiment-name-label">Experiment name</span>
-        <ExperimentSettingsNameInput
-          initialName={initialName}
-          isEditable
-          labelId="experiment-name-label"
-          onSave={onSave}
-        />
+        <ExperimentSettingsNameInput initialName={initialName} labelId="experiment-name-label" onSave={onSave} />
       </>
     );
     const { rerender } = render(nameInput('Original name'), { wrapper: ProvidersWrapper });
@@ -352,12 +361,7 @@ describe('ExperimentSettingsNameInput', () => {
     const nameInput = (initialName: string) => (
       <>
         <span id="experiment-name-label">Experiment name</span>
-        <ExperimentSettingsNameInput
-          initialName={initialName}
-          isEditable
-          labelId="experiment-name-label"
-          onSave={onSave}
-        />
+        <ExperimentSettingsNameInput initialName={initialName} labelId="experiment-name-label" onSave={onSave} />
       </>
     );
     const { rerender } = render(nameInput('Original name'), { wrapper: ProvidersWrapper });

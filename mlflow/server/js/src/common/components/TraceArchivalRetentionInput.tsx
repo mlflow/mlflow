@@ -18,7 +18,6 @@ type TraceArchivalRetentionInputProps = {
   amountAriaLabelledBy?: string;
   amountAriaDescribedBy?: string;
   componentId: string;
-  disabled?: boolean;
   error?: boolean;
   onAmountBlur?: () => void;
   onAmountChange: (value: string) => void;
@@ -33,7 +32,6 @@ export const TraceArchivalRetentionInput = ({
   amountAriaLabelledBy,
   amountAriaDescribedBy,
   componentId,
-  disabled = false,
   error = false,
   onAmountBlur,
   onAmountChange,
@@ -91,7 +89,6 @@ export const TraceArchivalRetentionInput = ({
         aria-describedby={amountAriaDescribedBy}
         aria-invalid={error || undefined}
         css={{ width: '100%' }}
-        disabled={disabled}
         placeholder={intl.formatMessage({
           defaultMessage: 'Enter the retention',
           description: 'Placeholder for trace archival retention amount input',
@@ -116,7 +113,6 @@ export const TraceArchivalRetentionInput = ({
           id={unitSelectorId}
           allowClear={false}
           css={{ width: '100%' }}
-          disabled={disabled}
           renderDisplayedValue={() => selectedOption.label}
           withInlineLabel={false}
         />

@@ -1,5 +1,5 @@
-import { Button, Tooltip, Typography } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { Button, Typography } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 import type { ExperimentEntity } from '../../types';
 import { useExperimentManagementActions } from '../../components/experiment-page/hooks/useExperimentManagementActions';
 import { ExperimentSettingsDetails } from './ExperimentSettingsDetails';
@@ -12,14 +12,12 @@ export interface ExperimentSettingsContentProps {
 }
 
 export const ExperimentSettingsContent = ({ experiment, refetchExperiment }: ExperimentSettingsContentProps) => {
-  const intl = useIntl();
   const actions = useExperimentManagementActions({ experiment, refetchExperiment });
 
   return (
     <>
       <ExperimentSettingsDetails
         experiment={experiment}
-        canEdit={actions.canEdit}
         saveExperimentName={actions.saveExperimentName}
         refetchExperiment={refetchExperiment}
       />
@@ -47,28 +45,9 @@ export const ExperimentSettingsContent = ({ experiment, refetchExperiment }: Exp
             }
             value={
               <ExperimentSettingsValue>
-                <Tooltip
-                  componentId="mlflow.experiment_settings.delete.tooltip"
-                  content={
-                    actions.canDelete
-                      ? undefined
-                      : intl.formatMessage({
-                          defaultMessage: 'You need Manage permission on this experiment to delete it.',
-                          description: 'Tooltip shown when the user cannot delete the experiment in Settings',
-                        })
-                  }
-                >
-                  <span>
-                    <Button
-                      componentId="mlflow.experiment_settings.delete"
-                      onClick={actions.canDelete ? actions.deleteExperiment : undefined}
-                      disabled={!actions.canDelete}
-                      danger
-                    >
-                      <FormattedMessage defaultMessage="Delete" description="Button to delete the experiment" />
-                    </Button>
-                  </span>
-                </Tooltip>
+                <Button componentId="mlflow.experiment_settings.delete" onClick={actions.deleteExperiment} danger>
+                  <FormattedMessage defaultMessage="Delete" description="Button to delete the experiment" />
+                </Button>
               </ExperimentSettingsValue>
             }
           />
