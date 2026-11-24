@@ -1,6 +1,8 @@
 import json
 import logging
+import os
 import time
+import urllib.parse
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
@@ -55,6 +57,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.host_policy import _SERVER_SERVE_ARTIFACTS_ENV_VAR
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent, TraceAttachmentsEvent
@@ -72,7 +75,11 @@ from mlflow.tracking._tracking_service.utils import _get_store, _resolve_trackin
 from mlflow.utils import is_uuid
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.thread_utils import map_with_context
-from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    add_databricks_profile_info_to_artifact_uri,
+    is_databricks_uri,
+    is_http_uri,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -789,6 +796,19 @@ class TracingClient:
 
     def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
         artifact_uri = get_artifact_uri_for_trace(trace_info)
+        if (
+            urllib.parse.urlparse(artifact_uri).scheme == "mlflow-artifacts"
+            and not is_http_uri(self.tracking_uri)
+            # Check the server's serve-artifacts flag before importing `mlflow.server`, which
+            # requires Flask and isn't available in skinny client installations.
+            and os.environ.get(_SERVER_SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
+        ):
+            # Inside a tracking server (e.g. AI Gateway usage tracking), the tracking URI is the
+            # backend store URI, so `mlflow-artifacts:` can't be resolved over HTTP. Resolve it to
+            # `--artifacts-destination` the same way the server's trace artifact handlers do.
+            from mlflow.server import handlers
+
+            return handlers._get_trace_repo_from_uri(artifact_uri)
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 

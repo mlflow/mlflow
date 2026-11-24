@@ -1276,7 +1276,7 @@ class ParamSpec:
                 default_value = self.default
         elif self.shape == (-1,):
             default_value = (
-                [v.isoformat() for v in self.default]
+                [v.isoformat() if v is not None else None for v in self.default]
                 if self.dtype.name == "datetime"
                 else self.default
             )
