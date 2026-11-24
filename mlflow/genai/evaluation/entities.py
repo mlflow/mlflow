@@ -12,7 +12,11 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
+from mlflow.genai.evaluation.constant import (
+    PREDICT_ERROR_COUNT_METRIC,
+    InputDatasetColumn,
+    ResultDataFrameColumn,
+)
 from mlflow.genai.evaluation.context import get_context
 from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.evaluation.utils import is_none_or_nan
@@ -103,6 +107,9 @@ class EvalItem:
 
     """Source information for the eval item (e.g., from which trace it was created)."""
     source: DatasetRecordSource | None = None
+
+    """Whether ``predict_fn`` raised for this item. Scorers are skipped for such items."""
+    predict_failed: bool = False
 
     @classmethod
     def from_trace(cls, trace: Trace) -> "EvalItem":
@@ -290,15 +297,16 @@ class EvaluationResult:
 
     @property
     def passed(self) -> bool:
-        """``True`` when every scorer passed for every row and every condition in
-        ``quality_criteria`` holds.
+        """``True`` when ``predict_fn`` succeeded for every row, every scorer passed for
+        every row, and every condition in ``quality_criteria`` holds.
 
         A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
         Declare ``@scorer(pass_if=...)`` to define passing for other values.
         Only the feedback this run's scorers produced is checked. Dataset expectations
         and feedback logged on the traces outside this run stay in ``result_df`` but
-        don't affect ``passed``. A run does not pass when its per-row results are
-        unavailable or when no scorer produced a value for any row.
+        don't affect ``passed``. A run does not pass when ``predict_fn`` raised for any
+        row (counted in the ``predict_error_count`` metric), when its per-row results are
+        unavailable, or when no scorer produced a value for any row.
 
         Usage::
 
@@ -309,9 +317,10 @@ class EvaluationResult:
 
     @property
     def reason(self) -> str:
-        """Human-readable explanation of which scorers failed and why.
+        """Human-readable explanation of which scorers failed and why, including how many
+        rows were not scored because ``predict_fn`` raised.
 
-        Empty string when all scorers passed.
+        Empty string when the run passed.
         """
         failures = self._failures()
         if not failures:
@@ -322,6 +331,10 @@ class EvaluationResult:
 
     def _failures(self) -> list[str]:
         failures = self._row_failures()
+        if predict_error_count := self.metrics.get(PREDICT_ERROR_COUNT_METRIC):
+            failures.append(
+                f"predict_fn raised for {int(predict_error_count)} row(s), which were not scored"
+            )
         for rule in self.quality_criteria:
             if failure := rule.check(self.metrics):
                 failures.append(failure)

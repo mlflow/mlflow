@@ -2485,6 +2485,66 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
     assert observed_max == buffer
 
 
+def test_evaluate_skips_scorers_on_rows_where_predict_fn_raised():
+    scored = []
+
+    def predict_fn(q):
+        if q == "boom":
+            raise ValueError("predict exploded")
+        return q.upper()
+
+    @scorer
+    def ok(outputs):
+        scored.append(("ok", outputs))
+        return outputs in ("HELLO", "WORLD")
+
+    @scorer
+    def ignores_outputs(inputs):
+        scored.append(("ignores_outputs", inputs["q"]))
+        return True
+
+    data = [
+        {"inputs": {"q": "hello"}},
+        {"inputs": {"q": "boom"}, "expectations": {"expected": "BOOM"}},
+        {"inputs": {"q": "world"}},
+    ]
+    with mock.patch("mlflow.genai.evaluation.harness.emit_metric_usage_event") as mock_emit:
+        result = mlflow.genai.evaluate(
+            data=data, scorers=[ok, ignores_outputs], predict_fn=predict_fn
+        )
+
+    assert mock_emit.call_args.args[1] == 3
+    assert mock_emit.call_args.kwargs["scored_trace_count"] == 2
+    assert sorted(scored) == [
+        ("ignores_outputs", "hello"),
+        ("ignores_outputs", "world"),
+        ("ok", "HELLO"),
+        ("ok", "WORLD"),
+    ]
+    assert result.metrics == {"ok/mean": 1.0, "ignores_outputs/mean": 1.0, "predict_error_count": 1}
+    assert mlflow.get_run(result.run_id).data.metrics["predict_error_count"] == 1
+    assert not result.passed
+    assert result.reason == "predict_fn raised for 1 row(s), which were not scored"
+
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    failed = next(t for t in traces if json.loads(t.data.request) == {"q": "boom"})
+    assert failed.info.state == "ERROR"
+    assert [(a.name, a.value) for a in failed.info.assessments] == [("expected", "BOOM")]
+
+
+def test_evaluate_scores_rows_where_predict_fn_returned_none():
+    @scorer
+    def is_none(outputs):
+        return outputs is None
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "hello"}}], scorers=[is_none], predict_fn=lambda q: None
+    )
+
+    assert result.metrics == {"is_none/mean": 1.0}
+    assert result.passed, result.reason
+
+
 def test_evaluate_logs_scorer_failure_summary():
     @scorer
     def failing_scorer(inputs, outputs):
