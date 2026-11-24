@@ -127,9 +127,36 @@ print(aligned_judge.instructions)
 #   - Use neutral, descriptive language..."
 ```
 
-## Removing Feedback (Unalignment)
+## Correcting What the Judge Learned (Unalignment)
 
-If requirements change or feedback was incorrect, you can selectively remove learned knowledge:
+Use `unalign` to correct an aligned judge. It can be called in two ways, depending on whether the problem is a distilled rule or the feedback itself:
+
+| Situation                                                                                               | Call                             | Effect on the returned judge                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The feedback examples are still useful, but a distilled rule is incorrect, too broad, or contradictory. | `unalign(guideline_indices=...)` | Removes exactly the selected rules. Keeps all episodic examples available for retrieval, and preserves the remaining guidelines' source-trace mappings.                                    |
+| Particular traces contain incorrect or outdated feedback that should no longer be used as examples.     | `unalign(traces=...)`            | Removes those traces' examples from episodic memory. Drops a guideline when all of its recorded source traces are included in the removal; guidelines shared with other traces can remain. |
+
+For example, correctly labeled polite replies might produce an overly broad rule such as "Every polite reply must start with Hello". Use `guideline_indices` to drop that rule while keeping the useful examples. If a rude reply was incorrectly labeled polite, pass that trace in `traces` to remove its examples instead. If an unwanted guideline survives because it also has other source traces, pass its index in `guideline_indices` too; you can pass both arguments in one call.
+
+`unalign` returns a new judge and leaves the original unchanged (if the given traces match no feedback and no `guideline_indices` are passed, it logs a warning and returns the original judge), so use the returned judge (and register it if you want to keep the change). The returned judge keeps the MemAlign settings (reflection model, retrieval size, embedding model, and retrieval fields) and scorer settings such as `timeout` and `aggregations`. As with other judges, `register()` persists the name, description, and aggregations; `timeout` set on the aligned judge is kept only in memory. `unalign` does not delete the stored MLflow traces or their assessments; it only changes what the judge keeps in memory.
+
+### Removing Specific Guidelines
+
+To list the learned guidelines, use `guidelines`. Pass the 0-based positions of the ones to drop as `guideline_indices`:
+
+```python
+for i, guideline in enumerate(aligned_judge.guidelines):
+    print(i, guideline)
+
+cleaned_judge = aligned_judge.unalign(guideline_indices=[3, 17])
+cleaned_judge.register()
+```
+
+Indices refer to `guidelines` as it was before the call, so call `guidelines` again on the new judge before removing more. A later `align` can distill a removed guideline again (for example, after feedback on one of its source traces changes), so check `guidelines` after each alignment.
+
+### Removing Feedback
+
+If requirements change or feedback was incorrect, remove the feedback from specific traces:
 
 ```python
 import mlflow
@@ -140,7 +167,7 @@ traces_to_forget: list[mlflow.entities.Trace] = mlflow.search_traces(
     return_type="list",
 )
 
-# Remove knowledge derived from those traces
+# Remove those traces' examples, plus any guideline whose source traces are all in this list
 updated_judge = aligned_judge.unalign(traces=traces_to_forget)
 ```
 
