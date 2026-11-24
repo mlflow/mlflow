@@ -317,6 +317,7 @@ from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import build_otel_context
+from mlflow.utils.databricks_utils import DatabricksStoreHostCreds
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION, MLFLOW_CUSTOM_VIEW_TAG_PREFIX
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -4532,11 +4533,8 @@ def test_databricks_tracking_store_registration():
     store = registry.get_store("databricks", artifact_uri=None)
     assert isinstance(store, DatabricksTracingRestStore)
 
-    # Verify that the store was created with the right get_host_creds function
-    # The RestStore should have a get_host_creds attribute that is a partial function
-    assert hasattr(store, "get_host_creds")
-    assert store.get_host_creds.func.__name__ == "get_databricks_host_creds"
-    assert store.get_host_creds.args == ("databricks",)
+    assert isinstance(store.get_host_creds, DatabricksStoreHostCreds)
+    assert store.get_host_creds.server_uri == "databricks"
 
 
 def test_databricks_model_registry_store_registration():
@@ -4546,10 +4544,8 @@ def test_databricks_model_registry_store_registration():
     store = registry.get_store("databricks")
     assert isinstance(store, ModelRegistryRestStore)
 
-    # Verify that the store was created with the right get_host_creds function
-    assert hasattr(store, "get_host_creds")
-    assert store.get_host_creds.func.__name__ == "get_databricks_host_creds"
-    assert store.get_host_creds.args == ("databricks",)
+    assert isinstance(store.get_host_creds, DatabricksStoreHostCreds)
+    assert store.get_host_creds.server_uri == "databricks"
 
     # Test that the correct store type is returned for databricks-uc
     uc_store = registry.get_store("databricks-uc")

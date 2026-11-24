@@ -14,7 +14,7 @@ import time
 import unicodedata
 import urllib
 from collections.abc import Iterable
-from functools import partial, wraps
+from functools import wraps
 from typing import Any, Callable
 from zlib import adler32
 
@@ -417,7 +417,7 @@ from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import workspace_context
 from mlflow.utils.crypto import CRYPTO_KEK_PASSPHRASE_ENV_VAR
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import DatabricksStoreHostCreds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.issue_utils import validate_issue_fields
 from mlflow.utils.mime_type_utils import _guess_mime_type
@@ -580,7 +580,7 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri, artifact_uri):
-        return DatabricksTracingRestStore(partial(get_databricks_host_creds, store_uri))
+        return DatabricksTracingRestStore(DatabricksStoreHostCreds(store_uri))
 
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
@@ -617,7 +617,7 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri):
-        return ModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
+        return ModelRegistryRestStore(DatabricksStoreHostCreds(store_uri))
 
     @classmethod
     def _get_databricks_uc_rest_store(cls, store_uri):
