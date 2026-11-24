@@ -499,6 +499,9 @@ class MemoryAugmentedJudge(Judge):
             retrieval_fields=data.get("retrieval_fields"),
             _defer_init=True,
         )
+        # The constructor takes these from the base judge; restore the values set on this judge.
+        instance.description = serialized.description
+        instance.aggregations = serialized.aggregations
 
         # Restore semantic memory and episodic trace IDs for lazy loading
         instance._semantic_memory = [Guideline(**g) for g in data["semantic_memory"]]
@@ -623,7 +626,9 @@ class MemoryAugmentedJudge(Judge):
         Both can be passed in one call. ``guideline_indices`` always refer to
         :py:attr:`guidelines` as it was before the call. This judge is not modified, and the
         returned judge keeps its MemAlign settings and scorer settings such as ``timeout`` and
-        ``aggregations``.
+        ``aggregations``. As with other judges, ``register()`` persists the name, description,
+        and aggregations; ``timeout`` and ``session_level`` set on this judge are kept only in
+        memory.
 
         Args:
             traces: Traces containing feedback to remove from memory. Only traces with

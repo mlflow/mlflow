@@ -1799,6 +1799,28 @@ def test_unalign_guideline_indices_then_register_then_load(sample_judge, sample_
     assert loaded.guidelines == ["G1", "G2", "G4"]
 
 
+def test_register_keeps_scorer_settings_and_load_persists_description_and_aggregations(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+        aligned.timeout = 5
+        aligned.aggregations = ["median"]
+        aligned.description = "custom description"
+
+        registered = aligned.register()
+        loaded = get_scorer(name=sample_judge.name, experiment_id=_get_experiment_id())
+
+    assert registered.timeout == 5
+    assert registered.aggregations == ["median"]
+    assert registered.description == "custom description"
+    assert isinstance(loaded, MemoryAugmentedJudge)
+    assert loaded.description == "custom description"
+    assert loaded.aggregations == ["median"]
+    # Like make_judge judges, MemAlign judges do not persist timeout
+    assert loaded.timeout is None
+
+
 def test_unalign_guideline_indices_while_lazy_init_in_progress_stays_deferred(
     sample_judge, sample_traces
 ):
