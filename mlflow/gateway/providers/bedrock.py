@@ -269,6 +269,14 @@ class AmazonBedrockProvider(BaseProvider):
     def get_provider_name(self) -> str:
         return "bedrock"
 
+    def _supports_cache_control(self) -> bool:
+        # Converse takes prompt caching checkpoints only for Claude and Amazon Nova models:
+        # https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
+        # Other models, and inference profile ARNs that do not name the model, get the
+        # markers removed, so their requests stay as they were.
+        model_name = (self.config.model.name or "").lower()
+        return "anthropic" in model_name or "amazon.nova" in model_name
+
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
         super().__init__(config, enable_tracing=enable_tracing)
 
@@ -405,14 +413,17 @@ class AmazonBedrockProvider(BaseProvider):
             msg = messages[index]
             role = msg.get("role", "user")
             content = self._normalize_content_text(msg.get("content"))
+            # With a `cache_control` marker, the parts become text blocks with a cachePoint
+            # after each marked part. Without one, the content stays a single text block.
+            blocks = self._to_converse_cached_blocks(msg.get("content")) or [{"text": content}]
 
             if role == "system":
-                system_prompts.append({"text": content})
+                system_prompts.extend(blocks)
             elif role == "assistant":
                 assistant_content = []
                 if tool_calls := msg.get("tool_calls"):
                     if content:
-                        assistant_content.append({"text": content})
+                        assistant_content.extend(blocks)
                     for tool_call in tool_calls:
                         tool_function = tool_call.get("function") or {}
                         tool_call_id = tool_call.get("id", "")
@@ -451,7 +462,7 @@ class AmazonBedrockProvider(BaseProvider):
                             }
                         })
                 else:
-                    assistant_content.append({"text": content})
+                    assistant_content.extend(blocks)
                 converse_messages.append({
                     "role": "assistant",
                     "content": assistant_content,
@@ -468,6 +479,26 @@ class AmazonBedrockProvider(BaseProvider):
                             ],
                         }
                     })
+                    # A tool result is sent as one text, so a cachePoint can only go after the
+                    # whole result. Accept a single marker on its last text part, and reject
+                    # any other placement instead of moving or dropping markers silently.
+                    if cache_controls := self._cache_controls(tool_msg.get("content")):
+                        text_parts = [
+                            part
+                            for part in tool_msg["content"]
+                            if isinstance(part, dict) and part.get("type") == "text"
+                        ]
+                        if len(cache_controls) != 1 or not text_parts[-1].get("cache_control"):
+                            raise AIGatewayException(
+                                status_code=422,
+                                detail=(
+                                    "Amazon Bedrock tool results support a single cache_control "
+                                    "marker on the last text part only."
+                                ),
+                            )
+                        tool_result_content.append({
+                            "cachePoint": self._to_cache_point(cache_controls[0])
+                        })
                     index += 1
                 converse_messages.append({
                     "role": "user",
@@ -477,7 +508,7 @@ class AmazonBedrockProvider(BaseProvider):
             else:
                 converse_messages.append({
                     "role": "user",
-                    "content": [{"text": content}],
+                    "content": blocks,
                 })
             index += 1
 
@@ -521,6 +552,53 @@ class AmazonBedrockProvider(BaseProvider):
                 kwargs["toolConfig"] = {"tools": bedrock_tools}
 
         return kwargs
+
+    @staticmethod
+    def _cache_controls(content: Any) -> list[dict[str, Any]]:
+        """Return the `cache_control` markers on the text content parts, in order."""
+        if not isinstance(content, list):
+            return []
+        return [
+            part["cache_control"]
+            for part in content
+            if isinstance(part, dict) and part.get("type") == "text" and part.get("cache_control")
+        ]
+
+    @staticmethod
+    def _to_cache_point(cache_control: dict[str, Any]) -> dict[str, Any]:
+        cache_point = {"type": "default"}
+        # 5 minutes is the default TTL, so it is not sent: models that support only 5 minutes
+        # can reject the `ttl` field. Any other value is sent as is, so Bedrock reports a
+        # value it does not support:
+        # https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_CachePointBlock.html
+        if (ttl := cache_control.get("ttl")) and ttl != "5m":
+            cache_point["ttl"] = ttl
+        return cache_point
+
+    @classmethod
+    def _to_converse_cached_blocks(cls, content: Any) -> list[dict[str, Any]] | None:
+        """Convert content parts with a `cache_control` marker to Converse content blocks.
+
+        Each marked text part is followed by a ``cachePoint`` block. Text parts between two
+        markers are joined with newlines, like ``_normalize_content_text`` does, so the model
+        gets the same text. Non-text parts are dropped, as they are without a marker, and so
+        is any marker on them. Returns None when no text part carries a marker.
+        """
+        if not cls._cache_controls(content):
+            return None
+        blocks = []
+        texts = []
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "text":
+                continue
+            texts.append(part.get("text", ""))
+            if cache_control := part.get("cache_control"):
+                blocks.append({"text": "\n".join(texts)})
+                blocks.append({"cachePoint": cls._to_cache_point(cache_control)})
+                texts = []
+        if texts:
+            blocks.append({"text": "\n".join(texts)})
+        return blocks
 
     @staticmethod
     def _normalize_content_text(content: Any) -> str:

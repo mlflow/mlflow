@@ -1323,13 +1323,13 @@
         }
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "grok-4.20-multi-agent-0309": {
       "mode": "responses",
@@ -1363,13 +1363,13 @@
         }
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "grok-4.20-multi-agent-beta-0309": {
       "mode": "responses",
@@ -1429,13 +1429,13 @@
         }
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "grok-4.20-multi-agent-experimental-beta-0304": {
       "mode": "responses",
@@ -1462,13 +1462,13 @@
         }
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "grok-4.20-multi-agent-experimental-beta-latest": {
       "mode": "responses",
@@ -1495,13 +1495,13 @@
         }
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "grok-4.20-multi-agent-latest": {
       "mode": "responses",
@@ -1535,13 +1535,13 @@
         }
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": true,
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "grok-4.20-non-reasoning": {
       "mode": "chat",

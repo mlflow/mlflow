@@ -1,4 +1,5 @@
 import pytest
+from flask import Flask
 
 from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
@@ -10,8 +11,11 @@ def mock_settings_env_vars(tmp_path, monkeypatch):
 
 @pytest.fixture
 def app():
-    from mlflow.server import app
-
+    # Use a fresh app: the exporter adds `/metrics` and request hooks that cannot be removed,
+    # and on the shared `mlflow.server.app` they would leak into later tests.
+    app = Flask(__name__)
+    for path in ("/", "/health", "/version"):
+        app.add_url_rule(path, endpoint=path, view_func=lambda: "OK")
     with app.app_context():
         yield app
 

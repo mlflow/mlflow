@@ -8682,9 +8682,9 @@ def get_graphql_authorization_middleware():
         A list containing the middleware instance if auth is enabled,
         empty list otherwise. Suitable for passing to schema.execute(middleware=...).
     """
-    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
-        return []
     if not is_auth_enabled():
+        return []
+    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
         return []
     return [GraphQLAuthorizationMiddleware()]
 

@@ -14,6 +14,20 @@ const capture = (
 ) => captureV4ViewState(new URLSearchParams(query), cols, filters, assessments, custom);
 
 describe('capturedV4StatesMatch', () => {
+  test('a view without a range stays clean when only the browsing range changes', () => {
+    const stored = capture('q=x', ['start_time']);
+    expect(capturedV4StatesMatch(capture('q=x&startTimeLabel=ALL', ['start_time']), stored)).toBe(true);
+    expect(
+      capturedV4StatesMatch(capture('q=x&startTimeLabel=CUSTOM&startTime=1000&endTime=2000', ['start_time']), stored),
+    ).toBe(true);
+    expect(capturedV4StatesMatch(capture('q=changed&startTimeLabel=ALL', ['start_time']), stored)).toBe(false);
+  });
+
+  test('a view with a range is dirty when that range changes', () => {
+    const stored = capture('q=x&startTimeLabel=LAST_HOUR');
+    expect(capturedV4StatesMatch(capture('q=x&startTimeLabel=ALL'), stored)).toBe(false);
+  });
+
   test('identical captures match (clean)', () => {
     const a = capture('q=x&sort=duration&dir=asc', ['start_time', 'input']);
     const b = capture('q=x&sort=duration&dir=asc', ['start_time', 'input']);

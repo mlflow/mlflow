@@ -1,6 +1,11 @@
 import { describe, test, expect } from '@jest/globals';
 
-import { formatExecutionDuration, getSpanNodeParentIds, getTimelineTreeNodesMap } from './TimelineTree.utils';
+import {
+  formatExecutionDuration,
+  getSpanNodeParentIds,
+  getTimelineTreeExpandedRows,
+  getTimelineTreeNodesMap,
+} from './TimelineTree.utils';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { MOCK_TRACE } from '../../ModelTraceExplorer.test-utils';
 import { parseModelTraceToTree } from '../ModelTraceExplorer.utils';
@@ -19,6 +24,40 @@ describe('TimelineTree.utils', () => {
     const rephraseChat = (generateResponse?.children ?? [])[0] as ModelTraceSpanNode;
     const childParentIds = getSpanNodeParentIds(rephraseChat, nodeMap);
     expect(childParentIds).toEqual(new Set(['document-qa-chain', '_generate_response']));
+  });
+
+  test('flattens only expanded rows and retains hierarchy state', () => {
+    const leaf = (key: string): ModelTraceSpanNode => ({
+      key,
+      title: key,
+      start: 0,
+      end: 1,
+      traceId: 'trace',
+      assessments: [],
+    });
+    const first: ModelTraceSpanNode = {
+      ...leaf('first'),
+      children: [leaf('first-child'), leaf('first-sibling')],
+    };
+    const second: ModelTraceSpanNode = {
+      ...leaf('second'),
+      children: [leaf('second-child'), leaf('selected')],
+    };
+    const collapsed: ModelTraceSpanNode = { ...leaf('collapsed'), children: [leaf('collapsed-child')] };
+    const rows = getTimelineTreeExpandedRows([first, second, collapsed], new Set(['first', 'second']), 'selected');
+
+    expect(rows.map(({ node }) => node.key)).toEqual([
+      'first',
+      'first-child',
+      'first-sibling',
+      'second',
+      'second-child',
+      'selected',
+      'collapsed',
+    ]);
+    expect(rows[1].linesToRender).toEqual([{ shouldRender: true, isActive: false }]);
+    expect(rows[4].linesToRender).toEqual([{ shouldRender: true, isActive: true }]);
+    expect(rows[5].linesToRender).toEqual([{ shouldRender: false, isActive: false }]);
   });
 });
 
