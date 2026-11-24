@@ -1,6 +1,6 @@
 # MLflow Typescript SDK - Claude Code
 
-Trace [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) sessions and [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/typescript) runs with [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript).
+Trace [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) sessions and [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/typescript) runs with [MLflow Tracing](https://github.com/mlflow/mlflow/tree/master/libs/typescript).
 
 | Package                   | NPM                                                                                                                                         | Description                                                              |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
