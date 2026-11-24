@@ -1110,7 +1110,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-05-23",
+      "last_updated_at": "2026-11-24"
     },
     "anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -7214,7 +7215,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-01-22",
+      "last_updated_at": "2026-11-24"
     },
     "claude_platform/claude-opus-4-6": {
       "mode": "chat",
@@ -13546,7 +13548,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-05-23",
+      "last_updated_at": "2026-11-24"
     },
     "eu.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -14298,7 +14301,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-05-23",
+      "last_updated_at": "2026-11-24"
     },
     "global.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -23707,7 +23711,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-05-23",
+      "last_updated_at": "2026-11-24"
     },
     "us.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
