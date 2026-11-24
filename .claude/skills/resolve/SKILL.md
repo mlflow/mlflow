@@ -124,9 +124,10 @@ or `body`). Use the smallest edits that address the review. Preserve relevant li
 media, template sections, and unrelated text. The publisher applies PR edits before reporting
 them as resolved.
 
-Write `$out_dir/fix.patch` when a resolution changes code. Keep the patch limited to the
-resolved items and their tests. Use `git add -N` for new files before generating the patch
-against `head_sha` with `git diff HEAD`.
+Write `$out_dir/fix.patch` when you change code. Keep the patch limited to the review
+feedback and its tests. A patch can address part of a request while the thread stays open.
+Use `git add -N` for new files before generating the patch against `head_sha` with
+`git diff HEAD`.
 
 Save supporting screenshots and recordings in `$out_dir/media`. Cite them in a reply
 or proposed PR description using their absolute paths in Markdown image links.

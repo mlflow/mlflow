@@ -629,8 +629,9 @@ def test_embed_stops_when_description_media_upload_fails(
     [
         ("resolved", {}, False, None),
         ("resolved", {"pr_update": {"title": "Before"}}, False, "must change each proposed field"),
-        ("answered", {"pr_update": {"title": "After"}}, False, "requires a resolved response"),
-        ("blocked", {}, True, "requires a resolved response"),
+        ("answered", {"pr_update": {"title": "After"}}, False, None),
+        ("answered", {}, True, None),
+        ("blocked", {}, True, None),
     ],
 )
 def test_validate_pr_update(
