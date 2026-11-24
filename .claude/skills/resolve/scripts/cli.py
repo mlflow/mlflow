@@ -197,8 +197,8 @@ def validate(context_path: Path, out_dir: Path) -> None:
         raise ValueError("Responses must cover every thread and only a nonempty review body")
     has_resolved = any(item["status"] == "resolved" for item in responses.values())
     pr_update = result.get("pr_update")
-    if has_resolved != (patch.exists() or pr_update is not None):
-        raise ValueError("Resolved feedback must accompany a patch or a PR update")
+    if (patch.exists() or pr_update is not None) and not has_resolved:
+        raise ValueError("A patch or PR update requires a resolved response")
     if pr_update and any(value == context["pr"][field] for field, value in pr_update.items()):
         raise ValueError("A PR update must change each proposed field")
     command(

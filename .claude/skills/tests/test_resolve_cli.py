@@ -279,6 +279,7 @@ def test_schema_rejects_malformed_pr_updates(
             {"body": "Updated"},
         ),
         ({}, {}, True, None, None, {}),
+        ({}, {}, False, None, None, {}),
         ({"title": "After"}, {"title": "After"}, False, None, None, {}),
         ({"title": "After"}, {"title": "Concurrent"}, False, None, "PR title changed", {}),
         ({"title": "After"}, {}, True, "title", "PR title changed", {}),
@@ -301,6 +302,7 @@ def test_schema_rejects_malformed_pr_updates(
         "mixed",
         "partially-applied",
         "patch-only",
+        "already-addressed",
         "retry",
         "concurrent-edit",
         "concurrent-edit-after-patch",
@@ -625,14 +627,10 @@ def test_embed_stops_when_description_media_upload_fails(
 @pytest.mark.parametrize(
     ("status", "update", "with_patch", "error"),
     [
-        ("resolved", {}, False, "must accompany a patch or a PR update"),
+        ("resolved", {}, False, None),
         ("resolved", {"pr_update": {"title": "Before"}}, False, "must change each proposed field"),
-        (
-            "answered",
-            {"pr_update": {"title": "After"}},
-            False,
-            "must accompany a patch or a PR update",
-        ),
+        ("answered", {"pr_update": {"title": "After"}}, False, "requires a resolved response"),
+        ("blocked", {}, True, "requires a resolved response"),
     ],
 )
 def test_validate_pr_update(
@@ -642,7 +640,7 @@ def test_validate_pr_update(
     status: str,
     update: dict[str, dict[str, str]],
     with_patch: bool,
-    error: str,
+    error: str | None,
 ) -> None:
     out_dir = metadata_context.parent
     payload = out_dir / "payload.json"
@@ -654,10 +652,13 @@ def test_validate_pr_update(
     if with_patch:
         (out_dir / "fix.patch").touch()
 
-    with pytest.raises(ValueError, match=error):
+    if error:
+        with pytest.raises(ValueError, match=error):
+            cli.validate(metadata_context, out_dir)
+    else:
         cli.validate(metadata_context, out_dir)
 
-    command.assert_called_once_with(
+    command.assert_any_call(
         "uvx",
         "check-jsonschema@0.37.4",
         "--schemafile",

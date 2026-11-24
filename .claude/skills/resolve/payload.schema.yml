@@ -29,7 +29,7 @@ properties:
       properties:
         status:
           description: >
-            Use resolved when a patch or PR title or description edit addresses the feedback,
+            Use resolved when the current PR already addresses the feedback or this run fixes it,
             answered when a substantive reply suffices, or blocked when the item needs human input.
           enum: [resolved, answered, blocked]
         body:
