@@ -7,32 +7,32 @@ class FileInfo(_MlflowObject):
     Metadata about a file or directory.
     """
 
-    def __init__(self, path, is_dir, file_size):
+    def __init__(self, path: str, is_dir: bool, file_size: int | None) -> None:
         self._path = path
         self._is_dir = is_dir
         self._bytes = file_size
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
 
     @property
-    def path(self):
+    def path(self) -> str:
         """String path of the file or directory."""
         return self._path
 
     @property
-    def is_dir(self):
+    def is_dir(self) -> bool:
         """Whether the FileInfo corresponds to a directory."""
         return self._is_dir
 
     @property
-    def file_size(self):
+    def file_size(self) -> int | None:
         """Size of the file or directory. If the FileInfo is a directory, returns None."""
         return self._bytes
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoFileInfo:
         proto = ProtoFileInfo()
         proto.path = self.path
         proto.is_dir = self.is_dir
@@ -41,5 +41,5 @@ class FileInfo(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoFileInfo) -> "FileInfo":
         return cls(proto.path, proto.is_dir, proto.file_size)

@@ -3,26 +3,35 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.server.auth.permissions import (
     ALL_PERMISSIONS,
+    DENY,
     EDIT,
     MANAGE,
     NO_PERMISSIONS,
     PERMISSION_PRIORITY,
     READ,
     RESOURCE_GRANTABLE_PERMISSIONS,
+    RESOURCE_TYPE_EXPERIMENT,
+    RESOURCE_TYPE_REGISTERED_MODEL,
+    RESOURCE_TYPE_SCORER,
+    RESOURCE_TYPE_SKILL,
+    SKILL_REGISTRY_GRANTABLE_PERMISSIONS,
+    SKILL_REGISTRY_RESOURCE_TYPES,
     USE,
     VALID_RESOURCE_TYPES,
     WORKSPACE_GRANTABLE_PERMISSIONS,
     _validate_permission,
     _validate_permission_for_resource_type,
     _validate_resource_type,
+    canonical_resource_id,
     get_permission,
+    matches,
     max_permission,
 )
 
 # ---- Permission hierarchy ---------------------------------------------------
 
 # The canonical ordering the rest of the auth layer relies on.
-_EXPECTED_ORDER = [NO_PERMISSIONS, READ, USE, EDIT, MANAGE]
+_EXPECTED_ORDER = [DENY, NO_PERMISSIONS, READ, USE, EDIT, MANAGE]
 
 
 def test_permission_priority_is_total_order():
@@ -131,7 +140,7 @@ def test_validate_resource_type_accepts_known(resource_type):
     _validate_resource_type(resource_type)
 
 
-@pytest.mark.parametrize("bogus", ["", "Experiment", "workspaces", "run", "trace"])
+@pytest.mark.parametrize("bogus", ["", "Experiment", "workspaces", "runs", "traces"])
 def test_validate_resource_type_rejects_unknown(bogus):
     with pytest.raises(MlflowException, match="Invalid resource type"):
         _validate_resource_type(bogus)
@@ -156,19 +165,41 @@ def test_prompt_is_a_first_class_resource_type():
     assert "prompt" != "registered_model"
 
 
+def test_skill_is_a_first_class_resource_type():
+    assert RESOURCE_TYPE_SKILL in VALID_RESOURCE_TYPES
+    assert SKILL_REGISTRY_RESOURCE_TYPES == {RESOURCE_TYPE_SKILL}
+
+
 # ---- Scope-aware validator --------------------------------------------------
 
 
 def test_grantable_permission_sets_pin_simplified_model():
     """Pin the two-tier workspace model and the resource-grant set.
 
-    Workspace grants accept only USE / MANAGE; resource grants accept any of
-    READ / USE / EDIT / MANAGE (no NO_PERMISSIONS). These sets gate every
-    permission write through the store, so a regression here would silently
-    re-enable the old five-value-anywhere model.
+    Workspace grants accept only USE / MANAGE. Resource grants accept
+    READ / USE / EDIT / MANAGE plus DENY, an absolute deny.
+    ``NO_PERMISSIONS`` stays excluded: an absent grant plus ``default_permission``
+    already expresses "no access". These sets gate every permission write through the
+    store, so a regression here would silently re-enable the old
+    five-value-anywhere model.
     """
     assert WORKSPACE_GRANTABLE_PERMISSIONS == {USE.name, MANAGE.name}
-    assert RESOURCE_GRANTABLE_PERMISSIONS == {READ.name, USE.name, EDIT.name, MANAGE.name}
+    assert RESOURCE_GRANTABLE_PERMISSIONS == {
+        READ.name,
+        USE.name,
+        EDIT.name,
+        MANAGE.name,
+        DENY.name,
+    }
+    # DENY is NOT grantable workspace-wide: an admin-wide veto has no use case and
+    # would be unremovable once roles relied on it.
+    assert DENY.name not in WORKSPACE_GRANTABLE_PERMISSIONS
+    assert SKILL_REGISTRY_GRANTABLE_PERMISSIONS == {
+        READ.name,
+        EDIT.name,
+        MANAGE.name,
+        DENY.name,
+    }
 
 
 @pytest.mark.parametrize(
@@ -183,9 +214,27 @@ def test_validate_resource_grant_accepts_grantable(permission):
     _validate_permission_for_resource_type(permission, "mcp_server")
 
 
+@pytest.mark.parametrize("permission", [READ.name, EDIT.name, MANAGE.name, DENY.name])
+def test_validate_skill_resource_grant_accepts_rbac_tiers(permission):
+    _validate_permission_for_resource_type(permission, RESOURCE_TYPE_SKILL)
+
+
+def test_validate_skill_resource_grant_rejects_use():
+    with pytest.raises(MlflowException, match="Skill Registry grants accept only"):
+        _validate_permission_for_resource_type(USE.name, RESOURCE_TYPE_SKILL)
+
+
 @pytest.mark.parametrize(
     "resource_type",
-    ["experiment", "registered_model", "prompt", "scorer", "gateway_endpoint", "mcp_server"],
+    [
+        "experiment",
+        "registered_model",
+        "prompt",
+        "scorer",
+        "gateway_endpoint",
+        "mcp_server",
+        RESOURCE_TYPE_SKILL,
+    ],
 )
 def test_validate_resource_grant_rejects_no_permissions(resource_type):
     with pytest.raises(MlflowException, match="NO_PERMISSIONS"):
@@ -220,4 +269,48 @@ def test_validate_permission_for_resource_type_rejects_unknown():
     with pytest.raises(MlflowException, match="Invalid permission"):
         _validate_permission_for_resource_type("ADMIN", "experiment")
     with pytest.raises(MlflowException, match="Invalid resource type"):
-        _validate_permission_for_resource_type(USE.name, "trace")
+        _validate_permission_for_resource_type(USE.name, "traces")
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "resource_id", "expected"),
+    [
+        (RESOURCE_TYPE_EXPERIMENT, "1", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, "01", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, " 1", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, "+1", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, "1_0", "10"),
+        (RESOURCE_TYPE_EXPERIMENT, "-0", "0"),
+        (RESOURCE_TYPE_EXPERIMENT, "\uff11", "1"),
+        (RESOURCE_TYPE_EXPERIMENT, "*", "*"),
+        (RESOURCE_TYPE_EXPERIMENT, "not-a-number", "not-a-number"),
+        (RESOURCE_TYPE_SCORER, "01/my%2Fscorer", "1/my%2Fscorer"),
+        (RESOURCE_TYPE_SCORER, "1/name", "1/name"),
+        (RESOURCE_TYPE_SCORER, "01", "1"),
+        (RESOURCE_TYPE_REGISTERED_MODEL, "01", "01"),
+    ],
+)
+def test_canonical_resource_id(resource_type, resource_id, expected):
+    assert canonical_resource_id(resource_type, resource_id) == expected
+
+
+@pytest.mark.parametrize(
+    ("resource_pattern", "resource_type", "resource_id", "expected"),
+    [
+        ("1", RESOURCE_TYPE_EXPERIMENT, "01", True),
+        # Grants are written in the canonical form, so only the request's ID is converted.
+        ("01", RESOURCE_TYPE_EXPERIMENT, "1", False),
+        ("1", RESOURCE_TYPE_EXPERIMENT, "2", False),
+        ("1/name", RESOURCE_TYPE_SCORER, "+1/name", True),
+        ("1/name", RESOURCE_TYPE_SCORER, "1/other", False),
+        ("1", RESOURCE_TYPE_REGISTERED_MODEL, "01", False),
+        ("1", RESOURCE_TYPE_EXPERIMENT, None, False),
+        # Values from a JSON body that the tracking store would reject.
+        ("1", RESOURCE_TYPE_EXPERIMENT, ["1"], False),
+        ("1", RESOURCE_TYPE_EXPERIMENT, float("inf"), False),
+    ],
+)
+def test_matches_compares_experiment_ids_as_the_tracking_store_reads_them(
+    resource_pattern, resource_type, resource_id, expected
+):
+    assert matches(resource_pattern, resource_type, resource_id) is expected

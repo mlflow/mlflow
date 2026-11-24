@@ -23,7 +23,7 @@ pip install mlflow
 mlflow server --port 5000
 ```
 
-Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
+Self-hosting MLflow server requires Python 3.11 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
 
 Run the interactive setup. It registers the Codex `notify` hook and writes your tracking URI / experiment ID into Codex's config directory:
 
@@ -63,6 +63,8 @@ Environment variables are convenient for one-off overrides, e.g. switching betwe
 ```bash
 MLFLOW_TRACKING_URI=databricks MLFLOW_EXPERIMENT_ID=123456789 codex "..."
 ```
+
+The root span records the OpenTelemetry `service.name` attribute as `codex`. Standard Git repository URL, commit, and branch metadata are collected automatically by `@mlflow/core` when Codex runs inside a Git repository.
 
 ## Documentation 📘
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import cast
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import BudgetAction as ProtoBudgetAction
@@ -30,7 +31,8 @@ class BudgetDurationUnit(str, Enum):
             return None
 
     def to_proto(self) -> ProtoBudgetDurationUnit:
-        return ProtoBudgetDurationUnit.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(ProtoBudgetDurationUnit, ProtoBudgetDurationUnit.Value(self.value))
 
 
 class BudgetTargetScope(str, Enum):
@@ -39,6 +41,7 @@ class BudgetTargetScope(str, Enum):
     GLOBAL = "GLOBAL"
     WORKSPACE = "WORKSPACE"
     ENDPOINT = "ENDPOINT"
+    USER = "USER"
 
     @classmethod
     def from_proto(cls, proto: ProtoBudgetTargetScope) -> BudgetTargetScope | None:
@@ -48,7 +51,8 @@ class BudgetTargetScope(str, Enum):
             return None
 
     def to_proto(self) -> ProtoBudgetTargetScope:
-        return ProtoBudgetTargetScope.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(ProtoBudgetTargetScope, ProtoBudgetTargetScope.Value(self.value))
 
 
 class BudgetAction(str, Enum):
@@ -65,7 +69,8 @@ class BudgetAction(str, Enum):
             return None
 
     def to_proto(self) -> ProtoBudgetAction:
-        return ProtoBudgetAction.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(ProtoBudgetAction, ProtoBudgetAction.Value(self.value))
 
 
 class BudgetUnit(str, Enum):
@@ -81,7 +86,8 @@ class BudgetUnit(str, Enum):
             return None
 
     def to_proto(self) -> ProtoBudgetUnit:
-        return ProtoBudgetUnit.Value(self.value)
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(ProtoBudgetUnit, ProtoBudgetUnit.Value(self.value))
 
 
 @dataclass
@@ -91,7 +97,7 @@ class BudgetDuration:
     unit: BudgetDurationUnit
     value: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if isinstance(self.unit, str):
             self.unit = BudgetDurationUnit(self.unit)
 
@@ -103,8 +109,10 @@ class BudgetDuration:
 
     @classmethod
     def from_proto(cls, proto: ProtoBudgetDuration) -> BudgetDuration:
+        # Well-formed protos always carry concrete enum values, so the
+        # optional results of the enum converters cannot occur here.
         return cls(
-            unit=BudgetDurationUnit.from_proto(proto.unit),
+            unit=cast(BudgetDurationUnit, BudgetDurationUnit.from_proto(proto.unit)),
             value=proto.value,
         )
 
@@ -115,14 +123,14 @@ class GatewayBudgetPolicy(_MlflowObject):
     Represents a budget policy for the AI Gateway.
 
     Budget policies set limits with fixed time windows,
-    supporting global, per-workspace, or per-endpoint scoping.
+    supporting global, per-workspace, per-endpoint, or per-user scoping.
 
     Args:
         budget_policy_id: Unique identifier for this budget policy.
         budget_unit: Budget measurement unit (e.g. USD).
         budget_amount: Budget limit amount.
         duration: Fixed time window (unit + length pair).
-        target_scope: Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT).
+        target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER).
         budget_action: Action when budget is exceeded (ALERT, REJECT).
         created_at: Timestamp (milliseconds) when the policy was created.
         last_updated_at: Timestamp (milliseconds) when the policy was last updated.
@@ -130,8 +138,8 @@ class GatewayBudgetPolicy(_MlflowObject):
         last_updated_by: User ID who last updated the policy.
         workspace: Workspace that owns the policy.
         target_value: Target the policy applies to, interpreted per ``target_scope``:
-            a gateway endpoint ID for ENDPOINT scope. ``None`` for GLOBAL and
-            WORKSPACE scopes.
+            a gateway endpoint ID for ENDPOINT scope, a username for
+            USER scope. ``None`` for GLOBAL and WORKSPACE scopes.
     """
 
     budget_policy_id: str
@@ -147,7 +155,7 @@ class GatewayBudgetPolicy(_MlflowObject):
     workspace: str | None = None
     target_value: str | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.workspace = resolve_entity_workspace_name(self.workspace)
         if isinstance(self.budget_unit, str):
             self.budget_unit = BudgetUnit(self.budget_unit)
@@ -156,7 +164,7 @@ class GatewayBudgetPolicy(_MlflowObject):
         if isinstance(self.budget_action, str):
             self.budget_action = BudgetAction(self.budget_action)
 
-    def to_proto(self):
+    def to_proto(self) -> ProtoGatewayBudgetPolicy:
         proto = ProtoGatewayBudgetPolicy()
         proto.budget_policy_id = self.budget_policy_id
         proto.budget_unit = self.budget_unit.to_proto()
@@ -173,14 +181,16 @@ class GatewayBudgetPolicy(_MlflowObject):
         return proto
 
     @classmethod
-    def from_proto(cls, proto):
+    def from_proto(cls, proto: ProtoGatewayBudgetPolicy) -> GatewayBudgetPolicy:
+        # Well-formed protos always carry concrete enum values, so the
+        # optional results of the enum converters cannot occur here.
         return cls(
             budget_policy_id=proto.budget_policy_id,
-            budget_unit=BudgetUnit.from_proto(proto.budget_unit),
+            budget_unit=cast(BudgetUnit, BudgetUnit.from_proto(proto.budget_unit)),
             budget_amount=proto.budget_amount,
             duration=BudgetDuration.from_proto(proto.duration),
-            target_scope=BudgetTargetScope.from_proto(proto.target_scope),
-            budget_action=BudgetAction.from_proto(proto.budget_action),
+            target_scope=cast(BudgetTargetScope, BudgetTargetScope.from_proto(proto.target_scope)),
+            budget_action=cast(BudgetAction, BudgetAction.from_proto(proto.budget_action)),
             created_by=proto.created_by or None,
             created_at=proto.created_at,
             last_updated_by=proto.last_updated_by or None,

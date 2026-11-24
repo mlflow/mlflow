@@ -374,6 +374,30 @@ _VIRTUALENV_ENVS_DIR = "virtualenv_envs"
 _PYENV_ROOT_DIR = "pyenv_root"
 
 
+def _normalize_env_symlinks(env_root_dir):
+    """Make environment symlinks relocatable before distributing an archive."""
+    env_root = Path(env_root_dir).resolve()
+    for directory, subdirectories, files in os.walk(env_root):
+        for name in subdirectories + files:
+            path = Path(directory) / name
+            if not path.is_symlink():
+                continue
+
+            target = path.resolve()
+            # Spark's safe archive extraction requires relative symlinks whose targets
+            # stay inside the archive. External targets must be bundled as regular files.
+            if target.is_relative_to(env_root):
+                if path.readlink().is_absolute():
+                    path.unlink()
+                    path.symlink_to(os.path.relpath(target, path.parent))
+            else:
+                path.unlink()
+                if target.is_dir():
+                    shutil.copytree(target, path)
+                else:
+                    shutil.copy2(target, path)
+
+
 def _get_or_create_virtualenv(
     local_model_path,
     env_id=None,

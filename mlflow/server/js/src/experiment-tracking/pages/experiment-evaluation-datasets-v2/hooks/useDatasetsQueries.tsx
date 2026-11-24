@@ -5,7 +5,7 @@
  * that returns ISO timestamps and parsed `inputs` / `expectations` dictionaries. OSS speaks
  * a different REST shape — ms-since-epoch numbers and JSON-string blobs — so this file owns
  * the translation in one place. Every v2 component that needs dataset/record data imports
- * from here; nothing else in v2 talks to fetchAPI directly.
+ * from here, including the paginated list query.
  */
 import { useMutation, useQuery, useQueryClient } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
@@ -49,9 +49,9 @@ export interface DatasetRecord {
 
 /**
  * OSS REST shapes — these are what the `/ajax-api/3.0/mlflow/datasets/*` endpoints emit and
- * accept. Kept private; callers in v2 never see them.
+ * accept. Converted to the UI shape before being returned by queries.
  */
-interface OssDataset {
+export interface OssDataset {
   dataset_id: string;
   name?: string;
   tags?: string;
@@ -105,7 +105,7 @@ const msToIso = (ms?: number): string => (typeof ms === 'number' ? new Date(ms).
 
 const orEmpty = (value: { [key: string]: any } | undefined): { [key: string]: any } => value ?? {};
 
-const ossDatasetToUniverse = (raw: OssDataset): Dataset => ({
+export const ossDatasetToUniverse = (raw: OssDataset): Dataset => ({
   dataset_id: raw.dataset_id,
   name: raw.name,
   digest: raw.digest,

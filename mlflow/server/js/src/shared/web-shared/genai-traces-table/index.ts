@@ -46,6 +46,7 @@ export { GenAITracesTableContext, GenAITracesTableProvider } from './GenAITraces
 export { MarkdownConverterProvider as GenAiTracesMarkdownConverterProvider } from './utils/MarkdownUtils';
 
 export { RunColorCircle } from './components/RunColorCircle';
+export { DetectIssuesButton } from './components/DetectIssuesButton';
 
 export { useSelectedColumns } from './hooks/useGenAITracesUIState';
 export { useTableSortURL } from './hooks/useTableSortURL';
@@ -85,7 +86,10 @@ export {
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
   RESULT_ASSESSMENT_NAME,
+  MLFLOW_SOURCE_RUN_KEY,
 } from './utils/TraceUtils';
+
+export { RunName } from './cellRenderers/RunName';
 
 export {
   INPUTS_COLUMN_ID,
@@ -142,7 +146,11 @@ export { groupTracesBySession } from './sessions-table/utils';
 export { GenAITracesTableBodySkeleton } from './GenAITracesTableBodySkeleton';
 export { useGetTraces } from './hooks/useGetTraces';
 export { useGetTrace } from './hooks/useGetTrace';
-export { ActiveEvaluationContext, useActiveEvaluation } from './hooks/useActiveEvaluation';
+export {
+  ActiveEvaluationContext,
+  SELECTED_EVALUATION_ID_PARAM,
+  useActiveEvaluation,
+} from './hooks/useActiveEvaluation';
 export { isSqlWarehouseTimeoutError } from './utils/ErrorUtils';
 export {
   GenAiTraceTableRowSelectionProvider,

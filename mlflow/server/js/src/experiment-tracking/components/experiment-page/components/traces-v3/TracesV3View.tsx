@@ -42,6 +42,7 @@ const TracesV3Content = ({
         endpointName={endpointName || ''}
         timeRange={timeRange}
         drawerWidth="80vw"
+        enableSavedViews
         toolbarCornerAddons={
           experimentId && <TracesV3SavedViewsButton experimentId={experimentId} savedViews={savedViews} />
         }

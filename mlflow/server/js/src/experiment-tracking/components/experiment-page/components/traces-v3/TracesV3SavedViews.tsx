@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useDispatch } from 'react-redux';
 import type { EvaluationsOverviewTableSort } from '@databricks/web-shared/genai-traces-table';
@@ -46,10 +46,10 @@ import { SavedViewsMenu, type SavedViewMenuItem } from '../saved-views/SavedView
 const TRACE_SAVED_VIEW_TAG_PREFIX = 'mlflow.traceViewState.';
 export const TRACE_SHARE_URL_PARAM_KEY = 'traceViewShareKey';
 
-// Experiment-tag values are capped at MAX_EXPERIMENT_TAG_VAL_LENGTH (5000 chars) server-side; a
+// Experiment-tag values are capped at MAX_EXPERIMENT_TAG_VAL_LENGTH (20000 chars) server-side; a
 // write above the ceiling HARD-THROWS in the tracking store rather than truncating, so we preflight
 // the encoded envelope length before dispatching.
-const MAX_TAG_VALUE_LENGTH = 5000;
+const MAX_TAG_VALUE_LENGTH = 20000;
 
 // Client-side cap (mirrors the runs MAX_SAVED_VIEWS): each view is a tag and `get-experiment`
 // returns every tag value, so the count is bounded to keep that payload small. Best-effort; tags
@@ -60,6 +60,16 @@ export const MAX_SAVED_VIEWS = 40;
 // filter); searchQuery / isGroupedBySession are in-memory in TracesV3Logs and not yet captured.
 const SINGLE_VALUE_KEYS = ['selectedColumns', 'sort', 'viewState', 'startTimeLabel', 'startTime', 'endTime'] as const;
 const MULTI_VALUE_KEYS = ['filter'] as const;
+
+// Whether the URL carries any serialized view state (columns, sort, time range, filter, ...). A
+// genuine share link built by buildTraceViewQuery always includes at least one of these; a bare or
+// garbage share key has none. Derived from the same key lists as the capture/build path so the two
+// can't drift — callers use this to decide whether a share key is actually previewing a view.
+// Presence is `!== null`, not truthiness, to match captureTraceViewState: an empty-string value
+// (e.g. `selectedColumns=` when every column is deselected) is a captured value, not "absent".
+export const urlHasCapturedTraceViewState = (params: URLSearchParams): boolean =>
+  SINGLE_VALUE_KEYS.some((key) => params.get(key) !== null) ||
+  MULTI_VALUE_KEYS.some((key) => params.getAll(key).length > 0);
 
 type CapturedTraceViewState = {
   single: Partial<Record<(typeof SINGLE_VALUE_KEYS)[number], string>>;
@@ -340,6 +350,25 @@ export const useTraceSavedViews = ({ experimentId }: { experimentId: string }) =
 
   const activeShareKey = searchParams.get(TRACE_SHARE_URL_PARAM_KEY);
 
+  // Opening a saved-view link (paste, back/forward) in a tab whose experiment was loaded before the
+  // view was saved reads a stale Apollo tag cache: a client-side nav doesn't refetch. The view itself
+  // still applies (its columns/sort ride in the URL), but the Views button/list — which derive from
+  // `views` (the tags) — wouldn't reflect it. When the active share key isn't in our list, refetch the
+  // experiment ONCE for that key so the list/label catch up. Guarded per-key so a genuinely-missing
+  // view doesn't refetch on a loop.
+  const refetchedShareKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeShareKey) {
+      refetchedShareKeyRef.current = null;
+      return;
+    }
+    const isKnown = views.some((view) => view.id === activeShareKey);
+    if (!isKnown && refetchedShareKeyRef.current !== activeShareKey) {
+      refetchedShareKeyRef.current = activeShareKey;
+      refetch();
+    }
+  }, [activeShareKey, views, refetch]);
+
   return { views, canModify, atCap, saveView, deleteView, openView, buildShareUrl, activeShareKey };
 };
 
@@ -585,7 +614,7 @@ export const TracesV3SavedViewsButton = ({
             )}
           </Button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Content align="end">
+        <DropdownMenu.Content align="start">
           <SavedViewsMenu
             componentId="mlflow.traces.saved_views"
             testIdPrefix="trace-saved-views"

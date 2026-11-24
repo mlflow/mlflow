@@ -125,6 +125,7 @@ async def test_completions():
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 

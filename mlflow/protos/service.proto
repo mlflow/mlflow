@@ -516,10 +516,14 @@ service MlflowService {
 
   // Generate a presigned URL for uploading an artifact directly to cloud storage.
   // The server uses its own credentials to sign the URL, enabling clients to upload
-  // artifacts without needing direct cloud storage write permissions.
+  // artifacts without needing direct cloud storage write permissions. Supports both
+  // run artifacts (run_id) and logged model artifacts (model_id).
   //
   // Consumed by external artifact repository plugins
   // (e.g. https://github.com/aws/sagemaker-mlflow).
+  //
+  // Logged-model uploads require a client that sends model_id and a server that
+  // supports it. Upgrading only one side does not enable this flow.
   rpc createPresignedUploadUrl(CreatePresignedUploadUrl) returns (CreatePresignedUploadUrl.Response) {
     option (rpc) = {
       endpoints: [
@@ -3320,7 +3324,7 @@ message CreateExperiment {
 
   // A collection of tags to set on the experiment. Maximum tag size and number of tags per request
   // depends on the storage backend. All storage backends are guaranteed to support tag keys up
-  // to 250 bytes in size and tag values up to 5000 bytes in size. All storage backends are also
+  // to 250 bytes in size and tag values up to 20000 bytes in size. All storage backends are also
   // guaranteed to support up to 20 tags per request.
   repeated ExperimentTag tags = 3;
 
@@ -3562,7 +3566,7 @@ message SetExperimentTag {
   optional string key = 2 [(validate_required) = true];
 
   // String value of the tag being logged. Maximum size depends on storage backend.
-  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
+  // All storage backends are guaranteed to support tag values up to 20000 bytes in size.
   optional string value = 3 [(validate_required) = true];
 
   message Response {}
@@ -3704,15 +3708,23 @@ message ListArtifacts {
 message CreatePresignedUploadUrl {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Run ID that owns the artifact. Must be provided.
+  // ID of the run that owns the artifact. Exactly one of run_id and model_id
+  // must be provided.
   optional string run_id = 1;
 
-  // Relative path within the run's artifact directory (e.g. "models/model.pkl").
-  // Must be provided.
+  // Relative path within the owning resource's artifact directory
+  // (e.g. "models/model.pkl"). Must be provided.
   optional string path = 2;
 
   // URL expiration time in seconds (default: 900).
   optional int64 expiration = 3;
+
+  // ID of the logged model that owns the artifact, for artifacts stored under a
+  // logged model's artifact location (e.g. "<experiment>/models/<model_id>/artifacts")
+  // rather than a run's. Exactly one of run_id and model_id must be provided.
+  // Clients must populate model_id for logged-model artifacts; sending a logged
+  // model ID through run_id is not supported.
+  optional string model_id = 4;
 
   message Response {
     // Presigned URL for direct artifact upload.
@@ -4083,6 +4095,12 @@ message BatchGetTraces {
   // ID of the traces to fetch. Must be provided.
   repeated string trace_ids = 1;
 
+  // Optional list of experiment IDs to scope the query. When provided, only
+  // traces belonging to these experiments are returned. Not supported when
+  // proxying to a Databricks-hosted backend, since that API has no
+  // corresponding field.
+  repeated string experiment_ids = 2;
+
   message Response {
     // The fetched trace information.
     repeated Trace traces = 1;
@@ -4094,6 +4112,12 @@ message BatchGetTraceInfos {
 
   // IDs of the traces to fetch. Must be provided.
   repeated string trace_ids = 1;
+
+  // Optional list of experiment IDs to scope the query. When provided, only
+  // traces belonging to these experiments are returned. Not supported when
+  // proxying to a Databricks-hosted backend, since that API has no
+  // corresponding field.
+  repeated string experiment_ids = 2;
 
   message Response {
     // The fetched trace metadata.
@@ -5174,13 +5198,21 @@ message RegisterScorer {
   }
 }
 
-// List all scorers, optionally scoped to a single experiment.
+// List all scorers, optionally scoped to one or more experiments.
 message ListScorers {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // The experiment ID. If empty, returns scorers across all experiments
-  // in the active workspace (used by the admin-UI scorer picker).
+  // A single experiment ID. Kept for backward compatibility; prefer
+  // ``experiment_ids`` for multi-experiment queries. Mutually exclusive
+  // with ``experiment_ids`` -- specifying both is an error.
   optional string experiment_id = 1;
+
+  // Optional list of experiment IDs to scope the query. When provided, only
+  // scorers from these experiments are returned. Mutually exclusive with
+  // ``experiment_id`` -- specifying both is an error.
+  //
+  // Not supported against a Databricks-hosted backend.
+  repeated string experiment_ids = 2;
 
   message Response {
     // List of scorer entities (latest version for each scorer name).
@@ -5572,6 +5604,8 @@ enum BudgetTargetScope {
   WORKSPACE = 2;
   // Applies only to requests routed to a specific gateway endpoint
   ENDPOINT = 3;
+  // Applies only to requests made by a specific authenticated user
+  USER = 4;
 }
 
 // Action to take when a budget is exceeded
@@ -5809,7 +5843,7 @@ message GatewayBudgetPolicy {
   optional double budget_amount = 3;
   // Fixed time window (unit + length pair)
   optional BudgetDuration duration = 4;
-  // Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
+  // Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
   optional BudgetTargetScope target_scope = 5;
   // Action when budget is exceeded
   optional BudgetAction budget_action = 6;
@@ -5822,7 +5856,8 @@ message GatewayBudgetPolicy {
   // Last update timestamp in milliseconds
   optional int64 last_updated_at = 10;
   // Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
-  // for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+  // for ENDPOINT scope, a username for USER scope. Required for those
+  // scopes; unset for GLOBAL and WORKSPACE.
   optional string target_value = 11;
 }
 
@@ -5833,8 +5868,8 @@ message CreateGatewayBudgetPolicy {
   optional BudgetTargetScope target_scope = 4;
   optional BudgetAction budget_action = 5;
   optional string created_by = 6;
-  // Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
-  // scope.
+  // Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
+  // scope). Required for those scopes.
   optional string target_value = 7;
 
   message Response {
@@ -5858,8 +5893,8 @@ message UpdateGatewayBudgetPolicy {
   optional BudgetTargetScope target_scope = 5;
   optional BudgetAction budget_action = 6;
   optional string updated_by = 7;
-  // Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
-  // scope.
+  // Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
+  // scope). Required for those scopes.
   optional string target_value = 8;
 
   message Response {

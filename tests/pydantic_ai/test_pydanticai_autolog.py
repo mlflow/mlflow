@@ -27,6 +27,29 @@ def test_supported_v2_version_uses_v2_autologging(monkeypatch, version):
     setup_autologging.assert_called_once_with()
 
 
+def test_full_distribution_version_takes_precedence(monkeypatch):
+    version_lookup = mock.Mock(return_value=Version("2.15.0"))
+    monkeypatch.setattr(mlflow.pydantic_ai, "get_installed_version", version_lookup)
+
+    assert mlflow.pydantic_ai._get_pydantic_ai_version() == Version("2.15.0")
+    version_lookup.assert_called_once_with("pydantic-ai")
+
+
+def test_slim_distribution_version_uses_v2_autologging(monkeypatch):
+    versions = {"pydantic-ai-slim": Version("2.15.0")}
+    version_lookup = mock.Mock(side_effect=versions.get)
+    monkeypatch.setattr(mlflow.pydantic_ai, "get_installed_version", version_lookup)
+
+    with mock.patch.object(autolog_v2, "setup_autologging") as setup_autologging:
+        _call_autolog()
+
+    assert version_lookup.call_args_list == [
+        mock.call("pydantic-ai"),
+        mock.call("pydantic-ai-slim"),
+    ]
+    setup_autologging.assert_called_once_with()
+
+
 @pytest.mark.parametrize("version", ["2.0.0", "2.4.0"])
 def test_unsupported_v2_version_does_not_enable_autologging(monkeypatch, version):
     monkeypatch.setattr(

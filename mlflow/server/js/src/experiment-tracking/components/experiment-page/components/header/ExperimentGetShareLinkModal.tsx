@@ -40,11 +40,11 @@ type GetShareLinkModalProps = {
 
 type ShareableViewState = ExperimentPageSearchFacetsState & ExperimentPageUIState;
 
-// Experiment-tag values are capped at MAX_EXPERIMENT_TAG_VAL_LENGTH (5000 chars) server-side
+// Experiment-tag values are capped at MAX_EXPERIMENT_TAG_VAL_LENGTH (20000 chars) server-side
 // (mlflow/utils/validation.py); a write above the ceiling HARD-THROWS in the tracking store rather
 // than truncating, so we preflight the encoded envelope length and surface a clear error instead of
 // the generic "failed to save" that a rejected write would produce.
-const MAX_TAG_VALUE_LENGTH = 5000;
+const MAX_TAG_VALUE_LENGTH = 20000;
 
 // Client-side cap: each view is a tag and `get-experiment` returns every tag value, so the count
 // is bounded to keep that payload small. Best-effort; tags have no server-side count constraint.
@@ -177,7 +177,7 @@ export const ExperimentGetShareLinkModal = ({
       const compressedState = await serializePersistedState(state);
       const id = getUUID();
       const envelope = encodeSavedViewEnvelope(trimmed, compressedState, Date.now());
-      // Preflight the tag-value size: the backend rejects values over the 5000-char ceiling with a
+      // Preflight the tag-value size: the backend rejects values over the 20000-char ceiling with a
       // hard error, so catch it here and tell the user why rather than showing a generic failure.
       if (envelope.length > MAX_TAG_VALUE_LENGTH) {
         Utils.displayGlobalErrorNotification(

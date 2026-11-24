@@ -1,0 +1,7 @@
+# Repository paths that bot-generated patches (triage, resolve) may change, one prefix per line.
+# Changes elsewhere, such as dependencies, build configuration, CI, and agent instructions,
+# need a maintainer.
+mlflow/
+tests/
+docs/
+libs/typescript/

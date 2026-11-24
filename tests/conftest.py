@@ -43,6 +43,7 @@ from mlflow.tracing.provider import get_current_otel_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils import workspace_context, workspace_utils
 from mlflow.utils.os import is_windows
+from mlflow.utils.time import get_current_time_millis
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 from tests.autologging.fixtures import enable_test_mode
@@ -50,7 +51,9 @@ from tests.helper_functions import get_safe_port
 from tests.tracing.helper import purge_traces
 
 if not IS_TRACING_SDK_ONLY:
+    from mlflow.entities import Experiment, LifecycleStage
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
+    from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
     from mlflow.tracking.fluent import (
         _last_active_run_id,
         _reset_last_logged_model_id,
@@ -653,6 +656,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/statsmodels",
             "tests/tensorflow",
             "tests/transformers",
+            "tests/typesafe",
             "tests/xgboost",
             # Lazy loading test.
             "tests/test_mlflow_lazily_imports_ml_packages.py",
@@ -820,23 +824,23 @@ def remote_backend_for_tracing_sdk_test():
     # Start a remote backend to test mlflow-tracing package integration.
     with tempfile.TemporaryDirectory() as temp_dir:
         mlflow_root = os.path.dirname(os.path.dirname(__file__))
+        uv_run = [
+            "uv",
+            "run",
+            "--no-dev",
+            "--directory",
+            # Install from the dev version
+            mlflow_root,
+            "--with",
+            "setuptools<82",  # setuptools 82+ removed pkg_resources
+            "--with",
+            "litellm",  # Required for computing cost of LLM calls
+        ]
+        # Install the backend dependencies before starting the server so that the
+        # installation time doesn't count against the server's startup window below.
+        subprocess.check_call([*uv_run, "python", "-c", "pass"], cwd=temp_dir)
         with subprocess.Popen(
-            [
-                "uv",
-                "run",
-                "--no-dev",
-                "--directory",
-                # Install from the dev version
-                mlflow_root,
-                "--with",
-                "setuptools<82",  # setuptools 82+ removed pkg_resources
-                "--with",
-                "litellm",  # Required for computing cost of LLM calls
-                "mlflow",
-                "server",
-                "--port",
-                str(port),
-            ],
+            [*uv_run, "mlflow", "server", "--port", str(port)],
             cwd=temp_dir,
         ) as process:
             print("Starting mlflow server on port 5000")  # noqa: T201
@@ -1113,7 +1117,7 @@ def clean_up_envs():
         from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
         shutil.rmtree(_get_mlflow_virtualenv_root(), ignore_errors=True)
-        if not is_windows():
+        if not is_windows() and shutil.which("conda"):
             conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
             root_prefix = conda_info["root_prefix"]
             regex = re.compile(r"mlflow-\w{32,}")
@@ -1246,11 +1250,22 @@ def mock_s3_bucket():
     import boto3
     import moto
 
-    with moto.mock_s3():
-        bucket_name = "mock-bucket"
-        s3_client = boto3.client("s3")
-        s3_client.create_bucket(Bucket=bucket_name)
-        yield bucket_name
+    from mlflow.store.artifact.s3_artifact_repo import _cached_get_s3_client
+
+    # `_cached_get_s3_client` is a process-global lru_cache whose key does not include the
+    # resolved AWS credentials. A client cached by an earlier test on the same worker (e.g.
+    # created outside moto with no credentials) would otherwise be reused here and raise
+    # `NoCredentialsError`. Clear it again on teardown so clients created under moto's fake
+    # credentials don't leak into later tests.
+    _cached_get_s3_client.cache_clear()
+    try:
+        with moto.mock_s3():
+            bucket_name = "mock-bucket"
+            s3_client = boto3.client("s3")
+            s3_client.create_bucket(Bucket=bucket_name)
+            yield bucket_name
+    finally:
+        _cached_get_s3_client.cache_clear()
 
 
 @pytest.fixture
@@ -1301,14 +1316,16 @@ def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
         return db_path
 
     try:
-        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+        from mlflow.store.db.utils import _initialize_tables, create_sqlalchemy_engine_with_retry
     except ImportError:
         return db_path
 
     db_uri = f"sqlite:///{db_path}"
-    artifact_uri = (tmp_dir / "artifacts").as_uri()
-    store = SqlAlchemyStore(db_uri, artifact_uri)
-    store.engine.dispose()
+    engine = create_sqlalchemy_engine_with_retry(db_uri)
+    try:
+        _initialize_tables(engine)
+    finally:
+        engine.dispose()
 
     return db_path
 
@@ -1326,18 +1343,26 @@ def db_uri(cached_db: Path) -> Iterator[str]:
 
         if not IS_TRACING_SDK_ONLY and cached_db.exists():
             shutil.copy2(cached_db, db_path)
-            # `cached_db` is session-scoped, so the default experiment's
-            # `artifact_location` is baked in as an absolute path under the shared
-            # session dir. Copying only the DB would leave every test (and any
-            # `mlflow run` subprocess it spawns) writing artifacts into that one
-            # shared directory, which cross-contaminates and, once a subprocess
-            # leaves the tree read-only, fails later writes with EACCES. Repoint
-            # the artifact root at this test's own temp dir so each test is isolated.
+            # `cached_db` carries schema only, so create the Default experiment here, rooted
+            # in this test's own temp dir. Left to the store that opens the copy, it lands
+            # under `./mlruns` in the repo root, which every xdist worker shares and the
+            # autouse `clean_up_mlruns_directory` fixture deletes after each test.
             artifact_root = Path(tmp_dir) / "artifacts"
+            now = get_current_time_millis()
             with sqlite3.connect(db_path) as conn:
                 conn.execute(
-                    "UPDATE experiments SET artifact_location = ? WHERE experiment_id = 0",
-                    (artifact_root.joinpath("0").as_uri(),),
+                    "INSERT INTO experiments (experiment_id, name, artifact_location, "
+                    "lifecycle_stage, creation_time, last_update_time, workspace) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        int(DEFAULT_EXPERIMENT_ID),
+                        Experiment.DEFAULT_EXPERIMENT_NAME,
+                        artifact_root.joinpath(DEFAULT_EXPERIMENT_ID).as_uri(),
+                        LifecycleStage.ACTIVE,
+                        now,
+                        now,
+                        workspace_utils.DEFAULT_WORKSPACE_NAME,
+                    ),
                 )
 
         yield f"sqlite:///{db_path}"
@@ -1402,3 +1427,41 @@ def mock_litellm_cost():
 
     with mock.patch("litellm.cost_per_token", side_effect=calculate_cost, create=True) as mock_cost:
         yield mock_cost
+
+
+@pytest.fixture
+def limit_sqlite_variables(request):
+    def limit_engine(engine):
+        from sqlalchemy import event
+
+        if engine.dialect.name != "sqlite":
+            pytest.skip("SQLite parameter-limit regression")
+
+        def checkout(dbapi_connection, connection_record, connection_proxy):
+            if hasattr(dbapi_connection, "setlimit"):
+                connection_record.info["previous_variable_limit"] = dbapi_connection.setlimit(
+                    sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 999
+                )
+
+        def checkin(dbapi_connection, connection_record):
+            previous = connection_record.info.pop("previous_variable_limit", None)
+            if previous is not None and dbapi_connection is not None:
+                dbapi_connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, previous)
+
+        def check_parameters(conn, cursor, statement, parameters, context, executemany):
+            # Python 3.10 lacks setlimit; still verify every executed statement's budget.
+            if not executemany:
+                assert len(parameters) <= 999
+
+        listeners = [
+            ("checkout", checkout),
+            ("checkin", checkin),
+            ("before_cursor_execute", check_parameters),
+        ]
+        for name, listener in listeners:
+            event.listen(engine, name, listener)
+            request.addfinalizer(
+                lambda name=name, listener=listener: event.remove(engine, name, listener)
+            )
+
+    return limit_engine

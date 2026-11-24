@@ -30,6 +30,21 @@ TOTAL_TOKEN_KEYS: Sequence[str] = [
     "totalTokens",
 ]
 
+# Cache token fields reported when prompt caching is active. The variants cover the
+# Converse API (camelCase), Anthropic-native InvokeModel bodies (snake_case) and
+# Nova-native InvokeModel bodies (TokenCount suffix).
+CACHE_READ_TOKEN_KEYS: Sequence[str] = [
+    "cache_read_input_tokens",
+    "cacheReadInputTokens",
+    "cacheReadInputTokenCount",
+]
+
+CACHE_CREATION_TOKEN_KEYS: Sequence[str] = [
+    "cache_creation_input_tokens",
+    "cacheWriteInputTokens",
+    "cacheWriteInputTokenCount",
+]
+
 # Common documentation for token key mappings used by parsing functions
 _USAGE_DOCS = """The provider-specific usage dictionary. This function will attempt to
             extract token usage values using a variety of possible key names, including:
@@ -37,7 +52,13 @@ _USAGE_DOCS = """The provider-specific usage dictionary. This function will atte
                 - prompt_tokens / promptTokens: Also mapped as input token count
                 - output_tokens / outputTokens: Output token count
                 - completion_tokens / completionTokens: Also mapped as output token count
-                - total_tokens / totalTokens: Total token count (input + output)"""
+                - total_tokens / totalTokens: Total token count (input + output)
+                - cache_read_input_tokens / cacheReadInputTokens / cacheReadInputTokenCount:
+                  Tokens read from the prompt cache
+                - cache_creation_input_tokens / cacheWriteInputTokens / cacheWriteInputTokenCount:
+                  Tokens written to the prompt cache
+                - cache_creation.ephemeral_1h_input_tokens / cacheDetails entries with
+                  ttl "1h": The portion of the cache write tokens with a 1-hour TTL"""
 
 
 def _validate_usage_input(usage_data: Any) -> bool:
@@ -58,6 +79,26 @@ def _extract_token_value_by_keys(d: dict[str, Any], names: Sequence[str]) -> int
     return next((d[name] for name in names if name in d and isinstance(d[name], int)), None)
 
 
+def _extract_1h_cache_creation_tokens(usage_data: dict[str, Any]) -> int | None:
+    match usage_data:
+        # Anthropic-native InvokeModel bodies
+        case {"cache_creation": {"ephemeral_1h_input_tokens": int(tokens)}}:
+            return tokens
+        # Converse API, which breaks cacheWriteInputTokens down per TTL
+        case {"cacheDetails": list(details)}:
+            return sum(
+                detail["inputTokens"]
+                for detail in details
+                if isinstance(detail, dict)
+                and detail.get("ttl") == "1h"
+                and isinstance(detail.get("inputTokens"), int)
+            )
+        # Usage already standardized by parse_partial_token_usage_from_response (streaming)
+        case {TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR: int(tokens)}:
+            return tokens
+    return None
+
+
 def capture_exception(logging_message: str):
     """
     A decorator to capture exceptions during a function execution.
@@ -69,7 +110,7 @@ def capture_exception(logging_message: str):
                 return func(*args, **kwargs)
             except Exception:
                 _logger.debug(logging_message)
-                if _MLFLOW_TESTING:
+                if _MLFLOW_TESTING.get():
                     raise
 
         return wrapper
@@ -125,8 +166,26 @@ def parse_complete_token_usage_from_response(
     else:
         return None  # Incomplete usage without output tokens
 
-    # Extract or calculate total tokens
-    if (total_tokens := _extract_token_value_by_keys(usage_data, TOTAL_TOKEN_KEYS)) is not None:
+    # Extract cache token counts, present when prompt caching is active
+    cache_read = _extract_token_value_by_keys(usage_data, CACHE_READ_TOKEN_KEYS)
+    cache_creation = _extract_token_value_by_keys(usage_data, CACHE_CREATION_TOKEN_KEYS)
+    if cache_read is not None:
+        token_usage_data[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+    if cache_creation is not None:
+        token_usage_data[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+    if (above_1hr := _extract_1h_cache_creation_tokens(usage_data)) is not None:
+        token_usage_data[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
+
+    if cache_total := (cache_read or 0) + (cache_creation or 0):
+        # Bedrock reports input tokens excluding tokens read from or written to the
+        # cache. Normalize input to include them, consistent with the anthropic flavor
+        # and cost_per_token(), and recompute the total rather than trusting the
+        # reported one, whose cache accounting is not documented.
+        token_usage_data[TokenUsageKey.INPUT_TOKENS] += cache_total
+        token_usage_data[TokenUsageKey.TOTAL_TOKENS] = (
+            token_usage_data[TokenUsageKey.INPUT_TOKENS] + output_tokens
+        )
+    elif (total_tokens := _extract_token_value_by_keys(usage_data, TOTAL_TOKEN_KEYS)) is not None:
         token_usage_data[TokenUsageKey.TOTAL_TOKENS] = total_tokens
     else:
         # Calculate total as input + output
@@ -162,6 +221,18 @@ def parse_partial_token_usage_from_response(usage_data: dict[str, Any]) -> dict[
     # Try to extract total token count.
     if (total_tokens := _extract_token_value_by_keys(usage_data, TOTAL_TOKEN_KEYS)) is not None:
         token_usage_data[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+    # Capture cache token counts as is. The streaming wrappers buffer partial results
+    # and run parse_complete_token_usage_from_response over them at stream close, which
+    # is where the cache-aware input and total normalization happens exactly once.
+    if (cache_read := _extract_token_value_by_keys(usage_data, CACHE_READ_TOKEN_KEYS)) is not None:
+        token_usage_data[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+    if (
+        cache_creation := _extract_token_value_by_keys(usage_data, CACHE_CREATION_TOKEN_KEYS)
+    ) is not None:
+        token_usage_data[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+    if (above_1hr := _extract_1h_cache_creation_tokens(usage_data)) is not None:
+        token_usage_data[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS_ABOVE_1HR] = above_1hr
 
     # If no token usage data was found, return None. Otherwise, return the partial dictionary.
     return token_usage_data or None

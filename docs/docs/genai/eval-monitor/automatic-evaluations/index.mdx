@@ -46,7 +46,8 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 
 :::note
 
-- Automatic evaluation only supports [LLM judges](/genai/eval-monitor/scorers/#llms-as-judges). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom) or [`Scorer` class](/genai/eval-monitor/scorers/custom/#define-scorers-with-the-scorer-class)) are not supported. Use [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge).
+- Automatic evaluation supports [LLM judges](/genai/eval-monitor/scorers/#llms-as-judges). Use [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined) or create custom judges with [`make_judge()`](/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge). Code-based scorers (using the [`@scorer` decorator](/genai/eval-monitor/scorers/custom) or [`Scorer` class](/genai/eval-monitor/scorers/custom/#define-scorers-with-the-scorer-class)) are not supported.
+  - The exception is a self-hosted server that its administrator has set up to [run code-based scorers in job containers](/self-hosting/job-containers) (experimental). It runs `@scorer` scorers in containers that have no network access, and you start them [the same way as LLM judges](/self-hosting/job-containers#turn-on-automatic-evaluation-for-a-code-based-scorer). The `Scorer` class is still not supported.
 - When a judge is created or enabled, it evaluates traces and sessions that are **at most one hour old**. Updating a judge's configuration does not trigger re-evaluation of previously assessed traces.
   :::
 
@@ -86,7 +87,7 @@ These examples show how to set up LLM judges that automatically evaluate traces 
 </TabItem>
 <TabItem value="sdk" label="SDK">
 
-For more details about the APIs used in this example, see <APILink fn="mlflow.genai.scorers.Scorer.start" />, <APILink fn="mlflow.genai.scorers.Scorer.update" />, and <APILink fn="mlflow.genai.scorers.Scorer.stop" />.
+For more details about the APIs used in this example, see <APILink fn="mlflow.genai.Scorer.start" />, <APILink fn="mlflow.genai.Scorer.update" />, and <APILink fn="mlflow.genai.Scorer.stop" />.
 
 **1. Specify the experiment for automatic evaluation**
 
@@ -140,7 +141,7 @@ judge.stop()  # Or, disable the judge
 
 ## Viewing Results
 
-Assessments from automatic evaluation appear directly in the MLflow UI. For traces, assessments typically appear within a minute or two of logging. Multi-turn sessions are evaluated after 5 minutes of inactivity (no new traces have been added to the session) by default—this is <APILink fn="mlflow.environment_variables.MLFLOW_ONLINE_SCORING_DEFAULT_SESSION_COMPLETION_BUFFER_SECONDS">configurable</APILink>.
+Assessments from automatic evaluation appear directly in the MLflow UI after scheduling and evaluation complete.
 
 Navigate to your experiment in the MLflow UI to see results.
 
@@ -189,6 +190,12 @@ filter_string = "metadata.environment = 'production'"
 :::note
 For session-level evaluation, filters apply to the **first trace** in the session.
 :::
+
+### Trace-Level Evaluation
+
+Automatic evaluation can assess individual traces.
+
+- **Trace completion**: A trace becomes eligible for automatic evaluation 5 minutes after it starts by default. Configure the <APILink fn="mlflow.environment_variables.MLFLOW_ONLINE_SCORING_DEFAULT_TRACE_COMPLETION_BUFFER_SECONDS">trace completion buffer</APILink> to exceed the expected trace duration; traces that remain in progress longer than the buffer can be skipped
 
 ### Session-Level Evaluation
 

@@ -66,9 +66,16 @@ def convert_message_to_mlflow_chat(message: BaseModel | dict[str, Any]) -> ChatM
                 role = "tool"
                 tool_call_id = content_block["tool_use_id"]
                 if result_content := content_block.get("content"):
-                    contents.append(_parse_content(result_content))
+                    # `content` can be either a string or a list of content blocks
+                    if isinstance(result_content, list):
+                        contents.extend(_parse_content(c) for c in result_content)
+                    else:
+                        contents.append(_parse_content(result_content))
                 else:
                     contents.append(TextContentPart(text="", type="text"))
+            elif content_type == "redacted_thinking":
+                # Redacted thinking blocks only carry opaque encrypted data with no readable text.
+                continue
             else:
                 contents.append(_parse_content(content_block))
 
@@ -108,7 +115,7 @@ def _parse_content(content: str | dict[str, Any]) -> TextContentPart | ImageCont
         return TextContentPart(text=content["thinking"], type="text")
     else:
         raise MlflowException.invalid_parameter_value(
-            f"Unknown content type: {content_type['type']}. Please make sure the message "
+            f"Unknown content type: {content_type}. Please make sure the message "
             "is a valid Anthropic message object. If it is a valid type, contact to the "
             "MLflow maintainer via https://github.com/mlflow/mlflow/issues/new/choose for "
             "requesting support for a new message type."

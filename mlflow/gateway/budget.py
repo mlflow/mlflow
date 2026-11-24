@@ -18,6 +18,7 @@ from mlflow.gateway.tracing_utils import (
     _gateway_span_attributes,
     _gateway_span_name,
     _get_model_span_info,
+    build_gateway_trace_metadata,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -55,10 +56,16 @@ def calculate_existing_cost_for_windows(
                 else None
             )
             # The policy's target_value is interpreted per scope: it filters trace
-            # history by gateway endpoint for ENDPOINT policies.
+            # history by gateway endpoint for ENDPOINT policies and by recorded auth
+            # username for USER policies.
             endpoint_id = (
                 window.policy.target_value
                 if window.policy.target_scope == BudgetTargetScope.ENDPOINT
+                else None
+            )
+            username = (
+                window.policy.target_value
+                if window.policy.target_scope == BudgetTargetScope.USER
                 else None
             )
             spend = store.sum_gateway_trace_cost(
@@ -66,6 +73,7 @@ def calculate_existing_cost_for_windows(
                 end_time_ms=end_ms,
                 workspace=workspace,
                 endpoint_id=endpoint_id,
+                username=username,
             )
             if spend > 0:
                 result[window.policy.budget_policy_id] = spend
@@ -78,15 +86,46 @@ def calculate_existing_cost_for_windows(
     return result
 
 
+def _get_registry_store():
+    """Return the model registry store used for webhook delivery, or None."""
+    from mlflow.server.handlers import _get_model_registry_store
+
+    try:
+        return _get_model_registry_store()
+    except Exception:
+        return None
+
+
 def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
-    """Refresh budget policies from the database if stale."""
+    """Refresh budget policies from the database if stale.
+
+    Seeding a window from trace history can carry it past its limit without any single
+    request observing the crossing, so the windows that crossed here are alerted on too.
+    Otherwise the flag would already be set by the time the next request records a cost,
+    and the transition ``record_cost`` reports would never happen.
+    """
     tracker = get_budget_tracker()
     if tracker.needs_refresh():
         try:
-            policies = store.list_budget_policies()
+            policies = store.list_budget_policies_across_workspaces()
             windows = tracker.refresh_policies(policies)
             existing_spend = calculate_existing_cost_for_windows(store, windows)
-            tracker.backfill_spend(existing_spend)
+            if newly_exceeded := tracker.backfill_spend(existing_spend):
+                # The flag is committed by the time we get here, so delivery is
+                # best-effort: if it fails the window stays muted. This is the tradeoff
+                # ``record_cost`` already makes, where the flag flips atomically and
+                # ``on_complete`` then delivers. Making delivery recoverable needs
+                # "already alerted" persisted apart from "currently exceeded", which is
+                # a larger change than this fix.
+                if registry_store := _get_registry_store():
+                    # No request workspace here: the payload falls back to the policy's own.
+                    fire_budget_exceeded_webhooks(newly_exceeded, None, registry_store)
+                else:
+                    _logger.debug(
+                        "%d budget window(s) crossed their limit during refresh, but no "
+                        "model registry store is available to deliver the webhook",
+                        len(newly_exceeded),
+                    )
         except Exception:
             _logger.debug("Failed to refresh budget policies", exc_info=True)
 
@@ -143,6 +182,7 @@ def fire_budget_exceeded_webhooks(
 def _create_budget_error_trace(
     endpoint_config: GatewayEndpointConfig,
     exception: HTTPException,
+    metadata: dict[str, str] | None = None,
 ) -> None:
     """Create an error trace for a budget limit rejection.
 
@@ -158,6 +198,8 @@ def _create_budget_error_trace(
             trace_destination=MlflowExperimentLocation(endpoint_config.experiment_id),
             attributes=_gateway_span_attributes(endpoint_config),
         ) as span:
+            if metadata:
+                mlflow.update_current_trace(metadata=metadata)
             span.record_exception(exception)
     except Exception:
         _logger.debug("Failed to create budget error trace", exc_info=True)
@@ -167,15 +209,27 @@ def check_budget_limit(
     store: SqlAlchemyStore,
     endpoint_config: GatewayEndpointConfig,
     workspace: str | None = None,
+    username: str | None = None,
+    request_headers: dict[str, str] | None = None,
+    metadata: dict[str, str] | None = None,
 ) -> None:
     """Check if any REJECT-capable budget policy is exceeded.
 
     Raises HTTPException(429) with an error trace if the budget limit is exceeded.
+
+    Args:
+        store: The tracking store holding the budget policies.
+        endpoint_config: The endpoint the request is routed to.
+        workspace: The workspace the request was made from.
+        username: The authenticated username the request was made by.
+        request_headers: HTTP request headers, which identify the request's caller.
+        metadata: Trace metadata for the request (e.g. auth user info), recorded on the
+            error trace of a rejected request.
     """
     maybe_refresh_budget_policies(store)
     tracker = get_budget_tracker()
     exceeded, window = tracker.should_reject_request(
-        workspace=workspace, endpoint_id=endpoint_config.endpoint_id
+        workspace=workspace, endpoint_id=endpoint_config.endpoint_id, username=username
     )
     if exceeded:
         policy = window.policy
@@ -191,7 +245,8 @@ def check_budget_limit(
             "Request rejected."
         )
         exc = HTTPException(status_code=429, detail=detail)
-        _create_budget_error_trace(endpoint_config, exc)
+        trace_metadata = build_gateway_trace_metadata(endpoint_config, metadata, request_headers)
+        _create_budget_error_trace(endpoint_config, exc, trace_metadata)
         raise exc
 
 
@@ -199,14 +254,10 @@ def make_budget_on_complete(
     store: SqlAlchemyStore,
     workspace: str | None,
     endpoint_id: str | None = None,
+    username: str | None = None,
 ):
     """Create an on_complete callback that records budget cost from child span attributes."""
-    from mlflow.server.handlers import _get_model_registry_store
-
-    try:
-        registry_store = _get_model_registry_store()
-    except Exception:
-        registry_store = None
+    registry_store = _get_registry_store()
 
     def on_complete():
         try:
@@ -221,7 +272,7 @@ def make_budget_on_complete(
             maybe_refresh_budget_policies(store)
             tracker = get_budget_tracker()
             if newly_exceeded := tracker.record_cost(
-                total_cost, workspace=workspace, endpoint_id=endpoint_id
+                total_cost, workspace=workspace, endpoint_id=endpoint_id, username=username
             ):
                 if registry_store:
                     fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)

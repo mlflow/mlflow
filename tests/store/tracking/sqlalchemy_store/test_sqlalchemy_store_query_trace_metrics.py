@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 import numpy as np
 import pytest
 from opentelemetry import trace as trace_api
+from sqlalchemy import literal, select, union_all
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import Query
 
 from mlflow.entities import (
     Assessment,
@@ -25,13 +28,27 @@ from mlflow.entities.trace_metrics import (
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
+from mlflow.store.db import db_types
+from mlflow.store.tracking.dbmodels.models import SqlSpan, SqlTraceInfo, SqlTraceMetadata
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.utils.sql_trace_metrics_postgres import (
+    _apply_postgres_trace_first_span_query,
+)
+from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
+    _apply_filters,
+    _partition_span_metric_filters,
+    get_time_bucket_expression,
+    query_metrics,
+    validate_query_trace_metrics_params,
+)
 from mlflow.tracing.constant import (
     AssessmentMetricDimensionKey,
     AssessmentMetricKey,
+    CostKey,
     SpanAttributeKey,
     SpanMetricDimensionKey,
     SpanMetricKey,
+    TokenUsageKey,
     TraceMetadataKey,
     TraceMetricDimensionKey,
     TraceMetricKey,
@@ -42,6 +59,213 @@ from mlflow.utils.time import get_current_time_millis
 from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
+
+
+def _postgres_span_bucket_boundary_query(time_interval_seconds):
+    bucket_ns = time_interval_seconds * 1_000_000_000
+    timestamps = {-(2**63), -1, 0, 1, 2**63 - 1}
+    for multiplier in [-2, -1, 1, 2, 1_750_000_000 // time_interval_seconds]:
+        boundary = multiplier * bucket_ns
+        timestamps.update(
+            value for value in [boundary - 1, boundary, boundary + 1] if -(2**63) <= value < 2**63
+        )
+    timestamps = sorted(timestamps)
+    spans = union_all(
+        *(select(literal(value).label("start_time_unix_nano")) for value in timestamps)
+    ).cte("spans")
+    expression = get_time_bucket_expression(
+        MetricViewType.SPANS, time_interval_seconds, db_types.POSTGRES
+    )
+    query = (
+        select(SqlSpan.start_time_unix_nano, expression)
+        .add_cte(spans)
+        .order_by(SqlSpan.start_time_unix_nano)
+    )
+    expected = [
+        (value, (value // bucket_ns) * time_interval_seconds * 1000) for value in timestamps
+    ]
+    return query, expected
+
+
+def test_postgres_span_time_buckets_use_exact_quotient():
+    query, _ = _postgres_span_bucket_boundary_query(86400)
+    statement = str(
+        query.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+    assert "div(spans.start_time_unix_nano, 86400000000000)" in statement
+    assert "mod(spans.start_time_unix_nano, 86400000000000)" in statement
+    assert " / " not in statement
+
+
+@pytest.mark.parametrize("time_interval_seconds", [1, 60, 86400, 10_000_000_000])
+def test_postgres_span_time_bucket_boundaries(store, time_interval_seconds):
+    if store.db_type != db_types.POSTGRES:
+        pytest.skip("PostgreSQL-specific exact span bucketing")
+    query, expected = _postgres_span_bucket_boundary_query(time_interval_seconds)
+    with store.ManagedSessionMaker() as session:
+        assert [tuple(row) for row in session.execute(query)] == expected
+
+
+def test_postgres_span_query_materializes_trace_filters_before_span_join(
+    store: SqlAlchemyStore,
+):
+    with store.ManagedSessionMaker() as session:
+        trace_filters, span_filters = _partition_span_metric_filters([
+            "trace.status = 'OK'",
+            "span.status = 'ERROR'",
+        ])
+        query = _apply_filters(store._trace_query(session), trace_filters, MetricViewType.SPANS)
+        query = _apply_postgres_trace_first_span_query(query)
+        query = _apply_filters(query, span_filters, MetricViewType.SPANS)
+        statement = str(query.statement.compile(dialect=postgresql.dialect()))
+
+    join_position = statement.index("FROM spans JOIN metric_trace_ids")
+    assert "WITH metric_trace_ids AS MATERIALIZED" in statement
+    assert statement.index("trace_info.status") < join_position
+    assert statement.index("WHERE spans.status") > join_position
+
+
+@pytest.mark.parametrize(
+    ("metric_name", "aggregations", "filter_fragment", "uses_trace_cte"),
+    [
+        (
+            SpanMetricKey.SPAN_COUNT,
+            [MetricAggregation(aggregation_type=AggregationType.COUNT)],
+            "trace_info.timestamp_ms >= 1000",
+            True,
+        ),
+        (
+            SpanMetricKey.TOTAL_COST,
+            [MetricAggregation(aggregation_type=AggregationType.SUM)],
+            "spans.start_time_unix_nano >= 1000000000",
+            False,
+        ),
+    ],
+)
+def test_postgres_span_time_range_uses_metric_authoritative_timestamp(
+    store: SqlAlchemyStore,
+    monkeypatch: pytest.MonkeyPatch,
+    metric_name: str,
+    aggregations: list[MetricAggregation],
+    filter_fragment: str,
+    uses_trace_cte: bool,
+):
+    statements = []
+
+    def capture_statement(query):
+        statements.append(
+            str(
+                query.statement.compile(
+                    dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+                )
+            )
+        )
+        return []
+
+    monkeypatch.setattr(Query, "all", capture_statement)
+    with store.ManagedSessionMaker() as session:
+        query_metrics(
+            view_type=MetricViewType.SPANS,
+            db_type=db_types.POSTGRES,
+            query=store._trace_query(session).filter(SqlTraceInfo.experiment_id == 7),
+            metric_name=metric_name,
+            aggregations=aggregations,
+            dimensions=None,
+            filters=None if uses_trace_cte else ["span.status = 'ERROR'"],
+            time_interval_seconds=None,
+            max_results=1000,
+            time_ranges_ms=[(1000, 2000)],
+            accessible_experiment_ids=[7],
+        )
+
+    statement = statements[0]
+    filter_position = statement.index(filter_fragment)
+    if uses_trace_cte:
+        join_position = statement.index("FROM spans JOIN metric_trace_ids")
+        assert filter_position < join_position
+    else:
+        assert "metric_trace_ids" not in statement
+        assert "FROM spans" in statement
+        assert "spans.experiment_id IN (7)" in statement
+        assert "spans.status = 'ERROR'" in statement
+
+
+def test_postgres_span_cost_trace_filter_keeps_materialized_trace_ids(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch
+):
+    statements = []
+
+    def capture_statement(query):
+        statements.append(
+            str(
+                query.statement.compile(
+                    dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+                )
+            )
+        )
+        return []
+
+    monkeypatch.setattr(Query, "all", capture_statement)
+    with store.ManagedSessionMaker() as session:
+        query_metrics(
+            view_type=MetricViewType.SPANS,
+            db_type=db_types.POSTGRES,
+            query=store._trace_query(session).filter(SqlTraceInfo.experiment_id == 7),
+            metric_name=SpanMetricKey.TOTAL_COST,
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+            dimensions=None,
+            filters=["trace.status = 'OK'"],
+            time_interval_seconds=None,
+            max_results=1000,
+            time_ranges_ms=[(1000, 2000)],
+            accessible_experiment_ids=[7],
+        )
+
+    statement = statements[0]
+    join_position = statement.index("FROM spans JOIN metric_trace_ids")
+    assert "WITH metric_trace_ids AS MATERIALIZED" in statement
+    assert statement.index("trace_info.experiment_id = 7") < join_position
+    assert statement.index("trace_info.status = 'OK'") < join_position
+    assert statement.index("spans.start_time_unix_nano >= 1000000000") > join_position
+
+
+@pytest.mark.parametrize(
+    ("metric_name", "column_name"),
+    [
+        (SpanMetricKey.INPUT_COST, "input_cost"),
+        (SpanMetricKey.OUTPUT_COST, "output_cost"),
+        (SpanMetricKey.TOTAL_COST, "total_cost"),
+    ],
+)
+def test_postgres_span_cost_query_filters_null_metric_values(
+    store: SqlAlchemyStore,
+    monkeypatch: pytest.MonkeyPatch,
+    metric_name: str,
+    column_name: str,
+):
+    statements = []
+
+    def capture_statement(query):
+        statements.append(str(query.statement.compile(dialect=postgresql.dialect())))
+        return []
+
+    monkeypatch.setattr(Query, "all", capture_statement)
+    with store.ManagedSessionMaker() as session:
+        query_metrics(
+            view_type=MetricViewType.SPANS,
+            db_type=db_types.POSTGRES,
+            query=store._trace_query(session),
+            metric_name=metric_name,
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+            dimensions=None,
+            filters=None,
+            time_interval_seconds=None,
+            max_results=100,
+            accessible_experiment_ids=[7],
+        )
+
+    assert len(statements) == 1
+    assert f"spans.{column_name} IS NOT NULL" in statements[0]
 
 
 def test_query_trace_metrics_count_no_dimensions(store: SqlAlchemyStore):
@@ -156,6 +380,77 @@ def test_query_trace_metrics_session_count_with_trace_metadata_filter_on_other_k
         "dimensions": {},
         "values": {"COUNT": 2},
     }
+
+
+@pytest.mark.parametrize(
+    ("metadata_key", "matching_value", "other_value"),
+    [
+        (
+            TraceMetadataKey.TOKEN_USAGE,
+            {TokenUsageKey.TOTAL_TOKENS: 10},
+            {TokenUsageKey.TOTAL_TOKENS: 20},
+        ),
+        (
+            TraceMetadataKey.COST,
+            {CostKey.TOTAL_COST: 0.1},
+            {CostKey.TOTAL_COST: 0.2},
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("view_type", "metric_name"),
+    [
+        (MetricViewType.TRACES, TraceMetricKey.TRACE_COUNT),
+        (MetricViewType.ASSESSMENTS, AssessmentMetricKey.ASSESSMENT_COUNT),
+    ],
+)
+def test_query_trace_metrics_filters_promoted_metadata(
+    store: SqlAlchemyStore,
+    metadata_key: str,
+    matching_value: dict[str, int | float],
+    other_value: dict[str, int | float],
+    view_type: MetricViewType,
+    metric_name: str,
+):
+    exp_id = store.create_experiment(f"filter-promoted-metadata-{uuid.uuid4()}")
+    for trace_id, metadata_value in (("matching", matching_value), ("other", other_value)):
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=100,
+                state=TraceStatus.OK,
+                trace_metadata={metadata_key: json.dumps(metadata_value)},
+            )
+        )
+        store.create_assessment(
+            Feedback(
+                trace_id=trace_id,
+                name="quality",
+                value=True,
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+                ),
+            )
+        )
+
+    with store.ManagedSessionMaker() as session:
+        assert (
+            session.query(SqlTraceMetadata).filter(SqlTraceMetadata.key == metadata_key).count()
+            == 0
+        )
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=view_type,
+        metric_name=metric_name,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[f"trace.metadata.`{metadata_key}` = '{json.dumps(matching_value)}'"],
+    )
+
+    assert len(result) == 1
+    assert result[0].values == {"COUNT": 1}
 
 
 def test_query_trace_metrics_count_by_status(store: SqlAlchemyStore):
@@ -350,6 +645,67 @@ def test_query_trace_metrics_latency_avg(store: SqlAlchemyStore):
         "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
         "values": {"AVG": 200.0},
     }
+
+
+def test_query_trace_metrics_min_max(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_latency_min_max")
+
+    for trace_id, duration in [("trace1", 100), ("trace2", 300)]:
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=duration,
+                state=TraceStatus.OK,
+                tags={TraceTagKey.TRACE_NAME: "workflow"},
+            )
+        )
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.LATENCY,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.MIN),
+            MetricAggregation(aggregation_type=AggregationType.MAX),
+        ],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.LATENCY,
+        "dimensions": {},
+        "values": {"MIN": 100, "MAX": 300},
+    }
+
+
+@pytest.mark.parametrize(
+    ("view_type", "metric_name"),
+    [
+        (MetricViewType.TRACES, TraceMetricKey.LATENCY),
+        (MetricViewType.TRACES, TraceMetricKey.INPUT_TOKENS),
+        (MetricViewType.TRACES, TraceMetricKey.OUTPUT_TOKENS),
+        (MetricViewType.TRACES, TraceMetricKey.TOTAL_TOKENS),
+        (MetricViewType.TRACES, TraceMetricKey.CACHE_READ_INPUT_TOKENS),
+        (MetricViewType.TRACES, TraceMetricKey.CACHE_CREATION_INPUT_TOKENS),
+        (MetricViewType.SPANS, SpanMetricKey.LATENCY),
+        (MetricViewType.SPANS, SpanMetricKey.INPUT_COST),
+        (MetricViewType.SPANS, SpanMetricKey.OUTPUT_COST),
+        (MetricViewType.SPANS, SpanMetricKey.TOTAL_COST),
+        (MetricViewType.ASSESSMENTS, AssessmentMetricKey.ASSESSMENT_VALUE),
+    ],
+)
+def test_value_metrics_accept_min_max(view_type: MetricViewType, metric_name: str):
+    validate_query_trace_metrics_params(
+        view_type,
+        metric_name,
+        [
+            MetricAggregation(aggregation_type=AggregationType.MIN),
+            MetricAggregation(aggregation_type=AggregationType.MAX),
+        ],
+        dimensions=None,
+    )
 
 
 @pytest.mark.parametrize(
@@ -2944,19 +3300,7 @@ def test_query_assessment_metrics_with_time_interval(store: SqlAlchemyStore):
     base_time_ms = 1577836800000
     hour_ms = 60 * 60 * 1000
 
-    trace_id = f"tr-{uuid.uuid4().hex}"
-    trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
-        request_time=base_time_ms,
-        execution_duration=100,
-        state=TraceStatus.OK,
-        tags={TraceTagKey.TRACE_NAME: "test_trace"},
-    )
-    store.start_trace(trace_info)
-
-    # Create assessments at different times
-    assessment_times = [
+    trace_times = [
         base_time_ms,
         base_time_ms + 10 * 60 * 1000,  # +10 minutes
         base_time_ms + hour_ms,  # +1 hour
@@ -2964,7 +3308,18 @@ def test_query_assessment_metrics_with_time_interval(store: SqlAlchemyStore):
         base_time_ms + 2 * hour_ms,  # +2 hours
     ]
 
-    for i, timestamp in enumerate(assessment_times):
+    for i, timestamp in enumerate(trace_times):
+        trace_id = f"tr-{uuid.uuid4().hex}"
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp,
+                execution_duration=100,
+                state=TraceStatus.OK,
+                tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            )
+        )
         assessment = Feedback(
             trace_id=trace_id,
             name=f"quality_{i}",
@@ -3021,18 +3376,7 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
     base_time_ms = 1577836800000
     hour_ms = 60 * 60 * 1000
 
-    trace_id = f"tr-{uuid.uuid4().hex}"
-    trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
-        request_time=base_time_ms,
-        execution_duration=100,
-        state=TraceStatus.OK,
-        tags={TraceTagKey.TRACE_NAME: "test_trace"},
-    )
-    store.start_trace(trace_info)
-
-    # Create assessments at different times with different names
+    # Create assessments on traces from different times with different names.
     assessments_data = [
         (base_time_ms, "correctness"),
         (base_time_ms + 10 * 60 * 1000, "relevance"),
@@ -3041,6 +3385,17 @@ def test_query_assessment_metrics_with_time_interval_and_dimensions(store: SqlAl
     ]
 
     for timestamp, name in assessments_data:
+        trace_id = f"tr-{uuid.uuid4().hex}"
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp,
+                execution_duration=100,
+                state=TraceStatus.OK,
+                tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            )
+        )
         assessment = Feedback(
             trace_id=trace_id,
             name=name,
@@ -3734,18 +4089,7 @@ def test_query_assessment_value_with_time_bucket(store: SqlAlchemyStore):
     base_time_ms = 1577836800000
     hour_ms = 60 * 60 * 1000
 
-    trace_id = f"tr-{uuid.uuid4().hex}"
-    trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
-        request_time=base_time_ms,
-        execution_duration=100,
-        state=TraceStatus.OK,
-        tags={TraceTagKey.TRACE_NAME: "test_trace"},
-    )
-    store.start_trace(trace_info)
-
-    # Create assessments with numeric values at different times
+    # Create assessments with numeric values on traces from different times.
     assessment_data = [
         # Hour 0: avg should be (0.8 + 0.9) / 2 = 0.85
         (base_time_ms, "accuracy", 0.8),
@@ -3758,6 +4102,17 @@ def test_query_assessment_value_with_time_bucket(store: SqlAlchemyStore):
     ]
 
     for timestamp, name, value in assessment_data:
+        trace_id = f"tr-{uuid.uuid4().hex}"
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp,
+                execution_duration=100,
+                state=TraceStatus.OK,
+                tags={TraceTagKey.TRACE_NAME: "test_trace"},
+            )
+        )
         assessment = Feedback(
             trace_id=trace_id,
             name=name,
@@ -5068,3 +5423,204 @@ def test_query_span_metrics_count_by_span_status_and_model_provider(store: SqlAl
         },
         "values": {"COUNT": 2},
     }
+
+
+@pytest.fixture
+def gateway_traces_setup(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_gateway_caller_dimension")
+    # (trace_id, caller, total_tokens, span cost); the last trace never went through the gateway.
+    traces_data = [
+        ("gw1", "judge", 150, 0.01),
+        ("gw2", "judge", 300, 0.02),
+        ("gw3", "simulator", 225, 0.03),
+        ("gw4", "OpenAI", 450, 0.04),
+        ("app1", None, 600, 0.05),
+    ]
+    for trace_id, caller, total_tokens, cost in traces_data:
+        trace_metadata = {
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({TraceMetricKey.TOTAL_TOKENS: total_tokens})
+        }
+        if caller is not None:
+            trace_metadata[TraceMetadataKey.GATEWAY_CALLER] = caller
+        store.start_trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+                request_time=get_current_time_millis(),
+                execution_duration=100,
+                state=TraceStatus.OK,
+                trace_metadata=trace_metadata,
+            )
+        )
+        store.log_spans(
+            exp_id,
+            [
+                create_test_span(
+                    trace_id,
+                    "llm_call",
+                    span_id=1,
+                    span_type="LLM",
+                    attributes={
+                        SpanAttributeKey.LLM_COST: {
+                            "input_cost": cost / 2,
+                            "output_cost": cost / 2,
+                            "total_cost": cost,
+                        },
+                        SpanAttributeKey.MODEL: "gpt-4o-mini",
+                    },
+                )
+            ],
+        )
+    return exp_id, store
+
+
+@pytest.mark.parametrize(
+    ("view_type", "metric_name", "aggregation", "dimension", "expected"),
+    [
+        (
+            MetricViewType.TRACES,
+            TraceMetricKey.TRACE_COUNT,
+            AggregationType.COUNT,
+            TraceMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 1, "judge": 2, "simulator": 1},
+        ),
+        (
+            MetricViewType.TRACES,
+            TraceMetricKey.TOTAL_TOKENS,
+            AggregationType.SUM,
+            TraceMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 450, "judge": 450, "simulator": 225},
+        ),
+        (
+            MetricViewType.SPANS,
+            SpanMetricKey.TOTAL_COST,
+            AggregationType.SUM,
+            SpanMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 0.04, "judge": 0.03, "simulator": 0.03},
+        ),
+    ],
+)
+def test_query_trace_metrics_grouped_by_gateway_caller(
+    gateway_traces_setup, view_type, metric_name, aggregation, dimension, expected
+):
+    exp_id, store = gateway_traces_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=view_type,
+        metric_name=metric_name,
+        aggregations=[MetricAggregation(aggregation_type=aggregation)],
+        dimensions=[dimension],
+    )
+
+    # Traces without a gateway caller are left out rather than grouped under a null caller.
+    actual = {dp.dimensions[dimension]: dp.values[aggregation.value] for dp in result}
+    assert actual == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    ("view_type", "metric_name", "aggregation", "dimension", "expected"),
+    [
+        (
+            MetricViewType.TRACES,
+            TraceMetricKey.TRACE_COUNT,
+            AggregationType.COUNT,
+            TraceMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 1, "judge": 2, "simulator": 1},
+        ),
+        (
+            MetricViewType.SPANS,
+            SpanMetricKey.TOTAL_COST,
+            AggregationType.SUM,
+            SpanMetricDimensionKey.GATEWAY_CALLER,
+            {"OpenAI": 0.04, "judge": 0.03, "simulator": 0.03},
+        ),
+    ],
+)
+def test_query_trace_metrics_repeated_gateway_caller_dimension(
+    gateway_traces_setup, view_type, metric_name, aggregation, dimension, expected
+):
+    exp_id, store = gateway_traces_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=view_type,
+        metric_name=metric_name,
+        aggregations=[MetricAggregation(aggregation_type=aggregation)],
+        dimensions=[dimension, dimension],
+    )
+
+    actual = {dp.dimensions[dimension]: dp.values[aggregation.value] for dp in result}
+    assert actual == pytest.approx(expected)
+    assert all(set(dp.dimensions) == {dimension} for dp in result)
+
+
+def test_query_trace_metrics_gateway_caller_dimension_with_caller_filter(gateway_traces_setup):
+    exp_id, store = gateway_traces_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.SPANS,
+        metric_name=SpanMetricKey.TOTAL_COST,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[SpanMetricDimensionKey.GATEWAY_CALLER],
+        filters=[f'trace.metadata.`{TraceMetadataKey.GATEWAY_CALLER}` = "judge"'],
+    )
+
+    assert [(dp.dimensions, dp.values) for dp in result] == [
+        ({SpanMetricDimensionKey.GATEWAY_CALLER: "judge"}, {"SUM": pytest.approx(0.03)})
+    ]
+
+
+def test_query_trace_metrics_gateway_caller_dimension_with_time_buckets(gateway_traces_setup):
+    exp_id, store = gateway_traces_setup
+    now = get_current_time_millis()
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        dimensions=[TraceMetricDimensionKey.GATEWAY_CALLER],
+        time_interval_seconds=86400,
+        start_time_ms=now - 86400 * 1000,
+        end_time_ms=now + 86400 * 1000,
+    )
+
+    assert sum(dp.values["COUNT"] for dp in result) == 4
+    assert all(
+        set(dp.dimensions) == {"time_bucket", TraceMetricDimensionKey.GATEWAY_CALLER}
+        for dp in result
+    )
+
+
+@pytest.mark.parametrize("filters", [None, ["trace.status = 'OK'"]])
+def test_postgres_span_cost_gateway_caller_joins_through_the_span(
+    store: SqlAlchemyStore, monkeypatch: pytest.MonkeyPatch, filters
+):
+    statements = []
+
+    def capture_statement(query):
+        statements.append(str(query.statement.compile(dialect=postgresql.dialect())))
+        return []
+
+    monkeypatch.setattr(Query, "all", capture_statement)
+    with store.ManagedSessionMaker() as session:
+        query_metrics(
+            view_type=MetricViewType.SPANS,
+            db_type=db_types.POSTGRES,
+            query=store._trace_query(session),
+            metric_name=SpanMetricKey.TOTAL_COST,
+            aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+            dimensions=[SpanMetricDimensionKey.GATEWAY_CALLER],
+            filters=filters,
+            time_interval_seconds=None,
+            max_results=1000,
+            accessible_experiment_ids=[7],
+        )
+
+    # Without trace filters PostgreSQL queries spans alone, so the join must not need trace_info.
+    assert (
+        "JOIN trace_request_metadata AS gateway_caller_metadata "
+        "ON gateway_caller_metadata.request_id = spans.trace_id"
+    ) in statements[0]

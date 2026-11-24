@@ -629,8 +629,11 @@ def test_spark_udf_autofills_no_arguments(spark):
         with pytest.raises(
             MlflowException,
             match=r"Cannot apply udf because no column names specified",
-        ):
+        ) as exc_info:
             good_data.withColumn("res", udf())
+        assert (
+            "types: [long (required), long (required), long (required)]" in exc_info.value.message
+        )
 
     with mlflow.start_run() as run:
         # model without signature
@@ -861,11 +864,13 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     job_thread.start()
 
     client = ScoringServerClient("127.0.0.1", server_port)
-    client.wait_server_ready(timeout=20)
-    spark.sparkContext.cancelAllJobs()
-    job_thread.join()
-
-    time.sleep(10)  # waiting server to exit and release the port.
+    try:
+        client.wait_server_ready(timeout=20)
+    finally:
+        spark.sparkContext.cancelAllJobs()
+        job_thread.join(timeout=60)
+        assert not job_thread.is_alive(), "Spark job thread did not stop after cancellation"
+        time.sleep(10)  # waiting server to exit and release the port.
 
     # assert ping failed, i.e. the server process is killed successfully.
     with pytest.raises(Exception, match=r".*"):

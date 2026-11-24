@@ -14,6 +14,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
+from mlflow.types.chat import ImageContentPart, TextContentPart
 from mlflow.utils.annotations import developer_stable
 
 
@@ -29,6 +30,7 @@ class PassthroughAction(str, Enum):
     ANTHROPIC_MESSAGES = "anthropic_messages"
     GEMINI_GENERATE_CONTENT = "gemini_generate_content"
     GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
+    TYPESAFE_SYSTEM_ONE = "typesafe_system_one"
 
 
 # Mapping of passthrough actions to their gateway API routes
@@ -38,6 +40,7 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
     PassthroughAction.OPENAI_RESPONSES_COMPACT: "/openai/v1/responses/compact",
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
+    PassthroughAction.TYPESAFE_SYSTEM_ONE: "/typesafe/v1/systemone",
     PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }
@@ -73,6 +76,20 @@ def _client_provides_auth(headers: dict[str, str] | None) -> bool:
     return is_credential_agent and has_auth
 
 
+def _drop_client_auth_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Return a copy of headers with client-supplied auth headers removed.
+
+    Passthrough and raw-proxy routes forward the inbound request headers to the
+    upstream provider. The ASGI server lower-cases header names, so a client
+    Authorization arrives as "authorization" and would be sent *alongside* the
+    provider's own credential (e.g. Vertex AI OAuth "Authorization: Bearer")
+    instead of replacing it. Upstreams such as Google reject requests carrying two
+    conflicting Authorization headers with HTTP 401, so non-credential-agent clients
+    are never allowed to forward auth headers.
+    """
+    return {k: v for k, v in headers.items() if k.lower() not in _CLIENT_AUTH_HEADERS}
+
+
 def _get_nested(d: dict[str, Any], key: str) -> Any:
     """Look up a value by key, supporting one level of nesting."""
     match key.split("."):
@@ -84,6 +101,52 @@ def _get_nested(d: dict[str, Any], key: str) -> Any:
                     return None
         case _:
             return d.get(key)
+
+
+def _strip_cache_control(payload: chat.RequestPayload) -> chat.RequestPayload:
+    """Return ``payload`` without ``cache_control`` on its text and image content parts.
+
+    The payload is copied before it is changed, because ``FallbackProvider`` hands the same
+    payload to the next provider, which may support prompt caching.
+    """
+
+    def _marked_parts(messages):
+        for message in messages:
+            if isinstance(message.content, list):
+                for part in message.content:
+                    if (
+                        isinstance(part, (TextContentPart, ImageContentPart))
+                        and part.cache_control is not None
+                    ):
+                        yield part
+
+    if next(_marked_parts(payload.messages), None) is None:
+        return payload
+    payload = payload.model_copy(deep=True)
+    for part in _marked_parts(payload.messages):
+        part.cache_control = None
+    return payload
+
+
+def _strip_thought_signatures(payload: chat.RequestPayload) -> chat.RequestPayload:
+    """Return ``payload`` without Gemini ``thought_signature`` values on its tool calls.
+
+    The payload is copied before it is changed, because ``FallbackProvider`` hands the same
+    payload to the next provider, which may be Gemini.
+    """
+
+    def _signed_tool_calls(messages):
+        for message in messages:
+            for tool_call in message.tool_calls or []:
+                if tool_call.thought_signature is not None:
+                    yield tool_call
+
+    if next(_signed_tool_calls(payload.messages), None) is None:
+        return payload
+    payload = payload.model_copy(deep=True)
+    for tool_call in _signed_tool_calls(payload.messages):
+        tool_call.thought_signature = None
+    return payload
 
 
 @developer_stable
@@ -100,6 +163,14 @@ class BaseProvider(ABC):
     SUPPORTED_ROUTE_TYPES: tuple[str, ...]
     CONFIG_TYPE: type[ConfigModel]
     PASSTHROUGH_PROVIDER_PATHS: dict[PassthroughAction, str] = {}
+    # Whether the chat routes forward `cache_control` (prompt caching markers) on content
+    # parts. When False, the markers are removed before the request is built, so a backend
+    # that does not know the field never receives it.
+    SUPPORTS_CACHE_CONTROL: bool = False
+    # Whether the chat routes forward Gemini `thought_signature` values on tool calls. When
+    # False, they are removed before the request is built. A client can echo them back on any
+    # route, and a backend that rejects unknown fields (such as OpenAI) would fail the request.
+    SUPPORTS_THOUGHT_SIGNATURES: bool = False
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
         if self.DISPLAY_NAME == "":
@@ -192,6 +263,20 @@ class BaseProvider(ABC):
             detail=f"The proxy endpoint is not implemented for {self.DISPLAY_NAME} models.",
         )
 
+    def _supports_cache_control(self) -> bool:
+        """Whether the chat routes forward `cache_control` markers on content parts.
+
+        Override this when support depends on the configured model.
+        """
+        return self.SUPPORTS_CACHE_CONTROL
+
+    def _supports_thought_signatures(self) -> bool:
+        """Whether the chat routes forward Gemini ``thought_signature`` values on tool calls.
+
+        Override this when support depends on the configured model.
+        """
+        return self.SUPPORTS_THOUGHT_SIGNATURES
+
     # -------------------------------------------------------------------------
     # Public methods (with optional tracing)
     # -------------------------------------------------------------------------
@@ -199,6 +284,10 @@ class BaseProvider(ABC):
     async def chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
+        if not self._supports_cache_control():
+            payload = _strip_cache_control(payload)
+        if not self._supports_thought_signatures():
+            payload = _strip_thought_signatures(payload)
         async for chunk in self._maybe_trace_stream_method(
             "chat_stream", self._chat_stream, payload
         ):
@@ -206,6 +295,10 @@ class BaseProvider(ABC):
             yield chunk
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        if not self._supports_cache_control():
+            payload = _strip_cache_control(payload)
+        if not self._supports_thought_signatures():
+            payload = _strip_thought_signatures(payload)
         result = await self._maybe_trace_method("chat", self._chat, payload)
         result.provider = self._provider_name
         return result
@@ -576,6 +669,7 @@ class BaseProvider(ABC):
                 accumulated_usage.update(chunk_usage)
                 yield chunk
         finally:
+            accumulated_usage = self._normalize_streaming_token_usage(accumulated_usage)
             # Calculate total if we have input and output but no total
             if (
                 TokenUsageKey.INPUT_TOKENS in accumulated_usage
@@ -587,6 +681,10 @@ class BaseProvider(ABC):
                     + accumulated_usage[TokenUsageKey.OUTPUT_TOKENS]
                 )
             self._set_span_token_usage(accumulated_usage)
+
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        """Normalize provider-specific counts after merging all streaming usage updates."""
+        return token_usage
 
     def _extract_streaming_token_usage(self, chunk: Any) -> dict[str, int]:
         """Extract token usage from a streaming chunk.
@@ -763,13 +861,18 @@ class FallbackProvider(BaseProvider):
             detail=f"All {self._max_attempts} fallback attempts failed. Last error: {last_error!s}",
         )
 
-    async def _execute_stream_with_fallback(self, method_name: str, *args, **kwargs):
+    async def _execute_stream_with_fallback(
+        self, method_name: str, *args, await_result: bool = False, **kwargs
+    ):
         """
         Execute a streaming method on providers with fallback logic.
 
         Args:
             method_name: Name of the streaming method to call on each provider
             *args: Positional arguments to pass to the method
+            await_result: When True, the method is a regular async function returning
+                an AsyncIterable rather than an async generator; the result is awaited
+                first and then iterated.
             **kwargs: Keyword arguments to pass to the method
 
         Yields:
@@ -779,19 +882,29 @@ class FallbackProvider(BaseProvider):
             AIGatewayException: If all fallback attempts fail, with status code
                 propagated from the last exception if it was an AIGatewayException
                 or HTTPException
+
+        Note:
+            Fallback is only attempted when an error occurs before any chunk has been
+            yielded. If an error surfaces mid-stream (after chunks have already been
+            sent to the caller), it is re-raised immediately because the caller has
+            already received partial data and a retry would produce a corrupt stream.
         """
         from fastapi import HTTPException
 
         last_error = None
 
         for attempt, provider in enumerate(self._providers[: self._max_attempts], 1):
+            yielded = False
             try:
                 method = getattr(provider, method_name)
-                async for chunk in method(*args, **kwargs):
+                stream = await method(*args, **kwargs) if await_result else method(*args, **kwargs)
+                async for chunk in stream:
+                    yielded = True
                     yield chunk
-                # Stream completed successfully
                 return
             except Exception as e:
+                if yielded:
+                    raise
                 last_error = e
                 if attempt < self._max_attempts:
                     continue
@@ -834,6 +947,10 @@ class FallbackProvider(BaseProvider):
         payload: dict[str, Any],
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
+        if payload.get("stream"):
+            return self._execute_stream_with_fallback(
+                "passthrough", action, payload, headers, await_result=True
+            )
         return await self._execute_with_fallback("passthrough", action, payload, headers)
 
     async def proxy(

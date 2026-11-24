@@ -9,7 +9,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.legacy_databricks_cli.configure.provider import (
     DatabricksConfig,
     DatabricksModelServingConfigProvider,
@@ -21,6 +21,7 @@ from mlflow.utils.databricks_utils import (
     _NoDbutilsError,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
+    get_databricks_model_serving_staging_status,
     get_databricks_runtime_major_minor_version,
     get_databricks_runtime_version,
     get_databricks_workspace_client_config,
@@ -32,6 +33,7 @@ from mlflow.utils.databricks_utils import (
     get_workspace_url,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
+    stage_model_for_databricks_model_serving,
 )
 from mlflow.utils.os import is_windows
 
@@ -385,6 +387,57 @@ def test_model_serving_config_provider_errors_caught():
         side_effect=Exception("Failed to Read OAuth Creds"),
     ):
         assert provider.get_config() is None
+
+
+def _make_dynamic_token_entry_point(get_logger_raises):
+    """
+    Build a mock ``entry_point`` for ``_init_databricks_dynamic_token_config_provider`` whose
+    notebook context returns a host/token and whose token-refresh path falls back to the command
+    context (exercising the branch that would emit usage telemetry).
+    """
+    entry_point = mock.MagicMock()
+    if get_logger_raises:
+        entry_point.getLogger.side_effect = AttributeError(
+            "dbutils.entry_point.getLogger is not supported on this cluster."
+        )
+    context = entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value
+    context.apiUrl.return_value.isDefined.return_value = True
+    context.apiUrl.return_value.get.return_value = "https://databricks.com"
+    context.apiToken.return_value.isDefined.return_value = True
+    context.apiToken.return_value.get.return_value = "token"
+    # Force the token-refresh fallback path, which is the only place the logger is used.
+    entry_point.getNonUcApiToken.side_effect = Exception("no refreshable token")
+    entry_point.getDriverConf.return_value.workflowSslTrustAll.return_value = False
+    return entry_point
+
+
+@pytest.mark.parametrize("get_logger_raises", [True, False])
+def test_dynamic_token_config_provider_get_config_when_logger_unavailable(
+    monkeypatch, get_logger_raises
+):
+    monkeypatch.setattr(
+        databricks_utils,
+        "get_databricks_runtime_major_minor_version",
+        lambda: DatabricksRuntimeVersion(
+            is_client_image=False, major=15, minor=0, is_gpu_image=False
+        ),
+    )
+    monkeypatch.setattr(databricks_utils, "_dynamic_token_config_provider", None)
+    entry_point = _make_dynamic_token_entry_point(get_logger_raises)
+    databricks_utils._init_databricks_dynamic_token_config_provider(entry_point)
+    config = databricks_utils._dynamic_token_config_provider.get_config()
+
+    assert config.host == "https://databricks.com"
+    assert config.token == "token"
+
+    if get_logger_raises:
+        # No logger is available, so no usage telemetry should be emitted.
+        entry_point.getLogger.return_value.logUsage.assert_not_called()
+    else:
+        # The logger resolved successfully, so the fallback path should emit usage telemetry.
+        entry_point.getLogger.return_value.logUsage.assert_called_once_with(
+            "refreshableTokenNotFound", {"api_url": "https://databricks.com"}, None
+        )
 
 
 def test_get_workspace_info_from_databricks_secrets():
@@ -1464,3 +1517,86 @@ def test_get_databricks_host_creds_workspace_id_none_on_full_failure(monkeypatch
         result = get_databricks_host_creds("databricks")
         assert result.workspace_id is None
         assert not result.use_databricks_sdk
+
+
+def test_stage_model_for_databricks_model_serving_raises_rest_exception_with_error_code():
+    response = mock.Mock(
+        status_code=400,
+        text=json.dumps({"error_code": "INVALID_PARAMETER_VALUE", "message": "Not supported."}),
+    )
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=response),
+        pytest.raises(RestException, match="Not supported.") as exc_info,
+    ):
+        stage_model_for_databricks_model_serving(model_name="main.default.m", model_version="1")
+
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_stage_model_for_databricks_model_serving_uses_the_given_host_creds():
+    response = mock.Mock(status_code=200, text="")
+    host_creds = mock.Mock()
+    with mock.patch(
+        "mlflow.utils.databricks_utils.http_request", return_value=response
+    ) as request_mock:
+        stage_model_for_databricks_model_serving(
+            model_name="main.default.m", model_version="1", host_creds=host_creds
+        )
+
+    assert request_mock.call_args.kwargs["host_creds"] is host_creds
+
+
+def test_get_databricks_model_serving_staging_status_returns_the_status():
+    status = {"state": "SUCCEEDED", "model_artifact": {"state": "SUCCEEDED"}}
+    response = mock.Mock(status_code=200, text=json.dumps({"status": status}))
+    response.json.return_value = {"status": status}
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch(
+            "mlflow.utils.databricks_utils.http_request", return_value=response
+        ) as request_mock,
+    ):
+        assert (
+            get_databricks_model_serving_staging_status(
+                model_name="main.default.m", model_version="1"
+            )
+            == status
+        )
+
+    assert request_mock.call_args.kwargs["endpoint"] == (
+        "/api/2.0/serving-endpoints:checkModelDeploymentStagingStatus"
+    )
+    assert request_mock.call_args.kwargs["json"] == {
+        "model": "main.default.m",
+        "model_version": "1",
+    }
+
+
+@pytest.mark.parametrize("body", [{}, {"status": None}])
+def test_get_databricks_model_serving_staging_status_returns_empty_without_a_status(body):
+    response = mock.Mock(status_code=200, text=json.dumps(body))
+    response.json.return_value = body
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=response),
+    ):
+        assert (
+            get_databricks_model_serving_staging_status(
+                model_name="main.default.m", model_version="1"
+            )
+            == {}
+        )
+
+
+def test_get_databricks_model_serving_staging_status_raises_rest_exception():
+    response = mock.Mock(
+        status_code=403,
+        text=json.dumps({"error_code": "FEATURE_DISABLED", "message": "Not enabled."}),
+    )
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
+        mock.patch("mlflow.utils.databricks_utils.http_request", return_value=response),
+        pytest.raises(RestException, match="Not enabled."),
+    ):
+        get_databricks_model_serving_staging_status(model_name="main.default.m", model_version="1")

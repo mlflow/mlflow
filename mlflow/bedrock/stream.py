@@ -12,6 +12,7 @@ from mlflow.bedrock.utils import (
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.utils import TraceJSONEncoder
 
 _logger = logging.getLogger(__name__)
 
@@ -115,7 +116,10 @@ class InvokeModelStreamWrapper(BaseEventStreamWrapper):
     def _handle_event(self, span, event):
         """Process streaming event and buffer token usage."""
         chunk = json.loads(event["chunk"]["bytes"])
-        self._span.add_event(SpanEvent(name=chunk["type"], attributes={"json": json.dumps(chunk)}))
+        # Only Anthropic chunks carry "type"; OpenAI, Nova and Llama chunks do not.
+        self._span.add_event(
+            SpanEvent(name=chunk.get("type", "chunk"), attributes={"json": json.dumps(chunk)})
+        )
 
         # Buffer usage information from streaming chunks
         self._buffer_token_usage_from_chunk(chunk)
@@ -152,7 +156,11 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         self._response_builder.process_event(event_name, event[event_name])
         # Record raw event as a span event
         self._span.add_event(
-            SpanEvent(name=event_name, attributes={"json": json.dumps(event[event_name])})
+            SpanEvent(
+                name=event_name,
+                # reasoningContent.redactedContent arrives as bytes
+                attributes={"json": json.dumps(event[event_name], cls=TraceJSONEncoder)},
+            )
         )
 
     @capture_exception("Failed to record the accumulated response in the span")
@@ -176,7 +184,7 @@ class _ConverseMessageBuilder:
     def __init__(self):
         self._role = "assistant"
         self._text_content_buffer = ""
-        self._tool_use = {}
+        self._tool_uses = []
         self._response = {}
 
     def process_event(self, event_name: str, event_attr: dict[str, Any]):
@@ -185,17 +193,19 @@ class _ConverseMessageBuilder:
         elif event_name == "contentBlockStart":
             # ContentBlockStart event is only used for tool usage. It carries the tool id
             # and the name, but not the input arguments.
-            self._tool_use = {
+            self._tool_uses.append({
                 # In streaming, input is always string
                 "input": "",
                 **event_attr["start"]["toolUse"],
-            }
+            })
         elif event_name == "contentBlockDelta":
             delta = event_attr["delta"]
             if text := delta.get("text"):
                 self._text_content_buffer += text
             if tool_use := delta.get("toolUse"):
-                self._tool_use["input"] += tool_use["input"]
+                # Content blocks are streamed one after another, so a tool input delta
+                # belongs to the most recently started tool use.
+                self._tool_uses[-1]["input"] += tool_use["input"]
         elif event_name == "contentBlockStop":
             pass
         elif event_name in {"messageStop", "metadata"}:
@@ -208,8 +218,7 @@ class _ConverseMessageBuilder:
             "role": self._role,
             "content": [{"text": self._text_content_buffer}],
         }
-        if self._tool_use:
-            message["content"].append({"toolUse": self._tool_use})
+        message["content"].extend({"toolUse": tool_use} for tool_use in self._tool_uses)
 
         self._response.update({"output": {"message": message}})
 

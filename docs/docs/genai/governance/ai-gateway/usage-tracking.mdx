@@ -25,6 +25,7 @@ Navigate to **AI Gateway > Usage** in the sidebar, or click the **Usage** tab on
 The dashboard provides the following charts:
 
 - **Requests** — Total request count over time with daily/hourly averages
+- **Usage by Feature** — Requests, tokens, and cost of each built-in MLflow feature that calls the endpoint (see [Usage by MLflow Feature](#usage-by-mlflow-feature))
 - **Latency** — Response time distribution (p50, p90, p99)
 - **Errors** — Error rate and error count breakdown
 - **Token Usage** — Input and output tokens over time
@@ -39,6 +40,7 @@ Note: Token usage and cost metrics are not supported for all LLM providers or mo
 Use the controls at the top of the dashboard to:
 
 - **Endpoint** — View all endpoints or filter to a specific one
+- **Filters** — Narrow the charts by request state, or by **Feature** to see the usage of a single built-in MLflow feature
 - **Time Unit** — Aggregate by hour, day, or week
 - **Time Range** — Select a preset range (last 7 days, 30 days, etc.) or a custom range
 
@@ -47,3 +49,37 @@ Use the controls at the top of the dashboard to:
 Each endpoint's detail page also has a **Usage** tab that shows the same charts scoped to that endpoint, with a **View full dashboard** link to the main Usage page.
 
 ![Endpoint Usage Tab](/images/genai/governance/ai-gateway/usage-tracking-endpoint-usage-tab.png)
+
+## Usage by MLflow Feature
+
+MLflow's built-in AI features call an LLM: LLM judges and scorers, the conversation simulator, issue detection, and prompt optimization. Point them at an AI Gateway endpoint with a `gateway:/<endpoint-name>` model URI, and their calls get the endpoint's governance, such as budgets, guardrails, and usage tracking:
+
+```python
+import mlflow
+from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
+from mlflow.genai.scorers import Correctness
+from mlflow.genai.simulators import ConversationSimulator
+
+# Gateway endpoints are served by the MLflow tracking server.
+mlflow.set_tracking_uri("http://localhost:5000")
+model = "gateway:/my-endpoint"
+
+# LLM judges and scorers
+correctness = Correctness(model=model)
+
+# Conversation simulator
+simulator = ConversationSimulator(test_cases=test_cases, user_model=model)
+
+# Prompt optimization
+optimizer = GepaPromptOptimizer(reflection_model=model)
+```
+
+For issue detection, select the endpoint as the model when you run or schedule detection.
+
+Each request is attributed to the feature that made it, and the **Usage by Feature** chart breaks the endpoint's requests, tokens, and cost down accordingly. Use **Filters > Feature** to scope every chart to one feature. The attribution follows these rules:
+
+- **Judges** covers the judges and scorers you configure, wherever they run, including when prompt optimization uses them to score candidate prompts.
+- **Issue detection** covers all of its analysis, including the judge it runs internally to triage traces.
+- **Other** covers requests that no MLflow feature made, such as calls from your applications or the playground. It also includes requests the gateway recorded without a caller, such as those from before it tracked callers.
+
+MLflow identifies the feature with the `X-MLflow-Gateway-Caller` request header, which the gateway records as the `mlflow.gateway.caller` metadata of each trace.

@@ -23,8 +23,6 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
 )
 from mlflow.genai.judges.optimizers.memalign.prompts import (
     DISTILLATION_PROMPT_TEMPLATE,
-    create_examples_field,
-    create_guidelines_field,
 )
 from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
@@ -57,21 +55,31 @@ _FLEX_TOKENS = 5000
 # Priority list of fields to use for building corpus and retrieval queries
 _QUERY_FIELD_PRIORITY = ["inputs", "outputs", "expectations", "conversation", "trace"]
 
+# Fields users may pass as ``retrieval_fields``. ``conversation`` is excluded because the judge
+# never passes it into the retrieval query, so it would silently retrieve nothing.
+_ALLOWED_RETRIEVAL_FIELDS = ("inputs", "outputs", "expectations", "trace")
 
-def get_query_field(signature: "dspy.Signature") -> str | None:
-    """Get the field name to use for building corpus and retrieval queries.
+
+def get_query_fields(
+    signature: "dspy.Signature", retrieval_fields: list[str] | None = None
+) -> list[str]:
+    """Get the field names to use for building corpus and retrieval queries.
 
     Args:
         signature: DSPy signature defining input fields
+        retrieval_fields: Fields explicitly requested by the user. When None, defaults to
+            the first field from the priority list that exists in the signature.
 
     Returns:
-        The first field from priority list that exists in signature's input_fields,
-        or None if no matching field is found.
+        ``retrieval_fields`` if given, otherwise a single-element list with the first
+        priority field present in the signature's input_fields, or an empty list.
     """
+    if retrieval_fields is not None:
+        return list(retrieval_fields)
     for field_name in _QUERY_FIELD_PRIORITY:
         if field_name in signature.input_fields:
-            return field_name
-    return None
+            return [field_name]
+    return []
 
 
 @lru_cache(maxsize=1)
@@ -539,34 +547,74 @@ def distill_guidelines(
     return new_guidelines
 
 
+def _fuse_similarity_scores(
+    retrievers: dict[str, tuple["dspy.retrievers.Embeddings", list[int]]],
+    queries: dict[str, str],
+    k: int,
+) -> list[int]:
+    """Return the top ``k`` episodic positions by summed per-field cosine similarity.
+
+    Every corpus entry of each queried field is scored, so an example close on all fields
+    outranks one that is closest on a single field. A field an example lacks adds 0. Ties keep
+    episodic order.
+    """
+    import numpy as np
+
+    scores: dict[int, float] = {}
+    for field, query in queries.items():
+        retriever, positions = retrievers[field]
+        # Same scoring as dspy's brute-force search: corpus_embeddings are already normalized
+        # (normalize=True by default), so the dot product with the normalized query is cosine.
+        query_embedding = np.asarray(retriever.embedder([query]))[0]
+        query_embedding = query_embedding / max(np.linalg.norm(query_embedding), 1e-10)
+        similarities = np.asarray(retriever.corpus_embeddings) @ query_embedding
+        for position, similarity in zip(positions, similarities.tolist()):
+            scores[position] = scores.get(position, 0.0) + similarity
+    return sorted(scores, key=lambda position: (-scores[position], position))[:k]
+
+
 def retrieve_relevant_examples(
-    retriever: "dspy.retrievers.Embeddings",
+    retrievers: dict[str, tuple["dspy.retrievers.Embeddings", list[int]]] | None,
     examples: list["dspy.Example"],
     query_kwargs: dict[str, Any],
-    signature: "dspy.Signature",
+    embedding_model: str,
+    retrieval_k: int,
 ) -> list[tuple["dspy.Example", str]]:
     """Retrieve relevant examples using semantic search.
 
     Args:
-        retriever: DSPy Embeddings retriever
+        retrievers: Mapping from field name to a ``(retriever, positions)`` pair, where
+            ``positions[i]`` is the index in ``examples`` of the retriever's i-th corpus entry.
         examples: List of all examples
         query_kwargs: Query parameters to construct search query
-        signature: DSPy signature defining input fields
+        embedding_model: Embedding model, used to truncate queries to its token limit as the
+            corpus is
+        retrieval_k: Maximum number of examples to return
 
     Returns:
-        List of tuples of (retrieved example, trace ID)
+        List of tuples of (retrieved example, trace ID). With several retrievers, examples
+        are ranked by the sum of their per-field cosine similarities to the query.
     """
-    if not examples or retriever is None:
+    if not examples or not retrievers:
         return []
 
-    query_field = get_query_field(signature)
-    value = query_kwargs.get(query_field) if query_field else None
-    query = value_to_embedding_text(value) if value else ""
-    if not query:
-        return []
+    queries = {}
+    for field in retrievers:
+        if not (value := query_kwargs.get(field)):
+            continue
+        if query := truncate_to_token_limit(
+            value_to_embedding_text(value), embedding_model, model_type="embedding"
+        ):
+            queries[field] = query
 
-    search_results = retriever(query)
-    indices = [int(i) for i in search_results.indices]
+    if len(retrievers) == 1:
+        indices = []
+        if queries:
+            [(field, query)] = queries.items()
+            retriever, positions = retrievers[field]
+            indices = [positions[int(i)] for i in retriever(query).indices[:retrieval_k]]
+    else:
+        indices = _fuse_similarity_scores(retrievers, queries, retrieval_k)
 
     return [
         (
@@ -575,16 +623,3 @@ def retrieve_relevant_examples(
         )
         for i in indices
     ]
-
-
-def create_extended_signature(base_signature: "dspy.Signature") -> "dspy.Signature":
-    """Create extended DSPy signature with guidelines and example judgements fields.
-
-    Args:
-        base_signature: Base DSPy signature to extend
-
-    Returns:
-        Extended signature with guidelines and example_judgements fields prepended
-    """
-    extended_sig = base_signature.prepend("guidelines", create_guidelines_field())
-    return extended_sig.prepend("example_judgements", create_examples_field())

@@ -2,16 +2,18 @@ name: TypeScript SDK
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
     paths-ignore:
       - "docs/**"
       - "**.md"
       - "dev/clint/**"
+      - ".github/workflows/copilot-*.yml"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
+      - ".github/workflows/triage.yml"
+      - ".github/workflows/verify.yml"
+      - ".github/workflows/resolve.yml"
+      - ".github/workflows/repair.yml"
+      - ".github/workflows/nightly.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
       - ".claude/**"
@@ -29,10 +31,10 @@ defaults:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   typescript-sdk:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 20
@@ -40,13 +42,13 @@ jobs:
       fail-fast: false
       matrix:
         node-version: [22, 24]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
         working-directory: libs/typescript
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -57,7 +59,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
 
       - name: Check package-lock.json is up-to-date
         run: |
@@ -68,19 +71,24 @@ jobs:
           }
 
       - name: Run format check
-        run: npm run format:check
+        run: |
+          npm run format:check
 
       - name: Run linting
-        run: npm run lint
+        run: |
+          npm run lint
 
       - name: Run build
-        run: npm run build
+        run: |
+          npm run build
 
       - name: Run core tests
-        run: npm run test:core
+        run: |
+          npm run test:core
 
       - name: Run tests for integrations
-        run: npm run test:integrations
+        run: |
+          npm run test:integrations
 
   # Guards against the mlflow#24167 class of bug: an integration importing an
   # @mlflow/* symbol that exists in the workspace source but not in the published
@@ -89,17 +97,16 @@ jobs:
   # -- which type-checks each integration against the published floor -- can see
   # it. Runs separately from typescript-sdk so it never gates the main matrix.
   min-version-check:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 15
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         shell: bash
         working-directory: libs/typescript
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Setup Node.js
@@ -107,6 +114,8 @@ jobs:
         with:
           node-version: 24
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
       - name: Check integrations against published @mlflow/* floors
-        run: bash scripts/check-min-mlflow-deps.sh
+        run: |
+          bash scripts/check-min-mlflow-deps.sh

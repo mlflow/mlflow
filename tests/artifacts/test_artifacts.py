@@ -1,3 +1,5 @@
+import builtins
+import json
 import os
 import pathlib
 import uuid
@@ -140,6 +142,64 @@ def test_load_text(run_with_text_artifact):
 def test_load_dict(run_with_json_artifact):
     artifact = run_with_json_artifact
     assert mlflow.artifacts.load_dict(artifact.uri) == artifact.content
+
+
+@pytest.mark.parametrize("file_name", ["data.json", "data.yaml", "data.yml"])
+def test_load_dict_round_trips_log_dict(file_name):
+    data = {"answer": 42, "nested": {"items": [1, "two"]}}
+    with mlflow.start_run() as run:
+        mlflow.log_dict(data, file_name)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / file_name)
+    assert mlflow.artifacts.load_dict(uri) == data
+
+
+def test_load_dict_invalid_yaml(tmp_path):
+    path = tmp_path / "data.yaml"
+    path.write_text("key: [unclosed")
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(path)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / "data.yaml")
+    with pytest.raises(MlflowException, match="Unable to form a YAML object"):
+        mlflow.artifacts.load_dict(uri)
+
+
+def test_load_text_and_dict_read_utf8_regardless_of_default_encoding(monkeypatch):
+    text = "café 台北 🚀"
+    data = {"城市": "台北"}
+    with mlflow.start_run() as run:
+        mlflow.log_text(text, "text.txt")
+        mlflow.log_text(json.dumps(data, ensure_ascii=False), "data.json")
+    base = pathlib.PurePosixPath(run.info.artifact_uri)
+
+    # Make text-mode `open` in mlflow.artifacts default to cp1252, as it does on Windows
+    # with a legacy code page, so the test does not depend on the runner's locale.
+    def open_with_cp1252_default(file, mode="r", *args, encoding=None, **kwargs):
+        if "b" not in mode and encoding is None:
+            encoding = "cp1252"
+        return builtins.open(file, mode, *args, encoding=encoding, **kwargs)
+
+    monkeypatch.setattr(mlflow.artifacts, "open", open_with_cp1252_default, raising=False)
+    assert mlflow.artifacts.load_text(str(base / "text.txt")) == text
+    assert mlflow.artifacts.load_dict(str(base / "data.json")) == data
+
+
+@pytest.mark.parametrize(
+    ("load", "file_name", "content"),
+    [
+        (mlflow.artifacts.load_text, "text.txt", "café"),
+        (mlflow.artifacts.load_dict, "data.json", '{"city": "café"}'),
+    ],
+)
+def test_load_text_and_dict_explain_non_utf8_artifacts(tmp_path, load, file_name, content):
+    path = tmp_path / file_name
+    path.write_bytes(content.encode("cp1252"))
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(path)
+    uri = str(pathlib.PurePosixPath(run.info.artifact_uri) / file_name)
+
+    with pytest.raises(MlflowException, match="is not valid UTF-8") as exc_info:
+        load(uri)
+    assert isinstance(exc_info.value.__cause__, UnicodeDecodeError)
 
 
 def test_load_json_invalid_json(run_with_text_artifact):
@@ -341,7 +401,9 @@ def test_list_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path):
     tracking_uri = f"sqlite:///{tmp_path}/mlflow-{uuid.uuid4().hex}.db"
     assert mlflow.get_tracking_uri() != tracking_uri
     client = mlflow.MlflowClient(tracking_uri)
-    experiment_id = client.create_experiment("my_experiment")
+    experiment_id = client.create_experiment(
+        "my_experiment", artifact_location=str(tmp_path / "artifacts")
+    )
     run = client.create_run(experiment_id)
     tmp_dir = tmp_path / "subdir"
     tmp_dir.mkdir()
@@ -367,7 +429,9 @@ def test_download_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path)
     tracking_uri = f"sqlite:///{tmp_path}/mlflow-{uuid.uuid4().hex}.db"
     assert mlflow.get_tracking_uri() != tracking_uri
     client = mlflow.MlflowClient(tracking_uri)
-    experiment_id = client.create_experiment("my_experiment")
+    experiment_id = client.create_experiment(
+        "my_experiment", artifact_location=str(tmp_path / "artifacts")
+    )
     run = client.create_run(experiment_id)
     tmp_dir = tmp_path / "subdir"
     tmp_dir.mkdir()
@@ -398,3 +462,53 @@ def test_single_run_artifact_download_when_both_run_and_model_artifacts_exist(tm
         run_id=run.info.run_id, artifact_path="model/file.txt", dst_path=tmp_path
     )
     assert pathlib.Path(out).read_text() == "test"
+
+
+@pytest.mark.parametrize("dst_path_provided", [True, False])
+@pytest.mark.parametrize(
+    ("artifact_path", "content"),
+    [
+        ("data/a%20b.csv", "eval"),
+        ("data/a b.csv", "train"),
+        pytest.param(
+            "answers/what?.txt",
+            "faq",
+            marks=pytest.mark.skipif(is_windows(), reason="'?' is invalid in Windows file names"),
+        ),
+        ("eval_set/city=New%20York/part-0.parquet", "ny"),
+    ],
+)
+def test_download_artifacts_with_run_id_keeps_literal_path(
+    tmp_path, dst_path_provided, artifact_path, content
+):
+    with mlflow.start_run() as run:
+        mlflow.log_text("train", "data/a b.csv")
+        mlflow.log_text("eval", "data/a%20b.csv")
+        if not is_windows():
+            mlflow.log_text("faq", "answers/what?.txt")
+        mlflow.log_text("ny", "eval_set/city=New%20York/part-0.parquet")
+
+    out = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id,
+        artifact_path=artifact_path,
+        dst_path=tmp_path if dst_path_provided else None,
+    )
+    assert pathlib.Path(out).read_text() == content
+
+
+@pytest.mark.parametrize("artifact_path", ["eval_set", "eval_set/city=New%20York"])
+def test_download_artifacts_with_run_id_percent_encoded_partition_directory(
+    tmp_path, artifact_path
+):
+    with mlflow.start_run() as run:
+        mlflow.log_text("ny", "eval_set/city=New%20York/part-0.parquet")
+        mlflow.log_text("paris", "eval_set/city=Paris/part-0.parquet")
+
+    out = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path=artifact_path, dst_path=tmp_path
+    )
+    root = tmp_path / "eval_set"
+    assert pathlib.Path(out).samefile(tmp_path / artifact_path)
+    assert (root / "city=New%20York" / "part-0.parquet").read_text() == "ny"
+    if artifact_path == "eval_set":
+        assert (root / "city=Paris" / "part-0.parquet").read_text() == "paris"

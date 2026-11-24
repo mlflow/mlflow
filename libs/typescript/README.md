@@ -19,14 +19,17 @@
 MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com/mlflow/mlflow) that provides a TypeScript API for MLflow.
 
 > [!IMPORTANT]
-> MLflow Typescript SDK is catching up with the Python SDK. Currently only support [Tracing]() and [Feedback Collection]() features. Please raise an issue in Github if you need a feature that is not supported.
+> MLflow Typescript SDK is catching up with the Python SDK. Currently only support Tracing and
+> Feedback Collection features. Please raise an issue in Github if you need a feature that is not
+> supported.
 
 ## Packages
 
-| Package                                 | NPM                                                                                                                               | Description                                                |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [@mlflow/core](./core)                  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)     | The core tracing functionality and manual instrumentation. |
-| [@mlflow/openai](./integrations/openai) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai) | Auto-instrumentation integration for OpenAI.               |
+| Package                                     | NPM                                                                                                                                   | Description                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [@mlflow/core](./core)                      | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)         | The core tracing functionality and manual instrumentation.   |
+| [@mlflow/openai](./integrations/openai)     | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai)     | Auto-instrumentation integration for OpenAI.                 |
+| [@mlflow/typesafe](./integrations/typesafe) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Ftypesafe?style=flat-square)](https://www.npmjs.com/package/@mlflow/typesafe) | Auto-instrumentation integration for TypeSafe AI System One. |
 
 ## Installation
 
@@ -35,7 +38,7 @@ npm install @mlflow/core
 ```
 
 > [!NOTE]
-> MLflow Typescript SDK requires Node.js 20 or higher.
+> MLflow Typescript SDK requires Node.js 22 or higher.
 
 ## Quickstart
 
@@ -46,7 +49,7 @@ pip install mlflow
 mlflow server --backend-store-uri sqlite:///mlruns.db --port 5000
 ```
 
-Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
+Self-hosting MLflow server requires Python 3.11 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
 
 Instantiate MLflow SDK in your application:
 
@@ -138,6 +141,31 @@ const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
 
+Log feedback on a persisted trace (Python `mlflow.log_feedback` parity):
+
+```typescript
+import { AssessmentSourceType, MlflowClient, createAuthProvider } from '@mlflow/core';
+
+const trackingUri = 'http://localhost:5000';
+const client = new MlflowClient({
+  trackingUri,
+  authProvider: createAuthProvider({ trackingUri }),
+});
+
+await client.logFeedback({
+  traceId: '<trace-id>',
+  name: 'correctness',
+  value: true,
+  source: { sourceType: AssessmentSourceType.HUMAN, sourceId: 'reviewer@example.com' },
+  rationale: 'The answer matches the expected fact.',
+});
+
+const info = await client.getTraceInfo('<trace-id>');
+console.log(info.assessments);
+```
+
+Databricks Unity Catalog V4 assessment posting is not included in this first slice.
+
 Tag spans with a severity level so users (or you) can filter by **Minimum log level** in the trace UI:
 
 ```typescript
@@ -158,11 +186,6 @@ When you use one of the autolog integrations (`@mlflow/openai`, `@mlflow/anthrop
 View traces in MLflow UI:
 
 ![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/891fed9a746477f808dd2b82d3abb2382293c564/docs/static/images/llms/tracing/quickstart/openai-tool-calling-trace-detail.png?raw=true)
-
-## Publishing
-
-1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately
-2. `cd` into `core` and run `npm publish`, and repeat for `integrations/openai`
 
 ## Adding New Integrations
 

@@ -129,6 +129,25 @@ def test_extract_failure_labels_multi_label():
     assert "[api_tool] empty response body" in labels
 
 
+def test_extract_failure_labels_keeps_leading_hyphen():
+    analyses = [
+        _ConversationAnalysis(
+            full_rationale="Returned a sentinel instead of an error",
+            affected_trace_ids=["t1"],
+            execution_path="api_tool",
+        ),
+    ]
+
+    with mock.patch(
+        "mlflow.genai.discovery.extraction._call_llm",
+        return_value=_make_llm_response("- -1 returned instead of error\n* -inf score emitted"),
+    ):
+        labels, _ = extract_failure_labels(analyses, "openai:/gpt-5-mini")
+
+    assert "[api_tool] -1 returned instead of error" in labels
+    assert "[api_tool] -inf score emitted" in labels
+
+
 # ---- extract_failing_traces ----
 
 _SOURCE = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test")
@@ -261,3 +280,23 @@ def test_collect_session_rationales_deduplicates(make_trace):
     result = collect_session_rationales([trace], rationale_map, "scorer_a")
 
     assert result.count("same text") == 1
+
+
+def test_extract_failure_labels_attributes_llm_calls_to_issue_detection():
+    from mlflow.gateway.constants import GatewayCaller
+
+    analyses = [
+        _ConversationAnalysis(
+            full_rationale="The assistant failed to provide weather data",
+            affected_trace_ids=["t1"],
+            execution_path="weather_tool > api_call",
+        ),
+    ]
+
+    with mock.patch(
+        "mlflow.genai.discovery.extraction._call_llm",
+        return_value=_make_llm_response("didn't provide weather data"),
+    ) as mock_llm:
+        extract_failure_labels(analyses, "gateway:/my-endpoint")
+
+    assert mock_llm.call_args.kwargs["gateway_caller"] == GatewayCaller.ISSUE_DETECTION

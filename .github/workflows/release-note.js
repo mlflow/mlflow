@@ -1,17 +1,9 @@
-async function fetchRepoLabels({ github, owner, repo }) {
-  const { data } = await github.rest.issues.listLabelsForRepo({
-    owner,
-    repo,
-    per_page: 100, // the default value is 30, which is too small to fetch all labels
-  });
-  return data.map(({ name }) => name);
-}
-
 async function fetchPrLabels({ github, owner, repo, issue_number }) {
   const { data } = await github.rest.issues.listLabelsOnIssue({
     owner,
     repo,
     issue_number,
+    per_page: 100,
   });
   return data.map(({ name }) => name);
 }
@@ -20,19 +12,24 @@ function isReleaseNoteLabel(name) {
   return name.startsWith("rn/");
 }
 
+// Bots that open pull requests without filling in the PR template, so they can
+// never select a release-note category and must not be blocked on one.
+const AUTOMATION_BOTS = ["mlflow-app[bot]", "dependabot[bot]"];
+
+function isAutomationBot(login) {
+  return AUTOMATION_BOTS.includes(login);
+}
+
 async function validateLabeled({ core, context, github }) {
   const { user, html_url: pr_url } = context.payload.pull_request;
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
 
-  // Skip validation on pull requests created by the automation bot
-  if (user.login === "mlflow-app[bot]") {
-    console.log("This pull request was created by the automation bot, skipping");
+  // Skip validation on pull requests created by an automation bot
+  if (isAutomationBot(user.login)) {
+    console.log(`This pull request was created by ${user.login}, skipping`);
     return;
   }
-
-  const repoLabels = await fetchRepoLabels({ github, owner, repo });
-  const releaseNoteLabels = repoLabels.filter(isReleaseNoteLabel);
 
   // Fetch the release-note category labels applied on this PR
   const fetchAppliedLabels = async () => {
@@ -46,7 +43,7 @@ async function validateLabeled({ core, context, github }) {
         repo,
         issue_number,
       });
-      const prReleaseNoteLabels = prLabels.filter((name) => releaseNoteLabels.includes(name));
+      const prReleaseNoteLabels = prLabels.filter(isReleaseNoteLabel);
 
       if (prReleaseNoteLabels.length > 0) {
         return prReleaseNoteLabels;
@@ -81,20 +78,18 @@ async function postMerge({ context, github }) {
   const { owner, repo } = context.repo;
   const { number: issue_number } = context.issue;
 
-  if (user.login === "mlflow-app[bot]") {
-    console.log("This PR was created by the automation bot, skipping");
+  if (isAutomationBot(user.login)) {
+    console.log(`This PR was created by ${user.login}, skipping`);
     return;
   }
 
-  const repoLabels = await fetchRepoLabels({ github, owner, repo });
-  const releaseNoteLabels = repoLabels.filter(isReleaseNoteLabel);
   const prLabels = await fetchPrLabels({
     github,
     owner,
     repo,
     issue_number,
   });
-  const prReleaseNoteLabels = prLabels.filter((name) => releaseNoteLabels.includes(name));
+  const prReleaseNoteLabels = prLabels.filter(isReleaseNoteLabel);
 
   if (prReleaseNoteLabels.length === 0) {
     const pull = await github.rest.pulls.get({

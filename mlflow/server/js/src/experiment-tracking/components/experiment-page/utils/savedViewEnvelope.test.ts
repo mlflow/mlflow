@@ -49,7 +49,35 @@ describe('savedViewEnvelope', () => {
       const envelopeJson = encodeSavedViewEnvelope('My view', compressedState, 1770000000000);
 
       const decoded = decodeSavedViewEnvelope(envelopeJson);
-      expect(decoded).toEqual({ name: 'My view', createdAt: 1770000000000, state: compressedState });
+      // updatedAt defaults to createdAt when not supplied.
+      expect(decoded).toEqual({
+        name: 'My view',
+        createdAt: 1770000000000,
+        updatedAt: 1770000000000,
+        state: compressedState,
+      });
+    });
+
+    it('preserves a distinct updatedAt when supplied (overwrite)', async () => {
+      const compressedState = await textCompressDeflate(JSON.stringify({}));
+      const envelopeJson = encodeSavedViewEnvelope('My view', compressedState, 100, 200);
+
+      expect(decodeSavedViewEnvelope(envelopeJson)).toEqual({
+        name: 'My view',
+        createdAt: 100,
+        updatedAt: 200,
+        state: compressedState,
+      });
+    });
+
+    it('defaults updatedAt to createdAt for a legacy tag written before overwrite existed', () => {
+      const legacy = JSON.stringify({ name: 'Old view', createdAt: 50, state: '{}' });
+      expect(decodeSavedViewEnvelope(legacy)).toEqual({
+        name: 'Old view',
+        createdAt: 50,
+        updatedAt: 50,
+        state: '{}',
+      });
     });
 
     it('throws on malformed JSON', () => {
@@ -72,7 +100,7 @@ describe('savedViewEnvelope', () => {
 
     it('supports an uncompressed (plain JSON) state field for forward-compat', async () => {
       const original = { selectedColumns: ['loss'] };
-      const envelope = { name: 'v', createdAt: 1, state: JSON.stringify(original) };
+      const envelope = { name: 'v', createdAt: 1, updatedAt: 1, state: JSON.stringify(original) };
 
       expect(await deserializePersistedState(envelope)).toEqual(original);
     });
@@ -94,15 +122,15 @@ describe('savedViewEnvelope', () => {
       const views = listSavedViews(tags);
 
       expect(views).toEqual([
-        { id: 'v1', name: 'First view', createdAt: 300 },
-        { id: 'v2', name: 'Second view', createdAt: 100 },
+        { id: 'v1', name: 'First view', createdAt: 300, updatedAt: 300 },
+        { id: 'v2', name: 'Second view', createdAt: 100, updatedAt: 100 },
       ]);
     });
 
     it('skips tags whose value fails to decode rather than throwing', async () => {
       const tags = [{ key: getSavedViewTagKey('bad'), value: 'not-json{' }, await buildTag('good', 'Good view', 5)];
 
-      expect(listSavedViews(tags)).toEqual([{ id: 'good', name: 'Good view', createdAt: 5 }]);
+      expect(listSavedViews(tags)).toEqual([{ id: 'good', name: 'Good view', createdAt: 5, updatedAt: 5 }]);
     });
 
     it('returns an empty array when there are no saved-view tags', () => {
@@ -118,7 +146,7 @@ describe('savedViewEnvelope', () => {
         await buildTag('good', 'Good view', 5),
       ];
 
-      expect(listSavedViews(tags)).toEqual([{ id: 'good', name: 'Good view', createdAt: 5 }]);
+      expect(listSavedViews(tags)).toEqual([{ id: 'good', name: 'Good view', createdAt: 5, updatedAt: 5 }]);
     });
   });
 });

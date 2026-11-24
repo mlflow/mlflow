@@ -10,9 +10,12 @@ a retry masks a genuine product bug and should not be applied blindly.
 The verdict is advisory: it is written into the report / PR body so a human reviewer
 sees the rationale, and the annotate step only ever acts on `action == "annotate"`.
 
-Auth mirrors .github/workflows/triage.py: an `ANTHROPIC_API_KEY` secret and a direct
-call to the Anthropic Messages API. `ANTHROPIC_BASE_URL` / `FLAKY_CLASSIFIER_MODEL`
-may override the endpoint and model (e.g. to route through an internal gateway).
+Gateway callers can provide `ANTHROPIC_AUTH_TOKEN` and optional
+`ANTHROPIC_CUSTOM_HEADERS`; requests use bearer authentication and the configured
+base URL. Local callers can continue to use `ANTHROPIC_API_KEY` for direct Anthropic
+access. `ANTHROPIC_BASE_URL` / `FLAKY_CLASSIFIER_MODEL` may override the endpoint and
+model. `FLAKY_CLASSIFIER_TEMPERATURE` defaults to 0; set it to an empty string for
+models that reject sampling parameters. `FLAKY_CLASSIFIER_MAX_TOKENS` defaults to 1024.
 
 Usage:
   python dev/classify_flaky_tests.py --in flakes.json --out classified.json
@@ -28,15 +31,20 @@ import sys
 import urllib.request
 from typing import Any
 
+from detect_flaky_tests import FRAMEWORKS
+
 DEFAULT_MODEL = os.environ.get("FLAKY_CLASSIFIER_MODEL", "claude-sonnet-4-6")
 BASE_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://api.anthropic.com").rstrip("/")
 
+# The prompt is identical across frameworks except for how a retry is expressed;
+# `{retry_mechanism}` is filled per framework (see RETRY_MECHANISMS below) so the
+# classifier's `annotate` verdict names the mechanism a human would actually apply.
 PROMPT_TEMPLATE = """\
 You are triaging a flaky test in the MLflow CI suite. A "flake" here is a test that \
 FAILED on one CI run attempt and PASSED on a re-run of the exact same commit — so the \
 code did not change between the two outcomes.
 
-Your job: decide whether this test should be annotated with `@pytest.mark.flaky` \
+Your job: decide whether this test should be annotated with `{retry_mechanism}` \
 (which makes CI automatically retry it), or whether the flake likely reflects a real \
 bug that a human should FIX instead.
 
@@ -60,7 +68,7 @@ failure that only "passed on retry" by luck.
 Return a JSON object:
 - `category`: one of "timeout", "resource-contention", "network", "test-harness-race", \
 "product-race", "logic-bug", "unknown".
-- `action`: one of "annotate" (safe to retry via @pytest.mark.flaky), "fix" (likely a \
+- `action`: one of "annotate" (safe to retry via {retry_mechanism}), "fix" (likely a \
 real bug — do not retry, a human should fix it), "investigate" (not enough signal to \
 decide).
 - `attempts`: suggested retry count (2 or 3) if action is "annotate", else null.
@@ -70,6 +78,20 @@ decide).
 Weigh the failure count: a test that flaked repeatedly across many commits is more \
 likely a genuine flake safe to retry; a single occurrence with a logic-bug-shaped error \
 should lean toward "investigate" or "fix"."""
+
+# How each framework expresses an automatic retry, injected into the prompt above.
+# Keyed by the same framework names as detect's FRAMEWORKS registry: every framework the
+# detector can mine must have a retry mechanism here, or `--framework X` would pass
+# argparse in detect and then KeyError here. The assert below enforces that at import so
+# the two registries can't silently drift out of sync.
+RETRY_MECHANISMS: dict[str, str] = {
+    "pytest": "@pytest.mark.flaky",
+}
+
+assert RETRY_MECHANISMS.keys() == FRAMEWORKS.keys(), (
+    "RETRY_MECHANISMS and detect_flaky_tests.FRAMEWORKS must cover the same frameworks; "
+    f"got {sorted(RETRY_MECHANISMS)} vs {sorted(FRAMEWORKS)}"
+)
 
 _SCHEMA = {
     "type": "object",
@@ -107,23 +129,29 @@ def _auth_headers() -> dict[str, str]:
         headers["Authorization"] = f"Bearer {token}"
     else:
         headers["x-api-key"] = os.environ["ANTHROPIC_API_KEY"]
+    if custom_headers := os.environ.get("ANTHROPIC_CUSTOM_HEADERS"):
+        name, separator, value = custom_headers.partition(":")
+        if not separator:
+            raise ValueError("ANTHROPIC_CUSTOM_HEADERS must contain an HTTP header line")
+        headers[name.strip()] = value.strip()
     return headers
 
 
-def classify(nodeid: str, count: int, error: str) -> dict[str, Any]:
-    prompt = PROMPT_TEMPLATE.format(nodeid=nodeid, count=count, error=error or "(none)")
+def classify(nodeid: str, count: int, error: str, retry_mechanism: str) -> dict[str, Any]:
+    prompt = PROMPT_TEMPLATE.format(
+        nodeid=nodeid, count=count, error=error or "(none)", retry_mechanism=retry_mechanism
+    )
     request_body = {
         "model": DEFAULT_MODEL,
-        "max_tokens": 1024,
-        # temperature=0 for the most deterministic verdict we can get: the same flake
-        # should classify the same way run-to-run so the report/PR stays stable.
-        "temperature": 0,
+        "max_tokens": int(os.environ.get("FLAKY_CLASSIFIER_MAX_TOKENS", "1024")),
         "messages": [{"role": "user", "content": prompt}],
         # Constrain the reply to `_SCHEMA` so the model emits exactly the fields the
         # downstream stages read — no prose to parse, and an off-schema reply is rejected
         # by the API rather than reaching us.
         "output_config": {"format": {"type": "json_schema", "schema": _SCHEMA}},
     }
+    if temperature := os.environ.get("FLAKY_CLASSIFIER_TEMPERATURE", "0"):
+        request_body["temperature"] = float(temperature)
     req = urllib.request.Request(
         f"{BASE_URL}/v1/messages",
         data=json.dumps(request_body).encode(),
@@ -137,9 +165,13 @@ def classify(nodeid: str, count: int, error: str) -> dict[str, Any]:
         # there is no per-test fallback, so a failed call aborts the classify step.
         print(f"API Error {e.code}: {e.read().decode()}", file=sys.stderr)
         raise
-    # Two-level decode: the outer envelope is the Messages API response; the schema-
-    # constrained verdict is itself a JSON string in the first content block's `text`.
-    verdict: dict[str, Any] = json.loads(response["content"][0]["text"])
+    if response["stop_reason"] != "end_turn":
+        raise ValueError(f"Classifier response stopped with {response['stop_reason']}")
+    # Thinking blocks can precede the text block containing the schema-constrained verdict.
+    text = next((block["text"] for block in response["content"] if block["type"] == "text"), None)
+    if text is None:
+        raise ValueError("Classifier response contains no text block")
+    verdict: dict[str, Any] = json.loads(text)
     return verdict
 
 
@@ -164,7 +196,16 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--in", dest="infile", required=True, help="flakes.json from the detector")
     p.add_argument("--out", help="Write classified JSON here")
+    p.add_argument(
+        "--framework",
+        default="pytest",
+        choices=sorted(RETRY_MECHANISMS),
+        help="Test framework the flakes came from (selects the retry mechanism named in "
+        "the prompt). Default: pytest.",
+    )
     args = p.parse_args()
+
+    retry_mechanism = RETRY_MECHANISMS[args.framework]
 
     with open(args.infile) as f:
         flakes = json.load(f)
@@ -181,7 +222,7 @@ def main() -> None:
                 "rationale": "No test-level nodeid recovered (shard/infra flake).",
             }
         else:
-            verdict = classify(t["test"], t["count"], t["error"] or "")
+            verdict = classify(t["test"], t["count"], t["error"] or "", retry_mechanism)
         results.append({**t, "verdict": verdict})
         label = t["test"] or t["shard"]
         v = verdict

@@ -1,7 +1,7 @@
 """Validate GitHub Actions workflow and action files.
 
-Complements `.github/policy.rego` with checks that need cross-file or remote
-context.
+Complements `.github/policy.rego` with checks that need YAML formatting,
+cross-file, or remote context.
 """
 
 import json
@@ -36,6 +36,8 @@ _VERSION_COMMENT_RE = re.compile(r"^v\d+\.\d+\.\d+(?:\.\d+)*$")
 
 _CACHE_PATH = Path(".cache/action-pins.json")
 
+_LS_REMOTE_TIMEOUT = 10
+
 
 def _load_cache() -> dict[str, bool]:
     if _CACHE_PATH.exists():
@@ -62,8 +64,11 @@ def _repo_from_action(action: str) -> str:
             raise ValueError(f"Invalid action format: {action!r}")
 
 
-def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool | None:
+class LookupFailed(Exception):
+    """`git ls-remote` produced no answer, so the pin is neither verified nor refuted."""
 
+
+def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> bool:
     cache_key = f"{action}@{sha}#{tag}"
     if cache_key in cache:
         return cache[cache_key]
@@ -71,20 +76,37 @@ def _verify_sha_tag(action: str, sha: str, tag: str, cache: dict[str, bool]) -> 
     repo = _repo_from_action(action)
     try:
         result = _resolve_tag(repo, sha, tag)
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        return None
+    except subprocess.TimeoutExpired as e:
+        reason = f"`git ls-remote` timed out after {_LS_REMOTE_TIMEOUT}s"
+        if e.stderr:
+            reason += f": {e.stderr.decode(errors='replace').strip()}"
+        raise LookupFailed(reason) from e
+    except subprocess.CalledProcessError as e:
+        raise LookupFailed(f"`git ls-remote` exited {e.returncode}: {e.stderr.strip()}") from e
 
     cache[cache_key] = result
     return result
 
 
 def _resolve_tag(repo: str, sha: str, tag: str) -> bool:
-    output = subprocess.check_output(
-        ["git", "ls-remote", "--tags", f"https://github.com/{repo}.git", tag],
+    # An annotated tag's ref points at the tag object, not the commit that `uses:` pins.
+    # The peeled ref 'refs/tags/<tag>^{}' holds that commit, but `ls-remote` only emits
+    # it when a pattern matches it, so ask for both (lightweight tags match the first).
+    proc = subprocess.run(
+        [
+            "git",
+            "ls-remote",
+            "--tags",
+            f"https://github.com/{repo}.git",
+            tag,
+            f"{tag}^{{}}",
+        ],
+        capture_output=True,
         text=True,
-        timeout=10,
+        timeout=_LS_REMOTE_TIMEOUT,
+        check=True,
     )
-    return any(line.split()[0] == sha for line in output.splitlines() if line)
+    return any(line.split()[0] == sha for line in proc.stdout.splitlines() if line)
 
 
 def _iter_files() -> Iterator[Path]:
@@ -126,11 +148,12 @@ def _check_action(a: ActionRef, cache: dict[str, bool]) -> str | None:
             f" (expected '# vX.Y.Z', got {a.comment!r})"
         )
 
-    verified = _verify_sha_tag(a.action, a.ref, a.comment, cache)
-    if verified is None:
+    try:
+        verified = _verify_sha_tag(a.action, a.ref, a.comment, cache)
+    except LookupFailed as e:
         return (
             f"{a.prefix}\n  error: could not verify SHA against tag '{a.comment}'"
-            f" for {_repo_from_action(a.action)} (GitHub API unavailable)"
+            f" for {_repo_from_action(a.action)}\n  reason: {e}"
         )
     if not verified:
         return (
@@ -173,8 +196,14 @@ def _glob_to_regex(pattern: str) -> re.Pattern[str]:
     return re.compile("".join(parts))
 
 
-def _list_tracked_files() -> list[str]:
-    return subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+def _list_repo_files() -> list[str]:
+    # `--others --exclude-standard` also lists files that exist on disk but are not
+    # in the index yet, so a new workflow whose `paths` filter names itself does not
+    # fail before it is staged.
+    return subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        text=True,
+    ).splitlines()
 
 
 def _pattern_matches(pattern: str, files: list[str]) -> bool:
@@ -205,13 +234,13 @@ def _iter_workflow_files() -> Iterator[Path]:
 
 
 def _check_paths() -> Iterator[str]:
-    files = _list_tracked_files()
+    files = _list_repo_files()
     for path in sorted(_iter_workflow_files()):
         for event, key, pattern in _iter_path_patterns(path):
             if not _pattern_matches(pattern, files):
                 yield (
                     f"{path}: [on.{event}.{key}] pattern {pattern!r} does not"
-                    " match any tracked file"
+                    " match any file in the repository"
                 )
 
 
@@ -227,12 +256,47 @@ def _check_version_consistency(all_action_refs: list[ActionRef]) -> Iterator[str
             yield f"{action} is pinned to multiple versions:\n{lines}"
 
 
+def _get_node(node: yaml.Node | None, *keys: str) -> yaml.Node | None:
+    for key in keys:
+        match node:
+            case yaml.MappingNode(value=items):
+                node = next((value for k, value in items if k.value == key), None)
+            case _:
+                return None
+    return node
+
+
+def _iter_steps(node: yaml.Node | None) -> Iterator[yaml.Node]:
+    match node:
+        case yaml.SequenceNode(value=steps):
+            for step in steps:
+                yield step
+                yield from _iter_steps(_get_node(step, "parallel"))
+
+
+def _check_run_style(path: Path) -> Iterator[str]:
+    root = yaml.compose(path.read_text(encoding="utf-8"), Loader=yaml.CSafeLoader)
+    steps_nodes = [_get_node(root, "runs", "steps")]
+    match _get_node(root, "jobs"):
+        case yaml.MappingNode(value=jobs):
+            steps_nodes.extend(_get_node(job, "steps") for _, job in jobs)
+
+    for steps in steps_nodes:
+        for step in _iter_steps(steps):
+            match _get_node(step, "run"):
+                case yaml.ScalarNode(style=style, start_mark=mark) if style != "|":
+                    yield (
+                        f"{path}:{mark.line + 1}: 'run' must use a literal block scalar (run: |)"
+                    )
+
+
 def main() -> int:
     cache = _load_cache()
     all_errors: list[str] = []
     all_action_refs: list[ActionRef] = []
     try:
         for path in _iter_files():
+            all_errors.extend(_check_run_style(path))
             for action_ref in _iter_actions(path):
                 if error := _check_action(action_ref, cache):
                     all_errors.append(error)

@@ -25,6 +25,7 @@ const providerInfo = (overrides: Partial<ProviderInfo> & { name: string; display
   requires_api_key: false,
   has_api_key: false,
   allows_remote_access: false,
+  client_tool_delivery: 'unsupported',
   model_options: [],
   ...overrides,
 });
@@ -35,6 +36,7 @@ const resolvedProvider = (overrides: Partial<ResolvedProviderInfo> = {}): Resolv
   auto_selected: true,
   requires_api_key: false,
   has_api_key: false,
+  client_tool_delivery: 'unsupported',
   ...overrides,
 });
 

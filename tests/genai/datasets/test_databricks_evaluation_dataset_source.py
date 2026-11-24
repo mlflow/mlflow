@@ -45,11 +45,39 @@ def test_databricks_evaluation_dataset_source_to_json():
     assert parsed == {"table_name": "catalog.schema.table", "dataset_id": "12345"}
 
 
+def test_databricks_evaluation_dataset_source_to_json_with_version():
+    source = DatabricksEvaluationDatasetSource(
+        table_name="catalog.schema.table",
+        dataset_id="12345",
+        version=7,
+    )
+
+    assert json.loads(source.to_json()) == {
+        "table_name": "catalog.schema.table",
+        "dataset_id": "12345",
+        "version": 7,
+    }
+
+
 def test_databricks_evaluation_dataset_source_from_json():
     json_str = json.dumps({"table_name": "catalog.schema.table", "dataset_id": "12345"})
     source = DatabricksEvaluationDatasetSource.from_json(json_str)
     assert source.table_name == "catalog.schema.table"
     assert source.dataset_id == "12345"
+
+
+def test_databricks_evaluation_dataset_source_from_json_with_version():
+    source = DatabricksEvaluationDatasetSource.from_json(
+        json.dumps({
+            "table_name": "catalog.schema.table",
+            "dataset_id": "12345",
+            "version": 7,
+        })
+    )
+
+    assert source.table_name == "catalog.schema.table"
+    assert source.dataset_id == "12345"
+    assert source.version == 7
 
 
 def test_databricks_evaluation_dataset_source_load_not_implemented():

@@ -33,6 +33,7 @@ from mlflow.entities.trace_location import (
     UnityCatalog,
 )
 from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT,
     MLFLOW_TRACE_SAMPLING_RATIO,
@@ -144,6 +145,11 @@ class _TracerProviderWrapper:
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             return self._isolated_tracer_provider_once
         return self._global_provider_init_once
+
+    @property
+    def is_initialized(self) -> bool:
+        """Whether MLflow's tracer provider has been initialized for the current provider mode."""
+        return self.once.done
 
     def get(self) -> TracerProvider:
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
@@ -446,8 +452,18 @@ def detach_span_from_context(token: SpanContextToken):
         finally:
             # Always detach MLflow's runtime context, even if the global detach above fails,
             # so the isolated runtime context is not leaked.
-            mlflow_runtime_context.detach(mlflow_token)
+            try:
+                mlflow_runtime_context.detach(mlflow_token)
+            except ValueError as e:
+                # mlflow_runtime_context.detach() calls ContextVar.reset(), which raises
+                # ValueError when a span is detached in a different async context than where
+                # it was attached. This happens with integrations like pydantic-ai that span
+                # async boundaries. Ignore only that cross-context error.
+                if "different Context" not in str(e):
+                    raise
     else:
+        # OpenTelemetry's context_api.detach() catches and logs exceptions internally,
+        # so it never propagates ValueError here.
         context_api.detach(token)
 
 
@@ -486,7 +502,7 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
         .. code-block:: python
 
-            from mlflow.tracing.destination import Databricks
+            from mlflow.tracing.destination import MlflowExperimentLocation
 
             mlflow.tracing.set_destination(
                 MlflowExperimentLocation(experiment_id="123"),
@@ -581,6 +597,73 @@ def _get_tracer(module_name: str) -> trace.Tracer:
     Other simultaneous calls to this function will block until the initialization is done.
     """
     return provider.get_or_init_tracer(module_name)
+
+
+def _is_in_span_processor_chain(
+    processor: SpanProcessor, span_processor: SpanProcessor | None
+) -> bool:
+    """
+    Whether ``span_processor`` is a composite that already contains ``processor``.
+
+    With a shared tracer provider (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), an autolog
+    span processor and MLflow's own processors sit in the same composite, which dispatches to
+    each of them. Forwarding to that composite from the autolog processor would make MLflow's
+    processors handle the span twice.
+    """
+    return processor in getattr(span_processor, "_span_processors", ())
+
+
+def _get_tracer_for_span_start(
+    processor: SpanProcessor, module_name: str
+) -> tuple[trace.Tracer, bool]:
+    """
+    Get MLflow's tracer for an autolog span processor's ``on_start``, and whether the processor
+    should forward the span to the tracer's span processor.
+
+    With a shared tracer provider, the composite dispatching ``on_start`` to ``processor`` also
+    dispatches to MLflow's processors, so forwarding would make them handle the span twice. The
+    exception is when this call to ``_get_tracer`` registers MLflow's processors: the composite's
+    in-progress dispatch won't reach a processor added mid-iteration, so the span still has to be
+    forwarded.
+    """
+    was_initialized = provider.is_initialized
+    tracer = _get_tracer(module_name)
+    span_processor = getattr(tracer, "span_processor", None)
+    should_forward = not (
+        was_initialized and _is_in_span_processor_chain(processor, span_processor)
+    )
+    return tracer, should_forward
+
+
+def _get_tracer_for_span_end(
+    processor: SpanProcessor, module_name: str
+) -> tuple[trace.Tracer, bool]:
+    """
+    Get MLflow's tracer for an autolog span processor's ``on_end``, and whether the processor
+    should forward the span to the tracer's span processor.
+
+    With a shared tracer provider, the composite dispatching ``on_end`` to ``processor`` goes on
+    to call MLflow's processors itself, so forwarding would export the span a second time.
+    """
+    tracer = _get_tracer(module_name)
+    span_processor = getattr(tracer, "span_processor", None)
+    return tracer, not _is_in_span_processor_chain(processor, span_processor)
+
+
+def _add_span_processor_first(tracer_provider: TracerProvider, processor: SpanProcessor) -> None:
+    """
+    Add ``processor`` so it runs before the provider's existing span processors, so an autolog
+    processor sets span attributes before MLflow's processors export the span.
+    """
+    tracer_provider.add_span_processor(processor)
+    active = tracer_provider._active_span_processor
+    # Reorder under the composite's lock, which add_span_processor also takes, so a processor
+    # added concurrently (e.g. MLflow's, registered lazily on another thread) isn't dropped.
+    with active._lock:
+        active._span_processors = (
+            processor,
+            *(p for p in active._span_processors if p is not processor),
+        )
 
 
 def _get_span_processor():
@@ -758,16 +841,29 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
     from mlflow.tracking._tracking_service.utils import _get_store
     from mlflow.tracking.fluent import _get_experiment_id
 
+    # Model serving runs with a non-databricks tracking URI (the local store), so the experiment's
+    # UC binding lives in the Databricks backend and must be read through a databricks store rather
+    # than the process store. Elsewhere, only resolve when the active tracking URI is databricks.
+    in_serving = (
+        is_in_databricks_model_serving_environment()
+        and is_mlflow_tracing_enabled_in_model_serving()
+    )
     tracking_uri = mlflow.get_tracking_uri()
-    if not tracking_uri or not is_databricks_uri(tracking_uri):
+    if in_serving:
+        store_uri = "databricks"
+    elif tracking_uri and is_databricks_uri(tracking_uri):
+        store_uri = None
+    else:
         return None
 
     try:
-        experiment_id = _get_experiment_id()
+        # In serving, read the id from the env var: `_get_experiment_id()` would validate it against
+        # the local store (where it does not exist) and raise.
+        experiment_id = MLFLOW_EXPERIMENT_ID.get() if in_serving else _get_experiment_id()
         if not experiment_id:
             return None
 
-        experiment = _get_store().get_experiment(experiment_id)
+        experiment = _get_store(store_uri).get_experiment(experiment_id)
         if not experiment:
             return None
 
@@ -814,7 +910,15 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 
-            exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
+            # In model serving the process tracking URI defaults to the local store, which cannot
+            # reach the backend UC ingestion needs. An explicit databricks URI is kept as-is so a
+            # configured profile (databricks://<profile>) is not discarded.
+            uc_tracking_uri = mlflow.get_tracking_uri()
+            if is_in_databricks_model_serving_environment() and not (
+                uc_tracking_uri and is_databricks_uri(uc_tracking_uri)
+            ):
+                uc_tracking_uri = "databricks"
+            exporter = DatabricksUCTableSpanExporter(tracking_uri=uc_tracking_uri)
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
             _logger.debug("Added DatabricksUCTableSpanProcessor based on trace destination")

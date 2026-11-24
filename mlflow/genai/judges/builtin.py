@@ -1,12 +1,19 @@
 from functools import wraps
 from typing import TYPE_CHECKING, Any
 
+import pydantic
+
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.constants import USE_CASE_BUILTIN_JUDGE
+from mlflow.genai.judges.constants import (
+    _RATIONALE_FIELD_DESCRIPTION,
+    _RESULT_FIELD_DESCRIPTION,
+    USE_CASE_BUILTIN_JUDGE,
+)
+from mlflow.genai.judges.model_api import ModelAPI, _parse_model_api, _select_model_api_mode
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
+from mlflow.genai.judges.structured_judge import _invoke_structured_builtin_judge
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 if TYPE_CHECKING:
@@ -28,6 +35,17 @@ variable and the tracking URI setup:
 * Otherwise: `openai:/gpt-4.1-mini`.
 """,
 }
+
+
+class _RationaleFirstJudgeEvaluation(pydantic.BaseModel):
+    """Judge output schema with ``rationale`` ahead of ``result``.
+
+    Field order in a strict JSON schema is the order the model must generate in, so putting
+    ``rationale`` first lets the verdict follow the judge's reasoning.
+    """
+
+    rationale: str = pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION)
+    result: str = pydantic.Field(description=_RESULT_FIELD_DESCRIPTION)
 
 
 def _sanitize_feedback(feedback: Feedback) -> Feedback:
@@ -114,7 +132,10 @@ def is_context_relevant(
             print(feedback.value)  # "no"
 
     """
-    from mlflow.genai.judges.prompts.relevance_to_query import get_prompt
+    from mlflow.genai.judges.prompts.relevance_to_query import (
+        RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS,
+        get_prompt,
+    )
 
     model = model or get_default_model()
 
@@ -131,13 +152,21 @@ def is_context_relevant(
             assessment_name=assessment_name,
         )
     else:
-        prompt = get_prompt(request, str(context))
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(request, str(context)),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": RELEVANCE_TO_QUERY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"input": request, "output": context},
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -200,6 +229,7 @@ def is_context_sufficient(
     """
     from mlflow.genai.judges.prompts.context_sufficiency import (
         CONTEXT_SUFFICIENCY_FEEDBACK_NAME,
+        CONTEXT_SUFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
@@ -217,18 +247,30 @@ def is_context_sufficient(
             assessment_name=assessment_name,
         )
     else:
-        prompt = get_prompt(
-            request=request,
-            context=context,
-            expected_response=expected_response,
-            expected_facts=expected_facts,
-        )
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(
+                    request=request,
+                    context=context,
+                    expected_response=expected_response,
+                    expected_facts=expected_facts,
+                ),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": CONTEXT_SUFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "ground_truth": expected_response or expected_facts or "",
+                    "retrieval_context": context,
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -293,7 +335,11 @@ def is_correct(
             )
             print(feedback.value)  # "no"
     """
-    from mlflow.genai.judges.prompts.correctness import CORRECTNESS_FEEDBACK_NAME, get_prompt
+    from mlflow.genai.judges.prompts.correctness import (
+        CORRECTNESS_FEEDBACK_NAME,
+        CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
+        get_prompt,
+    )
 
     if expected_response is not None and expected_facts is not None:
         raise MlflowException(
@@ -314,18 +360,30 @@ def is_correct(
             assessment_name=assessment_name,
         )
     else:
-        prompt = get_prompt(
-            request=request,
-            response=response,
-            expected_response=expected_response,
-            expected_facts=expected_facts,
-        )
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(
+                    request=request,
+                    response=response,
+                    expected_response=expected_response,
+                    expected_facts=expected_facts,
+                ),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": CORRECTNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "output": response,
+                    "ground_truth": expected_response or expected_facts or "",
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -387,7 +445,11 @@ def is_grounded(
             )
             print(feedback.value)  # "no"
     """
-    from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_FEEDBACK_NAME, get_prompt
+    from mlflow.genai.judges.prompts.groundedness import (
+        GROUNDEDNESS_FEEDBACK_NAME,
+        GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
+        get_prompt,
+    )
 
     model = model or get_default_model()
     assessment_name = name or GROUNDEDNESS_FEEDBACK_NAME
@@ -402,23 +464,34 @@ def is_grounded(
             assessment_name=assessment_name,
         )
     else:
-        prompt = get_prompt(
-            request=request,
-            response=response,
-            context=context,
-        )
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(
+                    request=request,
+                    response=response,
+                    context=context,
+                ),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": GROUNDEDNESS_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {
+                    "input": request,
+                    "output": response,
+                    "retrieval_context": context,
+                },
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def is_tool_call_efficient(
     *,
@@ -515,25 +588,37 @@ def is_tool_call_efficient(
     """
     from mlflow.genai.judges.prompts.tool_call_efficiency import (
         TOOL_CALL_EFFICIENCY_FEEDBACK_NAME,
+        TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
         get_prompt,
     )
 
     model = model or get_default_model()
     assessment_name = name or TOOL_CALL_EFFICIENCY_FEEDBACK_NAME
 
-    prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
-    feedback = invoke_judge_model(
+    feedback = _invoke_structured_builtin_judge(
         model,
-        prompt,
-        assessment_name=assessment_name,
-        use_case=USE_CASE_BUILTIN_JUDGE,
-        extra_headers=extra_headers,
+        chat_invoker=lambda: invoke_judge_model(
+            model,
+            get_prompt(request=request, tools_called=tools_called, available_tools=available_tools),
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
+        ),
+        decision_invoke_params={
+            "instructions": TOOL_CALL_EFFICIENCY_TYPESAFE_PROMPT_INSTRUCTIONS,
+            "state": {
+                "request": request,
+                "available_tools": available_tools,
+                "tools_called": tools_called,
+            },
+            "assessment_name": assessment_name,
+            "extra_headers": extra_headers,
+        },
     )
 
     return _sanitize_feedback(feedback)
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def is_tool_call_correct(
     *,
@@ -618,25 +703,56 @@ def is_tool_call_correct(
     from mlflow.genai.judges.prompts.tool_call_correctness import (
         TOOL_CALL_CORRECTNESS_FEEDBACK_NAME,
         get_prompt,
+        get_typesafe_prompt_instructions,
     )
 
     model = model or get_default_model()
     assessment_name = name or TOOL_CALL_CORRECTNESS_FEEDBACK_NAME
 
-    prompt = get_prompt(
-        request=request,
-        tools_called=tools_called,
-        available_tools=available_tools,
-        expected_calls=expected_tool_calls,
-        include_arguments=include_arguments,
-        check_order=check_order,
-    )
-    feedback = invoke_judge_model(
+    feedback = _invoke_structured_builtin_judge(
         model,
-        prompt,
-        assessment_name=assessment_name,
-        use_case=USE_CASE_BUILTIN_JUDGE,
-        extra_headers=extra_headers,
+        chat_invoker=lambda: invoke_judge_model(
+            model,
+            get_prompt(
+                request=request,
+                tools_called=tools_called,
+                available_tools=available_tools,
+                expected_calls=expected_tool_calls,
+                include_arguments=include_arguments,
+                check_order=check_order,
+            ),
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
+        ),
+        decision_invoke_params={
+            "instructions": get_typesafe_prompt_instructions(
+                has_expected_calls=expected_tool_calls is not None,
+                include_arguments=include_arguments,
+                check_order=check_order,
+            ),
+            "state": {
+                "request": request,
+                "available_tools": available_tools,
+                "tools_called": tools_called,
+                **(
+                    {
+                        "expected_calls": (
+                            [
+                                {"name": call.name, "arguments": call.arguments}
+                                for call in expected_tool_calls
+                            ]
+                            if include_arguments
+                            else [call.name for call in expected_tool_calls]
+                        )
+                    }
+                    if expected_tool_calls is not None
+                    else {}
+                ),
+            },
+            "assessment_name": assessment_name,
+            "extra_headers": extra_headers,
+        },
     )
 
     return _sanitize_feedback(feedback)
@@ -652,6 +768,9 @@ def is_safe(
 ) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
+
+    For judge models that support structured outputs, the rationale is generated before the
+    result so the verdict follows the judge's reasoning.
 
     Args:
         content: Text content to evaluate for safety.
@@ -674,7 +793,11 @@ def is_safe(
             feedback = is_safe(content="I am a happy person.")
             print(feedback.value)  # "yes"
     """
-    from mlflow.genai.judges.prompts.safety import SAFETY_ASSESSMENT_NAME, get_prompt
+    from mlflow.genai.judges.prompts.safety import (
+        SAFETY_ASSESSMENT_NAME,
+        SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
+        get_prompt,
+    )
 
     model = model or get_default_model()
     assessment_name = name or SAFETY_ASSESSMENT_NAME
@@ -684,13 +807,22 @@ def is_safe(
 
         feedback = safety(response=content, assessment_name=assessment_name)
     else:
-        prompt = get_prompt(content=content)
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=assessment_name,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(content=content),
+                assessment_name=assessment_name,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+                response_format=_RationaleFirstJudgeEvaluation,
+            ),
+            decision_invoke_params={
+                "instructions": SAFETY_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"content": content},
+                "assessment_name": assessment_name,
+                "extra_headers": extra_headers,
+            },
         )
 
     return _sanitize_feedback(feedback)
@@ -704,6 +836,7 @@ def meets_guidelines(
     name: str | None = None,
     model: str | None = None,
     extra_headers: dict[str, str] | None = None,
+    model_api: ModelAPI | str | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
@@ -718,6 +851,8 @@ def meets_guidelines(
         extra_headers: Optional dictionary of additional HTTP headers to include in
             requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
             for SAP AI Core). Default: ``None``.
+        model_api: Model API to use. Set to ``"decisions"`` for a Databricks System One
+            model service. Direct ``typesafe:/`` models select Decisions automatically.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -744,9 +879,14 @@ def meets_guidelines(
             )
             print(feedback.value)  # "no"
     """
-    from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
+    from mlflow.genai.judges.prompts.guidelines import (
+        GUIDELINES_FEEDBACK_NAME,
+        GUIDELINES_TYPESAFE_PROMPT_INSTRUCTIONS,
+        get_prompt,
+    )
 
     model = model or get_default_model()
+    _select_model_api_mode(model, _parse_model_api(model_api))
 
     if model == "databricks":
         from databricks.agents.evals.judges import guidelines as guidelines_judge
@@ -757,13 +897,22 @@ def meets_guidelines(
             assessment_name=name,
         )
     else:
-        prompt = get_prompt(guidelines, context)
-        feedback = invoke_judge_model(
+        feedback = _invoke_structured_builtin_judge(
             model,
-            prompt,
-            assessment_name=name or GUIDELINES_FEEDBACK_NAME,
-            use_case=USE_CASE_BUILTIN_JUDGE,
-            extra_headers=extra_headers,
+            chat_invoker=lambda: invoke_judge_model(
+                model,
+                get_prompt(guidelines, context),
+                assessment_name=name or GUIDELINES_FEEDBACK_NAME,
+                use_case=USE_CASE_BUILTIN_JUDGE,
+                extra_headers=extra_headers,
+            ),
+            decision_invoke_params={
+                "instructions": GUIDELINES_TYPESAFE_PROMPT_INSTRUCTIONS,
+                "state": {"guidelines": guidelines, "guidelines_context": context},
+                "assessment_name": name or GUIDELINES_FEEDBACK_NAME,
+                "extra_headers": extra_headers,
+            },
+            model_api=model_api,
         )
 
     return _sanitize_feedback(feedback)

@@ -78,6 +78,11 @@ def get_default_pip_requirements():
     if Version(prophet.__version__) <= Version("1.2.0"):
         pip_deps.append("cmdstanpy<1.3.0")
 
+    # `Prophet.fit` raises "cannot reindex on an axis with duplicate labels" under pandas 3, and
+    # these versions do not declare the bound themselves (1.2.2 does, and 1.3.0 supports pandas 3)
+    if Version(prophet.__version__) < Version("1.2.2"):
+        pip_deps.append("pandas<3")
+
     return pip_deps
 
 

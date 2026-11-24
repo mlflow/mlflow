@@ -1,5 +1,6 @@
 import {
   isNil,
+  once,
   omitBy,
   mapValues,
   isArray,
@@ -15,7 +16,10 @@ import {
   isObject,
   isEmpty,
 } from 'lodash';
+
 import { useMemo } from 'react';
+
+import { copyModelTraceSpanNode } from './copyModelTraceSpanNode';
 
 import type {
   SearchMatch,
@@ -40,6 +44,7 @@ import type {
   ModelTraceEvent,
   ModelTraceLocation,
   ModelTraceInputAudio,
+  ModelTraceSpanLink,
 } from './ModelTrace.types';
 import {
   ModelSpanType,
@@ -50,6 +55,7 @@ import {
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
+import { mayBeJsonText } from './attributeJson';
 import { normalizeAnthropicChatInput, normalizeAnthropicChatOutput } from './chat-utils/anthropic';
 import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
 import { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './chat-utils/bedrock';
@@ -71,6 +77,7 @@ import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-ut
 import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 import { decodeOtelAnyValue, getSpanAttribute, isOtelAnyValue } from '../genai-traces-table/utils/TraceUtils';
+import Utils from '../../../common/utils/Utils';
 import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
 import {
   normalizeVoltAgentChatInput,
@@ -87,17 +94,16 @@ import {
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
+import { getExperimentPageTracesTabRoute } from './routes';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
-  // TODO: display error notification in OSS
-  return;
+  Utils.displayGlobalErrorNotification(errorMessage);
 };
 
 export const displaySuccessNotification = (successMessage: string) => {
-  // TODO: display success notification in OSS
-  return;
+  Utils.displayGlobalInfoNotification(successMessage);
 };
 
 export function getIconTypeForSpan(spanType: ModelSpanType | string): ModelIconType {
@@ -162,9 +168,27 @@ export function getDisplayNameForSpanType(spanType: ModelSpanType | string): str
   }
 }
 
-export function tryDeserializeAttribute(value: string): any {
+export function tryDeserializeAttribute(value: unknown): any {
+  if (!mayBeJsonText(value)) {
+    return value;
+  }
   try {
-    return JSON.parse(value);
+    const parsed = JSON.parse(value);
+    // Guard against precision loss for a top-level integer-literal value (e.g. an int64-range
+    // ID like "2051281657916407550"): anything outside the safe-integer range has already been
+    // rounded by `JSON.parse`, so keep the original string instead of the corrupted number.
+    // Re-stringifying is not a sufficient check — JS prints the shortest text that round-trips
+    // to the same double, so a rounded value like `1000000000000000100` (stored as
+    // ...0128) reproduces its input text exactly. This matches the `Number.isSafeInteger`
+    // policy in `decodeOtelAnyValue`. Only integer literals are checked — floats like "1.0" or
+    // "1e-05" deserialize losslessly and are left alone. Numbers nested inside a JSON-encoded
+    // attribute value (e.g. `mlflow.spanInputs`) are out of scope here and can still lose
+    // precision. The text is trimmed before matching because `JSON.parse` accepts surrounding
+    // whitespace; the untrimmed original is what gets returned.
+    if (typeof parsed === 'number' && /^-?\d+$/.test(value.trim()) && !Number.isSafeInteger(parsed)) {
+      return value;
+    }
+    return parsed;
   } catch (e) {
     return value;
   }
@@ -238,6 +262,39 @@ export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: stri
   return matches;
 };
 
+export const getLinkFieldKey = (index: number, field: string): string => {
+  return `link-${index}-${field}`;
+};
+
+const getMatchesFromLinks = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
+  const links = span.links;
+  if (!links) {
+    return [];
+  }
+
+  const matches: SearchMatch[] = [];
+  links.forEach((link, index) => {
+    const attributes = link.attributes;
+    if (!attributes || Object.keys(attributes).length === 0) return;
+
+    Object.entries(attributes).forEach(([attrKey, attrValue]) => {
+      const key = getLinkFieldKey(index, attrKey);
+      const isKeyMatch = attrKey.toLowerCase().includes(searchFilter);
+      if (isKeyMatch) {
+        matches.push({ span, section: 'links', key, isKeyMatch: true, matchIndex: 0 });
+      }
+
+      const value = JSON.stringify(attrValue, null, 2).toLowerCase();
+      const numValueMatches = value.split(searchFilter).length - 1;
+      for (let i = 0; i < numValueMatches; i++) {
+        matches.push({ span, section: 'links', key, isKeyMatch: false, matchIndex: i });
+      }
+    });
+  });
+
+  return matches;
+};
+
 /**
  * This function extracts all the matches from a span based on the search filter,
  * and appends some necessary metadata that is necessary for the jump-to-search
@@ -257,11 +314,20 @@ export const getMatchesFromSpan = (span: ModelTraceSpanNode, searchFilter: strin
     outputs: span?.outputs,
     attributes: span?.attributes,
     events: span?.events,
+    links: span?.links,
   };
 
-  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events') => {
+  map(sections, (section: any, label: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links') => {
     if (label === 'events') {
-      matches.push(...getMatchesFromEvent(span, searchFilter));
+      for (const match of getMatchesFromEvent(span, searchFilter)) {
+        matches.push(match);
+      }
+      return;
+    }
+    if (label === 'links') {
+      for (const match of getMatchesFromLinks(span, searchFilter)) {
+        matches.push(match);
+      }
       return;
     }
 
@@ -319,51 +385,102 @@ export function searchTree(
     };
   }
 
-  const children = rootNode.children ?? [];
-  const filteredChildren: ModelTraceSpanNode[] = [];
-  const matches: SearchMatch[] = [];
-  children.forEach((child) => {
-    const { filteredTreeNodes: childNodes, matches: childMatches } = searchTree(
-      child,
-      searchFilterLowercased,
-      spanFilterState,
+  // A span tree can be deeper and wider than the JS call stack allows, so recursing
+  // here exhausted the stack on large traces and took down the whole panel.
+  // Walk iteratively instead, resolving every child before the parent that consumes it.
+  type SearchTreeEntry = {
+    filteredTreeNodes: ModelTraceSpanNode[];
+    // this span's own matches only. Accumulating each subtree's matches here instead
+    // retains O(spans^2) entries on a deep trace, which just trades the stack overflow
+    // for an out-of-memory -- the full list is assembled in one pass at the end.
+    ownMatches: SearchMatch[];
+  };
+
+  const postOrder: ModelTraceSpanNode[] = [];
+  const visited = new Set<ModelTraceSpanNode>();
+  const pending: ModelTraceSpanNode[] = [rootNode];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    // `visited` also stops a malformed trace whose spans form a cycle from looping forever
+    if (!node || visited.has(node)) {
+      continue;
+    }
+    visited.add(node);
+    postOrder.push(node);
+    for (const child of node.children ?? []) {
+      pending.push(child);
+    }
+  }
+  // parents were emitted before their children, so reversing yields post-order
+  postOrder.reverse();
+
+  const entriesByNode = new Map<ModelTraceSpanNode, SearchTreeEntry>();
+
+  for (const node of postOrder) {
+    const filteredChildren: ModelTraceSpanNode[] = [];
+
+    for (const child of node.children ?? []) {
+      const childEntry = entriesByNode.get(child);
+      if (!childEntry) {
+        continue;
+      }
+      // appended element-wise rather than with push(...spread), which passes every
+      // entry as a call argument and throws once a subtree accumulates enough of them
+      for (const childNode of childEntry.filteredTreeNodes) {
+        filteredChildren.push(childNode);
+      }
+    }
+
+    const spanName = typeof node.title === 'string' ? node.title.toLowerCase() : '';
+    const spanMatches = getMatchesFromSpan(node, searchFilterLowercased);
+
+    // check if the span passes the text, type, and log-level filters
+    const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
+    const spanTypeIsDisplayed = node.type ? spanFilterState.spanTypeDisplayState[node.type] : true;
+    const spanPassesLogLevel = getSpanLogLevel(node) >= spanFilterState.minLogLevel;
+    const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
+
+    const hasMatchingChild = filteredChildren.length > 0;
+    const hasException = getSpanExceptionCount(node) > 0;
+
+    const nodeShouldBeDisplayed =
+      nodePassesSpanFilters ||
+      // the `showParents` and `showExceptions` flags override the
+      // search filters, so we always show the node if they pass
+      (spanFilterState.showParents && hasMatchingChild) ||
+      (spanFilterState.showExceptions && hasException);
+
+    entriesByNode.set(
+      node,
+      nodeShouldBeDisplayed
+        ? { filteredTreeNodes: [copyModelTraceSpanNode(node, { children: filteredChildren })], ownMatches: spanMatches }
+        : // otherwise cut the span out of the tree by returning the children directly
+          { filteredTreeNodes: filteredChildren, ownMatches: [] },
     );
-
-    filteredChildren.push(...childNodes);
-    matches.push(...childMatches);
-  });
-
-  const spanName = ((rootNode.title as string) ?? '').toLowerCase();
-  const spanMatches = getMatchesFromSpan(rootNode, searchFilterLowercased);
-
-  // check if the span passes the text, type, and log-level filters
-  const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
-  const spanTypeIsDisplayed = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
-  const spanPassesLogLevel = getSpanLogLevel(rootNode) >= spanFilterState.minLogLevel;
-  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
-
-  const hasMatchingChild = filteredChildren.length > 0;
-  const hasException = getSpanExceptionCount(rootNode) > 0;
-
-  const nodeShouldBeDisplayed =
-    nodePassesSpanFilters ||
-    // the `showParents` and `showExceptions` flags override the
-    // search filters, so we always show the node if they pass
-    (spanFilterState.showParents && hasMatchingChild) ||
-    (spanFilterState.showExceptions && hasException);
-
-  if (nodeShouldBeDisplayed) {
-    return {
-      filteredTreeNodes: [{ ...rootNode, children: filteredChildren }],
-      matches: spanMatches.concat(matches),
-    };
   }
 
-  // otherwise cut the span out of the tree by returning the children directly
-  return {
-    filteredTreeNodes: filteredChildren,
-    matches,
-  };
+  // a span's own matches precede its children's, so walk the tree in pre-order to
+  // concatenate them in the same order the recursive implementation produced
+  const matches: SearchMatch[] = [];
+  const collected = new Set<ModelTraceSpanNode>();
+  const toCollect: ModelTraceSpanNode[] = [rootNode];
+  while (toCollect.length > 0) {
+    const node = toCollect.pop();
+    if (!node || collected.has(node)) {
+      continue;
+    }
+    collected.add(node);
+    for (const match of entriesByNode.get(node)?.ownMatches ?? []) {
+      matches.push(match);
+    }
+    const children = node.children ?? [];
+    // pushed in reverse so siblings pop in their original order
+    for (let i = children.length - 1; i >= 0; i--) {
+      toCollect.push(children[i]);
+    }
+  }
+
+  return { filteredTreeNodes: entriesByNode.get(rootNode)?.filteredTreeNodes ?? [], matches };
 }
 
 export function searchTreeBySpanId(
@@ -389,10 +506,55 @@ export function searchTreeBySpanId(
   return undefined;
 }
 
+/**
+ * Drops the leading output messages that repeat the trailing input messages. This covers
+ * frameworks that echo the whole input as a prefix of the output (e.g. LangGraph state) as
+ * well as those that only repeat the last turn (e.g. PydanticAI's new_messages()).
+ */
+export const removeOverlappingInputMessages = (
+  outputMessages: ModelTraceChatMessage[],
+  inputMessages: ModelTraceChatMessage[],
+): ModelTraceChatMessage[] => {
+  const maxOverlap = Math.min(outputMessages.length, inputMessages.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap--) {
+    const inputTail = inputMessages.slice(inputMessages.length - overlap);
+    const matches = inputTail.every(
+      (message, index) => JSON.stringify(message) === JSON.stringify(outputMessages[index]),
+    );
+    if (matches) {
+      return outputMessages.slice(overlap);
+    }
+  }
+  return outputMessages;
+};
+
+/**
+ * Agent-level system prompts (e.g. PydanticAI `Agent(system_prompt=...)`) are recorded only in
+ * the first model request, which is part of the run's new messages rather than the inputs.
+ * Move such leading system messages ahead of the input transcript so the conversation reads in
+ * order and the overlap with the outputs lines up.
+ */
+export const hoistLeadingSystemMessages = (
+  inputMessages: ModelTraceChatMessage[],
+  outputMessages: ModelTraceChatMessage[],
+): ModelTraceChatMessage[] => {
+  if (inputMessages.some((message) => message.role === 'system')) {
+    return inputMessages;
+  }
+  const leadingSystemMessages: ModelTraceChatMessage[] = [];
+  for (const message of outputMessages) {
+    if (message.role !== 'system') {
+      break;
+    }
+    leadingSystemMessages.push(message);
+  }
+  return leadingSystemMessages.length > 0 ? leadingSystemMessages.concat(inputMessages) : inputMessages;
+};
+
 const getChatMessagesFromSpan = (
   messagesAttributeValue: any,
-  inputs: any,
-  outputs: any,
+  getInputs: () => any,
+  getOutputs: () => any,
   messageFormat?: string,
   children?: ModelTraceSpanNode[],
 ): ModelTraceChatMessage[] | undefined => {
@@ -406,12 +568,16 @@ const getChatMessagesFromSpan = (
   // otherwise, attempt to parse messages from inputs and outputs
   // this is to support rich rendering for older versions of MLflow
   // before the `mlflow.chat.messages` attribute was introduced
+  const inputs = getInputs();
+  const outputs = getOutputs();
   const messagesFromInputs = normalizeConversation(inputs, messageFormat) ?? [];
   const messagesFromOutputs = normalizeConversation(outputs, messageFormat) ?? [];
 
-  // PydanticAI's new_messages() returns complete conversation including user prompt
+  // PydanticAI's new_messages() starts with the user prompt that the inputs already end with,
+  // so drop that overlap before joining the two halves of the conversation.
   if (messageFormat === 'pydantic_ai' && messagesFromOutputs.length > 0) {
-    return messagesFromInputs.length > 0 ? messagesFromInputs.concat(messagesFromOutputs) : messagesFromOutputs;
+    const inputMessages = hoistLeadingSystemMessages(messagesFromInputs, messagesFromOutputs);
+    return inputMessages.concat(removeOverlappingInputMessages(messagesFromOutputs, inputMessages));
   }
 
   // For VoltAgent format, synthesize messages from child spans (tool executions)
@@ -450,7 +616,7 @@ const getChatMessagesFromSpan = (
   return messagesFromInputs.concat(messagesFromOutputs);
 };
 
-const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTraceChatTool[] | undefined => {
+const getChatToolsFromSpan = (toolsAttributeValue: any, getInputs: () => any): ModelTraceChatTool[] | undefined => {
   // if the `mlflow.chat.tools` attribute is provided
   // and in the correct format, return it as-is
   if (Array.isArray(toolsAttributeValue) && toolsAttributeValue.every(isModelTraceChatTool)) {
@@ -459,6 +625,7 @@ const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTrace
 
   // otherwise, attempt to parse tools from inputs
   // TODO: support langchain format for tool inputs
+  const inputs = getInputs();
   if (Array.isArray(inputs?.tools) && inputs?.tools?.every(isModelTraceChatTool)) {
     return inputs.tools;
   }
@@ -488,8 +655,10 @@ export const normalizeNewSpanData = (
   traceId: string,
 ): ModelTraceSpanNode => {
   const spanType = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanType') as string);
-  const inputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanInputs') as string);
-  const outputs = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.spanOutputs') as string);
+  const rawInputs = getSpanAttribute(span.attributes, 'mlflow.spanInputs');
+  const rawOutputs = getSpanAttribute(span.attributes, 'mlflow.spanOutputs');
+  const inputs = once(() => tryDeserializeAttribute(rawInputs as string));
+  const outputs = once(() => tryDeserializeAttribute(rawOutputs as string));
   const parentId = getModelTraceSpanParentId(span);
   const spanId = getModelTraceSpanId(span);
 
@@ -501,15 +670,13 @@ export const normalizeNewSpanData = (
   }
 
   // data that powers the "chat" tab
-  const messagesAttributeValue = tryDeserializeAttribute(
-    getSpanAttribute(span.attributes, 'mlflow.chat.messages') as string,
-  );
+  const rawMessages = getSpanAttribute(span.attributes, 'mlflow.chat.messages');
+  const rawTools = getSpanAttribute(span.attributes, 'mlflow.chat.tools');
   const messageFormat = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.message.format') as string);
-  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat, children);
-  const chatTools = getChatToolsFromSpan(
-    tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.chat.tools') as string),
-    inputs,
+  const chatMessages = once(() =>
+    getChatMessagesFromSpan(tryDeserializeAttribute(rawMessages as string), inputs, outputs, messageFormat, children),
   );
+  const chatTools = once(() => getChatToolsFromSpan(tryDeserializeAttribute(rawTools as string), inputs));
 
   // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
@@ -522,11 +689,10 @@ export const normalizeNewSpanData = (
   const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
 
   // remove other private mlflow attributes
-  const attributes = mapValues(
-    omitBy(span.attributes, (_, key) => key.startsWith('mlflow.')),
-    (value) => tryDeserializeAttribute(value),
-  );
+  const publicAttributes = omitBy(span.attributes, (_, key) => key.startsWith('mlflow.'));
+  const attributes = once(() => mapValues(publicAttributes, (value) => tryDeserializeAttribute(value)));
   const events = span.events;
+  const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;
   const end = (Number(getModelTraceSpanEndTime(span) ?? rootEndTime) - rootStartTime) / 1000;
 
@@ -544,13 +710,24 @@ export const normalizeNewSpanData = (
     start,
     end,
     children: children.slice().sort((a, b) => a.start - b.start),
-    inputs,
-    outputs,
-    attributes,
+    get inputs() {
+      return inputs();
+    },
+    get outputs() {
+      return outputs();
+    },
+    get attributes() {
+      return attributes();
+    },
     events,
+    links,
     chatMessageFormat: messageFormat,
-    chatMessages,
-    chatTools,
+    get chatMessages() {
+      return chatMessages();
+    },
+    get chatTools() {
+      return chatTools();
+    },
     parentId,
     assessments,
     traceId,
@@ -598,8 +775,33 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
   return spanId;
 };
 
+// Link trace ids arrive base64-encoded from OTLP endpoints (V3 traces/get,
+// V4 batchGet) but as `tr-<hex>` from the artifact route. Normalize to the
+// `tr-<hex>` form the links UI and batch trace-info lookup expect.
+export const decodeLinkTraceId = (traceId: string | null | undefined): string => {
+  if (!traceId) {
+    return '';
+  }
+
+  // Already in MLflow V3 (`tr-…`) or V4 (`trace:/…`) form.
+  if (traceId.startsWith('tr-') || traceId.startsWith('trace:/')) {
+    return traceId;
+  }
+
+  try {
+    return `tr-${base64ToHex(traceId)}`;
+  } catch (e) {
+    // if base64 decoding fails, just return the original traceId
+    return traceId;
+  }
+};
+
 export function isV3ModelTraceInfo(
-  info: Pick<ModelTraceInfoV3, 'trace_location' | 'trace_id'> | ModelTrace['info'],
+  info:
+    | Pick<ModelTraceInfoV3, 'trace_location' | 'trace_id'>
+    | ModelTrace['info']
+    | { trace?: { trace_info?: ModelTrace['info'] } }
+    | undefined,
 ): info is ModelTraceInfoV3 {
   if (!info) {
     return false;
@@ -607,6 +809,23 @@ export function isV3ModelTraceInfo(
 
   return 'trace_location' in info;
 }
+
+export const getTraceHref = (traceId: string, traceInfo: ModelTrace['info'] | undefined): string | undefined => {
+  if (!traceInfo) return undefined;
+
+  let experimentId: string | undefined;
+  if (isV3ModelTraceInfo(traceInfo)) {
+    if (traceInfo.trace_location?.type === 'MLFLOW_EXPERIMENT') {
+      experimentId = traceInfo.trace_location.mlflow_experiment?.experiment_id;
+    }
+  } else {
+    experimentId = traceInfo.experiment_id;
+  }
+
+  if (!experimentId) return undefined;
+  const params = new URLSearchParams({ traceId });
+  return `${getExperimentPageTracesTabRoute(experimentId)}?${params.toString()}`;
+};
 
 export function isV4ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV4 {
   return 'start_time_unix_nano' in span && Array.isArray(span.attributes);
@@ -702,8 +921,12 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
   });
 
   // Compute a global time window for the tree
-  const globalStartTime = Math.min(...spans.map((s) => getModelTraceSpanStartTime(s)));
-  const globalEndTime = Math.max(...spans.map((s) => getModelTraceSpanEndTime(s)));
+  let globalStartTime = Infinity;
+  let globalEndTime = -Infinity;
+  for (const span of spans) {
+    globalStartTime = Math.min(globalStartTime, getModelTraceSpanStartTime(span));
+    globalEndTime = Math.max(globalEndTime, getModelTraceSpanEndTime(span));
+  }
   const assessmentMap = getAssessmentMap(trace.info);
 
   function getSpanNodeFromData(span_id: string): ModelTraceSpanNode {
@@ -752,6 +975,25 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
   });
   return topLevelNodes;
 }
+
+export const getModelTraceTimelineRange = (
+  topLevelNodes: Pick<ModelTraceSpanNode, 'key' | 'start' | 'end'>[] | undefined,
+  comparisonNodeMap: Record<string, Pick<ModelTraceSpanNode, 'key' | 'start' | 'end'>> = {},
+): { traceStartTime: number; traceEndTime: number } => {
+  if (!topLevelNodes || topLevelNodes.length === 0) {
+    return { traceStartTime: 0, traceEndTime: 0 };
+  }
+  // A comparison's merged spans keep baseline times, so include their candidate sides: a longer
+  // candidate's later spans would otherwise fall outside the timeline.
+  let traceStartTime = Infinity;
+  let traceEndTime = -Infinity;
+  for (const node of topLevelNodes) {
+    const candidateNode = comparisonNodeMap[String(node.key)];
+    traceStartTime = Math.min(traceStartTime, node.start, candidateNode ? candidateNode.start : Infinity);
+    traceEndTime = Math.max(traceEndTime, node.end, candidateNode ? candidateNode.end : -Infinity);
+  }
+  return { traceStartTime, traceEndTime };
+};
 
 // returns a map of { [span_id: string] : Assessment[] }
 export const getAssessmentMap = (traceInfo: ModelTrace['info']): Record<string, Assessment[]> => {
@@ -1354,16 +1596,19 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
     if (!Array.isArray(attributes)) {
       return attributes;
     }
-    return attributes.reduce(
-      (acc, attr) => {
-        if (!attr.key || !attr.value) {
-          return acc;
-        }
-        return { ...acc, [attr.key]: getValue(attr.value) };
-      },
-      {} as Record<string, any>,
+    return Object.fromEntries(
+      attributes.filter((attr) => attr.key && attr.value).map((attr) => [attr.key, getValue(attr.value)]),
     );
   };
+
+  // Links from OTLP endpoints carry base64-encoded ids and K/V-list attributes,
+  // so normalize them the same way as span ids and attributes above.
+  const convertLink = (link: ModelTraceSpanLink): ModelTraceSpanLink => ({
+    ...link,
+    trace_id: decodeLinkTraceId(link.trace_id),
+    span_id: decodeSpanId(link.span_id, true),
+    ...(link.attributes && { attributes: convertAttributes(link.attributes) }),
+  });
 
   return {
     ...modelTraceSpan,
@@ -1374,6 +1619,7 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
         attributes: convertAttributes(event.attributes),
       })),
     }),
+    ...(modelTraceSpan.links && { links: modelTraceSpan.links.map(convertLink) }),
   };
 };
 

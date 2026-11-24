@@ -1782,14 +1782,16 @@ def test_create_model_version_uses_native_when_no_dependencies(store, tmp_path):
 def test_create_model_version_translates_dependencies_to_governance(store, tmp_path):
     # The MLflow resource dependencies are translated into the governance DependencyList on the
     # CreateModelVersion request, mirroring the legacy UCMR server: vector-index and table both
-    # become a table securable, UC function a function, UC connection a connection; model-endpoint
-    # (and any other kind) has no governance representation and is dropped.
+    # become a table securable, UC function a function, UC connection a connection; model-endpoint,
+    # UC model service (no governance securable exists for it), and any other kind have no
+    # governance representation and are dropped.
     mlflow_deps = [
         {"type": "DATABRICKS_VECTOR_INDEX", "name": "catalog.schema.index"},
         {"type": "DATABRICKS_TABLE", "name": "catalog.schema.table"},
         {"type": "DATABRICKS_UC_FUNCTION", "name": "catalog.schema.fn"},
         {"type": "DATABRICKS_UC_CONNECTION", "name": "my_connection"},
         {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "my_endpoint"},
+        {"type": "DATABRICKS_UC_MODEL_SERVICE", "name": "catalog.schema.svc"},
         {"type": "SOME_UNKNOWN_KIND", "name": "whatever"},
     ]
     native_mv = ModelVersionInfo(
@@ -1959,3 +1961,45 @@ def test_get_model_version_download_uri_native_derives_storage_location(store):
     native_call.assert_called_once()
     legacy_call.assert_not_called()
     assert uri == "s3://blah/loc"
+
+
+def test_create_and_finalize_model_version_uploads_through_the_shared_hook(store, tmp_path):
+    steps = []
+
+    def edit_endpoint_and_call(*, proto_name, **_):
+        steps.append(proto_name.__name__)
+        return mock.MagicMock(version="7", storage_location="s3://blah")
+
+    native = "mlflow.store._unity_catalog.registry.uc_native_rest_store"
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call", side_effect=edit_endpoint_and_call),
+        mock.patch.object(store, "_get_artifact_repo") as get_artifact_repo,
+        mock.patch.object(
+            store,
+            "_upload_model_version_files",
+            side_effect=lambda **_: steps.append("upload"),
+        ) as upload,
+        mock.patch(f"{native}.model_version_from_uc_native_proto"),
+    ):
+        store._create_and_finalize_model_version(
+            full_name="catalog.schema.model",
+            source=str(tmp_path),
+            description=None,
+            run_id=None,
+            tags=None,
+            feature_deps="",
+            other_model_deps=[],
+            model_id=None,
+            source_workspace_id=None,
+            extra_headers=None,
+            local_model_dir=tmp_path,
+        )
+
+    assert steps == ["CreateModelVersion", "upload", "FinalizeModelVersion"]
+    upload.assert_called_once_with(
+        full_name="catalog.schema.model",
+        version=7,
+        store=get_artifact_repo.return_value,
+        local_model_dir=tmp_path,
+        source=str(tmp_path),
+    )

@@ -18,7 +18,11 @@ import {
 import { useWorkflowType, WorkflowType, WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
 import { MlflowSidebarContext } from './common/contexts/MlflowSidebarContext';
 import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
-import { useWorkspacesEnabled } from './experiment-tracking/hooks/useServerInfo';
+import {
+  SERVER_FEATURE_KEYS,
+  useFeatureEnabled,
+  useWorkspacesEnabled,
+} from './experiment-tracking/hooks/useServerInfo';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
@@ -28,6 +32,7 @@ import { getGatewayRouteDefs } from './gateway/route-defs';
 import { getAccountRouteDefs } from './account/route-defs';
 import { getAdminRouteDefs } from './admin/route-defs';
 import { getMCPRegistryRouteDefs } from './mcp-registry/route-defs';
+import { getSkillRegistryRouteDefs } from './skill-registry/route-defs';
 import { DEV_USER_SWITCHER_ENABLED } from './admin/DevUserSwitcher';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { IssueDetectionJobNotifications } from './experiment-tracking/components/experiment-page/components/traces-v3/IssueDetectionJobNotifications';
@@ -229,6 +234,8 @@ const WorkspaceAwareRootRoute = ({ workspacesEnabled }: { workspacesEnabled: boo
 export const MlflowRouter = () => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { workspacesEnabled, loading: featuresLoading } = useWorkspacesEnabled();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const gatewayEnabled = useFeatureEnabled(SERVER_FEATURE_KEYS.GATEWAY);
 
   // Routes are the same regardless of workspace mode - workspace context comes from query param
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -236,13 +243,14 @@ export const MlflowRouter = () => {
     () => [
       ...getExperimentTrackingRouteDefs(),
       ...getModelRegistryRouteDefs(),
-      ...getGatewayRouteDefs(),
+      ...(gatewayEnabled ? getGatewayRouteDefs() : []),
       ...getMCPRegistryRouteDefs(),
+      ...getSkillRegistryRouteDefs(),
       ...getAccountRouteDefs(),
       ...getAdminRouteDefs(),
       ...getCommonRouteDefs(),
     ],
-    [],
+    [gatewayEnabled],
   );
 
   // eslint-disable-next-line react-hooks/rules-of-hooks

@@ -1,6 +1,7 @@
 import pytest
 
 from mlflow.genai.judges.base import Judge
+from mlflow.genai.judges.utils import prompt_utils
 from mlflow.genai.judges.utils.prompt_utils import add_output_format_instructions
 from mlflow.genai.prompts.utils import format_prompt
 
@@ -60,3 +61,14 @@ def test_format_prompt_with_backslashes(
 ) -> None:
     result = format_prompt(prompt_template, **values)
     assert result == expected
+
+
+@pytest.mark.parametrize("format_fn", [format_prompt, prompt_utils.format_prompt])
+def test_format_prompt_does_not_replace_placeholders_inside_values(format_fn):
+    template = "Question: {{question}}\nContext: {{ context }}"
+    values = {"question": "What does {{ context }} do in Jinja?", "context": "docs"}
+    expected = "Question: What does {{ context }} do in Jinja?\nContext: docs"
+
+    assert format_fn(template, **values) == expected
+    # The result must not depend on the order of the keyword arguments.
+    assert format_fn(template, **dict(reversed(values.items()))) == expected

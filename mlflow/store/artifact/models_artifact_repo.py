@@ -1,5 +1,4 @@
 import logging
-import os
 import urllib.parse
 from pathlib import Path
 
@@ -25,8 +24,6 @@ from mlflow.utils.uri import (
     is_models_uri,
     is_oss_unity_catalog_uri,
 )
-
-REGISTERED_MODEL_META_FILE_NAME = "registered_model_meta"
 
 _logger = logging.getLogger(__name__)
 
@@ -203,26 +200,10 @@ class ModelsArtifactRepository(ArtifactRepository):
         """
         return self.repo.list_artifacts(path)
 
-    def _add_registered_model_meta_file(self, model_path):
-        from mlflow.utils.yaml_utils import write_yaml
-
-        write_yaml(
-            model_path,
-            REGISTERED_MODEL_META_FILE_NAME,
-            {
-                "model_name": self.model_name,
-                "model_version": self.model_version,
-            },
-            overwrite=True,
-            ensure_yaml_extension=False,
-        )
-
     def download_artifacts(self, artifact_path, dst_path=None, lineage_header_info=None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
-        For registered models, when the artifact is downloaded, the model name and version
-        are saved in the "registered_model_meta" file on the caller's side.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
         Args:
@@ -238,22 +219,12 @@ class ModelsArtifactRepository(ArtifactRepository):
             Absolute path of the local filesystem location containing the desired artifacts.
         """
 
-        from mlflow.models.model import MLMODEL_FILE_NAME
-
         # Pass lineage header info if model is registered in UC
         if isinstance(self.repo, UnityCatalogModelsArtifactRepository):
-            model_path = self.repo.download_artifacts(
+            return self.repo.download_artifacts(
                 artifact_path, dst_path, lineage_header_info=lineage_header_info
             )
-        else:
-            model_path = self.repo.download_artifacts(artifact_path, dst_path)
-        # NB: only add the registered model metadata iff the artifact path is at the root model
-        # directory. For individual files or subdirectories within the model directory, do not
-        # create the metadata file.
-        if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
-            self._add_registered_model_meta_file(model_path)
-
-        return model_path
+        return self.repo.download_artifacts(artifact_path, dst_path)
 
     def _download_file(self, remote_file_path, local_path):
         """

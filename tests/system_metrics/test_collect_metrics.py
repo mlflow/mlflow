@@ -1,3 +1,11 @@
+import contextlib
+import sys
+from types import SimpleNamespace
+from unittest import mock
+
+import pytest
+
+from mlflow.system_metrics.metrics import gpu_monitor as gpu_monitor_module
 from mlflow.system_metrics.metrics.cpu_monitor import CPUMonitor
 from mlflow.system_metrics.metrics.disk_monitor import DiskMonitor
 from mlflow.system_metrics.metrics.gpu_monitor import GPUMonitor
@@ -46,6 +54,101 @@ def test_gpu_monitor():
 
     gpu_monitor.clear_metrics()
     assert len(gpu_monitor.metrics.keys) == 0
+
+
+class _FakeNVMLError(Exception):
+    pass
+
+
+@contextlib.contextmanager
+def _mock_pynvml(lost_gpus: set[int], num_gpus: int = 3):
+    def get_handle(index):
+        if index in lost_gpus:
+            raise _FakeNVMLError("GPU is lost")
+        return index
+
+    fake_pynvml = mock.MagicMock(
+        NVMLError=_FakeNVMLError,
+        nvmlDeviceGetCount=mock.Mock(return_value=num_gpus),
+        nvmlDeviceGetHandleByIndex=mock.Mock(side_effect=get_handle),
+        nvmlDeviceGetMemoryInfo=mock.Mock(return_value=SimpleNamespace(used=1e9, total=4e9)),
+        nvmlDeviceGetUtilizationRates=mock.Mock(return_value=SimpleNamespace(gpu=50)),
+        nvmlDeviceGetPowerUsage=mock.Mock(return_value=100_000),
+        nvmlDeviceGetEnforcedPowerLimit=mock.Mock(return_value=200_000),
+    )
+    with (
+        mock.patch.dict(sys.modules, {"pynvml": fake_pynvml}),
+        mock.patch.object(gpu_monitor_module, "pynvml", fake_pynvml, create=True),
+    ):
+        yield fake_pynvml
+
+
+def test_gpu_monitor_skips_gpu_whose_handle_lookup_fails():
+    with (
+        _mock_pynvml(lost_gpus={1}) as fake_pynvml,
+        mock.patch.object(gpu_monitor_module, "_logger") as mock_logger,
+    ):
+        gpu_monitor = GPUMonitor()
+        gpu_monitor.collect_metrics()
+
+    mock_logger.warning.assert_called_once_with(
+        "Failed to get handle for GPU 1, skip logging its metrics: GPU is lost"
+    )
+    fake_pynvml.nvmlInit.assert_called_once_with()
+    fake_pynvml.nvmlDeviceGetCount.assert_called_once_with()
+    assert fake_pynvml.nvmlDeviceGetHandleByIndex.call_args_list == [
+        mock.call(0),
+        mock.call(1),
+        mock.call(2),
+    ]
+    for query in (
+        fake_pynvml.nvmlDeviceGetMemoryInfo,
+        fake_pynvml.nvmlDeviceGetUtilizationRates,
+        fake_pynvml.nvmlDeviceGetPowerUsage,
+        fake_pynvml.nvmlDeviceGetEnforcedPowerLimit,
+    ):
+        assert query.call_args_list == [mock.call(0), mock.call(2)]
+    for i in (0, 2):
+        assert gpu_monitor.metrics[f"gpu_{i}_memory_usage_percentage"] == [25.0]
+        assert gpu_monitor.metrics[f"gpu_{i}_memory_usage_megabytes"] == [1000.0]
+        assert gpu_monitor.metrics[f"gpu_{i}_utilization_percentage"] == [50]
+        assert gpu_monitor.metrics[f"gpu_{i}_power_usage_watts"] == [100.0]
+        assert gpu_monitor.metrics[f"gpu_{i}_power_usage_percentage"] == [50.0]
+    assert not any(name.startswith("gpu_1_") for name in gpu_monitor.metrics)
+
+
+def test_gpu_monitor_raises_when_no_gpu_handle_is_available():
+    with (
+        _mock_pynvml(lost_gpus={0, 1, 2}) as fake_pynvml,
+        pytest.raises(RuntimeError, match="Failed to get a handle for any GPU"),
+    ):
+        GPUMonitor()
+
+    fake_pynvml.nvmlInit.assert_called_once_with()
+    fake_pynvml.nvmlDeviceGetCount.assert_called_once_with()
+    assert fake_pynvml.nvmlDeviceGetHandleByIndex.call_args_list == [
+        mock.call(0),
+        mock.call(1),
+        mock.call(2),
+    ]
+    fake_pynvml.nvmlDeviceGetMemoryInfo.assert_not_called()
+
+
+def test_gpu_monitor_does_not_raise_when_no_gpu_is_present():
+    with (
+        _mock_pynvml(lost_gpus=set(), num_gpus=0) as fake_pynvml,
+        mock.patch.object(gpu_monitor_module, "_logger") as mock_logger,
+    ):
+        gpu_monitor = GPUMonitor()
+        gpu_monitor.collect_metrics()
+
+    fake_pynvml.nvmlInit.assert_called_once_with()
+    fake_pynvml.nvmlDeviceGetCount.assert_called_once_with()
+    fake_pynvml.nvmlDeviceGetHandleByIndex.assert_not_called()
+    fake_pynvml.nvmlDeviceGetMemoryInfo.assert_not_called()
+    mock_logger.warning.assert_not_called()
+    assert gpu_monitor.gpu_handles == {}
+    assert gpu_monitor.metrics == {}
 
 
 def test_disk_monitor():

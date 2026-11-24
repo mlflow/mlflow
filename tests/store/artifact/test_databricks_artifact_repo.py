@@ -4,15 +4,21 @@ import posixpath
 import re
 import shutil
 import time
+from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY
 
 import pytest
+import requests
 from requests.models import Response
 
 from mlflow.entities import TraceData
 from mlflow.entities.file_info import FileInfo as FileInfoEntity
-from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowNotImplementedException,
+    MlflowTraceDataNotFound,
+)
 from mlflow.protos.databricks_artifacts_pb2 import (
     ArtifactCredentialInfo,
     ArtifactCredentialType,
@@ -1617,8 +1623,12 @@ def test_multipart_upload_abort(
 
 
 class MockResponse:
-    def __init__(self, content: bytes):
+    def __init__(self, content: bytes, headers: dict[str, str] | None = None):
         self.content = content
+        self.headers = headers or {}
+        self._bytes_read = len(content)
+        self.raw = mock.MagicMock()
+        self.raw.tell.return_value = self._bytes_read
 
     def iter_content(self, chunk_size):
         yield self.content
@@ -1634,6 +1644,27 @@ class MockResponse:
 
     def __exit__(self, *args):
         pass
+
+
+class MockStreamingResponse(MockResponse):
+    def __init__(
+        self,
+        chunks: list[bytes],
+        error: Exception | None = None,
+        headers: dict[str, str] | None = None,
+    ):
+        super().__init__(b"".join(chunks), headers=headers)
+        self._chunks = chunks
+        self._error = error
+        self._bytes_read = 0
+
+    def iter_content(self, chunk_size):
+        for chunk in self._chunks:
+            self._bytes_read += len(chunk)
+            self.raw.tell.return_value = self._bytes_read
+            yield chunk
+        if self._error is not None:
+            raise self._error
 
 
 @pytest.mark.parametrize(
@@ -1660,6 +1691,258 @@ def test_download_trace_data(databricks_artifact_repo_trace, cred_type):
     ):
         trace_data = databricks_artifact_repo_trace.download_trace_data()
         assert TraceData.from_dict(trace_data) == TraceData(spans=[])
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_download_trace_data_to_file(databricks_artifact_repo_trace, cred_type, tmp_path):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=cred_type,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch(
+            "requests.Session.request", return_value=MockResponse(b'{"spans": []}')
+        ) as mock_request,
+    ):
+        dst = tmp_path / "traces.json"
+        result = databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+        assert result == dst
+        assert json.loads(dst.read_text()) == {"spans": []}
+    mock_request.assert_called_once_with(
+        "get",
+        MOCK_AWS_SIGNED_URI,
+        allow_redirects=True,
+        headers={},
+        stream=True,
+        timeout=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_download_trace_attachment_to_file(databricks_artifact_repo_trace, cred_type, tmp_path):
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+    cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI, type=cred_type)
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.get_credentials",
+            return_value=([cred_info], None),
+        ) as mock_get_creds,
+        mock.patch(
+            "requests.Session.request", return_value=MockResponse(b"\x89PNG fake image")
+        ) as mock_request,
+    ):
+        dst = tmp_path / attachment_id
+        result = databricks_artifact_repo_trace.download_trace_attachment_to_file(
+            attachment_id, dst
+        )
+    assert result == dst
+    assert dst.read_bytes() == b"\x89PNG fake image"
+    mock_get_creds.assert_called_once_with(
+        cred_type=_CredentialType.READ,
+        artifact_path=f"attachments/{attachment_id}",
+    )
+    mock_request.assert_called_once_with(
+        "get",
+        MOCK_AWS_SIGNED_URI,
+        allow_redirects=True,
+        headers={},
+        stream=True,
+        timeout=None,
+    )
+
+
+def test_download_trace_data_to_file_retries_mid_stream_failure(
+    databricks_artifact_repo_trace, tmp_path
+):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch(
+            "requests.Session.request",
+            side_effect=[
+                MockStreamingResponse(
+                    [b'{"spans": [', b'{"name": "partial"}'],
+                    error=requests.ConnectionError("connection reset"),
+                ),
+                MockStreamingResponse([b'{"spans": [{"name": "complete"}]}']),
+            ],
+        ) as mock_request,
+    ):
+        dst = tmp_path / "traces.json"
+        result = databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+
+    assert result == dst
+    assert json.loads(dst.read_text()) == {"spans": [{"name": "complete"}]}
+    assert mock_request.call_count == 2
+    assert not Path(f"{dst}.part").exists()
+
+
+def test_download_trace_data_to_file_cleans_partial_file_after_terminal_stream_failure(
+    databricks_artifact_repo_trace, tmp_path
+):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    dst = tmp_path / "traces.json"
+    dst.write_text("stale")
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch(
+            "requests.Session.request",
+            return_value=MockStreamingResponse(
+                [b'{"spans": ['], error=requests.ConnectionError("connection reset")
+            ),
+        ),
+    ):
+        with pytest.raises(requests.ConnectionError, match="connection reset"):
+            databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+
+    assert not dst.exists()
+    assert not Path(f"{dst}.part").exists()
+
+
+def test_download_trace_data_to_file_retries_short_read(databricks_artifact_repo_trace, tmp_path):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    success_payload = b'{"spans": [{"name": "complete"}]}'
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch(
+            "requests.Session.request",
+            side_effect=[
+                MockStreamingResponse([b'{"spans": []}'], headers={"Content-Length": "32"}),
+                MockStreamingResponse(
+                    [success_payload],
+                    headers={"Content-Length": str(len(success_payload))},
+                ),
+            ],
+        ) as mock_request,
+    ):
+        dst = tmp_path / "traces.json"
+        result = databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+
+    assert result == dst
+    assert json.loads(dst.read_text()) == {"spans": [{"name": "complete"}]}
+    assert mock_request.call_count == 2
+    assert not Path(f"{dst}.part").exists()
+
+
+def test_download_trace_data_to_file_request_establishment_failure_not_retried(
+    databricks_artifact_repo_trace, tmp_path
+):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    dst = tmp_path / "traces.json"
+    dst.write_text("stale")
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.cloud_storage_http_request",
+            side_effect=requests.ConnectionError("connect failed"),
+        ) as mock_cloud_request,
+    ):
+        with pytest.raises(requests.ConnectionError, match="connect failed"):
+            databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+
+    assert mock_cloud_request.call_count == 1
+    assert not dst.exists()
+    assert not Path(f"{dst}.part").exists()
+
+
+def test_download_trace_data_to_file_not_found(databricks_artifact_repo_trace, tmp_path):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    not_found = Response()
+    not_found.status_code = 404
+    not_found._content = b"not found"
+    not_found.close = lambda: None
+    dst = tmp_path / "traces.json"
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch("requests.Session.request", return_value=not_found),
+    ):
+        with pytest.raises(MlflowTraceDataNotFound, match="Trace data not found"):
+            databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+
+    assert not dst.exists()
+
+
+def test_download_trace_attachment_to_file_not_found(databricks_artifact_repo_trace, tmp_path):
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    not_found = Response()
+    not_found.status_code = 404
+    not_found._content = b"not found"
+    not_found.close = lambda: None
+    dst = tmp_path / attachment_id
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.get_credentials",
+            return_value=([cred_info], None),
+        ),
+        mock.patch("requests.Session.request", return_value=not_found),
+        pytest.raises(
+            MlflowException, match=f"Attachment '{attachment_id}' not found."
+        ) as exc_info,
+    ):
+        databricks_artifact_repo_trace.download_trace_attachment_to_file(attachment_id, dst)
+
+    assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+    assert not dst.exists()
 
 
 def test_download_archived_trace_data_rejects_archive_repo(databricks_artifact_repo_trace):

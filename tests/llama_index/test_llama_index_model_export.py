@@ -5,6 +5,7 @@ from typing import Any
 from unittest import mock
 
 import llama_index.core
+import nltk
 import numpy as np
 import pandas as pd
 import pytest
@@ -53,12 +54,20 @@ def model_path(tmp_path):
     return tmp_path / "model"
 
 
+# nltk >= 3.10.3 added a hardlink security check that rejects multiply-linked files.
+# llama_index bundles its NLTK data as hardlinks, which breaks KnowledgeGraphIndex queries.
+_skip_knowledge_graph = pytest.mark.skipif(
+    Version(nltk.__version__) >= Version("3.10.3"),
+    reason="nltk >= 3.10.3 refuses multiply-linked NLTK data files bundled by llama_index",
+)
+
+
 @pytest.mark.parametrize(
     "index_fixture",
     [
         "single_index",
         "multi_index",
-        "single_graph",
+        pytest.param("single_graph", marks=_skip_knowledge_graph),
     ],
 )
 def test_llama_index_native_save_and_load_model(request, index_fixture, model_path):
@@ -75,7 +84,7 @@ def test_llama_index_native_save_and_load_model(request, index_fixture, model_pa
     [
         "single_index",
         "multi_index",
-        "single_graph",
+        pytest.param("single_graph", marks=_skip_knowledge_graph),
     ],
 )
 def test_llama_index_native_log_and_load_model(request, index_fixture):
@@ -600,3 +609,43 @@ async def test_save_load_workflow_as_code():
         )
         assert response.status_code == 200, response.text
         assert response.json()["predictions"] == batch_result
+
+
+def test_load_model_refuses_model_on_python_path_before_loading_settings(tmp_path, monkeypatch):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "MLmodel").write_text("flavors:\n  llama_index: {}\n")
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with (
+        mock.patch("mlflow.llama_index.serialize_objects.deserialize_settings") as deserialize,
+        pytest.raises(MlflowException, match="on the Python path"),
+    ):
+        mlflow.llama_index.load_model(str(model_dir))
+    deserialize.assert_not_called()
+
+
+def test_load_model_refuses_model_from_code_before_loading_settings(tmp_path, monkeypatch):
+    (tmp_path / "MLmodel").write_text(
+        "flavors:\n  llama_index: {}\n  python_function:\n    model_code_path: model.py\n"
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with (
+        mock.patch("mlflow.llama_index.serialize_objects.deserialize_settings") as deserialize,
+        pytest.raises(MlflowException, match="a model from code"),
+    ):
+        mlflow.llama_index.load_model(str(tmp_path))
+    deserialize.assert_not_called()
+
+
+def test_load_model_refuses_settings_that_name_classes(tmp_path, monkeypatch):
+    (tmp_path / "MLmodel").write_text("flavors:\n  llama_index: {}\n")
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"_llm": {"object_constructor": "not_a_module.Llm", "object_kwargs": {}}})
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="LlamaIndex settings that name classes"):
+        mlflow.llama_index.load_model(str(tmp_path))

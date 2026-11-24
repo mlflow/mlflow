@@ -64,8 +64,13 @@ jest.mock('./hooks/useGetOrCreateUserQueueMutation', () => ({
 }));
 
 let mockUsersError: Error | null = null;
+let mockUsers: any[] = [];
 jest.mock('./hooks/useAssignableUsersQuery', () => ({
-  useAssignableUsersQuery: () => ({ users: [], isLoading: false, error: mockUsersError }),
+  useAssignableUsersQuery: ({ enabled }: { enabled: boolean }) => ({
+    users: enabled ? mockUsers : [],
+    isLoading: false,
+    error: mockUsersError,
+  }),
 }));
 // The experiment's queues (the unfiltered call). One assignable CUSTOM queue
 // (its schema_id resolves against the experiment schema below), so tests can
@@ -96,7 +101,11 @@ jest.mock('../../components/label-schemas', () => ({
   LabelSchemaFormModal: () => null,
 }));
 
-const renderDropdown = (props?: { open?: boolean; onOpenChange?: (open: boolean) => void }) =>
+const renderDropdown = (props?: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  notify?: React.ComponentProps<typeof AddToReviewQueueDropdown>['notify'];
+}) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
@@ -105,6 +114,7 @@ const renderDropdown = (props?: { open?: boolean; onOpenChange?: (open: boolean)
           selectedTraceInfos={[{ trace_id: 'tr-1' } as any]}
           open={props?.open}
           onOpenChange={props?.onOpenChange}
+          notify={props?.notify}
         >
           <button type="button">Trigger</button>
         </AddToReviewQueueDropdown>
@@ -119,6 +129,7 @@ describe('AddToReviewQueueDropdown', () => {
     mockCanEdit = true;
     mockCanManage = false;
     mockUsersError = null;
+    mockUsers = [];
     mockMemberQueues = [];
     mockMembersLoading = false;
     mockListQueues = [
@@ -163,6 +174,36 @@ describe('AddToReviewQueueDropdown', () => {
     expect(screen.queryByText(/search by name to add/i)).not.toBeInTheDocument();
   });
 
+  it('assigns traces to a searched user queue for an authenticated editor', async () => {
+    mockAuthAvailable = true;
+    mockUsers = [{ id: 2, username: 'alice', is_admin: false }];
+    mockGetOrCreateUserQueue.mockResolvedValue({ review_queue: { queue_id: 'rq-alice' } });
+    renderDropdown({ open: true });
+
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'ali' } });
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'alice' }));
+
+    await waitFor(() => {
+      expect(mockGetOrCreateUserQueue).toHaveBeenCalledWith({
+        experiment_id: 'exp-1',
+        user: 'alice',
+        created_by: 'default',
+      });
+      expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-alice', item_ids: ['tr-1'] });
+      expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('hides user assignment from an authenticated READ-only user', () => {
+    mockAuthAvailable = true;
+    mockCanEdit = false;
+    mockUsers = [{ id: 2, username: 'alice', is_admin: false }];
+    renderDropdown({ open: true });
+
+    expect(screen.queryByText('Users')).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'alice' })).not.toBeInTheDocument();
+  });
+
   it('immediately adds traces when a queue is clicked and shows a toast', async () => {
     renderDropdown({ open: true });
 
@@ -186,6 +227,23 @@ describe('AddToReviewQueueDropdown', () => {
     expect(findLinkTarget(toastNode)).toBe(
       `${generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId: 'exp-1' })}?selectedQueueId=rq-default`,
     );
+  });
+
+  it('uses injected success and error notifications instead of legacy notifications', async () => {
+    const notify = { success: jest.fn(), error: jest.fn() };
+    renderDropdown({ open: true, notify });
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    await waitFor(() => expect(notify.success).toHaveBeenCalledTimes(1));
+
+    mockAddItems.mockRejectedValueOnce(new Error('Attach failed'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
+    await waitFor(() =>
+      expect(notify.error).toHaveBeenCalledWith(undefined, 'Failed to update the review queue: Attach failed'),
+    );
+
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+    expect(Utils.displayGlobalErrorNotification).not.toHaveBeenCalled();
   });
 
   it('surfaces a failed destination resolution instead of swallowing it', async () => {

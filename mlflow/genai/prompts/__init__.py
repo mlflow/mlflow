@@ -84,7 +84,7 @@ def register_prompt(
             Example (PromptModelConfig): PromptModelConfig(model_name="gpt-4", temperature=0.7)
 
     Returns:
-        A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
+        A :py:class:`PromptVersion <mlflow.entities.PromptVersion>` object that was created.
 
     Example:
 
@@ -147,9 +147,12 @@ def register_prompt(
 def search_prompts(
     filter_string: str | None = None,
     max_results: int | None = None,
+    order_by: list[str] | None = None,
 ) -> PagedList[Prompt]:
     with suppress_genai_migration_warning():
-        return registry_api.search_prompts(filter_string=filter_string, max_results=max_results)
+        return registry_api.search_prompts(
+            filter_string=filter_string, max_results=max_results, order_by=order_by
+        )
 
 
 @require_prompt_registry

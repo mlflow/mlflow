@@ -84,7 +84,7 @@ def test_download_from_uri():
 def _run_download_artifact_command(args) -> pathlib.Path:
     """
     Args:
-        command: An `mlflow artifacts` command list.
+        args: An `mlflow artifacts` command list.
 
     Returns:
         Path to the downloaded artifact.

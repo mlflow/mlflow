@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 import sqlalchemy as sa
+from sqlalchemy.sql.elements import ColumnElement
 
+from mlflow.entities import SkillSourceType
 from mlflow.store.db.workspace_utils import (
     MODEL_CHILD_TABLES,
     format_truncated_list,
     get_workspace_table,
-    validate_workspace_exists,
 )
 from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
@@ -22,8 +24,15 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlJob,
     SqlMCPServer,
     SqlMCPServerTag,
+    SqlSkill,
+    SqlSkillTag,
 )
+from mlflow.store.workspace.abstract_store import AbstractStore
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
+from mlflow.utils import chunk_list
+from mlflow.utils.uri import append_to_uri_path
+from mlflow.utils.validation import _parse_skill_identities
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME, WORKSPACES_DIR_NAME
 
 
 @dataclass(frozen=True)
@@ -32,6 +41,9 @@ class MoveResult:
 
     names: list[str]
     row_count: int
+    # Set when artifact_policy="retarget": the artifact root the moved
+    # experiments were repointed under.
+    retarget_root: str | None = None
 
 
 @dataclass(frozen=True)
@@ -106,6 +118,17 @@ _SPEC_BY_MODEL: dict[type, _ResourceSpec] = {
             ("mcp_access_endpoints", "server_name"),
         ),
     ),
+    SqlSkill: _ResourceSpec(
+        model=SqlSkill,
+        name_column=SqlSkill.name.key,
+        tag_model=SqlSkillTag,
+        child_tables=(
+            "skill_versions",
+            "skill_tags",
+            "skill_version_tags",
+            "skill_aliases",
+        ),
+    ),
 }
 
 _RESOURCE_SPECS: dict[str, _ResourceSpec] = {
@@ -114,6 +137,35 @@ _RESOURCE_SPECS: dict[str, _ResourceSpec] = {
     if model in _SPEC_BY_MODEL
 }
 RESOURCE_TYPE_CHOICES = sorted(_RESOURCE_SPECS)
+_SKILL_ID_CHUNK_SIZE = 500
+
+
+def _parse_skill_name(raw_name: str) -> tuple[str, str]:
+    """Parse a skill identifier into (organization, name).
+
+    Accepts '@org/name' or 'name'.
+    """
+    identities = _parse_skill_identities([raw_name])
+    return identities[0] if identities else ("", raw_name)
+
+
+def _format_skill_name(organization: str, name: str) -> str:
+    """Format a skill's organization and name for display and CLI output."""
+    return f"@{organization}/{name}" if organization else name
+
+
+def _skill_filter_condition(
+    table: sa.Table, identities: list[tuple[str, str]]
+) -> ColumnElement[bool]:
+    """Build a dialect-agnostic WHERE condition matching (organization, name) pairs."""
+    names_by_org: dict[str, set[str]] = {}
+    for org, name in identities:
+        names_by_org.setdefault(org, set()).add(name)
+    clauses = [
+        sa.and_(table.c.organization == org, table.c.name.in_(sorted(names)))
+        for org, names in names_by_org.items()
+    ]
+    return sa.or_(*clauses) if clauses else sa.false()
 
 
 def _tag_names_subquery(
@@ -124,7 +176,10 @@ def _tag_names_subquery(
     """Build a SELECT subquery of resource names matching ALL given tags.
 
     The intersection logic uses ``GROUP BY … HAVING COUNT`` so the entire
-    resolution stays in SQL and avoids materializing a large parameter list.
+    resolution stays in SQL and avoids materializing a large parameter list
+    for resources with scalar names. For skills, the caller materializes
+    identities up front because subsequent updates to ``skill_tags`` would
+    cause a live subquery to return empty.
     """
     table = spec.table
     tag_table = spec.tag_table
@@ -147,6 +202,14 @@ def _tag_names_subquery(
             .where(table.c.workspace == source_workspace)
             .where(tag_conditions)
             .group_by(name_col)
+        )
+    elif spec.model is SqlSkill:
+        subq = (
+            sa
+            .select(tag_table.c.organization, tag_table.c.name)
+            .where(tag_table.c.workspace == source_workspace)
+            .where(tag_conditions)
+            .group_by(tag_table.c.organization, tag_table.c.name)
         )
     else:
         # Registered models: the tag table carries workspace + name
@@ -174,6 +237,20 @@ def _resolve_names(
 ) -> set[str]:
     """Return resource names in *workspace*, optionally filtered to *names*."""
     table = spec.table
+    if spec.model is SqlSkill:
+        stmt = sa.select(table.c.organization, table.c.name).where(table.c.workspace == workspace)
+        if names is not None:
+            identities = _parse_skill_identities(names)
+            resolved = set()
+            for chunk in chunk_list(identities, _SKILL_ID_CHUNK_SIZE):
+                chunk_stmt = stmt.where(_skill_filter_condition(table, chunk))
+                resolved.update({
+                    _format_skill_name(row[0], row[1])
+                    for row in conn.execute(chunk_stmt).fetchall()
+                })
+            return resolved
+        return {_format_skill_name(row[0], row[1]) for row in conn.execute(stmt).fetchall()}
+
     name_col = table.c[spec.name_column]
     stmt = sa.select(name_col).where(table.c.workspace == workspace)
     if names is not None:
@@ -186,17 +263,44 @@ def _find_conflicts(
     spec: _ResourceSpec,
     source_workspace: str,
     target_workspace: str,
-    name_filter: list[str] | sa.Select | None = None,
+    name_filter: list[str] | list[tuple[str, str]] | sa.Select | None = None,
 ) -> list[str]:
     """Return source resource names that already exist in *target_workspace*.
 
-    *name_filter* can be a ``list`` (literal names), a ``Select`` subquery,
-    or ``None`` (move-all, falls back to a source-workspace subquery).
+    *name_filter* can be a ``list`` (literal names or (org, name) pairs for skills),
+    a ``Select`` subquery, or ``None`` (move-all, falls back to a source-workspace subquery).
     SQLAlchemy's ``in_()`` handles both lists and subqueries transparently.
     """
     if not spec.has_unique_name:
         return []
     table = spec.table
+    if spec.model is SqlSkill:
+        stmt = sa.select(table.c.organization, table.c.name).where(
+            table.c.workspace == target_workspace
+        )
+        if name_filter is not None:
+            conflicts = []
+            for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                chunk_stmt = stmt.where(_skill_filter_condition(table, chunk))
+                rows = conn.execute(
+                    chunk_stmt.order_by(table.c.organization, table.c.name)
+                ).fetchall()
+                conflicts.extend([_format_skill_name(org, name) for org, name in rows])
+            return sorted(conflicts)
+        else:
+            source_table = table.alias("source_skills")
+            stmt = stmt.where(
+                sa.exists(
+                    sa.select(1).where(
+                        source_table.c.workspace == source_workspace,
+                        source_table.c.organization == table.c.organization,
+                        source_table.c.name == table.c.name,
+                    )
+                )
+            )
+            rows = conn.execute(stmt.order_by(table.c.organization, table.c.name)).fetchall()
+            return [_format_skill_name(org, name) for org, name in rows]
+
     name_col = table.c[spec.name_column]
     stmt = sa.select(name_col).where(table.c.workspace == target_workspace)
 
@@ -209,8 +313,34 @@ def _find_conflicts(
     return [row[0] for row in conn.execute(stmt.order_by(name_col)).fetchall()]
 
 
+def _resolve_target_artifact_root(
+    workspace_store: AbstractStore,
+    target_workspace: str,
+    default_artifact_root: str | None,
+) -> str:
+    """Resolve the artifact root for the target workspace via the workspace provider.
+
+    Mirrors the tracking server's resolution when creating experiments: a
+    workspace-level default_artifact_root is used as is, and the server-level
+    root gets the workspaces/<name> suffix appended.
+    """
+    root, append_workspace_prefix = workspace_store.resolve_artifact_root(
+        default_artifact_root, target_workspace
+    )
+    if not root:
+        raise RuntimeError(
+            f"Cannot determine the artifact root for workspace {target_workspace!r}. "
+            "Pass --default-artifact-root with the value the tracking server is "
+            "started with, or configure the workspace's default_artifact_root."
+        )
+    if append_workspace_prefix:
+        root = append_to_uri_path(root, WORKSPACES_DIR_NAME, target_workspace)
+    return root
+
+
 def move_resources(
     engine: sa.Engine,
+    workspace_store: AbstractStore,
     source_workspace: str,
     target_workspace: str,
     resource_type: str,
@@ -219,12 +349,24 @@ def move_resources(
     dry_run: bool = False,
     *,
     verbose: bool = False,
+    artifact_policy: Literal["preserve", "retarget"] = "preserve",
+    default_artifact_root: str | None = None,
 ) -> MoveResult:
     """
     Move resources of *resource_type* from *source_workspace* to *target_workspace*.
 
     Filter by *names* or *tags* (mutually exclusive).  When neither is provided
     all resources of the type in the source workspace are moved.
+
+    Workspace validation and artifact root resolution go through
+    *workspace_store*, which is not necessarily backed by the tracking database
+    this command operates on.
+
+    With ``artifact_policy="retarget"`` (experiments only), every moved
+    experiment's ``artifact_location`` is repointed to the artifact root
+    resolved for the target workspace, in the same transaction as the move.
+    Artifact objects and stored run, logged model and trace URIs are not
+    modified.
 
     Returns a :class:`MoveResult` with ``names`` (sorted list of distinct
     resource names that were moved or would be moved) and ``row_count`` (the
@@ -249,10 +391,24 @@ def move_resources(
     if tags and spec.tag_table is None:
         raise RuntimeError(f"Resource type {resource_type!r} does not support tag filtering.")
 
-    with engine.begin() as conn:
-        validate_workspace_exists(conn, source_workspace)
-        validate_workspace_exists(conn, target_workspace)
+    if artifact_policy not in ("preserve", "retarget"):
+        raise RuntimeError(f"Unknown artifact policy {artifact_policy!r}.")
 
+    if artifact_policy == "retarget" and resource_type != "experiments":
+        raise RuntimeError(
+            "--artifact-policy retarget is only supported for --resource-type experiments."
+        )
+
+    workspace_store.get_workspace(source_workspace)
+    workspace_store.get_workspace(target_workspace)
+
+    retarget_root = None
+    if artifact_policy == "retarget":
+        retarget_root = _resolve_target_artifact_root(
+            workspace_store, target_workspace, default_artifact_root
+        )
+
+    with engine.begin() as conn:
         # Fail fast with a clear message if the resource table lacks a
         # workspace column (DB not migrated to workspace-enabled schema).
         get_workspace_table(conn, spec.table.name)
@@ -261,12 +417,24 @@ def move_resources(
         # literal list (--name), or None (move-all).  SQLAlchemy's in_()
         # handles lists and Select objects identically, so every subsequent
         # query uses the same one-branch pattern.
+        # For skills, tag matches are materialized up front because skill_tags
+        # is one of the child tables being moved; a subquery evaluated after
+        # skill_tags moves would return empty.
         if tags:
-            name_filter = _tag_names_subquery(spec, source_workspace, tags)
-            matched = {row[0] for row in conn.execute(name_filter).fetchall()}
+            tag_subq = _tag_names_subquery(spec, source_workspace, tags)
+            if spec.model is SqlSkill:
+                skill_rows = conn.execute(tag_subq).fetchall()
+                name_filter = [(row[0], row[1]) for row in skill_rows]
+                matched = {_format_skill_name(org, name) for org, name in name_filter}
+            else:
+                name_filter = tag_subq
+                matched = {row[0] for row in conn.execute(name_filter).fetchall()}
         elif names:
             matched = _resolve_names(conn, spec, source_workspace, names)
-            name_filter = list(matched)
+            if spec.model is SqlSkill:
+                name_filter = _parse_skill_identities(list(matched))
+            else:
+                name_filter = list(matched)
         else:
             matched = _resolve_names(conn, spec, source_workspace)
             name_filter = None
@@ -289,32 +457,123 @@ def move_resources(
                 "workspace, then retry."
             )
 
+        if spec.model is SqlSkill:
+            skill_versions = get_workspace_table(conn, "skill_versions")
+            mlflow_v_stmt = sa.select(skill_versions.c.name).where(
+                skill_versions.c.workspace == source_workspace,
+                skill_versions.c.source_type == SkillSourceType.MLFLOW.value,
+            )
+            has_mlflow_version = False
+            if name_filter is not None:
+                for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                    chunk_stmt = mlflow_v_stmt.where(
+                        _skill_filter_condition(skill_versions, chunk)
+                    ).limit(1)
+                    if conn.execute(chunk_stmt).first() is not None:
+                        has_mlflow_version = True
+                        break
+            else:
+                has_mlflow_version = conn.execute(mlflow_v_stmt.limit(1)).first() is not None
+
+            if has_mlflow_version:
+                target_label = (
+                    "the default workspace"
+                    if target_workspace == DEFAULT_WORKSPACE_NAME
+                    else f"workspace {target_workspace!r}"
+                )
+                raise RuntimeError(
+                    "Move aborted: MLflow-backed skill versions would lose access to their "
+                    f"artifact content in {target_label}. Remove or re-register those "
+                    "versions before retrying."
+                )
+
         table = spec.table
         name_col = table.c[spec.name_column]
 
         def _filtered(stmt, col, _nf=name_filter):
             return stmt.where(col.in_(_nf)) if _nf is not None else stmt
 
-        row_count = conn.execute(
-            _filtered(
-                sa
-                .select(sa.func.count())
-                .select_from(table)
-                .where(table.c.workspace == source_workspace),
-                name_col,
-            )
-        ).scalar()
+        if spec.model is SqlSkill:
+            if name_filter is not None:
+                row_count = 0
+                count_stmt = (
+                    sa
+                    .select(sa.func.count())
+                    .select_from(table)
+                    .where(table.c.workspace == source_workspace)
+                )
+                for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                    row_count += conn.execute(
+                        count_stmt.where(_skill_filter_condition(table, chunk))
+                    ).scalar()
+            else:
+                row_count = conn.execute(
+                    sa
+                    .select(sa.func.count())
+                    .select_from(table)
+                    .where(table.c.workspace == source_workspace)
+                ).scalar()
+        else:
+            row_count = conn.execute(
+                _filtered(
+                    sa
+                    .select(sa.func.count())
+                    .select_from(table)
+                    .where(table.c.workspace == source_workspace),
+                    name_col,
+                )
+            ).scalar()
 
         if not dry_run:
-            conn.execute(
-                _filtered(
+            if retarget_root is not None:
+                # Resolved before the flip because the tag-filter subquery in
+                # name_filter is scoped to the source workspace. Locations are
+                # built with append_to_uri_path to match how the server derives
+                # them when creating experiments.
+                retarget_params = [
+                    {
+                        "pk": experiment_id,
+                        "new_root": append_to_uri_path(retarget_root, str(experiment_id)),
+                    }
+                    for (experiment_id,) in conn.execute(
+                        _filtered(
+                            sa.select(table.c.experiment_id).where(
+                                table.c.workspace == source_workspace
+                            ),
+                            name_col,
+                        )
+                    )
+                ]
+                conn.execute(
+                    table
+                    .update()
+                    .where(table.c.experiment_id == sa.bindparam("pk"))
+                    .values(artifact_location=sa.bindparam("new_root")),
+                    retarget_params,
+                )
+
+            if spec.model is SqlSkill:
+                base_table_upd = (
                     table
                     .update()
                     .where(table.c.workspace == source_workspace)
-                    .values(workspace=target_workspace),
-                    name_col,
+                    .values(workspace=target_workspace)
                 )
-            )
+                if name_filter is not None:
+                    for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                        conn.execute(base_table_upd.where(_skill_filter_condition(table, chunk)))
+                else:
+                    conn.execute(base_table_upd)
+            else:
+                conn.execute(
+                    _filtered(
+                        table
+                        .update()
+                        .where(table.c.workspace == source_workspace)
+                        .values(workspace=target_workspace),
+                        name_col,
+                    )
+                )
 
             # Explicitly update child tables because not all backends honour
             # ON UPDATE CASCADE (e.g. SQLite without the foreign_keys pragma).
@@ -328,14 +587,21 @@ def move_resources(
                     child_table_name = entry
                     col_name = spec.child_name_column
                 child = get_workspace_table(conn, child_table_name)
-                conn.execute(
-                    _filtered(
-                        child
-                        .update()
-                        .where(child.c.workspace == source_workspace)
-                        .values(workspace=target_workspace),
-                        child.c[col_name],
-                    )
+                base_child_upd = (
+                    child
+                    .update()
+                    .where(child.c.workspace == source_workspace)
+                    .values(workspace=target_workspace)
                 )
+                if spec.model is SqlSkill:
+                    if name_filter is not None:
+                        for chunk in chunk_list(name_filter, _SKILL_ID_CHUNK_SIZE):
+                            conn.execute(
+                                base_child_upd.where(_skill_filter_condition(child, chunk))
+                            )
+                    else:
+                        conn.execute(base_child_upd)
+                else:
+                    conn.execute(_filtered(base_child_upd, child.c[col_name]))
 
-    return MoveResult(names=sorted(matched), row_count=row_count)
+    return MoveResult(names=sorted(matched), row_count=row_count, retarget_root=retarget_root)

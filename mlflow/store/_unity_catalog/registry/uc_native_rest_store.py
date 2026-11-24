@@ -144,8 +144,10 @@ def model_version_from_uc_native_proto(uc_proto: ModelVersionInfo) -> ModelVersi
             )
             for metric in (uc_proto.model_metrics or [])
         ],
-        deployment_job_state=ModelVersionDeploymentJobState.from_proto(
-            uc_proto.deployment_job_state
+        deployment_job_state=(
+            ModelVersionDeploymentJobState.from_proto(uc_proto.deployment_job_state)
+            if uc_proto.HasField("deployment_job_state")
+            else None
         ),
     )
 
@@ -188,8 +190,10 @@ def model_version_search_from_uc_native_proto(
         status=uc_model_version_status_to_string(uc_proto.status),
         aliases=[],
         tags=[],
-        deployment_job_state=ModelVersionDeploymentJobState.from_proto(
-            uc_proto.deployment_job_state
+        deployment_job_state=(
+            ModelVersionDeploymentJobState.from_proto(uc_proto.deployment_job_state)
+            if uc_proto.HasField("deployment_job_state")
+            else None
         ),
     )
 
@@ -480,7 +484,13 @@ class UcNativeModelRegistryStore(UcModelRegistryStore):
             full_name,
             storage_location=model_version.storage_location,
         )
-        store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        self._upload_model_version_files(
+            full_name=full_name,
+            version=created_version,
+            store=store,
+            local_model_dir=local_model_dir,
+            source=source,
+        )
         finalize_req = message_to_json(
             FinalizeModelVersion(full_name=full_name, version=created_version)
         )

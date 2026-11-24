@@ -280,6 +280,83 @@ async def test_fallback_provider_passthrough():
         assert response["result"] == "success"
 
 
+@pytest.mark.asyncio
+async def test_fallback_passthrough_stream_first_provider_succeeds():
+    config = chat_config()
+    provider = _get_fallback_provider([config])
+
+    resp = chat_stream_response()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        from mlflow.gateway.providers.base import PassthroughAction
+
+        action = PassthroughAction.OPENAI_CHAT
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+
+        result = await provider.passthrough(action, payload)
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) > 0
+        assert mock_client.post.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_fallback_passthrough_stream_second_provider_succeeds():
+    config1 = chat_config()
+    config2 = chat_config()
+    config2["name"] = "chat-fallback"
+
+    provider = _get_fallback_provider([config1, config2])
+
+    resp = chat_stream_response()
+
+    with mock.patch("aiohttp.ClientSession") as mock_session:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+        mock_session.return_value = mock_client
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            MockAsyncStreamingResponse(resp),
+        ]
+
+        from mlflow.gateway.providers.base import PassthroughAction
+
+        action = PassthroughAction.OPENAI_CHAT
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+
+        result = await provider.passthrough(action, payload)
+        chunks = [chunk async for chunk in result]
+        assert len(chunks) > 0
+        assert mock_client.post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_fallback_passthrough_stream_all_providers_fail():
+    config1 = chat_config()
+    config2 = chat_config()
+    config2["name"] = "chat-fallback"
+
+    provider = _get_fallback_provider([config1, config2])
+
+    with mock.patch("aiohttp.ClientSession") as mock_session:
+        mock_client = mock_http_client(MockAsyncResponse({}))
+        mock_session.return_value = mock_client
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            Exception("Second provider failed"),
+        ]
+
+        from mlflow.gateway.providers.base import PassthroughAction
+
+        action = PassthroughAction.OPENAI_CHAT
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+
+        result = await provider.passthrough(action, payload)
+        with pytest.raises(Exception, match="All 2 fallback attempts failed"):
+            [chunk async for chunk in result]
+
+        assert mock_client.post.call_count == 2
+
+
 @pytest.mark.parametrize(
     ("exception", "expected_status"),
     [
@@ -318,3 +395,77 @@ async def test_fallback_provider_propagates_http_status(exception, expected_stat
             await provider.chat(payload)
 
         assert exc_info.value.status_code == expected_status
+
+
+@pytest.mark.asyncio
+async def test_fallback_chat_keeps_cache_control_for_next_provider():
+    from tests.gateway.providers.test_anthropic import chat_config as anthropic_chat_config
+    from tests.gateway.providers.test_anthropic import chat_response as anthropic_chat_response
+
+    # OpenAI does not get the markers, but the Anthropic provider it falls back to does.
+    provider = _get_fallback_provider([chat_config(), anthropic_chat_config()])
+    mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+    marked_part = {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral"}}
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            MockAsyncResponse(anthropic_chat_response()),
+        ]
+        await provider.chat(
+            chat.RequestPayload(messages=[{"role": "user", "content": [marked_part]}])
+        )
+
+    first_call, second_call = mock_client.post.call_args_list
+    assert first_call.kwargs["json"]["messages"] == [
+        {"role": "user", "content": [{"type": "text", "text": "Doc"}]}
+    ]
+    assert second_call.kwargs["json"]["messages"] == [{"role": "user", "content": [marked_part]}]
+
+
+@pytest.mark.asyncio
+async def test_fallback_chat_keeps_thought_signature_for_next_provider():
+    from tests.gateway.providers.test_gemini import chat_config as gemini_chat_config
+    from tests.gateway.providers.test_gemini import fake_chat_response as gemini_chat_response
+
+    # OpenAI does not get the signature, but the Gemini provider it falls back to does.
+    provider = _get_fallback_provider([chat_config(), gemini_chat_config()])
+    mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        mock_client.post.side_effect = [
+            Exception("First provider failed"),
+            MockAsyncResponse(gemini_chat_response()),
+        ]
+        await provider.chat(
+            chat.RequestPayload(
+                messages=[
+                    {"role": "user", "content": "What's the weather in Paris?"},
+                    {
+                        "role": "assistant",
+                        "tool_calls": [{**tool_call, "thought_signature": "sig_1"}],
+                    },
+                    {"role": "tool", "tool_call_id": "call_1", "content": '{"temperature": 20}'},
+                ]
+            )
+        )
+
+    first_call, second_call = mock_client.post.call_args_list
+    assert first_call.kwargs["json"]["messages"][1] == {
+        "role": "assistant",
+        "tool_calls": [tool_call],
+    }
+    assert second_call.kwargs["json"]["contents"][1] == {
+        "role": "model",
+        "parts": [
+            {
+                "functionCall": {"id": "call_1", "name": "get_weather", "args": {"city": "Paris"}},
+                "thoughtSignature": "sig_1",
+            }
+        ],
+    }

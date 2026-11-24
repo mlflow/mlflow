@@ -28,6 +28,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { ErrorCodes } from '../../common/constants';
 import { ArtifactView } from './ArtifactView';
 import { RunTag } from '../sdk/MlflowMessages';
+import * as LoggedModelQuery from '../hooks/logged-models/useGetLoggedModelQuery';
 
 describe('ArtifactPage', () => {
   let wrapper;
@@ -87,6 +88,29 @@ describe('ArtifactPage', () => {
     );
     return mountedComponent.find(ArtifactPageImpl).instance();
   };
+  test('passes the logged model root to previews and downloads when falling back from a run', async () => {
+    const lookup = jest.spyOn(LoggedModelQuery, 'asyncGetLoggedModel').mockResolvedValue({
+      model: { info: { artifact_uri: 'mlflow-artifacts:/12/models/m-123/artifacts', tags: [] } },
+    });
+    const props = {
+      ...minimalProps,
+      apis: {},
+      experimentId: '12',
+      isLoggedModelsMode: true,
+      isFallbackToLoggedModelArtifacts: true,
+      loggedModelId: 'm-123',
+      artifactRootUri: 'mlflow-artifacts:/12/source-run/artifacts',
+      listArtifactsLoggedModelApi: jest.fn<() => Promise<unknown>>().mockResolvedValue({}),
+      searchModelVersionsApi: jest.fn(),
+    };
+    wrapper = shallowWithIntl(<ArtifactPageImpl {...props} />).dive();
+    await wrapper.instance().pollArtifactsForCurrentRun();
+    const view = wrapper.instance().renderArtifactView(false, false, []);
+    expect(view.props.artifactRootUri).toBe('mlflow-artifacts:/12/models/m-123/artifacts');
+    expect(lookup).toHaveBeenCalledWith('m-123', true);
+    lookup.mockRestore();
+  });
+
   test('should render with minimal props without exploding', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>

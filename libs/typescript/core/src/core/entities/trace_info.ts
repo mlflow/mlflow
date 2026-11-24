@@ -6,6 +6,13 @@ import {
 } from './trace_location';
 import type { TraceState } from './trace_state';
 import { TraceMetadataKey } from '../constants';
+import {
+  assessmentFromJson,
+  assessmentToJson,
+  isFeedback,
+  type Assessment,
+  type SerializedAssessment,
+} from './assessment';
 
 /**
  * Interface for token usage information
@@ -74,9 +81,8 @@ export class TraceInfo {
 
   /**
    * List of assessments associated with the trace.
-   * TODO: Assessments are not yet supported in the TypeScript SDK.
    */
-  assessments: any[];
+  assessments: Assessment[];
 
   /**
    * Create a new TraceInfo instance
@@ -93,7 +99,7 @@ export class TraceInfo {
     executionDuration?: number;
     traceMetadata?: Record<string, string>;
     tags?: Record<string, string>;
-    assessments?: any[];
+    assessments?: Assessment[] | SerializedAssessment[];
   }) {
     this.traceId = params.traceId;
     this.traceLocation = params.traceLocation;
@@ -105,8 +111,7 @@ export class TraceInfo {
     this.executionDuration = params.executionDuration;
     this.traceMetadata = params.traceMetadata || {};
     this.tags = params.tags || {};
-    // TODO: Assessments are not yet supported in the TypeScript SDK.
-    this.assessments = [];
+    this.assessments = (params.assessments || []).map(normalizeAssessment);
   }
 
   /**
@@ -126,7 +131,7 @@ export class TraceInfo {
       state: this.state,
       trace_metadata: this.traceMetadata,
       tags: this.tags,
-      assessments: this.assessments,
+      assessments: this.assessments.map(assessmentToJson),
     };
   }
 
@@ -182,6 +187,13 @@ export class TraceInfo {
   }
 }
 
+function normalizeAssessment(assessment: Assessment | SerializedAssessment): Assessment {
+  if (isFeedback(assessment)) {
+    return assessment;
+  }
+  return assessmentFromJson(assessment);
+}
+
 export interface SerializedTraceInfo {
   trace_id: string;
   client_request_id?: string;
@@ -194,6 +206,5 @@ export interface SerializedTraceInfo {
   state: TraceState;
   trace_metadata: Record<string, string>;
   tags: Record<string, string>;
-  // TODO: Define proper type for assessments once supported
-  assessments: any[];
+  assessments: SerializedAssessment[];
 }

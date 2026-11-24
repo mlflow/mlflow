@@ -5,15 +5,23 @@ on:
     types:
       - opened
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 defaults:
   run:
     shell: bash
 
 permissions: {}
+cache-mode: none
 
 jobs:
   label-community:
-    if: github.repository == 'mlflow/mlflow'
+    if: >-
+      github.repository == 'mlflow/mlflow' &&
+      github.event.pull_request.user.type != 'Bot' &&
+      !contains(fromJSON('["MEMBER", "COLLABORATOR", "OWNER"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -22,23 +30,9 @@ jobs:
       - env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
-          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
-          ASSOCIATION: ${{ github.event.pull_request.author_association }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          # Skip bot PRs
-          if [[ "$AUTHOR_TYPE" == "Bot" ]]; then
-            echo "Bot PR (type: $AUTHOR_TYPE), skipping"
-            exit 0
-          fi
-
-          # Skip internal PRs based on author association
-          if [[ "$ASSOCIATION" =~ ^(MEMBER|COLLABORATOR|OWNER)$ ]]; then
-            echo "Internal PR (association: $ASSOCIATION), skipping"
-            exit 0
-          fi
-
           # Check user profile for Databricks affiliation
           PROFILE=$(gh api "users/$AUTHOR" --jq '[.company // "", .email // ""] | join("\n")')
           if echo "$PROFILE" | grep -iq 'databricks'; then

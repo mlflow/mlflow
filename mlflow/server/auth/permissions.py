@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from enum import Enum, auto
+from typing import NamedTuple
 
 from mlflow import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -12,6 +14,11 @@ class Permission:
     can_update: bool
     can_delete: bool
     can_manage: bool
+
+    @property
+    def denied(self) -> bool:
+        """An explicit ``DENY``, distinct from merely lacking a capability."""
+        return self.name == DENY.name
 
 
 READ = Permission(
@@ -50,6 +57,15 @@ MANAGE = Permission(
     can_manage=True,
 )
 
+DENY = Permission(
+    name="DENY",
+    can_read=False,
+    can_use=False,
+    can_update=False,
+    can_delete=False,
+    can_manage=False,
+)
+
 NO_PERMISSIONS = Permission(
     name="NO_PERMISSIONS",
     can_read=False,
@@ -65,6 +81,7 @@ ALL_PERMISSIONS = {
     EDIT.name: EDIT,
     MANAGE.name: MANAGE,
     NO_PERMISSIONS.name: NO_PERMISSIONS,
+    DENY.name: DENY,
 }
 
 
@@ -73,6 +90,9 @@ def get_permission(permission: str) -> Permission:
 
 
 PERMISSION_PRIORITY = {
+    # DENY is negative so it can never win a ``max`` fold. The fold is expected to
+    # short-circuit on it first; the ordering is a second line of defence.
+    DENY.name: -1,
     NO_PERMISSIONS.name: 0,
     READ.name: 1,
     USE.name: 2,
@@ -92,6 +112,7 @@ RESOURCE_TYPE_GATEWAY_SECRET = "gateway_secret"
 RESOURCE_TYPE_GATEWAY_ENDPOINT = "gateway_endpoint"
 RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION = "gateway_model_definition"
 RESOURCE_TYPE_MCP_SERVER = "mcp_server"
+RESOURCE_TYPE_SKILL = "skill"
 
 # Workspace-wide permissions slot. ``resource_pattern`` must be ``"*"``. The
 # permission level distinguishes member from admin:
@@ -106,19 +127,73 @@ RESOURCE_TYPE_MCP_SERVER = "mcp_server"
 # expressible at workspace scope. The ``e5f6a7b8c9d0`` migration rewrites legacy
 # ``READ`` rows to ``USE`` and fans ``EDIT`` rows out to per-type EDIT grants
 # anchored on ``('workspace', '*', USE)``.
+# Sub-resources. Each is independently grantable because it has a use case
+# for a permission that differs from its parent's; all are wildcard-only grain (see TYPE).
+RESOURCE_TYPE_RUN = "run"
+RESOURCE_TYPE_TRACE = "trace"
+RESOURCE_TYPE_ASSESSMENT = "assessment"
+RESOURCE_TYPE_LOGGED_MODEL = "logged_model"
+RESOURCE_TYPE_REVIEW_QUEUE = "review_queue"
+RESOURCE_TYPE_REGISTERED_MODEL_VERSION = "registered_model_version"
+RESOURCE_TYPE_PROMPT_VERSION = "prompt_version"
+RESOURCE_TYPE_SCORER_VERSION = "scorer_version"
+RESOURCE_TYPE_MCP_SERVER_VERSION = "mcp_server_version"
+
 RESOURCE_TYPE_WORKSPACE = "workspace"
 
-VALID_RESOURCE_TYPES = frozenset({
-    RESOURCE_TYPE_EXPERIMENT,
-    RESOURCE_TYPE_REGISTERED_MODEL,
-    RESOURCE_TYPE_PROMPT,
-    RESOURCE_TYPE_SCORER,
-    RESOURCE_TYPE_GATEWAY_SECRET,
-    RESOURCE_TYPE_GATEWAY_ENDPOINT,
-    RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
-    RESOURCE_TYPE_MCP_SERVER,
-    RESOURCE_TYPE_WORKSPACE,
-})
+
+class PatternKind(Enum):
+    """The grain a grant's ``resource_pattern`` may take for a resource type."""
+
+    WILDCARD = auto()  # "*" — any resource of the type
+    ID = auto()  # an exact resource id
+
+
+WILDCARD_AND_ID = frozenset({PatternKind.WILDCARD, PatternKind.ID})
+WILDCARD_ONLY = frozenset({PatternKind.WILDCARD})
+
+# Resource type -> the grain its grants may use. Top-level types keep per-id grants
+# (today's behaviour); sub-resources are wildcard-only, because a per-id child grant
+# cannot be enforced in list/search paths until filter push-down lands, and a grant that
+# holds on a point route but not in search is worse than no grant at all.
+TYPE: dict[str, frozenset[PatternKind]] = {
+    # The workspace slot is a single wildcard grant per workspace ("am I a member /
+    # an admin here?"), never per-id: the workspace itself is named by the role's
+    # ``workspace`` column, not by the pattern.
+    RESOURCE_TYPE_WORKSPACE: WILDCARD_ONLY,
+    RESOURCE_TYPE_EXPERIMENT: WILDCARD_AND_ID,
+    RESOURCE_TYPE_REGISTERED_MODEL: WILDCARD_AND_ID,
+    RESOURCE_TYPE_PROMPT: WILDCARD_AND_ID,
+    RESOURCE_TYPE_SCORER: WILDCARD_AND_ID,
+    RESOURCE_TYPE_GATEWAY_SECRET: WILDCARD_AND_ID,
+    RESOURCE_TYPE_GATEWAY_ENDPOINT: WILDCARD_AND_ID,
+    RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION: WILDCARD_AND_ID,
+    RESOURCE_TYPE_MCP_SERVER: WILDCARD_AND_ID,
+    RESOURCE_TYPE_SKILL: WILDCARD_AND_ID,
+    RESOURCE_TYPE_RUN: WILDCARD_ONLY,
+    RESOURCE_TYPE_TRACE: WILDCARD_ONLY,
+    RESOURCE_TYPE_ASSESSMENT: WILDCARD_ONLY,
+    RESOURCE_TYPE_LOGGED_MODEL: WILDCARD_ONLY,
+    RESOURCE_TYPE_REVIEW_QUEUE: WILDCARD_ONLY,
+    RESOURCE_TYPE_REGISTERED_MODEL_VERSION: WILDCARD_ONLY,
+    RESOURCE_TYPE_PROMPT_VERSION: WILDCARD_ONLY,
+    RESOURCE_TYPE_SCORER_VERSION: WILDCARD_ONLY,
+    RESOURCE_TYPE_MCP_SERVER_VERSION: WILDCARD_ONLY,
+}
+
+# Derived, so the set of valid types is declared exactly once.
+VALID_RESOURCE_TYPES = frozenset(TYPE.keys())
+
+
+class GrantLoadKey(NamedTuple):
+    """The address a grant lookup is made at: a resource type and an id (or ``"*"``).
+
+    Deliberately flat. It carries no parent, because a resource's relationships are
+    declared per operation on the requirement that needs them, not globally.
+    """
+
+    resource_type: str
+    resource_id: str
 
 
 # Permissions grantable at workspace scope (``resource_type='workspace'``). USE
@@ -131,7 +206,40 @@ WORKSPACE_GRANTABLE_PERMISSIONS = frozenset({USE.name, MANAGE.name})
 # gateway_*). NO_PERMISSIONS is intentionally excluded: an absent grant combined with
 # the configured ``default_permission`` already expresses "no access"; an explicit
 # NO_PERMISSIONS grant on a resource is no longer supported.
-RESOURCE_GRANTABLE_PERMISSIONS = frozenset({READ.name, USE.name, EDIT.name, MANAGE.name})
+# ``DENY`` is an absolute deny: it denies within its own tier even
+# where an inherited tier would allow. ``NO_PERMISSIONS`` stays excluded — an absent grant
+# plus ``default_permission`` already expresses "no access".
+RESOURCE_GRANTABLE_PERMISSIONS = frozenset({
+    READ.name,
+    USE.name,
+    EDIT.name,
+    MANAGE.name,
+    DENY.name,
+})
+
+# ``USE`` has no Skill-specific operation. ``DENY`` is the shared RBAC veto.
+SKILL_REGISTRY_GRANTABLE_PERMISSIONS = frozenset({READ.name, EDIT.name, MANAGE.name, DENY.name})
+SKILL_REGISTRY_RESOURCE_TYPES = frozenset({
+    RESOURCE_TYPE_SKILL,
+})
+
+
+def _format_skill_registry_resource_key(organization: str | None, name: str) -> str:
+    return f"@{organization}/{name}" if organization else name
+
+
+def _parse_skill_registry_resource_key(resource_id: str) -> tuple[str, str]:
+    if resource_id.startswith("@"):
+        organization, sep, name = resource_id[1:].partition("/")
+        if sep and organization and name and "/" not in name:
+            return organization, name
+    elif resource_id and "/" not in resource_id:
+        return "", resource_id
+
+    raise MlflowException(
+        "Invalid Skill Registry resource_id. Expected 'name' or '@organization/name'.",
+        INVALID_PARAMETER_VALUE,
+    )
 
 
 def _validate_permission(permission: str):
@@ -157,9 +265,10 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
     - ``resource_type='workspace'`` accepts ``USE`` or ``MANAGE`` — the workspace-wide
       grant slot. ``USE`` is the regular member tier; ``MANAGE`` additionally grants
       role/user administration.
-    - Concrete resource types accept any of ``READ`` / ``USE`` / ``EDIT`` / ``MANAGE``.
-      ``NO_PERMISSIONS`` is rejected: an absent grant combined with the configured
-      ``default_permission`` already expresses "no access".
+    - Skill Registry resources accept ``READ`` / ``EDIT`` / ``MANAGE`` / ``DENY``.
+    - Other concrete resource types accept any of ``READ`` / ``USE`` / ``EDIT`` /
+      ``MANAGE``. ``NO_PERMISSIONS`` is rejected: an absent grant combined with
+      the configured ``default_permission`` already expresses "no access".
     """
     _validate_permission(permission)
     _validate_resource_type(resource_type)
@@ -172,11 +281,69 @@ def _validate_permission_for_resource_type(permission: str, resource_type: str) 
                 INVALID_PARAMETER_VALUE,
             )
         return
+    if resource_type in SKILL_REGISTRY_RESOURCE_TYPES:
+        if permission not in SKILL_REGISTRY_GRANTABLE_PERMISSIONS:
+            raise MlflowException(
+                f"Invalid permission '{permission}' for resource_type='{resource_type}'. "
+                f"Skill Registry grants accept only: "
+                f"{tuple(sorted(SKILL_REGISTRY_GRANTABLE_PERMISSIONS))}.",
+                INVALID_PARAMETER_VALUE,
+            )
+        return
     if permission not in RESOURCE_GRANTABLE_PERMISSIONS:
         raise MlflowException(
             f"Invalid permission '{permission}' for resource_type='{resource_type}'. "
             f"Resource-level grants accept only: "
             f"{tuple(sorted(RESOURCE_GRANTABLE_PERMISSIONS))}.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _canonical_experiment_id(experiment_id: str) -> str:
+    # The SQL tracking store reads an experiment ID with int(), so "01", " 1" and "+1" all name
+    # experiment 1. A grant on one of these spellings must apply to all of them.
+    try:
+        return str(int(experiment_id))
+    except (ValueError, TypeError, OverflowError):
+        return experiment_id
+
+
+def canonical_resource_id(resource_type: str, resource_id: str) -> str:
+    """The form of ``resource_id`` that grants are stored and compared in.
+
+    Experiment IDs, and the experiment ID in a scorer key (``<experiment_id>/<name>``), take the
+    form the SQL tracking store reads them in. Other IDs are kept as they are.
+    """
+    if resource_type == RESOURCE_TYPE_EXPERIMENT:
+        return _canonical_experiment_id(resource_id)
+    if resource_type == RESOURCE_TYPE_SCORER:
+        experiment_id, separator, name = resource_id.partition("/")
+        return f"{_canonical_experiment_id(experiment_id)}{separator}{name}"
+    return resource_id
+
+
+def matches(resource_pattern: str, resource_type: str, resource_id: str | None) -> bool:
+    """Does a grant's ``resource_pattern`` on ``resource_type`` apply to ``resource_id``?"""
+    patterns = TYPE.get(resource_type)
+    if patterns is None:
+        return False
+    return (PatternKind.WILDCARD in patterns and resource_pattern == "*") or (
+        PatternKind.ID in patterns
+        and resource_id is not None
+        # Grants are stored in this form (see SqlAlchemyStore._validate_resource_pattern).
+        and resource_pattern == canonical_resource_id(resource_type, resource_id)
+    )
+
+
+def _validate_resource_pattern(resource_pattern: str, resource_type: str) -> None:
+    _validate_resource_type(resource_type)
+    if resource_pattern == "*":
+        return
+    if PatternKind.ID not in TYPE[resource_type]:
+        raise MlflowException(
+            f"Invalid resource_pattern '{resource_pattern}' for "
+            f"resource_type='{resource_type}'. This resource type supports only "
+            f"wildcard ('*') grants.",
             INVALID_PARAMETER_VALUE,
         )
 

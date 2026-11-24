@@ -42,11 +42,12 @@ def _log_dataset(dataset, source, context, name=None, targets=None, model_id=Non
     """Helper function to log the dataset information to MLflow."""
     try:
         import tensorflow as tf
-
-        is_tf_dataset = isinstance(dataset, tf.data.Dataset)
-        is_tf_tensor = isinstance(dataset, tf.Tensor)
     except ImportError:
-        pass
+        # Keras 3 can run on non-TensorFlow backends (e.g., JAX) without TensorFlow installed.
+        tf = None
+
+    is_tf_dataset = tf is not None and isinstance(dataset, tf.data.Dataset)
+    is_tf_tensor = tf is not None and isinstance(dataset, tf.Tensor)
 
     if isinstance(dataset, np.ndarray):
         dataset = from_numpy(features=dataset, targets=targets, source=source, name=name)
@@ -58,7 +59,7 @@ def _log_dataset(dataset, source, context, name=None, targets=None, model_id=Non
         x = dataset[0]
         y = dataset[1]
         # check if x and y are tensors
-        if isinstance(x, tf.Tensor) and isinstance(y, tf.Tensor):
+        if tf is not None and isinstance(x, tf.Tensor) and isinstance(y, tf.Tensor):
             dataset = from_tensorflow(features=x, source=source, targets=y, name=name)
         else:
             dataset = from_numpy(features=x, targets=y, source=source, name=name)
@@ -205,7 +206,7 @@ def autolog(
             mlflow.log_param("batch_size", batch_size)
             unlogged_params.append("batch_size")
 
-        log_fn_args_as_params(original, [], kwargs, unlogged_params)
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
         model_id = None
         if log_models:
             model_id = _initialize_logged_model("model", flavor="keras").model_id
@@ -218,13 +219,20 @@ def autolog(
                 _log_dataset(x, source, "train", targets=y, model_id=model_id)
 
                 if "validation_data" in kwargs:
-                    _log_dataset(kwargs["validation_data"], source, "eval", model_id=model_id)
+                    validation_data = kwargs["validation_data"]
+                elif len(args) >= 8:
+                    validation_data = args[7]
+                else:
+                    validation_data = None
+                if validation_data is not None:
+                    _log_dataset(validation_data, source, "eval", model_id=model_id)
 
             except Exception as e:
                 _logger.warning(f"Failed to log dataset information to MLflow. Reason: {e}")
 
         # Add `MlflowCallback` to the callback list.
-        callbacks = args[5] if len(args) >= 6 else kwargs.get("callbacks", [])
+        # Copy the list so the user's `callbacks` list is not modified across `fit()` calls.
+        callbacks = list((args[5] if len(args) >= 6 else kwargs.get("callbacks")) or [])
         mlflow_callback = MlflowCallback(
             log_every_epoch=log_every_epoch,
             log_every_n_steps=log_every_n_steps,
@@ -232,7 +240,10 @@ def autolog(
         )
         _check_existing_mlflow_callback(callbacks)
         callbacks.append(mlflow_callback)
-        kwargs["callbacks"] = callbacks
+        if len(args) >= 6:
+            args = (*args[:5], callbacks, *args[6:])
+        else:
+            kwargs["callbacks"] = callbacks
         history = original(inst, *args, **kwargs)
 
         if log_models:

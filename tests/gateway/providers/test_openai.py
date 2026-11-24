@@ -130,6 +130,7 @@ async def _run_test_chat(provider):
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -139,6 +140,20 @@ def test_get_headers_uses_server_key_by_default():
         headers={"authorization": "Bearer client-key", "X-Custom": "value"}
     )
     assert merged["authorization"] == "Bearer key"
+    assert merged["X-Custom"] == "value"
+
+
+def test_get_headers_drops_client_auth_headers():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={
+            "authorization": "Bearer client-key",
+            "api-key": "client-azure-key",
+            "X-Custom": "value",
+        }
+    )
+    assert merged["authorization"] == "Bearer key"
+    assert "api-key" not in merged
     assert merged["X-Custom"] == "value"
 
 
@@ -286,6 +301,7 @@ async def _run_test_chat_stream(resp, provider):
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -452,6 +468,7 @@ async def _run_test_completions(resp, provider):
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -574,6 +591,7 @@ async def _run_test_completions_stream(resp, provider):
                 "stream_options": {"include_usage": True},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -648,6 +666,7 @@ async def _run_test_embeddings(provider):
             "https://api.openai.com/v1/embeddings",
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -728,6 +747,7 @@ async def test_embeddings_batch_input():
                 "input": ["1", "2"],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -782,6 +802,7 @@ async def test_azure_openai():
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -818,6 +839,7 @@ async def test_azuread_openai():
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+            allow_redirects=False,
         )
 
 
@@ -1423,6 +1445,7 @@ async def test_proxy_non_streaming():
         "https://api.openai.com/v1/chat/completions",
         json={"messages": [{"role": "user", "content": "Hello"}]},
         timeout=mock.ANY,
+        allow_redirects=False,
     )
 
 
@@ -1495,3 +1518,86 @@ async def test_proxy_streaming():
     assert len(collected) == 2
     assert b"chatcmpl-1" in collected[0]
     assert b"[DONE]" in collected[1]
+
+
+def _cache_control_payload(stream: bool = False):
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral"}},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "https://example.com/a.png"},
+                        "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                    },
+                ],
+            }
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+    return payload
+
+
+_MESSAGES_WITHOUT_CACHE_CONTROL = [
+    {
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Doc"},
+            {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+        ],
+    }
+]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_chat_does_not_send_cache_control(stream):
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    payload = chat.RequestPayload(**_cache_control_payload(stream))
+    if stream:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(chat_stream_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            [chunk async for chunk in provider.chat_stream(payload)]
+    else:
+        mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            await provider.chat(payload)
+
+    assert mock_client.post.call_args.kwargs["json"]["messages"] == _MESSAGES_WITHOUT_CACHE_CONTROL
+    # The caller's payload keeps its markers, e.g. for the next provider of a fallback route.
+    assert payload.messages[0].content[0].cache_control is not None
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_chat_does_not_send_thought_signature(stream):
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    tool_call = {
+        "id": "call_1",
+        "type": "function",
+        "function": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+    }
+    payload = chat.RequestPayload(
+        messages=[
+            {"role": "user", "content": "What's the weather in Paris?"},
+            {"role": "assistant", "tool_calls": [{**tool_call, "thought_signature": "sig_1"}]},
+            {"role": "tool", "tool_call_id": "call_1", "content": '{"temperature": 20}'},
+        ],
+        stream=stream,
+    )
+    if stream:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(chat_stream_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            [chunk async for chunk in provider.chat_stream(payload)]
+    else:
+        mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            await provider.chat(payload)
+
+    sent_messages = mock_client.post.call_args.kwargs["json"]["messages"]
+    assert sent_messages[1] == {"role": "assistant", "tool_calls": [tool_call]}
+    # The caller's payload keeps the signature, e.g. for a Gemini fallback provider.
+    assert payload.messages[1].tool_calls[0].thought_signature == "sig_1"

@@ -11,7 +11,9 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
+import sklearn
 from matplotlib.figure import Figure
+from packaging.version import Version
 from PIL import Image, ImageChops
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SparkSession
@@ -849,6 +851,131 @@ def test_get_multiclass_classifier_metrics(use_sample_weights):
         y_true=y, y_pred=y_pred, y_proba=y_probs, labels=[0, 1, 2], sample_weights=sample_weights
     )
     assert_dict_equal(metrics, expected_metrics, 1e-3)
+
+
+@pytest.mark.skipif(
+    Version(sklearn.__version__) < Version("1.6"),
+    reason="Older scikit-learn raises ValueError when a class is absent from y_true",
+)
+@pytest.mark.parametrize(
+    ("average", "expected_roc_auc"),
+    [("weighted", 1.0), ("macro", np.nan)],
+)
+def test_get_multiclass_classifier_metrics_with_class_absent_from_y_true(average, expected_roc_auc):
+    # Class 1 is predicted but absent from y_true, so y_proba has more columns than
+    # y_true has classes.
+    y = [0, 0, 2, 2]
+    y_pred = [0, 1, 2, 2]
+    y_probs = [
+        [0.8, 0.1, 0.1],
+        [0.4, 0.5, 0.1],
+        [0.1, 0.2, 0.7],
+        [0.2, 0.1, 0.7],
+    ]
+
+    metrics = _get_multiclass_classifier_metrics(
+        y_true=y, y_pred=y_pred, y_proba=y_probs, labels=[0, 1, 2], average=average
+    )
+
+    np.testing.assert_allclose(metrics["roc_auc"], expected_roc_auc)
+    assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
+
+
+def test_get_multiclass_classifier_metrics_suppresses_roc_auc_error(monkeypatch):
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "true")
+    with mock.patch(
+        "mlflow.models.evaluation.evaluators.classifier.sk_metrics.roc_auc_score",
+        side_effect=ValueError("boom"),
+    ) as mock_roc_auc_score:
+        metrics = _get_multiclass_classifier_metrics(
+            y_true=[0, 0, 2, 2],
+            y_pred=[0, 1, 2, 2],
+            y_proba=[
+                [0.8, 0.1, 0.1],
+                [0.4, 0.5, 0.1],
+                [0.1, 0.2, 0.7],
+                [0.2, 0.1, 0.7],
+            ],
+            labels=[0, 1, 2],
+        )
+
+    mock_roc_auc_score.assert_called_once()
+    assert mock_roc_auc_score.call_args.kwargs["labels"] == [0, 1, 2]
+    assert "roc_auc" not in metrics
+    assert metrics["log_loss"] == pytest.approx(0.4632, rel=1e-3)
+
+
+@pytest.mark.skipif(
+    Version(sklearn.__version__) < Version("1.6"),
+    reason="Older scikit-learn reports NaN ROC AUC whenever a class is absent from y_true",
+)
+@pytest.mark.parametrize(
+    ("average", "expected_roc_auc"),
+    [("weighted", 1.0), ("macro", np.nan)],
+)
+def test_multi_classifier_evaluation_with_class_absent_from_targets(average, expected_roc_auc):
+    X, y = load_iris(return_X_y=True)
+    model = LogisticRegression(max_iter=300).fit(X, y)
+    # Class 1 is absent from the targets, but the model still predicts it for some rows
+    mask = y != 1
+    assert 1 in model.predict(X[mask])
+    with mlflow.start_run() as run:
+        model_info = mlflow.sklearn.log_model(model, name="model")
+        result = evaluate(
+            model_info.model_uri,
+            X[mask],
+            model_type="classifier",
+            targets=y[mask],
+            evaluators="default",
+            evaluator_config={"average": average},
+        )
+
+    np.testing.assert_allclose(result.metrics["roc_auc"], expected_roc_auc)
+    assert result.metrics["log_loss"] == pytest.approx(0.0889, rel=1e-3)
+    per_class_metrics = pd.read_csv(
+        mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id, artifact_path="per_class_metrics.csv"
+        )
+    ).set_index("positive_class")
+    assert np.isnan(per_class_metrics.loc[1, "roc_auc"])
+    assert per_class_metrics.loc[[0, 2], "roc_auc"].notna().all()
+
+
+def test_multi_classifier_evaluation_when_roc_auc_raises_for_absent_class(
+    multiclass_logistic_regressor_model_uri,
+):
+    # scikit-learn < 1.6 raises this error when a class is absent from y_true.
+    X, y = load_iris(return_X_y=True)
+    mask = y != 1
+    with (
+        mock.patch(
+            "mlflow.models.evaluation.evaluators.classifier.sk_metrics.roc_auc_score",
+            side_effect=ValueError(
+                "Only one class present in y_true. ROC AUC score is not defined in that case."
+            ),
+        ) as mock_roc_auc_score,
+        mlflow.start_run() as run,
+    ):
+        result = evaluate(
+            multiclass_logistic_regressor_model_uri,
+            X[mask],
+            model_type="classifier",
+            targets=y[mask],
+            evaluators="default",
+        )
+
+    # One aggregate call plus one per-class ROC curve call for each of the 3 labels
+    assert mock_roc_auc_score.call_count == 4
+    assert np.isnan(result.metrics["roc_auc"])
+    assert result.metrics["log_loss"] > 0
+    _, _, _, artifacts = get_run_data(run.info.run_id)
+    assert {"roc_curve_plot.png", "per_class_metrics.csv"} <= set(artifacts)
+    per_class_metrics = pd.read_csv(
+        mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id, artifact_path="per_class_metrics.csv"
+        )
+    )
+    assert per_class_metrics["roc_auc"].isna().all()
 
 
 def test_gen_binary_precision_recall_curve_no_sample_weights():
@@ -2050,6 +2177,106 @@ def validate_question_answering_logged_data(
 
     if with_targets:
         assert logged_data["answer"].tolist() == ["words random", "This is a sentence."]
+
+
+@pytest.mark.parametrize("multi_output", [False, True])
+def test_evaluation_table_preserves_row_alignment(multi_output):
+    data = pd.DataFrame({"feature": [1, 2], "target": [101, 202]}, index=[10, 20])
+
+    if multi_output:
+
+        def model(_data):
+            return pd.DataFrame({
+                "prediction": [101.0, 202.0],
+                "auxiliary": [0.1, 0.2],
+            })
+
+        def row_metric(predictions, auxiliary):
+            return MetricValue(scores=auxiliary.tolist())
+
+        model_type = None
+        predictions = "prediction"
+        expected_metric_scores = [0.1, 0.2]
+    else:
+
+        def model(_data):
+            return pd.Series([101.0, 202.0])
+
+        def row_metric(predictions, targets=None):
+            return MetricValue(scores=predictions.tolist())
+
+        model_type = "regressor"
+        predictions = None
+        expected_metric_scores = [101.0, 202.0]
+
+    with mlflow.start_run():
+        result = mlflow.models.evaluate(
+            model,
+            data,
+            targets="target",
+            model_type=model_type,
+            predictions=predictions,
+            evaluators="default",
+            evaluator_config={"log_model_explainability": False},
+            extra_metrics=[
+                make_metric(eval_fn=row_metric, greater_is_better=True, name="row_metric")
+            ],
+        )
+
+    eval_table = pd.DataFrame(**result.artifacts["eval_results_table"].content)
+    prediction_column = "prediction" if multi_output else "outputs"
+    assert eval_table["feature"].tolist() == [1, 2]
+    assert eval_table["target"].tolist() == [101, 202]
+    assert eval_table[prediction_column].tolist() == [101.0, 202.0]
+    assert eval_table["row_metric/score"].tolist() == expected_metric_scores
+    if multi_output:
+        assert eval_table["auxiliary"].tolist() == [0.1, 0.2]
+
+
+@pytest.mark.parametrize("multi_output", [False, True])
+def test_evaluation_table_preserves_nullable_integer_outputs(multi_output):
+    data = pd.DataFrame({"feature": [1, 2]}, index=[10, 20])
+    expected_output = [2**63 - 1, None]
+
+    if multi_output:
+
+        def model(_data):
+            return pd.DataFrame({
+                "prediction": [1.0, 2.0],
+                "auxiliary": pd.Series([expected_output[0], pd.NA], dtype="Int64"),
+            })
+
+        def row_metric(predictions, auxiliary):
+            return MetricValue(scores=[0.0, 0.0])
+
+        predictions = "prediction"
+        output_column = "auxiliary"
+    else:
+
+        def model(_data):
+            return pd.Series([expected_output[0], pd.NA], dtype="Int64")
+
+        def row_metric(predictions):
+            return MetricValue(scores=[0.0, 0.0])
+
+        predictions = None
+        output_column = "outputs"
+
+    with mlflow.start_run():
+        result = mlflow.models.evaluate(
+            model,
+            data,
+            predictions=predictions,
+            evaluators="default",
+            evaluator_config={"log_model_explainability": False},
+            extra_metrics=[
+                make_metric(eval_fn=row_metric, greater_is_better=True, name="row_metric")
+            ],
+        )
+
+    eval_table = result.artifacts["eval_results_table"].content
+    output_index = eval_table["columns"].index(output_column)
+    assert [row[output_index] for row in eval_table["data"]] == expected_output
 
 
 def test_missing_args_raises_exception():

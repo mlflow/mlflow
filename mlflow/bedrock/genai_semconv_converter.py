@@ -87,7 +87,7 @@ def _convert_message(msg: dict[str, Any]) -> dict[str, Any]:
             parts.append({
                 "type": "tool_call_response",
                 "id": tool_result.get("toolUseId"),
-                "result": _extract_tool_result(result_content),
+                "response": _extract_tool_result(result_content),
             })
         elif image := block.get("image"):
             parts.append(_convert_image(image))

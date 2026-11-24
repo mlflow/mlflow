@@ -1,3 +1,7 @@
+import hashlib
+import json
+import logging
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from mlflow.data import Dataset
@@ -8,10 +12,61 @@ from mlflow.entities.evaluation_dataset import (
 from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
 )
+from mlflow.genai.datasets.entities import EvaluationDatasetVersion
+from mlflow.utils.mlflow_tags import MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY
 
 if TYPE_CHECKING:
     import pandas as pd
     import pyspark.sql
+
+_logger = logging.getLogger(__name__)
+
+
+def compute_records_sha256(df: "pd.DataFrame") -> str:
+    # `compute_pandas_digest` skips dict columns such as `inputs`, so hash every record instead.
+    # `json.dumps` keeps full float precision and tells None from NaN, unlike `DataFrame.to_json`,
+    # and `sort_keys` makes the hash independent of the column order. `repr` keeps the type of a
+    # non-JSON value, so a datetime doesn't hash the same as its string form.
+    records = json.dumps(df.to_dict(orient="records"), sort_keys=True, default=repr)
+    return hashlib.sha256(records.encode("utf-8")).hexdigest()
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _to_evaluation_dataset_version(value: Any) -> EvaluationDatasetVersion | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, EvaluationDatasetVersion):
+        return value
+
+    if isinstance(value, dict):
+        raw_version = value.get("version")
+        created_at = value.get("created_at") or value.get("create_time")
+        created_by = value.get("created_by")
+        operation = value.get("operation")
+    else:
+        raw_version = getattr(value, "version", value)
+        created_at = getattr(value, "created_at", None) or getattr(value, "create_time", None)
+        created_by = getattr(value, "created_by", None)
+        operation = getattr(value, "operation", None)
+    if raw_version in (None, ""):
+        return None
+
+    return EvaluationDatasetVersion(
+        version=int(raw_version),
+        created_at=_parse_datetime(created_at),
+        created_by=created_by,
+        operation=operation,
+    )
 
 
 class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
@@ -42,6 +97,8 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
             self._databricks_dataset = dataset
             self._mlflow_dataset = None
         self._df = None
+        self._latest_version = None
+        self._latest_version_resolved = False
 
     def __eq__(self, other):
         """Check equality with another dataset."""
@@ -101,11 +158,43 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._databricks_dataset.dataset_id if self._databricks_dataset else None
 
     @property
+    def version(self) -> int | None:
+        """The resolved dataset version number.
+
+        Returns the version number only. Use :meth:`list_versions` to retrieve full
+        version metadata (``created_at``, ``created_by``, ``operation``).
+        """
+        dataset = (
+            self._mlflow_dataset if self._mlflow_dataset is not None else self._databricks_dataset
+        )
+        resolved = _to_evaluation_dataset_version(getattr(dataset, "version", None))
+        return resolved.version if resolved else None
+
+    @property
     def source(self):
         """Source information for the dataset."""
         if self._mlflow_dataset:
             return self._mlflow_dataset.source
-        return DatabricksEvaluationDatasetSource(table_name=self.name, dataset_id=self.dataset_id)
+        return DatabricksEvaluationDatasetSource(
+            table_name=self.name,
+            dataset_id=self.dataset_id,
+            version=self._resolve_version(),
+        )
+
+    def _resolve_version(self) -> int | None:
+        """Return the pinned version, or the newest version for a latest Databricks handle."""
+        if self.version is not None or self._mlflow_dataset is not None:
+            return self.version
+        if not self._latest_version_resolved:
+            self._latest_version_resolved = True
+            # The newest version is looked up after the records are read, so a write in between
+            # can label this handle with a newer version than the records it read. This is
+            # accepted to avoid a backend change.
+            try:
+                self._latest_version = max((v.version for v in self.list_versions()), default=None)
+            except Exception:
+                _logger.debug("Failed to resolve the latest dataset version", exc_info=True)
+        return self._latest_version
 
     @property
     def source_type(self) -> str | None:
@@ -190,17 +279,55 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         with _databricks_profile_env():
             self._databricks_dataset.delete_records(record_ids)
 
+    def list_versions(self) -> list[EvaluationDatasetVersion]:
+        """List immutable versions for this dataset."""
+        if self._mlflow_dataset:
+            raise NotImplementedError(
+                "Dataset versions are only supported for Databricks datasets."
+            )
+
+        from mlflow.genai.datasets import _databricks_profile_env
+
+        with _databricks_profile_env():
+            versions = self._databricks_dataset.list_versions()
+        return [
+            version
+            for version in (_to_evaluation_dataset_version(version) for version in versions)
+            if version is not None
+        ]
+
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""
         if self._mlflow_dataset:
-            return self._mlflow_dataset.to_df()
+            return self._attach_identity(self._mlflow_dataset.to_df())
 
         if self._df is None:
             from mlflow.genai.datasets import _databricks_profile_env
 
             with _databricks_profile_env():
                 self._df = self._databricks_dataset.to_df()
+            # Resolve the latest version again now that the records are read.
+            self._latest_version = None
+            self._latest_version_resolved = False
+            # Attach after `self._df` is set: the digest fallback calls `to_df()`.
+            self._attach_identity(self._df)
         return self._df
+
+    def _attach_identity(self, df: "pd.DataFrame") -> "pd.DataFrame":
+        try:
+            entity = self._to_mlflow_entity()
+            df.attrs[MLFLOW_GENAI_EVALUATE_DATASET_IDENTITY] = {
+                "name": entity.name,
+                "digest": entity.digest,
+                "source_type": entity.source_type,
+                "source": entity.source,
+                "schema": entity.schema,
+                "profile": entity.profile,
+                "records_sha256": compute_records_sha256(df),
+            }
+        except Exception:
+            _logger.debug("Failed to attach the dataset identity to the DataFrame", exc_info=True)
+        return df
 
     def has_records(self) -> bool:
         """Check if dataset records are loaded without triggering a load."""

@@ -19,14 +19,14 @@ from mlflow.utils.providers import _lookup_model_info
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
     from mlflow.gateway.providers.base import BaseProvider
-    from mlflow.types.llm import ChatMessage
+    from mlflow.types.llm import ChatMessage, ToolCall
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointType
-from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.gateway.config import EndpointType, Provider
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -48,6 +48,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_caller_headers
 from mlflow.genai.utils.llm_utils import _lookup_model_cost
 from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.metrics.genai.model_utils import (
@@ -59,6 +60,7 @@ from mlflow.metrics.genai.model_utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.utils.provider_filter import normalize_provider_name
 from mlflow.utils.workspace_context import get_request_workspace
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
@@ -92,19 +94,35 @@ class InvokeOutput:
 # ---------------------------------------------------------------------------
 
 
+_THOUGHT_SIGNATURES_ATTR = "_mlflow_gateway_thought_signatures"
+
+
+def _tool_call_to_dict(tool_call: "ToolCall", thought_signature: str | None) -> dict[str, Any]:
+    d: dict[str, Any] = {
+        "id": tool_call.id,
+        "type": tool_call.type,
+        "function": {"name": tool_call.function.name, "arguments": tool_call.function.arguments},
+    }
+    if thought_signature:
+        d["thought_signature"] = thought_signature
+    return d
+
+
 def _message_to_dict(msg: "ChatMessage") -> dict[str, Any]:
-    """Serialize a ChatMessage to OpenAI message format, omitting None fields."""
+    """Serialize a ChatMessage to OpenAI message format, omitting None fields.
+
+    Gemini thought signatures live in private message metadata, aligned by position with
+    ``msg.tool_calls``. Call IDs cannot be used as keys because Gemini derives missing IDs
+    from the function name and arguments, so repeated identical calls share an ID.
+    """
     d: dict[str, Any] = {"role": msg.role}
     if msg.content is not None:
         d["content"] = msg.content
     if msg.tool_calls is not None:
+        sigs = getattr(msg, _THOUGHT_SIGNATURES_ATTR, [])
         d["tool_calls"] = [
-            {
-                "id": tc.id,
-                "type": tc.type,
-                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-            }
-            for tc in msg.tool_calls
+            _tool_call_to_dict(tc, sigs[i] if i < len(sigs) else None)
+            for i, tc in enumerate(msg.tool_calls)
         ]
     if msg.tool_call_id is not None:
         d["tool_call_id"] = msg.tool_call_id
@@ -220,6 +238,7 @@ def _parse_response_message(
         content = content or None
 
     tool_calls_raw = None
+    thought_signatures = []
     if resp_msg.tool_calls:
         # Convert gateway ToolCall objects back to dicts for ChatMessage auto-conversion
         tool_calls_raw = [
@@ -233,6 +252,7 @@ def _parse_response_message(
             }
             for tc in resp_msg.tool_calls
         ]
+        thought_signatures = [getattr(tc, "thought_signature", None) for tc in resp_msg.tool_calls]
 
     # ChatMessage requires content when tool_calls is absent
     if content is None and not tool_calls_raw:
@@ -245,14 +265,13 @@ def _parse_response_message(
             "completion_tokens": getattr(chat_response.usage, "completion_tokens", None),
         }
 
-    return (
-        ChatMessage(
-            role=resp_msg.role,
-            content=content,
-            tool_calls=tool_calls_raw,
-        ),
-        usage,
+    message = ChatMessage(
+        role=resp_msg.role,
+        content=content,
+        tool_calls=tool_calls_raw,
     )
+    setattr(message, _THOUGHT_SIGNATURES_ATTR, thought_signatures)
+    return message, usage
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +315,11 @@ def _invoke_via_gateway(
         workspace_headers: dict[str, str] = {}
         if ws := get_request_workspace():
             workspace_headers[WORKSPACE_HEADER_NAME] = ws
-        extra_headers = {**workspace_headers, **(extra_headers or {})}
+        extra_headers = {
+            **workspace_headers,
+            **get_gateway_caller_headers(default=GatewayCaller.JUDGE),
+            **(extra_headers or {}),
+        }
 
     if isinstance(prompt, str):
         return score_model_on_payload(
@@ -364,7 +387,12 @@ class GatewayAdapter(BaseJudgeAdapter):
         # from the API response which enables JUDGE_COST tracking.
         # "endpoints" (Databricks model serving) uses score_model_on_payload and
         # does not support the provider-based request/response transformation.
-        if input_params.model_provider != "endpoints":
+        # Bedrock calls go through boto3 and have no endpoint URL for the loop, so
+        # judges without a trace use score_model_on_payload as well.
+        if input_params.model_provider != "endpoints" and not (
+            input_params.trace is None
+            and normalize_provider_name(input_params.model_provider) == Provider.BEDROCK
+        ):
             return self._invoke_with_tools(input_params)
 
         # "endpoints" provider: trace-based tool calling is not supported.
@@ -537,9 +565,10 @@ class GatewayAdapter(BaseJudgeAdapter):
         provider_instance = _get_provider_instance(provider, model_name, base_url=base_url)
         endpoint = base_url or provider_instance.get_endpoint_url("llm/v1/chat")
         headers = dict(provider_instance.headers or {})
-        # Tag gateway requests so the server can attribute traffic to the judge
+        # Tag gateway requests so the server can attribute traffic to the judge, or to the
+        # built-in feature that runs it
         if provider == "gateway":
-            headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
+            headers.update(get_gateway_caller_headers(default=GatewayCaller.JUDGE))
             if ws := get_request_workspace():
                 headers[WORKSPACE_HEADER_NAME] = ws
         if extra_headers:

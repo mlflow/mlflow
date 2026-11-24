@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Collection
 
 from mlflow.entities import Assessment, Trace, TraceData
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
@@ -13,7 +14,10 @@ from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
 )
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.base import _to_python_scalar
+from mlflow.genai.scorers.scorer_utils import get_scorer_definition_digest
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils.search import traces_to_df
 
 try:
@@ -352,6 +356,27 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
 
 
 def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
+    feedbacks = _standardize_scorer_value(scorer_name, value)
+    for feedback in feedbacks:
+        _replace_nan_value_with_error(feedback)
+    return feedbacks
+
+
+def _replace_nan_value_with_error(feedback: Feedback) -> None:
+    # NaN and infinity cannot be serialized into the trace (protobuf Value rejects them), which
+    # drops the whole per-row result table. Record it as a scorer error so the row stays visible.
+    value = feedback.value
+    if feedback.error is None and isinstance(value, float) and not math.isfinite(value):
+        error = AssessmentError(
+            error_code="INVALID_SCORER_VALUE",
+            error_message="Scorer returned NaN or infinity, which is not a valid feedback value.",
+        )
+        feedback.value = None
+        feedback.error = error
+        feedback.feedback.error = error
+
+
+def _standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
     """
     Convert the scorer return value to a list of MLflow Assessment (Feedback) objects.
 
@@ -365,6 +390,8 @@ def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
     # None is a valid metric value, return an empty list
     if value is None:
         return []
+
+    value = _to_python_scalar(value)
 
     # Primitives are valid metric values
     if isinstance(value, (int, float, bool, str)):
@@ -405,6 +432,31 @@ def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
         "or an Feedback, or a list of Feedbacks. "
         f"Got {value}.",
     )
+
+
+def add_scorer_metadata(scorer: "Scorer", feedbacks: list[Feedback]) -> None:
+    """
+    Attach scorer provenance to generated feedbacks: the definition digest of every scorer, plus
+    the name, version and resource name of a registered scorer.
+    """
+    metadata = {}
+    if scorer_digest := get_scorer_definition_digest(scorer):
+        metadata[AssessmentMetadataKey.SCORER_DIGEST] = scorer_digest
+    if (scorer_version := getattr(scorer, "scorer_version", None)) is not None:
+        metadata[AssessmentMetadataKey.SCORER_NAME] = scorer.name
+        metadata[AssessmentMetadataKey.SCORER_VERSION] = str(scorer_version)
+        if scorer_resource_name := getattr(scorer, "canonical_resource_name", None):
+            metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME] = scorer_resource_name
+        if scorer_resource_name_type := getattr(scorer, "canonical_resource_name_type", None):
+            metadata[AssessmentMetadataKey.SCORER_RESOURCE_NAME_TYPE] = scorer_resource_name_type
+    if not metadata:
+        return
+
+    for feedback in feedbacks:
+        feedback.metadata = {
+            **(feedback.metadata or {}),
+            **metadata,
+        }
 
 
 def _get_custom_assessment_name(assessment: Feedback, scorer_name: str) -> str:

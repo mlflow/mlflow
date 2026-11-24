@@ -5,6 +5,7 @@ import { useDesignSystemTheme, Typography, Button, ChevronDownIcon, ChevronRight
 import type { ModelTraceSpanNode } from '../../ModelTrace.types';
 import { spanTimeFormatter, TimelineTreeZIndex } from '../TimelineTree.utils';
 import { TimelineTreeSpanTooltip } from '../TimelineTreeSpanTooltip';
+import { fitGanttLabel } from '../../ganttLabelFit';
 
 export const TimelineTreeGanttNode = ({
   node,
@@ -39,22 +40,7 @@ export const TimelineTreeGanttNode = ({
       return;
     }
 
-    const showAllElements = () => {
-      contentInBar.style.display = 'inline-flex';
-      contentBesideBar.style.display = 'inline-flex';
-    };
-
-    const setDisplayStyles = (showInBar: boolean) => {
-      contentInBar.style.display = showInBar ? 'inline-flex' : 'none';
-      contentBesideBar.style.display = showInBar ? 'none' : 'inline-flex';
-    };
-
-    showAllElements();
-
-    const contentWidth = Math.max(contentInBar.offsetWidth, contentBesideBar.offsetWidth);
-    const fitsInBar = contentWidth < width - theme.spacing.sm * 2;
-
-    setDisplayStyles(fitsInBar);
+    fitGanttLabel(contentInBar, contentBesideBar, width - theme.spacing.sm * 2);
   }, [theme.spacing.sm, width, expanded, node.title, node.icon]);
 
   return (

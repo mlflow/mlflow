@@ -1,9 +1,11 @@
 import asyncio
+import base64
 import json
 import queue
 import time
 from enum import Enum
 from typing import Any, AsyncIterable
+from urllib.parse import quote
 
 from mlflow.gateway.config import (
     AmazonBedrockConfig,
@@ -16,13 +18,72 @@ from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
 from mlflow.gateway.exceptions import AIGatewayConfigException, AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicAdapter
-from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
+from mlflow.gateway.providers.anthropic import (
+    AnthropicAdapter,
+    _extract_anthropic_passthrough_token_usage,
+    _extract_anthropic_streaming_token_usage,
+    _normalize_anthropic_input_tokens,
+)
+from mlflow.gateway.providers.base import (
+    BaseProvider,
+    PassthroughAction,
+    ProviderAdapter,
+    _drop_client_auth_headers,
+)
 from mlflow.gateway.providers.cohere import CohereAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
+
+# HTTP status for the retryable exception frames InvokeModelWithResponseStream can send after
+# the stream has started. Other exception frames map to 502.
+_BEDROCK_STREAM_EXCEPTION_STATUS = {
+    "throttlingException": 429,
+    "serviceUnavailableException": 503,
+    "modelTimeoutException": 408,
+}
+
+
+async def _event_stream_to_anthropic_sse(stream: AsyncIterable[bytes]) -> AsyncIterable[bytes]:
+    """Re-emit a Bedrock InvokeModelWithResponseStream body as Anthropic server-sent events.
+
+    Bedrock streams in the AWS event stream binary format, with each Anthropic streaming event
+    base64-encoded in a ``chunk`` frame. Anthropic clients, and the gateway's usage and trace
+    parsing, expect SSE.
+    """
+    from fastapi import HTTPException
+
+    try:
+        from botocore.eventstream import EventStreamBuffer
+    except ImportError:
+        raise ImportError(
+            "Streaming the Anthropic Messages passthrough on Amazon Bedrock requires boto3. "
+            "Install it with: pip install boto3"
+        )
+
+    buffer = EventStreamBuffer()
+    async for data in stream:
+        buffer.add_data(data)
+        for message in buffer:
+            if message.headers.get(":message-type") != "event":
+                error_type = message.headers.get(":exception-type") or message.headers.get(
+                    ":error-code"
+                )
+                detail = message.payload.decode("utf-8", errors="replace") or message.headers.get(
+                    ":error-message", ""
+                )
+                # HTTPException, like `send_stream_request` raises for an error before the first
+                # frame, so the status also reaches the SSE error chunk the client receives.
+                raise HTTPException(
+                    status_code=_BEDROCK_STREAM_EXCEPTION_STATUS.get(error_type, 502),
+                    detail=f"Amazon Bedrock returned {error_type} while streaming: {detail}",
+                )
+            if message.headers.get(":event-type") != "chunk":
+                continue
+            event = base64.b64decode(json.loads(message.payload)["bytes"])
+            event_type = json.loads(event)["type"]
+            yield b"event: " + event_type.encode() + b"\ndata: " + event + b"\n\n"
 
 
 class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
@@ -58,7 +119,9 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
 
 
 class AWSTitanAdapter(ProviderAdapter):
-    # TODO handle top_p, top_k, etc.
+    # NB: `top_k` and the penalty parameters are deliberately left unmapped. Titan's
+    # textGenerationConfig accepts only maxTokenCount, stopSequences, temperature and
+    # topP, so renaming them would forward a key Bedrock still ignores.
     @classmethod
     def completions_to_model(cls, payload, config):
         n = payload.pop("n", 1)
@@ -68,13 +131,25 @@ class AWSTitanAdapter(ProviderAdapter):
                 detail=f"'n' must be '1' for AWS Titan models. Received value: '{n}'.",
             )
 
+        # Titan requires topP to be strictly greater than 0, while MLflow accepts 0.
+        top_p = payload.get("top_p")
+        if top_p == 0:
+            raise AIGatewayException(
+                status_code=422,
+                detail=(
+                    "'top_p' must be greater than 0 for AWS Titan models. "
+                    f"Received value: '{top_p}'."
+                ),
+            )
+
         # The range of Titan's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
         return {
             "inputText": payload.pop("prompt"),
             "textGenerationConfig": rename_payload_keys(
-                payload, {"max_tokens": "maxTokenCount", "stop": "stopSequences"}
+                payload,
+                {"max_tokens": "maxTokenCount", "stop": "stopSequences", "top_p": "topP"},
             ),
         }
 
@@ -109,7 +184,11 @@ class AWSTitanAdapter(ProviderAdapter):
 
 
 class AI21Adapter(ProviderAdapter):
-    # TODO handle top_p, top_k, etc.
+    # NB: `top_k` is deliberately left unmapped. Jurassic models expose `topKReturn`,
+    # which controls how many alternative tokens are reported rather than top-k
+    # sampling, so mapping `top_k` onto it would change the response instead of the
+    # sampling behaviour. The penalty parameters are objects here, not scalars, so
+    # they need a structural transform rather than a rename.
     @classmethod
     def completions_to_model(cls, payload, config):
         return rename_payload_keys(
@@ -118,6 +197,7 @@ class AI21Adapter(ProviderAdapter):
                 "stop": "stopSequences",
                 "n": "numResults",
                 "max_tokens": "maxTokens",
+                "top_p": "topP",
             },
         )
 
@@ -182,8 +262,20 @@ class AmazonBedrockProvider(BaseProvider):
     DISPLAY_NAME = "Amazon Bedrock"
     CONFIG_TYPE = AmazonBedrockConfig
 
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.ANTHROPIC_MESSAGES: "model/{model}/invoke",
+    }
+
     def get_provider_name(self) -> str:
         return "bedrock"
+
+    def _supports_cache_control(self) -> bool:
+        # Converse takes prompt caching checkpoints only for Claude and Amazon Nova models:
+        # https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
+        # Other models, and inference profile ARNs that do not name the model, get the
+        # markers removed, so their requests stay as they were.
+        model_name = (self.config.model.name or "").lower()
+        return "anthropic" in model_name or "amazon.nova" in model_name
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
         super().__init__(config, enable_tracing=enable_tracing)
@@ -316,27 +408,22 @@ class AmazonBedrockProvider(BaseProvider):
         system_prompts = []
         converse_messages = []
 
-        for msg in messages:
+        index = 0
+        while index < len(messages):
+            msg = messages[index]
             role = msg.get("role", "user")
-            content = msg.get("content", "")
-
-            # Normalize content: extract text from list of content parts
-            if content is None:
-                content = ""
-            elif isinstance(content, list):
-                content = "\n".join(
-                    p.get("text", "")
-                    for p in content
-                    if isinstance(p, dict) and p.get("type") == "text"
-                )
+            content = self._normalize_content_text(msg.get("content"))
+            # With a `cache_control` marker, the parts become text blocks with a cachePoint
+            # after each marked part. Without one, the content stays a single text block.
+            blocks = self._to_converse_cached_blocks(msg.get("content")) or [{"text": content}]
 
             if role == "system":
-                system_prompts.append({"text": content})
+                system_prompts.extend(blocks)
             elif role == "assistant":
                 assistant_content = []
                 if tool_calls := msg.get("tool_calls"):
                     if content:
-                        assistant_content.append({"text": content})
+                        assistant_content.extend(blocks)
                     for tool_call in tool_calls:
                         tool_function = tool_call.get("function") or {}
                         tool_call_id = tool_call.get("id", "")
@@ -375,28 +462,55 @@ class AmazonBedrockProvider(BaseProvider):
                             }
                         })
                 else:
-                    assistant_content.append({"text": content})
+                    assistant_content.extend(blocks)
                 converse_messages.append({
                     "role": "assistant",
                     "content": assistant_content,
                 })
             elif role == "tool":
+                tool_result_content = []
+                while index < len(messages) and messages[index].get("role") == "tool":
+                    tool_msg = messages[index]
+                    tool_result_content.append({
+                        "toolResult": {
+                            "toolUseId": tool_msg.get("tool_call_id", ""),
+                            "content": [
+                                {"text": self._normalize_content_text(tool_msg.get("content"))}
+                            ],
+                        }
+                    })
+                    # A tool result is sent as one text, so a cachePoint can only go after the
+                    # whole result. Accept a single marker on its last text part, and reject
+                    # any other placement instead of moving or dropping markers silently.
+                    if cache_controls := self._cache_controls(tool_msg.get("content")):
+                        text_parts = [
+                            part
+                            for part in tool_msg["content"]
+                            if isinstance(part, dict) and part.get("type") == "text"
+                        ]
+                        if len(cache_controls) != 1 or not text_parts[-1].get("cache_control"):
+                            raise AIGatewayException(
+                                status_code=422,
+                                detail=(
+                                    "Amazon Bedrock tool results support a single cache_control "
+                                    "marker on the last text part only."
+                                ),
+                            )
+                        tool_result_content.append({
+                            "cachePoint": self._to_cache_point(cache_controls[0])
+                        })
+                    index += 1
                 converse_messages.append({
                     "role": "user",
-                    "content": [
-                        {
-                            "toolResult": {
-                                "toolUseId": msg.get("tool_call_id", ""),
-                                "content": [{"text": content}],
-                            }
-                        }
-                    ],
+                    "content": tool_result_content,
                 })
+                continue
             else:
                 converse_messages.append({
                     "role": "user",
-                    "content": [{"text": content}],
+                    "content": blocks,
                 })
+            index += 1
 
         kwargs = {
             "modelId": self.config.model.name,
@@ -438,6 +552,65 @@ class AmazonBedrockProvider(BaseProvider):
                 kwargs["toolConfig"] = {"tools": bedrock_tools}
 
         return kwargs
+
+    @staticmethod
+    def _cache_controls(content: Any) -> list[dict[str, Any]]:
+        """Return the `cache_control` markers on the text content parts, in order."""
+        if not isinstance(content, list):
+            return []
+        return [
+            part["cache_control"]
+            for part in content
+            if isinstance(part, dict) and part.get("type") == "text" and part.get("cache_control")
+        ]
+
+    @staticmethod
+    def _to_cache_point(cache_control: dict[str, Any]) -> dict[str, Any]:
+        cache_point = {"type": "default"}
+        # 5 minutes is the default TTL, so it is not sent: models that support only 5 minutes
+        # can reject the `ttl` field. Any other value is sent as is, so Bedrock reports a
+        # value it does not support:
+        # https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_CachePointBlock.html
+        if (ttl := cache_control.get("ttl")) and ttl != "5m":
+            cache_point["ttl"] = ttl
+        return cache_point
+
+    @classmethod
+    def _to_converse_cached_blocks(cls, content: Any) -> list[dict[str, Any]] | None:
+        """Convert content parts with a `cache_control` marker to Converse content blocks.
+
+        Each marked text part is followed by a ``cachePoint`` block. Text parts between two
+        markers are joined with newlines, like ``_normalize_content_text`` does, so the model
+        gets the same text. Non-text parts are dropped, as they are without a marker, and so
+        is any marker on them. Returns None when no text part carries a marker.
+        """
+        if not cls._cache_controls(content):
+            return None
+        blocks = []
+        texts = []
+        for part in content:
+            if not isinstance(part, dict) or part.get("type") != "text":
+                continue
+            texts.append(part.get("text", ""))
+            if cache_control := part.get("cache_control"):
+                blocks.append({"text": "\n".join(texts)})
+                blocks.append({"cachePoint": cls._to_cache_point(cache_control)})
+                texts = []
+        if texts:
+            blocks.append({"text": "\n".join(texts)})
+        return blocks
+
+    @staticmethod
+    def _normalize_content_text(content: Any) -> str:
+        if content is None:
+            return ""
+        if isinstance(content, list):
+            return "\n".join(
+                part.get("text", "")
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+        return str(content)
 
     def _converse_to_chat_response(self, response: dict[str, Any]) -> chat.ResponsePayload:
         """Convert Bedrock Converse response to OpenAI chat format."""
@@ -482,11 +655,7 @@ class AmazonBedrockProvider(BaseProvider):
                     finish_reason=finish_reason,
                 )
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=usage.get("inputTokens"),
-                completion_tokens=usage.get("outputTokens"),
-                total_tokens=usage.get("totalTokens"),
-            ),
+            usage=self._build_chat_usage(usage),
         )
 
     # ---- API methods ----
@@ -503,6 +672,39 @@ class AmazonBedrockProvider(BaseProvider):
 
     def _get_token_auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.bedrock_config.aws_config.aws_bearer_token}"}
+
+    @staticmethod
+    def _build_chat_usage(usage: dict[str, Any]) -> chat.ChatUsage:
+        # With prompt caching, Converse reports `inputTokens` as the non-cached input only.
+        # Fold the cache counts back in so `prompt_tokens` is the full input, as for the other
+        # providers, and cost calculation works.
+        # Ref: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-converse
+        input_tokens = usage.get("inputTokens")
+        output_tokens = usage.get("outputTokens")
+        cache_read = usage.get("cacheReadInputTokens")
+        cache_write = usage.get("cacheWriteInputTokens")
+
+        prompt_tokens = input_tokens
+        if prompt_tokens is not None:
+            prompt_tokens += (cache_read or 0) + (cache_write or 0)
+
+        total_tokens = usage.get("totalTokens")
+        if prompt_tokens is not None and output_tokens is not None:
+            total_tokens = prompt_tokens + output_tokens
+
+        prompt_tokens_details = None
+        if cache_read is not None:
+            prompt_tokens_details = chat.PromptTokensDetails(cached_tokens=cache_read)
+        extra = {}
+        if cache_write is not None:
+            extra["cache_creation_input_tokens"] = cache_write
+        return chat.ChatUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=output_tokens,
+            total_tokens=total_tokens,
+            prompt_tokens_details=prompt_tokens_details,
+            **extra,
+        )
 
     def _make_stream_chunk(
         self,
@@ -522,25 +724,30 @@ class AmazonBedrockProvider(BaseProvider):
         match stop_reason:
             case "tool_use":
                 return "tool_calls"
-            case "max_tokens":
+            case "max_tokens" | "model_context_window_exceeded":
                 return "length"
-            case "content_filtered":
+            case "content_filtered" | "guardrail_intervened":
                 return "content_filter"
             case _:
                 return "stop"
 
-    def _parse_stream_event(self, event: dict[str, Any]) -> chat.StreamResponsePayload | None:
+    def _parse_stream_event(
+        self, event: dict[str, Any], tool_indices: dict[int, int]
+    ) -> chat.StreamResponsePayload | None:
+        # Maps contentBlockIndex to the tool call's own index, so text blocks don't shift it.
         if "contentBlockStart" in event:
             start = event["contentBlockStart"].get("start", {})
             if "toolUse" in start:
                 tool_use = start["toolUse"]
+                block_index = event["contentBlockStart"].get("contentBlockIndex", 0)
+                tool_indices[block_index] = len(tool_indices)
                 return self._make_stream_chunk(
                     delta=chat.StreamDelta(
                         role=None,
                         content=None,
                         tool_calls=[
                             chat.ToolCallDelta(
-                                index=event["contentBlockStart"].get("contentBlockIndex", 0),
+                                index=tool_indices[block_index],
                                 id=tool_use.get("toolUseId"),
                                 type="function",
                                 function=chat.Function(
@@ -569,7 +776,9 @@ class AmazonBedrockProvider(BaseProvider):
                         content=None,
                         tool_calls=[
                             chat.ToolCallDelta(
-                                index=event["contentBlockDelta"].get("contentBlockIndex", 0),
+                                index=tool_indices.get(
+                                    event["contentBlockDelta"].get("contentBlockIndex", 0), 0
+                                ),
                                 function=chat.Function(arguments=arguments),
                             )
                         ],
@@ -585,11 +794,7 @@ class AmazonBedrockProvider(BaseProvider):
             if usage := event["metadata"].get("usage", {}):
                 return self._make_stream_chunk(
                     delta=chat.StreamDelta(role=None, content=None),
-                    usage=chat.ChatUsage(
-                        prompt_tokens=usage.get("inputTokens"),
-                        completion_tokens=usage.get("outputTokens"),
-                        total_tokens=usage.get("totalTokens"),
-                    ),
+                    usage=self._build_chat_usage(usage),
                 )
         return None
 
@@ -607,7 +812,8 @@ class AmazonBedrockProvider(BaseProvider):
         resp = await send_request(
             headers=self._get_token_auth_headers(),
             base_url=self._get_token_auth_base_url(),
-            path=f"model/{model_id}/converse",
+            # Inference profile ARNs contain "/", which has to be escaped in the path.
+            path=f"model/{quote(model_id, safe=':')}/converse",
             payload=kwargs,
         )
         return self._converse_to_chat_response(resp)
@@ -669,13 +875,14 @@ class AmazonBedrockProvider(BaseProvider):
         # events are read from the queue below. Not awaited intentionally.
         loop.run_in_executor(None, _consume_stream)
 
+        tool_indices: dict[int, int] = {}
         while True:
             event = await loop.run_in_executor(None, event_queue.get)
             if event is _SENTINEL:
                 if _stream_error:
                     raise _stream_error[0]
                 break
-            if chunk := self._parse_stream_event(event):
+            if chunk := self._parse_stream_event(event, tool_indices):
                 yield chunk
 
     async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
@@ -742,3 +949,70 @@ class AmazonBedrockProvider(BaseProvider):
         payload = self.adapter_class.completions_to_model(payload, self.config)
         response = self._request(payload)
         return self.adapter_class.model_to_completions(response, self.config)
+
+    # ---- Passthrough ----
+
+    # InvokeModel returns Anthropic models' response bodies and stream events unchanged, so
+    # usage is parsed exactly as for the Anthropic provider.
+    def _extract_passthrough_token_usage(
+        self, action: PassthroughAction, result: dict[str, Any]
+    ) -> dict[str, int] | None:
+        return _extract_anthropic_passthrough_token_usage(result)
+
+    def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
+        return _extract_anthropic_streaming_token_usage(chunk)
+
+    def _normalize_streaming_token_usage(self, token_usage: dict[str, int]) -> dict[str, int]:
+        return _normalize_anthropic_input_tokens(token_usage)
+
+    async def _passthrough(
+        self,
+        action: PassthroughAction,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        provider_path = self._validate_passthrough_action(action)
+        if self._underlying_provider != AmazonBedrockModelProvider.ANTHROPIC:
+            raise AIGatewayException(
+                status_code=400,
+                detail="The Anthropic Messages passthrough only supports Anthropic models on "
+                f"Amazon Bedrock, but this endpoint uses '{self.config.model.name}'.",
+            )
+        if not self._is_token_auth:
+            raise AIGatewayException(
+                status_code=501,
+                detail="The Anthropic Messages passthrough is only supported for Bedrock API key "
+                "(bearer token) auth.",
+            )
+
+        # Bedrock takes the model and the streaming mode from the URL rather than the body.
+        # Build a new body instead of editing `payload`, which FallbackProvider hands to the
+        # next provider if this one fails.
+        body = {k: v for k, v in payload.items() if k not in ("model", "stream")}
+        body["anthropic_version"] = "bedrock-2023-05-31"
+        # Never forward a client credential, including a credential agent's own key: Bedrock
+        # authenticates with the endpoint's API key.
+        request_headers = {
+            k: v
+            for k, v in _drop_client_auth_headers(headers or {}).items()
+            if k.lower() not in ("host", "content-length")
+        } | self._get_token_auth_headers()
+        base_url = self._get_token_auth_base_url()
+        # Inference profile ARNs contain "/", which has to be escaped in the path.
+        path = provider_path.format(model=quote(self.config.model.name, safe=":"))
+
+        if payload.get("stream"):
+            stream = send_stream_request(
+                headers=request_headers,
+                base_url=base_url,
+                # InvokeModelWithResponseStream is served at the InvokeModel path plus this suffix.
+                path=f"{path}-with-response-stream",
+                payload=body,
+            )
+            return self._stream_passthrough_with_usage(_event_stream_to_anthropic_sse(stream))
+        return await send_request(
+            headers=request_headers,
+            base_url=base_url,
+            path=path,
+            payload=body,
+        )

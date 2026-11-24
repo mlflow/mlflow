@@ -1,0 +1,215 @@
+import { ClockIcon, TokenIcon } from '@databricks/design-system';
+import type { IntlShape } from '@databricks/i18n';
+
+import type { ModelTraceComparisonRole, ModelTraceSpanNode } from '../ModelTrace.types';
+import type { TimelineTreeMetric } from '../ModelTraceExplorerPreferencesContext';
+import { formatCompactNumber, getSpanTokenUsage } from '../ModelTraceTokenUsage.utils';
+import { formatCostUSD, formatEstimatedCostUSD } from '../../CostUtils';
+import { estimatedCostMessages } from '../../EstimatedCostValue';
+import { spanTimeFormatter } from './TimelineTree.utils';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
+
+export interface TimelineTreeMetricValue {
+  key: TimelineTreeMetric;
+  value: string;
+  title: string;
+  icon?: React.ReactNode;
+}
+
+export interface TimelineTreeComparisonMetricValue {
+  key: TimelineTreeMetric;
+  label: string;
+  baseline: string;
+  candidate: string;
+  change: string;
+  unchanged: boolean;
+  title: string;
+  icon?: React.ReactNode;
+}
+
+const totalTokensCache = new WeakMap<ModelTraceSpanNode, number | undefined>();
+
+const getTotalTokens = (node: ModelTraceSpanNode | undefined): number | undefined => {
+  if (!node) {
+    return undefined;
+  }
+  if (node.tokenUsage) {
+    return node.tokenUsage.total_tokens;
+  }
+  // Normalized nodes are replaced when content changes; cache missing usage too.
+  if (!totalTokensCache.has(node)) {
+    totalTokensCache.set(node, getSpanTokenUsage(node)?.total_tokens);
+  }
+  return totalTokensCache.get(node);
+};
+
+const getTotalCost = (node: ModelTraceSpanNode | undefined): number | undefined => node?.cost?.total_cost;
+
+export const getTimelineTreeComparisonMetricValues = (
+  baselineNode: ModelTraceSpanNode | undefined,
+  candidateNode: ModelTraceSpanNode | undefined,
+  intl: IntlShape,
+): TimelineTreeComparisonMetricValue[] => {
+  const metrics: Array<{
+    key: TimelineTreeMetric;
+    label: string;
+    baseline?: number;
+    candidate?: number;
+    format: (value: number) => string;
+    icon?: React.ReactNode;
+  }> = [
+    {
+      key: 'duration',
+      label: intl.formatMessage({ defaultMessage: 'Duration', description: 'Trace comparison metric label' }),
+      baseline: baselineNode ? baselineNode.end - baselineNode.start : undefined,
+      candidate: candidateNode ? candidateNode.end - candidateNode.start : undefined,
+      format: spanTimeFormatter,
+      icon: <ClockIcon />,
+    },
+    {
+      key: 'tokens',
+      label: intl.formatMessage({ defaultMessage: 'Tokens', description: 'Trace comparison metric label' }),
+      baseline: getTotalTokens(baselineNode),
+      candidate: getTotalTokens(candidateNode),
+      format: formatCompactNumber,
+      icon: <TokenIcon />,
+    },
+    {
+      key: 'cost',
+      label: intl.formatMessage({ defaultMessage: 'Estimated cost', description: 'Trace comparison metric label' }),
+      baseline: getTotalCost(baselineNode),
+      candidate: getTotalCost(candidateNode),
+      format: (value) => formatCostUSD(value, 4),
+    },
+  ];
+
+  return metrics.flatMap((metric) => {
+    if (metric.baseline === undefined && metric.candidate === undefined) {
+      return [];
+    }
+    let change = '—';
+    if (metric.baseline !== undefined && metric.candidate !== undefined) {
+      const delta = metric.candidate - metric.baseline;
+      const sign = delta > 0 ? '+' : delta < 0 ? '−' : '';
+      const absoluteChange = `${sign}${metric.format(Math.abs(delta))}`;
+      const percentage =
+        metric.baseline === 0
+          ? undefined
+          : `${delta > 0 ? '+' : delta < 0 ? '−' : ''}${Math.abs((delta / metric.baseline) * 100).toFixed(1)}%`;
+      change = percentage ? `${absoluteChange} (${percentage})` : absoluteChange;
+    }
+    const baseline = metric.baseline === undefined ? '—' : metric.format(metric.baseline);
+    const candidate = metric.candidate === undefined ? '—' : metric.format(metric.candidate);
+    const unchanged =
+      metric.baseline !== undefined && metric.candidate !== undefined && metric.baseline === metric.candidate;
+    return [
+      {
+        key: metric.key,
+        label: metric.label,
+        baseline,
+        candidate,
+        change,
+        unchanged,
+        title: unchanged
+          ? intl.formatMessage(
+              {
+                defaultMessage: '{label}: {value}',
+                description: 'Tooltip for an unchanged span metric in a trace comparison',
+              },
+              { label: metric.label, value: baseline },
+            )
+          : intl.formatMessage(
+              {
+                defaultMessage: '{label}: {baseline} → {candidate}; change {change}',
+                description: 'Tooltip for a baseline and candidate span metric comparison',
+              },
+              { label: metric.label, baseline, candidate, change },
+            ),
+        icon: metric.icon,
+      },
+    ];
+  });
+};
+
+export const getTimelineTreeMetricValue = (
+  metric: TimelineTreeMetric,
+  node: ModelTraceSpanNode,
+  intl: IntlShape,
+): TimelineTreeMetricValue | undefined => {
+  switch (metric) {
+    case 'duration': {
+      const duration = spanTimeFormatter(node.end - node.start);
+      return {
+        key: metric,
+        value: duration,
+        title: intl.formatMessage(
+          { defaultMessage: 'Duration: {value}', description: 'Trace span duration metric tooltip' },
+          { value: duration },
+        ),
+      };
+    }
+    case 'tokens': {
+      const tokens = getTotalTokens(node);
+      return tokens === undefined
+        ? undefined
+        : {
+            key: metric,
+            value: formatCompactNumber(tokens),
+            title: intl.formatMessage(
+              { defaultMessage: '{value} tokens', description: 'Trace span token metric tooltip' },
+              { value: tokens },
+            ),
+            icon: <TokenIcon />,
+          };
+    }
+    case 'cost': {
+      const totalCost = getTotalCost(node);
+      if (totalCost === undefined) {
+        return undefined;
+      }
+      if (shouldEnableNewEvalRunsUi()) {
+        // The new eval runs UI rounds span costs to 4 decimal places and marks them as estimated.
+        const estimatedCost = formatEstimatedCostUSD(totalCost, 4);
+        return {
+          key: metric,
+          value: estimatedCost,
+          // Combine the value and the explanation in the native title so hovering the compact
+          // metric shows both, without nesting a DS Tooltip inside the parent span tooltip.
+          title: intl.formatMessage(
+            {
+              defaultMessage: 'Estimated cost: {value}. {explanation}',
+              description: 'Tooltip for span cost in the timeline tree, including the estimation explanation',
+            },
+            { value: estimatedCost, explanation: intl.formatMessage(estimatedCostMessages.tooltip) },
+          ),
+        };
+      }
+      const cost = formatCostUSD(totalCost);
+      return {
+        key: metric,
+        value: cost,
+        title: intl.formatMessage(
+          { defaultMessage: 'Estimated cost: {value}', description: 'Trace span estimated cost metric tooltip' },
+          { value: cost },
+        ),
+      };
+    }
+  }
+};
+
+export const hasTimelineTreeMetricValue = (
+  metric: TimelineTreeMetric,
+  node: ModelTraceSpanNode,
+  comparisonSpan: ModelTraceSpanNode | undefined,
+  comparisonRole: ModelTraceComparisonRole | undefined,
+): boolean => {
+  const spans = comparisonRole ? [node, comparisonSpan] : [node];
+  switch (metric) {
+    case 'duration':
+      return true;
+    case 'tokens':
+      return spans.some((span) => getTotalTokens(span) !== undefined);
+    case 'cost':
+      return spans.some((span) => getTotalCost(span) !== undefined);
+  }
+};

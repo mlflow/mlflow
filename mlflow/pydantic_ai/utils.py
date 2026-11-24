@@ -99,11 +99,16 @@ def parse_usage(result: Any) -> dict[str, int] | None:
         total_tokens = getattr(usage, "total_tokens", None)
         if total_tokens is None:
             total_tokens = input_tokens + output_tokens
-        return {
+        usage_dict = {
             TokenUsageKey.INPUT_TOKENS: input_tokens,
             TokenUsageKey.OUTPUT_TOKENS: output_tokens,
             TokenUsageKey.TOTAL_TOKENS: total_tokens,
         }
+        if cache_read := getattr(usage, "cache_read_tokens", 0):
+            usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+        if cache_write := getattr(usage, "cache_write_tokens", 0):
+            usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_write
+        return usage_dict
     except Exception as e:
         _logger.debug("Failed to parse token usage from output: %s", e)
     return None

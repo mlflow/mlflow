@@ -1,4 +1,5 @@
 import logging
+import os
 import threading
 from collections import defaultdict
 from contextlib import nullcontext
@@ -12,11 +13,12 @@ from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
-from mlflow.exceptions import RestException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
+from mlflow.tracing.export.inference_table import maybe_add_trace_to_serving_buffer
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -27,10 +29,49 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
-from mlflow.utils.uri import is_databricks_uri
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 _logger = logging.getLogger(__name__)
+
+# HTTP statuses that mean the caller's credential was rejected.
+_AUTH_FAILURE_STATUS_CODES = (401, 403)
+
+
+def _is_auth_failure(exc: Exception) -> bool:
+    """Return True if *exc* indicates that the caller's credential was rejected.
+
+    A dropped trace from an auth failure is worth an ERROR rather than a WARNING
+    because the fix is a re-auth rather than a transient retry.  Detection relies
+    exclusively on the structured HTTP status code (401 or 403) exposed by
+    ``MlflowException.get_http_status_code()``, so a message such as
+    ``RESOURCE_DOES_NOT_EXIST: No Experiment with id=403 exists`` is never
+    misreported as an authentication problem.
+    """
+    return (
+        isinstance(exc, MlflowException)
+        and exc.get_http_status_code() in _AUTH_FAILURE_STATUS_CODES
+    )
+
+
+def _get_profile_from_uri(tracking_uri: str | None) -> str:
+    """Resolve the Databricks CLI profile that a tracking URI selects.
+
+    ``databricks://<profile>`` names the profile directly. A bare ``databricks``
+    URI selects the profile named by ``DATABRICKS_CONFIG_PROFILE``, or ``DEFAULT``.
+    Naming this in an export-failure message tells the user which credential was
+    attempted so they can spot a wrong-profile misconfiguration.
+
+    ``get_db_info_from_uri`` raises ``MlflowException`` for malformed URIs (e.g.
+    a single-slash ``databricks:/host``). This function catches that so the caller
+    — which already lives inside an exception handler — can never propagate a
+    secondary exception, per the best-effort tracing contract from issue #24689.
+    """
+    try:
+        profile, _ = get_db_info_from_uri(tracking_uri)
+        return profile or os.environ.get("DATABRICKS_CONFIG_PROFILE") or "DEFAULT"
+    except Exception:
+        return os.environ.get("DATABRICKS_CONFIG_PROFILE") or "DEFAULT"
 
 
 class MlflowV3SpanExporter(SpanExporter):
@@ -58,6 +99,7 @@ class MlflowV3SpanExporter(SpanExporter):
         # span's own thread, so concurrent calls from multiple threads are possible.
         self._deferred_root_spans: dict[int, ReadableSpan] = {}
         self._deferred_lock = threading.Lock()
+        self._trace_export_lock = threading.Lock()
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -79,7 +121,6 @@ class MlflowV3SpanExporter(SpanExporter):
 
         Args:
             spans: Sequence of ReadableSpan objects to export.
-            manager: The trace manager instance.
         """
         if is_databricks_uri(self._client.tracking_uri):
             _logger.debug(
@@ -88,7 +129,9 @@ class MlflowV3SpanExporter(SpanExporter):
             )
             return
 
-        mlflow_spans_by_experiment_and_workspace = self._collect_mlflow_spans_for_export(spans)
+        mlflow_spans_by_experiment_and_workspace, remote_trace_ids = (
+            self._collect_mlflow_spans_for_export(spans)
+        )
         for (
             (experiment_id, workspace),
             spans_to_log,
@@ -97,16 +140,21 @@ class MlflowV3SpanExporter(SpanExporter):
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_spans,
-                        args=(experiment_id, spans_to_log, workspace),
+                        args=(experiment_id, spans_to_log, workspace, remote_trace_ids),
                         error_msg="Failed to log spans to the trace server.",
                     )
                 )
             else:
-                self._log_spans(experiment_id, spans_to_log, workspace=workspace)
+                self._log_spans(
+                    experiment_id,
+                    spans_to_log,
+                    workspace=workspace,
+                    remote_trace_ids=remote_trace_ids,
+                )
 
     def _collect_mlflow_spans_for_export(
         self, spans: Sequence[ReadableSpan]
-    ) -> dict[tuple[str, str | None], list[Span]]:
+    ) -> tuple[dict[tuple[str, str | None], list[Span]], set[str]]:
         """
         Collect MLflow spans from ReadableSpans for export, grouped by (experiment_id, workspace).
 
@@ -118,10 +166,14 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects.
 
         Returns:
-            Dictionary mapping (experiment_id, workspace) to list of MLflow Span objects.
+            A tuple of a dictionary mapping (experiment_id, workspace) to list of MLflow Span
+            objects, and the set of MLflow trace IDs that are remote (distributed) traces.
         """
         manager = InMemoryTraceManager.get_instance()
         spans_by_experiment_and_workspace = defaultdict(list)
+        # Captured here because the in-memory remote trace may be popped before an async
+        # _log_spans call runs.
+        remote_trace_ids = set()
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
@@ -142,11 +194,13 @@ class MlflowV3SpanExporter(SpanExporter):
                     experiment_id = None
                 if trace is not None:
                     workspace = trace.workspace
+                    if trace.is_remote_trace:
+                        remote_trace_ids.add(mlflow_trace_id)
             if experiment_id is None:
                 experiment_id = get_experiment_id_for_trace(span)
             spans_by_experiment_and_workspace[(experiment_id, workspace)].append(mlflow_span)
 
-        return spans_by_experiment_and_workspace
+        return spans_by_experiment_and_workspace, remote_trace_ids
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -157,6 +211,17 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         manager = InMemoryTraceManager.get_instance()
 
+        # Serialize deferral decisions so a child's export cannot miss a root being deferred.
+        # Perform logging outside the lock to keep concurrent backend requests independent.
+        with self._trace_export_lock:
+            roots = self._get_roots_to_export(manager, spans)
+        for span in roots:
+            self._do_export_trace(manager, span)
+
+    def _get_roots_to_export(
+        self, manager: InMemoryTraceManager, spans: Sequence[ReadableSpan]
+    ) -> list[ReadableSpan]:
+        roots = []
         # Flush any previously deferred root spans whose background spans have now ended.
         # Copy the keys under the lock, then check has_open_spans() outside the lock to
         # avoid holding _deferred_lock while acquiring InMemoryTraceManager._lock (deadlock risk).
@@ -167,7 +232,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 with self._deferred_lock:
                     deferred_span = self._deferred_root_spans.pop(otel_trace_id, None)
                 if deferred_span is not None:
-                    self._do_export_trace(manager, deferred_span)
+                    roots.append(deferred_span)
 
         for span in spans:
             if span._parent is not None:
@@ -182,7 +247,8 @@ class MlflowV3SpanExporter(SpanExporter):
                     self._deferred_root_spans[span.context.trace_id] = span
                 continue
 
-            self._do_export_trace(manager, span)
+            roots.append(span)
+        return roots
 
     def _do_export_trace(self, manager: InMemoryTraceManager, span: ReadableSpan) -> None:
         manager_trace = manager.pop_trace(span.context.trace_id)
@@ -208,6 +274,10 @@ class MlflowV3SpanExporter(SpanExporter):
         if not maybe_get_request_id(is_evaluate=True):
             self._display_handler.display_traces([trace])
 
+        # The inference-table exporter has its own path and does not reach here, so the serving
+        # buffer is written at most once.
+        maybe_add_trace_to_serving_buffer(trace)
+
         workspace = manager_trace.workspace
         if self._should_log_async():
             self._async_queue.put(
@@ -221,7 +291,11 @@ class MlflowV3SpanExporter(SpanExporter):
             self._log_trace(trace, prompts=manager_trace.prompts, workspace=workspace)
 
     def _log_spans(
-        self, experiment_id: str, spans: list[Span], workspace: str | None = None
+        self,
+        experiment_id: str,
+        spans: list[Span],
+        workspace: str | None = None,
+        remote_trace_ids: set[str] | None = None,
     ) -> None:
         """
         Helper method to log spans with error handling.
@@ -233,6 +307,8 @@ class MlflowV3SpanExporter(SpanExporter):
                 When provided, a ServerWorkspaceContext is applied so that HTTP calls
                 on the async worker thread include the correct X-MLFLOW-WORKSPACE header
                 without mutating process-wide environment variables.
+            remote_trace_ids: MLflow trace IDs of remote (distributed) traces. Attachments of
+                spans in these traces are uploaded after the spans are logged.
         """
         with ServerWorkspaceContext(workspace) if workspace else nullcontext():
             try:
@@ -253,6 +329,33 @@ class MlflowV3SpanExporter(SpanExporter):
                     _logger.debug(f"Failed to log span to MLflow backend: {e}")
             except Exception as e:
                 _logger.debug(f"Failed to log span to MLflow backend: {e}")
+            else:
+                if remote_trace_ids:
+                    self._upload_remote_span_attachments(spans, remote_trace_ids)
+
+    def _upload_remote_span_attachments(
+        self, spans: list[Span], remote_trace_ids: set[str]
+    ) -> None:
+        """
+        Upload attachments of spans in remote traces. Spans of a remote trace never reach
+        _log_trace, which uploads the attachments of local traces.
+        """
+        attachments_by_trace_id = defaultdict(dict)
+        for span in spans:
+            if span.trace_id in remote_trace_ids and span._attachments:
+                attachments_by_trace_id[span.trace_id].update(span._attachments)
+
+        for trace_id, attachments in attachments_by_trace_id.items():
+            try:
+                # The in-memory trace info of a remote trace is a placeholder without the
+                # artifact location tag, so fetch the trace info from the backend.
+                trace_info = self._client.store.get_trace_info(trace_id)
+                self._client._upload_attachments(trace_info, attachments)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to upload attachments of remote trace {trace_id}: {e}",
+                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                )
 
     def _log_trace(
         self, trace: Trace, prompts: Sequence[PromptVersion], workspace: str | None = None
@@ -283,10 +386,30 @@ class MlflowV3SpanExporter(SpanExporter):
                 else:
                     _logger.warning("No trace or trace info provided, unable to export")
             except Exception as e:
-                _logger.warning(
-                    f"Failed to send trace to MLflow backend: {e}",
-                    exc_info=_logger.isEnabledFor(logging.DEBUG),
+                # Name the tracking URI and resolved profile so the user can see which
+                # credential was attempted, which surfaces a wrong-profile misconfiguration.
+                creds = (
+                    f" (tracking URI: {self._client.tracking_uri!r}, "
+                    f"profile: {_get_profile_from_uri(self._client.tracking_uri)!r})"
+                    if is_databricks_uri(self._client.tracking_uri)
+                    else ""
                 )
+                if _is_auth_failure(e):
+                    # An expired or missing credential silently drops the trace: the app
+                    # keeps running, so without a loud signal the user never learns the
+                    # trace was lost. Surface it at ERROR with a re-auth hint.
+                    _logger.error(
+                        "Failed to send trace to MLflow backend because of an "
+                        f"authentication error, so the trace was NOT saved: {e}{creds}. "
+                        "Refresh your credentials (for example, run `databricks auth login`) "
+                        "and retry.",
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
+                else:
+                    _logger.warning(
+                        f"Failed to send trace to MLflow backend: {e}{creds}",
+                        exc_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
 
             # Upload attachments in a separate try-except so trace data still lands
             # even if attachment upload fails. Runs regardless of span storage mode —

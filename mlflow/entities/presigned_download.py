@@ -16,7 +16,7 @@ class PresignedDownloadUrlResponse:
     file_size: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        result = {
+        result: dict[str, Any] = {
             "url": self.url,
             "headers": self.headers,
         }
