@@ -387,8 +387,8 @@ export const IssueDetectionJobNotifications = () => {
   const handleTerminalStatus = useCallback(
     (trackedJob: SubmittedIssueDetectionJob, status: JobStatus, result: unknown, errorMessage?: string) => {
       const { experimentId, jobId, runId } = trackedJob;
-      const startTimeMs = trackedJob.startTimeMs ?? trackedJob.submittedAtMs;
-      const started = Number.isFinite(startTimeMs) && startTimeMs > 0 && (
+      const startTimeMs = trackedJob.startTimeMs;
+      const started = typeof startTimeMs === 'number' && Number.isFinite(startTimeMs) && startTimeMs > 0 && (
         <div>
           <FormattedMessage
             defaultMessage="Started {startTime}."

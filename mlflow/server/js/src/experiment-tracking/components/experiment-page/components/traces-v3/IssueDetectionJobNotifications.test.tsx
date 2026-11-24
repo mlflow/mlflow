@@ -250,6 +250,7 @@ describe('IssueDetectionJobNotifications', () => {
     mockJobStatus(JobStatus.FAILED, undefined, 'boom');
     rerender(<IssueDetectionJobNotifications />);
     await screen.findByText('Issue detection failed');
+    expect(screen.queryByText(/Started/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByText('View details'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/experiments/exp-1/issues/runs');
