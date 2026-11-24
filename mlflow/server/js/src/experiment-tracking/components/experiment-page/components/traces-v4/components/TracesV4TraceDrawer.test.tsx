@@ -139,7 +139,7 @@ describe('TracesV4TraceDrawer', () => {
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
   });
 
-  test('keeps the newly active trace when the drawer closes and prunes its cache', async () => {
+  test('keeps more than five small traces cached when the drawer closes', async () => {
     const user = userEvent.setup();
     const traces = Array.from({ length: 6 }, (_, index) => makeTaggedTrace(`tr-${String(index).padStart(3, '0')}`));
     const traceIds = traces.map((trace) => `trace:/cat.sch/${trace.trace_id}`);
@@ -179,7 +179,7 @@ describe('TracesV4TraceDrawer', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(queryClient.getQueryData(['getTrace', traceIds[0], undefined])).toBeDefined();
-    await waitFor(() => expect(queryClient.getQueryData(['getTrace', traceIds[2], undefined])).toBeUndefined());
+    expect(queryClient.getQueryData(['getTrace', traceIds[2], undefined])).toBeDefined();
   });
 
   test('opens a deep-linked trace whose row is not on the current page', async () => {

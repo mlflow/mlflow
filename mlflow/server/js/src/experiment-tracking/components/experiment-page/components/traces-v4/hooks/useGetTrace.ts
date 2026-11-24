@@ -13,7 +13,6 @@ import {
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
 
-const MAX_CACHED_TRACES = 5;
 const MAX_CACHED_TRACE_CHARS = 64 * 1024 * 1024;
 const traceStringChars = new WeakMap<ModelTrace, number>();
 const traceAccessOrder = new WeakMap<Query, number>();
@@ -68,7 +67,7 @@ export const pruneTraceCache = (queryClient: QueryClient): void => {
     .sort((left, right) => left.accessOrder - right.accessOrder || left.updatedAt - right.updatedAt);
   // Active traces count toward the budget but cannot be removed, so discard inactive payloads around them first.
   let totalChars = traces.reduce((total, trace) => total + trace.chars, 0);
-  while (cachedTraces.length > MAX_CACHED_TRACES || totalChars > MAX_CACHED_TRACE_CHARS) {
+  while (totalChars > MAX_CACHED_TRACE_CHARS) {
     const oldest = cachedTraces.shift();
     if (!oldest) break;
     queryClient.removeQueries({ queryKey: oldest.queryKey, exact: true });
