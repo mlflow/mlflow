@@ -8575,6 +8575,7 @@ def _remove_dataset_from_experiments_handler(dataset_id):
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),

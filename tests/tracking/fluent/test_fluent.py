@@ -2134,6 +2134,27 @@ def test_search_logged_models_caps_page_size():
         ] == [SEARCH_MAX_RESULTS_THRESHOLD, SEARCH_MAX_RESULTS_THRESHOLD]
 
 
+def test_search_logged_models_last_page_requests_only_remaining():
+    with (
+        mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_THRESHOLD", 2),
+        mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient,
+    ):
+        mock_client = MockClient.return_value
+        mock_client.search_logged_models.side_effect = [
+            make_mock_search_logged_model_page(["model_1", "model_2"], "token_1"),
+            make_mock_search_logged_model_page(["model_3"], "token_2"),
+        ]
+
+        result = mlflow.search_logged_models(
+            experiment_ids=["123"], max_results=3, output_format="list"
+        )
+
+        assert result == ["model_1", "model_2", "model_3"]
+        assert [
+            c.kwargs["max_results"] for c in mock_client.search_logged_models.call_args_list
+        ] == [2, 1]
+
+
 def test_set_active_model():
     assert mlflow.get_active_model_id() is None
 

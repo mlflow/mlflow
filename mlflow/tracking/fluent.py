@@ -3076,8 +3076,12 @@ def search_logged_models(
     client = MlflowClient()
     models = []
     page_token = None
-    page_size = None if max_results is None else min(max_results, SEARCH_MAX_RESULTS_THRESHOLD)
     while True:
+        page_size = (
+            None
+            if max_results is None
+            else min(max_results - len(models), SEARCH_MAX_RESULTS_THRESHOLD)
+        )
         logged_models_page = client.search_logged_models(
             experiment_ids=experiment_ids,
             filter_string=filter_string,

@@ -3754,6 +3754,20 @@ def test_get_dataset_records_rejects_max_results_above_threshold(mock_tracking_s
     mock_tracking_store._load_dataset_records.assert_not_called()
 
 
+def test_get_dataset_records_accepts_max_results_at_threshold(mock_tracking_store):
+    mock_tracking_store._load_dataset_records.return_value = ([], None)
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    with app.test_request_context(
+        method="GET", query_string={"max_results": SEARCH_MAX_RESULTS_THRESHOLD}
+    ):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    assert resp.status_code == 200
+    mock_tracking_store._load_dataset_records.assert_called_once_with(
+        dataset_id, max_results=SEARCH_MAX_RESULTS_THRESHOLD, page_token=None
+    )
+
+
 def test_get_dataset_records_empty(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = ([], None)
 
@@ -4720,6 +4734,20 @@ def test_search_logged_models_rejects_max_results_above_threshold(mock_tracking_
     assert resp.status_code == 400
     assert json.loads(resp.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
     mock_tracking_store.search_logged_models.assert_not_called()
+
+
+def test_search_logged_models_accepts_max_results_at_threshold(mock_tracking_store):
+    mock_tracking_store.search_logged_models.return_value = PagedList([], None)
+    with app.test_request_context(
+        method="POST",
+        json={"experiment_ids": ["1"], "max_results": SEARCH_MAX_RESULTS_THRESHOLD},
+    ):
+        resp = _search_logged_models()
+
+    assert resp.status_code == 200
+    mock_tracking_store.search_logged_models.assert_called_once()
+    call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
+    assert call_kwargs["max_results"] == SEARCH_MAX_RESULTS_THRESHOLD
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
