@@ -1886,7 +1886,7 @@ def test_unalign_guideline_indices_preserves_scorer_settings(sample_judge, sampl
     [
         (3, "non-empty list"),
         ((0, 1), "non-empty list"),
-        ([], "requires `traces`, `guideline_indices`, or both"),
+        ([], "non-empty list"),
         ([True], "Invalid guideline index True"),
         (["1"], "Invalid guideline index '1'"),
         ([1.0], "Invalid guideline index 1.0"),
@@ -1915,13 +1915,21 @@ def test_unalign_guideline_indices_on_judge_without_guidelines(sample_judge, sam
 
 @pytest.mark.parametrize(
     "kwargs",
-    [{}, {"traces": None, "guideline_indices": None}, {"traces": [], "guideline_indices": []}],
+    [{}, {"traces": None, "guideline_indices": None}],
 )
 def test_unalign_requires_traces_or_guideline_indices(sample_judge, sample_traces, kwargs):
     with mock_apis(guidelines=_GUIDELINES):
         aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
     with pytest.raises(MlflowException, match="requires `traces`, `guideline_indices`, or both"):
         aligned.unalign(**kwargs)
+
+
+def test_unalign_empty_traces_warns_and_returns_same_judge(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    with patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger.warning") as warning:
+        assert aligned.unalign(traces=[]) is aligned
+    warning.assert_called_once_with("No feedback records found for the provided traces")
 
 
 def test_unalign_traces_and_guideline_indices_use_pre_call_positions(sample_judge, sample_traces):

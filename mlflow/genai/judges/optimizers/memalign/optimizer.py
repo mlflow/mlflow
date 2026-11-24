@@ -657,15 +657,16 @@ class MemoryAugmentedJudge(Judge):
                     print(i, guideline)
                 aligned_judge_v3 = aligned_judge.unalign(guideline_indices=[3, 17])
         """
-        if not traces and not guideline_indices:
+        if traces is None and guideline_indices is None:
             raise MlflowException.invalid_parameter_value(
                 "unalign requires `traces`, `guideline_indices`, or both."
             )
-        if guideline_indices:
+        if guideline_indices is not None:
             self._validate_guideline_indices(guideline_indices)
         indices_to_remove = set(guideline_indices or ())
 
-        if traces:
+        # An empty `traces` list (e.g. a search that matched nothing) warns and returns this judge.
+        if traces is not None:
             # A judge loaded from the registry holds only trace IDs until its episodic memory is
             # reconstructed. Without this, the check below would find nothing to remove and
             # silently return an unchanged judge that still contains the retracted feedback.
@@ -734,7 +735,7 @@ class MemoryAugmentedJudge(Judge):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         valid_range = f"0 to {count - 1}"
-        if not isinstance(guideline_indices, list):
+        if not isinstance(guideline_indices, list) or not guideline_indices:
             raise MlflowException(
                 f"guideline_indices must be a non-empty list of integers in the range "
                 f"{valid_range}, got {guideline_indices!r}",
