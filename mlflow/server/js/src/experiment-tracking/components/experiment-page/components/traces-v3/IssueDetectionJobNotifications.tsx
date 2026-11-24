@@ -272,6 +272,8 @@ const TrackedIssueDetectionJobNotification = ({
   }, [error, job, onStopTracking]);
 
   useEffect(() => {
+    // Observed jobs are live server work, not session submissions subject to the recovery TTL.
+    if (job.observedOnly) return;
     if (isSubmittedIssueDetectionJobExpired(job)) {
       onStopTracking(job);
       return;

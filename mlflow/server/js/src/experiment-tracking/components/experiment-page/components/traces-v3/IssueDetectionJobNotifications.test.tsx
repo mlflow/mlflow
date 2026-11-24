@@ -162,6 +162,29 @@ describe('IssueDetectionJobNotifications', () => {
     expect(screen.getAllByText('Issue detection failed')).toHaveLength(1);
   });
 
+  test.each([true, false])(
+    'keeps long-running observed jobs while expiring submitted jobs (observed: %s)',
+    (observed) => {
+      jest.useFakeTimers();
+      mockJobStatus(JobStatus.RUNNING);
+      const { rerender, unmount } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+      try {
+        const job = { ...submittedJob, submittedAtMs: Date.now() };
+        act(() => {
+          if (observed) window.dispatchEvent(new CustomEvent(ISSUE_DETECTION_JOB_OBSERVED_EVENT, { detail: job }));
+          else recordSubmittedIssueDetectionJob(job);
+        });
+        act(() => jest.advanceTimersByTime(ONE_HOUR_MS + 1));
+        mockJobStatus(JobStatus.FAILED);
+        rerender(<IssueDetectionJobNotifications />);
+        expect(screen.queryAllByText('Issue detection failed')).toHaveLength(observed ? 1 : 0);
+      } finally {
+        unmount();
+        jest.useRealTimers();
+      }
+    },
+  );
+
   test.each([
     [JobStatus.FAILED, 'The run ended with an error.'],
     [JobStatus.TIMEOUT, 'The run timed out.'],
