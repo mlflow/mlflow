@@ -1751,6 +1751,22 @@ def test_unalign_guideline_indices_on_deferred_judge_does_not_fetch_traces(
     embedder_class.assert_not_called()
     assert cleaned._embedder is None
     assert cleaned.guidelines == ["G1", "G2", "G3"]
+
+
+def test_unalign_empty_traces_with_guideline_indices_on_deferred_judge_does_not_fetch_traces(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    restored = Scorer.model_validate(aligned.model_dump())
+
+    with patch("mlflow.get_trace") as mock_get_trace, patch("dspy.Embedder") as embedder_class:
+        cleaned = restored.unalign(traces=[], guideline_indices=[0])
+
+    mock_get_trace.assert_not_called()
+    embedder_class.assert_not_called()
+    assert cleaned._embedder is None
+    assert cleaned.guidelines == ["G1", "G2", "G3", "G4"]
     assert restored.guidelines == _GUIDELINES
     assert cleaned._episodic_trace_ids == restored._episodic_trace_ids
     assert cleaned._episodic_trace_ids == aligned._episodic_trace_ids

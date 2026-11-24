@@ -665,12 +665,14 @@ class MemoryAugmentedJudge(Judge):
             self._validate_guideline_indices(guideline_indices)
         indices_to_remove = set(guideline_indices or ())
 
-        # An empty `traces` list (e.g. a search that matched nothing) warns and returns this judge.
+        # An empty `traces` list (e.g. a search that matched nothing) only warns, without
+        # loading memory, so it can be combined with an index-only removal.
         if traces is not None:
             # A judge loaded from the registry holds only trace IDs until its episodic memory is
             # reconstructed. Without this, the check below would find nothing to remove and
             # silently return an unchanged judge that still contains the retracted feedback.
-            self._lazy_init()
+            if traces:
+                self._lazy_init()
 
             trace_ids_to_remove = {trace.info.trace_id for trace in traces}
 
