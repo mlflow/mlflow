@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useObserveIssueDetectionJobs } from '../experiment-issues/useObserveIssueDetectionJobs';
 import {
   Button,
   GenericSkeleton,
@@ -49,6 +48,7 @@ import {
   ExperimentPageShellExperimentDescription,
 } from './ExperimentPageShellExperimentActions';
 import { ExperimentPageLayoutProvider } from './ExperimentPageLayout';
+import { useObserveIssueDetectionJobs } from '../experiment-issues/useObserveIssueDetectionJobs';
 
 // Lazy so experiment tabs other than evaluation runs don't load the evaluation flow's modules.
 const RunEvaluationButton = React.lazy(() =>

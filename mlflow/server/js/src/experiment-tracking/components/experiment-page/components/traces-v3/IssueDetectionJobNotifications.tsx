@@ -316,6 +316,31 @@ export const IssueDetectionJobNotifications = () => {
     },
     [preservedQueryString],
   );
+  const navigateFromNotification = useCallback(
+    (key: string, route: string, workspace?: string | null) => {
+      // Closed dialogs can stay mounted; only a visible dialog owns an in-progress interaction.
+      const dialogOpen = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).some(
+        (dialog) => dialog.getClientRects().length > 0,
+      );
+      if (dialogOpen) {
+        notification.info({
+          key: 'issue-detection-close-dialog-first',
+          placement: 'topRight',
+          duration: 8,
+          message: (
+            <FormattedMessage
+              defaultMessage="Close the open dialog before continuing."
+              description="Message when following an issue detection notification would discard an open dialog"
+            />
+          ),
+        });
+        return;
+      }
+      notification.close(key);
+      navigate(withPreservedQueryString(route, workspace));
+    },
+    [navigate, notification, withPreservedQueryString],
+  );
   const stopTrackingJob = useCallback((trackedJob: SubmittedIssueDetectionJob) => {
     removeSubmittedIssueDetectionJob(trackedJob);
     setTrackedJobs((currentJobs) => currentJobs.filter((job) => job.jobId !== trackedJob.jobId));
@@ -384,12 +409,10 @@ export const IssueDetectionJobNotifications = () => {
             <Typography.Link
               componentId="mlflow.traces.issue-detection.started-toast.view-progress"
               onClick={() => {
-                notification.close(startedKey);
-                navigate(
-                  withPreservedQueryString(
-                    Routes.getIssueDetectionRunsRoute(startedNotificationJob.experimentId),
-                    startedNotificationJob.workspace,
-                  ),
+                navigateFromNotification(
+                  startedKey,
+                  Routes.getIssueDetectionRunsRoute(startedNotificationJob.experimentId),
+                  startedNotificationJob.workspace,
                 );
               }}
             >
@@ -402,7 +425,7 @@ export const IssueDetectionJobNotifications = () => {
         ),
       });
     });
-  }, [startedNotificationJobs, notification, navigate, withPreservedQueryString]);
+  }, [startedNotificationJobs, notification, navigateFromNotification]);
 
   const handleTerminalStatus = useCallback(
     (trackedJob: SubmittedIssueDetectionJob, status: JobStatus, result: unknown, errorMessage?: string) => {
@@ -461,8 +484,7 @@ export const IssueDetectionJobNotifications = () => {
                 <Typography.Link
                   componentId="mlflow.traces.issue-detection.completed-toast.view-results"
                   onClick={() => {
-                    notification.close(completedKey);
-                    navigate(withPreservedQueryString(getIssuesTabRoute(experimentId), trackedJob.workspace));
+                    navigateFromNotification(completedKey, getIssuesTabRoute(experimentId), trackedJob.workspace);
                   }}
                 >
                   {issueCount <= 1 ? (
@@ -511,9 +533,10 @@ export const IssueDetectionJobNotifications = () => {
                 <Typography.Link
                   componentId="mlflow.traces.issue-detection.failed-toast.view-details"
                   onClick={() => {
-                    notification.close(completedKey);
-                    navigate(
-                      withPreservedQueryString(Routes.getIssueDetectionRunsRoute(experimentId), trackedJob.workspace),
+                    navigateFromNotification(
+                      completedKey,
+                      Routes.getIssueDetectionRunsRoute(experimentId),
+                      trackedJob.workspace,
                     );
                   }}
                 >
@@ -529,7 +552,7 @@ export const IssueDetectionJobNotifications = () => {
       }
       stopTrackingJob(trackedJob);
     },
-    [notification, navigate, stopTrackingJob, withPreservedQueryString, intl],
+    [notification, navigateFromNotification, stopTrackingJob, intl],
   );
 
   return (

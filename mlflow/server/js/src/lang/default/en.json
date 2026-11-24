@@ -20307,6 +20307,10 @@
     "defaultMessage": "The model will be registered as a new version of {selectedModel}.",
     "description": "Explantory text for registering a model"
   },
+  "zlrevW": {
+    "defaultMessage": "Close the open dialog before continuing.",
+    "description": "Message when following an issue detection notification would discard an open dialog"
+  },
   "zmMR5p": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in prompts management UI"

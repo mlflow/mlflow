@@ -111,6 +111,41 @@ describe('IssueDetectionJobNotifications', () => {
     expect(container.querySelectorAll('button').length).toBe(0);
   });
 
+  test.each([
+    [JobStatus.PENDING, 'View progress', '/experiments/exp-1/issues/runs'],
+    [JobStatus.SUCCEEDED, 'View issues', '/experiments/exp-1/issues'],
+    [JobStatus.FAILED, 'View details', '/experiments/exp-1/issues/runs'],
+  ])('protects a visible dialog draft before following %s notification %s', async (status, action, route) => {
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    const draft = document.createElement('input');
+    draft.value = 'Unsaved detection priorities';
+    dialog.append(draft);
+    document.body.append(dialog);
+    // jsdom has no layout; the real modal's visible/hidden rectangles are verified in the browser.
+    const rectangles = jest.spyOn(dialog, 'getClientRects').mockReturnValue([{}] as unknown as DOMRectList);
+    try {
+      mockJobStatus(JobStatus.PENDING);
+      const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
+      act(() => recordSubmittedIssueDetectionJob(submittedJob));
+      if (status !== JobStatus.PENDING) {
+        mockJobStatus(status as JobStatus, undefined, { issues: 2 });
+        rerender(<IssueDetectionJobNotifications />);
+      }
+      await userEvent.click(await screen.findByText(action));
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(draft.value).toBe('Unsaved detection priorities');
+      expect(await screen.findByText('Close the open dialog before continuing.')).toBeInTheDocument();
+      expect(screen.getByText(action)).toBeInTheDocument();
+      dialog.style.display = 'none';
+      rectangles.mockReturnValue([] as unknown as DOMRectList);
+      await userEvent.click(screen.getByText(action));
+      expect(mockNavigate).toHaveBeenCalledWith(route);
+    } finally {
+      dialog.remove();
+    }
+  });
+
   test('an observed remote job toasts once when it ends, with its start time and server error', async () => {
     mockJobStatus(JobStatus.RUNNING);
     const { rerender } = renderWithDesignSystem(<IssueDetectionJobNotifications />);
