@@ -121,7 +121,10 @@ export const useSettingAutosave = <T>({
     if (pendingSaveCountRef.current > 0) {
       return;
     }
-    if (optionsRef.current.getKey(latestDraftRef.current) === persistedKeyRef.current) {
+    // Adopt a value changed elsewhere only when the draft still had the previous saved value. A draft
+    // that already means the new value (for example with a trailing space) stays as the user typed it.
+    const latestDraftKey = optionsRef.current.getKey(latestDraftRef.current);
+    if (latestDraftKey === persistedKeyRef.current && latestDraftKey !== savedKey) {
       setDraft(optionsRef.current.savedValue);
       latestDraftRef.current = optionsRef.current.savedValue;
     }

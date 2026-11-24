@@ -46,9 +46,10 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
   const { theme } = useDesignSystemTheme();
   const [isSavingTags, setIsSavingTags] = useState(false);
   const [saveTagsError, setSaveTagsError] = useState<string>();
-  // Changes saved while the editor is open. After a partly failed save the experiment isn't
-  // refetched (that would reset the editor and drop the failed edits), so a retry skips these.
-  const savedTagChanges = useRef(new Set<string>());
+  // The tags the server has after a partly failed save. The experiment isn't refetched then (that
+  // would reset the editor and drop the failed edits), so the editor keeps diffing against the tags
+  // it opened with, and the retry diffs its result against these instead.
+  const serverTagsAfterPartialSave = useRef<Map<string, string> | null>(null);
   const userFacingTags = (experiment.tags ?? []).filter((tag) => isUserFacingTag(tag.key));
   const { TagAssignmentModal, showTagAssignmentModal } = useTagAssignmentModal({
     componentIdPrefix: 'mlflow.experiment_settings.tags',
@@ -57,8 +58,8 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
     error: saveTagsError,
     onClose: () => {
       setSaveTagsError(undefined);
-      if (savedTagChanges.current.size > 0) {
-        savedTagChanges.current.clear();
+      if (serverTagsAfterPartialSave.current) {
+        serverTagsAfterPartialSave.current = null;
         refetchExperiment?.()?.catch(() => undefined);
       }
     },
@@ -66,33 +67,44 @@ const ExperimentSettingsTags = ({ experiment, canEdit, refetchExperiment }: Expe
     catchSubmitError: true,
     onSubmit: async (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]) => {
       const experimentId = experiment.experimentId;
+      const openedWith = new Map(userFacingTags.map(({ key, value }) => [key, value]));
+      const serverTags = serverTagsAfterPartialSave.current ?? new Map(openedWith);
+      // The editor reports changes against the tags it opened with; rebuild the tags it now shows.
+      const wantedTags = new Map(openedWith);
+      deletedTags.forEach(({ key }) => wantedTags.delete(key));
+      newTags.forEach(({ key, value }) => wantedTags.set(key, value));
       const changes = [
-        ...newTags.map(({ key, value }) => ({
-          id: `set:${key}=${value}`,
-          save: () => MlflowService.setExperimentTag({ experiment_id: experimentId, key, value }),
-        })),
-        ...deletedTags.map(({ key }) => ({
-          id: `delete:${key}`,
-          save: () => MlflowService.deleteExperimentTag({ experiment_id: experimentId, key }),
-        })),
-      ].filter((change) => !savedTagChanges.current.has(change.id));
+        ...[...wantedTags]
+          .filter(([key, value]) => serverTags.get(key) !== value)
+          .map(([key, value]) => ({
+            save: () => MlflowService.setExperimentTag({ experiment_id: experimentId, key, value }),
+            applyToServerTags: () => serverTags.set(key, value),
+          })),
+        ...[...serverTags.keys()]
+          .filter((key) => !wantedTags.has(key))
+          .map((key) => ({
+            save: () => MlflowService.deleteExperimentTag({ experiment_id: experimentId, key }),
+            applyToServerTags: () => serverTags.delete(key),
+          })),
+      ];
       setIsSavingTags(true);
       setSaveTagsError(undefined);
       const results = await Promise.allSettled(changes.map((change) => change.save()));
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
-          savedTagChanges.current.add(changes[index].id);
+          changes[index].applyToServerTags();
         }
       });
       setIsSavingTags(false);
       const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
       if (failure) {
+        serverTagsAfterPartialSave.current = serverTags;
         const error = failure.reason;
         setSaveTagsError(error instanceof ErrorWrapper ? error.getMessageField() : error?.message);
         // Rejecting keeps the editor open with the error and the user's edits.
         throw error;
       }
-      savedTagChanges.current.clear();
+      serverTagsAfterPartialSave.current = null;
       // The tags have saved; a failed refresh afterwards isn't a failed save.
       await refetchExperiment?.()?.catch(() => undefined);
     },

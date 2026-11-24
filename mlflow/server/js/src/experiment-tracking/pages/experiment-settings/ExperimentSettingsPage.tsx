@@ -93,11 +93,12 @@ export const ExperimentSettingsPage = () => {
     options: { fetchPolicy: 'cache-only' },
   });
   // Keep what this page last loaded, so a refresh that fails after a save doesn't replace the page with an error.
-  const lastLoadedData = useRef(data);
+  // It's only used for the same experiment: the page stays mounted when the route changes to another one.
+  const lastLoaded = useRef<{ experimentId: string; data: typeof data }>();
   if (data) {
-    lastLoadedData.current = data;
+    lastLoaded.current = { experimentId, data };
   }
-  const shownData = data ?? lastLoadedData.current;
+  const shownData = data ?? (lastLoaded.current?.experimentId === experimentId ? lastLoaded.current.data : undefined);
   const experiment = useMemo(
     () =>
       shownData

@@ -12,7 +12,7 @@ import { setupServer } from '../../../common/utils/setup-msw';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
-import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
+import { createMLflowRoutePath, useNavigate } from '../../../common/utils/RoutingUtils';
 import { MlflowService } from '../../sdk/MlflowService';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { ExperimentPageRevampProvider } from '../experiment-page-tabs/ExperimentPageRevampContext';
@@ -55,7 +55,10 @@ const baseTags = [
   { __typename: 'MlflowExperimentTag' as const, key: 'mlflow.experimentKind', value: 'genai_development' },
 ];
 
-const makeExperiment = (tags: { key: string; value: string }[] = []) => ({
+const makeExperiment = (
+  tags: { key: string; value: string }[] = [],
+  overrides: { experimentId?: string; name?: string } = {},
+) => ({
   __typename: 'MlflowExperiment' as const,
   artifactLocation: 'mlflow-artifacts:/123',
   creationTime: '0',
@@ -65,6 +68,7 @@ const makeExperiment = (tags: { key: string; value: string }[] = []) => ({
   lifecycleStage: 'active',
   name: 'team/Helpful experiment',
   tags: [...baseTags, ...tags.map((tag) => ({ __typename: 'MlflowExperimentTag' as const, ...tag }))],
+  ...overrides,
 });
 
 const experimentQuery = (getExperiment: () => ReturnType<typeof makeExperiment>) =>
@@ -351,6 +355,50 @@ describe('ExperimentSettingsPage', () => {
     expect(await screen.findByText('Experiments list')).toBeInTheDocument();
   });
 
+  test('shows the skeleton, not the previous experiment, after navigating to another experiment', async () => {
+    server.use(
+      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) => {
+        const { experimentId } = req.variables['input'] as { experimentId: string };
+        const isSecond = experimentId === '456';
+        return res(
+          ctx.delay(isSecond ? 300 : 0),
+          ctx.data({
+            mlflowGetExperiment: {
+              __typename: 'MlflowGetExperimentResponse',
+              apiError: null,
+              experiment: makeExperiment([], isSecond ? { experimentId, name: 'Second experiment' } : { experimentId }),
+            },
+          }),
+        );
+      }),
+    );
+    const GoToSecondExperiment = () => {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => navigate(createMLflowRoutePath('/experiments/456/settings'))}>
+          Go to the second experiment
+        </button>
+      );
+    };
+    renderPage(undefined, {
+      page: (
+        <>
+          <GoToSecondExperiment />
+          <ExperimentSettingsPage />
+        </>
+      ),
+    });
+    expect(await screen.findByRole('textbox', { name: 'Experiment name' })).toHaveValue('team/Helpful experiment');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Go to the second experiment' }));
+
+    // While the second experiment loads, the first one's details are gone rather than shown as if they were its.
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Experiment name' })).not.toBeInTheDocument());
+    expect(screen.queryByText('123')).not.toBeInTheDocument();
+    expect(await screen.findByRole('textbox', { name: 'Experiment name' })).toHaveValue('Second experiment');
+    expect(screen.getByText('456')).toBeInTheDocument();
+  });
+
   describe('with authentication enabled', () => {
     const permissionsLoaded = async () => {
       await waitFor(() => expect(mockedAccountApi.listMyPermissions).toHaveBeenCalled());
@@ -512,6 +560,52 @@ describe('ExperimentSettingsPage', () => {
       expect(setTag.mock.calls.filter(([args]) => args.key === 'team')).toHaveLength(1);
       expect(setTag.mock.calls.filter(([args]) => args.key === 'owner')).toHaveLength(2);
       expect(await within(aboutSection).findByText('owner')).toBeVisible();
+    });
+
+    test('saves a change that is undone after a partly failed save', async () => {
+      let serverTags = [{ key: 'team', value: 'search' }];
+      server.use(experimentQuery(() => makeExperiment(serverTags)));
+      let ownerAttempts = 0;
+      const setTag = jest.spyOn(MlflowService, 'setExperimentTag').mockImplementation(async ({ key, value }) => {
+        if (key === 'owner' && ++ownerAttempts === 1) {
+          throw new Error('Owner tag failed');
+        }
+        serverTags = [...serverTags.filter((tag) => tag.key !== key), { key, value }];
+        return {};
+      });
+      renderPage();
+
+      const aboutSection = await screen.findByRole('region', { name: 'About' });
+      const dialog = await openTagEditor(aboutSection);
+      // Change team's value and add an owner tag. The team change saves; the owner tag fails.
+      const textboxes = within(dialog).getAllByRole('textbox');
+      await userEvent.clear(textboxes[1]);
+      await userEvent.paste('platform');
+      await userEvent.click(within(dialog).getAllByRole('textbox')[2]);
+      await userEvent.paste('owner');
+      await userEvent.click(within(dialog).getAllByRole('textbox')[3]);
+      await userEvent.paste('alice');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+      expect(await within(dialog).findByText('Owner tag failed')).toBeVisible();
+
+      // Put team's value back and save again. The server has the changed value, so that goes back too.
+      await userEvent.clear(within(dialog).getAllByRole('textbox')[1]);
+      await userEvent.paste('search');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+
+      await waitFor(() => expect(dialog).not.toBeInTheDocument());
+      expect(setTag.mock.calls.map(([args]) => [args.key, args.value])).toEqual([
+        ['team', 'platform'],
+        ['owner', 'alice'],
+        ['team', 'search'],
+        ['owner', 'alice'],
+      ]);
+      expect(serverTags).toEqual(
+        expect.arrayContaining([
+          { key: 'team', value: 'search' },
+          { key: 'owner', value: 'alice' },
+        ]),
+      );
     });
 
     test('saves tags from the editor and shows the refetched tags', async () => {

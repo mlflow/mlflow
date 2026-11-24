@@ -339,4 +339,50 @@ describe('ExperimentSettingsNameInput', () => {
     expect(onSave).toHaveBeenLastCalledWith('Original name');
     expect(input).toHaveValue('Original name');
   });
+
+  it('keeps a trailing space typed while the rename was saving', async () => {
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    let finishSave: () => void = () => undefined;
+    const onSave = jest.fn<ExperimentSettingsNameInputProps['onSave']>().mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSave = resolve;
+        }),
+    );
+    const nameInput = (initialName: string) => (
+      <>
+        <span id="experiment-name-label">Experiment name</span>
+        <ExperimentSettingsNameInput
+          initialName={initialName}
+          isEditable
+          labelId="experiment-name-label"
+          onSave={onSave}
+        />
+      </>
+    );
+    const { rerender } = render(nameInput('Original name'), { wrapper: ProvidersWrapper });
+    const input = screen.getByRole('textbox', { name: 'Experiment name' });
+
+    await user.clear(input);
+    await user.paste('Updated name');
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(onSave).toHaveBeenCalledWith('Updated name');
+
+    // Keep typing while the save is in flight. A trailing space means the same name, so nothing else saves.
+    await user.paste(' ');
+    expect(input).toHaveValue('Updated name ');
+
+    // The save lands, and the page refetches the experiment with the new name.
+    await act(async () => {
+      finishSave();
+      await Promise.resolve();
+    });
+    rerender(nameInput('Updated name'));
+    await act(async () => Promise.resolve());
+
+    expect(input).toHaveValue('Updated name ');
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
 });
