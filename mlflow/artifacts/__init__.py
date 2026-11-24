@@ -4,7 +4,6 @@ APIs for interacting with artifacts in MLflow
 
 import json
 import pathlib
-import posixpath
 import tempfile
 from typing import Any
 
@@ -13,6 +12,7 @@ import yaml
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -87,14 +87,14 @@ def download_artifacts(
             artifact_uri, output_path=dst_path, tracking_uri=tracking_uri, registry_uri=registry_uri
         )
 
-    # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
+    # Use a `runs:/<run_id>` repository to download both run and model (if exists) artifacts.
+    # `artifact_path` is passed separately because embedding it in the URI would percent-decode
+    # it and treat `?` as the start of a query string.
     if run_id and artifact_path:
-        return _download_artifact_from_uri(
-            f"runs:/{posixpath.join(run_id, artifact_path)}",
-            output_path=dst_path,
-            tracking_uri=tracking_uri,
-            registry_uri=registry_uri,
+        repo = RunsArtifactRepository(
+            f"runs:/{run_id}", tracking_uri=tracking_uri, registry_uri=registry_uri
         )
+        return repo.download_artifacts(artifact_path, dst_path=dst_path)
 
     artifact_path = artifact_path if artifact_path is not None else ""
 
