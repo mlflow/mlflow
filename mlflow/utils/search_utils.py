@@ -2442,7 +2442,7 @@ class SearchTraceUtils(SearchUtils):
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
 
         if comp.get("type") == cls._SPAN_IDENTIFIER:
-            cls.is_span(comp["type"], comp["key"], comp["comparator"])
+            cls.is_span(comp["type"], comp["key"], comp["comparator"].upper())
 
         return comp
 

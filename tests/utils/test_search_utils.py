@@ -392,7 +392,7 @@ def test_span_attribute_filter_rejects_unsupported_comparators(filter_string):
     assert e.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
-@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "RLIKE"])
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "RLIKE", "like", "ilike", "rlike"])
 def test_span_attribute_filter_accepts_pattern_comparators(comparator):
     assert SearchTraceUtils.parse_search_filter(f"span.attributes.model {comparator} 'gpt%'") == [
         {"type": "span", "key": "attributes.model", "comparator": comparator, "value": "gpt%"}
