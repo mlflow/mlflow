@@ -430,7 +430,7 @@ class MemoryAugmentedJudge(Judge):
         """
         The distilled guidelines in this judge's semantic memory, in order.
 
-        Use the positions in this list as the ``indices`` for :py:meth:`remove_guidelines`.
+        Use the positions in this list as the ``guideline_indices`` for :py:meth:`unalign`.
 
         Example:
             .. code-block:: python
@@ -526,14 +526,17 @@ class MemoryAugmentedJudge(Judge):
         )
         judge_copy._semantic_memory = copy.deepcopy(self._semantic_memory)
         judge_copy._episodic_trace_ids = self._episodic_trace_ids.copy()
+        self._copy_scorer_settings(judge_copy)
+
+        return judge_copy
+
+    def _copy_scorer_settings(self, target: "MemoryAugmentedJudge") -> None:
         # Keep settings changed on this judge (timeout, aggregations, ...) instead of the
         # base judge's. `name` is a read-only property backed by the base judge. Registration
         # state (backend, version, sampling config) is not copied, matching a fresh judge.
         for field in type(self).model_fields.keys() - {"name"}:
-            setattr(judge_copy, field, copy.deepcopy(getattr(self, field)))
-        judge_copy._pass_if = self._pass_if
-
-        return judge_copy
+            setattr(target, field, copy.deepcopy(getattr(self, field)))
+        target._pass_if = self._pass_if
 
     def _reconstruct_episodic_memory(self) -> list["dspy.Example"]:
         # Judges registered before IDs were deduped hold one entry per example.
@@ -598,27 +601,38 @@ class MemoryAugmentedJudge(Judge):
         if self._episodic_memory:
             self._build_episodic_memory()
 
-    def unalign(self, traces: list[Trace]) -> "MemoryAugmentedJudge":
+    def unalign(
+        self,
+        traces: list[Trace] | None = None,
+        guideline_indices: list[int] | None = None,
+    ) -> "MemoryAugmentedJudge":
         """
-        Remove specific traces from memory and return an updated judge.
+        Remove feedback traces or distilled guidelines from memory and return an updated judge.
 
-        This method allows you to selectively remove feedback examples from the judge's
-        memory systems. This is useful when you want to:
+        Pass ``guideline_indices`` when the feedback examples are still useful but some distilled
+        guidelines are wrong, too broad, or contradictory: exactly those guidelines are dropped,
+        and episodic memory (examples and trace IDs) is kept.
 
-        - Remove incorrect or low-quality feedback that negatively impacts performance
-        - Update the judge in case your evaluation criteria change
-        - Remove feedback from specific users or time periods
+        Pass ``traces`` when the feedback on those traces is incorrect or outdated. Their
+        examples are removed from episodic memory, and guidelines are dropped based on
+        ``source_trace_ids``:
 
-        The returned judge will have guidelines selectively deleted based on source_trace_ids:
         - Guidelines where all source traces were removed are deleted
         - Guidelines with at least one remaining source trace are retained
+
+        Both can be passed in one call. ``guideline_indices`` always refer to
+        :py:attr:`guidelines` as it was before the call. This judge is not modified, and the
+        returned judge keeps its MemAlign settings and scorer settings such as ``timeout`` and
+        ``aggregations``.
 
         Args:
             traces: Traces containing feedback to remove from memory. Only traces with
                 feedback matching this judge's name will be removed.
+            guideline_indices: 0-based positions in :py:attr:`guidelines` of the guidelines to
+                remove.
 
         Returns:
-            Updated MemoryAugmentedJudge with specified traces removed from memory.
+            Updated MemoryAugmentedJudge with the specified traces and guidelines removed.
 
         Example:
             .. code-block:: python
@@ -629,98 +643,71 @@ class MemoryAugmentedJudge(Judge):
 
                 # Assuming `all_traces` contains human feedback for the judge
                 aligned_judge = judge.align(traces=all_traces, optimizer=MemAlignOptimizer())
+
+                # Drop feedback that was incorrect
                 aligned_judge_v2 = aligned_judge.unalign(traces=bad_traces)
-                # aligned_judge_v2 now only retains feedback from
-                # `set(all_traces) - set(bad_traces)`
+
+                # Drop specific distilled guidelines, keeping all feedback examples
+                for i, guideline in enumerate(aligned_judge.guidelines):
+                    print(i, guideline)
+                aligned_judge_v3 = aligned_judge.unalign(guideline_indices=[3, 17])
         """
-        # A judge loaded from the registry holds only trace IDs until its episodic memory is
-        # reconstructed. Without this, the check below would find nothing to remove and
-        # silently return an unchanged judge that still contains the retracted feedback.
-        self._lazy_init()
-
-        trace_ids_to_remove = {trace.info.trace_id for trace in traces}
-
-        if not any(
-            getattr(ex, "_trace_id", None) in trace_ids_to_remove for ex in self._episodic_memory
-        ):
-            _logger.warning("No feedback records found for the provided traces")
-            return self
-
-        new_judge = MemoryAugmentedJudge(
-            base_judge=self._base_judge,
-            reflection_lm=self._reflection_lm,
-            retrieval_k=self._retrieval_k,
-            embedding_model=self._embedding_model,
-            embedding_dim=self._embedding_dim,
-            retrieval_fields=self._retrieval_fields,
-        )
-        new_judge._episodic_memory = list(self._episodic_memory)
-        new_judge._episodic_trace_ids = list(self._episodic_trace_ids)
-        new_judge._semantic_memory = copy.deepcopy(self._semantic_memory)
-
-        new_judge._apply_unalign_inplace(trace_ids_to_remove)
-        new_judge._build_episodic_memory()
-
-        _logger.debug(
-            f"Removed {len(traces)} traces from memory. "
-            f"Episodic memory size: {len(new_judge._episodic_memory)} examples, "
-            f"Semantic memory size: {len(new_judge._semantic_memory)} guidelines."
-        )
-        return new_judge
-
-    def remove_guidelines(self, indices: list[int]) -> "MemoryAugmentedJudge":
-        """
-        Remove specific distilled guidelines and return an updated judge.
-
-        Unlike :py:meth:`unalign`, which drops a guideline only when all of its source traces
-        are removed, this drops exactly the guidelines you select. Episodic memory (examples
-        and trace IDs) and the MemAlign settings (reflection model, retrieval size, embedding
-        model and dimension) are kept, and this judge is not modified.
-
-        Args:
-            indices: 0-based positions in :py:attr:`guidelines` of the guidelines to remove.
-
-        Returns:
-            A new MemoryAugmentedJudge without the selected guidelines.
-
-        Example:
-            .. code-block:: python
-
-                aligned_judge = judge.align(traces=traces, optimizer=MemAlignOptimizer())
-                print(aligned_judge.guidelines)
-                cleaned = aligned_judge.remove_guidelines([3, 17])
-                cleaned.register()
-        """
-        count = len(self._semantic_memory)
-        if count == 0:
-            raise MlflowException(
-                "This judge has no guidelines to remove.",
-                error_code=INVALID_PARAMETER_VALUE,
+        if not traces and not guideline_indices:
+            raise MlflowException.invalid_parameter_value(
+                "unalign requires `traces`, `guideline_indices`, or both."
             )
-        valid_range = f"0 to {count - 1}"
-        if not isinstance(indices, list) or not indices:
-            raise MlflowException(
-                f"indices must be a non-empty list of integers in the range {valid_range}, "
-                f"got {indices!r}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        for i in indices:
-            if isinstance(i, bool) or not isinstance(i, int) or not 0 <= i < count:
-                raise MlflowException(
-                    f"Invalid guideline index {i!r}. Indices must be integers in the range "
-                    f"{valid_range}.",
-                    error_code=INVALID_PARAMETER_VALUE,
+        if guideline_indices:
+            self._validate_guideline_indices(guideline_indices)
+        indices_to_remove = set(guideline_indices or ())
+
+        if traces:
+            # A judge loaded from the registry holds only trace IDs until its episodic memory is
+            # reconstructed. Without this, the check below would find nothing to remove and
+            # silently return an unchanged judge that still contains the retracted feedback.
+            self._lazy_init()
+
+            trace_ids_to_remove = {trace.info.trace_id for trace in traces}
+
+            if any(
+                getattr(ex, "_trace_id", None) in trace_ids_to_remove
+                for ex in self._episodic_memory
+            ):
+                new_judge = MemoryAugmentedJudge(
+                    base_judge=self._base_judge,
+                    reflection_lm=self._reflection_lm,
+                    retrieval_k=self._retrieval_k,
+                    embedding_model=self._embedding_model,
+                    embedding_dim=self._embedding_dim,
+                    retrieval_fields=self._retrieval_fields,
                 )
-        if len(set(indices)) != len(indices):
-            raise MlflowException(
-                f"indices must not contain duplicates, got {indices!r}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+                self._copy_scorer_settings(new_judge)
+                new_judge._episodic_memory = list(self._episodic_memory)
+                new_judge._episodic_trace_ids = list(self._episodic_trace_ids)
+                new_judge._semantic_memory = [
+                    copy.deepcopy(g)
+                    for i, g in enumerate(self._semantic_memory)
+                    if i not in indices_to_remove
+                ]
 
-        # Deferred judges stay deferred (no trace fetch or embedding). Fully initialized judges
-        # share the embedder and retrievers, which __call__ only reads, so nothing is re-embedded.
-        # Share only when init is known complete: the retrievers are built, or there were no trace
-        # IDs to load. Otherwise (e.g. another thread is mid-_lazy_init) the copy initializes itself.
+                new_judge._apply_unalign_inplace(trace_ids_to_remove)
+                new_judge._build_episodic_memory()
+
+                _logger.debug(
+                    f"Removed {len(traces)} traces and {len(indices_to_remove)} guidelines from "
+                    f"memory. Episodic memory size: {len(new_judge._episodic_memory)} examples, "
+                    f"Semantic memory size: {len(new_judge._semantic_memory)} guidelines."
+                )
+                return new_judge
+
+            _logger.warning("No feedback records found for the provided traces")
+            if not indices_to_remove:
+                return self
+
+        # Guideline-only removal. Deferred judges stay deferred (no trace fetch or embedding).
+        # Fully initialized judges share the embedder and retrievers, which __call__ only reads,
+        # so nothing is re-embedded. Share only when init is known complete: the retrievers are
+        # built, or there were no trace IDs to load. Otherwise (e.g. another thread is
+        # mid-_lazy_init) the copy initializes itself.
         new_judge = self._create_copy()
         if self._retrievers is not None or (
             self._embedder is not None and not self._episodic_trace_ids
@@ -729,11 +716,37 @@ class MemoryAugmentedJudge(Judge):
             new_judge._embedder = self._embedder
             new_judge._retrievers = self._retrievers
             new_judge._episodic_memory = list(self._episodic_memory)
-        to_remove = set(indices)
         new_judge._semantic_memory = [
-            g for i, g in enumerate(new_judge._semantic_memory) if i not in to_remove
+            g for i, g in enumerate(new_judge._semantic_memory) if i not in indices_to_remove
         ]
         return new_judge
+
+    def _validate_guideline_indices(self, guideline_indices: Any) -> None:
+        count = len(self._semantic_memory)
+        if count == 0:
+            raise MlflowException(
+                "This judge has no guidelines to remove.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        valid_range = f"0 to {count - 1}"
+        if not isinstance(guideline_indices, list):
+            raise MlflowException(
+                f"guideline_indices must be a non-empty list of integers in the range "
+                f"{valid_range}, got {guideline_indices!r}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        for i in guideline_indices:
+            if isinstance(i, bool) or not isinstance(i, int) or not 0 <= i < count:
+                raise MlflowException(
+                    f"Invalid guideline index {i!r}. Indices must be integers in the range "
+                    f"{valid_range}.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        if len(set(guideline_indices)) != len(guideline_indices):
+            raise MlflowException(
+                f"guideline_indices must not contain duplicates, got {guideline_indices!r}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     def _in_memory_fingerprint(self, trace_id: str) -> frozenset[tuple[str | None, int | None]]:
         return _generate_fingerprint(
