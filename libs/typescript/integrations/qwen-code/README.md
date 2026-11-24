@@ -1,6 +1,6 @@
 # MLflow Typescript SDK - Qwen Code
 
-Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with [Qwen Code](https://github.com/QwenLM/qwen-code) to automatically trace your Qwen Code coding-agent conversations, including user prompts, assistant responses, tool usage, and token consumption.
+Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/master/libs/typescript) with [Qwen Code](https://github.com/QwenLM/qwen-code) to automatically trace your Qwen Code coding-agent conversations, including user prompts, assistant responses, tool usage, and token consumption.
 
 | Package                 | NPM                                                                                                                                     | Description                                     |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
