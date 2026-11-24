@@ -11,6 +11,7 @@ from mlflow.entities import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     FallbackConfig,
     FallbackStrategy,
     GatewayBudgetPolicy,
@@ -3771,3 +3772,166 @@ def test_sum_gateway_trace_cost_username_and_workspace(store: SqlAlchemyStore):
         start_time_ms=0, end_time_ms=5000, workspace="workspace-p", username="alice"
     )
     assert abs(total - 0.10) < 1e-9
+
+
+# Budget policy window type Tests
+
+
+def _create_global_budget_policy(store, **kwargs):
+    return store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.REJECT,
+        **kwargs,
+    )
+
+
+def test_create_budget_policy_window_type_defaults_to_fixed(store: SqlAlchemyStore):
+    policy = _create_global_budget_policy(store)
+    assert policy.window_type == BudgetWindowType.FIXED
+    assert store.get_budget_policy(policy.budget_policy_id).window_type == BudgetWindowType.FIXED
+
+
+def test_create_budget_policy_sliding_window(store: SqlAlchemyStore):
+    policy = _create_global_budget_policy(store, window_type=BudgetWindowType.SLIDING)
+    assert policy.window_type == BudgetWindowType.SLIDING
+    fetched = store.get_budget_policy(policy.budget_policy_id)
+    assert fetched.window_type == BudgetWindowType.SLIDING
+    [listed] = [
+        p for p in store.list_budget_policies() if p.budget_policy_id == policy.budget_policy_id
+    ]
+    assert listed.window_type == BudgetWindowType.SLIDING
+
+
+def test_update_budget_policy_window_type(store: SqlAlchemyStore):
+    policy = _create_global_budget_policy(store)
+    updated = store.update_budget_policy(
+        budget_policy_id=policy.budget_policy_id, window_type=BudgetWindowType.SLIDING
+    )
+    assert updated.window_type == BudgetWindowType.SLIDING
+    # Updates that leave window_type unset keep it.
+    updated = store.update_budget_policy(
+        budget_policy_id=policy.budget_policy_id, budget_amount=5.0
+    )
+    assert updated.window_type == BudgetWindowType.SLIDING
+    assert updated.budget_amount == 5.0
+    updated = store.update_budget_policy(
+        budget_policy_id=policy.budget_policy_id, window_type=BudgetWindowType.FIXED
+    )
+    assert updated.window_type == BudgetWindowType.FIXED
+
+
+def test_budget_policy_row_without_window_type_reads_as_fixed(store: SqlAlchemyStore):
+    # Rows written before the column existed get the column's server default.
+    policy = _create_global_budget_policy(store)
+    with store.ManagedSessionMaker(read_only=False) as session:
+        session.execute(
+            SqlGatewayBudgetPolicy.__table__
+            .update()
+            .where(SqlGatewayBudgetPolicy.budget_policy_id == policy.budget_policy_id)
+            .values(window_type=SqlGatewayBudgetPolicy.__table__.c.window_type.server_default.arg)
+        )
+    assert store.get_budget_policy(policy.budget_policy_id).window_type == BudgetWindowType.FIXED
+
+
+def test_sum_gateway_trace_cost_by_bucket_groups_by_trace_start(store: SqlAlchemyStore):
+    exp_id = int(store.create_experiment("cost-test-buckets"))
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _insert_trace_with_cost(session, exp_id, "b0-a", 1000, [("s1", 0.10)])
+        _insert_trace_with_cost(session, exp_id, "b0-b", 1999, [("s1", 0.20)])
+        _insert_trace_with_cost(session, exp_id, "b1", 2000, [("s1", 0.40)])
+        _insert_trace_with_cost(session, exp_id, "b3", 3500, [("s1", 0.80)])
+        _insert_trace_with_cost(session, exp_id, "late", 9000, [("s1", 9.99)])
+        _insert_trace_with_cost(session, exp_id, "nongw", 1500, [("s1", 5.0)], is_gateway=False)
+
+    buckets = store.sum_gateway_trace_cost_by_bucket(
+        start_time_ms=1000, end_time_ms=4000, bucket_width_ms=1000
+    )
+    assert buckets.keys() == {1000, 2000, 3000}
+    assert buckets[1000] == pytest.approx(0.30)
+    assert buckets[2000] == pytest.approx(0.40)
+    assert buckets[3000] == pytest.approx(0.80)
+    # The overall sum over the same range agrees with the buckets.
+    total = store.sum_gateway_trace_cost(start_time_ms=1000, end_time_ms=4000)
+    assert total == pytest.approx(sum(buckets.values()))
+
+
+def test_sum_gateway_trace_cost_by_bucket_epoch_aligned_large_timestamps(store: SqlAlchemyStore):
+    exp_id = int(store.create_experiment("cost-test-buckets-large"))
+    width_ms = 60_000
+    base_ms = 1_795_000_020_000  # In Nov 2026 and a multiple of the bucket width
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _insert_trace_with_cost(session, exp_id, "t1", base_ms + 59_999, [("s1", 0.10)])
+        _insert_trace_with_cost(session, exp_id, "t2", base_ms + 60_000, [("s1", 0.25)])
+
+    buckets = store.sum_gateway_trace_cost_by_bucket(
+        start_time_ms=base_ms, end_time_ms=base_ms + 10 * width_ms, bucket_width_ms=width_ms
+    )
+    assert buckets == {base_ms: pytest.approx(0.10), base_ms + width_ms: pytest.approx(0.25)}
+    assert all(isinstance(start, int) for start in buckets)
+
+
+def test_sum_gateway_trace_cost_by_bucket_applies_filters(store: SqlAlchemyStore):
+    exp_id = int(store.create_experiment("cost-test-buckets-filters"))
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _insert_trace_with_cost(
+            session, exp_id, "alice-ep1", 1000, [("s1", 0.10)], endpoint_id="ep-1", username="alice"
+        )
+        _insert_trace_with_cost(
+            session, exp_id, "bob-ep1", 1000, [("s1", 0.20)], endpoint_id="ep-1", username="bob"
+        )
+        _insert_trace_with_cost(
+            session, exp_id, "alice-ep2", 2000, [("s1", 0.40)], endpoint_id="ep-2", username="alice"
+        )
+
+    def by_bucket(**filters):
+        return store.sum_gateway_trace_cost_by_bucket(
+            start_time_ms=0, end_time_ms=5000, bucket_width_ms=1000, **filters
+        )
+
+    assert by_bucket(endpoint_id="ep-1") == {1000: pytest.approx(0.30)}
+    assert by_bucket(username="alice") == {1000: pytest.approx(0.10), 2000: pytest.approx(0.40)}
+    assert by_bucket(endpoint_id="ep-2", username="bob") == {}
+
+
+def test_sum_gateway_trace_cost_by_bucket_workspace_filter(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker(read_only=False) as session:
+        exp_ws_a = SqlExperiment(
+            name=f"bucket-ws-a-{uuid.uuid4().hex}",
+            artifact_location="/tmp/a",
+            lifecycle_stage="active",
+            workspace="workspace-a",
+        )
+        exp_ws_b = SqlExperiment(
+            name=f"bucket-ws-b-{uuid.uuid4().hex}",
+            artifact_location="/tmp/b",
+            lifecycle_stage="active",
+            workspace="workspace-b",
+        )
+        session.add_all([exp_ws_a, exp_ws_b])
+        session.flush()
+        _insert_trace_with_cost(session, exp_ws_a.experiment_id, "t-a", 1000, [("s1", 0.10)])
+        _insert_trace_with_cost(session, exp_ws_b.experiment_id, "t-b", 1000, [("s1", 0.25)])
+
+    def by_bucket(**filters):
+        return store.sum_gateway_trace_cost_by_bucket(
+            start_time_ms=0, end_time_ms=5000, bucket_width_ms=1000, **filters
+        )
+
+    assert by_bucket(workspace="workspace-a") == {1000: pytest.approx(0.10)}
+    assert by_bucket(workspace="workspace-b") == {1000: pytest.approx(0.25)}
+    assert by_bucket() == {1000: pytest.approx(0.35)}
+
+
+def test_sum_gateway_trace_cost_by_bucket_empty(store: SqlAlchemyStore):
+    assert (
+        store.sum_gateway_trace_cost_by_bucket(
+            start_time_ms=0, end_time_ms=5000, bucket_width_ms=1000
+        )
+        == {}
+    )

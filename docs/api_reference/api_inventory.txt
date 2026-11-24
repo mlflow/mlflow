@@ -382,6 +382,9 @@ mlflow.entities.BudgetTargetScope.to_proto
 mlflow.entities.BudgetUnit
 mlflow.entities.BudgetUnit.from_proto
 mlflow.entities.BudgetUnit.to_proto
+mlflow.entities.BudgetWindowType
+mlflow.entities.BudgetWindowType.from_proto
+mlflow.entities.BudgetWindowType.to_proto
 mlflow.entities.ConnectOptionSettings
 mlflow.entities.Dataset
 mlflow.entities.Dataset.from_proto

@@ -10,12 +10,13 @@ from mlflow.protos.service_pb2 import BudgetDuration as ProtoBudgetDuration
 from mlflow.protos.service_pb2 import BudgetDurationUnit as ProtoBudgetDurationUnit
 from mlflow.protos.service_pb2 import BudgetTargetScope as ProtoBudgetTargetScope
 from mlflow.protos.service_pb2 import BudgetUnit as ProtoBudgetUnit
+from mlflow.protos.service_pb2 import BudgetWindowType as ProtoBudgetWindowType
 from mlflow.protos.service_pb2 import GatewayBudgetPolicy as ProtoGatewayBudgetPolicy
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class BudgetDurationUnit(str, Enum):
-    """Duration unit for budget policy fixed windows."""
+    """Duration unit for budget policy windows."""
 
     MINUTES = "MINUTES"
     HOURS = "HOURS"
@@ -90,9 +91,32 @@ class BudgetUnit(str, Enum):
         return cast(ProtoBudgetUnit, ProtoBudgetUnit.Value(self.value))
 
 
+class BudgetWindowType(str, Enum):
+    """How a budget policy measures spend over its duration.
+
+    ``FIXED`` windows are aligned to calendar boundaries and reset to zero when they end.
+    ``SLIDING`` windows cover the trailing duration ending now, so each cost stops counting
+    once it is older than the duration.
+    """
+
+    FIXED = "FIXED"
+    SLIDING = "SLIDING"
+
+    @classmethod
+    def from_proto(cls, proto: ProtoBudgetWindowType) -> BudgetWindowType | None:
+        try:
+            return cls(ProtoBudgetWindowType.Name(proto))
+        except ValueError:
+            return None
+
+    def to_proto(self) -> ProtoBudgetWindowType:
+        # `EnumTypeWrapper.Value` is untyped upstream, hence the cast.
+        return cast(ProtoBudgetWindowType, ProtoBudgetWindowType.Value(self.value))
+
+
 @dataclass
 class BudgetDuration:
-    """Fixed window duration: a (unit, value) pair defining the length of a budget window."""
+    """Window duration: a (unit, value) pair defining the length of a budget window."""
 
     unit: BudgetDurationUnit
     value: int
@@ -122,14 +146,14 @@ class GatewayBudgetPolicy(_MlflowObject):
     """
     Represents a budget policy for the AI Gateway.
 
-    Budget policies set limits with fixed time windows,
+    Budget policies set spending limits over fixed or sliding time windows,
     supporting global, per-workspace, per-endpoint, or per-user scoping.
 
     Args:
         budget_policy_id: Unique identifier for this budget policy.
         budget_unit: Budget measurement unit (e.g. USD).
         budget_amount: Budget limit amount.
-        duration: Fixed time window (unit + length pair).
+        duration: Window length (unit + value pair).
         target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER).
         budget_action: Action when budget is exceeded (ALERT, REJECT).
         created_at: Timestamp (milliseconds) when the policy was created.
@@ -140,6 +164,8 @@ class GatewayBudgetPolicy(_MlflowObject):
         target_value: Target the policy applies to, interpreted per ``target_scope``:
             a gateway endpoint ID for ENDPOINT scope, a username for
             USER scope. ``None`` for GLOBAL and WORKSPACE scopes.
+        window_type: Whether spend is measured over fixed, calendar-aligned windows or
+            over a sliding window covering the trailing ``duration``.
     """
 
     budget_policy_id: str
@@ -154,6 +180,7 @@ class GatewayBudgetPolicy(_MlflowObject):
     last_updated_by: str | None = None
     workspace: str | None = None
     target_value: str | None = None
+    window_type: BudgetWindowType = BudgetWindowType.FIXED
 
     def __post_init__(self) -> None:
         self.workspace = resolve_entity_workspace_name(self.workspace)
@@ -163,6 +190,8 @@ class GatewayBudgetPolicy(_MlflowObject):
             self.target_scope = BudgetTargetScope(self.target_scope)
         if isinstance(self.budget_action, str):
             self.budget_action = BudgetAction(self.budget_action)
+        if isinstance(self.window_type, str):
+            self.window_type = BudgetWindowType(self.window_type)
 
     def to_proto(self) -> ProtoGatewayBudgetPolicy:
         proto = ProtoGatewayBudgetPolicy()
@@ -178,6 +207,7 @@ class GatewayBudgetPolicy(_MlflowObject):
         proto.last_updated_at = self.last_updated_at
         if self.target_value is not None:
             proto.target_value = self.target_value
+        proto.window_type = self.window_type.to_proto()
         return proto
 
     @classmethod
@@ -196,4 +226,6 @@ class GatewayBudgetPolicy(_MlflowObject):
             last_updated_by=proto.last_updated_by or None,
             last_updated_at=proto.last_updated_at,
             target_value=proto.target_value or None,
+            # Servers that predate sliding windows never set the field.
+            window_type=BudgetWindowType.from_proto(proto.window_type) or BudgetWindowType.FIXED,
         )

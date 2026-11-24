@@ -364,6 +364,36 @@ ALERT: BudgetAction.ValueType  # 1
 REJECT: BudgetAction.ValueType  # 2
 Global___BudgetAction: _TypeAlias = BudgetAction  # noqa: Y015
 
+class _BudgetWindowType:
+    ValueType = _typing.NewType("ValueType", _builtins.int)
+    V: _TypeAlias = ValueType  # noqa: Y015
+
+class _BudgetWindowTypeEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_BudgetWindowType.ValueType], _builtins.type):
+    DESCRIPTOR: _descriptor.EnumDescriptor
+    WINDOW_TYPE_UNSPECIFIED: _BudgetWindowType.ValueType  # 0
+    FIXED: _BudgetWindowType.ValueType  # 1
+    """Spend accumulates in consecutive windows aligned to calendar boundaries and
+    resets to zero when a window ends.
+    """
+    SLIDING: _BudgetWindowType.ValueType  # 2
+    """Spend is measured over the trailing duration ending now, so each cost stops
+    counting once it is older than the duration.
+    """
+
+class BudgetWindowType(_BudgetWindowType, metaclass=_BudgetWindowTypeEnumTypeWrapper):
+    """How a budget policy measures spend over its duration"""
+
+WINDOW_TYPE_UNSPECIFIED: BudgetWindowType.ValueType  # 0
+FIXED: BudgetWindowType.ValueType  # 1
+"""Spend accumulates in consecutive windows aligned to calendar boundaries and
+resets to zero when a window ends.
+"""
+SLIDING: BudgetWindowType.ValueType  # 2
+"""Spend is measured over the trailing duration ending now, so each cost stops
+counting once it is older than the duration.
+"""
+Global___BudgetWindowType: _TypeAlias = BudgetWindowType  # noqa: Y015
+
 class _BudgetUnit:
     ValueType = _typing.NewType("ValueType", _builtins.int)
     V: _TypeAlias = ValueType  # noqa: Y015
@@ -6975,7 +7005,7 @@ Global___DeleteGatewayModelDefinition: _TypeAlias = DeleteGatewayModelDefinition
 
 @_typing.final
 class BudgetDuration(_message.Message):
-    """Fixed window duration: a (unit, value) pair that defines how long a budget window is"""
+    """Budget window duration: a (unit, value) pair that defines how long a budget window is"""
 
     DESCRIPTOR: _descriptor.Descriptor
 
@@ -7656,6 +7686,7 @@ class GatewayBudgetPolicy(_message.Message):
     LAST_UPDATED_BY_FIELD_NUMBER: _builtins.int
     LAST_UPDATED_AT_FIELD_NUMBER: _builtins.int
     TARGET_VALUE_FIELD_NUMBER: _builtins.int
+    WINDOW_TYPE_FIELD_NUMBER: _builtins.int
     budget_policy_id: _builtins.str
     """Unique identifier for this budget policy"""
     budget_unit: Global___BudgetUnit.ValueType
@@ -7679,9 +7710,11 @@ class GatewayBudgetPolicy(_message.Message):
     for ENDPOINT scope, a username for USER scope. Required for those
     scopes; unset for GLOBAL and WORKSPACE.
     """
+    window_type: Global___BudgetWindowType.ValueType
+    """How spend is measured over the duration. FIXED when unset."""
     @_builtins.property
     def duration(self) -> Global___BudgetDuration:
-        """Fixed time window (unit + length pair)"""
+        """Budget window length (unit + value pair)"""
 
     def __init__(
         self,
@@ -7697,10 +7730,11 @@ class GatewayBudgetPolicy(_message.Message):
         last_updated_by: _builtins.str | None = ...,
         last_updated_at: _builtins.int | None = ...,
         target_value: _builtins.str | None = ...,
+        window_type: Global___BudgetWindowType.ValueType | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_policy_id", b"budget_policy_id", "budget_unit", b"budget_unit", "created_at", b"created_at", "created_by", b"created_by", "duration", b"duration", "last_updated_at", b"last_updated_at", "last_updated_by", b"last_updated_by", "target_scope", b"target_scope", "target_value", b"target_value"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_policy_id", b"budget_policy_id", "budget_unit", b"budget_unit", "created_at", b"created_at", "created_by", b"created_by", "duration", b"duration", "last_updated_at", b"last_updated_at", "last_updated_by", b"last_updated_by", "target_scope", b"target_scope", "target_value", b"target_value", "window_type", b"window_type"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_policy_id", b"budget_policy_id", "budget_unit", b"budget_unit", "created_at", b"created_at", "created_by", b"created_by", "duration", b"duration", "last_updated_at", b"last_updated_at", "last_updated_by", b"last_updated_by", "target_scope", b"target_scope", "target_value", b"target_value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_policy_id", b"budget_policy_id", "budget_unit", b"budget_unit", "created_at", b"created_at", "created_by", b"created_by", "duration", b"duration", "last_updated_at", b"last_updated_at", "last_updated_by", b"last_updated_by", "target_scope", b"target_scope", "target_value", b"target_value", "window_type", b"window_type"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -7735,6 +7769,7 @@ class CreateGatewayBudgetPolicy(_message.Message):
     BUDGET_ACTION_FIELD_NUMBER: _builtins.int
     CREATED_BY_FIELD_NUMBER: _builtins.int
     TARGET_VALUE_FIELD_NUMBER: _builtins.int
+    WINDOW_TYPE_FIELD_NUMBER: _builtins.int
     budget_unit: Global___BudgetUnit.ValueType
     budget_amount: _builtins.float
     target_scope: Global___BudgetTargetScope.ValueType
@@ -7744,6 +7779,8 @@ class CreateGatewayBudgetPolicy(_message.Message):
     """Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
     scope). Required for those scopes.
     """
+    window_type: Global___BudgetWindowType.ValueType
+    """How spend is measured over the duration. Defaults to FIXED."""
     @_builtins.property
     def duration(self) -> Global___BudgetDuration: ...
     def __init__(
@@ -7756,10 +7793,11 @@ class CreateGatewayBudgetPolicy(_message.Message):
         budget_action: Global___BudgetAction.ValueType | None = ...,
         created_by: _builtins.str | None = ...,
         target_value: _builtins.str | None = ...,
+        window_type: Global___BudgetWindowType.ValueType | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_unit", b"budget_unit", "created_by", b"created_by", "duration", b"duration", "target_scope", b"target_scope", "target_value", b"target_value"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_unit", b"budget_unit", "created_by", b"created_by", "duration", b"duration", "target_scope", b"target_scope", "target_value", b"target_value", "window_type", b"window_type"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_unit", b"budget_unit", "created_by", b"created_by", "duration", b"duration", "target_scope", b"target_scope", "target_value", b"target_value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_unit", b"budget_unit", "created_by", b"created_by", "duration", b"duration", "target_scope", b"target_scope", "target_value", b"target_value", "window_type", b"window_type"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 
@@ -7832,6 +7870,7 @@ class UpdateGatewayBudgetPolicy(_message.Message):
     BUDGET_ACTION_FIELD_NUMBER: _builtins.int
     UPDATED_BY_FIELD_NUMBER: _builtins.int
     TARGET_VALUE_FIELD_NUMBER: _builtins.int
+    WINDOW_TYPE_FIELD_NUMBER: _builtins.int
     budget_policy_id: _builtins.str
     budget_unit: Global___BudgetUnit.ValueType
     budget_amount: _builtins.float
@@ -7842,6 +7881,8 @@ class UpdateGatewayBudgetPolicy(_message.Message):
     """Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
     scope). Required for those scopes.
     """
+    window_type: Global___BudgetWindowType.ValueType
+    """How spend is measured over the duration."""
     @_builtins.property
     def duration(self) -> Global___BudgetDuration: ...
     def __init__(
@@ -7855,10 +7896,11 @@ class UpdateGatewayBudgetPolicy(_message.Message):
         budget_action: Global___BudgetAction.ValueType | None = ...,
         updated_by: _builtins.str | None = ...,
         target_value: _builtins.str | None = ...,
+        window_type: Global___BudgetWindowType.ValueType | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_policy_id", b"budget_policy_id", "budget_unit", b"budget_unit", "duration", b"duration", "target_scope", b"target_scope", "target_value", b"target_value", "updated_by", b"updated_by"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_policy_id", b"budget_policy_id", "budget_unit", b"budget_unit", "duration", b"duration", "target_scope", b"target_scope", "target_value", b"target_value", "updated_by", b"updated_by", "window_type", b"window_type"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_policy_id", b"budget_policy_id", "budget_unit", b"budget_unit", "duration", b"duration", "target_scope", b"target_scope", "target_value", b"target_value", "updated_by", b"updated_by"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["budget_action", b"budget_action", "budget_amount", b"budget_amount", "budget_policy_id", b"budget_policy_id", "budget_unit", b"budget_unit", "duration", b"duration", "target_scope", b"target_scope", "target_value", b"target_value", "updated_by", b"updated_by", "window_type", b"window_type"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     def WhichOneof(self, oneof_group: _Never) -> None: ...
 

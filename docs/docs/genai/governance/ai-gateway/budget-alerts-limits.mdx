@@ -1,6 +1,6 @@
 ---
 title: Budget Alerts & Limits
-description: Control AI Gateway spending with budget policies. Set daily, weekly, or monthly cost thresholds to trigger webhook alerts or block requests when LLM spend exceeds limits.
+description: Control AI Gateway spending with budget policies. Set daily, weekly, or monthly cost thresholds over fixed or sliding windows to trigger webhook alerts or block requests when LLM spend exceeds limits.
 ---
 
 import useBaseUrl from "@docusaurus/useBaseUrl";
@@ -12,7 +12,7 @@ Budget policies let you control AI Gateway spending by setting a threshold (USD)
 - **Alert** — fires a webhook notification. Requests continue normally.
 - **Reject** — blocks subsequent requests with HTTP 429. The request that causes the spend to exceed the budget is allowed to complete; rejection applies to requests that arrive after the threshold has been exceeded.
 
-Spend resets automatically at the start of each new time window. When workspaces are enabled, budget policies can be scoped to a specific workspace so that spend is tracked per workspace.
+Spend is measured over either a fixed window, which resets at the start of each new period, or a sliding window, which always covers the most recent period (see [Time Windows](#time-windows)). When workspaces are enabled, budget policies can be scoped to a specific workspace so that spend is tracked per workspace.
 
 ## Managing Budget Policies
 
@@ -28,7 +28,7 @@ Click **Create budget policy** to open the creation dialog. Specify the budget a
 
 ## Alert Webhooks
 
-When an `ALERT` policy's threshold is exceeded, the gateway fires a webhook with details about the breach. The alert fires once per window, subsequent requests within the same window do not trigger additional webhooks.
+When an `ALERT` policy's threshold is exceeded, the gateway fires a webhook with details about the breach. With a fixed window, the alert fires once per window: subsequent requests within the same window do not trigger additional webhooks. With a sliding window, the alert fires each time spend crosses the threshold: once enough old spend ages out for spend to drop back below the threshold, the next crossing fires another alert.
 
 Webhook endpoints can be configured directly from the **Budgets** page under the **Budget alert webhooks** section.
 
@@ -44,9 +44,12 @@ The webhook payload includes:
   "duration_value": 1,
   "target_scope": "GLOBAL",
   "workspace": "default",
-  "window_start": 1704067200000
+  "window_start": 1704067200000,
+  "window_type": "FIXED"
 }
 ```
+
+For a sliding window, `window_start` is the start of the oldest spend still counted toward the window.
 
 ## Reject Behavior
 
@@ -56,7 +59,15 @@ When a `REJECT` policy's threshold is exceeded, the gateway blocks all subsequen
 HTTP/1.1 429 Too Many Requests
 
 {
-  "detail": "Budget limit exceeded for policy 'bp-abc123'. Limit: $500.00 USD per 1 month. Request rejected."
+  "detail": "Budget limit exceeded. Limit: $500.00 USD per 1 month. Budget resets at 2026-12-01T00:00:00Z. Request rejected."
+}
+```
+
+For a sliding window, the response reports when enough spend will have aged out of the window for requests to be accepted again:
+
+```
+{
+  "detail": "Budget limit exceeded. Limit: $50.00 USD per sliding 1 hour window. Spend falls back under the limit at 2026-11-23T14:36:00Z. Request rejected."
 }
 ```
 
@@ -64,13 +75,40 @@ If usage tracking is on for the endpoint, the gateway records each rejected requ
 
 ## Time Windows
 
-Budget windows are fixed intervals:
+A budget policy measures spend over a window whose length is its duration (for example, 1 day). The policy's `window_type` decides how that window moves.
+
+### Fixed windows
+
+Fixed windows (`FIXED`, the default) are consecutive intervals aligned to calendar boundaries:
 
 - **Daily** — resets every day at midnight UTC
 - **Weekly** — resets every 7 days on Sundays
 - **Monthly** — resets on the 1st of each month
 
 Accumulated spend resets to zero at the start of each new window.
+
+### Sliding windows
+
+Sliding windows (`SLIDING`) always cover the most recent duration ending now, such as the last 24 hours, rather than the current calendar day. Spend never resets all at once: each request's cost stops counting once it is older than the duration. This matches how many LLM providers enforce rate limits, and avoids the burst a fixed window allows when its spend resets at a boundary.
+
+The gateway tracks a sliding window in 60 buckets, each 1/60 of the duration (for example, 1-minute buckets for a 1-hour window). A cost is filed under the bucket in which its request started, and counts until that whole bucket has aged out of the window. A cost therefore counts for at least the full duration, and at most one bucket longer. For `MONTHS` durations, a sliding window covers the same span of calendar months, and buckets are sized from 30-day months.
+
+Create a sliding-window policy by setting `window_type` to `SLIDING`, for example through the REST API:
+
+```bash
+curl -X POST http://localhost:5000/api/3.0/mlflow/gateway/budgets/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "budget_unit": "USD",
+    "budget_amount": 50,
+    "duration": {"unit": "HOURS", "value": 1},
+    "target_scope": "GLOBAL",
+    "budget_action": "REJECT",
+    "window_type": "SLIDING"
+  }'
+```
+
+An existing policy can be switched between window types with the update API. Switching discards the spend tracked so far for the policy and rebuilds it from trace history.
 
 ## Authorization
 

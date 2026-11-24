@@ -17,6 +17,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     GatewayBudgetPolicy,
 )
 from mlflow.exceptions import MlflowException
@@ -25,7 +26,13 @@ from mlflow.gateway.budget_tracker import (
     BudgetWindow,
     _compute_window_end,
     _compute_window_start,
+    _from_epoch_ms,
     _policy_applies,
+    _shift_by_duration,
+    _sliding_bucket_start_ms,
+    _sliding_bucket_width_ms,
+    _sliding_window_cutoff_ms,
+    _to_epoch_ms,
 )
 
 _logger = logging.getLogger(__name__)
@@ -37,6 +44,8 @@ _KEY_PREFIX = "mlflow:budget:"
 # no longer describes the same budget period (or the key doesn't exist).
 # The duration is stored with the bounds so that a duration edit rolls the
 # window even when the new bounds happen to start at the same instant.
+# Rolling deletes the hash first so that no field of a sliding window that
+# used to live under this key survives into the fixed window.
 # Returns {created, cumulative_spend, exceeded} so callers don't need a
 # separate round-trip to read back the state.
 _ENSURE_WINDOW_LUA = """
@@ -56,6 +65,7 @@ if current[1] == new_start
     return {0, spend, exceeded}
 end
 
+redis.call('DEL', wkey)
 redis.call('HSET', wkey,
     'window_start', new_start,
     'window_end', new_end,
@@ -153,6 +163,122 @@ return {
 """
 
 
+# Lua script: bring a sliding window up to date, optionally adding spend to it.
+#
+# A sliding window is one hash holding its config plus a 'b:<bucket_start_ms>' field per
+# bucket. The config is stored so that an edit to the duration (and with it the bucket
+# width) or a switch from a fixed window discards buckets measured under the old config.
+# Buckets that start before the cutoff have aged out and are deleted.
+#
+# ARGV: duration_unit, duration_value, bucket_width_ms, cutoff_ms, limit, ttl, mode, ...
+# where mode is one of:
+#   'check'    - never create or reset the window: one that is missing or written under
+#                another config reads as empty, so that a process still on an older
+#                version of the policy cannot wipe the spend of a newer one
+#   'ensure'   - create or reset the window if needed
+#   'record'   - also add ARGV[9] to the bucket starting at ARGV[8]
+#   'backfill' - also raise each (bucket_start, spend) pair in ARGV[8..] to at least
+#                that spend, taking max(stored, seeded) like _BACKFILL_SPEND_LUA
+#
+# Aging out only lowers spend, so 'check' and 'ensure' clear the exceeded flag once spend
+# drops below the limit but never set it. 'record' and 'backfill' set it and report the
+# crossing exactly once, even with several gateway processes writing at the same time.
+#
+# Returns {created, flipped, spend, buckets}, where buckets is a flat
+# [start, spend, start, spend, ...] list of the live buckets.
+_SLIDING_WINDOW_LUA = """
+local wkey = KEYS[1]
+local duration_unit = ARGV[1]
+local duration_value = ARGV[2]
+local width = ARGV[3]
+local cutoff = tonumber(ARGV[4])
+local limit = tonumber(ARGV[5])
+local ttl = tonumber(ARGV[6])
+local mode = ARGV[7]
+
+local created = 0
+local config = redis.call(
+    'HMGET', wkey, 'window_type', 'duration_unit', 'duration_value', 'bucket_width_ms')
+if config[1] ~= 'SLIDING'
+    or config[2] ~= duration_unit
+    or config[3] ~= duration_value
+    or config[4] ~= width then
+    if mode == 'check' then
+        return {0, 0, '0', {}}
+    end
+    redis.call('DEL', wkey)
+    redis.call('HSET', wkey,
+        'window_type', 'SLIDING',
+        'duration_unit', duration_unit,
+        'duration_value', duration_value,
+        'bucket_width_ms', width,
+        'exceeded', '0')
+    created = 1
+end
+
+-- Deletes aged-out buckets and returns the spend and flat bucket list of the live ones.
+local function live_buckets()
+    local spend = 0
+    local buckets = {}
+    local fields = redis.call('HGETALL', wkey)
+    for i = 1, #fields, 2 do
+        local field = fields[i]
+        if string.sub(field, 1, 2) == 'b:' then
+            local start = string.sub(field, 3)
+            if tonumber(start) < cutoff then
+                redis.call('HDEL', wkey, field)
+            else
+                spend = spend + tonumber(fields[i + 1])
+                table.insert(buckets, start)
+                table.insert(buckets, fields[i + 1])
+            end
+        end
+    end
+    return spend, buckets
+end
+
+-- Age out first: a flag set by spend that has since aged out must not hide a new crossing.
+local spend, buckets = live_buckets()
+local was_exceeded = redis.call('HGET', wkey, 'exceeded') == '1' and spend >= limit
+local exceeded = was_exceeded
+
+if mode == 'record' then
+    if tonumber(ARGV[8]) >= cutoff then
+        redis.call('HINCRBYFLOAT', wkey, 'b:' .. ARGV[8], ARGV[9])
+    end
+elseif mode == 'backfill' then
+    for i = 8, #ARGV, 2 do
+        local field = 'b:' .. ARGV[i]
+        local stored = tonumber(redis.call('HGET', wkey, field) or '0')
+        if tonumber(ARGV[i + 1]) > stored then
+            redis.call('HSET', wkey, field, ARGV[i + 1])
+        end
+    end
+end
+
+if mode == 'record' or mode == 'backfill' then
+    spend, buckets = live_buckets()
+    exceeded = spend >= limit
+end
+redis.call('HSET', wkey, 'exceeded', exceeded and '1' or '0')
+
+local flipped = 0
+if exceeded and not was_exceeded then
+    flipped = 1
+end
+
+if ttl and ttl > 0 then
+    redis.call('EXPIRE', wkey, ttl)
+end
+
+return {created, flipped, tostring(spend), buckets}
+"""
+
+
+def _is_sliding_hash(stored: dict[str, str]) -> bool:
+    return stored.get("window_type") == BudgetWindowType.SLIDING.value
+
+
 def _window_key(policy_id: str) -> str:
     return f"{_KEY_PREFIX}window:{policy_id}"
 
@@ -178,6 +304,7 @@ def _serialize_policy(policy: GatewayBudgetPolicy) -> str:
         "target_value": policy.target_value,
         "created_at": policy.created_at,
         "last_updated_at": policy.last_updated_at,
+        "window_type": policy.window_type.value,
     })
 
 
@@ -197,6 +324,8 @@ def _deserialize_policy(data: str) -> GatewayBudgetPolicy:
         target_value=d.get("target_value"),
         created_at=d.get("created_at", 0),
         last_updated_at=d.get("last_updated_at", 0),
+        # Written by a process that predates sliding windows.
+        window_type=BudgetWindowType(d.get("window_type", BudgetWindowType.FIXED.value)),
     )
 
 
@@ -268,6 +397,50 @@ class RedisBudgetTracker(BudgetTracker):
         )
         return window, bool(created)
 
+    def _update_sliding_window(
+        self,
+        policy: GatewayBudgetPolicy,
+        now: datetime,
+        mode: str,
+        *mode_args: str,
+    ) -> tuple[BudgetWindow, bool, bool]:
+        """Run ``_SLIDING_WINDOW_LUA`` on a sliding policy's window.
+
+        Returns:
+            Tuple of (window, created, flipped): created is True if the window was just
+            initialized or reset, and flipped is True if this call carried it past its limit.
+        """
+        width_ms = _sliding_bucket_width_ms(policy.duration)
+        cutoff_ms = _sliding_window_cutoff_ms(policy.duration, width_ms, now)
+        window_length = now - _shift_by_duration(policy.duration, now, sign=-1)
+        # Keep the key for 1 hour past the point where every bucket in it has aged out.
+        ttl_seconds = int(window_length.total_seconds()) + width_ms // 1000 + 3600
+        created, flipped, spend, flat_buckets = self._client.eval(
+            _SLIDING_WINDOW_LUA,
+            1,
+            _window_key(policy.budget_policy_id),
+            policy.duration.unit.value,
+            str(policy.duration.value),
+            str(width_ms),
+            str(cutoff_ms),
+            str(policy.budget_amount),
+            ttl_seconds,
+            mode,
+            *mode_args,
+        )
+        bucket_spend = {
+            int(flat_buckets[i]): float(flat_buckets[i + 1]) for i in range(0, len(flat_buckets), 2)
+        }
+        window = BudgetWindow(
+            policy=policy,
+            window_start=_from_epoch_ms(cutoff_ms),
+            window_end=now,
+            cumulative_spend=float(spend),
+            exceeded=float(spend) >= policy.budget_amount,
+            bucket_spend=bucket_spend,
+        )
+        return window, bool(int(created)), bool(int(flipped))
+
     def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         now = datetime.now(timezone.utc)
         fresh_windows: list[BudgetWindow] = []
@@ -301,7 +474,10 @@ class RedisBudgetTracker(BudgetTracker):
         self._policy_cache = {p.budget_policy_id: p for p in policies}
 
         for policy in policies:
-            window, created = self._ensure_window(policy, now)
+            if policy.window_type == BudgetWindowType.SLIDING:
+                window, created, _flipped = self._update_sliding_window(policy, now, "ensure")
+            else:
+                window, created = self._ensure_window(policy, now)
             if created:
                 fresh_windows.append(window)
 
@@ -314,9 +490,12 @@ class RedisBudgetTracker(BudgetTracker):
         workspace: str | None = None,
         endpoint_id: str | None = None,
         username: str | None = None,
+        timestamp_ms: int | None = None,
     ) -> list[BudgetWindow]:
         now = datetime.now(timezone.utc)
         newly_exceeded: list[BudgetWindow] = []
+        if timestamp_ms is None:
+            timestamp_ms = _to_epoch_ms(now)
 
         policy_ids = self._client.smembers(_policy_set_key())
 
@@ -328,6 +507,17 @@ class RedisBudgetTracker(BudgetTracker):
                 policy = _deserialize_policy(policy_data)
 
             if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, username=username):
+                continue
+
+            if policy.window_type == BudgetWindowType.SLIDING:
+                bucket_start_ms = _sliding_bucket_start_ms(
+                    timestamp_ms, _sliding_bucket_width_ms(policy.duration)
+                )
+                window, _created, flipped = self._update_sliding_window(
+                    policy, now, "record", str(bucket_start_ms), str(cost_usd)
+                )
+                if flipped:
+                    newly_exceeded.append(window)
                 continue
 
             window, _created = self._ensure_window(policy, now)
@@ -372,7 +562,18 @@ class RedisBudgetTracker(BudgetTracker):
             if policy.budget_action != BudgetAction.REJECT:
                 continue
 
+            if policy.window_type == BudgetWindowType.SLIDING:
+                window, _created, _flipped = self._update_sliding_window(policy, now, "check")
+                if window.cumulative_spend >= policy.budget_amount:
+                    return True, window
+                continue
+
             if not (stored := self._client.hgetall(_window_key(pid))):
+                continue
+
+            # Written for a sliding version of this policy that this process has not
+            # caught up with yet; it holds buckets, not a fixed window's bounds.
+            if _is_sliding_hash(stored):
                 continue
 
             if not _window_duration_matches(stored, policy):
@@ -399,6 +600,8 @@ class RedisBudgetTracker(BudgetTracker):
             if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
                 continue
             policy = _deserialize_policy(policy_data)
+            if policy.window_type == BudgetWindowType.SLIDING:
+                continue
             wkey = _window_key(budget_policy_id)
 
             # The window may be absent (never created, or expired); the script writes
@@ -421,6 +624,27 @@ class RedisBudgetTracker(BudgetTracker):
                         exceeded=True,
                     )
                 )
+
+        return newly_exceeded
+
+    def backfill_bucket_spend(
+        self, bucket_spend_by_policy: dict[str, dict[int, float]]
+    ) -> list[BudgetWindow]:
+        now = datetime.now(timezone.utc)
+        newly_exceeded: list[BudgetWindow] = []
+
+        for budget_policy_id, buckets in bucket_spend_by_policy.items():
+            if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
+                continue
+            policy = _deserialize_policy(policy_data)
+            if policy.window_type != BudgetWindowType.SLIDING:
+                continue
+            seeded = [str(value) for item in sorted(buckets.items()) for value in item]
+            window, _created, flipped = self._update_sliding_window(
+                policy, now, "backfill", *seeded
+            )
+            if flipped:
+                newly_exceeded.append(window)
 
         return newly_exceeded
 
@@ -448,4 +672,12 @@ class RedisBudgetTracker(BudgetTracker):
         if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
             return None
 
-        return self._build_window(_deserialize_policy(policy_data), stored)
+        policy = _deserialize_policy(policy_data)
+        if policy.window_type == BudgetWindowType.SLIDING:
+            window, _created, _flipped = self._update_sliding_window(
+                policy, datetime.now(timezone.utc), "check"
+            )
+            return window
+        if _is_sliding_hash(stored):
+            return None
+        return self._build_window(policy, stored)

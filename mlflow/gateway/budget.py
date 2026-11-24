@@ -5,15 +5,28 @@ firing exceeded-budget webhooks, and creating on_complete callbacks for budget r
 """
 
 import logging
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
 import mlflow
 from mlflow.entities import SpanType
-from mlflow.entities.gateway_budget_policy import BudgetAction, BudgetTargetScope
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetTargetScope,
+    BudgetWindowType,
+    GatewayBudgetPolicy,
+)
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
-from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
+from mlflow.gateway.budget_tracker import (
+    BudgetWindow,
+    _sliding_bucket_start_ms,
+    _sliding_bucket_width_ms,
+    _sliding_window_cutoff_ms,
+    _to_epoch_ms,
+    get_budget_tracker,
+)
 from mlflow.gateway.tracing_utils import (
     _gateway_span_attributes,
     _gateway_span_name,
@@ -31,13 +44,32 @@ from mlflow.webhooks.types import BudgetPolicyExceededPayload
 _logger = logging.getLogger(__name__)
 
 
+def _trace_cost_filters(policy: GatewayBudgetPolicy) -> dict[str, str | None]:
+    """Trace-history filters selecting the gateway traces whose cost a policy counts."""
+    # The policy's target_value is interpreted per scope: it filters trace history by
+    # gateway endpoint for ENDPOINT policies and by recorded auth username for USER
+    # policies.
+    return {
+        "workspace": (
+            policy.workspace if policy.target_scope == BudgetTargetScope.WORKSPACE else None
+        ),
+        "endpoint_id": (
+            policy.target_value if policy.target_scope == BudgetTargetScope.ENDPOINT else None
+        ),
+        "username": (
+            policy.target_value if policy.target_scope == BudgetTargetScope.USER else None
+        ),
+    }
+
+
 def calculate_existing_cost_for_windows(
     store: SqlAlchemyStore, windows: list[BudgetWindow]
 ) -> dict[str, float]:
-    """Calculate spend for budget windows from trace history.
+    """Calculate spend for fixed budget windows from trace history.
 
     Queries historical trace cost data for each window so that budget tracking
     accounts for spend across all gateway workers and survives server restarts.
+    Sliding windows are covered by ``calculate_existing_bucket_cost_for_windows``.
 
     Returns:
         Dict mapping budget_policy_id to historical spend amount.
@@ -47,33 +79,15 @@ def calculate_existing_cost_for_windows(
         return result
 
     for window in windows:
+        if window.policy.window_type == BudgetWindowType.SLIDING:
+            continue
         try:
             start_ms = int(window.window_start.timestamp() * 1000)
             end_ms = int(window.window_end.timestamp() * 1000)
-            workspace = (
-                window.policy.workspace
-                if window.policy.target_scope == BudgetTargetScope.WORKSPACE
-                else None
-            )
-            # The policy's target_value is interpreted per scope: it filters trace
-            # history by gateway endpoint for ENDPOINT policies and by recorded auth
-            # username for USER policies.
-            endpoint_id = (
-                window.policy.target_value
-                if window.policy.target_scope == BudgetTargetScope.ENDPOINT
-                else None
-            )
-            username = (
-                window.policy.target_value
-                if window.policy.target_scope == BudgetTargetScope.USER
-                else None
-            )
             spend = store.sum_gateway_trace_cost(
                 start_time_ms=start_ms,
                 end_time_ms=end_ms,
-                workspace=workspace,
-                endpoint_id=endpoint_id,
-                username=username,
+                **_trace_cost_filters(window.policy),
             )
             if spend > 0:
                 result[window.policy.budget_policy_id] = spend
@@ -81,6 +95,45 @@ def calculate_existing_cost_for_windows(
             _logger.debug(
                 "Failed to calculate existing cost for policy %s",
                 window.policy.budget_policy_id,
+                exc_info=True,
+            )
+    return result
+
+
+def calculate_existing_bucket_cost_for_windows(
+    store: SqlAlchemyStore, windows: list[BudgetWindow]
+) -> dict[str, dict[int, float]]:
+    """Calculate the spend per bucket of sliding budget windows from trace history.
+
+    The sliding-window counterpart of ``calculate_existing_cost_for_windows``. Spend is
+    bucketed by trace start time, the same time ``record_cost`` files a request's cost
+    under, so the trace history and the tracker agree on which bucket a request is in.
+
+    Returns:
+        Dict mapping budget_policy_id to spend per bucket, keyed by bucket start in epoch
+        milliseconds.
+    """
+    result: dict[str, dict[int, float]] = {}
+    now = datetime.now(timezone.utc)
+
+    for window in windows:
+        policy = window.policy
+        if policy.window_type != BudgetWindowType.SLIDING:
+            continue
+        try:
+            width_ms = _sliding_bucket_width_ms(policy.duration)
+            spend = store.sum_gateway_trace_cost_by_bucket(
+                start_time_ms=_sliding_window_cutoff_ms(policy.duration, width_ms, now),
+                end_time_ms=_sliding_bucket_start_ms(_to_epoch_ms(now), width_ms) + width_ms,
+                bucket_width_ms=width_ms,
+                **_trace_cost_filters(policy),
+            )
+            if buckets := {start: cost for start, cost in spend.items() if cost > 0}:
+                result[policy.budget_policy_id] = buckets
+        except Exception:
+            _logger.debug(
+                "Failed to calculate existing bucket cost for policy %s",
+                policy.budget_policy_id,
                 exc_info=True,
             )
     return result
@@ -110,7 +163,10 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
             policies = store.list_budget_policies_across_workspaces()
             windows = tracker.refresh_policies(policies)
             existing_spend = calculate_existing_cost_for_windows(store, windows)
-            if newly_exceeded := tracker.backfill_spend(existing_spend):
+            newly_exceeded = tracker.backfill_spend(existing_spend)
+            if existing_bucket_spend := calculate_existing_bucket_cost_for_windows(store, windows):
+                newly_exceeded += tracker.backfill_bucket_spend(existing_bucket_spend)
+            if newly_exceeded:
                 # The flag is committed by the time we get here, so delivery is
                 # best-effort: if it fails the window stays muted. This is the tradeoff
                 # ``record_cost`` already makes, where the flag flips atomically and
@@ -175,6 +231,7 @@ def fire_budget_exceeded_webhooks(
             workspace=workspace or (policy.workspace or DEFAULT_WORKSPACE_NAME),
             target_value=policy.target_value,
             window_start=int(window.window_start.timestamp() * 1000),
+            window_type=policy.window_type.value,
         )
         deliver_webhook(event=event, payload=payload, store=registry_store)
 
@@ -236,14 +293,23 @@ def check_budget_limit(
         unit = policy.duration.unit.value.lower()
         if policy.duration.value == 1:
             unit = unit.rstrip("s")
-        reset_time = window.window_end.strftime("%Y-%m-%dT%H:%M:%SZ")
-        detail = (
-            f"Budget limit exceeded. "
-            f"Limit: ${policy.budget_amount:.2f} USD per "
-            f"{policy.duration.value} {unit}. "
-            f"Budget resets at {reset_time}. "
-            "Request rejected."
-        )
+        reset_time = window.resets_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if policy.window_type == BudgetWindowType.SLIDING:
+            detail = (
+                f"Budget limit exceeded. "
+                f"Limit: ${policy.budget_amount:.2f} USD per sliding "
+                f"{policy.duration.value} {unit} window. "
+                f"Spend falls back under the limit at {reset_time}. "
+                "Request rejected."
+            )
+        else:
+            detail = (
+                f"Budget limit exceeded. "
+                f"Limit: ${policy.budget_amount:.2f} USD per "
+                f"{policy.duration.value} {unit}. "
+                f"Budget resets at {reset_time}. "
+                "Request rejected."
+            )
         exc = HTTPException(status_code=429, detail=detail)
         trace_metadata = build_gateway_trace_metadata(endpoint_config, metadata, request_headers)
         _create_budget_error_trace(endpoint_config, exc, trace_metadata)
@@ -272,7 +338,13 @@ def make_budget_on_complete(
             maybe_refresh_budget_policies(store)
             tracker = get_budget_tracker()
             if newly_exceeded := tracker.record_cost(
-                total_cost, workspace=workspace, endpoint_id=endpoint_id, username=username
+                total_cost,
+                workspace=workspace,
+                endpoint_id=endpoint_id,
+                username=username,
+                # The gateway span is the trace's root span, so its start is the trace
+                # timestamp that trace-history backfill buckets this request by.
+                timestamp_ms=span.start_time_ns // 1_000_000,
             ):
                 if registry_store:
                     fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)

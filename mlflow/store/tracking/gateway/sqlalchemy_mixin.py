@@ -5,7 +5,7 @@ import os
 import uuid
 from typing import Any
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, literal_column
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import aliased, joinedload
 
@@ -26,6 +26,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDuration,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
@@ -1237,6 +1238,7 @@ class SqlAlchemyGatewayStoreMixin:
         budget_action: BudgetAction,
         created_by: str | None = None,
         target_value: str | None = None,
+        window_type: BudgetWindowType = BudgetWindowType.FIXED,
     ) -> GatewayBudgetPolicy:
         scope_value = (
             target_scope.value if isinstance(target_scope, BudgetTargetScope) else target_scope
@@ -1272,6 +1274,7 @@ class SqlAlchemyGatewayStoreMixin:
                     created_by=created_by,
                     last_updated_by=created_by,
                     target_value=target_value,
+                    window_type=BudgetWindowType(window_type).value,
                 )
             )
 
@@ -1304,6 +1307,7 @@ class SqlAlchemyGatewayStoreMixin:
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
         target_value: str | None = None,
+        window_type: BudgetWindowType | None = None,
     ) -> GatewayBudgetPolicy:
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_budget_policy = self._get_entity_or_raise(
@@ -1343,6 +1347,8 @@ class SqlAlchemyGatewayStoreMixin:
                 )
             if target_value is not None:
                 sql_budget_policy.target_value = target_value
+            if window_type is not None:
+                sql_budget_policy.window_type = BudgetWindowType(window_type).value
             # Enforce the target_value/scope invariant on the resulting row: ENDPOINT-
             # and USER-scoped policies must always carry a target (a targeted policy
             # with target_value=None silently never matches any request, so reject it
@@ -1433,43 +1439,92 @@ class SqlAlchemyGatewayStoreMixin:
         username: str | None = None,
     ) -> float:
         with self.ManagedSessionMaker() as session:
-            query = (
-                session
-                .query(func.coalesce(func.sum(SqlTraceInfo.total_cost), 0.0))
-                .join(
-                    SqlTraceMetadata,
-                    SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
-                )
-                .filter(
-                    SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
-                    SqlTraceInfo.timestamp_ms >= start_time_ms,
-                    SqlTraceInfo.timestamp_ms < end_time_ms,
-                )
+            query = self._gateway_trace_cost_query(
+                session.query(func.coalesce(func.sum(SqlTraceInfo.total_cost), 0.0)),
+                start_time_ms=start_time_ms,
+                end_time_ms=end_time_ms,
+                workspace=workspace,
+                endpoint_id=endpoint_id,
+                username=username,
+            )
+            return float(query.scalar())
+
+    def sum_gateway_trace_cost_by_bucket(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        bucket_width_ms: int,
+        workspace: str | None = None,
+        endpoint_id: str | None = None,
+        username: str | None = None,
+    ) -> dict[int, float]:
+        """Sum gateway trace cost per time bucket, as ``sum_gateway_trace_cost`` does overall.
+
+        Buckets are ``bucket_width_ms`` wide and aligned to the epoch, and a trace falls in
+        the bucket containing its start time.
+
+        Returns:
+            Dict mapping bucket start (epoch milliseconds) to the total cost of the traces in
+            it. Buckets without traces are omitted.
+        """
+        # Inline the width rather than binding it: MSSQL only accepts a grouped expression
+        # in the select list when it matches the GROUP BY expression exactly, and two bound
+        # parameters never do.
+        width = literal_column(str(int(bucket_width_ms)))
+        bucket_start = SqlTraceInfo.timestamp_ms - SqlTraceInfo.timestamp_ms % width
+        with self.ManagedSessionMaker() as session:
+            query = self._gateway_trace_cost_query(
+                session.query(bucket_start, func.coalesce(func.sum(SqlTraceInfo.total_cost), 0.0)),
+                start_time_ms=start_time_ms,
+                end_time_ms=end_time_ms,
+                workspace=workspace,
+                endpoint_id=endpoint_id,
+                username=username,
+            ).group_by(bucket_start)
+            return {int(start): float(cost) for start, cost in query.all()}
+
+    @staticmethod
+    def _gateway_trace_cost_query(
+        query,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None,
+        endpoint_id: str | None,
+        username: str | None,
+    ):
+        """Restrict ``query`` to the gateway traces whose cost a budget policy counts."""
+        query = query.join(
+            SqlTraceMetadata,
+            SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+        ).filter(
+            SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+            SqlTraceInfo.timestamp_ms >= start_time_ms,
+            SqlTraceInfo.timestamp_ms < end_time_ms,
+        )
+
+        if endpoint_id is not None:
+            query = query.filter(SqlTraceMetadata.value == endpoint_id)
+
+        if workspace is not None:
+            query = query.join(
+                SqlExperiment,
+                SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
+            ).filter(SqlExperiment.workspace == workspace)
+
+        if username is not None:
+            # Filter to traces whose recorded auth username matches the username.
+            # Uses a separate aliased join because SqlTraceMetadata is already
+            # joined above for the gateway-endpoint marker.
+            user_metadata = aliased(SqlTraceMetadata)
+            query = query.join(
+                user_metadata,
+                user_metadata.request_id == SqlTraceInfo.request_id,
+            ).filter(
+                user_metadata.key == TraceMetadataKey.AUTH_USERNAME,
+                user_metadata.value == username,
             )
 
-            if endpoint_id is not None:
-                query = query.filter(SqlTraceMetadata.value == endpoint_id)
-
-            if workspace is not None:
-                query = query.join(
-                    SqlExperiment,
-                    SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
-                ).filter(SqlExperiment.workspace == workspace)
-
-            if username is not None:
-                # Filter to traces whose recorded auth username matches the username.
-                # Uses a separate aliased join because SqlTraceMetadata is already
-                # joined above for the gateway-endpoint marker.
-                user_metadata = aliased(SqlTraceMetadata)
-                query = query.join(
-                    user_metadata,
-                    user_metadata.request_id == SqlTraceInfo.request_id,
-                ).filter(
-                    user_metadata.key == TraceMetadataKey.AUTH_USERNAME,
-                    user_metadata.value == username,
-                )
-
-            return float(query.scalar())
+        return query
 
     # Guardrail APIs
 

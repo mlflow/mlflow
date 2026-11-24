@@ -71,6 +71,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -7385,6 +7386,18 @@ def _assert_user_scope_enforceable(target_scope: BudgetTargetScope) -> None:
         )
 
 
+def _parse_budget_window_type(request_message) -> BudgetWindowType | None:
+    """Return the window type set on a budget policy request, or None if it is unset."""
+    if not request_message.HasField("window_type"):
+        return None
+    if (window_type := BudgetWindowType.from_proto(request_message.window_type)) is None:
+        raise MlflowException(
+            message=f"Invalid window_type: {request_message.window_type}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return window_type
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 @_disable_if_gateway_disabled
@@ -7431,6 +7444,7 @@ def _create_budget_policy():
             message=f"Invalid budget_action: {request_message.budget_action}",
             error_code=INVALID_PARAMETER_VALUE,
         )
+    window_type = _parse_budget_window_type(request_message) or BudgetWindowType.FIXED
     target_value = request_message.target_value or None
     _validate_budget_target_scope(target_scope, target_value)
     _assert_user_scope_enforceable(target_scope)
@@ -7443,6 +7457,7 @@ def _create_budget_policy():
         budget_action=budget_action,
         created_by=request_message.created_by or None,
         target_value=target_value,
+        window_type=window_type,
     )
     get_budget_tracker().invalidate()
     maybe_refresh_budget_policies(store)
@@ -7520,6 +7535,7 @@ def _update_budget_policy():
                 message=f"Invalid budget_action: {request_message.budget_action}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+    window_type = _parse_budget_window_type(request_message)
     target_value_provided = request_message.HasField("target_value")
     target_value = (request_message.target_value or None) if target_value_provided else None
     store = _get_tracking_store()
@@ -7550,6 +7566,7 @@ def _update_budget_policy():
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,
         target_value=target_value,
+        window_type=window_type,
     )
     get_budget_tracker().invalidate()
     maybe_refresh_budget_policies(store)

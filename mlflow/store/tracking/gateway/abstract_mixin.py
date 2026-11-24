@@ -16,6 +16,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDuration,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.gateway_guardrail import (
@@ -453,6 +454,7 @@ class GatewayStoreMixin:
         budget_action: BudgetAction,
         created_by: str | None = None,
         target_value: str | None = None,
+        window_type: BudgetWindowType = BudgetWindowType.FIXED,
     ) -> GatewayBudgetPolicy:
         """
         Create a new budget policy.
@@ -460,13 +462,15 @@ class GatewayStoreMixin:
         Args:
             budget_unit: Budget measurement unit (e.g. USD).
             budget_amount: Budget limit amount.
-            duration: Fixed time window (unit + length pair).
+            duration: Window length (unit + value pair).
             target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER).
             budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
             target_value: Target the policy applies to, interpreted per
                 ``target_scope``: a gateway endpoint ID for ENDPOINT scope, a
                 username for USER scope. Required for those scopes.
+            window_type: Whether spend is measured over fixed, calendar-aligned windows
+                (FIXED) or over the trailing ``duration`` ending now (SLIDING).
 
         Returns:
             GatewayBudgetPolicy entity.
@@ -498,6 +502,7 @@ class GatewayStoreMixin:
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
         target_value: str | None = None,
+        window_type: BudgetWindowType | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Update a budget policy.
@@ -506,13 +511,14 @@ class GatewayStoreMixin:
             budget_policy_id: ID of the budget policy to update.
             budget_unit: Optional new budget unit.
             budget_amount: Optional new budget amount.
-            duration: Optional new fixed time window (unit + length pair).
+            duration: Optional new window length (unit + value pair).
             target_scope: Optional new target type.
             budget_action: Optional new budget action.
             updated_by: Username of the updater.
             target_value: Optional new target the policy applies to (endpoint ID for
                 ENDPOINT scope, username for USER scope). Required when switching to
                 a targeted scope; cleared automatically for GLOBAL/WORKSPACE.
+            window_type: Optional new window type (FIXED or SLIDING).
 
         Returns:
             Updated GatewayBudgetPolicy entity.

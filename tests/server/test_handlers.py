@@ -1,7 +1,7 @@
 import json
 import urllib.parse
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest import mock
@@ -38,6 +38,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
 )
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.model_registry import (
@@ -12883,3 +12884,113 @@ def test_issue_handlers_accept_int64_timestamps_and_omitted_optional_fields(oper
         else:
             assert method.call_args.kwargs["last_seen_timestamp"] == int(timestamp)
         assert "metadata" not in method.call_args.kwargs
+
+
+def _post_budget_request(path, body, store):
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        return c.post(f"/ajax-api/3.0/mlflow/gateway/budgets/{path}", json=body)
+
+
+_CREATE_BUDGET_BODY = {
+    "budget_unit": "USD",
+    "budget_amount": 50.0,
+    "duration": {"unit": "HOURS", "value": 1},
+    "target_scope": "GLOBAL",
+    "budget_action": "REJECT",
+}
+
+
+def test_create_budget_policy_sliding_window():
+    store = mock.MagicMock()
+    store.create_budget_policy.return_value = replace(
+        _make_budget_policy(), window_type=BudgetWindowType.SLIDING
+    )
+
+    response = _post_budget_request(
+        "create", {**_CREATE_BUDGET_BODY, "window_type": "SLIDING"}, store
+    )
+
+    assert response.status_code == 200
+    assert store.create_budget_policy.call_args.kwargs["window_type"] == BudgetWindowType.SLIDING
+    assert response.json["budget_policy"]["window_type"] == "SLIDING"
+
+
+def test_create_budget_policy_window_type_defaults_to_fixed():
+    store = mock.MagicMock()
+    store.create_budget_policy.return_value = _make_budget_policy()
+
+    response = _post_budget_request("create", _CREATE_BUDGET_BODY, store)
+
+    assert response.status_code == 200
+    assert store.create_budget_policy.call_args.kwargs["window_type"] == BudgetWindowType.FIXED
+    assert response.json["budget_policy"]["window_type"] == "FIXED"
+
+
+def test_create_budget_policy_invalid_window_type_returns_400():
+    store = mock.MagicMock()
+
+    response = _post_budget_request(
+        "create", {**_CREATE_BUDGET_BODY, "window_type": "WINDOW_TYPE_UNSPECIFIED"}, store
+    )
+
+    assert response.status_code == 400
+    assert "Invalid window_type" in response.json["message"]
+    store.create_budget_policy.assert_not_called()
+
+
+def test_update_budget_policy_window_type():
+    store = mock.MagicMock()
+    store.update_budget_policy.return_value = replace(
+        _make_budget_policy(), window_type=BudgetWindowType.SLIDING
+    )
+
+    response = _post_budget_request(
+        "update", {"budget_policy_id": "bp-test", "window_type": "SLIDING"}, store
+    )
+
+    assert response.status_code == 200
+    assert store.update_budget_policy.call_args.kwargs["window_type"] == BudgetWindowType.SLIDING
+    assert response.json["budget_policy"]["window_type"] == "SLIDING"
+
+
+def test_update_budget_policy_without_window_type_leaves_it_unchanged():
+    store = mock.MagicMock()
+    store.update_budget_policy.return_value = _make_budget_policy(budget_amount=75.0)
+
+    response = _post_budget_request(
+        "update", {"budget_policy_id": "bp-test", "budget_amount": 75.0}, store
+    )
+
+    assert response.status_code == 200
+    assert store.update_budget_policy.call_args.kwargs["window_type"] is None
+
+
+def test_list_budget_windows_sliding_window_ends_now():
+    tracker = InMemoryBudgetTracker()
+    policy = replace(
+        _make_budget_policy(budget_policy_id="bp-sliding"), window_type=BudgetWindowType.SLIDING
+    )
+    tracker.refresh_policies([policy])
+    tracker.record_cost(12.5)
+
+    before_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+    after_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+
+    assert response.status_code == 200
+    [window] = response.json["windows"]
+    assert window["current_spend"] == 12.5
+    assert before_ms <= window["window_end_ms"] <= after_ms
+    # A day back from now, rounded down to the start of its 24-minute bucket.
+    span_ms = window["window_end_ms"] - window["window_start_ms"]
+    assert 86_400_000 <= span_ms <= 86_400_000 + 1_440_000

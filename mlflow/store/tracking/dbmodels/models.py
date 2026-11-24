@@ -93,6 +93,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.gateway_guardrail import (
@@ -3437,7 +3438,7 @@ class SqlGatewayEndpointTag(Base):
 class SqlGatewayBudgetPolicy(Base):
     """
     DB model for budget policies. These are recorded in ``budget_policies`` table.
-    Represents cost-based budget limits for the AI Gateway with fixed time windows.
+    Represents cost-based budget limits for the AI Gateway over fixed or sliding time windows.
     """
 
     __tablename__ = "budget_policies"
@@ -3456,7 +3457,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     duration_unit = Column(String(32), nullable=False)
     """
-    Duration unit for the fixed window: `String` (MINUTES, HOURS, DAYS, WEEKS, MONTHS).
+    Duration unit for the window: `String` (MINUTES, HOURS, DAYS, WEEKS, MONTHS).
     """
     duration_value = Column(Integer, nullable=False)
     """
@@ -3501,6 +3502,15 @@ class SqlGatewayBudgetPolicy(Base):
     ``target_scope`` — a gateway endpoint ID for ENDPOINT, a username
     for USER. NULL for GLOBAL and WORKSPACE scopes.
     """
+    window_type = Column(
+        String(32),
+        nullable=False,
+        default=BudgetWindowType.FIXED.value,
+        server_default=sa.text(f"'{BudgetWindowType.FIXED.value}'"),
+    )
+    """
+    Window type: `String` (FIXED, SLIDING). How spend is measured over the duration.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
@@ -3528,6 +3538,7 @@ class SqlGatewayBudgetPolicy(Base):
             last_updated_by=self.last_updated_by,
             workspace=self.workspace,
             target_value=self.target_value,
+            window_type=BudgetWindowType(self.window_type),
         )
 
 

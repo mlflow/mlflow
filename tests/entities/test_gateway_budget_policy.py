@@ -6,8 +6,10 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     GatewayBudgetPolicy,
 )
+from mlflow.protos.service_pb2 import BudgetWindowType as ProtoBudgetWindowType
 
 
 def _make_policy(**overrides):
@@ -91,3 +93,35 @@ def test_user_policy_proto_roundtrip_preserves_username_target():
 def test_string_target_scope_coerced_to_enum():
     policy = _make_policy(target_scope="USER", target_value="bob")
     assert policy.target_scope is BudgetTargetScope.USER
+
+
+def test_window_type_defaults_to_fixed():
+    assert _make_policy().window_type == BudgetWindowType.FIXED
+
+
+@pytest.mark.parametrize("window_type", list(BudgetWindowType))
+def test_to_proto_from_proto_round_trip_window_type(window_type):
+    policy = _make_policy(window_type=window_type)
+    assert GatewayBudgetPolicy.from_proto(policy.to_proto()).window_type == window_type
+
+
+def test_from_proto_without_window_type_is_fixed():
+    # Servers that predate sliding windows never set the field.
+    proto = _make_policy().to_proto()
+    proto.ClearField("window_type")
+    assert not proto.HasField("window_type")
+    assert GatewayBudgetPolicy.from_proto(proto).window_type == BudgetWindowType.FIXED
+
+
+def test_window_type_from_string_in_post_init():
+    assert _make_policy(window_type="SLIDING").window_type is BudgetWindowType.SLIDING
+
+
+def test_window_type_proto_conversion():
+    assert BudgetWindowType.SLIDING.to_proto() == ProtoBudgetWindowType.Value("SLIDING")
+    assert (
+        BudgetWindowType.from_proto(ProtoBudgetWindowType.Value("FIXED")) is BudgetWindowType.FIXED
+    )
+    assert (
+        BudgetWindowType.from_proto(ProtoBudgetWindowType.Value("WINDOW_TYPE_UNSPECIFIED")) is None
+    )
