@@ -12,7 +12,11 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
+from mlflow.genai.evaluation.constant import (
+    PREDICT_ERROR_COUNT_METRIC,
+    InputDatasetColumn,
+    ResultDataFrameColumn,
+)
 from mlflow.genai.evaluation.context import get_context
 from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.evaluation.utils import is_none_or_nan
@@ -103,6 +107,9 @@ class EvalItem:
 
     """Source information for the eval item (e.g., from which trace it was created)."""
     source: DatasetRecordSource | None = None
+
+    """Whether ``predict_fn`` raised for this item. Scorers are skipped for such items."""
+    predict_failed: bool = False
 
     @classmethod
     def from_trace(cls, trace: Trace) -> "EvalItem":
@@ -322,6 +329,10 @@ class EvaluationResult:
 
     def _failures(self) -> list[str]:
         failures = self._row_failures()
+        if predict_error_count := self.metrics.get(PREDICT_ERROR_COUNT_METRIC):
+            failures.append(
+                f"predict_fn raised for {int(predict_error_count)} row(s), which were not scored"
+            )
         for rule in self.quality_criteria:
             if failure := rule.check(self.metrics):
                 failures.append(failure)
