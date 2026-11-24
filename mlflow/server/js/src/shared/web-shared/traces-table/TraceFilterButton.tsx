@@ -16,6 +16,7 @@ import {
   Popover,
   SimpleSelect,
   SimpleSelectOption,
+  SimpleSelectOptionGroup,
   Tooltip,
   Typography,
   XCircleFillIcon,
@@ -35,6 +36,26 @@ import { ToolbarCollapsibleLabel } from './TracesToolbarResponsive';
 
 // Module-local static analytics-id namespace (static componentId lint rule).
 const COMPONENT_ID = 'web-shared.traces-table';
+
+/** Lists each group at its first field's position; ungrouped fields stay single entries in place. */
+const groupFieldOptions = (fields: FilterFieldDef[]) => {
+  const entries: Array<{ group?: string; fields: FilterFieldDef[] }> = [];
+  for (const field of fields) {
+    const groupEntry = field.group ? entries.find(({ group }) => group === field.group) : undefined;
+    if (groupEntry) {
+      groupEntry.fields.push(field);
+    } else {
+      entries.push({ group: field.group, fields: [field] });
+    }
+  }
+  return entries;
+};
+
+const renderFieldOption = (field: FilterFieldDef) => (
+  <SimpleSelectOption key={field.id} value={field.id}>
+    {field.label}
+  </SimpleSelectOption>
+);
 
 export interface TraceFilterButtonProps {
   /** The filterable fields, in dropdown order — drives every row (no field names are hardcoded). */
@@ -208,11 +229,15 @@ const FilterClauseRow = ({ clause, index, fields, onChangeClause, onDelete }: Fi
             });
           }}
         >
-          {fields.map((f) => (
-            <SimpleSelectOption key={f.id} value={f.id}>
-              {f.label}
-            </SimpleSelectOption>
-          ))}
+          {groupFieldOptions(fields).map(({ group, fields: groupFields }) =>
+            group ? (
+              <SimpleSelectOptionGroup key={`group:${group}`} label={group}>
+                {groupFields.map(renderFieldOption)}
+              </SimpleSelectOptionGroup>
+            ) : (
+              groupFields.map(renderFieldOption)
+            ),
+          )}
         </SimpleSelect>
       </div>
 

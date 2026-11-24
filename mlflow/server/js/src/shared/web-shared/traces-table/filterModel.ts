@@ -37,6 +37,8 @@ export interface FilterFieldSelectOption {
 export interface FilterFieldDef {
   id: string;
   label: string;
+  /** Localized Field dropdown section header; ungrouped fields remain plain options. */
+  group?: string;
   /** Operators offered for this field. The first entry is the default when the field is selected. */
   operators: FilterOp[];
   valueInput: FilterValueInputKind;

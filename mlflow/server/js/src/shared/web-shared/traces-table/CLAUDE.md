@@ -44,7 +44,8 @@ owns URL state, or knows product concepts.
   shared cell wraps its `Tag` in a `Link`, otherwise it renders plain text. There is no render-prop
   escape hatch — the visual is fixed on purpose.
 - **Filter builder.** `TraceFilterButton` is parameterized by `fields: FilterFieldDef[]` and owns the
-  draft/apply UX + the neutral `TraceFilterModel` AST. Server-clause compilation is the consumer's.
+  draft/apply UX + the neutral `TraceFilterModel` AST. A field's optional `group` is a Field dropdown
+  section header; fields in the same group are listed together. Server-clause compilation is the consumer's.
   Optional `description` and `validateFilters` let embedded consumers explain their matching semantics
   and reject Apply while keeping the draft editable.
 - **Column persistence hooks** (`useTraceColumnVisibility`, `useTraceColumnSizing`) take a

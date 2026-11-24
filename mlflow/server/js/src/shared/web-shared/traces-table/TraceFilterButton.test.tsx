@@ -160,6 +160,43 @@ describe('TraceFilterButton', () => {
     expect(onChange).toHaveBeenCalledWith([{ field: 'tag', operator: FilterOp.EQUALS, value: 'prod', key: 'env' }]);
   });
 
+  test('groups fields by section and still selects a grouped key field', async () => {
+    renderButton({
+      fields: [
+        { id: 'state', label: 'State', group: 'Trace', operators: [FilterOp.EQUALS], valueInput: 'text' },
+        { id: 'tag', label: 'Tag', operators: [FilterOp.EQUALS], valueInput: 'text' },
+        { id: 'duration', label: 'Duration', group: 'Trace', operators: [FilterOp.GREATER_THAN], valueInput: 'number' },
+        {
+          id: 'assessment',
+          label: 'Feedback',
+          group: 'Assessments',
+          operators: [FilterOp.EQUALS],
+          valueInput: 'text',
+          requiresKey: true,
+          keyInput: 'combobox',
+          keyPlaceholder: 'Feedback name',
+        },
+      ],
+    });
+    await userEvent.click(screen.getByRole('button', { name: /Filters/ }));
+    await userEvent.click(await screen.findByRole('combobox', { name: /Filter field/ }));
+
+    const listedTopToBottom = [
+      await screen.findByText('Trace'),
+      screen.getByRole('option', { name: 'State' }),
+      screen.getByRole('option', { name: 'Duration' }),
+      screen.getByRole('option', { name: 'Tag' }),
+      screen.getByText('Assessments'),
+      screen.getByRole('option', { name: 'Feedback' }),
+    ];
+    listedTopToBottom.slice(1).forEach((element, index) => {
+      expect(listedTopToBottom[index].compareDocumentPosition(element)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+
+    await userEvent.click(screen.getByRole('option', { name: 'Feedback' }));
+    expect(await screen.findByRole('combobox', { name: /Filter key/ })).toHaveTextContent('Feedback name');
+  });
+
   describe('combobox key input (keyInput: combobox)', () => {
     // Switch the first row to the Assessment field, whose key renders as a freeform combobox.
     const selectAssessmentField = async () => {
