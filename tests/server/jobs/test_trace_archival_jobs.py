@@ -638,6 +638,7 @@ def test_trace_archival_scheduler_processes_archive_now_with_real_store(monkeypa
 class _RecordingHuey:
     def __init__(self):
         self.periodic_task_names = []
+        self.locks = []
 
     def periodic_task(self, *_args, **_kwargs):
         def decorator(fn):
@@ -646,7 +647,9 @@ class _RecordingHuey:
 
         return decorator
 
-    def lock_task(self, *_args, **_kwargs):
+    def lock_task(self, lock_name, *_args, **_kwargs):
+        self.locks.append(lock_name)
+
         def decorator(fn):
             return fn
 
@@ -662,6 +665,7 @@ def test_register_periodic_tasks_includes_trace_archival_when_unconfigured(monke
 
     assert "online_scoring_scheduler" in huey.periodic_task_names
     assert "trace_archival_scheduler" in huey.periodic_task_names
+    assert huey.locks == []
 
 
 def test_register_periodic_tasks_includes_trace_archival_when_config_invalid(monkeypatch, tmp_path):

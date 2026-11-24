@@ -1,15 +1,64 @@
 import os
+import threading
 from unittest import mock
 
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
-from mlflow.server.jobs.utils import _load_function, _validate_function_parameters
+from mlflow.server.jobs.utils import (
+    _load_function,
+    _prevent_concurrent_periodic_task,
+    _validate_function_parameters,
+)
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
 )
+
+
+def test_prevent_concurrent_periodic_task_skips_overlapping_call():
+    entered = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    @_prevent_concurrent_periodic_task
+    def task():
+        calls.append(None)
+        entered.set()
+        release.wait(timeout=5)
+        return "done"
+
+    thread = threading.Thread(target=task, name="test-periodic-task-overlap")
+    thread.start()
+    try:
+        assert entered.wait(timeout=5)
+        assert task() is None
+    finally:
+        release.set()
+        thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    assert len(calls) == 1
+    assert task() == "done"
+    assert len(calls) == 2
+
+
+def test_prevent_concurrent_periodic_task_releases_lock_after_error():
+    calls = 0
+
+    @_prevent_concurrent_periodic_task
+    def task():
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("scheduler failed")
+        return "recovered"
+
+    with pytest.raises(RuntimeError, match="scheduler failed"):
+        task()
+
+    assert task() == "recovered"
 
 
 def test_validate_function_parameters():

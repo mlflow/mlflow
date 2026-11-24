@@ -1702,8 +1702,8 @@ MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", True
 )
 
-#: Specifies whether to run periodic MLflow server jobs from this instance.
-#: In a multi-replica deployment, enable this on only one instance to avoid duplicate scheduling.
+#: Specifies whether this MLflow server instance is eligible to lead periodic job scheduling.
+#: Eligible replicas coordinate through a database lease so only one runs periodic tasks.
 #: (default: ``True``)
 MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS = _BooleanEnvironmentVariable(
     "MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS", True

@@ -1534,7 +1534,9 @@ def test_main_stops_a_backend_whose_start_failed(monkeypatch):
         "mlflow.server.jobs.utils._start_watcher_to_kill_job_runner_if_mlflow_server_dies",
         lambda: None,
     )
-    monkeypatch.setattr("mlflow.server.jobs.utils._launch_periodic_tasks_consumer", lambda: None)
+    monkeypatch.setattr(
+        "mlflow.server.jobs.utils._launch_periodic_tasks_consumer_if_enabled", lambda: None
+    )
 
     with mock.patch.object(runner.os, "_exit") as exit_:
         runner.main()

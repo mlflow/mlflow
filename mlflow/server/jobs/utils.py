@@ -1,4 +1,5 @@
 import errno
+import functools
 import hashlib
 import importlib
 import inspect
@@ -17,7 +18,7 @@ from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, ContextManager
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, ParamSpec, TypeVar
 
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import (
@@ -25,6 +26,7 @@ from mlflow.environment_variables import (
     _MLFLOW_SERVER_JOB_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_LOGGING_LEVEL,
+    MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS,
     MLFLOW_SERVER_JOB_EXECUTION_ENGINE,
     MLFLOW_SERVER_JOB_FLUSH_PERIODIC_LOCKS_ON_STARTUP,
     MLFLOW_SERVER_JOB_HUEY_REDIS_URL,
@@ -55,6 +57,9 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
 # Reserved Huey instance key for periodic tasks
 HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
 
@@ -71,6 +76,24 @@ MLFLOW_ORIGINAL_PARENT_PID_ENV_VAR = "_MLFLOW_ORIGINAL_PARENT_PID"
 
 # Number of worker threads for the periodic tasks consumer
 PERIODIC_TASKS_WORKER_COUNT = 5
+
+
+def _prevent_concurrent_periodic_task(fn: Callable[_P, _R]) -> Callable[_P, _R | None]:
+    lock = threading.Lock()
+
+    @functools.wraps(fn)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R | None:
+        if not lock.acquire(blocking=False):
+            _logger.info(
+                "Skipping periodic task %s because its previous pass is still running", fn.__name__
+            )
+            return None
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            lock.release()
+
+    return wrapper
 
 
 def _exponential_backoff_retry(retry_count: int) -> None:
@@ -733,23 +756,24 @@ def _launch_huey_consumer(job_name: str) -> None:
 
 
 def _launch_periodic_tasks_consumer() -> None:
-    """
-    Launch a dedicated Huey consumer for periodic tasks.
-    This consumer runs scheduled tasks like the online scoring scheduler.
-    """
-    _logger.debug("Starting dedicated Huey consumer for periodic tasks")
+    """Compete for scheduler leadership and run the periodic Huey consumer while it is held."""
+    from mlflow.server.jobs._scheduler_leadership import (
+        _run_periodic_tasks_consumer_with_leadership,
+    )
 
-    def _huey_consumer_thread() -> None:
-        while True:
-            job_runner_proc = _start_periodic_tasks_consumer_proc()
-            job_runner_proc.wait()
-            time.sleep(1)
+    _logger.debug("Starting periodic-task scheduler leadership coordinator")
 
     threading.Thread(
-        target=_huey_consumer_thread,
-        name="MLflow-huey-consumer-periodic-tasks-watcher",
+        target=_run_periodic_tasks_consumer_with_leadership,
+        args=(_start_periodic_tasks_consumer_proc,),
+        name="MLflow-periodic-tasks-leadership-coordinator",
         daemon=False,
     ).start()
+
+
+def _launch_periodic_tasks_consumer_if_enabled() -> None:
+    if MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.get():
+        _launch_periodic_tasks_consumer()
 
 
 def _start_periodic_tasks_consumer_proc():
@@ -1093,7 +1117,7 @@ def register_periodic_tasks(huey_instance) -> None:
 
     @huey_instance.periodic_task(crontab(minute="*/1"))
     # Prevent concurrent execution if scheduler takes longer than 1 minute.
-    @huey_instance.lock_task("online-scoring-scheduler-lock")
+    @_prevent_concurrent_periodic_task
     def online_scoring_scheduler():
         """Runs every minute to fetch active scorer configs and submit scoring jobs."""
         from mlflow.genai.scorers.job import run_online_scoring_scheduler
@@ -1122,7 +1146,7 @@ def register_periodic_tasks(huey_instance) -> None:
 
     @huey_instance.periodic_task(crontab(minute="*/1"))
     # Prevent concurrent execution if scheduler takes longer than 1 minute.
-    @huey_instance.lock_task("trace-archival-scheduler-lock")
+    @_prevent_concurrent_periodic_task
     def trace_archival_scheduler():
         """Runs every minute and delegates scheduling cadence to the archival service."""
         try:
@@ -1160,7 +1184,7 @@ def register_periodic_tasks(huey_instance) -> None:
     # something else would quietly make it wrong.
     @huey_instance.periodic_task(crontab(minute=f"*/{POLL_INTERVAL_MINUTES}"))
     # Prevent concurrent execution if a pass takes longer than the interval.
-    @huey_instance.lock_task("issue-detection-scheduler-lock")
+    @_prevent_concurrent_periodic_task
     def issue_detection_scheduler():
         """Runs every 15 minutes, submitting detection for each schedule whose fire time came."""
         from mlflow.genai.discovery.scheduler import run_issue_detection_scheduler
@@ -1219,7 +1243,7 @@ def register_periodic_tasks(huey_instance) -> None:
     )
 
     @huey_instance.periodic_task(rollup_crontab)
-    @huey_instance.lock_task("sql-trace-rollup-scheduler-lock")
+    @_prevent_concurrent_periodic_task
     def sql_trace_rollup_scheduler():
         """Run SQL trace rollup maintenance on the configured UTC cron schedule."""
         try:

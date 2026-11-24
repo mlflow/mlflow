@@ -34,7 +34,6 @@ from mlflow.server.handlers import _get_job_store
 from mlflow.server.job_api import Job as JobApiResponse
 from mlflow.server.jobs import (
     TransientError,
-    _job_runner,
     _proxied_artifact_repository,
     cancel_job,
     get_job,
@@ -53,6 +52,7 @@ from mlflow.server.jobs.utils import (
     _exec_job,
     _exec_job_in_subproc,
     _exit_when_orphaned,
+    _launch_periodic_tasks_consumer_if_enabled,
     _prepare_job_subprocess,
     _PreparedJobSetupCommand,
     _PreparedJobSubprocess,
@@ -111,16 +111,16 @@ def tracking_uri_job_fun():
 
 def test_job_runner_periodic_tasks_can_be_disabled(monkeypatch):
     monkeypatch.setenv(MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.name, "false")
-    with mock.patch.object(_job_runner, "_launch_periodic_tasks_consumer") as launch_consumer:
-        _job_runner._launch_periodic_tasks_consumer_if_enabled()
+    with mock.patch("mlflow.server.jobs.utils._launch_periodic_tasks_consumer") as launch_consumer:
+        _launch_periodic_tasks_consumer_if_enabled()
 
     launch_consumer.assert_not_called()
 
 
 def test_job_runner_periodic_tasks_are_enabled_by_default(monkeypatch):
     monkeypatch.delenv(MLFLOW_SERVER_JOB_ENABLE_PERIODIC_TASKS.name, raising=False)
-    with mock.patch.object(_job_runner, "_launch_periodic_tasks_consumer") as launch_consumer:
-        _job_runner._launch_periodic_tasks_consumer_if_enabled()
+    with mock.patch("mlflow.server.jobs.utils._launch_periodic_tasks_consumer") as launch_consumer:
+        _launch_periodic_tasks_consumer_if_enabled()
 
     launch_consumer.assert_called_once()
 
