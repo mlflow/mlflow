@@ -114,17 +114,20 @@ file so a maintainer can make the change.
 
 Write `$out_dir/payload.json` using the [payload schema](payload.schema.yml). Key `responses` by
 thread ID, with one entry per thread. Add a `review` entry when the review's body has feedback
-that needs a response.
+that needs a response. If the current PR already addresses the requested change, mark it
+`resolved` and cite the existing fix in the reply. Use `answered` for a question that only
+needs an explanation.
 
 If feedback calls for a change to the PR title or description, add a top-level
 `pr_update` object with the complete replacement for each field you are changing (`title`
 or `body`). Use the smallest edits that address the review. Preserve relevant links,
-media, template sections, and unrelated text. Use `resolved` once a patch, a PR edit, or
-both address the feedback. The publisher applies PR edits before reporting them as resolved.
+media, template sections, and unrelated text. The publisher applies PR edits before reporting
+them as resolved.
 
-Write `$out_dir/fix.patch` when a resolution changes code. Keep the patch limited to the
-resolved items and their tests. Use `git add -N` for new files before generating the patch
-against `head_sha` with `git diff HEAD`.
+Write `$out_dir/fix.patch` when you change code. Keep the patch limited to the review
+feedback and its tests. A patch can address part of a request while the thread stays open.
+Use `git add -N` for new files before generating the patch against `head_sha` with
+`git diff HEAD`.
 
 Save supporting screenshots and recordings in `$out_dir/media`. Cite them in a reply
 or proposed PR description using their absolute paths in Markdown image links.
