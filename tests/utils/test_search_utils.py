@@ -399,10 +399,19 @@ def test_span_attribute_filter_accepts_pattern_comparators(comparator):
     ]
 
 
-@pytest.mark.parametrize("comparator", ["IN", "NOT IN"])
-def test_span_name_filter_accepts_list_comparators(comparator):
-    assert SearchTraceUtils.parse_search_filter(f"span.name {comparator} ('a', 'b')") == [
-        {"type": "span", "key": "name", "comparator": comparator, "value": ("a", "b")}
+@pytest.mark.parametrize(
+    ("field", "filter_suffix", "comparator", "value"),
+    [
+        ("name", "= 'a'", "=", "a"),
+        ("name", "in ('a', 'b')", "in", ("a", "b")),
+        ("type", "like 'L%'", "like", "L%"),
+        ("status", "ilike 'ok'", "ilike", "ok"),
+        ("status", "rlike '^O'", "rlike", "^O"),
+    ],
+)
+def test_span_filter_accepts_lowercase_comparators(field, filter_suffix, comparator, value):
+    assert SearchTraceUtils.parse_search_filter(f"span.{field} {filter_suffix}") == [
+        {"type": "span", "key": field, "comparator": comparator, "value": value}
     ]
 
 
