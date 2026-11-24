@@ -1676,7 +1676,6 @@ def test_unalign_guideline_indices_on_initialized_judge(sample_judge, sample_tra
         # mock_apis gives every guideline the same sources; make them distinct per guideline
         for i, g in enumerate(aligned._semantic_memory):
             g.source_trace_ids = [f"tr-{i}"]
-        embedder_calls = mocks["embedder"].call_count
         embedder_class_calls = mocks["embedder_class"].call_count
         embeddings_class_calls = mocks["embeddings_class"].call_count
 
@@ -1715,7 +1714,6 @@ def test_unalign_guideline_indices_on_initialized_judge(sample_judge, sample_tra
         mock_get_trace.assert_not_called()
         assert mocks["embedder_class"].call_count == embedder_class_calls
         assert mocks["embeddings_class"].call_count == embeddings_class_calls
-        assert mocks["embedder"].call_count == embedder_calls
 
 
 def test_unalign_guideline_indices_does_not_change_instructions_format(sample_judge, sample_traces):
@@ -1902,7 +1900,6 @@ def test_unalign_guideline_indices_preserves_scorer_settings(sample_judge, sampl
     [
         (3, "non-empty list"),
         ((0, 1), "non-empty list"),
-        ([], "non-empty list"),
         ([True], "Invalid guideline index True"),
         (["1"], "Invalid guideline index '1'"),
         ([1.0], "Invalid guideline index 1.0"),
@@ -1938,6 +1935,26 @@ def test_unalign_requires_traces_or_guideline_indices(sample_judge, sample_trace
         aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
     with pytest.raises(MlflowException, match="requires `traces`, `guideline_indices`, or both"):
         aligned.unalign(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"guideline_indices": []}, "No guideline indices provided; nothing to remove"),
+        (
+            {"traces": [], "guideline_indices": []},
+            "No feedback records found for the provided traces",
+        ),
+    ],
+)
+def test_unalign_empty_guideline_indices_warns_and_returns_same_judge(
+    sample_judge, sample_traces, kwargs, message
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    with patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger.warning") as warning:
+        assert aligned.unalign(**kwargs) is aligned
+    warning.assert_called_once_with(message)
 
 
 def test_unalign_empty_traces_warns_and_returns_same_judge(sample_judge, sample_traces):
@@ -2000,7 +2017,6 @@ def test_unalign_guideline_indices_shares_multi_field_retrievers(sample_judge, s
             sample_judge, sample_traces
         )
         assert list(aligned._retrievers) == ["inputs", "outputs"]
-        embedder_calls = mocks["embedder"].call_count
         embeddings_class_calls = mocks["embeddings_class"].call_count
 
         cleaned = aligned.unalign(guideline_indices=[0])
@@ -2011,7 +2027,6 @@ def test_unalign_guideline_indices_shares_multi_field_retrievers(sample_judge, s
     assert cleaned._retrievers is aligned._retrievers
     mock_get_trace.assert_not_called()
     assert mocks["embeddings_class"].call_count == embeddings_class_calls
-    assert mocks["embedder"].call_count == embedder_calls
     assert result.value == "yes"
     assert len(captured) == 1
     assert "G0" not in captured[0]

@@ -627,8 +627,9 @@ class MemoryAugmentedJudge(Judge):
         :py:attr:`guidelines` as it was before the call. This judge is not modified, and the
         returned judge keeps its MemAlign settings and scorer settings such as ``timeout`` and
         ``aggregations``. As with other judges, ``register()`` persists the name, description,
-        and aggregations; ``timeout`` and ``session_level`` set on this judge are kept only in
-        memory.
+        and aggregations; ``timeout`` set on this judge is kept only in memory. An empty
+        ``traces`` or ``guideline_indices`` list removes nothing, and if nothing is left to
+        remove, a warning is logged and this judge is returned.
 
         Args:
             traces: Traces containing feedback to remove from memory. Only traces with
@@ -661,9 +662,13 @@ class MemoryAugmentedJudge(Judge):
             raise MlflowException.invalid_parameter_value(
                 "unalign requires `traces`, `guideline_indices`, or both."
             )
-        if guideline_indices is not None:
+        # Like an empty `traces` list, an empty `guideline_indices` list removes nothing.
+        if guideline_indices:
             self._validate_guideline_indices(guideline_indices)
         indices_to_remove = set(guideline_indices or ())
+        if traces is None and not indices_to_remove:
+            _logger.warning("No guideline indices provided; nothing to remove")
+            return self
 
         # An empty `traces` list (e.g. a search that matched nothing) only warns, without
         # loading memory, so it can be combined with an index-only removal.
