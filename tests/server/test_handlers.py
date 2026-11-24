@@ -311,7 +311,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore as RegistryStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -3743,6 +3743,17 @@ def test_get_dataset_records(mock_tracking_store):
     assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
 
 
+def test_get_dataset_records_rejects_max_results_above_threshold(mock_tracking_store):
+    with app.test_request_context(
+        method="GET", query_string={"max_results": SEARCH_MAX_RESULTS_THRESHOLD + 1}
+    ):
+        resp = _get_dataset_records_handler("d-1234567890abcdef1234567890abcdef")
+
+    assert resp.status_code == 400
+    assert json.loads(resp.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+    mock_tracking_store._load_dataset_records.assert_not_called()
+
+
 def test_get_dataset_records_empty(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = ([], None)
 
@@ -4697,6 +4708,18 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
     call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+def test_search_logged_models_rejects_max_results_above_threshold(mock_tracking_store):
+    with app.test_request_context(
+        method="POST",
+        json={"experiment_ids": ["1"], "max_results": SEARCH_MAX_RESULTS_THRESHOLD + 1},
+    ):
+        resp = _search_logged_models()
+
+    assert resp.status_code == 400
+    assert json.loads(resp.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+    mock_tracking_store.search_logged_models.assert_not_called()
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):

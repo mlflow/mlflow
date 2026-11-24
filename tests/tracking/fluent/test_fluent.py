@@ -60,6 +60,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
     _ACTIVE_MODEL_CONTEXT,
@@ -2111,6 +2112,26 @@ def test_search_logged_models_max_results():
             order_by=None,
             page_token=None,
         )
+
+
+def test_search_logged_models_caps_page_size():
+    with mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient:
+        mock_client = MockClient.return_value
+        mock_client.search_logged_models.side_effect = [
+            make_mock_search_logged_model_page(["model_1"], "token_1"),
+            make_mock_search_logged_model_page(["model_2"], None),
+        ]
+
+        result = mlflow.search_logged_models(
+            experiment_ids=["123"],
+            max_results=SEARCH_MAX_RESULTS_THRESHOLD + 1,
+            output_format="list",
+        )
+
+        assert result == ["model_1", "model_2"]
+        assert [
+            c.kwargs["max_results"] for c in mock_client.search_logged_models.call_args_list
+        ] == [SEARCH_MAX_RESULTS_THRESHOLD, SEARCH_MAX_RESULTS_THRESHOLD]
 
 
 def test_set_active_model():

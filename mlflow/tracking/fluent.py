@@ -51,7 +51,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import (
@@ -3076,12 +3076,13 @@ def search_logged_models(
     client = MlflowClient()
     models = []
     page_token = None
+    page_size = None if max_results is None else min(max_results, SEARCH_MAX_RESULTS_THRESHOLD)
     while True:
         logged_models_page = client.search_logged_models(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             datasets=datasets,
-            max_results=max_results,
+            max_results=page_size,
             order_by=order_by,
             page_token=page_token,
         )

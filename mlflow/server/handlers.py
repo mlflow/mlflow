@@ -6396,7 +6396,10 @@ def _search_logged_models():
             ],
             "filter": [_assert_string],
             "datasets": [_assert_array],
-            "max_results": [_assert_intlike],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), SEARCH_MAX_RESULTS_THRESHOLD),
+            ],
             "order_by": [_assert_array],
             "page_token": [_assert_string],
         },
@@ -8571,11 +8574,15 @@ def _remove_dataset_from_experiments_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
 def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),
         schema={
-            "max_results": [_assert_intlike],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), SEARCH_MAX_RESULTS_THRESHOLD),
+            ],
             "page_token": [_assert_string],
         },
     )
