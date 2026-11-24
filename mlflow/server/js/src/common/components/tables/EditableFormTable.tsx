@@ -15,6 +15,7 @@ import {
   PencilIcon,
   Spinner,
   TrashIcon,
+  Typography,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
@@ -225,11 +226,14 @@ export class EditableTable extends React.Component<EditableTableProps, EditableT
           tableLayout="fixed"
           pagination={false}
           locale={{
+            // The table's default placeholder color fails WCAG contrast, so set the secondary text color.
             emptyText: (
-              <FormattedMessage
-                defaultMessage="No tags found."
-                description="Text for no tags found in editable form table in MLflow"
-              />
+              <Typography.Text color="secondary">
+                <FormattedMessage
+                  defaultMessage="No tags found."
+                  description="Text for no tags found in editable form table in MLflow"
+                />
+              </Typography.Text>
             ),
           }}
           scroll={{ y: 280 }}
