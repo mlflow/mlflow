@@ -3842,7 +3842,9 @@ class MlflowClient:
                 download the specified artifacts. This directory must already exist.
                 If unspecified, the artifacts will either be downloaded to a new
                 uniquely-named directory on the local filesystem or will be returned
-                directly in the case of the LocalArtifactRepository.
+                directly in the case of the LocalArtifactRepository. The artifact keeps its
+                path relative to the run's artifact root, so ``a/b.txt`` is downloaded to
+                ``<dst_path>/a/b.txt``.
 
         Returns:
             Local path of desired artifact.
