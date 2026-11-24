@@ -32,6 +32,11 @@ describe('unit tests', () => {
     expect(screen.getByText('tag1')).toBeInTheDocument();
   });
 
+  test('should render the empty state', () => {
+    renderWithIntl(<EditableTable {...minimalProps} data={[]} />);
+    expect(screen.getByText('No tags found.')).toBeInTheDocument();
+  });
+
   test('should display only one modal when deleting a tag', async () => {
     // Prep
     renderWithIntl(<EditableTable {...minimalProps} />);
