@@ -58,7 +58,7 @@ const renderFieldOption = (field: FilterFieldDef) => (
 );
 
 export interface TraceFilterButtonProps {
-  /** The filterable fields, in dropdown order — drives every row (no field names are hardcoded). */
+  /** Filterable fields; fields sharing a group are listed together at its first member's position. */
   fields: FilterFieldDef[];
   filterModel: TraceFilterModel;
   onChange: (next: TraceFilterModel) => void;
