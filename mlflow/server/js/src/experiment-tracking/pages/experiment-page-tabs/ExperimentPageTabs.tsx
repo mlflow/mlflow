@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useObserveIssueDetectionJobs } from '../experiment-issues/useObserveIssueDetectionJobs';
 import {
   Button,
   GenericSkeleton,
@@ -66,6 +67,7 @@ const ExperimentPageTabsImpl = () => {
   const activeTab = activeTabByRoute ?? coerceToEnum(ExperimentPageTabName, tabName, ExperimentPageTabName.Models);
 
   invariant(experimentId, 'Experiment ID must be defined');
+  useObserveIssueDetectionJobs(experimentId);
 
   const {
     data: experiment,

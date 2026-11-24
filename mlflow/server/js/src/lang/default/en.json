@@ -15863,6 +15863,10 @@
     "defaultMessage": "← Back to form",
     "description": "Return from the skill API example to the form"
   },
+  "lbR6T3": {
+    "defaultMessage": "The run ended with an error.",
+    "description": "Fallback reason in a failed issue detection notification"
+  },
   "ld2Xn9": {
     "defaultMessage": "Compare",
     "description": "MCP server detail compare tab"
@@ -18378,6 +18382,10 @@
   "tUgCAM": {
     "defaultMessage": "Prompt",
     "description": "Label for the prompt picker on the playground prompt-registry modal"
+  },
+  "tXFWgN": {
+    "defaultMessage": "Started {startTime}.",
+    "description": "Start time shown in an issue detection job completion notification"
   },
   "tYeNo2": {
     "defaultMessage": "No fields to group by yet",
