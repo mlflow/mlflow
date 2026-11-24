@@ -297,15 +297,16 @@ class EvaluationResult:
 
     @property
     def passed(self) -> bool:
-        """``True`` when every scorer passed for every row and every condition in
-        ``quality_criteria`` holds.
+        """``True`` when ``predict_fn`` succeeded for every row, every scorer passed for
+        every row, and every condition in ``quality_criteria`` holds.
 
         A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
         Declare ``@scorer(pass_if=...)`` to define passing for other values.
         Only the feedback this run's scorers produced is checked. Dataset expectations
         and feedback logged on the traces outside this run stay in ``result_df`` but
-        don't affect ``passed``. A run does not pass when its per-row results are
-        unavailable or when no scorer produced a value for any row.
+        don't affect ``passed``. A run does not pass when ``predict_fn`` raised for any
+        row (counted in the ``predict_error_count`` metric), when its per-row results are
+        unavailable, or when no scorer produced a value for any row.
 
         Usage::
 
@@ -316,9 +317,10 @@ class EvaluationResult:
 
     @property
     def reason(self) -> str:
-        """Human-readable explanation of which scorers failed and why.
+        """Human-readable explanation of which scorers failed and why, including how many
+        rows were not scored because ``predict_fn`` raised.
 
-        Empty string when all scorers passed.
+        Empty string when the run passed.
         """
         failures = self._failures()
         if not failures:

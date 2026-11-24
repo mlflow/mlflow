@@ -57,7 +57,8 @@ def emit_metric_usage_event(
             for scorer, hashed_name in zip(custom_metrics, metric_name_to_hash.values())
         }
         for metric_key, metric_value in aggregated_metrics.items():
-            name, aggregation = metric_key.split("/", 1)
+            # Keys without a "/" (e.g. `predict_error_count`) aren't scorer aggregations.
+            name, _, aggregation = metric_key.partition("/")
             hashed_name = metric_name_to_hash.get(name)
             if hashed_name is not None and aggregation == "mean":
                 metric_stats[hashed_name]["average"] = metric_value

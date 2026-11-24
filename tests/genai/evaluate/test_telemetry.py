@@ -125,6 +125,29 @@ def test_emit_metric_usage_event_custom_scorers_only(mock_http_request):
     }
 
 
+def test_emit_metric_usage_event_ignores_metrics_without_aggregation(mock_http_request):
+    emit_metric_usage_event(
+        scorers=[is_concise],
+        trace_count=3,
+        session_count=0,
+        aggregated_metrics={"is_concise/mean": 0.5, "predict_error_count": 1},
+    )
+
+    mock_http_request.assert_called_once()
+    payload = mock_http_request.call_args[1]["json"]
+
+    assert payload == {
+        "agent_evaluation_client_usage_events": [
+            {
+                "custom_metric_usage_event": {
+                    "eval_count": 3,
+                    "metrics": [{"name": mock.ANY, "average": 0.5, "count": 3}],
+                }
+            }
+        ]
+    }
+
+
 def test_emit_metric_usage_event_builtin_scorers_only(mock_http_request):
     emit_metric_usage_event(
         scorers=[Correctness(), Guidelines(guidelines="Be concise")],
