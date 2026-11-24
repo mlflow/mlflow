@@ -102,7 +102,7 @@ const HomePage = () => {
             <span
               css={{
                 display: 'flex',
-                borderRadius: theme.borders.borderRadiusSm,
+                borderRadius: theme.borders.borderRadiusMd,
                 backgroundColor: theme.colors.backgroundSecondary,
                 padding: theme.spacing.sm,
               }}

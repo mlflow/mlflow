@@ -41,7 +41,7 @@ export const LaunchDemoCard = () => {
         background: theme.colors.backgroundPrimary,
         borderRadius: theme.borders.borderRadiusMd,
         border: `1px solid ${theme.colors.borderDecorative}`,
-        boxShadow: theme.shadows.sm,
+        boxShadow: '0px 2px 3px -1px rgba(0, 0, 0, 0.05), 0px 1px 0px 0px rgba(0, 0, 0, 0.02)',
       }}
     >
       <img
@@ -57,7 +57,7 @@ export const LaunchDemoCard = () => {
       <div css={{ flex: 1 }}>
         <div
           css={{
-            fontSize: 14,
+            fontSize: theme.typography.fontSizeBase,
             fontWeight: theme.typography.typographyBoldFontWeight,
             color: theme.colors.textPrimary,
             marginBottom: theme.spacing.xs,

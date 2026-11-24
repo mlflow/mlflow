@@ -2,6 +2,7 @@ import { FormattedMessage } from 'react-intl';
 import { AssistantIcon, NotebookIcon, RobotIcon, DatabaseIcon } from '@databricks/design-system';
 import type { HomeNewsItemDefinition } from './types';
 
+// Each thumbnail gradient is illustration art with a hand-picked light and dark version.
 export const homeNewsItems: HomeNewsItemDefinition[] = [
   {
     id: 'mlflow-mcp-server',

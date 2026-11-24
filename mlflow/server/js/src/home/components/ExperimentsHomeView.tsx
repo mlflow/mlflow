@@ -112,7 +112,7 @@ export const ExperimentsHomeView = ({
       <div
         css={{
           border: `1px solid ${theme.colors.borderDecorative}`,
-          borderRadius: theme.general.borderRadiusBase,
+          borderRadius: theme.borders.borderRadiusMd,
           overflow: 'hidden',
           backgroundColor: theme.colors.backgroundPrimary,
         }}

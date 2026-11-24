@@ -17,11 +17,11 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
     border: `1px solid ${theme.colors.borderDecorative}`,
     borderRadius: theme.borders.borderRadiusMd,
     background: theme.colors.backgroundPrimary,
-    padding: theme.spacing.sm + theme.spacing.xs,
+    padding: theme.spacing.mid,
     display: 'flex',
     gap: theme.spacing.sm,
     boxSizing: 'border-box' as const,
-    boxShadow: theme.shadows.sm,
+    boxShadow: '0px 2px 3px -1px rgba(0, 0, 0, 0.05), 0px 1px 0px 0px rgba(0, 0, 0, 0.02)',
     cursor: 'pointer',
     transition: 'background 150ms ease',
     '&:hover': {
@@ -33,10 +33,10 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
   };
 
   const iconWrapperStyles = {
-    borderRadius: theme.borders.borderRadiusSm,
+    borderRadius: theme.borders.borderRadiusMd,
     background: theme.colors.actionDefaultBackgroundHover,
     padding: theme.spacing.xs,
-    color: theme.colors.blue500,
+    color: theme.colors.actionLinkDefault,
     height: 'min-content',
     display: 'flex',
     alignItems: 'center',

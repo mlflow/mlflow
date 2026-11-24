@@ -12,6 +12,7 @@
   right: 0;
   bottom: 0;
   height: 100%;
+  /* The preview's white controls sit on this scrim, so it stays dark in both themes. */
   background-color: rgba(0, 0, 0, 0.45);
   z-index: 1000;
 }
@@ -26,6 +27,7 @@
 }
 
 .mlflow-ui-container .rc-image-preview-mask {
+  /* The preview's white controls sit on this scrim, so it stays dark in both themes. */
   background-color: rgba(0, 0, 0, 0.45);
   bottom: 0;
   height: 100%;
@@ -111,11 +113,10 @@
   align-items: center;
   background: rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
-  color: rgba(0, 0, 0, 0.85);
   color: hsla(0, 0%, 100%, 0.85);
   display: flex;
   flex-direction: row-reverse;
-  font-size: 14px;
+  font-size: 13px;
   font-variant: tabular-nums;
   line-height: 1.5715;
   list-style: none;

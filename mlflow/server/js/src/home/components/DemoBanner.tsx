@@ -71,7 +71,7 @@ export const DemoBanner = () => {
         <CloseIcon />
       </button>
       <Empty
-        image={<BeakerIcon css={{ fontSize: 48, color: theme.colors.actionPrimaryBackgroundDefault }} />}
+        image={<BeakerIcon css={{ fontSize: 48, color: theme.colors.actionLinkDefault }} />}
         title={<FormattedMessage defaultMessage="New to MLflow?" description="Demo banner title" />}
         description={
           <FormattedMessage

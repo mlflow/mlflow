@@ -58,10 +58,15 @@ const WebhookListItem = ({
           <span
             css={{
               padding: `2px ${theme.spacing.xs}px`,
-              borderRadius: theme.legacyBorders.borderRadiusMd,
+              borderRadius: theme.borders.borderRadiusSm,
               fontSize: theme.typography.fontSizeSm,
-              backgroundColor: webhook.status === 'ACTIVE' ? theme.colors.green100 : theme.colors.grey200,
-              color: webhook.status === 'ACTIVE' ? theme.colors.green700 : theme.colors.textSecondary,
+              backgroundColor:
+                webhook.status === 'ACTIVE'
+                  ? theme.colors.backgroundSuccess
+                  : theme.isDarkMode
+                    ? theme.colors.grey650
+                    : '#f5f5f5',
+              color: webhook.status === 'ACTIVE' ? theme.colors.textValidationSuccess : theme.colors.textSecondary,
             }}
           >
             {webhook.status === 'ACTIVE'

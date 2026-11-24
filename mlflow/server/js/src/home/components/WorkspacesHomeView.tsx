@@ -282,7 +282,7 @@ const WorkspaceRow = ({
                 textDecoration: 'none',
                 fontWeight: theme.typography.typographyBoldFontWeight,
                 '&:hover': {
-                  color: theme.colors.actionLinkHover,
+                  color: theme.colors.actionLinkDefault,
                   textDecoration: 'underline',
                 },
               }}

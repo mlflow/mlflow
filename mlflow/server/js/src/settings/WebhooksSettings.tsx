@@ -223,7 +223,7 @@ const WebhooksSettings = ({
           css={{
             padding: theme.spacing.lg,
             border: `1px solid ${theme.colors.border}`,
-            borderRadius: theme.legacyBorders.borderRadiusMd,
+            borderRadius: theme.borders.borderRadiusMd,
             textAlign: 'center',
           }}
         >
@@ -247,7 +247,7 @@ const WebhooksSettings = ({
         <div
           css={{
             border: `1px solid ${theme.colors.border}`,
-            borderRadius: theme.legacyBorders.borderRadiusMd,
+            borderRadius: theme.borders.borderRadiusMd,
             overflow: 'hidden',
           }}
         >
