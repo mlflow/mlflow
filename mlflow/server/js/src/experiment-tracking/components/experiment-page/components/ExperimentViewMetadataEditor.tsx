@@ -44,6 +44,7 @@ import {
   type TraceArchivalRetentionUnit,
 } from '../../../../common/utils/traceArchival';
 import { MlflowService } from '../../../sdk/MlflowService';
+import { shouldEnableExperimentSettingsPage } from '../../../../common/utils/FeatureUtils';
 
 const extractNoteFromTags = (tags: Record<string, KeyValueEntity>) =>
   Object.values(tags).find((t) => t.key === NOTE_CONTENT_TAG)?.value;
@@ -195,6 +196,11 @@ export const ExperimentViewMetadataEditor = ({
   const canEditMetadata = canModifyExperiment(experiment);
   const canRename = canRenameExperiment(experiment);
   const traceArchivalEnabled = useTraceArchivalEnabled();
+  // With the Settings page, the name and trace archival retention are edited there and this only edits
+  // the description.
+  const descriptionOnly = shouldEnableExperimentSettingsPage();
+  const editsName = canRename && !descriptionOnly;
+  const editsRetention = canEditMetadata && !descriptionOnly;
 
   const updateTmpRetention = useCallback(
     ({
@@ -230,15 +236,15 @@ export const ExperimentViewMetadataEditor = ({
       const currentNote = effectiveNote ?? '';
       const updatedNoteValue = updatedNote ?? '';
       const hasNoteChanged = canEditMetadata && updatedNoteValue !== currentNote;
-      const shouldRename = canRename && trimmedName !== experiment.name;
+      const shouldRename = editsName && trimmedName !== experiment.name;
       const trimmedRetention = formatTraceArchivalRetention(updatedRetentionAmount ?? '', updatedRetentionUnit);
-      const hasRetentionChanged = canEditMetadata && trimmedRetention !== currentTraceArchivalRetention;
+      const hasRetentionChanged = editsRetention && trimmedRetention !== currentTraceArchivalRetention;
       const retentionValidationError = getTraceArchivalRetentionValidationError(
         updatedRetentionAmount ?? '',
         updatedRetentionUnit,
         intl,
       );
-      if (canRename && !trimmedName) {
+      if (editsName && !trimmedName) {
         setNameError(
           intl.formatMessage({
             defaultMessage: 'Please input a new name for the experiment.',
@@ -247,7 +253,7 @@ export const ExperimentViewMetadataEditor = ({
         );
         return;
       }
-      if (canEditMetadata && retentionValidationError) {
+      if (editsRetention && retentionValidationError) {
         setRetentionError(retentionValidationError);
         return;
       }
@@ -353,7 +359,8 @@ export const ExperimentViewMetadataEditor = ({
       setEditing,
       validateExperimentName,
       canEditMetadata,
-      canRename,
+      editsName,
+      editsRetention,
     ],
   );
 
@@ -480,10 +487,17 @@ export const ExperimentViewMetadataEditor = ({
       <Modal
         componentId="mlflow.experiment.metadata_editor.modal"
         title={
-          <FormattedMessage
-            defaultMessage="Edit experiment"
-            description="experiment page > edit experiment modal > title"
-          />
+          descriptionOnly ? (
+            <FormattedMessage
+              defaultMessage="Edit description"
+              description="experiment page > edit description modal > title"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Edit experiment"
+              description="experiment page > edit experiment modal > title"
+            />
+          )
         }
         visible={editing}
         okButtonProps={{ loading: isSaving }}
@@ -518,7 +532,7 @@ export const ExperimentViewMetadataEditor = ({
               type="error"
             />
           )}
-          {canRename && (
+          {editsName && (
             <div>
               <FormUI.Label htmlFor="mlflow.experiment.edit.name">
                 <FormattedMessage
@@ -574,7 +588,7 @@ export const ExperimentViewMetadataEditor = ({
               />
             </div>
           )}
-          {canEditMetadata && traceArchivalEnabled && (
+          {editsRetention && traceArchivalEnabled && (
             <div>
               <FormUI.Label htmlFor="mlflow.experiment.edit.trace-archival-retention-amount">
                 <FormattedMessage
