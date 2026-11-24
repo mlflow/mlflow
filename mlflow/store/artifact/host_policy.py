@@ -27,6 +27,7 @@ from mlflow.utils.uri import get_uri_scheme
 # package pulls in Flask. `tests/store/artifact/test_host_policy.py` pins the two to stay equal.
 _SERVER_ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
 _SERVER_ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
+_SERVER_SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 
 # `r2`, `b2` and `abfss` take their endpoint from the authority after the last "@"
 # (`<bucket>@<endpoint>` and `<filesystem>@<account>.<domain>`), which `urlparse` reports as the

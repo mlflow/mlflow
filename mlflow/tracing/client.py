@@ -57,6 +57,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.host_policy import _SERVER_SERVE_ARTIFACTS_ENV_VAR
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent, TraceAttachmentsEvent
@@ -800,15 +801,14 @@ class TracingClient:
             and not is_http_uri(self.tracking_uri)
             # Check the server's serve-artifacts flag before importing `mlflow.server`, which
             # requires Flask and isn't available in skinny client installations.
-            and os.environ.get("_MLFLOW_SERVER_SERVE_ARTIFACTS", "false") == "true"
+            and os.environ.get(_SERVER_SERVE_ARTIFACTS_ENV_VAR, "false") == "true"
         ):
             # Inside a tracking server (e.g. AI Gateway usage tracking), the tracking URI is the
             # backend store URI, so `mlflow-artifacts:` can't be resolved over HTTP. Resolve it to
             # `--artifacts-destination` the same way the server's trace artifact handlers do.
             from mlflow.server import handlers
 
-            if handlers._is_servable_proxied_run_artifact_root(artifact_uri):
-                return handlers._get_trace_repo_from_uri(artifact_uri)
+            return handlers._get_trace_repo_from_uri(artifact_uri)
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
