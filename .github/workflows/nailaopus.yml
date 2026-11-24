@@ -246,10 +246,10 @@ jobs:
           # main after reviewing the diff. We'll migrate to release tags once
           # the bump cadence is stable.
           #
-          # This revision adds the native Claude Code Sonnet 5.5 + Codex Sol
-          # backend with frozen 2025 memory. The CLI installation and backend
-          # selection below belong to the same pinned implementation.
-          ref: 221446aac8ac84dd19af178cda5bc74e706a10f3
+          # This revision replaces the custom review engine with Claude Code
+          # Sonnet 5.5 + Codex Sol and frozen 2025 memory. The installer
+          # below belongs to the same pinned implementation.
+          ref: 2b947fcf36a921cf3ea3fc201b294b8eb9fb5134
           sparse-checkout: |
             nailaopus
           path: internal
@@ -329,7 +329,7 @@ jobs:
         # from the orchestrator package without a separate `uv pip install`
         # step; uv caches the env between invocations.
         run: |
-          uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" --mlflow-tree "$GITHUB_WORKSPACE/mlflow" --reviewer-backend native --no-dry-run $FLAGS
+          uv run --directory internal/nailaopus nailaopus "$PR" --repo "$REPO" --mlflow-tree "$GITHUB_WORKSPACE/mlflow" --no-dry-run $FLAGS
 
       - name: React +1 on success
         if: success()
