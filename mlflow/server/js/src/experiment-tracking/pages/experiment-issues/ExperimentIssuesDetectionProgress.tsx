@@ -9,6 +9,8 @@ import { IssueDetectionIllustration } from './IssueDetectionIllustration';
 
 export interface ExperimentIssuesDetectionProgressProps {
   experimentId: string;
+  /** The list toolbar already provides cancellation. */
+  isInList?: boolean;
   /** Ends the in-progress run; unset while there is none to end yet. */
   onCancelDetection?: () => Promise<void>;
 }
@@ -22,6 +24,7 @@ export interface ExperimentIssuesDetectionProgressProps {
  */
 export const ExperimentIssuesDetectionProgress = ({
   experimentId,
+  isInList = false,
   onCancelDetection,
 }: ExperimentIssuesDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
@@ -80,21 +83,23 @@ export const ExperimentIssuesDetectionProgress = ({
           />
         </Typography.Text>
       </div>
-      <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
-        <CancelIssueDetectionButton
-          componentId="mlflow.experiment-issues.detection-progress.cancel"
-          onCancel={onCancelDetection}
-        />
-        <Button
-          componentId="mlflow.experiment-issues.detection-progress.go-to-traces"
-          onClick={() => navigate(tracesRoute)}
-        >
-          <FormattedMessage
-            defaultMessage="Go to Traces"
-            description="Experiment issues tab > In-progress issue detection action to go to the traces tab"
+      {!isInList && (
+        <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
+          <CancelIssueDetectionButton
+            componentId="mlflow.experiment-issues.detection-progress.cancel"
+            onCancel={onCancelDetection}
           />
-        </Button>
-      </div>
+          <Button
+            componentId="mlflow.experiment-issues.detection-progress.go-to-traces"
+            onClick={() => navigate(tracesRoute)}
+          >
+            <FormattedMessage
+              defaultMessage="Go to Traces"
+              description="Experiment issues tab > In-progress issue detection action to go to the traces tab"
+            />
+          </Button>
+        </div>
+      )}
     </section>
   );
 };

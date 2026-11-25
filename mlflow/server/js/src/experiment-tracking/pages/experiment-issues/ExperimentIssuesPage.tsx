@@ -257,20 +257,22 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
         ) : (
           <>
             {issues.length === 0 ? (
-              <CenteredState>
-                {existenceError ? (
-                  <ReadError error={existenceError} retry={() => anyIssue.refetch()} />
-                ) : (
-                  <Empty
-                    description={
-                      <FormattedMessage
-                        defaultMessage="No issues match these filters."
-                        description="Experiment Issues no matching results"
-                      />
-                    }
-                  />
-                )}
-              </CenteredState>
+              isEmptyState ? null : (
+                <CenteredState>
+                  {existenceError ? (
+                    <ReadError error={existenceError} retry={() => anyIssue.refetch()} />
+                  ) : (
+                    <Empty
+                      description={
+                        <FormattedMessage
+                          defaultMessage="No issues match these filters."
+                          description="Experiment Issues no matching results"
+                        />
+                      }
+                    />
+                  )}
+                </CenteredState>
+              )
             ) : (
               <ul
                 aria-busy={search.isFetching && !search.isFetchingNextPage}
@@ -322,18 +324,39 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       </div>
     </div>
   );
-  const detailPane = !selectedId ? undefined : detail.error ? (
-    <ReadError error={detail.error} retry={() => detail.refetch()} />
-  ) : detail.isLoading ? (
-    <div css={{ flex: 1, padding: theme.spacing.lg }}>
-      <TableSkeleton lines={5} />
-    </div>
-  ) : detail.data ? (
-    <ExperimentIssueDetail key={selectedId} issue={detail.data} onViewTrace={viewTrace} />
-  ) : undefined;
+  const emptyState = (
+    <ExperimentIssuesEmptyState
+      experimentId={experimentId}
+      isInList={Boolean(detection.run)}
+      hasCompletedDetectionRuns={detection.status === JobStatus.SUCCEEDED}
+      isCleanScan={cleanScan}
+      hasTimedOutDetectionRun={detection.status === JobStatus.TIMEOUT}
+      hasFailedDetectionRun={detection.status === JobStatus.FAILED}
+      isDetecting={isDetectionButtonLoading}
+      detectionEnabled={detectionEnabled}
+      onRunIssueDetection={startDetection}
+      runHistoryRoute={
+        detection.run || detection.submissionStalled ? Routes.getIssueDetectionRunsRoute(experimentId) : undefined
+      }
+    />
+  );
+  const detailPane =
+    isEmptyState && detection.run ? (
+      <CenteredState>
+        {isDetecting ? <ExperimentIssuesDetectionProgress experimentId={experimentId} isInList /> : emptyState}
+      </CenteredState>
+    ) : !selectedId ? undefined : detail.error ? (
+      <ReadError error={detail.error} retry={() => detail.refetch()} />
+    ) : detail.isLoading ? (
+      <div css={{ flex: 1, padding: theme.spacing.lg }}>
+        <TableSkeleton lines={5} />
+      </div>
+    ) : detail.data ? (
+      <ExperimentIssueDetail key={selectedId} issue={detail.data} onViewTrace={viewTrace} />
+    ) : undefined;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
-      {(hasShownIssues.current || (!isEmptyState && !isResolvingEmptyState)) && (
+      {(hasShownIssues.current || (!isResolvingEmptyState && (detection.run || !isEmptyState))) && (
         <div css={{ flexShrink: 0, paddingBottom: theme.spacing.md, borderBottom: `1px solid ${theme.colors.border}` }}>
           <ExperimentIssuesActionBar
             experimentId={experimentId}
@@ -401,28 +424,8 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
       )}
       {isResolvingEmptyState ? (
         <TableSkeleton lines={5} />
-      ) : isEmptyState && isDetecting ? (
-        <CenteredState>
-          <ExperimentIssuesDetectionProgress experimentId={experimentId} onCancelDetection={onCancelDetection} />
-        </CenteredState>
-      ) : isEmptyState ? (
-        <CenteredState>
-          <ExperimentIssuesEmptyState
-            hasCompletedDetectionRuns={detection.status === JobStatus.SUCCEEDED}
-            isCleanScan={cleanScan}
-            hasTimedOutDetectionRun={detection.status === JobStatus.TIMEOUT}
-            hasFailedDetectionRun={detection.status === JobStatus.FAILED}
-            isDetecting={isDetectionButtonLoading}
-            detectionEnabled={detectionEnabled}
-            onRunIssueDetection={startDetection}
-            // Only once something has run. `detection.run` is the newest detection run, found with
-            // the same search the history page uses, and a stalled submission still left one
-            // behind -- which is exactly a run somebody would want to go and look at.
-            runHistoryRoute={
-              detection.run || detection.submissionStalled ? Routes.getIssueDetectionRunsRoute(experimentId) : undefined
-            }
-          />
-        </CenteredState>
+      ) : isEmptyState && !detection.run ? (
+        <CenteredState>{emptyState}</CenteredState>
       ) : (
         <IssueSplitPane list={list} detail={detailPane} />
       )}

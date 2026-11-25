@@ -510,7 +510,8 @@ describe('Experiment Issues', () => {
       // The page now owns the run in progress rather than sending the user to the run page.
       expect(screen.getByText('Detecting issues...')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Cancel detection' })).toBeEnabled();
-      expect(screen.getByRole('button', { name: 'Go to Traces' })).toBeInTheDocument();
+      expect(screen.getByRole('toolbar', { name: 'Search and detect issues' })).toBeInTheDocument();
+      expect(screen.getByRole('separator', { name: 'Resize issue list' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'View detection run' })).not.toBeInTheDocument();
       // The panel offers no way to start a second run while one is in flight.
       expect(screen.queryByRole('button', { name: 'Run issue detection' })).not.toBeInTheDocument();
@@ -534,12 +535,11 @@ describe('Experiment Issues', () => {
       if (empty) issues = [];
       latestRun = { info: { run_id: 'old-run', status: 'FINISHED', start_time: 1 }, data: { tags: [] } };
       jobStatus = 'RUNNING';
-      const buttonName = empty ? 'Run issue detection' : 'Detect issues in traces';
+      const buttonName = 'Detect issues in traces';
       const first = renderPage();
       await screen.findByRole('button', { name: buttonName, busy: false });
       act(() => recordSubmittedIssueDetectionJob({ experimentId: '1', runId: 'run-1', jobId: 'job-1', traceCount: 2 }));
-      // An empty list hands the whole area to the progress panel; a populated one keeps its
-      // toolbar button and shows the run as busy there.
+      // Both layouts keep their toolbar while the submitted job is running.
       const expectInProgress = async () => {
         if (empty) {
           expect(await screen.findByText('Detecting issues...')).toBeInTheDocument();
@@ -560,9 +560,7 @@ describe('Experiment Issues', () => {
       await act(async () => {
         await client.invalidateQueries(['FETCH_JOB_STATUS', 'job-1']);
       });
-      expect(
-        await screen.findByRole('button', { name: empty ? 'Start new detection' : buttonName, busy: false }),
-      ).toBeEnabled();
+      expect(await screen.findByRole('button', { name: buttonName, busy: false })).toBeEnabled();
     },
   );
   test.each([{ experimentId: 'other' }, { experimentId: '1', workspace: 'other' }])(
@@ -589,9 +587,7 @@ describe('Experiment Issues', () => {
       };
       server.use(rest.get('*/ajax-api/3.0/mlflow/jobs/job-1', (_req, res, ctx) => res(ctx.status(403))));
       renderPage();
-      expect(
-        await screen.findByText(count === '0' ? 'No issues detected' : 'No issues to display'),
-      ).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'No issues recorded' })).toBeInTheDocument();
       expect(screen.queryByText('Discover issues automatically')).not.toBeInTheDocument();
       expect(screen.queryByText('Unable to update detection progress')).not.toBeInTheDocument();
     },
@@ -627,10 +623,10 @@ describe('Experiment Issues', () => {
     );
     renderPage();
     await screen.findByText('Unable to load issues');
-    expect(screen.queryByText('No issues to display')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'No issues recorded' })).not.toBeInTheDocument();
     server.use(rest.post('*/ajax-api/3.0/mlflow/issues/search', (_req, res, ctx) => res(ctx.json({ issues: [] }))));
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(await screen.findByText('No issues to display')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'No issues recorded' })).toBeInTheDocument();
   });
   test('shows category descriptions on chip hover and focus without extra help buttons', async () => {
     renderPage();
@@ -771,9 +767,9 @@ describe('Experiment Issues', () => {
       ),
     );
 
-    // Both the progress panel and the action bar offer a cancel, so this picks the panel's.
+    // Cancellation stays in the toolbar while the detail pane shows progress.
     await userEvent.click(
-      document.querySelector('[data-component-id="mlflow.experiment-issues.detection-progress.cancel"]') as HTMLElement,
+      document.querySelector('[data-component-id="mlflow.experiment-issues.cancel-detection"]') as HTMLElement,
     );
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel detection' }));
 
@@ -887,10 +883,8 @@ describe('Experiment Issues', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Run issue detection' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Selected traces: trace-1, trace-2');
   });
-  test.each(['FAILED', 'SUCCEEDED'])('reaches the run history from the empty state after a %s run', async (status) => {
-    // This state hides the toolbar that normally carries the history button, and it is exactly
-    // where a detection that failed or found nothing lands -- so without a link here the reason a
-    // run failed is unreachable from the one screen that reports it.
+  test.each(['FAILED', 'SUCCEEDED'])('keeps run history in the toolbar after an empty %s run', async (status) => {
+    // A detection with no findings keeps history reachable in the normal list layout.
     issues = [];
     latestRun = {
       info: { run_id: 'run-1', status: 'RUNNING' },
@@ -899,34 +893,39 @@ describe('Experiment Issues', () => {
     jobStatus = status;
     renderPage();
 
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
-    await userEvent.click(await screen.findByRole('link', { name: 'View run history' }));
+    expect(await screen.findByRole('heading', { name: 'No issues recorded' })).toBeInTheDocument();
+    expect(screen.getByRole('toolbar')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Issue detection run history' }));
 
     expect(screen.getByLabelText('Current URL')).toHaveTextContent('/experiments/1/issues/runs');
   });
 
-  test.each(['FAILED', 'TIMEOUT'])('offers a centered new detection after an empty %s run', async (status) => {
-    issues = [];
-    latestRun = {
-      info: { run_id: 'run-1', status: 'RUNNING' },
-      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
-    };
-    jobStatus = status;
-    renderPage();
-    const restart = await screen.findByRole('button', { name: 'Start new detection' });
-    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.queryByText('No issues detected')).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        status === 'TIMEOUT'
-          ? 'The previous issue detection timed out. Start a new detection to try again.'
-          : 'The previous issue detection failed. Start a new detection to try again.',
-      ),
-    ).toBeInTheDocument();
-    await userEvent.click(restart);
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-  });
+  test.each(['FAILED', 'TIMEOUT'])(
+    'keeps failure guidance and restart in the list after an empty %s run',
+    async (status) => {
+      issues = [];
+      latestRun = {
+        info: { run_id: 'run-1', status: 'RUNNING' },
+        data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+      };
+      jobStatus = status;
+      renderPage();
+      const restart = await screen.findByRole('button', { name: 'Detect issues in traces' });
+      expect(screen.getByRole('toolbar')).toBeInTheDocument();
+      expect(screen.getByRole('separator', { name: 'Resize issue list' })).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.queryByText('No issues detected')).not.toBeInTheDocument();
+      expect(
+        screen.getByText(
+          status === 'TIMEOUT'
+            ? 'The previous issue detection timed out. Start a new detection to try again.'
+            : 'The previous issue detection failed. Start a new detection to try again.',
+        ),
+      ).toBeInTheDocument();
+      await userEvent.click(restart);
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    },
+  );
   test('retries unavailable detection history from the empty page', async () => {
     issues = [];
     server.use(rest.post('*/ajax-api/2.0/mlflow/runs/search', (_req, res, ctx) => res(ctx.status(500))));

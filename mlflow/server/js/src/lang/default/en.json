@@ -5103,6 +5103,10 @@
     "defaultMessage": "Save",
     "description": "Text for saving changes on rows in editable form table in MLflow"
   },
+  "E7vPUh": {
+    "defaultMessage": "No issues recorded",
+    "description": "Experiment issues tab > Empty list title after background issue detection"
+  },
   "E80Rl1": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button on the MCP server detail page"
@@ -15962,6 +15966,10 @@
   "lxGVDu": {
     "defaultMessage": "Percentage of traces evaluated by this judge.",
     "description": "Hint text for sample rate slider"
+  },
+  "lxdW6f": {
+    "defaultMessage": "To improve your next detection, try <priorities>setting detection priorities</priorities>.",
+    "description": "Experiment issues tab > Empty list hint recommending detection priorities"
   },
   "lyNyOH": {
     "defaultMessage": "Default queue",

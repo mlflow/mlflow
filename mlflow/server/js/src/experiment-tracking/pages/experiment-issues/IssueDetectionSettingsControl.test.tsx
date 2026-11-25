@@ -35,11 +35,11 @@ const server = setupServer(
   }),
 );
 
-const render = () => {
+const render = (linkText?: string) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   return renderWithDesignSystem(
     <QueryClientProvider client={client}>
-      <IssueDetectionSettingsControl experimentId="1" />
+      <IssueDetectionSettingsControl experimentId="1" linkText={linkText} />
     </QueryClientProvider>,
   );
 };
@@ -62,6 +62,42 @@ beforeEach(() => {
 });
 
 describe('IssueDetectionSettingsControl', () => {
+  test('the inline priorities link opens saved settings and preserves edits after a failed save', async () => {
+    experimentTags = [
+      {
+        key: MLFLOW_ISSUE_DETECTION_PRIORITIES_TAG,
+        value: JSON.stringify({ instructions: 'Focus on failures', categories: { correctness: true } }),
+      },
+    ];
+    render('setting detection priorities');
+    const trigger = await screen.findByRole('button', { name: 'setting detection priorities' });
+    await waitFor(() => expect(trigger).toBeEnabled());
+    await userEvent.click(trigger);
+    const priorities = await screen.findByRole('textbox', { name: /Detection priorities/ });
+    expect(priorities).toHaveValue('Focus on failures');
+    await userEvent.clear(priorities);
+    await userEvent.type(priorities, 'Keep this draft');
+    saveFails = true;
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Could not save issue detection settings. Try again.')).toBeInTheDocument();
+    expect(priorities).toHaveValue('Keep this draft');
+  });
+
+  test('the inline trigger retains failed-load retry instead of exposing default settings', async () => {
+    loadFails = true;
+    render('setting detection priorities');
+    const retry = await screen.findByRole('button', { name: 'Retry loading issue detection settings' });
+    expect(screen.queryByRole('button', { name: 'setting detection priorities' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    loadFails = false;
+    await userEvent.click(retry);
+    const trigger = await screen.findByRole('button', { name: 'setting detection priorities' });
+    await waitFor(() => expect(trigger).toBeEnabled());
+    await userEvent.click(trigger);
+    expect(await screen.findByRole('textbox', { name: /Detection priorities/ })).toBeInTheDocument();
+    expect(written).toEqual([]);
+  });
+
   test('an experiment with no saved settings opens with every focus area selected', async () => {
     render();
     await openSettings();
