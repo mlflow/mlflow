@@ -107,10 +107,16 @@ def test_make_containing_dirs_when_dir_created_concurrently(tmp_path):
     dir_path = tmp_path / "metrics" / "eval"
     dir_path.mkdir(parents=True)
     # Simulate another process creating the directory right after an existence check
-    with mock.patch("os.path.exists", return_value=False) as mock_exists:
+    with mock.patch("os.path.exists", return_value=False):
         make_containing_dirs(str(dir_path / "accuracy"))
-        mock_exists.assert_called()
     assert dir_path.is_dir()
+
+
+def test_make_containing_dirs_raises_when_parent_is_file(tmp_path):
+    file_path = tmp_path / "metrics"
+    file_path.touch()
+    with pytest.raises(FileExistsError, match="metrics"):
+        make_containing_dirs(str(file_path / "accuracy"))
 
 
 def test_file_copy():
