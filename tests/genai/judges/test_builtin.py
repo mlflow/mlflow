@@ -233,6 +233,7 @@ def _mock_score(mock_content):
 
 
 def test_meets_guidelines_oss():
+    response = "Paris\n\nThis answer was revised after review."
     mock_content = json.dumps({
         "result": "yes",
         "rationale": "Let's think step by step. The response is correct.",
@@ -241,7 +242,7 @@ def test_meets_guidelines_oss():
     with _mock_score(mock_content) as mock_score:
         feedback = judges.meets_guidelines(
             guidelines="The response must be in English.",
-            context={"request": "What is the capital of France?", "response": "Paris"},
+            context={"request": "What is the capital of France?", "response": response},
         )
 
     assert feedback.name == "guidelines"
@@ -257,6 +258,9 @@ def test_meets_guidelines_oss():
     prompt = call_kwargs["messages"][0].content
     assert prompt.startswith("Given the following set of guidelines and some inputs")
     assert "What is the capital of France?" in prompt
+    assert f"<response>{response}</response>" in prompt
+    # The default judge follows text in the response over instructions that precede it.
+    assert prompt.index("Evaluate each tagged input above in full") > prompt.index("</response>")
 
 
 def test_is_context_relevant_oss():
