@@ -8,16 +8,18 @@ down_revision = "f4a9b2c7d1e6"
 branch_labels = None
 depends_on = None
 
+_TABLE_NAME = "model_versions"
+
 
 def upgrade():
     context = op.get_context()
     # MySQL and SQLite can retain the column if the backfill is interrupted.
     if context.as_sql or not any(
         column["name"] == "model_id"
-        for column in sa.inspect(op.get_bind()).get_columns("model_versions")
+        for column in sa.inspect(op.get_bind()).get_columns(_TABLE_NAME)
     ):
-        op.add_column("model_versions", sa.Column("model_id", sa.String(36), nullable=True))
-    versions = sa.table("model_versions", sa.column("source", sa.String()), sa.column("model_id"))
+        op.add_column(_TABLE_NAME, sa.Column("model_id", sa.String(36), nullable=True))
+    versions = sa.table(_TABLE_NAME, sa.column("source", sa.String()), sa.column("model_id"))
     source = versions.c.source
     dialect = context.dialect.name
     substring = sa.func.substr if dialect == "sqlite" else sa.func.substring
@@ -59,7 +61,7 @@ def downgrade():
         and not context.as_sql
         and context.dialect.server_version_info < (3, 35)
     ):
-        with op.batch_alter_table("model_versions") as batch_op:
+        with op.batch_alter_table(_TABLE_NAME) as batch_op:
             batch_op.drop_column("model_id")
     else:
-        op.drop_column("model_versions", "model_id")
+        op.drop_column(_TABLE_NAME, "model_id")
