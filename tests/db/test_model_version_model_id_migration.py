@@ -1,4 +1,6 @@
+import io
 import os
+import sqlite3
 
 import pytest
 import sqlalchemy as sa
@@ -85,3 +87,23 @@ def test_model_version_model_id_backfill(migration_db, resume):
     assert "model_id" not in {
         col["name"] for col in sa.inspect(engine).get_columns("model_versions")
     }
+
+
+def test_sqlite_offline_model_id_backfill():
+    config = _get_alembic_config("sqlite://")
+    config.output_buffer = io.StringIO()
+    command.upgrade(config, "f4a9b2c7d1e6:4cdafdc631ca", sql=True)
+
+    with sqlite3.connect(":memory:") as db:
+        db.execute("CREATE TABLE alembic_version (version_num TEXT)")
+        db.execute("CREATE TABLE model_versions (source TEXT)")
+        db.executemany(
+            "INSERT INTO model_versions VALUES (?)",
+            [("models:///m-id",), ("models:/name/2",), ("models:/m-id\x00extra",)],
+        )
+        db.executescript(config.output_buffer.getvalue())
+        assert db.execute("SELECT model_id FROM model_versions ORDER BY rowid").fetchall() == [
+            ("m-id",),
+            (None,),
+            (None,),
+        ]

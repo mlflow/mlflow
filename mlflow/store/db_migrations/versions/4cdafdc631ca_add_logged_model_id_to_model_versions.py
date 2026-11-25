@@ -28,6 +28,13 @@ def upgrade():
     if dialect == "mssql":
         binary_path = path.collate("Latin1_General_100_BIN2")
         valid_path = binary_path.not_like("%[^-/a-zA-Z0-9_]%") & binary_path.not_like("%[^/]/%")
+    elif dialect == "sqlite":
+        # GLOB works in offline SQL, and SQLite's string functions stop at a NUL byte.
+        valid_path = (
+            ~path.bool_op("GLOB")("*[^/a-zA-Z0-9_-]*")
+            & ~path.bool_op("GLOB")("*[^/]/*")
+            & (sa.func.instr(source, sa.func.char(0)) == 0)
+        )
     else:
         valid_path = ~path.regexp_match("[^/a-zA-Z0-9_-]|[^/]/")
     op.execute(
@@ -46,4 +53,13 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_column("model_versions", "model_id")
+    context = op.get_context()
+    if (
+        context.dialect.name == "sqlite"
+        and not context.as_sql
+        and context.dialect.server_version_info < (3, 35)
+    ):
+        with op.batch_alter_table("model_versions") as batch_op:
+            batch_op.drop_column("model_id")
+    else:
+        op.drop_column("model_versions", "model_id")
