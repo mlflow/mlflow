@@ -19,24 +19,27 @@ def upgrade():
         op.add_column("model_versions", sa.Column("model_id", sa.String(36), nullable=True))
     versions = sa.table("model_versions", sa.column("source", sa.String()), sa.column("model_id"))
     source = versions.c.source
-    prefix = "models:/"
     dialect = context.dialect.name
     substring = sa.func.substr if dialect == "sqlite" else sa.func.substring
-    model_id = substring(source, len(prefix) + 1, 500)
+    path = substring(source, len("models:") + 1, 500)
+    model_id = sa.func.replace(path, "/", "")
 
     # Tracking and registry databases can be separate. Recover only a direct logged-model URI.
     if dialect == "mssql":
-        valid_id = model_id.not_like("%[^a-zA-Z0-9_-]%")
+        binary_path = path.collate("Latin1_General_100_BIN2")
+        valid_path = binary_path.not_like("%[^-/a-zA-Z0-9_]%") & binary_path.not_like("%[^/]/%")
     else:
-        valid_id = ~model_id.regexp_match("[^a-zA-Z0-9_-]")
+        valid_path = ~path.regexp_match("[^/a-zA-Z0-9_-]|[^/]/")
     op.execute(
         versions
         .update()
         .where(
             versions.c.model_id.is_(None),
-            source.like(f"{prefix}_%"),
+            sa.func.lower(substring(source, 1, 8)) == "models:/",
+            # Two leading slashes introduce an authority. Three or more introduce an empty one.
+            ~path.like("//%") | path.like("///%"),
             sa.func.length(model_id).between(1, 36),
-            valid_id,
+            valid_path,
         )
         .values(model_id=model_id)
     )
