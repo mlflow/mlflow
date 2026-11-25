@@ -21,6 +21,7 @@ from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.budget_tracker import (
     BudgetWindow,
+    SlidingWindowHistory,
     _sliding_bucket_start_ms,
     _sliding_bucket_width_ms,
     _sliding_window_cutoff_ms,
@@ -102,7 +103,7 @@ def calculate_existing_cost_for_windows(
 
 def calculate_existing_bucket_cost_for_windows(
     store: SqlAlchemyStore, windows: list[BudgetWindow]
-) -> dict[str, dict[int, float]]:
+) -> list[SlidingWindowHistory]:
     """Calculate the spend per bucket of sliding budget windows from trace history.
 
     The sliding-window counterpart of ``calculate_existing_cost_for_windows``. Spend is
@@ -110,10 +111,10 @@ def calculate_existing_bucket_cost_for_windows(
     under, so the trace history and the tracker agree on which bucket a request is in.
 
     Returns:
-        Dict mapping budget_policy_id to spend per bucket, keyed by bucket start in epoch
-        milliseconds.
+        One history per sliding window with spend, carrying the policy version its buckets
+        were read for.
     """
-    result: dict[str, dict[int, float]] = {}
+    result: list[SlidingWindowHistory] = []
     now = datetime.now(timezone.utc)
 
     for window in windows:
@@ -129,7 +130,7 @@ def calculate_existing_bucket_cost_for_windows(
                 **_trace_cost_filters(policy),
             )
             if buckets := {start: cost for start, cost in spend.items() if cost > 0}:
-                result[policy.budget_policy_id] = buckets
+                result.append(SlidingWindowHistory(policy=policy, bucket_spend=buckets))
         except Exception:
             _logger.debug(
                 "Failed to calculate existing bucket cost for policy %s",
@@ -164,8 +165,8 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
             windows = tracker.refresh_policies(policies)
             existing_spend = calculate_existing_cost_for_windows(store, windows)
             newly_exceeded = tracker.backfill_spend(existing_spend)
-            if existing_bucket_spend := calculate_existing_bucket_cost_for_windows(store, windows):
-                newly_exceeded += tracker.backfill_bucket_spend(existing_bucket_spend)
+            if histories := calculate_existing_bucket_cost_for_windows(store, windows):
+                newly_exceeded += tracker.backfill_bucket_spend(histories)
             if newly_exceeded:
                 # The flag is committed by the time we get here, so delivery is
                 # best-effort: if it fails the window stays muted. This is the tradeoff

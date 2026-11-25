@@ -7389,6 +7389,14 @@ def _assert_user_scope_enforceable(target_scope: BudgetTargetScope) -> None:
 def _parse_budget_window_type(request_message) -> BudgetWindowType | None:
     """Return the window type set on a budget policy request, or None if it is unset."""
     if not request_message.HasField("window_type"):
+        # Request parsing drops enum names it does not know, which would quietly turn a
+        # typo into a FIXED policy (or keep the current type on update).
+        request_json = _get_normalized_request_json()
+        if (raw := request_json.get("window_type", request_json.get("windowType"))) is not None:
+            raise MlflowException(
+                message=f"Invalid window_type: {raw}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         return None
     if (window_type := BudgetWindowType.from_proto(request_message.window_type)) is None:
         raise MlflowException(

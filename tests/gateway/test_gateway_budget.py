@@ -26,6 +26,7 @@ from mlflow.gateway.budget import (
     maybe_refresh_budget_policies,
 )
 from mlflow.gateway.budget_tracker import (
+    SlidingWindowHistory,
     _sliding_bucket_start_ms,
     _sliding_bucket_width_ms,
     get_budget_tracker,
@@ -1119,7 +1120,7 @@ def test_calculate_existing_bucket_cost_queries_the_sliding_window():
     result = calculate_existing_bucket_cost_for_windows(store, windows)
 
     # Empty buckets are dropped, and fixed windows are left to the fixed-window query.
-    assert result == {"bp-test": {bucket: 12.5}}
+    assert result == [SlidingWindowHistory(policy=sliding, bucket_spend={bucket: 12.5})]
     store.sum_gateway_trace_cost_by_bucket.assert_called_once()
     kwargs = store.sum_gateway_trace_cost_by_bucket.call_args.kwargs
     width_ms = _sliding_bucket_width_ms(_ONE_DAY)
@@ -1138,7 +1139,7 @@ def test_calculate_existing_bucket_cost_handles_store_error():
     windows = get_budget_tracker().refresh_policies([
         _make_policy(window_type=BudgetWindowType.SLIDING)
     ])
-    assert calculate_existing_bucket_cost_for_windows(store, windows) == {}
+    assert calculate_existing_bucket_cost_for_windows(store, windows) == []
 
 
 def test_refresh_seeds_sliding_window_from_trace_history_and_alerts():

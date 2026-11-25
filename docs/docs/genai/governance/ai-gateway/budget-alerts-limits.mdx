@@ -91,7 +91,7 @@ Accumulated spend resets to zero at the start of each new window.
 
 Sliding windows (`SLIDING`) always cover the most recent duration ending now, such as the last 24 hours, rather than the current calendar day. Spend never resets all at once: each request's cost stops counting once it is older than the duration. This matches how many LLM providers enforce rate limits, and avoids the burst a fixed window allows when its spend resets at a boundary.
 
-The gateway tracks a sliding window in 60 buckets, each 1/60 of the duration (for example, 1-minute buckets for a 1-hour window). A cost is filed under the bucket in which its request started, and counts until that whole bucket has aged out of the window. A cost therefore counts for at least the full duration, and at most one bucket longer. For `MONTHS` durations, a sliding window covers the same span of calendar months, and buckets are sized from 30-day months.
+The gateway tracks a sliding window in 60 buckets, each 1/60 of the duration (for example, 1-minute buckets for a 1-hour window). A cost is filed under the bucket in which its request started, and counts until that whole bucket has aged out of the window. A cost therefore counts for at least the full duration, and at most one bucket longer. For `MONTHS` durations, a sliding window covers the same span of calendar months, and buckets are sized from 30-day months. A cost from a day the later month lacks, such as January 31 in a 1-month window, counts until the start of the month after it (March 1).
 
 Create a sliding-window policy by setting `window_type` to `SLIDING`, for example through the REST API:
 

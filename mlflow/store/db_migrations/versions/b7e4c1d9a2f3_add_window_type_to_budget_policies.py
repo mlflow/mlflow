@@ -32,4 +32,5 @@ def upgrade():
 
 def downgrade():
     with op.batch_alter_table("budget_policies", schema=None) as batch_op:
-        batch_op.drop_column("window_type")
+        # SQL Server refuses to drop a column that still has a DEFAULT constraint.
+        batch_op.drop_column("window_type", mssql_drop_default=True)

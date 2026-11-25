@@ -14,6 +14,7 @@ from mlflow.entities.gateway_budget_policy import (
 from mlflow.gateway.budget_tracker import (
     BudgetTracker,
     BudgetWindow,
+    SlidingWindowHistory,
     _advance_sliding_window,
     _compute_window_end,
     _compute_window_start,
@@ -232,9 +233,7 @@ class InMemoryBudgetTracker(BudgetTracker):
 
         return newly_exceeded
 
-    def backfill_bucket_spend(
-        self, bucket_spend_by_policy: dict[str, dict[int, float]]
-    ) -> list[BudgetWindow]:
+    def backfill_bucket_spend(self, histories: list[SlidingWindowHistory]) -> list[BudgetWindow]:
         """Sync the buckets of sliding windows from authoritative trace data.
 
         Takes max(current, db_value) per bucket, for the same reason ``backfill_spend``
@@ -247,15 +246,19 @@ class InMemoryBudgetTracker(BudgetTracker):
         now = datetime.now(timezone.utc)
 
         with self._lock:
-            for budget_policy_id, buckets in bucket_spend_by_policy.items():
-                window = self._windows.get(budget_policy_id)
+            for history in histories:
+                window = self._windows.get(history.policy.budget_policy_id)
                 if window is None or not _is_sliding(window):
+                    continue
+                # Read for another duration, the buckets have another width; merging them
+                # would count the same spend under two bucket keys.
+                if history.policy.duration != window.policy.duration:
                     continue
                 # Age out first: a flag set by spend that has since aged out must not hide
                 # a crossing made by the seeded spend.
                 _advance_sliding_window(window, now)
                 was_exceeded = window.exceeded
-                for bucket_start_ms, spend in buckets.items():
+                for bucket_start_ms, spend in history.bucket_spend.items():
                     window.bucket_spend[bucket_start_ms] = max(
                         window.bucket_spend.get(bucket_start_ms, 0.0), spend
                     )

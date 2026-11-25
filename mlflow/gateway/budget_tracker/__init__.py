@@ -92,12 +92,27 @@ class BudgetWindow:
         if self.policy.window_type != BudgetWindowType.SLIDING:
             return self.window_end
         width_ms = _sliding_bucket_width_ms(self.policy.duration)
-        remaining = self.cumulative_spend
         for bucket_start_ms in sorted(self.bucket_spend):
-            remaining -= self.bucket_spend[bucket_start_ms]
+            # Sum what is left rather than subtracting from the total, so the comparison
+            # sees the same float the tracker computes once these buckets have aged out.
+            remaining = sum(
+                spend for start, spend in self.bucket_spend.items() if start > bucket_start_ms
+            )
             if remaining < self.policy.budget_amount:
                 return _sliding_bucket_expiry(self.policy.duration, bucket_start_ms, width_ms)
         return self.window_end
+
+
+@dataclass(frozen=True)
+class SlidingWindowHistory:
+    """Spend per bucket of a sliding window, read from trace history for one policy version.
+
+    The buckets are only meaningful for the duration they were read with, so the policy
+    travels with them and trackers drop them once the window's policy no longer matches.
+    """
+
+    policy: GatewayBudgetPolicy
+    bucket_spend: dict[int, float]
 
 
 class BudgetTracker(ABC):
@@ -201,17 +216,15 @@ class BudgetTracker(ABC):
         """
 
     @abstractmethod
-    def backfill_bucket_spend(
-        self, bucket_spend_by_policy: dict[str, dict[int, float]]
-    ) -> list[BudgetWindow]:
+    def backfill_bucket_spend(self, histories: list[SlidingWindowHistory]) -> list[BudgetWindow]:
         """Seed the buckets of sliding windows from historical data.
 
         The sliding-window counterpart of ``backfill_spend``: a sliding window needs to know
-        when its spend happened, not just how much, to age it out.
+        when its spend happened, not just how much, to age it out. A history read for a
+        policy duration the window no longer uses is dropped.
 
         Args:
-            bucket_spend_by_policy: Dict mapping budget_policy_id to historical spend per
-                bucket, keyed by bucket start in epoch milliseconds.
+            histories: Historical spend per bucket, one entry per sliding policy.
 
         Returns:
             List of windows that the seeded spend carried past their limit.
@@ -309,13 +322,22 @@ def _compute_window_end(
 def _shift_by_duration(duration: BudgetDuration, moment: datetime, sign: int = 1) -> datetime:
     """Move ``moment`` forward (``sign=1``) or back (``sign=-1``) by ``duration``.
 
-    Months move by calendar month, clamping the day to the length of the target month.
+    Months move by calendar month. Moving back onto a day the target month lacks clamps to
+    its last day (Mar 31 back one month is Feb 28). Moving forward onto one lands on the
+    start of the following month instead (Jan 31 forward one month is Mar 1). Clamping there
+    would map Jan 29 00:00 to Feb 28 00:00, earlier than Jan 28 23:00 maps to, and bucket
+    expiries computed from this have to grow with time to cover every request in a bucket.
     """
     if duration.unit == BudgetDurationUnit.MONTHS:
         month_index = moment.year * 12 + moment.month - 1 + sign * duration.value
         year, month = divmod(month_index, 12)
-        day = min(moment.day, calendar.monthrange(year, month + 1)[1])
-        return moment.replace(year=year, month=month + 1, day=day)
+        last_day = calendar.monthrange(year, month + 1)[1]
+        if moment.day <= last_day:
+            return moment.replace(year=year, month=month + 1)
+        if sign < 0:
+            return moment.replace(year=year, month=month + 1, day=last_day)
+        next_year, next_month = divmod(month_index + 1, 12)
+        return datetime(next_year, next_month + 1, 1, tzinfo=moment.tzinfo)
     return moment + sign * timedelta(**{_TIMEDELTA_UNITS[duration.unit]: duration.value})
 
 
@@ -357,11 +379,13 @@ def _sliding_window_cutoff_ms(duration: BudgetDuration, width_ms: int, now: date
 
     Every bucket that starts at or after the cutoff is live, and every earlier one expired.
     """
+    # Every bucket that ends by ``now`` minus the duration has expired, so the cutoff is at
+    # or after the bucket holding that instant.
     window_start_ms = _to_epoch_ms(_shift_by_duration(duration, now, sign=-1))
     cutoff_ms = _sliding_bucket_start_ms(window_start_ms, width_ms)
-    # Clamping the day makes shifting by months lossy (Mar 31 minus a month is Feb 28, plus
-    # a month is Mar 28), so a bucket that ends after ``now`` minus the duration can still
-    # be expired. Expiry only grows with the bucket start, so step past those.
+    # Shifting by months is lossy (Mar 31 minus a month is Feb 28, plus a month is Mar 28),
+    # so a bucket that ends after ``now`` minus the duration can still be expired. Expiry
+    # grows with the bucket start, so step past those.
     while _sliding_bucket_expiry(duration, cutoff_ms, width_ms) <= now:
         cutoff_ms += width_ms
     return cutoff_ms

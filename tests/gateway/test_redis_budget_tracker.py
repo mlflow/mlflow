@@ -1,3 +1,4 @@
+import dataclasses
 import json
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -14,7 +15,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetWindowType,
     GatewayBudgetPolicy,
 )
-from mlflow.gateway.budget_tracker import BudgetTracker
+from mlflow.gateway.budget_tracker import BudgetTracker, SlidingWindowHistory
 
 fakeredis = pytest.importorskip("fakeredis")
 
@@ -762,11 +763,32 @@ def test_redis_sliding_window_is_shared_and_crossing_is_reported_once():
     assert len(crossed) == 1
 
 
-def test_redis_refresh_reports_new_sliding_windows_only_once():
+def test_redis_refresh_returns_sliding_windows_for_backfill_every_time():
     tracker = _make_tracker()
+    fixed = _make_policy(budget_policy_id="bp-fixed")
+    sliding = _sliding_policy(budget_policy_id="bp-sliding")
     with _clock(_NOW):
-        assert len(tracker.refresh_policies([_sliding_policy()])) == 1
-        assert tracker.refresh_policies([_sliding_policy()]) == []
+        first = tracker.refresh_policies([fixed, sliding])
+        second = tracker.refresh_policies([fixed, sliding])
+    assert {w.policy.budget_policy_id for w in first} == {"bp-fixed", "bp-sliding"}
+    # A fixed window is only seeded when created; a sliding one is synced on every refresh.
+    assert [w.policy.budget_policy_id for w in second] == ["bp-sliding"]
+
+
+def test_redis_sliding_window_recovers_history_missed_by_an_earlier_refresh():
+    tracker = _make_tracker()
+    policy = _sliding_policy(budget_amount=50.0)
+    bucket = _ms(_NOW - timedelta(minutes=10))
+    with _clock(_NOW):
+        # The first refresh's history query failed, so nothing was seeded.
+        tracker.refresh_policies([policy])
+        assert tracker.should_reject_request() == (False, None)
+
+        [window] = tracker.refresh_policies([policy])
+        tracker.backfill_bucket_spend([
+            SlidingWindowHistory(policy=window.policy, bucket_spend={bucket: 60.0})
+        ])
+        assert tracker.should_reject_request()[0] is True
 
 
 def test_redis_sliding_window_resets_when_duration_changes():
@@ -832,7 +854,7 @@ def test_redis_backfill_bucket_spend_takes_max_per_bucket_and_reports_crossing_o
         tracker_a.refresh_policies([policy])
         tracker_b.refresh_policies([policy])
         tracker_a.record_cost(20.0, timestamp_ms=bucket_a)
-        seeded = {"bp-test": {bucket_a: 5.0, bucket_b: 40.0}}
+        seeded = [SlidingWindowHistory(policy=policy, bucket_spend={bucket_a: 5.0, bucket_b: 40.0})]
         crossed = tracker_a.backfill_bucket_spend(seeded)
         assert tracker_b.backfill_bucket_spend(seeded) == []
         window = tracker_b._get_window_info("bp-test")
@@ -843,13 +865,16 @@ def test_redis_backfill_bucket_spend_takes_max_per_bucket_and_reports_crossing_o
 
 def test_redis_backfill_bucket_spend_reports_crossing_after_earlier_spend_aged_out():
     tracker = _make_tracker()
+    policy = _sliding_policy(budget_action=BudgetAction.ALERT)
     with _clock(_NOW):
-        tracker.refresh_policies([_sliding_policy(budget_action=BudgetAction.ALERT)])
+        tracker.refresh_policies([policy])
         assert len(tracker.record_cost(60.0)) == 1
 
     later = _NOW + timedelta(hours=1, minutes=1)
     with _clock(later):
-        crossed = tracker.backfill_bucket_spend({"bp-test": {_ms(later): 60.0}})
+        crossed = tracker.backfill_bucket_spend([
+            SlidingWindowHistory(policy=policy, bucket_spend={_ms(later): 60.0})
+        ])
     assert len(crossed) == 1
 
 
@@ -861,7 +886,10 @@ def test_redis_backfill_methods_ignore_the_other_window_type():
             _sliding_policy(budget_policy_id="bp-sliding"),
         ])
         assert tracker.backfill_spend({"bp-sliding": 100.0}) == []
-        assert tracker.backfill_bucket_spend({"bp-fixed": {_ms(_NOW): 100.0}}) == []
+        fixed_history = SlidingWindowHistory(
+            policy=_make_policy(budget_policy_id="bp-fixed"), bucket_spend={_ms(_NOW): 100.0}
+        )
+        assert tracker.backfill_bucket_spend([fixed_history]) == []
         windows = {w.policy.budget_policy_id: w for w in tracker.get_all_windows()}
     assert windows["bp-fixed"].cumulative_spend == 0.0
     assert windows["bp-sliding"].cumulative_spend == 0.0
@@ -880,3 +908,108 @@ def test_redis_deserialize_policy_written_before_sliding_windows_is_fixed():
     data = json.loads(_serialize_policy(_make_policy()))
     del data["window_type"]
     assert _deserialize_policy(json.dumps(data)).window_type == BudgetWindowType.FIXED
+
+
+# --- Policy revisions: processes that have not picked up an edit yet ---
+
+
+def _revised(policy: GatewayBudgetPolicy, revision: int, **changes) -> GatewayBudgetPolicy:
+    return dataclasses.replace(policy, last_updated_at=revision, **changes)
+
+
+def test_redis_stale_process_records_into_the_newer_sliding_window():
+    newer, stale = _make_shared_trackers()
+    v1 = _revised(_sliding_policy(budget_amount=1000.0), 1)
+    v2 = _revised(v1, 2, duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=2))
+    with _clock(_NOW):
+        stale.refresh_policies([v1])
+        newer.refresh_policies([v2])
+        newer.record_cost(30.0)
+        # Still on v1, whose 1-hour config would reset the window and wipe the $30.
+        stale.record_cost(10.0)
+        window = newer._get_window_info("bp-test")
+    assert window.cumulative_spend == 40.0
+    assert window.policy.duration == v2.duration
+    assert stale._policy_cache["bp-test"].last_updated_at == 2
+
+
+def test_redis_stale_limit_does_not_clear_the_alert_flag():
+    newer, stale = _make_shared_trackers()
+    v1 = _revised(_sliding_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT), 1)
+    v2 = _revised(v1, 2, budget_amount=50.0)
+    with _clock(_NOW):
+        stale.refresh_policies([v1])
+        newer.refresh_policies([v2])
+        assert len(newer.record_cost(60.0)) == 1
+        # Judged against v1's $100 limit, $70 would clear the flag and the next request
+        # would alert a second time.
+        assert stale.record_cost(10.0) == []
+        assert newer.record_cost(10.0) == []
+
+
+def test_redis_stale_fixed_process_does_not_replace_a_sliding_window():
+    newer, stale = _make_shared_trackers()
+    v1 = _revised(_make_policy(budget_amount=1000.0, duration=_ONE_HOUR), 1)
+    v2 = _revised(v1, 2, window_type=BudgetWindowType.SLIDING)
+    with _clock(_NOW):
+        stale.refresh_policies([v1])
+        newer.refresh_policies([v2])
+        newer.record_cost(30.0)
+        stale.record_cost(10.0)
+        window = newer._get_window_info("bp-test")
+    assert window.policy.window_type == BudgetWindowType.SLIDING
+    assert window.cumulative_spend == 40.0
+
+
+def test_redis_stale_process_rejects_with_the_newer_limit():
+    newer, stale = _make_shared_trackers()
+    v1 = _revised(_sliding_policy(budget_amount=100.0), 1)
+    v2 = _revised(v1, 2, budget_amount=50.0)
+    with _clock(_NOW):
+        stale.refresh_policies([v1])
+        newer.refresh_policies([v2])
+        newer.record_cost(60.0)
+        exceeded, window = stale.should_reject_request()
+    assert exceeded is True
+    assert window.policy.budget_amount == 50.0
+
+
+def test_redis_backfill_drops_history_read_for_an_older_policy():
+    tracker = _make_tracker()
+    v1 = _revised(_sliding_policy(budget_amount=1000.0), 1)
+    v2 = _revised(v1, 2, duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=2))
+    with _clock(_NOW):
+        tracker.refresh_policies([v2])
+        tracker.record_cost(30.0)
+        stale_history = SlidingWindowHistory(
+            policy=v1, bucket_spend={_ms(_NOW - timedelta(minutes=1)): 500.0}
+        )
+        assert tracker.backfill_bucket_spend([stale_history]) == []
+        window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 30.0
+    assert window.policy.duration == v2.duration
+
+
+def test_redis_refresh_does_not_regress_a_newer_stored_policy():
+    newer, stale = _make_shared_trackers()
+    v1 = _revised(_sliding_policy(budget_amount=100.0), 1)
+    v2 = _revised(v1, 2, budget_amount=50.0)
+    with _clock(_NOW):
+        newer.refresh_policies([v2])
+        # A refresh that read the database before the edit lands afterwards.
+        stale.refresh_policies([v1])
+    from mlflow.gateway.budget_tracker.redis import _deserialize_policy
+
+    stored = _deserialize_policy(newer._client.hget("mlflow:budget:policy:bp-test", "data"))
+    assert stored.last_updated_at == 2
+    assert stored.budget_amount == 50.0
+
+
+def test_redis_sliding_window_expires_after_its_newest_bucket_ages_out():
+    tracker = _make_tracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy()])
+        tracker.record_cost(10.0)
+    ttl = tracker._client.ttl("mlflow:budget:window:bp-test")
+    # The newest bucket (12:00-12:01) ages out at 13:01, plus an hour of grace.
+    assert 61 * 60 + 3600 - 60 < ttl <= 61 * 60 + 3600

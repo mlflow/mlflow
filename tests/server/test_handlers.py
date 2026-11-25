@@ -12994,3 +12994,34 @@ def test_list_budget_windows_sliding_window_ends_now():
     # A day back from now, rounded down to the start of its 24-minute bucket.
     span_ms = window["window_end_ms"] - window["window_start_ms"]
     assert 86_400_000 <= span_ms <= 86_400_000 + 1_440_000
+
+
+@pytest.mark.parametrize("key", ["window_type", "windowType"])
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        ("create", _CREATE_BUDGET_BODY),
+        ("update", {"budget_policy_id": "bp-test"}),
+    ],
+)
+def test_budget_policy_unknown_window_type_returns_400(path, body, key):
+    # Request parsing drops enum names it does not recognize, so without this check a typo
+    # would create a FIXED policy, or keep an existing policy's type on update.
+    store = mock.MagicMock()
+
+    response = _post_budget_request(path, {**body, key: "ROLLING"}, store)
+
+    assert response.status_code == 400
+    assert "Invalid window_type: ROLLING" in response.json["message"]
+    store.create_budget_policy.assert_not_called()
+    store.update_budget_policy.assert_not_called()
+
+
+def test_create_budget_policy_null_window_type_defaults_to_fixed():
+    store = mock.MagicMock()
+    store.create_budget_policy.return_value = _make_budget_policy()
+
+    response = _post_budget_request("create", {**_CREATE_BUDGET_BODY, "window_type": None}, store)
+
+    assert response.status_code == 200
+    assert store.create_budget_policy.call_args.kwargs["window_type"] == BudgetWindowType.FIXED

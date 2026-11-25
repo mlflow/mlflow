@@ -15,6 +15,7 @@ from mlflow.entities.gateway_budget_policy import (
 )
 from mlflow.gateway.budget_tracker import (
     BudgetTracker,
+    SlidingWindowHistory,
     _compute_window_end,
     _compute_window_start,
     _policy_applies,
@@ -928,8 +929,25 @@ def test_sliding_bucket_width_is_a_sixtieth_of_the_duration(duration, expected_w
 @pytest.mark.parametrize(
     ("moment", "months", "expected"),
     [
-        (datetime(2026, 1, 31, tzinfo=timezone.utc), 1, datetime(2026, 2, 28, tzinfo=timezone.utc)),
-        (datetime(2028, 1, 31, tzinfo=timezone.utc), 1, datetime(2028, 2, 29, tzinfo=timezone.utc)),
+        # Forward onto a day the target month lacks: the start of the month after it.
+        (datetime(2026, 1, 31, tzinfo=timezone.utc), 1, datetime(2026, 3, 1, tzinfo=timezone.utc)),
+        (
+            datetime(2026, 1, 29, 0, 0, tzinfo=timezone.utc),
+            1,
+            datetime(2026, 3, 1, tzinfo=timezone.utc),
+        ),
+        (datetime(2028, 1, 31, tzinfo=timezone.utc), 1, datetime(2028, 3, 1, tzinfo=timezone.utc)),
+        (
+            datetime(2028, 1, 29, 6, 0, tzinfo=timezone.utc),
+            1,
+            datetime(2028, 2, 29, 6, 0, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2026, 12, 31, tzinfo=timezone.utc),
+            2,
+            datetime(2027, 3, 1, tzinfo=timezone.utc),
+        ),
+        # Back onto a day the target month lacks: clamped to its last day.
         (
             datetime(2026, 3, 31, tzinfo=timezone.utc),
             -1,
@@ -952,7 +970,7 @@ def test_sliding_bucket_width_is_a_sixtieth_of_the_duration(duration, expected_w
         ),
     ],
 )
-def test_shift_by_duration_months_clamps_day(moment, months, expected):
+def test_shift_by_duration_months(moment, months, expected):
     duration = BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=abs(months))
     assert _shift_by_duration(duration, moment, sign=1 if months > 0 else -1) == expected
 
@@ -1126,14 +1144,17 @@ def test_backfill_bucket_spend_takes_max_per_bucket_and_reports_crossing():
         tracker.refresh_policies([policy])
         tracker.record_cost(20.0, timestamp_ms=bucket_a)
         # Trace history lags behind on bucket_a, and saw another worker's spend in bucket_b.
-        newly_exceeded = tracker.backfill_bucket_spend({"bp-test": {bucket_a: 5.0, bucket_b: 40.0}})
+        newly_exceeded = tracker.backfill_bucket_spend([
+            SlidingWindowHistory(policy=policy, bucket_spend={bucket_a: 5.0, bucket_b: 40.0})
+        ])
         window = tracker._get_window_info("bp-test")
     assert window.bucket_spend == {bucket_a: 20.0, bucket_b: 40.0}
     assert window.cumulative_spend == 60.0
     assert newly_exceeded == [window]
 
     with _clock(_NOW):
-        assert tracker.backfill_bucket_spend({"bp-test": {bucket_b: 40.0}}) == []
+        history = SlidingWindowHistory(policy=policy, bucket_spend={bucket_b: 40.0})
+        assert tracker.backfill_bucket_spend([history]) == []
 
 
 def test_backfill_bucket_spend_reports_crossing_after_earlier_spend_aged_out():
@@ -1145,15 +1166,20 @@ def test_backfill_bucket_spend_reports_crossing_after_earlier_spend_aged_out():
 
     later = _NOW + timedelta(hours=1, minutes=1)
     with _clock(later):
-        crossed = tracker.backfill_bucket_spend({"bp-test": {_ms(later): 60.0}})
+        crossed = tracker.backfill_bucket_spend([
+            SlidingWindowHistory(policy=policy, bucket_spend={_ms(later): 60.0})
+        ])
     assert [w.policy.budget_policy_id for w in crossed] == ["bp-test"]
 
 
 def test_backfill_bucket_spend_drops_buckets_outside_the_window():
     tracker = InMemoryBudgetTracker()
     with _clock(_NOW):
-        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0)])
-        tracker.backfill_bucket_spend({"bp-test": {_ms(_NOW - timedelta(hours=3)): 10.0}})
+        policy = _sliding_policy(budget_amount=1000.0)
+        tracker.refresh_policies([policy])
+        tracker.backfill_bucket_spend([
+            SlidingWindowHistory(policy=policy, bucket_spend={_ms(_NOW - timedelta(hours=3)): 10.0})
+        ])
         assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
 
 
@@ -1165,7 +1191,10 @@ def test_backfill_methods_ignore_the_other_window_type():
             _sliding_policy(budget_policy_id="bp-sliding"),
         ])
         assert tracker.backfill_spend({"bp-sliding": 100.0}) == []
-        assert tracker.backfill_bucket_spend({"bp-fixed": {_ms(_NOW): 100.0}}) == []
+        fixed_history = SlidingWindowHistory(
+            policy=_make_policy(budget_policy_id="bp-fixed"), bucket_spend={_ms(_NOW): 100.0}
+        )
+        assert tracker.backfill_bucket_spend([fixed_history]) == []
         assert tracker._get_window_info("bp-fixed").cumulative_spend == 0.0
         assert tracker._get_window_info("bp-sliding").cumulative_spend == 0.0
 
@@ -1180,3 +1209,81 @@ def test_get_all_windows_ages_out_sliding_windows():
     assert window.cumulative_spend == 0.0
     assert window.window_end == _NOW + timedelta(hours=2)
     assert window.window_start == _NOW + timedelta(hours=1)
+
+
+def test_backfill_bucket_spend_drops_history_read_for_another_duration():
+    tracker = InMemoryBudgetTracker()
+    two_hours = BudgetDuration(unit=BudgetDurationUnit.HOURS, value=2)
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0, duration=two_hours)])
+        # Read while the policy still had a 1-hour duration, so its buckets are 1 minute wide
+        # instead of 2.
+        stale_history = SlidingWindowHistory(
+            policy=_sliding_policy(budget_amount=1000.0),
+            bucket_spend={_ms(_NOW - timedelta(minutes=1)): 25.0},
+        )
+        assert tracker.backfill_bucket_spend([stale_history]) == []
+        assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+
+def test_sliding_window_resets_at_does_not_drift_with_float_subtraction():
+    tracker = InMemoryBudgetTracker()
+    first = _NOW - timedelta(minutes=40)
+    second = _NOW - timedelta(minutes=20)
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=0.30)])
+        tracker.record_cost(0.60, timestamp_ms=_ms(first))
+        tracker.record_cost(0.30, timestamp_ms=_ms(second))
+        _, window = tracker.should_reject_request()
+    # 0.60 + 0.30 - 0.60 is 0.2999..., but once the first bucket ages out the tracker sums
+    # what is left to exactly 0.30, which still rejects. So the reset is when the second
+    # bucket ages out, not the first.
+    assert window.resets_at == second + timedelta(hours=1, minutes=1)
+    with _clock(first + timedelta(hours=1, minutes=1)):
+        assert tracker.should_reject_request()[0] is True
+
+
+_ONE_MONTH = BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1)
+
+
+def test_sliding_month_window_counts_a_request_for_its_full_calendar_month():
+    tracker = InMemoryBudgetTracker()
+    started = datetime(2026, 1, 28, 23, 0, tzinfo=timezone.utc)
+    with _clock(started):
+        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0, duration=_ONE_MONTH)])
+        tracker.record_cost(10.0, timestamp_ms=_ms(started))
+
+    # Its 12-hour bucket ends Jan 29 00:00, a day February lacks. Clamping that to Feb 28
+    # 00:00 would drop the request 23 hours before a month has passed.
+    with _clock(datetime(2026, 2, 28, 12, 0, tzinfo=timezone.utc)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 10.0
+    with _clock(datetime(2026, 2, 28, 23, 30, tzinfo=timezone.utc)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 10.0
+    with _clock(datetime(2026, 3, 1, tzinfo=timezone.utc)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+
+def _one_calendar_month_after(moment: datetime) -> datetime:
+    """The same day and time next month, or the end of next month if it lacks that day."""
+    year, month = divmod(moment.year * 12 + moment.month, 12)
+    try:
+        return moment.replace(year=year, month=month + 1)
+    except ValueError:
+        year, month = divmod(moment.year * 12 + moment.month + 1, 12)
+        return datetime(year, month + 1, 1, tzinfo=moment.tzinfo)
+
+
+@pytest.mark.parametrize("year", [2026, 2028])
+def test_sliding_month_bucket_expiry_grows_and_never_precedes_a_month(year):
+    width_ms = _sliding_bucket_width_ms(_ONE_MONTH)
+    start_ms = _ms(datetime(year, 1, 1, tzinfo=timezone.utc))
+    end_ms = _ms(datetime(year + 1, 1, 1, tzinfo=timezone.utc))
+    previous_expiry = None
+    for bucket_start_ms in range(start_ms, end_ms, width_ms):
+        expiry = _sliding_bucket_expiry(_ONE_MONTH, bucket_start_ms, width_ms)
+        if previous_expiry is not None:
+            assert expiry >= previous_expiry
+        previous_expiry = expiry
+        for instant_ms in (bucket_start_ms, bucket_start_ms + width_ms - 1):
+            instant = datetime.fromtimestamp(instant_ms / 1000, tz=timezone.utc)
+            assert expiry >= _one_calendar_month_after(instant)
