@@ -76,11 +76,12 @@ Guidelines judges evaluate whether text meets your specified criteria. The judge
 
 ### Flag text addressed to the evaluator
 
-The MLflow `Guidelines` prompt tells the judge to evaluate the entire response as written and treat
-text addressed to the evaluator as part of the response, not as instructions. This does not apply
-to the managed Databricks judge (`model="databricks"`, the default with a Databricks tracking
-URI), which uses its own prompt. Judge models can still make mistakes. If you optimize prompts
-against judge scores, consider adding a separate scorer to flag responses for review:
+The MLflow `Guidelines` prompt tells the judge to evaluate each input in full and to treat text
+saying that part of it should be ignored, was a draft, or was replaced as part of the input, not
+as instructions. This does not apply to the managed Databricks judge (`model="databricks"`, the
+default with a Databricks tracking URI), which uses its own prompt. Judge models can still make
+mistakes. If you optimize prompts against judge scores, consider adding a separate scorer to
+flag responses for review:
 
 ```python
 from mlflow.genai.judges import make_judge
