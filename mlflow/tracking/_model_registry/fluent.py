@@ -20,12 +20,13 @@ from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     INVALID_PARAMETER_VALUE,
     NOT_FOUND,
+    PERMISSION_DENIED,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.store.artifact.utils.models import _parse_model_id_if_present, _parse_model_uri
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -53,7 +54,7 @@ from mlflow.utils.env_pack import (
     pack_env_for_databricks_model_serving,
 )
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_unity_catalog_uri
+from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_models_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -309,6 +310,13 @@ def _register_model(
                     "recorded on the logged model.",
                     model_id,
                 )
+            elif (
+                e.error_code == ErrorCode.Name(PERMISSION_DENIED)
+                and is_models_uri(source)
+                and _parse_model_uri(source).name is not None
+            ):
+                # Permission to promote a registered version is independent of experiment access.
+                _logger.debug("Skipping the client-side logged model tag update for %s", model_id)
             else:
                 raise
 
