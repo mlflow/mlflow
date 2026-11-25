@@ -15,7 +15,7 @@ from mlflow.genai.discovery.extraction import (
     extract_failure_labels,
     extract_span_errors,
 )
-from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 # ---- extract_span_errors ----
 
@@ -155,7 +155,14 @@ def test_extract_failure_labels_keeps_leading_hyphen():
 _SOURCE = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test")
 
 
-def _add_feedback(trace, name, value=None, rationale="", run_id=None, source=_SOURCE, error=None):
+def _add_feedback(
+    trace, name, value=None, rationale="", run_id=None, source=_SOURCE, error=None, session=None
+):
+    metadata = {}
+    if run_id:
+        metadata[AssessmentMetadataKey.SOURCE_RUN_ID] = run_id
+    if session:
+        metadata[TraceMetadataKey.TRACE_SESSION] = session
     mlflow.log_feedback(
         trace_id=trace.info.trace_id,
         name=name,
@@ -163,7 +170,7 @@ def _add_feedback(trace, name, value=None, rationale="", run_id=None, source=_SO
         rationale=rationale,
         source=source,
         error=error,
-        metadata={AssessmentMetadataKey.SOURCE_RUN_ID: run_id} if run_id else None,
+        metadata=metadata or None,
     )
 
 
@@ -320,6 +327,58 @@ def test_collect_session_rationales_reads_only_the_runs_own_feedback(make_trace)
 
     assert "this run's reason" in combined
     assert "an earlier run's reason" not in combined
+
+
+def test_collect_session_rationales_reads_only_the_runs_own_session_feedback(make_trace):
+    first, second = (make_trace(session_id="s-1") for _ in range(2))
+    _add_feedback(
+        first,
+        "satisfaction",
+        False,
+        "an earlier run's session reason",
+        run_id="run-old",
+        session="s-1",
+    )
+    session = _refetch([first, second])
+
+    combined = collect_session_rationales(
+        session[1:],
+        {second.info.trace_id: "this run's reason"},
+        "satisfaction",
+        session_traces=session,
+        run_id="run-new",
+    )
+    assert "[session feedback]" not in combined
+    assert "an earlier run's session reason" not in combined
+
+    _add_feedback(
+        first, "satisfaction", False, "this run's session reason", run_id="run-new", session="s-1"
+    )
+    session = _refetch([first, second])
+    combined = collect_session_rationales(
+        session[1:], {}, "satisfaction", session_traces=session, run_id="run-new"
+    )
+    assert combined == "[session feedback] this run's session reason"
+
+
+def test_build_analyses_reads_only_the_runs_own_feedback(make_trace):
+    from mlflow.genai.discovery.pipeline import _build_analyses
+
+    trace = make_trace()
+    _add_feedback(trace, "satisfaction", False, "an earlier run's reason", run_id="run-old")
+    (refetched,) = _refetch([trace])
+
+    analyses, _ = _build_analyses(
+        [refetched],
+        {trace.info.trace_id: "this run's reason"},
+        {},
+        "satisfaction",
+        run_id="run-new",
+    )
+
+    (analysis,) = analyses
+    assert "this run's reason" in analysis.full_rationale
+    assert "an earlier run's reason" not in analysis.full_rationale
 
 
 def test_extract_failing_traces_without_a_run_reads_every_runs_verdicts(make_trace):
