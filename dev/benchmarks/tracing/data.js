@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795587388682,
+  "lastUpdate": 1795588770598,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "atwkdeveloper@gmail.com",
-            "name": "Aaron Teo",
-            "username": "aaronteo-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4f590e5571f5ed35920027a6ae41794f81e4da67",
-          "message": "Pin SQLAlchemy < 2.1 in `test_mlflow_2_x_comp` (#26429)\n\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
-          "timestamp": "2026-10-05T08:17:45Z",
-          "tree_id": "919e5c87e7a782ecd86322fb9c6acb881217fe6e",
-          "url": "https://github.com/mlflow/mlflow/commit/4f590e5571f5ed35920027a6ae41794f81e4da67"
-        },
-        "date": 1791188442777,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 55.25352204999763,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 11.17260621999776,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 7.128508546297023,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 7.049595925000081,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 7.307161132075903,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 11.852955800003429,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 2.8604248333318574,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "hkawamura0130@gmail.com",
+            "name": "Harutaka Kawamura",
+            "username": "harupy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "839474152dc66300d971ab4c20fab9f56614fd15",
+          "message": "Harden `Guidelines` against instructions embedded in responses (#27996)\n\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: Claude Fable 5.2 <noreply@anthropic.com>\nCo-authored-by: eddii1 <62057186+eddii1@users.noreply.github.com>",
+          "timestamp": "2026-11-25T06:35:57Z",
+          "tree_id": "fb94ebeab210fdf1cd91773fccb98cc81397b111",
+          "url": "https://github.com/mlflow/mlflow/commit/839474152dc66300d971ab4c20fab9f56614fd15"
+        },
+        "date": 1795588767193,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 33.21970969999981,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.563294024096313,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.9324891397850834,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 3.9978910263158696,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.353761479532154,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 3.6825370000030944,
             "unit": "ms"
           }
         ]
