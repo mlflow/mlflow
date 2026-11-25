@@ -922,7 +922,8 @@ def discover_issues(
     in_session = [trace for trace in triage_traces if get_session_id(trace)]
     without_session = [trace for trace in triage_traces if not get_session_id(trace)]
     use_conversation = False
-    # Each batch of traces with the scorers that judge it, evaluated in turn.
+    # Each batch of traces with the scorers that judge it and whether they judge whole sessions,
+    # evaluated in turn.
     triage_batches = None
     if scorers is None:
         use_conversation = bool(in_session)
@@ -953,19 +954,19 @@ def discover_issues(
                 latency_stats=latency_stats,
                 instructions=instructions,
             )
-            triage_batches = [(in_session, scorers), (without_session, [trace_scorer])]
-    triage_batches = triage_batches or [(triage_traces, scorers)]
+            triage_batches = [(in_session, scorers, True), (without_session, [trace_scorer], False)]
+    triage_batches = triage_batches or [(triage_traces, scorers, use_conversation)]
 
     scorer_name = scorers[0].name
 
-    test_session = None
-    if use_conversation:
-        test_session = next(iter(group_traces_by_session(in_session).values()))
-
     update_status_details({"stage": "Verifying configuration..."})
-    verify_scorer(
-        scorers[0], test_session[0] if test_session else triage_traces[0], session=test_session
-    )
+    # Every judge is checked on a sample it will judge before any evaluation runs, so a
+    # misconfigured one fails the run before the others have spent on the whole sample.
+    for batch, batch_scorers, by_session in triage_batches:
+        test_session = next(iter(group_traces_by_session(batch).values())) if by_session else None
+        verify_scorer(
+            batch_scorers[0], test_session[0] if test_session else batch[0], session=test_session
+        )
 
     update_status_details({"stage": "Identifying issues from traces..."})
     # Open for the whole pipeline, not just the triage evaluation: leaving this block terminates
@@ -975,7 +976,7 @@ def discover_issues(
         # Every batch logs under this run, so the judge cost read below covers all of them.
         triage_eval, *_ = [
             mlflow.genai.evaluate(data=batch, scorers=batch_scorers)
-            for batch, batch_scorers in triage_batches
+            for batch, batch_scorers, _ in triage_batches
         ]
 
         # Re-fetch traces with scorer assessments attached.

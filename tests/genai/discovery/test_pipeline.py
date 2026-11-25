@@ -1373,17 +1373,19 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
         make_trace(session_id=None),
     ]
 
+    calls = MagicMock()
     with (
-        patch("mlflow.genai.discovery.pipeline.verify_scorer") as mock_verify,
+        patch("mlflow.genai.discovery.pipeline.verify_scorer", calls.verify),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval(),
+            calls.evaluate,
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
             return_value=_TriageResult([], {}, {}),
         ),
     ):
+        calls.evaluate.return_value = _triage_eval()
         result = discover_issues(
             traces=traces,
         )
@@ -1391,10 +1393,14 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
     assert result is not None
     assert result.total_traces_analyzed == 4
 
-    mock_verify.assert_called_once()
-    call_kwargs = mock_verify.call_args.kwargs
-    assert call_kwargs["session"] is not None
-    assert all(get_session_id(t) is not None for t in call_kwargs["session"])
+    # Both judges are verified, each on a sample it will judge, before either evaluation runs.
+    assert [c[0] for c in calls.mock_calls] == ["verify", "verify", "evaluate", "evaluate"]
+    conversation_check, trace_check = calls.verify.call_args_list
+    assert all(get_session_id(t) is not None for t in conversation_check.kwargs["session"])
+    assert "conversation" in conversation_check.args[0].template_variables
+    assert trace_check.kwargs["session"] is None
+    assert get_session_id(trace_check.args[1]) is None
+    assert "conversation" not in trace_check.args[0].template_variables
 
 
 def test_discover_issues_judges_traces_without_a_session_on_their_own(make_trace):
