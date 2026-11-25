@@ -65,7 +65,7 @@ export interface MessageContent {
 // ============================================================================
 
 export interface TranscriptEntry {
-  type: 'user' | 'assistant' | 'progress' | 'queue-operation';
+  type: 'user' | 'assistant' | 'progress' | 'queue-operation' | 'permission-mode';
   message?: MessageContent;
   timestamp?: string | number;
   version?: string;
