@@ -95,7 +95,16 @@ export const IssueProposedFixSection = ({ experimentId, issue }: IssueProposedFi
           backgroundColor: theme.colors.backgroundSecondary,
         }}
       >
-        <div css={{ position: 'absolute', top: theme.spacing.sm, right: theme.spacing.sm, zIndex: 1 }}>
+        <div
+          css={{
+            position: 'absolute',
+            top: theme.spacing.sm,
+            right: theme.spacing.sm,
+            zIndex: 1,
+            backgroundColor: theme.colors.backgroundPrimary,
+            borderRadius: theme.borders.borderRadiusSm,
+          }}
+        >
           <Button
             componentId="mlflow.experiment-issues.detail.proposed-fix.copy"
             size="small"
