@@ -15,6 +15,7 @@ from mlflow.genai.discovery.extraction import (
     extract_failure_labels,
     extract_span_errors,
 )
+from mlflow.genai.discovery.pipeline import _build_analyses
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 # ---- extract_span_errors ----
@@ -362,8 +363,6 @@ def test_collect_session_rationales_reads_only_the_runs_own_session_feedback(mak
 
 
 def test_build_analyses_reads_only_the_runs_own_feedback(make_trace):
-    from mlflow.genai.discovery.pipeline import _build_analyses
-
     trace = make_trace()
     _add_feedback(trace, "satisfaction", False, "an earlier run's reason", run_id="run-old")
     (refetched,) = _refetch([trace])
