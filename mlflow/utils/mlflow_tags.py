@@ -221,7 +221,10 @@ def _get_run_name_from_tags(tags):
 def _append_model_version_to_tag(existing: str | None, name: str, version: str | int) -> str | None:
     versions = json.loads(existing) if existing else []
     # Older REST servers wrote integer versions, while clients wrote strings.
-    if any(v["name"] == name and str(v["version"]) == str(version) for v in versions):
+    if any(
+        isinstance(v, dict) and v.get("name") == name and str(v.get("version")) == str(version)
+        for v in versions
+    ):
         return None
     versions.append({"name": name, "version": version})
     return json.dumps(versions)

@@ -682,12 +682,13 @@ def test_copy_version_after_logged_model_deletion(client):
         assert json.loads(client.get_logged_model(model.model_id).tags[MLFLOW_MODEL_VERSIONS]) == [
             {"name": "source", "version": 1}
         ]
+        previous_links = [{"name": "source", "version": 1}, {"version": "legacy"}]
+        client.set_logged_model_tags(
+            model.model_id, {MLFLOW_MODEL_VERSIONS: json.dumps(previous_links)}
+        )
         promoted = mlflow.register_model(f"models:/source/{source.version}", "promotion")
         links = json.loads(client.get_logged_model(model.model_id).tags[MLFLOW_MODEL_VERSIONS])
-        assert [(link["name"], str(link["version"])) for link in links] == [
-            ("source", str(source.version)),
-            ("promotion", str(promoted.version)),
-        ]
+        assert links == [*previous_links, {"name": "promotion", "version": int(promoted.version)}]
         client.delete_logged_model(model.model_id)
         copied = client.copy_model_version(f"models:/source/{source.version}", "destination")
         assert copied.model_id == model.model_id
