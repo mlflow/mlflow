@@ -26,7 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.utils.models import _parse_model_id_if_present, _parse_model_uri
+from mlflow.store.artifact.utils.models import _parse_model_uri, _resolve_model_uri_and_id
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -227,9 +227,9 @@ def _register_model(
                 f"Run with id {run_id} has no artifacts at artifact path {artifact_path!r}, "
                 f"registering model based on {source} instead"
             )
-
-    # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
-    model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
+    else:
+        model_uri, model_id = _resolve_model_uri_and_id(model_uri)
+        source = model_uri
 
     # Passing in the string value is a shortcut for passing in the EnvPackConfig
     # Validate early; `_validate_env_pack` will raise on invalid inputs.

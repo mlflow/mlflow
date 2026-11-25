@@ -26,7 +26,7 @@ from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.store.artifact.utils.models import _resolve_model_uri_and_id
 from mlflow.telemetry.events import EvaluateEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -1708,7 +1708,7 @@ def evaluate(
     specified_model_id = model_id
     model_id = None
     if isinstance(model, str):
-        model_id = _parse_model_id_if_present(model)
+        model, model_id = _resolve_model_uri_and_id(model)
         if _is_model_deployment_endpoint_uri(model):
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:

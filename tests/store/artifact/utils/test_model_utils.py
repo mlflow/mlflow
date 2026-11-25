@@ -5,7 +5,11 @@ import pytest
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.utils.models import _parse_model_uri, get_model_name_and_version
+from mlflow.store.artifact.utils.models import (
+    _parse_model_uri,
+    _resolve_model_uri_and_id,
+    get_model_name_and_version,
+)
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 
 
@@ -139,6 +143,20 @@ def test_improper_model_uri_msg_prompts():
     assert "prompts:/" in msg, f"Missing 'prompts:/' in message: {msg}"
     assert "Prompts URIs" in msg, f"Missing 'Prompts URIs' in message: {msg}"
     assert "prompts:/name/suffix" in msg, f"Missing 'prompts:/name/suffix' in message: {msg}"
+
+
+def test_resolve_model_uri_and_id_pins_alias_in_its_registry():
+    version = ModelVersion("classifier#1", "2", 0, model_id="m-123")
+    with mock.patch("mlflow.tracking.MlflowClient") as client:
+        client.return_value.get_model_version_by_alias.return_value = version
+        assert _resolve_model_uri_and_id("models://profile@databricks/classifier#1@champion") == (
+            "models://profile@databricks/classifier#1/2",
+            "m-123",
+        )
+        client.assert_called_once_with(registry_uri="databricks://profile")
+        client.return_value.get_model_version_by_alias.assert_called_once_with(
+            "classifier#1", "champion"
+        )
 
 
 def test_get_model_name_and_version_with_version():

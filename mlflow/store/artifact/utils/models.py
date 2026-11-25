@@ -111,28 +111,24 @@ def _parse_model_uri(uri, scheme: str = "models") -> ParsedModelUri:
         return ParsedModelUri(parts[0])
 
 
-def _parse_model_id_if_present(possible_model_uri: str | Path) -> str | None:
-    """
-    Parses the model ID from the given string. If the string represents a UC model URI, we get the
-    model version to extract the model ID. If the string is not a models:/ URI, returns None.
+def _resolve_model_uri_and_id(model_uri: str | Path) -> tuple[str, str | None]:
+    """Pin an alias to its version so the artifacts and model ID refer to the same model."""
+    uri = str(model_uri)
+    if not is_models_uri(uri):
+        return uri, None
 
-    Args:
-        possible_model_uri: The string that may be a models:/ URI.
+    parsed = _parse_model_uri(uri)
+    if parsed.version is None and parsed.alias is None:
+        return uri, parsed.model_id
 
-    Returns:
-        The model ID if the string is a models:/ URI, otherwise None.
-    """
-    uri = str(possible_model_uri)
-    if is_models_uri(uri):
-        parsed_model_uri = _parse_model_uri(uri)
-        if parsed_model_uri.model_id is not None:
-            return parsed_model_uri.model_id
-        elif parsed_model_uri.name is not None and parsed_model_uri.version is not None:
-            client = mlflow.tracking.MlflowClient()
-            return client.get_model_version(
-                parsed_model_uri.name, parsed_model_uri.version
-            ).model_id
-    return None
+    registry_uri = get_databricks_profile_uri_from_artifact_uri(uri)
+    client = mlflow.tracking.MlflowClient(registry_uri=registry_uri)
+    if parsed.alias is None:
+        return uri, client.get_model_version(parsed.name, parsed.version).model_id
+
+    version = client.get_model_version_by_alias(parsed.name, parsed.alias)
+    url = urllib.parse.urlparse(uri, allow_fragments=False)
+    return url._replace(path=f"/{parsed.name}/{version.version}").geturl(), version.model_id
 
 
 def get_model_name_and_version(client, models_uri):

@@ -2125,8 +2125,9 @@ def test_env_manager_set_on_served_pyfunc_model(multiclass_logistic_regressor_mo
     assert served_model_1.env_manager == "virtualenv"
 
 
+@pytest.mark.parametrize("uri_kind", ["logged_model", "version", "alias"])
 def test_metrics_logged_to_model_on_evaluation(
-    multiclass_logistic_regressor_model_uri, iris_dataset
+    multiclass_logistic_regressor_model_uri, iris_dataset, uri_kind
 ):
     with mlflow.start_run():
         # Log the model and retrieve its model_id
@@ -2135,9 +2136,17 @@ def test_metrics_logged_to_model_on_evaluation(
         )
         model_id = model_info.model_id
 
-        # Evaluate the model using its model_id
+        model_uri = model_info.model_uri
+        if uri_kind != "logged_model":
+            version = mlflow.register_model(model_uri, "classifier")
+            assert version.model_id == model_id
+            model_uri = f"models:/classifier/{version.version}"
+            if uri_kind == "alias":
+                MlflowClient().set_registered_model_alias("classifier", "champion", version.version)
+                model_uri = "models:/classifier@champion"
+
         eval_result = mlflow.evaluate(
-            model=model_info.model_uri,
+            model=model_uri,
             data=iris_dataset._constructor_args["data"],
             model_type="classifier",
             targets=iris_dataset._constructor_args["targets"],
