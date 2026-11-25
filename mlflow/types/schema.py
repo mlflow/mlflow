@@ -4,7 +4,9 @@ import builtins
 import datetime as dt
 import json
 import string
+import warnings
 from abc import ABC, abstractmethod
+from collections import Counter
 from copy import deepcopy
 from dataclasses import fields, is_dataclass
 from enum import Enum
@@ -1000,7 +1002,33 @@ class Schema:
                 "Creating Schema with unnamed optional inputs is not supported. "
                 "Please name all inputs or make all inputs required."
             )
+        if all(x.name is not None for x in inputs):
+            # TODO: Raise an exception instead of warning in a future release.
+            # Warning first avoids breaking `Model.load()` for models already logged with
+            # such signatures.
+            if any(x.name == "" for x in inputs):
+                warnings.warn(
+                    "Creating Schema with empty input names is deprecated and will raise an "
+                    "exception in a future release.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
+            # Empty names are already reported above, so don't also report them as duplicates.
+            if duplicates := self._find_duplicates([x for x in inputs if x.name != ""]):
+                warnings.warn(
+                    f"Duplicated input names found in schema: {duplicates}. Creating Schema with "
+                    "duplicated input names is deprecated and will raise an exception in a "
+                    "future release.",
+                    FutureWarning,
+                    stacklevel=2,
+                )
         self._inputs = inputs
+
+    @staticmethod
+    def _find_duplicates(inputs: list[ColSpec | TensorSpec]) -> list[str]:
+        counts = Counter(x.name for x in inputs)
+        # Names aren't type-checked, so sort by `str` to handle mixed types (e.g., `1` and `"a"`).
+        return sorted((name for name, count in counts.items() if count > 1), key=str)
 
     def __len__(self):
         return len(self._inputs)
@@ -1248,7 +1276,7 @@ class ParamSpec:
                 default_value = self.default
         elif self.shape == (-1,):
             default_value = (
-                [v.isoformat() for v in self.default]
+                [v.isoformat() if v is not None else None for v in self.default]
                 if self.dtype.name == "datetime"
                 else self.default
             )

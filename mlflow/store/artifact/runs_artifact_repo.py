@@ -1,5 +1,6 @@
 import logging
 import os
+import posixpath
 import urllib.parse
 from typing import Iterator
 
@@ -240,15 +241,17 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         A run can have an associated model. If so, this method downloads the artifacts of the model.
         """
-        full_path = f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
-        run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
+        run_id, rel_path = RunsArtifactRepository.parse_runs_uri(self.artifact_uri)
+        if artifact_path:
+            # Join outside the URI so characters like `?` stay part of the path
+            rel_path = posixpath.join(rel_path or "", artifact_path)
         if not rel_path:
             # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
             return None
         [model_name, *rest] = rel_path.split("/", 1)
         rel_path = rest[0] if rest else ""
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
-            dst = os.path.join(dst_path, model_name)
+            dst = self._create_download_destination(model_name, dst_path)
             os.makedirs(dst, exist_ok=True)
             return repo.download_artifacts(artifact_path=rel_path, dst_path=dst)
 

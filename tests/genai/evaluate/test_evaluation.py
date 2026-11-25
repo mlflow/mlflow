@@ -588,6 +588,46 @@ def test_evaluate_errored_scorer_fails_not_silently_passes(server_config):
     assert "kaboom" in result.reason
 
 
+@pytest.mark.parametrize("unscored_value", [None, float("nan")])
+def test_evaluate_without_any_scored_value_does_not_pass(server_config, unscored_value):
+    @scorer
+    def unparsable_judge(outputs):
+        return unscored_value
+
+    result = mlflow.genai.evaluate(
+        data=[
+            {"inputs": {"q": "2+2?"}, "outputs": "5"},
+            {"inputs": {"q": "capital of France?"}, "outputs": "Berlin"},
+        ],
+        scorers=[unparsable_judge],
+    )
+    assert not result.passed
+    assert result.reason
+
+
+def test_evaluate_nan_score_on_one_row_does_not_hide_failures(server_config):
+    @scorer
+    def is_correct(outputs):
+        return outputs in ("4", "Paris")
+
+    @scorer(pass_if=lambda v: v >= 0.5)
+    def similarity(outputs):
+        return float("nan") if outputs == "Paris" else 0.1
+
+    result = mlflow.genai.evaluate(
+        data=[
+            {"inputs": {"q": "2+2?"}, "outputs": "5"},
+            {"inputs": {"q": "capital of France?"}, "outputs": "Paris"},
+        ],
+        scorers=[is_correct, similarity],
+    )
+    assert result.metrics["is_correct/mean"] == 0.5
+    assert not result.passed
+    assert result.result_df is not None
+    assert "is_correct" in result.reason
+    assert "NaN" in result.reason
+
+
 def test_evaluate_reason_includes_scorer_rationale(server_config):
     @scorer
     def judged(outputs):
@@ -599,6 +639,121 @@ def test_evaluate_reason_includes_scorer_rationale(server_config):
     )
     assert not result.passed
     assert "answer was wrong" in result.reason
+
+
+@pytest.mark.parametrize(
+    ("scorer_value", "expected_reason"),
+    [
+        ("yes", ""),
+        ("no", "judged: value='no'"),
+    ],
+)
+def test_evaluate_passed_ignores_dataset_expectations(server_config, scorer_value, expected_reason):
+    @scorer
+    def judged(outputs):
+        return scorer_value
+
+    result = mlflow.genai.evaluate(
+        data=[
+            {
+                "inputs": {"q": "x"},
+                "outputs": "hello",
+                "expectations": {"expected_response": "hello", "max_length": 10},
+            }
+        ],
+        scorers=[judged],
+    )
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+    # Expectations stay in result_df for comparison.
+    assert result.result_df["expected_response/value"].tolist() == ["hello"]
+
+
+def test_evaluate_passed_ignores_feedback_logged_outside_the_run(server_config):
+    @mlflow.trace
+    def app(q):
+        return "hello"
+
+    app("x")
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_assessment(trace_id=trace_id, assessment=Feedback(name="self_grade", value="no"))
+
+    @scorer
+    def judged(outputs):
+        return "yes"
+
+    result = mlflow.genai.evaluate(data=[mlflow.get_trace(trace_id)], scorers=[judged])
+    assert result.passed, result.reason
+    assert result.result_df["self_grade/value"].tolist() == ["no"]
+
+
+def test_evaluate_passed_ignores_same_name_feedback_on_traces_the_scorer_skipped(server_config):
+    @mlflow.trace
+    def app(q):
+        return q
+
+    app("scored")
+    scored_trace_id = mlflow.get_last_active_trace_id()
+    app("skipped")
+    skipped_trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_assessment(trace_id=skipped_trace_id, assessment=Feedback(name="judged", value="no"))
+
+    @scorer
+    def judged(inputs):
+        return "yes" if inputs["q"] == "scored" else None
+
+    result = mlflow.genai.evaluate(
+        data=[mlflow.get_trace(scored_trace_id), mlflow.get_trace(skipped_trace_id)],
+        scorers=[judged],
+    )
+    assert result.passed, result.reason
+    values = dict(zip(result.result_df["trace_id"], result.result_df["judged/value"]))
+    assert values == {scored_trace_id: "yes", skipped_trace_id: "no"}
+
+
+@pytest.mark.parametrize(
+    ("other_value", "expected_reason"),
+    [
+        ("yes", ""),
+        ("no", "other: value='no'"),
+    ],
+)
+def test_evaluate_passed_checks_custom_named_scorer_feedback(
+    server_config, other_value, expected_reason
+):
+    @scorer
+    def multi(outputs):
+        return [Feedback(name="other", value=other_value), Feedback(name="another", value="yes")]
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "hello"}],
+        scorers=[multi],
+    )
+    assert result.passed is (expected_reason == "")
+    assert result.reason == expected_reason
+
+
+def test_evaluate_passed_checks_session_level_scorer_feedback(server_config):
+    class ConversationJudge(mlflow.genai.Scorer):
+        @property
+        def is_session_level_scorer(self) -> bool:
+            return True
+
+        def __call__(self, session=None, **kwargs):
+            return "no"
+
+    @mlflow.trace
+    def app(q):
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: "session-1"})
+        return "hello"
+
+    app("q1")
+    app("q2")
+    traces = mlflow.search_traces(return_type="list")
+
+    result = mlflow.genai.evaluate(data=traces, scorers=[ConversationJudge(name="conversation")])
+    assert not result.passed
+    assert result.reason == "conversation: value='no'"
 
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
@@ -2328,6 +2483,66 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
     # The semaphore bounds in-flight items. Without backpressure all
     # num_items would pile up.
     assert observed_max == buffer
+
+
+def test_evaluate_skips_scorers_on_rows_where_predict_fn_raised():
+    scored = []
+
+    def predict_fn(q):
+        if q == "boom":
+            raise ValueError("predict exploded")
+        return q.upper()
+
+    @scorer
+    def ok(outputs):
+        scored.append(("ok", outputs))
+        return outputs in ("HELLO", "WORLD")
+
+    @scorer
+    def ignores_outputs(inputs):
+        scored.append(("ignores_outputs", inputs["q"]))
+        return True
+
+    data = [
+        {"inputs": {"q": "hello"}},
+        {"inputs": {"q": "boom"}, "expectations": {"expected": "BOOM"}},
+        {"inputs": {"q": "world"}},
+    ]
+    with mock.patch("mlflow.genai.evaluation.harness.emit_metric_usage_event") as mock_emit:
+        result = mlflow.genai.evaluate(
+            data=data, scorers=[ok, ignores_outputs], predict_fn=predict_fn
+        )
+
+    assert mock_emit.call_args.args[1] == 3
+    assert mock_emit.call_args.kwargs["scored_trace_count"] == 2
+    assert sorted(scored) == [
+        ("ignores_outputs", "hello"),
+        ("ignores_outputs", "world"),
+        ("ok", "HELLO"),
+        ("ok", "WORLD"),
+    ]
+    assert result.metrics == {"ok/mean": 1.0, "ignores_outputs/mean": 1.0, "predict_error_count": 1}
+    assert mlflow.get_run(result.run_id).data.metrics["predict_error_count"] == 1
+    assert not result.passed
+    assert result.reason == "predict_fn raised for 1 row(s), which were not scored"
+
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    failed = next(t for t in traces if json.loads(t.data.request) == {"q": "boom"})
+    assert failed.info.state == "ERROR"
+    assert [(a.name, a.value) for a in failed.info.assessments] == [("expected", "BOOM")]
+
+
+def test_evaluate_scores_rows_where_predict_fn_returned_none():
+    @scorer
+    def is_none(outputs):
+        return outputs is None
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "hello"}}], scorers=[is_none], predict_fn=lambda q: None
+    )
+
+    assert result.metrics == {"is_none/mean": 1.0}
+    assert result.passed, result.reason
 
 
 def test_evaluate_logs_scorer_failure_summary():

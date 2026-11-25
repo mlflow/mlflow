@@ -80,11 +80,11 @@ Browse to the MLflow UI at http://localhost:5000 (or your MLflow server URL) and
 
 ## Supported APIs
 
-Note that only synchronous calls are supported, and that asynchronous API and streaming methods are not traced.
+Synchronous calls are traced, including streaming calls (`stream=True`). Asynchronous API calls are not traced.
 
 | Normal | Streaming | Async |
 | :----: | :-------: | :---: |
-|   ✅   |     -     |   -   |
+|   ✅   |    ✅     |   -   |
 
 ## Tracking Token Usage and Cost
 

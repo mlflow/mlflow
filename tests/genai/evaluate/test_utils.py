@@ -701,3 +701,32 @@ def test_standardize_scorer_value_numpy_scalars(value, expected):
     assert feedback.name == "my_scorer"
     assert feedback.value == expected
     assert type(feedback.value) is type(expected)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        float("nan"),
+        np.float64("nan"),
+        Feedback(value=float("nan"), rationale="judge reply was empty"),
+        [Feedback(name="a", value=float("nan"))],
+        float("inf"),
+        float("-inf"),
+        Feedback(value=float("inf"), rationale="ratio with zero denominator"),
+    ],
+)
+def test_standardize_scorer_value_turns_nan_into_error(value):
+    [feedback] = standardize_scorer_value("my_scorer", value)
+    assert feedback.value is None
+    assert feedback.error.error_code == "INVALID_SCORER_VALUE"
+    assert feedback.feedback.error.error_code == "INVALID_SCORER_VALUE"
+
+
+def test_standardize_scorer_value_keeps_existing_error_and_numbers():
+    errored = Feedback(value=float("nan"), error="judge timed out")
+    [feedback] = standardize_scorer_value("my_scorer", errored)
+    assert feedback.error.error_message == "judge timed out"
+
+    [feedback] = standardize_scorer_value("my_scorer", 0.0)
+    assert feedback.value == 0.0
+    assert feedback.error is None

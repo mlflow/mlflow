@@ -14,8 +14,12 @@ import type { TraceArchivalRetentionUnit } from '../utils/traceArchival';
 type TraceArchivalRetentionInputProps = {
   amount: string;
   amountInputId: string;
+  /** For a label that isn't a `<label htmlFor>` of the amount input. */
+  amountAriaLabelledBy?: string;
+  amountAriaDescribedBy?: string;
   componentId: string;
   error?: boolean;
+  onAmountBlur?: () => void;
   onAmountChange: (value: string) => void;
   onUnitChange: (value: TraceArchivalRetentionUnit) => void;
   unitSelectorId: string;
@@ -25,8 +29,11 @@ type TraceArchivalRetentionInputProps = {
 export const TraceArchivalRetentionInput = ({
   amount,
   amountInputId,
+  amountAriaLabelledBy,
+  amountAriaDescribedBy,
   componentId,
   error = false,
+  onAmountBlur,
   onAmountChange,
   onUnitChange,
   unitSelectorId,
@@ -78,6 +85,9 @@ export const TraceArchivalRetentionInput = ({
       <Input
         componentId={`${componentId}.amount_input`}
         id={amountInputId}
+        aria-labelledby={amountAriaLabelledBy}
+        aria-describedby={amountAriaDescribedBy}
+        aria-invalid={error || undefined}
         css={{ width: '100%' }}
         placeholder={intl.formatMessage({
           defaultMessage: 'Enter the retention',
@@ -88,6 +98,7 @@ export const TraceArchivalRetentionInput = ({
         onChange={(e) => {
           onAmountChange(e.target.value);
         }}
+        onBlur={onAmountBlur}
         validationState={error ? 'error' : undefined}
       />
       <DialogCombobox
