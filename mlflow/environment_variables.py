@@ -848,6 +848,15 @@ MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE = _EnvironmentVariable(
     "MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE", int, 100 * 1024 * 1024
 )
 
+#: Maximum size in bytes of an OTLP trace-ingest request body (``POST /v1/traces``) after
+#: decompression. Requests whose decompressed body exceeds this limit are rejected with
+#: HTTP 413. This bounds the memory a compressed request can consume, since a small
+#: compressed body can expand by several orders of magnitude.
+#: (default: ``104857600`` — 100 MB)
+MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE = _EnvironmentVariable(
+    "MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE", int, 100 * 1024 * 1024
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
