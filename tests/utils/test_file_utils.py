@@ -26,6 +26,7 @@ from mlflow.utils.file_utils import (
     get_parent_dir,
     get_total_file_size,
     local_file_uri_to_path,
+    make_containing_dirs,
     path_to_local_sqlite_uri,
     remove_on_error,
 )
@@ -100,6 +101,16 @@ def test_get_parent_dir(tmp_path):
     child_dir = tmp_path.joinpath("dir")
     child_dir.mkdir()
     assert str(tmp_path) == get_parent_dir(str(child_dir))
+
+
+def test_make_containing_dirs_when_dir_created_concurrently(tmp_path):
+    dir_path = tmp_path / "metrics" / "eval"
+    dir_path.mkdir(parents=True)
+    # Simulate another process creating the directory right after an existence check
+    with mock.patch("os.path.exists", return_value=False) as mock_exists:
+        make_containing_dirs(str(dir_path / "accuracy"))
+        mock_exists.assert_called()
+    assert dir_path.is_dir()
 
 
 def test_file_copy():
