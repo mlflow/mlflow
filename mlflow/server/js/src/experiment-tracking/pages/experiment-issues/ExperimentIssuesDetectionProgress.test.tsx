@@ -7,7 +7,7 @@ import { ExperimentIssuesDetectionProgress } from './ExperimentIssuesDetectionPr
 
 const Location = () => {
   const location = useLocation();
-  return <output aria-label="Current URL">{location.pathname + location.search}</output>;
+  return <div aria-label="Current URL">{location.pathname + location.search}</div>;
 };
 
 const renderPanel = () =>
