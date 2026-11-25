@@ -373,6 +373,48 @@ def test_span_filter_list_quote_escaping(field, comparator, literal, expected):
     ]
 
 
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "span.attributes.`gen_ai.request.model` = 'gpt-4o'",
+        "span.attributes.`gen_ai.request.model` != 'gpt-4o'",
+        "span.attributes.`gen_ai.request.model` IN ('gpt-4o')",
+        "span.attributes.`gen_ai.request.model` NOT IN ('gpt-4o')",
+    ],
+)
+def test_span_attribute_filter_rejects_unsupported_comparators(filter_string):
+    with pytest.raises(
+        MlflowException,
+        match=r"comparator '(=|!=|IN|NOT IN)' is not supported\. "
+        r"Supported comparators for span\.attributes\.<key>: ILIKE, LIKE, RLIKE\.",
+    ) as e:
+        SearchTraceUtils.parse_search_filter(filter_string)
+    assert e.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "RLIKE", "like", "ilike", "rlike"])
+def test_span_attribute_filter_accepts_pattern_comparators(comparator):
+    assert SearchTraceUtils.parse_search_filter(f"span.attributes.model {comparator} 'gpt%'") == [
+        {"type": "span", "key": "attributes.model", "comparator": comparator, "value": "gpt%"}
+    ]
+
+
+@pytest.mark.parametrize(
+    ("field", "filter_suffix", "comparator", "value"),
+    [
+        ("name", "= 'a'", "=", "a"),
+        ("name", "in ('a', 'b')", "in", ("a", "b")),
+        ("type", "like 'L%'", "like", "L%"),
+        ("status", "ilike 'ok'", "ilike", "ok"),
+        ("status", "rlike '^O'", "rlike", "^O"),
+    ],
+)
+def test_span_filter_accepts_lowercase_comparators(field, filter_suffix, comparator, value):
+    assert SearchTraceUtils.parse_search_filter(f"span.{field} {filter_suffix}") == [
+        {"type": "span", "key": field, "comparator": comparator, "value": value}
+    ]
+
+
 @pytest.mark.parametrize("literal", ["()", "(1)", "('valid', 1)", "(('nested',),)"])
 def test_span_filter_list_rejects_invalid_values(literal):
     with pytest.raises(MlflowException, match="While parsing a list in the query"):
