@@ -1373,17 +1373,19 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
         make_trace(session_id=None),
     ]
 
+    calls = MagicMock()
     with (
-        patch("mlflow.genai.discovery.pipeline.verify_scorer") as mock_verify,
+        patch("mlflow.genai.discovery.pipeline.verify_scorer", calls.verify),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval(),
+            calls.evaluate,
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
             return_value=_TriageResult([], {}, {}),
         ),
     ):
+        calls.evaluate.return_value = _triage_eval()
         result = discover_issues(
             traces=traces,
         )
@@ -1391,10 +1393,164 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
     assert result is not None
     assert result.total_traces_analyzed == 4
 
-    mock_verify.assert_called_once()
-    call_kwargs = mock_verify.call_args.kwargs
-    assert call_kwargs["session"] is not None
-    assert all(get_session_id(t) is not None for t in call_kwargs["session"])
+    # Both judges are verified, each on a sample it will judge, before either evaluation runs.
+    assert [c[0] for c in calls.mock_calls] == ["verify", "verify", "evaluate", "evaluate"]
+    conversation_check, trace_check = calls.verify.call_args_list
+    assert all(get_session_id(t) is not None for t in conversation_check.kwargs["session"])
+    assert "conversation" in conversation_check.args[0].template_variables
+    assert trace_check.kwargs["session"] is None
+    assert get_session_id(trace_check.args[1]) is None
+    assert "conversation" not in trace_check.args[0].template_variables
+
+
+def test_discover_issues_judges_traces_without_a_session_on_their_own(make_trace):
+    # Evaluation hands a conversation-level judge only the traces that have a session, so the
+    # rest go to the trace-level judge, under the same name so triage reads both verdicts.
+    in_session = [make_trace(session_id="session-1"), make_trace(session_id="session-1")]
+    alone = [make_trace(session_id=None), make_trace(session_id=None)]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(),
+        ) as mock_evaluate,
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult([], {}, {}),
+        ) as mock_extract,
+    ):
+        discover_issues(traces=in_session + alone)
+
+    assert mock_evaluate.call_count == 2
+    conversation_call, trace_call = mock_evaluate.call_args_list
+    assert conversation_call.kwargs["data"] == in_session
+    assert trace_call.kwargs["data"] == alone
+    (conversation_judge,) = conversation_call.kwargs["scorers"]
+    (trace_judge,) = trace_call.kwargs["scorers"]
+    assert "conversation" in conversation_judge.template_variables
+    assert "conversation" not in trace_judge.template_variables
+    assert conversation_judge.name == trace_judge.name == DEFAULT_SCORER_NAME
+    # Every trace is read for a verdict, whichever judge gave it.
+    assert len(mock_extract.call_args.args[0]) == 4
+
+
+@pytest.mark.parametrize("session_ids", [["session-1", "session-1"], [None, None]])
+def test_discover_issues_runs_one_judge_when_traces_agree_on_sessions(make_trace, session_ids):
+    traces = [make_trace(session_id=session_id) for session_id in session_ids]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(),
+        ) as mock_evaluate,
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult([], {}, {}),
+        ),
+    ):
+        discover_issues(traces=traces)
+
+    mock_evaluate.assert_called_once()
+    assert mock_evaluate.call_args.kwargs["data"] == traces
+
+
+def test_annotate_traces_leaves_a_trace_without_a_session_unscoped():
+    # In a run that mixes sessions with standalone traces, a standalone trace is annotated on its
+    # own, with no session ID, rather than under one made from its trace ID.
+    issues = [_make_issue(name="Wrong refund policy", description="desc", root_causes=["c"])]
+    issue_trace_ids = {issues[0].issue_id: ["trace-1", "trace-alone"]}
+    rationale_map = {"trace-1": "Promised a refund", "trace-alone": "Also promised one"}
+
+    with (
+        patch(
+            "mlflow.genai.discovery.pipeline._call_llm",
+            return_value=_make_litellm_response("Annotation."),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
+    ):
+        _annotate_issue_traces(
+            issues,
+            issue_trace_ids,
+            rationale_map,
+            {},
+            "openai:/gpt-5-mini",
+            trace_to_session={"trace-1": "session-A"},
+            session_first_trace={"session-A": "trace-1", "trace-alone": "trace-alone"},
+        )
+
+    metadata_by_trace = {
+        c.kwargs["trace_id"]: c.kwargs["metadata"] for c in mock_log_issue.call_args_list
+    }
+    assert metadata_by_trace == {
+        "trace-1": {"mlflow.trace.session": "session-A"},
+        "trace-alone": None,
+    }
+
+
+def test_discover_issues_counts_and_reports_a_failing_trace_without_a_session(make_trace):
+    # A mixed run evaluates twice. The second evaluation's judge cost must be counted, and a trace
+    # it fails must reach analysis and annotation, without a session made up for it.
+    from mlflow.tracing.constant import AssessmentMetadataKey
+
+    with mlflow.start_run() as run:
+        triage_run_id = run.info.run_id
+
+    def verdict(trace, passed, cost):
+        trace.info.assessments = [
+            Feedback(
+                name=DEFAULT_SCORER_NAME,
+                value={"passed": passed, "categories": "correctness"},
+                source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
+                trace_id=trace.info.trace_id,
+                rationale="Promised an unconditional refund" if passed == "false" else "Fine",
+                metadata={
+                    AssessmentMetadataKey.SOURCE_RUN_ID: triage_run_id,
+                    AssessmentMetadataKey.JUDGE_COST: cost,
+                },
+            )
+        ]
+        return trace
+
+    first_turn = verdict(make_trace(session_id="session-1"), "true", 0.01)
+    second_turn = make_trace(session_id="session-1")
+    alone = verdict(make_trace(session_id=None), "false", 0.02)
+    traces = [first_turn, second_turn, alone]
+    issue = _make_issue(name="Wrong refund policy", description="Promises refunds")
+    summary = _IdentifiedIssue(
+        name="Wrong refund policy",
+        description="Promises refunds",
+        root_cause="Ignores the retrieved policy",
+        example_indices=[0],
+        severity="high",
+        categories=["correctness"],
+        category_rationale="",
+    )
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(triage_run_id),
+        ) as mock_evaluate,
+        patch("mlflow.genai.discovery.pipeline.mlflow.get_trace", side_effect=traces),
+        patch("mlflow.genai.discovery.pipeline.extract_failure_labels", return_value=(["l"], [0])),
+        patch("mlflow.genai.discovery.pipeline.cluster_by_llm", return_value=[[0]]),
+        patch("mlflow.genai.discovery.pipeline.summarize_cluster", return_value=summary),
+        patch("mlflow.tracing.client.TracingClient._create_issue", return_value=issue),
+        patch("mlflow.genai.discovery.pipeline._annotate_issue_traces") as mock_annotate,
+    ):
+        result = discover_issues(traces=traces, experiment_id="0")
+
+    assert mock_evaluate.call_count == 2
+    assert result.total_cost_usd == pytest.approx(0.03)
+    assert [i.name for i in result.issues] == ["Wrong refund policy"]
+    issue_trace_ids = mock_annotate.call_args.args[1]
+    assert issue_trace_ids == {issue.issue_id: [alone.info.trace_id]}
+    trace_to_session = mock_annotate.call_args.kwargs["trace_to_session"]
+    assert alone.info.trace_id not in trace_to_session
+    assert trace_to_session[first_turn.info.trace_id] == "session-1"
 
 
 def _make_dedup_response(
