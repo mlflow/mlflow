@@ -461,6 +461,7 @@ CREATE TABLE model_versions (
 	run_link VARCHAR(500),
 	storage_location VARCHAR(500),
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	model_id VARCHAR(36),
 	PRIMARY KEY (workspace, name, version),
 	CONSTRAINT fk_model_versions_registered_models FOREIGN KEY(workspace, name) REFERENCES registered_models (workspace, name) ON UPDATE CASCADE
 )
