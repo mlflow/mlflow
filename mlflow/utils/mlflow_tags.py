@@ -5,6 +5,8 @@ See the System Tags section in the MLflow Tracking documentation for information
 meaning of these tags.
 """
 
+import json
+
 MLFLOW_EXPERIMENT_SOURCE_ID = "mlflow.experiment.sourceId"
 MLFLOW_EXPERIMENT_SOURCE_TYPE = "mlflow.experiment.sourceType"
 MLFLOW_EXPERIMENT_IS_GATEWAY = "mlflow.experiment.isGateway"
@@ -214,3 +216,12 @@ def _get_run_name_from_tags(tags):
     for tag in tags:
         if tag.key == MLFLOW_RUN_NAME:
             return tag.value
+
+
+def _append_model_version_to_tag(existing: str | None, name: str, version: str | int) -> str | None:
+    versions = json.loads(existing) if existing else []
+    # Older REST servers wrote integer versions, while clients wrote strings.
+    if any(v["name"] == name and str(v["version"]) == str(version) for v in versions):
+        return None
+    versions.append({"name": name, "version": version})
+    return json.dumps(versions)

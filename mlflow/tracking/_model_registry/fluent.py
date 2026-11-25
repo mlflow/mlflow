@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import threading
@@ -295,21 +294,13 @@ def _register_model(
     eprint(created_message)
 
     if model_id:
-        new_value = [
-            {
-                "name": create_version_response.name,
-                "version": create_version_response.version,
-            }
-        ]
         try:
             model = client.get_logged_model(model_id)
-            if existing_value := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
-                new_value = json.loads(existing_value) + new_value
-
-            client.set_logged_model_tags(
-                model_id,
-                {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
-            )
+            key = mlflow_tags.MLFLOW_MODEL_VERSIONS
+            if value := mlflow_tags._append_model_version_to_tag(
+                model.tags.get(key), create_version_response.name, create_version_response.version
+            ):
+                client.set_logged_model_tags(model_id, {key: value})
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
                 _logger.warning(

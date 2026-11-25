@@ -2716,6 +2716,16 @@ def test_create_model_version_inherits_logged_model_id(store):
     assert [v.version for v in store.search_model_versions()] == [copy.version, mv.version]
 
 
+def test_create_model_version_rejects_unrelated_model_id_for_source_without_id(store):
+    store.create_registered_model("source")
+    version = store.create_model_version("source", "s3://bucket/model", run_id="run")
+    with pytest.raises(MlflowException, match="does not match the model version source"):
+        store.create_model_version(
+            "source", f"models:/source/{version.version}", model_id="m-other"
+        )
+    assert [v.version for v in store.search_model_versions()] == [version.version]
+
+
 def test_create_model_version_concurrent(store):
     name = "test_concurrent_mv"
     _rm_maker(store, name)

@@ -1035,10 +1035,11 @@ class SqlAlchemyStore(AbstractStore):
                     f"Error: {e}"
                 ) from e
 
-        if model_id and source_model_id and model_id != source_model_id:
-            raise MlflowException.invalid_parameter_value(
-                f"Model ID '{model_id}' does not match the model version source '{source}'."
-            )
+            if model_id and model_id != source_model_id:
+                raise MlflowException.invalid_parameter_value(
+                    f"Model ID '{model_id}' does not match the model version source '{source}'."
+                )
+
         if not run_id and model_id and not source_model_id:
             model = MlflowClient().get_logged_model(model_id)
             run_id = model.source_run_id

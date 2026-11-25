@@ -1,6 +1,5 @@
 import asyncio
 import bisect
-import json
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -1362,22 +1361,10 @@ class AbstractStore(SkillRegistryMixin, MCPServerRegistryMixin, GatewayStoreMixi
         raise NotImplementedError(self.__class__.__name__)
 
     def set_model_versions_tags(self, name: str, version: str, model_id: str) -> None:
-        mvs = [{"name": name, "version": version}]
         model = self.get_logged_model(model_id)
-        if existing_mvs := model.tags.get(mlflow_tags.MLFLOW_MODEL_VERSIONS):
-            existing_mvs = json.loads(existing_mvs)
-            if mvs[0] not in existing_mvs:
-                mvs = existing_mvs + mvs
-
-        self.set_logged_model_tags(
-            model_id,
-            [
-                LoggedModelTag(
-                    key=mlflow_tags.MLFLOW_MODEL_VERSIONS,
-                    value=json.dumps(mvs),
-                )
-            ],
-        )
+        key = mlflow_tags.MLFLOW_MODEL_VERSIONS
+        if value := mlflow_tags._append_model_version_to_tag(model.tags.get(key), name, version):
+            self.set_logged_model_tags(model_id, [LoggedModelTag(key=key, value=value)])
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         """

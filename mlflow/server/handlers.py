@@ -3531,11 +3531,20 @@ def _create_model_version():
     )
     if not is_prompt and model_id:
         tracking_store = _get_tracking_store()
-        tracking_store.set_model_versions_tags(
-            name=request_message.name,
-            version=model_version.version,
-            model_id=model_id,
-        )
+        try:
+            tracking_store.set_model_versions_tags(
+                name=request_message.name,
+                version=model_version.version,
+                model_id=model_id,
+            )
+        except MlflowException as e:
+            # A registry version can outlive its logged model and still be copied.
+            if (
+                e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+                or urllib.parse.urlparse(source).scheme != "models"
+                or _parse_model_version_source(source).model_id is not None
+            ):
+                raise
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
 
     if is_prompt:
