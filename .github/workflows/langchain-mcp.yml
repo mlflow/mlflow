@@ -1,0 +1,60 @@
+name: LangChain MCP autologging
+
+on:
+  pull_request:
+    paths:
+      - ".github/actions/setup-python/**"
+      - .github/workflows/langchain-mcp.yml
+      - "mlflow/langchain/**"
+      - mlflow/ml-package-versions.yml
+      - mlflow/utils/rest_utils.py
+      - "tests/langchain/**"
+      - pyproject.toml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+cache-mode: none
+
+jobs:
+  adapter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - langchain-version: "1.4.0"
+            python-version: "3.10"
+          - langchain-version: "1.4.10"
+            python-version: "3.10"
+          # LangChain 1.5 requires Python 3.11 or later.
+          - langchain-version: "1.5.0"
+            python-version: "3.12"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python
+      - name: Install the tracking server and adapter in separate environments
+        env:
+          LANGCHAIN_VERSION: ${{ matrix.langchain-version }}
+          PYTHON_VERSION: ${{ matrix.python-version }}
+        run: |
+          uv venv "$RUNNER_TEMP/mcp-tracking"
+          uv pip install --resolution highest --python "$RUNNER_TEMP/mcp-tracking/bin/python" -e '.[mcp]'
+          uv venv --python "$PYTHON_VERSION" "$RUNNER_TEMP/mcp-client"
+          uv pip install --resolution highest --python "$RUNNER_TEMP/mcp-client/bin/python" \
+            -e . "langchain[mcp]==$LANGCHAIN_VERSION" 'openai<3' pytest pytest-asyncio pytest-timeout
+      - env:
+          MLFLOW_TEST_MCP_TRACKING_PYTHON: ${{ runner.temp }}/mcp-tracking/bin/python
+        run: |
+          "$RUNNER_TEMP/mcp-client/bin/python" -m pytest tests/langchain/test_langchain_mcp_autolog.py

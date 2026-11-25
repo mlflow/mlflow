@@ -52,6 +52,9 @@ _logger = logging.getLogger(__name__)
 # _retry_databricks_sdk_call_with_exponential_backoff skips retrying on 429 so
 # that rate-limit errors propagate immediately to the caller's own retry logic.
 _DISABLE_429_RETRY = ContextVar("_DISABLE_429_RETRY", default=False)
+_SINGLE_ATTEMPT_TIMEOUT: ContextVar[float | None] = ContextVar(
+    "_SINGLE_ATTEMPT_TIMEOUT", default=None
+)
 
 
 @contextlib.contextmanager
@@ -65,6 +68,16 @@ def disable_429_retry():
 
 def is_429_retry_disabled() -> bool:
     return _DISABLE_429_RETRY.get()
+
+
+@contextlib.contextmanager
+def _single_attempt_http_requests(timeout: float):
+    """Make requests in this context once, using ``timeout`` for each connect and read."""
+    token = _SINGLE_ATTEMPT_TIMEOUT.set(timeout)
+    try:
+        yield
+    finally:
+        _SINGLE_ATTEMPT_TIMEOUT.reset(token)
 
 
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
@@ -146,6 +159,11 @@ def http_request(
     """
     cleaned_hostname = strip_suffix(host_creds.host, "/")
     url = f"{cleaned_hostname}{endpoint}"
+
+    if (single_attempt_timeout := _SINGLE_ATTEMPT_TIMEOUT.get()) is not None:
+        timeout = single_attempt_timeout
+        max_retries = 0
+        retry_timeout_seconds = single_attempt_timeout
 
     # Set defaults for retry parameters from environment variables if not specified
     max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
