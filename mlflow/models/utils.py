@@ -1395,13 +1395,15 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
     if isinstance(arr.dtype, DataType):
         # TODO: this is still significantly slower than direct np.asarray dtype conversion
         # pd.Series conversion can be removed once we support direct validation on the numpy array
-        data_enforced = (
-            _enforce_mlflow_datatype("", pd.Series(data), arr.dtype).to_numpy(
-                dtype=arr.dtype.to_numpy()
-            )
-            if len(data) > 0
-            else data
-        )
+        if len(data) > 0:
+            values = _enforce_mlflow_datatype("", pd.Series(data), arr.dtype)
+            if isinstance(values.dtype, pd.StringDtype):
+                # pandas 3 infers StringDtype for string data, and its to_numpy(dtype=str)
+                # truncates every element to one character when a missing value is present.
+                values = pd.Series(data, dtype=object)
+            data_enforced = values.to_numpy(dtype=arr.dtype.to_numpy())
+        else:
+            data_enforced = data
     else:
         data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 
