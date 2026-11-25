@@ -10,6 +10,10 @@ from typing import Any, Callable, ParamSpec, TypeVar
 from mlflow.entities._job import Job as JobEntity
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.constants import (
+    INVOKE_ISSUE_DETECTION_JOB_NAME,
+    SCHEDULED_ISSUE_DETECTION_JOB_NAME,
+)
 from mlflow.server.constants import BACKEND_STORE_URI_ENV_VAR
 from mlflow.server.handlers import (
     _get_job_store,
@@ -109,8 +113,8 @@ _ALLOWED_JOB_NAME_LIST = [
     "run_online_trace_scorer",
     "run_online_session_scorer",
     "optimize_prompts",
-    "invoke_issue_detection",
-    "scheduled_issue_detection",
+    INVOKE_ISSUE_DETECTION_JOB_NAME,
+    SCHEDULED_ISSUE_DETECTION_JOB_NAME,
     "invoke_genai_evaluate",
 ]
 
