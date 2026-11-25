@@ -1,13 +1,13 @@
 ---
 title: Budget Alerts & Limits
-description: Control AI Gateway spending with budget policies. Set daily, weekly, or monthly cost thresholds to trigger webhook alerts or block requests when LLM spend exceeds limits.
+description: Control AI Gateway spending with budget policies. Set cost thresholds over windows from minutes to months to trigger webhook alerts or block requests when LLM spend exceeds limits.
 ---
 
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # Budget Alerts & Limits
 
-Budget policies let you control AI Gateway spending by setting a threshold (USD) over a recurring time window (daily, weekly, or monthly). When the threshold is exceeded, the policy takes one of two actions:
+Budget policies let you control AI Gateway spending by setting a threshold (USD) over a recurring time window, such as every 15 minutes, every hour, or every month. When the threshold is exceeded, the policy takes one of two actions:
 
 - **Alert** — fires a webhook notification. Requests continue normally.
 - **Reject** — blocks subsequent requests with HTTP 429. The request that causes the spend to exceed the budget is allowed to complete; rejection applies to requests that arrive after the threshold has been exceeded.
@@ -22,7 +22,7 @@ Navigate to **AI Gateway > Budgets** in the MLflow UI to view and manage your bu
 
 ### Creating a Budget Policy
 
-Click **Create budget policy** to open the creation dialog. Specify the budget amount (USD), reset period, and the action to take when the threshold is exceeded.
+Click **Create budget policy** to open the creation dialog. Specify the budget amount (USD), the reset period as a length and a unit (minutes, hours, days, weeks, or months), and the action to take when the threshold is exceeded.
 
 <img src={useBaseUrl("/images/budget-policies-create.png")} alt="Create budget policy dialog" style={{ maxWidth: "100%" }} />
 
@@ -64,13 +64,21 @@ If usage tracking is on for the endpoint, the gateway records each rejected requ
 
 ## Time Windows
 
-Budget windows are fixed intervals:
+Budget windows are fixed intervals defined by a length and a unit. All boundaries are in UTC:
 
-- **Daily** — resets every day at midnight UTC
-- **Weekly** — resets every 7 days on Sundays
-- **Monthly** — resets on the 1st of each month
+| Unit        | Window boundaries                                                                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Minutes** | Every _N_ minutes, counted from the Unix epoch. When _N_ divides 60, windows line up with the hour (for example, 15 minutes resets at :00, :15, :30, and :45).    |
+| **Hours**   | Every _N_ hours, counted from the Unix epoch. When _N_ divides 24, windows line up with midnight (for example, 6 hours resets at 00:00, 06:00, 12:00, and 18:00). |
+| **Days**    | Every _N_ days at midnight, counted from the Unix epoch. A 1-day window resets every day at midnight.                                                             |
+| **Weeks**   | Every _N_ weeks on Sunday at midnight.                                                                                                                            |
+| **Months**  | Every _N_ months on the 1st at midnight, counted from January (for example, 3 months resets on January 1, April 1, July 1, and October 1).                        |
 
 Accumulated spend resets to zero at the start of each new window.
+
+:::tip
+With the `local` budget tracker, each worker reconciles its spend with the other workers only when it [refreshes policies](#policy-refresh-interval). For windows shorter than the refresh interval, use the [`redis` strategy](#redis) so that the limit is enforced across all workers.
+:::
 
 ## Authorization
 

@@ -1,18 +1,22 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
   Alert,
-  InfoSmallIcon,
   Input,
   Modal,
   SimpleSelect,
   SimpleSelectOption,
-  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
-import type { BudgetAction, DurationUnit } from '../../types';
+import type { BudgetAction } from '../../types';
+import {
+  BudgetDurationField,
+  DEFAULT_BUDGET_DURATION,
+  parseBudgetDuration,
+  type BudgetDurationFormValue,
+} from './BudgetDurationField';
 import {
   BudgetScopeField,
   getBudgetScopePayload,
@@ -20,29 +24,20 @@ import {
   type BudgetScopeFormValue,
 } from './BudgetScopeField';
 
-type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
-
-const DURATION_MAP: Record<DurationPreset, { unit: DurationUnit; value: number }> = {
-  DAILY: { unit: 'DAYS', value: 1 },
-  WEEKLY: { unit: 'WEEKS', value: 1 },
-  MONTHLY: { unit: 'MONTHS', value: 1 },
-};
-
 interface CreateBudgetPolicyModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-interface FormData extends BudgetScopeFormValue {
+interface FormData extends BudgetScopeFormValue, BudgetDurationFormValue {
   budgetAmount: string;
-  duration: DurationPreset;
   budgetAction: BudgetAction;
 }
 
 const INITIAL_FORM_DATA: FormData = {
   budgetAmount: '',
-  duration: 'MONTHLY',
+  ...DEFAULT_BUDGET_DURATION,
   budgetAction: 'REJECT',
   scope: 'ALL',
   endpointId: '',
@@ -75,21 +70,22 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     [resetMutation],
   );
 
+  const { durationValue, durationUnit } = formData;
+  const duration = useMemo(() => parseBudgetDuration({ durationValue, durationUnit }), [durationValue, durationUnit]);
+
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
-    return !isNaN(amount) && amount > 0 && scopeField.isValid;
-  }, [formData.budgetAmount, scopeField.isValid]);
+    return !isNaN(amount) && amount > 0 && scopeField.isValid && duration !== null;
+  }, [formData.budgetAmount, scopeField.isValid, duration]);
 
   const handleSubmit = useCallback(async () => {
-    if (!isFormValid) return;
-
-    const { unit, value } = DURATION_MAP[formData.duration];
+    if (!isFormValid || !duration) return;
 
     try {
       await createBudgetPolicy({
         budget_unit: 'USD',
         budget_amount: parseFloat(formData.budgetAmount),
-        duration: { unit, value },
+        duration,
         ...getBudgetScopePayload(formData),
         budget_action: formData.budgetAction,
       });
@@ -101,7 +97,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     }
     handleClose();
     onSuccess?.();
-  }, [isFormValid, formData, createBudgetPolicy, handleClose, onSuccess]);
+  }, [isFormValid, duration, formData, createBudgetPolicy, handleClose, onSuccess]);
 
   const errorMessage = useMemo((): string | null => {
     if (!mutationError) return null;
@@ -176,47 +172,11 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           field={scopeField}
         />
 
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-            <Typography.Text bold>
-              <FormattedMessage defaultMessage="Reset period" description="Budget reset period label" />
-            </Typography.Text>
-            <Tooltip
-              componentId="mlflow.gateway.create-budget-policy-modal.reset-period-tooltip"
-              content={
-                <FormattedMessage
-                  defaultMessage="<link>Learn more about budget time windows.</link>"
-                  description="Tooltip with link to budget time windows documentation"
-                  values={{
-                    link: (chunks: React.ReactNode) => (
-                      <a
-                        href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/budget-alerts-limits#time-windows"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        css={{ color: 'inherit', textDecoration: 'underline' }}
-                      >
-                        {chunks}
-                      </a>
-                    ),
-                  }}
-                />
-              }
-            >
-              <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help' }} />
-            </Tooltip>
-          </div>
-          <SimpleSelect
-            id="create-budget-policy-duration"
-            componentId="mlflow.gateway.create-budget-policy-modal.duration"
-            label={intl.formatMessage({ defaultMessage: 'Reset period', description: 'Budget reset period label' })}
-            value={formData.duration}
-            onChange={({ target }) => handleFormChange({ duration: target.value as DurationPreset })}
-          >
-            <SimpleSelectOption value="DAILY">Daily</SimpleSelectOption>
-            <SimpleSelectOption value="WEEKLY">Weekly</SimpleSelectOption>
-            <SimpleSelectOption value="MONTHLY">Monthly</SimpleSelectOption>
-          </SimpleSelect>
-        </div>
+        <BudgetDurationField
+          componentId="mlflow.gateway.create-budget-policy-modal"
+          value={formData}
+          onChange={handleFormChange}
+        />
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text bold>

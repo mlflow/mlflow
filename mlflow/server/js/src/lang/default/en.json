@@ -259,6 +259,10 @@
     "defaultMessage": "Full screen",
     "description": "Accessible label and tooltip for expanding the trace drawer to full screen"
   },
+  "+tTcRr": {
+    "defaultMessage": "{count, plural, one {Hour} other {Hours}}",
+    "description": "Budget reset period unit"
+  },
   "+tURAJ": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
@@ -6879,6 +6883,10 @@
     "defaultMessage": "MCP Server:",
     "description": "MCP registry endpoint modal server label"
   },
+  "K+VauR": {
+    "defaultMessage": "{count, plural, one {Month} other {Months}}",
+    "description": "Budget reset period unit"
+  },
   "K0BdF9": {
     "defaultMessage": "Save",
     "description": "Edit server modal save button"
@@ -10919,6 +10927,10 @@
     "defaultMessage": "Details & Timeline",
     "description": "Label for the details & timeline view tab in the model trace explorer"
   },
+  "WiHjR9": {
+    "defaultMessage": "{count, plural, one {Day} other {Days}}",
+    "description": "Budget reset period unit"
+  },
   "WiML15": {
     "defaultMessage": "Create your first workspace",
     "description": "Home page workspaces empty state title"
@@ -12323,6 +12335,10 @@
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
   },
+  "bL2+tW": {
+    "defaultMessage": "Enter a whole number greater than 0.",
+    "description": "Validation error for an invalid budget reset period length"
+  },
   "bMUODD": {
     "defaultMessage": "Cancel detection",
     "description": "Experiment issues tab > Action to cancel the issue detection in progress"
@@ -12966,6 +12982,10 @@
   "dO2m7/": {
     "defaultMessage": "CLI",
     "description": "CLI tracing setup tab"
+  },
+  "dOIgIG": {
+    "defaultMessage": "Reset period length",
+    "description": "Accessible label for the budget reset period length input"
   },
   "dPn3az": {
     "defaultMessage": "Tool",
@@ -19695,6 +19715,10 @@
     "defaultMessage": "High → low",
     "description": "Active descending sort direction for a scorer in evaluation comparison"
   },
+  "yCShar": {
+    "defaultMessage": "Reset period unit",
+    "description": "Accessible label for the budget reset period unit selector"
+  },
   "yCncIr": {
     "defaultMessage": "Metric",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use metric axis in all charts"
@@ -20019,6 +20043,10 @@
     "defaultMessage": "Workspace: {workspace}",
     "description": "Subtitle on the admin page identifying the active workspace when the URL is per-workspace scoped"
   },
+  "zJjeKZ": {
+    "defaultMessage": "{count, plural, one {Week} other {Weeks}}",
+    "description": "Budget reset period unit"
+  },
   "zK6IRq": {
     "defaultMessage": "Delete dataset",
     "description": "Title for the V2 evaluation dataset delete confirmation modal"
@@ -20082,6 +20110,10 @@
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
     "description": "Label indicating positive infinity used as a hover text in a plot UI element"
+  },
+  "zXSYqh": {
+    "defaultMessage": "{count, plural, one {Minute} other {Minutes}}",
+    "description": "Budget reset period unit"
   },
   "zYpqJP": {
     "defaultMessage": "Tool error: <highlight>invalid argument</highlight>",

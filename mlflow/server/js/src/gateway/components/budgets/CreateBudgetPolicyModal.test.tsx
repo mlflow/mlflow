@@ -87,6 +87,52 @@ describe('CreateBudgetPolicyModal', () => {
     });
   });
 
+  test.each([
+    ['MINUTES' as const, '15', 'Minutes'],
+    ['HOURS' as const, '6', 'Hours'],
+    ['HOURS' as const, '1', 'Hour'],
+  ])('submits a %s reset period of length %s', async (unit, length, unitLabel) => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText('e.g., 100.00'), '10');
+
+    const lengthInput = screen.getByRole('spinbutton', { name: 'Reset period length' });
+    await userEvent.clear(lengthInput);
+    await userEvent.type(lengthInput, length);
+
+    // Scope is the first combobox; the reset period unit follows it.
+    await userEvent.click(screen.getAllByRole('combobox')[1]);
+    expect(screen.getByRole('listbox', { name: 'Reset period unit options' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('option', { name: unitLabel }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_unit: 'USD',
+      budget_amount: 10,
+      duration: { unit, value: Number(length) },
+      target_scope: 'GLOBAL',
+      budget_action: 'REJECT',
+    });
+  });
+
+  test.each([[''], ['0'], ['1.5'], ['-2']])(
+    'disables Create and explains the error for reset period length %j',
+    async (length) => {
+      renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+      await userEvent.type(screen.getByPlaceholderText('e.g., 100.00'), '10');
+      const lengthInput = screen.getByRole('spinbutton', { name: 'Reset period length' });
+      await userEvent.clear(lengthInput);
+      if (length) {
+        await userEvent.type(lengthInput, length);
+      }
+
+      expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+      expect(screen.getByText('Enter a whole number greater than 0.')).toBeInTheDocument();
+    },
+  );
+
   test('defaults to all-endpoints scope without endpoint picker', () => {
     renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
 

@@ -97,6 +97,57 @@ describe('EditBudgetPolicyModal', () => {
     });
   });
 
+  test('keeps a reset period that is not a single day, week, or month when another field is edited', async () => {
+    const policy: BudgetPolicy = { ...mockPolicy, duration: { unit: 'HOURS', value: 6 } };
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={policy} onClose={jest.fn()} />);
+
+    expect(screen.getByRole('spinbutton', { name: 'Reset period length' })).toHaveValue(6);
+    expect(screen.getByText('Hours')).toBeInTheDocument();
+
+    const amountInput = screen.getByDisplayValue('200');
+    await userEvent.clear(amountInput);
+    await userEvent.type(amountInput, '300');
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_policy_id: 'bp-1',
+      budget_unit: 'USD',
+      budget_amount: 300,
+      duration: { unit: 'HOURS', value: 6 },
+      target_scope: 'GLOBAL',
+      budget_action: 'ALERT',
+    });
+  });
+
+  test('changes the reset period to minutes', async () => {
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockPolicy} onClose={jest.fn()} />);
+
+    const lengthInput = screen.getByRole('spinbutton', { name: 'Reset period length' });
+    await userEvent.clear(lengthInput);
+    await userEvent.type(lengthInput, '30');
+    await userEvent.click(screen.getAllByRole('combobox')[1]);
+    await userEvent.click(screen.getByRole('option', { name: 'Minutes' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_policy_id: 'bp-1',
+      budget_unit: 'USD',
+      budget_amount: 200,
+      duration: { unit: 'MINUTES', value: 30 },
+      target_scope: 'GLOBAL',
+      budget_action: 'ALERT',
+    });
+  });
+
+  test('disables save when the reset period length is cleared', async () => {
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockPolicy} onClose={jest.fn()} />);
+
+    await userEvent.clear(screen.getByRole('spinbutton', { name: 'Reset period length' }));
+
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+    expect(screen.getByText('Enter a whole number greater than 0.')).toBeInTheDocument();
+  });
+
   test('initializes scope and endpoint from an ENDPOINT policy', () => {
     renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockEndpointPolicy} onClose={jest.fn()} />);
 
