@@ -219,6 +219,24 @@ def test_same_model_name_allowed_in_different_workspaces(workspace_registry_stor
         assert names == {"shared-name"}
 
 
+def test_model_version_id_is_inherited_in_its_workspace(workspace_registry_store):
+    store = workspace_registry_store
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            store.create_registered_model("shared")
+            store.create_model_version(
+                "shared", "s3://bucket/model", "run", model_id=f"m-{workspace}"
+            )
+
+    for workspace in ("team-a", "team-b"):
+        with WorkspaceContext(workspace):
+            version = store.create_model_version("shared", "models:/shared/1")
+            store.set_registered_model_alias("shared", "champion", version.version)
+            assert (
+                store.get_model_version_by_alias("shared", "champion").model_id == f"m-{workspace}"
+            )
+
+
 def test_update_and_delete_registered_model_metadata_are_workspace_scoped(
     workspace_registry_store,
 ):
