@@ -1095,6 +1095,13 @@ class SqlAlchemyStore(
             experiment.name = new_name
             experiment.last_update_time = get_current_time_millis()
             session.add(experiment)
+            try:
+                session.flush()
+            except sqlalchemy.exc.IntegrityError as e:
+                raise MlflowException(
+                    f"Experiment(name={new_name}) already exists.",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
 
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         with self.ManagedSessionMaker(read_only=False) as session:

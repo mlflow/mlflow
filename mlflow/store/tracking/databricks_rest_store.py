@@ -100,7 +100,6 @@ from mlflow.utils.databricks_tracing_utils import (
     uc_table_prefix_location_from_proto,
     uc_table_prefix_location_to_proto,
 )
-from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
 from mlflow.utils.issue_utils import validate_issue_fields, validate_issue_search
 from mlflow.utils.proto_json_utils import (
     message_to_json,
@@ -747,20 +746,7 @@ class DatabricksTracingRestStore(RestStore):
         if not spans:
             return []
 
-        if tracking_uri is None:
-            raise MlflowException(
-                "`tracking_uri` must be provided to log spans to with Databricks tracking server."
-            )
-
         endpoint = f"/api/2.0/otel{OTLP_TRACES_PATH}"
-        try:
-            config = get_databricks_workspace_client_config(tracking_uri)
-        except Exception as e:
-            raise MlflowException(
-                "Failed to log spans to UC table: could not identify Databricks workspace "
-                "configuration"
-            ) from e
-
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
         resource = getattr(spans[0]._span, "resource", None)
@@ -776,7 +762,6 @@ class DatabricksTracingRestStore(RestStore):
             extra_headers={
                 "Content-Type": "application/x-protobuf",
                 DATABRICKS_UC_TABLE_HEADER: location,
-                **config.authenticate(),
             },
         )
         verify_rest_response(response, endpoint)

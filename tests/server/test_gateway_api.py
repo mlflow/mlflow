@@ -1,3 +1,4 @@
+import contextlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -4528,3 +4529,80 @@ def test_invocations_passes_username_to_budget_enforcement(store: SqlAlchemyStor
     mock_on_complete.assert_called()
     assert mock_on_complete.call_args.kwargs["username"] == "alice@example.com"
     assert mock_on_complete.call_args.kwargs["endpoint_id"] == "test-endpoint-id"
+
+
+# ==================== Budget enforcement: gateway caller ====================
+
+
+def _hi_response():
+    return chat.ResponsePayload(
+        id="test-id",
+        object="chat.completion",
+        created=1234567890,
+        model="gpt-4",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hi!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+    )
+
+
+@contextlib.contextmanager
+def _chat_completions_client(store, endpoint_config):
+    """
+    A test client for the chat completions route. A mock provider answers each request, and
+    each request comes from the user alice@example.com.
+    """
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    @app.middleware("http")
+    async def _set_username(request, call_next):
+        request.state.username = "alice@example.com"
+        return await call_next(request)
+
+    async def _mock_chat(payload):
+        return _hi_response()
+
+    mock_provider = MagicMock()
+    mock_provider.chat = _mock_chat
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
+        patch("mlflow.server.gateway_api.load_guardrails", return_value=[]),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name",
+            return_value=(mock_provider, endpoint_config),
+        ),
+    ):
+        yield TestClient(app)
+
+
+def _post_chat(client, caller=None):
+    return client.post(
+        "/gateway/mlflow/v1/chat/completions",
+        json={"model": "my-endpoint", "messages": [{"role": "user", "content": "Hi"}]},
+        headers={"X-MLflow-Gateway-Caller": caller} if caller else {},
+    )
+
+
+def test_invocations_passes_caller_and_trace_metadata_to_budget_enforcement(
+    store: SqlAlchemyStore,
+):
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id", endpoint_name="my-endpoint", models=[]
+    )
+    with (
+        _chat_completions_client(store, endpoint_config) as client,
+        patch("mlflow.server.gateway_api.check_budget_limit") as mock_check,
+    ):
+        response = _post_chat(client, caller="judge")
+
+    assert response.status_code == 200
+    check_kwargs = mock_check.call_args.kwargs
+    assert check_kwargs["request_headers"]["x-mlflow-gateway-caller"] == "judge"
+    assert check_kwargs["metadata"][TraceMetadataKey.AUTH_USERNAME] == "alice@example.com"

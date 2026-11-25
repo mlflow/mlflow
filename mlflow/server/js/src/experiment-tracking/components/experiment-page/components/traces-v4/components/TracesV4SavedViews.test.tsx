@@ -428,6 +428,60 @@ describe('useTracesV4SavedViews dirty / overwrite / reset', () => {
     await waitFor(() => expect(state.dirtyStatus).toBe('dirty'));
   });
 
+  test.each(['startTimeLabel=ALL', 'startTimeLabel=CUSTOM&startTime=1000&endTime=2000'])(
+    'opening a view without a time range keeps %s',
+    async (range) => {
+      let state: ReturnType<typeof useTracesV4SavedViews>;
+      let search = '';
+      renderProbeAt(`/?${range}&q=old&page=3`, (next, nextSearch) => {
+        state = next;
+        search = nextSearch;
+      });
+      await act(async () => {
+        await state.openView('v1');
+      });
+      const params = new URLSearchParams(search);
+      for (const [key, value] of new URLSearchParams(range)) {
+        expect(params.get(key)).toBe(value);
+      }
+      expect(params.get('q')).toBe('x');
+      expect(params.has('page')).toBe(false);
+      await waitFor(() => expect(state.dirtyStatus).toBe('clean'));
+    },
+  );
+
+  test.each(['startTimeLabel=ALL', 'startTimeLabel=CUSTOM&startTime=1000&endTime=2000'])(
+    'Default view clears view settings and keeps %s',
+    async (range) => {
+      let state: ReturnType<typeof useTracesV4SavedViews>;
+      let search = '';
+      renderProbeAt(`/?${range}&q=x&sort=duration&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (next, nextSearch) => {
+        state = next;
+        search = nextSearch;
+      });
+      await act(async () => state.resetToDefaultView());
+      expect(new URLSearchParams(search)).toEqual(new URLSearchParams(range));
+      expect(setFilterModel).toHaveBeenLastCalledWith([]);
+    },
+  );
+
+  test('a view with a saved relative range replaces the current custom bounds', async () => {
+    mockExperiment([await makeV4ViewTag('v1', 'Last hour', 1000, 'q=x&startTimeLabel=LAST_HOUR')]);
+    let state: ReturnType<typeof useTracesV4SavedViews>;
+    let search = '';
+    renderProbeAt('/?startTimeLabel=CUSTOM&startTime=1000&endTime=2000', (next, nextSearch) => {
+      state = next;
+      search = nextSearch;
+    });
+    await act(async () => {
+      await state.openView('v1');
+    });
+    const params = new URLSearchParams(search);
+    expect(params.get('startTimeLabel')).toBe('LAST_HOUR');
+    expect(params.has('startTime')).toBe(false);
+    expect(params.has('endTime')).toBe(false);
+  });
+
   test('overwriteView rewrites the active view tag in place, keeping id + createdAt and bumping updatedAt', async () => {
     let state: any;
     renderProbeAt(`/?q=changed&${TRACE_V4_SHARE_URL_PARAM_KEY}=v1`, (s) => (state = s));

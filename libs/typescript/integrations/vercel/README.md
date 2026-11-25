@@ -1,6 +1,6 @@
 # MLflow Typescript SDK - Vercel AI
 
-Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with [Vercel AI SDK](https://ai-sdk.dev/) to automatically trace your AI API calls.
+Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/master/libs/typescript) with [Vercel AI SDK](https://ai-sdk.dev/) to automatically trace your AI API calls.
 
 | Package              | NPM                                                                                                                               | Description                                         |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |

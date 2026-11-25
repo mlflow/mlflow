@@ -37,6 +37,71 @@ describe('YAML collection previews', () => {
     });
   });
 
+  it.each(['word '.repeat(5000), 'line\n'.repeat(5000) + 'tail\n', 'line\n'.repeat(5000) + 'tail'])(
+    'bounds large scalar strings while preserving the preview',
+    (value) => {
+      const data = JSON.stringify(value);
+      const preview = getYamlCollectionPreview(data, 10, 300);
+      const dumpedValue = jest.mocked(dump).mock.calls.at(-1)?.[0];
+
+      expect(preview?.isComplete).toBe(false);
+      expect(typeof dumpedValue === 'string' && dumpedValue.length).toBeLessThanOrEqual(422);
+      expect(prefix(preview!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+    },
+  );
+
+  it.each([
+    { nested: { value: 'line\n'.repeat(5000) + 'tail\n' } },
+    Array.from({ length: 20 }, (_, index) => `value_${index}_${'x'.repeat(50)}`),
+    { [`key_${'x'.repeat(5000)}`]: true },
+  ])('bounds nested strings and keys while preserving the preview %#', (value) => {
+    const data = JSON.stringify(value);
+    const preview = getYamlCollectionPreview(data, 10, 300);
+    const dumpedValue = jest.mocked(dump).mock.calls.at(-1)?.[0];
+    const dumpedStrings = JSON.stringify(dumpedValue);
+
+    expect(preview?.isComplete).toBe(false);
+    expect(dumpedStrings.length).toBeLessThan(1200);
+    expect(prefix(preview!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+  });
+
+  it('keeps the full formatter for scalar styles that cannot be truncated safely', () => {
+    for (const value of ['line\n'.repeat(5000) + '\x07', ` ${'x'.repeat(5000)}\ntail`]) {
+      const data = JSON.stringify(value);
+      const firstCall = jest.mocked(dump).mock.calls.length;
+
+      expect(prefix(getYamlCollectionPreview(data, 10, 300)!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+      expect(jest.mocked(dump).mock.calls[firstCall]?.[0]).toBe(value);
+    }
+  });
+
+  it('preserves exact-budget keys and falls back when truncating a key would collide', () => {
+    const exactKey = 'x'.repeat(420);
+    const exactData = JSON.stringify({ [exactKey]: true });
+    expect(getYamlCollectionPreview(exactData, 10, 300)).toEqual({
+      text: formatJsonStringAsYaml(exactData),
+      isComplete: true,
+    });
+
+    const existingKey = 'x'.repeat(210);
+    const value = { [existingKey]: true, [`${existingKey}${'y'.repeat(500)}`]: false };
+    const data = JSON.stringify(value);
+    const firstCall = jest.mocked(dump).mock.calls.length;
+    expect(prefix(getYamlCollectionPreview(data, 10, 300)!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+    expect(jest.mocked(dump).mock.calls[firstCall]?.[0]).toEqual(value);
+  });
+
+  it('bounds a large scalar after an earlier key consumes most of the budget', () => {
+    const data = JSON.stringify({ ['key'.repeat(100)]: 'word '.repeat(5000) });
+    const firstCall = jest.mocked(dump).mock.calls.length;
+    const preview = getYamlCollectionPreview(data, 10, 300);
+    const dumpedValue = jest.mocked(dump).mock.calls[firstCall]?.[0];
+
+    expect(preview?.isComplete).toBe(false);
+    expect(JSON.stringify(dumpedValue).length).toBeLessThan(600);
+    expect(prefix(preview!.text)).toBe(prefix(formatJsonStringAsYaml(data)));
+  });
+
   it('keeps the existing invalid-JSON fallback', () => {
     expect(getYamlCollectionPreview('{invalid', 10, 300)).toBeUndefined();
     expect(formatJsonStringAsYaml('{invalid')).toBe('{invalid');
