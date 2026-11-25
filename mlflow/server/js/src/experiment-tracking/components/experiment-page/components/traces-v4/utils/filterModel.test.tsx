@@ -1,8 +1,13 @@
 import { describe, expect, jest, test } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
-import { IntlProvider } from 'react-intl';
+import { createIntl, IntlProvider } from 'react-intl';
 import { FilterOp, type FilterClause } from '@databricks/web-shared/traces-table';
-import { compileFilterModel, compileTagFilters, useMlflowTraceFilterFields } from './filterModel';
+import {
+  compileFilterModel,
+  compileTagFilters,
+  useMlflowTraceFilterFields,
+  validateMetadataFilters,
+} from './filterModel';
 
 // These tests cover the filter fields with the new eval runs UI off; filterModel.newEvalRunsUi.test.tsx covers it on.
 jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
@@ -132,6 +137,33 @@ describe('compileFilterModel', () => {
   });
 
   describe('arbitrary tag / metadata key clauses (read clause.key)', () => {
+    test.each(['my key', 'my-key', '1key', '日本語'])('quotes the metadata key %j', (key) => {
+      expect(compileFilterModel([{ field: 'metadata', operator: FilterOp.CONTAINS, value: 'v', key }])).toEqual([
+        `request_metadata.\`${key}\` ILIKE '%v%'`,
+      ]);
+    });
+
+    test.each(['my`key', 'my"key', 'my;key', 'my\\key', 'notes--v2', 'my/*key', 'my*/key', 'my\nkey'])(
+      'rejects an unsupported metadata key %j before applying the draft',
+      (key) => {
+        const model = [{ field: 'metadata', operator: FilterOp.EQUALS, value: 'v', key }];
+        expect(validateMetadataFilters(model, createIntl({ locale: 'en' }))).toContain('Metadata keys cannot');
+        expect(compileFilterModel(model)).toEqual([]);
+      },
+    );
+
+    test('combines quoted and dotted metadata keys without changing valid values', () => {
+      const model = [
+        { field: 'metadata', operator: FilterOp.EQUALS, value: "O'Reilly", key: 'my key' },
+        { field: 'metadata', operator: FilterOp.EQUALS, value: 'prod', key: 'custom.key' },
+      ];
+      expect(validateMetadataFilters(model, createIntl({ locale: 'en' }))).toBeUndefined();
+      expect(compileFilterModel(model)).toEqual([
+        "request_metadata.`my key` = 'O\\'Reilly'",
+        "request_metadata.custom.key = 'prod'",
+      ]);
+    });
+
     test('a tag clause compiles to a tags.<key> clause with the chosen operator', () => {
       expect(compileFilterModel([{ field: 'tag', operator: FilterOp.EQUALS, value: 'prod', key: 'env' }])).toEqual([
         "tags.env = 'prod'",

@@ -38,6 +38,7 @@ import {
   useTracesV4CustomColumns,
 } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4CustomColumns';
 import { useTracesV4UnifiedSearch } from '../../components/experiment-page/components/traces-v4/hooks/useTracesV4UnifiedSearch';
+import { validateMetadataFilters } from '../../components/experiment-page/components/traces-v4/utils/filterModel';
 import {
   getSessionAssessmentNames,
   isAssessmentColumnId,
@@ -378,6 +379,7 @@ export const EvalRunTracesV4Table = ({
   });
 
   const toolbarSlots = useTracesV4ToolbarSlots({
+    validateFilters: (model) => validateMetadataFilters(model, intl),
     filterModel: unifiedSearch.searchFilterModel,
     onFilterChange: unifiedSearch.setSearchFilters,
     hideFilterButton: true,

@@ -12,6 +12,10 @@ import { shouldEnableNewEvalRunsUi } from '@mlflow/mlflow/src/common/utils/Featu
 import { escapeFilterValue } from './buildTracesV4SearchParams';
 import { assessmentValueKindKey } from './assessmentColumns';
 import {
+  getMetadataFilterError,
+  getMetadataFilterField,
+} from '@databricks/web-shared/genai-traces-table/utils/metadataFilter';
+import {
   buildTraceFilterSuggestions,
   getTraceFilterValueOptions,
   type TraceFilterSuggestions,
@@ -313,6 +317,9 @@ const compileSpanTextClause = (field: string, operator: FilterOp, value: string)
 const tagFieldRef = (key: string): string =>
   key.includes('.') || key.includes(' ') ? `tags.\`${key}\`` : `tags.${key}`;
 
+export const validateMetadataFilters = (model: TraceFilterModel, intl: IntlShape): string | undefined =>
+  getMetadataFilterError(model.filter(({ field }) => field === 'metadata').map(({ key }) => key ?? ''), intl);
+
 const NO_NUMERIC_ASSESSMENT_KEYS: ReadonlySet<string> = new Set();
 
 const NUMERIC_LITERAL = /^-?\d+(\.\d+)?$/;
@@ -402,9 +409,11 @@ const compileClause = (
     case 'tag':
       // Arbitrary tag key=value; `isClauseComplete` guarantees a non-blank key here.
       return `${tagFieldRef(key ?? '')} ${operator} '${v}'`;
-    case 'metadata':
+    case 'metadata': {
       // Arbitrary trace-metadata key, matching v3's custom-metadata clause (CONTAINS → ILIKE).
-      return compileContainsAwareClause(`request_metadata.${key ?? ''}`, operator, value);
+      const fieldRef = getMetadataFilterField(key ?? '');
+      return fieldRef ? compileContainsAwareClause(fieldRef, operator, value) : undefined;
+    }
     case 'assessment':
       // The key is the assessment name; `isClauseComplete` guarantees it's non-blank (requiresKey).
       // Compiles to a `feedback.\`<name>\`` clause (matching the shared `createMlflowSearchFilter`);
