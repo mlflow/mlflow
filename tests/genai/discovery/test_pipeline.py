@@ -1486,8 +1486,6 @@ def test_annotate_traces_leaves_a_trace_without_a_session_unscoped():
 def test_discover_issues_counts_and_reports_a_failing_trace_without_a_session(make_trace):
     # A mixed run evaluates twice. The second evaluation's judge cost must be counted, and a trace
     # it fails must reach analysis and annotation, without a session made up for it.
-    from mlflow.entities.assessment import Feedback
-    from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
     from mlflow.tracing.constant import AssessmentMetadataKey
 
     with mlflow.start_run() as run:
