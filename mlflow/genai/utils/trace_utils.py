@@ -257,7 +257,7 @@ def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
         tool_info = FunctionCall(
             name=_extract_tool_name_from_span(tool_span),
             arguments=tool_span.inputs or None,
-            outputs=tool_span.outputs or None,
+            outputs=tool_span.outputs,
             exception=_get_exception_from_span(tool_span),
         )
         tools_called.append(tool_info)

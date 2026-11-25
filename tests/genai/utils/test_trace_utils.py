@@ -1225,6 +1225,24 @@ def test_parse_tool_call_messages_from_trace_tool_without_outputs():
     }
 
 
+def test_extract_tools_called_from_trace_keeps_falsy_outputs():
+    with mlflow.start_span(name="root") as root_span:
+        with mlflow.start_span(name="is_in_stock", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"item": "apple"})
+            tool_span.set_outputs(False)
+        with mlflow.start_span(name="count_orders", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"user": "bob"})
+            tool_span.set_outputs(0)
+
+    trace = mlflow.get_trace(root_span.trace_id)
+
+    assert [call.outputs for call in extract_tools_called_from_trace(trace)] == [False, 0]
+    assert [m["content"] for m in parse_tool_call_messages_from_trace(trace)] == [
+        "Tool: is_in_stock\nInputs: {'item': 'apple'}\nOutputs: False",
+        "Tool: count_orders\nInputs: {'user': 'bob'}\nOutputs: 0",
+    ]
+
+
 def test_extract_tool_name_from_span_uses_span_name_by_default():
     with mlflow.start_span(name="root") as root_span:
         root_span.set_inputs({"query": "test"})

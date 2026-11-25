@@ -85,7 +85,7 @@ def format_tools_called(tools_called: list["FunctionCall"]) -> str:
     for idx, tool in enumerate(tools_called, start=1):
         tool_name = tool.name
         tool_args = tool.arguments or {}
-        tool_output = tool.outputs or "(no output)"
+        tool_output = "(no output)" if tool.outputs is None else tool.outputs
 
         tool_str = f"Tool Call {idx}: {tool_name}\n"
         tool_str += f"  Input Arguments: {tool_args}\n"
