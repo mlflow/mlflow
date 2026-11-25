@@ -12707,6 +12707,21 @@ def test_get_issue_detection_run_handler_reads_the_job_of_a_run_not_yet_tagged(
     assert resp.get_json()["issue_detection_run"]["status"] == "failed"
 
 
+def test_get_issue_detection_run_handler_skips_the_job_lookup_for_a_settled_run(
+    mock_tracking_store, mock_job_store
+):
+    # A settled run already says how it ended, so it isn't worth reading the job store for.
+    mock_tracking_store.get_run.return_value = _untagged_detection_run(
+        status="FINISHED", end_time=1700000900000
+    )
+
+    with app.test_client() as c:
+        resp = c.get("/api/3.0/mlflow/issues/detection-runs/run-detect-1")
+
+    assert resp.get_json()["issue_detection_run"]["status"] == "succeeded"
+    mock_job_store.list_jobs.assert_not_called()
+
+
 def test_cancel_issue_detection_run_handler_rejects_other_runs(mock_tracking_store):
     mock_tracking_store.get_run.return_value = _detection_run(run_type="genai_evaluate")
 
