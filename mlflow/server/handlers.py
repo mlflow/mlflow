@@ -6255,7 +6255,29 @@ def _get_issue_detection_run_and_job(store, run_id: str):
     # detection job is ignored rather than reported, as `GET /mlflow/jobs/<id>` would refuse to.
     if job is not None and not _is_detection_job_of_run(job, run):
         job = None
+    # A settled run already says how it ended, so only a run still going needs its job found.
+    if job is None and run.info.status not in _DETECTION_STATUS_BY_RUN_STATUS:
+        job = _find_ad_hoc_detection_job(run)
     return run, job
+
+
+def _find_ad_hoc_detection_job(run):
+    """
+    The ad hoc detection job that names ``run`` in its params, or ``None``.
+
+    The run is tagged with its job only after the job is submitted, and that write is best
+    effort, so a run can be missing the tag while its job runs: briefly after it starts, or for
+    good if the write failed. Without this, canceling such a run would end the run but leave its
+    job going, which could then finish the run over the cancellation. The job is created after
+    the run, which bounds the search.
+    """
+    jobs = _get_job_store().list_jobs(
+        job_name=INVOKE_ISSUE_DETECTION_JOB_NAME,
+        begin_timestamp=run.info.start_time,
+        params={"run_id": run.info.run_id},
+    )
+    matching = [job for job in jobs if _is_detection_job_of_run(job, run)]
+    return matching[-1] if matching else None
 
 
 _DETECTION_JOB_NAMES = frozenset({
@@ -6349,8 +6371,10 @@ def _cancel_issue_detection_run(run_id):
     A request handler for `POST /mlflow/issues/detection-runs/{run_id}/cancel` to cancel an issue
     detection run.
 
-    Cancels the job and marks the run KILLED, as the Issues tab does, since a canceled job's
-    process is stopped before it can end the run itself. A run that has already ended is returned
+    Cancels the job and marks the run KILLED, as the Issues tab does. The job's worker notices the
+    cancellation only on its next poll and may not end the run itself, so the run is ended here,
+    and a canceled job reads as canceled even if its worker ends the run before stopping (see
+    ``_to_issue_detection_run_proto``). A run that has already ended is returned
     unchanged, and so is one whose job ended first and settled it. A run whose job ended without
     settling it is settled as the job ended. If the job can't be canceled while it's still going,
     the request fails and the run is left running.
