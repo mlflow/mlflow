@@ -5,6 +5,7 @@ import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
@@ -15,7 +16,7 @@ from mlflow.genai.discovery.constants import (
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
 from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
-from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -318,6 +319,14 @@ def _parse_assessment_value(value) -> tuple[bool, list[str]]:
     return bool(value), []
 
 
+def _counts_for_run(assessment, run_id: str | None) -> bool:
+    """Whether a verdict counts for triage scoped to ``run_id``: from that run, or from a human."""
+    if run_id is None or assessment.run_id == run_id:
+        return True
+    source = getattr(assessment, "source", None)
+    return source is not None and source.source_type == AssessmentSourceType.HUMAN
+
+
 def extract_failing_traces(
     scored_traces: list[Trace],
     scorer_names: str | list[str],
@@ -339,15 +348,19 @@ def extract_failing_traces(
     leaves the trace unclassified. Neither is a pass, and both are counted so a run cannot
     report a clean scan over a sample it never judged.
 
-    With ``run_id``, only the assessments that run logged count. A trace keeps every earlier
-    run's verdicts, so without it a trace this run didn't judge is read on a verdict an earlier
-    run gave, possibly under different categories, instructions or model, instead of being
-    reported as unclassified.
+    With ``run_id``, only the verdicts that run logged count, plus any a human gave. A trace
+    keeps every earlier run's verdicts, so without it a trace this run didn't judge is read on a
+    verdict an earlier run gave, possibly under different categories, instructions or model,
+    instead of being reported as unclassified. A human's verdict, such as a correction of the
+    judge, is kept: it carries no run, and it judges the trace rather than repeating an earlier
+    run's criteria. The scope is the run, so a run reused for several evaluations reads all of
+    their verdicts.
 
     Args:
         scored_traces: Traces with scorer assessments attached.
         scorer_names: One or more scorer names to check for failures.
-        run_id: The evaluation run whose verdicts to read. ``None`` reads every run's.
+        run_id: The evaluation run whose verdicts to read, alongside human ones. ``None`` reads
+            every run's.
     """
     if isinstance(scorer_names, str):
         scorer_names = [scorer_names]
@@ -369,8 +382,7 @@ def extract_failing_traces(
             assessments = [
                 assessment
                 for assessment in trace.search_assessments(scorer_name, type="feedback")
-                if run_id is None
-                or (assessment.metadata or {}).get(AssessmentMetadataKey.SOURCE_RUN_ID) == run_id
+                if _counts_for_run(assessment, run_id)
             ]
             assessment = assessments[-1] if assessments else None
             if assessment is None:

@@ -857,6 +857,8 @@ def discover_issues(
         filter_string: Filter string passed to ``search_traces``.
             Ignored when ``traces`` is provided.
         run_id: Run ID to attach issues to. If not provided, a new run will be created.
+            Triage reads the verdicts this run logged, so reusing a run for several detections
+            lets one read another's verdicts for traces it didn't judge.
         categories: Issue categories to search for.
         instructions: Free-text detection priorities saved on the experiment, applied to the
             stages that decide what to flag and how severe it is. Steers the run; it cannot
@@ -985,7 +987,9 @@ def discover_issues(
             _logger.debug("Failed to fetch scored traces", exc_info=True)
 
         scorer_names = [s.name for s in scorers]
-        # Only this run's verdicts: a trace it didn't judge must not pass or fail on an old one.
+        # Only this run's verdicts, and humans': a trace it didn't judge must not pass or fail on
+        # an earlier run's. The scope is the run, so a run reused across detections reads all of
+        # their verdicts.
         triage = extract_failing_traces(scored_traces, scorer_names, run_id=triage_eval.run_id)
 
         # Cost is judged across the sample, because it is the one category a per-trace judge

@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.entities import _ConversationAnalysis
 from mlflow.genai.discovery.extraction import (
@@ -154,13 +155,14 @@ def test_extract_failure_labels_keeps_leading_hyphen():
 _SOURCE = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test")
 
 
-def _add_feedback(trace, name, value, rationale="", run_id=None):
+def _add_feedback(trace, name, value=None, rationale="", run_id=None, source=_SOURCE, error=None):
     mlflow.log_feedback(
         trace_id=trace.info.trace_id,
         name=name,
         value=value,
         rationale=rationale,
-        source=_SOURCE,
+        source=source,
+        error=error,
         metadata={AssessmentMetadataKey.SOURCE_RUN_ID: run_id} if run_id else None,
     )
 
@@ -242,6 +244,48 @@ def test_extract_failing_traces_reads_the_runs_failure_over_a_later_one(make_tra
 
     assert [t.info.trace_id for t in result.failing_traces] == [trace.info.trace_id]
     assert result.rationale_map[trace.info.trace_id] == "this run's failure"
+
+
+def test_extract_failing_traces_reads_the_runs_judge_error_over_an_older_verdict(make_trace):
+    trace = make_trace()
+    _add_feedback(trace, "satisfaction", True, "earlier pass", run_id="run-old")
+    _add_feedback(
+        trace,
+        "satisfaction",
+        run_id="run-new",
+        error=AssessmentError(error_code="RATE_LIMIT_EXCEEDED", error_message="rate limited"),
+    )
+
+    result = extract_failing_traces(_refetch([trace]), "satisfaction", run_id="run-new")
+
+    assert result.failing_traces == []
+    assert result.scorer_error_trace_ids == [trace.info.trace_id]
+    assert "rate limited" in result.scorer_errors[trace.info.trace_id]
+
+
+_HUMAN = AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="reviewer")
+
+
+def test_extract_failing_traces_keeps_a_humans_verdict(make_trace):
+    # A human's verdict carries no run: it still decides a trace this run didn't judge.
+    trace = make_trace()
+    _add_feedback(trace, "satisfaction", False, "a reviewer says it's wrong", source=_HUMAN)
+
+    result = extract_failing_traces(_refetch([trace]), "satisfaction", run_id="run-new")
+
+    assert [t.info.trace_id for t in result.failing_traces] == [trace.info.trace_id]
+    assert result.rationale_map[trace.info.trace_id] == "a reviewer says it's wrong"
+
+
+def test_extract_failing_traces_reads_the_runs_newer_verdict_over_a_humans(make_trace):
+    trace = make_trace()
+    _add_feedback(trace, "satisfaction", False, "an earlier reviewer's call", source=_HUMAN)
+    _add_feedback(trace, "satisfaction", True, "judged fine now", run_id="run-new")
+
+    result = extract_failing_traces(_refetch([trace]), "satisfaction", run_id="run-new")
+
+    assert result.failing_traces == []
+    assert result.unclassified_trace_ids == []
 
 
 def test_extract_failing_traces_without_a_run_reads_every_runs_verdicts(make_trace):
