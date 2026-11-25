@@ -16,7 +16,7 @@ from mlflow.environment_variables import (
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
-from mlflow.exceptions import _UnsupportedMultipartUploadException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
@@ -232,6 +232,54 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             transport=transport, url=url, headers=headers, content_type=content_type
         )
 
+    def _get_signing_kwargs(self):
+        """Build extra kwargs for `blob.generate_signed_url()`.
+
+        Credentials implementing `google.auth.credentials.Signing` (service account
+        key files, or impersonated credentials, which sign via the IAM API) can
+        produce V4 signatures locally, so no extra kwargs are needed.
+
+        Token-only credentials (e.g. GKE Workload Identity / Compute Engine metadata
+        credentials) cannot sign locally. For those, the google-cloud-storage library
+        delegates signing to Google's IAM signBlob API if `service_account_email` and
+        `access_token` are passed, so we refresh the credentials and supply both.
+        """
+        from google.auth.credentials import Signing
+
+        credentials = self.client._credentials
+        if isinstance(credentials, Signing):
+            return {}
+
+        # Compute Engine credentials report the placeholder "default" until the
+        # first refresh resolves the real email from the metadata server.
+        service_account_email = getattr(credentials, "service_account_email", None)
+        if not service_account_email:
+            raise MlflowException(
+                f"GCS presigned URL generation requires signing-capable credentials, but "
+                f"the configured credentials are of type `{type(credentials).__name__}` "
+                "and are not associated with a service account. Run the artifact server "
+                "with a service account key file, with GKE Workload Identity / Compute "
+                "Engine credentials, or with impersonated credentials."
+            )
+
+        if not credentials.valid or service_account_email == "default":
+            import google.auth.transport.requests
+
+            credentials.refresh(google.auth.transport.requests.Request())
+
+        service_account_email = credentials.service_account_email
+        if service_account_email == "default":
+            raise MlflowException(
+                "The service account email could not be resolved from the credentials. "
+                "Ensure the artifact server runs with a service account identity that "
+                "supports GCS presigned URL generation."
+            )
+
+        return {
+            "service_account_email": service_account_email,
+            "access_token": credentials.token,
+        }
+
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         self._validate_support_mpu()
         from google.resumable_media.requests import XMLMPUContainer
@@ -249,6 +297,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         upload_id = container.upload_id
 
         credentials = []
+        signing_kwargs = self._get_signing_kwargs()
         for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
             signed_url = blob.generate_signed_url(
                 method="PUT",
@@ -258,6 +307,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     "partNumber": i,
                     "uploadId": upload_id,
                 },
+                **signing_kwargs,
             )
             credentials.append(
                 MultipartUploadCredential(
