@@ -43,6 +43,10 @@ MLFLOW_RUN_TYPE_TEST = "test"
 # The ID of the job that is running issue detection
 MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 
+# A hash of the caller and the idempotency token a DetectIssues request started the run with, so a
+# retry with the same token finds the run without the server storing the token
+MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY = "mlflow.issueDetection.idempotencyKey"
+
 # An experiment's recurring issue-detection schedule: its cadence, timezone and paused flag
 MLFLOW_ISSUE_DETECTION_SCHEDULE = "mlflow.issueDetection.schedule"
 

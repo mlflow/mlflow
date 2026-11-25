@@ -34,6 +34,7 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE_STORE_URI,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.schedule import DetectionCadence, DetectionSchedule, ScheduleModel
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
@@ -9450,6 +9451,104 @@ def test_issue_detection_invoke_requires_use_permission_on_secret(client):
         url, json={**payload, "experiment_id": owner_exp_id}, auth=(owner, owner_pw)
     )
     assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_detect_issues_requires_use_permission_on_the_schedule_secret(client):
+    # Without `model`, issues/detect runs on the model saved in the experiment's detection
+    # schedule, decrypting the stored secret it names into the job environment. That requires
+    # USE on the secret, as issues/invoke requires for a secret named in the request: EDIT on a
+    # shared experiment whose owner saved their own key in its schedule is not enough.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    collaborator, collaborator_pw = create_user(base)
+
+    resp = requests.post(
+        f"{base}/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "owner-openai-key",
+            "secret_value": {"api_key": "sk-owner"},
+            "provider": "openai",
+        },
+        auth=(owner, owner_pw),
+    )
+    resp.raise_for_status()
+    secret_id = resp.json()["secret"]["secret_id"]
+
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "shared-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    schedule = DetectionSchedule(
+        cadence=DetectionCadence.DAILY,
+        model=ScheduleModel(provider="openai", model="gpt-4o", secret_id=secret_id),
+    )
+    requests.post(
+        f"{base}/api/2.0/mlflow/experiments/set-experiment-tag",
+        json={
+            "experiment_id": exp_id,
+            "key": MLFLOW_ISSUE_DETECTION_SCHEDULE,
+            "value": schedule.to_json(),
+        },
+        auth=(owner, owner_pw),
+    ).raise_for_status()
+    grant_role_permission(base, collaborator, "experiment", exp_id, "EDIT")
+
+    url = f"{base}/api/3.0/mlflow/issues/detect"
+    payload = {"experiment_id": exp_id}
+
+    resp = requests.post(url, json=payload, auth=(collaborator, collaborator_pw))
+    assert resp.status_code == 403
+
+    grant_role_permission(base, collaborator, "gateway_secret", secret_id, "READ")
+    resp = requests.post(url, json=payload, auth=(collaborator, collaborator_pw))
+    assert resp.status_code == 403
+
+    # With USE the auth gate passes. The handler may still fail later (job execution is not
+    # enabled in this test env), so only assert it is no longer a 403.
+    grant_role_permission(base, collaborator, "gateway_secret", secret_id, "USE")
+    resp = requests.post(url, json=payload, auth=(collaborator, collaborator_pw))
+    assert resp.status_code != 403
+
+    # The owner holds the secret, so their own schedule passes the gate.
+    resp = requests.post(url, json=payload, auth=(owner, owner_pw))
+    assert resp.status_code != 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_detect_issues_is_refused_under_an_assessment_deny(client):
+    # The job reads the traces' assessments and logs its own straight through the store, outside
+    # the HTTP routes that would check them, so EDIT on the experiment is not enough under an
+    # explicit DENY on assessments.
+    base = client.tracking_uri
+    owner, owner_pw = create_user(base)
+    editor, editor_pw = create_user(base)
+    exp_id = requests.post(
+        f"{base}/api/2.0/mlflow/experiments/create",
+        json={"name": "assessment-deny-exp"},
+        auth=(owner, owner_pw),
+    ).json()["experiment_id"]
+    grant_role_permission(base, editor, "experiment", exp_id, "EDIT")
+
+    url = f"{base}/api/3.0/mlflow/issues/detect"
+    payload = {"experiment_id": exp_id, "model": "gateway:/detector"}
+    # Job execution is off in this test server, so a request past the gate fails later, but not
+    # with a 403.
+    resp = requests.post(url, json=payload, auth=(editor, editor_pw))
+    assert resp.status_code != 403
+
+    grant_role_permission(base, editor, "assessment", "*", "DENY")
+    resp = requests.post(url, json=payload, auth=(editor, editor_pw))
+    assert resp.status_code == 403
 
 
 @pytest.mark.parametrize(
