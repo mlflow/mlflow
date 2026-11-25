@@ -35,7 +35,7 @@ import { TimeAgo } from '@databricks/web-shared/browse';
 import { parseEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import { Fragment, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
-import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
+import { getDisplayedEvalRunDatasetInput, type RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import type { DatasetWithRunType } from '../../components/experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import { isEvalRunsTableMeta } from './ExperimentEvaluationRunsTable.types';
 import { getEvaluationDatasetId } from '../eval-run-details/datasetLineage';
@@ -383,7 +383,8 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
 
   const run = row.original;
   const datasets = run.inputs?.datasetInputs ?? [];
-  const displayedDataset = datasets[0]?.dataset ?? null;
+  const displayedDatasetInput = enableNewEvalRunsUi ? getDisplayedEvalRunDatasetInput(datasets) : datasets[0];
+  const displayedDataset = displayedDatasetInput?.dataset ?? null;
 
   if (!displayedDataset) {
     return <div>-</div>;
@@ -409,7 +410,7 @@ export const DatasetCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
       // The drawer renders the dataset context tag without a flag guard, so pass the real tags only
       // under the new UI; the legacy path keeps passing the dataset alone.
       datasetWithTags: (enableNewEvalRunsUi
-        ? { dataset: displayedDataset, tags: datasets[0]?.tags ?? [] }
+        ? { dataset: displayedDataset, tags: displayedDatasetInput?.tags ?? [] }
         : { dataset: displayedDataset }) as DatasetWithRunType['datasetWithTags'],
       runData: {
         experimentId: run.info?.experimentId,

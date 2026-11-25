@@ -1,5 +1,6 @@
 import { getTraceCost, getTraceTokenUsage, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import type { UseGetRunQueryDataResponse } from '../../components/run-page/hooks/useGetRunQuery';
+import { getDisplayedEvalRunDatasetInput } from '../experiment-evaluation-runs/ExperimentEvaluationRunsPage.utils';
 
 export interface EvalRunConfigurationMetadata {
   runName?: string;
@@ -28,7 +29,7 @@ export const getEvalRunConfigurationMetadata = (run: UseGetRunQueryDataResponse)
   const createdAt = startTime ? Number(startTime) : undefined;
   return {
     runName: run?.info?.runName ?? undefined,
-    dataset: run?.inputs?.datasetInputs?.[0]?.dataset?.name ?? undefined,
+    dataset: getDisplayedEvalRunDatasetInput(run?.inputs?.datasetInputs)?.dataset?.name ?? undefined,
     createdAt: createdAt !== undefined && Number.isFinite(createdAt) ? createdAt : undefined,
   };
 };

@@ -3,6 +3,7 @@ import type { RunsGroupByConfig } from '../../components/experiment-page/utils/e
 import type { RunGroupByGroupingValue } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { RunGroupingMode } from '../../components/experiment-page/utils/experimentPage.row-types';
 import { getParentRunTagName } from '../../actions';
+import { getEvaluationDatasetId } from '../eval-run-details/datasetLineage';
 import { getEvalRunLineageGroupValue } from '../eval-run-details/evalRunLineage';
 
 export type ExperimentEvaluationRunsGroupData = {
@@ -12,6 +13,11 @@ export type ExperimentEvaluationRunsGroupData = {
 };
 
 export type RunEntityOrGroupData = RunEntity | RunEntityWithChildren | ExperimentEvaluationRunsGroupData;
+
+export const getDisplayedEvalRunDatasetInput = <T extends { dataset?: { source?: string | null } | null }>(
+  datasetInputs: T[] | null | undefined,
+): T | undefined =>
+  datasetInputs?.find(({ dataset }) => getEvaluationDatasetId(dataset?.source) !== undefined) ?? datasetInputs?.[0];
 
 // string key for easy access in the map object
 const createGroupKey = (groupData: RunGroupByGroupingValue) => {

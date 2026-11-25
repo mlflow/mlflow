@@ -1,6 +1,10 @@
 import { describe, expect, test } from '@jest/globals';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { aggregateEvalRunSidebarTraceStats, aggregateEvalRunConfigurationTraces } from './evalRunConfigurationData';
+import {
+  aggregateEvalRunSidebarTraceStats,
+  aggregateEvalRunConfigurationTraces,
+  getEvalRunConfigurationMetadata,
+} from './evalRunConfigurationData';
 
 const createTrace = (
   runUuid: string,
@@ -26,6 +30,19 @@ const createTrace = (
 });
 
 describe('evaluation configuration data', () => {
+  test('names the MLflow-stored dataset when an untracked input was logged first', () => {
+    const run = {
+      inputs: {
+        datasetInputs: [
+          { dataset: { name: 'dataset', source: '{}' } },
+          { dataset: { name: 'stored', source: JSON.stringify({ dataset_id: 'd-1' }) } },
+        ],
+      },
+    } as any;
+
+    expect(getEvalRunConfigurationMetadata(run).dataset).toBe('stored');
+  });
+
   test('sums trace usage and counts execution errors, not failed judgments or assessment errors', () => {
     const first = createTrace('a', { quality: false });
     first.trace_metadata = {
