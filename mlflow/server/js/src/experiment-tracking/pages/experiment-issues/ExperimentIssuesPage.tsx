@@ -328,22 +328,18 @@ const ExperimentIssuesContent = ({ experimentId }: { experimentId: string }) => 
     <ExperimentIssuesEmptyState
       experimentId={experimentId}
       isInList={Boolean(detection.run)}
-      hasCompletedDetectionRuns={detection.status === JobStatus.SUCCEEDED}
+      detectionStatus={detection.status}
       isCleanScan={cleanScan}
-      hasTimedOutDetectionRun={detection.status === JobStatus.TIMEOUT}
-      hasFailedDetectionRun={detection.status === JobStatus.FAILED}
       isDetecting={isDetectionButtonLoading}
       detectionEnabled={detectionEnabled}
       onRunIssueDetection={startDetection}
-      runHistoryRoute={
-        detection.run || detection.submissionStalled ? Routes.getIssueDetectionRunsRoute(experimentId) : undefined
-      }
+      runHistoryRoute={detection.submissionStalled ? Routes.getIssueDetectionRunsRoute(experimentId) : undefined}
     />
   );
   const detailPane =
     isEmptyState && detection.run ? (
       <CenteredState>
-        {isDetecting ? <ExperimentIssuesDetectionProgress experimentId={experimentId} isInList /> : emptyState}
+        {isDetecting ? <ExperimentIssuesDetectionProgress experimentId={experimentId} /> : emptyState}
       </CenteredState>
     ) : !selectedId ? undefined : detail.error ? (
       <ReadError error={detail.error} retry={() => detail.refetch()} />

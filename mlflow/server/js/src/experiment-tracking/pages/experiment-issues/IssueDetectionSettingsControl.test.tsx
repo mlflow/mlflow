@@ -87,6 +87,7 @@ describe('IssueDetectionSettingsControl', () => {
     loadFails = true;
     render('setting detection priorities');
     const retry = await screen.findByRole('button', { name: 'Retry loading issue detection settings' });
+    expect(retry).toHaveTextContent('setting detection priorities');
     expect(screen.queryByRole('button', { name: 'setting detection priorities' })).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     loadFails = false;

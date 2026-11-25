@@ -9,11 +9,12 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage } from 'react-intl';
 
 import { Link } from '../../../common/utils/RoutingUtils';
 import { IssueDetectionIllustration } from './IssueDetectionIllustration';
 import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
+import { JobStatus } from '../../components/run-page/hooks/useFetchJobStatus';
 
 const IssueDetectionExampleBubbles = () => {
   const { theme } = useDesignSystemTheme();
@@ -143,20 +144,13 @@ const IssueDetectionExampleBubbles = () => {
 export interface ExperimentIssuesEmptyStateProps {
   experimentId: string;
   isInList?: boolean;
-  hasCompletedDetectionRuns: boolean;
+  detectionStatus?: JobStatus;
   isCleanScan?: boolean;
-  hasTimedOutDetectionRun: boolean;
-  hasFailedDetectionRun: boolean;
   isDetecting: boolean;
   detectionEnabled: boolean;
   onRunIssueDetection: () => void;
   /**
-   * Route of the detection run history, when there is any to read.
-   *
-   * This state is where a detection that failed or found nothing lands, and the toolbar that
-   * normally carries the history button is not rendered behind it -- so without a link here the
-   * reason a run failed would be unreachable from the one screen that reports it. Absent on an
-   * experiment where nothing has ever run, since the page would be empty too.
+   * History link for a stalled submission without an active run. Accepted runs use toolbar history.
    */
   runHistoryRoute?: string;
 }
@@ -164,17 +158,14 @@ export interface ExperimentIssuesEmptyStateProps {
 export const ExperimentIssuesEmptyState = ({
   experimentId,
   isInList = false,
-  hasCompletedDetectionRuns,
+  detectionStatus,
   isCleanScan = false,
-  hasTimedOutDetectionRun,
-  hasFailedDetectionRun,
   isDetecting,
   detectionEnabled,
   onRunIssueDetection,
   runHistoryRoute,
 }: ExperimentIssuesEmptyStateProps) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   const secondaryLinkCss = {
     '&&, &&:focus, &&:hover, &&:active': {
       color: theme.colors.textSecondary,
@@ -183,16 +174,6 @@ export const ExperimentIssuesEmptyState = ({
       },
     },
   } as const;
-  const buttonText =
-    hasTimedOutDetectionRun || hasFailedDetectionRun
-      ? intl.formatMessage({
-          defaultMessage: 'Start new detection',
-          description: 'Experiment issues tab > Empty state action after issue detection failed or timed out',
-        })
-      : intl.formatMessage({
-          defaultMessage: 'Run issue detection',
-          description: 'Experiment issues tab > Empty state action to run issue detection',
-        });
 
   return (
     <Empty
@@ -205,16 +186,6 @@ export const ExperimentIssuesEmptyState = ({
               defaultMessage="No issues recorded"
               description="Experiment issues tab > Empty list title after background issue detection"
             />
-          ) : isCleanScan ? (
-            <FormattedMessage
-              defaultMessage="No issues detected"
-              description="Experiment issues tab > Empty state title after a completed detection found no issues"
-            />
-          ) : hasCompletedDetectionRuns ? (
-            <FormattedMessage
-              defaultMessage="No issues to display"
-              description="Experiment issues tab > Empty state title after prior detection"
-            />
           ) : (
             <FormattedMessage
               defaultMessage="Discover issues automatically"
@@ -225,30 +196,35 @@ export const ExperimentIssuesEmptyState = ({
       }
       description={
         <>
-          {hasTimedOutDetectionRun ? (
+          {!isInList ? (
+            <FormattedMessage
+              defaultMessage="Scan your traces to surface failure modes, quality regressions, and cost anomalies, then triage and fix them in one place."
+              description="Experiment issues tab > Empty state description before detection has been run"
+            />
+          ) : detectionStatus === JobStatus.TIMEOUT ? (
             <FormattedMessage
               defaultMessage="The previous issue detection timed out. Start a new detection to try again."
               description="Experiment issues tab > Empty state description after issue detection timed out"
             />
-          ) : hasFailedDetectionRun ? (
+          ) : detectionStatus === JobStatus.FAILED ? (
             <FormattedMessage
               defaultMessage="The previous issue detection failed. Start a new detection to try again."
               description="Experiment issues tab > Empty state description after issue detection failed"
+            />
+          ) : detectionStatus === JobStatus.CANCELED ? (
+            <FormattedMessage
+              defaultMessage="The previous issue detection was canceled. Start a new detection to try again."
+              description="Experiment issues tab > Empty state description after issue detection was canceled"
             />
           ) : isCleanScan ? (
             <FormattedMessage
               defaultMessage="Issue detection did not find problems in the analyzed traces. Run it again as your application changes."
               description="Experiment issues tab > Empty state description after a completed detection found no issues"
             />
-          ) : hasCompletedDetectionRuns ? (
+          ) : (
             <FormattedMessage
               defaultMessage="Issue detection has completed. There are currently no issues in this experiment. Run it again as your application changes."
               description="Experiment issues tab > Completed detection with an empty store and unknown or nonzero historical results"
-            />
-          ) : (
-            <FormattedMessage
-              defaultMessage="Scan your traces to surface failure modes, quality regressions, and cost anomalies, then triage and fix them in one place."
-              description="Experiment issues tab > Empty state description before detection has been run"
             />
           )}
           {isInList && detectionEnabled && (
@@ -277,10 +253,12 @@ export const ExperimentIssuesEmptyState = ({
                 loading={isDetecting}
                 disabled={isDetecting}
                 aria-busy={isDetecting}
-                aria-label={buttonText}
                 onClick={onRunIssueDetection}
               >
-                {buttonText}
+                <FormattedMessage
+                  defaultMessage="Run issue detection"
+                  description="Experiment issues tab > Empty state action to run issue detection"
+                />
               </Button>
             )}
             {/* On one line so the stack stays two rows tall, and in the same muted grey, so neither

@@ -4,29 +4,16 @@ import { FormattedMessage } from 'react-intl';
 import { useLocation, useNavigate } from '../../../common/utils/RoutingUtils';
 import { ExperimentPageTabName } from '../../constants';
 import Routes from '../../routes';
-import { CancelIssueDetectionButton } from './CancelIssueDetectionButton';
 import { IssueDetectionIllustration } from './IssueDetectionIllustration';
 
 export interface ExperimentIssuesDetectionProgressProps {
   experimentId: string;
-  /** The list toolbar already provides cancellation. */
-  isInList?: boolean;
-  /** Ends the in-progress run; unset while there is none to end yet. */
-  onCancelDetection?: () => Promise<void>;
 }
 
 /**
- * The Issues tab while a detection runs, in place of the empty list.
- *
- * Detection is a server job, so it outlives this page: the panel says so, and offers the two
- * things a waiting user actually wants — somewhere to go meanwhile, and a way out of a run that
- * has stopped reporting progress.
+ * Progress in the empty detail pane. The list toolbar provides cancellation.
  */
-export const ExperimentIssuesDetectionProgress = ({
-  experimentId,
-  isInList = false,
-  onCancelDetection,
-}: ExperimentIssuesDetectionProgressProps) => {
+export const ExperimentIssuesDetectionProgress = ({ experimentId }: ExperimentIssuesDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const { search } = useLocation();
   const navigate = useNavigate();
@@ -83,23 +70,17 @@ export const ExperimentIssuesDetectionProgress = ({
           />
         </Typography.Text>
       </div>
-      {!isInList && (
-        <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
-          <CancelIssueDetectionButton
-            componentId="mlflow.experiment-issues.detection-progress.cancel"
-            onCancel={onCancelDetection}
+      <div css={{ marginTop: theme.spacing.md }}>
+        <Button
+          componentId="mlflow.experiment-issues.detection-progress.go-to-traces"
+          onClick={() => navigate(tracesRoute)}
+        >
+          <FormattedMessage
+            defaultMessage="Go to Traces"
+            description="Experiment issues tab > In-progress issue detection action to go to the traces tab"
           />
-          <Button
-            componentId="mlflow.experiment-issues.detection-progress.go-to-traces"
-            onClick={() => navigate(tracesRoute)}
-          >
-            <FormattedMessage
-              defaultMessage="Go to Traces"
-              description="Experiment issues tab > In-progress issue detection action to go to the traces tab"
-            />
-          </Button>
-        </div>
-      )}
+        </Button>
+      </div>
     </section>
   );
 };

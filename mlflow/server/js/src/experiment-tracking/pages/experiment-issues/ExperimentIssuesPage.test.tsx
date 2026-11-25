@@ -512,6 +512,7 @@ describe('Experiment Issues', () => {
       expect(screen.getByRole('button', { name: 'Cancel detection' })).toBeEnabled();
       expect(screen.getByRole('toolbar', { name: 'Search and detect issues' })).toBeInTheDocument();
       expect(screen.getByRole('separator', { name: 'Resize issue list' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Go to Traces' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'View detection run' })).not.toBeInTheDocument();
       // The panel offers no way to start a second run while one is in flight.
       expect(screen.queryByRole('button', { name: 'Run issue detection' })).not.toBeInTheDocument();
@@ -926,6 +927,58 @@ describe('Experiment Issues', () => {
       expect(await screen.findByRole('dialog')).toBeInTheDocument();
     },
   );
+  test.each([true, false])('shows inline priorities only when detection is enabled (%s)', async (enabled) => {
+    issues = [];
+    latestRun = { info: { run_id: 'run-1', status: 'FINISHED' }, data: { tags: [] } };
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
+        res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false, features_enabled: { gateway: enabled } })),
+      ),
+      rest.get('*/ajax-api/2.0/mlflow/experiments/get', (_req, res, ctx) =>
+        res(ctx.json({ experiment: { experiment_id: '1', name: 'exp', tags: [] } })),
+      ),
+    );
+    renderPage();
+    await screen.findByRole('heading', { name: 'No issues recorded' });
+    if (enabled) {
+      expect(await screen.findByRole('button', { name: 'setting detection priorities' })).toBeInTheDocument();
+    } else expect(screen.queryByText('setting detection priorities')).not.toBeInTheDocument();
+  });
+
+  test('keeps cancellation available for an existing job when new detection is disabled', async () => {
+    issues = [];
+    latestRun = {
+      info: { run_id: 'run-1', status: 'RUNNING' },
+      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+    };
+    jobStatus = 'RUNNING';
+    server.use(
+      rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>
+        res(ctx.json({ store_type: 'SqlStore', workspaces_enabled: false, features_enabled: { gateway: false } })),
+      ),
+    );
+    renderPage();
+    await screen.findByText('Detecting issues...');
+    expect(screen.getByRole('button', { name: 'Cancel detection' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'setting detection priorities' })).not.toBeInTheDocument();
+  });
+
+  test.each([false, true])('reports canceled empty detection without first-use copy (job: %s)', async (hasJob) => {
+    issues = [];
+    latestRun = {
+      info: { run_id: 'run-1', status: hasJob ? 'RUNNING' : 'KILLED' },
+      data: { tags: hasJob ? [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] : [] },
+    };
+    jobStatus = 'CANCELED';
+    renderPage();
+    await screen.findByRole('heading', { name: 'No issues recorded' });
+    expect(
+      await screen.findByText('The previous issue detection was canceled. Start a new detection to try again.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Scan your traces to surface/)).not.toBeInTheDocument();
+    expect(screen.getByRole('toolbar')).toBeInTheDocument();
+  });
+
   test('retries unavailable detection history from the empty page', async () => {
     issues = [];
     server.use(rest.post('*/ajax-api/2.0/mlflow/runs/search', (_req, res, ctx) => res(ctx.status(500))));

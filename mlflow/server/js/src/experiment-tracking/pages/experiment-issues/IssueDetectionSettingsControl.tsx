@@ -143,7 +143,8 @@ export const IssueDetectionSettingsControl = ({ experimentId, linkText }: IssueD
         >
           <Button
             componentId={`${COMPONENT_ID}.retry-load`}
-            icon={<GearIcon />}
+            type={linkText ? 'link' : undefined}
+            icon={linkText ? undefined : <GearIcon />}
             aria-label={intl.formatMessage({
               defaultMessage: 'Retry loading issue detection settings',
               description:
@@ -152,7 +153,9 @@ export const IssueDetectionSettingsControl = ({ experimentId, linkText }: IssueD
             onClick={() => {
               void refetchSettings();
             }}
-          />
+          >
+            {linkText}
+          </Button>
         </Tooltip>
       ) : (
         <Tooltip componentId={`${COMPONENT_ID}.tooltip`} content={settingsLabel}>

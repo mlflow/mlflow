@@ -6347,6 +6347,10 @@
     "defaultMessage": "Description",
     "description": "Label for descriptions section on the logged models details page"
   },
+  "IBUqnW": {
+    "defaultMessage": "The previous issue detection was canceled. Start a new detection to try again.",
+    "description": "Experiment issues tab > Empty state description after issue detection was canceled"
+  },
   "IC//6u": {
     "defaultMessage": "Next run {when}",
     "description": "Experiment issues tab > Run history > When the schedule next fires, beside what it does"
@@ -7042,10 +7046,6 @@
   "KMVqUP": {
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
-  },
-  "KN+vcO": {
-    "defaultMessage": "No issues to display",
-    "description": "Experiment issues tab > Empty state title after prior detection"
   },
   "KObL+y": {
     "defaultMessage": "Endpoints ({count})",
@@ -10874,10 +10874,6 @@
   "WHwU2F": {
     "defaultMessage": "Tokens per Request",
     "description": "Title for the token stats chart in gateway"
-  },
-  "WI6Pdv": {
-    "defaultMessage": "Start new detection",
-    "description": "Experiment issues tab > Empty state action after issue detection failed or timed out"
   },
   "WIl5iN": {
     "defaultMessage": "Shown in Connect tab. Click to hide.",
@@ -19634,10 +19630,6 @@
   "xZALB+": {
     "defaultMessage": "Cancel",
     "description": "Manage review questions: cancel delete"
-  },
-  "xa5onO": {
-    "defaultMessage": "No issues detected",
-    "description": "Experiment issues tab > Empty state title after a completed detection found no issues"
   },
   "xaF4g8": {
     "defaultMessage": "Edit with Assistant",
