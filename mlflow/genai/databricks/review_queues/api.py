@@ -14,6 +14,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.databricks.review_queues import _client
 from mlflow.genai.databricks.review_queues.entities import (
     ItemKind,
+    LabelingSessionMigrationResult,
     QuestionInput,
     QuestionType,
     ReviewQuestion,
@@ -23,6 +24,7 @@ from mlflow.genai.databricks.review_queues.entities import (
     ReviewQueueType,
     ReviewStatus,
 )
+from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.utils.annotations import experimental
@@ -573,3 +575,102 @@ def resolve_effective_review_questions(
         params={"item_kind": ItemKind(item_kind).value if item_kind is not None else None},
     )
     return [ReviewQuestion.from_dict(q) for q in resp.get("review_questions", [])]
+
+
+# ---- Labeling session migration ----
+
+
+def _call_migrate_labeling_session(
+    experiment_id: str, labeling_session_id: str, *, dry_run: bool, plan_token: str | None
+) -> LabelingSessionMigrationResult:
+    body: dict[str, Any] = {"labeling_session_id": labeling_session_id, "dry_run": dry_run}
+    if plan_token is not None:
+        body["plan_token"] = plan_token
+    resp = _client.call(
+        "POST",
+        f"{_experiment(experiment_id)}/reviewQueues:migrateLabelingSession",
+        json=body,
+    )
+    return LabelingSessionMigrationResult.from_dict(resp)
+
+
+@experimental(version="3.19.0")
+def migrate_labeling_session(
+    experiment_id: str,
+    labeling_session_id: str,
+    *,
+    dry_run: bool = False,
+    plan_token: str | None = None,
+) -> LabelingSessionMigrationResult:
+    """
+    Migrate a labeling session to a ``CUSTOM`` review queue in the same experiment.
+
+    The session's questions, assigned users and items are copied to the queue, and the
+    session itself is left in place. Some parts of a session have no review queue
+    equivalent, such as text-list questions or the session's agent; they are left out and
+    reported as ``WARNING`` issues. Migrating the same session again targets the same queue
+    and adds only what changed. The caller needs CAN_MANAGE on the experiment.
+
+    There are three ways to call it:
+
+    - With ``dry_run=True``: return the plan and its issues without writing anything. Unless
+      an issue is ``BLOCKING``, the result includes a ``plan_token``.
+    - With ``plan_token`` from a dry run: migrate, if the session still matches that plan.
+      If it changed, the call raises an ``MlflowException`` with error code ``ABORTED``, and
+      you can run the dry run again.
+    - With neither: run a dry run, then migrate with its token. If an issue is
+      ``BLOCKING``, the call raises an ``MlflowException`` with error code
+      ``INVALID_STATE``, listing the issues, and writes nothing. If the session changes
+      between the two steps, it raises ``ABORTED``, and you can call it again.
+
+    This feature is rolling out gradually and may not be available in every workspace yet.
+    If it isn't, the call raises an MlflowException with error code FEATURE_DISABLED.
+
+    .. code-block:: python
+
+        from mlflow.genai.databricks.review_queues import migrate_labeling_session
+
+        # Preview the migration, then confirm that exact preview.
+        preview = migrate_labeling_session("123", "<labeling-session-id>", dry_run=True)
+        for issue in preview.issues:
+            print(issue.severity, issue.message)
+        result = migrate_labeling_session(
+            "123", "<labeling-session-id>", plan_token=preview.plan_token
+        )
+
+        # Or preview and migrate in one call.
+        result = migrate_labeling_session("123", "<labeling-session-id>")
+        print(result.review_queue.queue_id)
+
+    Args:
+        experiment_id: The experiment that owns the labeling session.
+        labeling_session_id: The labeling session to migrate.
+        dry_run: If ``True``, return the plan without writing anything.
+        plan_token: The ``plan_token`` from a dry run, to migrate that plan. Can't be combined
+            with ``dry_run=True``.
+
+    Returns:
+        A :py:class:`LabelingSessionMigrationResult`. After a migration, its ``review_queue``
+        is the queue the session was migrated to.
+    """
+    if dry_run and plan_token is not None:
+        raise MlflowException.invalid_parameter_value(
+            "`plan_token` confirms a dry run's plan, so it can't be combined with `dry_run=True`."
+        )
+    if dry_run or plan_token is not None:
+        return _call_migrate_labeling_session(
+            experiment_id, labeling_session_id, dry_run=dry_run, plan_token=plan_token
+        )
+
+    preview = _call_migrate_labeling_session(
+        experiment_id, labeling_session_id, dry_run=True, plan_token=None
+    )
+    if blocking := preview.blocking_issues:
+        reasons = "; ".join(i.message or i.code for i in blocking)
+        raise MlflowException(
+            f"Labeling session {labeling_session_id!r} can't be migrated: {reasons}",
+            error_code=INVALID_STATE,
+        )
+    return _call_migrate_labeling_session(
+        experiment_id, labeling_session_id, dry_run=False, plan_token=preview.plan_token
+    )
