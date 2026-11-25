@@ -478,6 +478,7 @@ class BudgetPolicyExceededPayload(TypedDict):
             "workspace": "default",
             "target_value": "ep-abc123",
             "window_start": 1704067200000,
+            "window_type": "FIXED",
         }
 
     """
@@ -503,7 +504,11 @@ class BudgetPolicyExceededPayload(TypedDict):
     endpoint ID for ENDPOINT scope, a username for USER scope.
     None for GLOBAL and WORKSPACE scopes."""
     window_start: int
-    """The start timestamp (milliseconds) of the current budget window."""
+    """The start timestamp (milliseconds) of the current budget window. For a SLIDING
+    window, the start of the oldest spend still counted toward it."""
+    window_type: Literal["FIXED", "SLIDING"]
+    """Whether the budget is measured over fixed, calendar-aligned windows (FIXED) or over
+    the trailing duration ending now (SLIDING)."""
 
     @classmethod
     def example(cls) -> "BudgetPolicyExceededPayload":
@@ -518,6 +523,7 @@ class BudgetPolicyExceededPayload(TypedDict):
             workspace="default",
             target_value="ep-abc123",
             window_start=1704067200000,
+            window_type="FIXED",
         )
 
 

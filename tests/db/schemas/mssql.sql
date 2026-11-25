@@ -19,6 +19,7 @@ CREATE TABLE budget_policies (
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
 	target_value VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	window_type VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('FIXED') NOT NULL,
 	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
 )
 

@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
@@ -9,13 +10,19 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     GatewayBudgetPolicy,
 )
 from mlflow.gateway.budget_tracker import (
     BudgetTracker,
+    SlidingWindowHistory,
     _compute_window_end,
     _compute_window_start,
     _policy_applies,
+    _shift_by_duration,
+    _sliding_bucket_expiry,
+    _sliding_bucket_width_ms,
+    _sliding_window_cutoff_ms,
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 
@@ -28,6 +35,7 @@ def _make_policy(
     budget_action=BudgetAction.ALERT,
     workspace=None,
     target_value=None,
+    window_type=BudgetWindowType.FIXED,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -40,6 +48,7 @@ def _make_policy(
         last_updated_at=0,
         workspace=workspace,
         target_value=target_value,
+        window_type=window_type,
     )
 
 
@@ -869,3 +878,412 @@ def test_user_scoped_exceeded_flips_once_then_keeps_accumulating():
     window = tracker._get_window_info("bp-test")
     assert window.cumulative_spend == 200.0
     assert window.exceeded is True
+
+
+# --- Sliding windows ---
+
+_NOW = datetime(2026, 11, 23, 12, 0, 0, tzinfo=timezone.utc)
+_ONE_HOUR = BudgetDuration(unit=BudgetDurationUnit.HOURS, value=1)
+
+
+def _ms(moment: datetime) -> int:
+    return int(moment.timestamp() * 1000)
+
+
+@contextmanager
+def _clock(moment: datetime):
+    class _FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return moment
+
+    with patch("mlflow.gateway.budget_tracker.in_memory.datetime", _FrozenDatetime):
+        yield
+
+
+def _sliding_policy(budget_amount=50.0, budget_action=BudgetAction.REJECT, **kwargs):
+    kwargs.setdefault("duration", _ONE_HOUR)
+    return _make_policy(
+        budget_amount=budget_amount,
+        budget_action=budget_action,
+        window_type=BudgetWindowType.SLIDING,
+        **kwargs,
+    )
+
+
+@pytest.mark.parametrize(
+    ("duration", "expected_width_ms"),
+    [
+        (BudgetDuration(unit=BudgetDurationUnit.MINUTES, value=1), 1_000),
+        (BudgetDuration(unit=BudgetDurationUnit.HOURS, value=1), 60_000),
+        (BudgetDuration(unit=BudgetDurationUnit.HOURS, value=2), 120_000),
+        (BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1), 1_440_000),
+        (BudgetDuration(unit=BudgetDurationUnit.WEEKS, value=1), 10_080_000),
+        (BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1), 43_200_000),
+    ],
+)
+def test_sliding_bucket_width_is_a_sixtieth_of_the_duration(duration, expected_width_ms):
+    assert _sliding_bucket_width_ms(duration) == expected_width_ms
+
+
+@pytest.mark.parametrize(
+    ("moment", "months", "expected"),
+    [
+        # Forward onto a day the target month lacks: the start of the month after it.
+        (datetime(2026, 1, 31, tzinfo=timezone.utc), 1, datetime(2026, 3, 1, tzinfo=timezone.utc)),
+        (
+            datetime(2026, 1, 29, 0, 0, tzinfo=timezone.utc),
+            1,
+            datetime(2026, 3, 1, tzinfo=timezone.utc),
+        ),
+        (datetime(2028, 1, 31, tzinfo=timezone.utc), 1, datetime(2028, 3, 1, tzinfo=timezone.utc)),
+        (
+            datetime(2028, 1, 29, 6, 0, tzinfo=timezone.utc),
+            1,
+            datetime(2028, 2, 29, 6, 0, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2026, 12, 31, tzinfo=timezone.utc),
+            2,
+            datetime(2027, 3, 1, tzinfo=timezone.utc),
+        ),
+        # Back onto a day the target month lacks: clamped to its last day.
+        (
+            datetime(2026, 3, 31, tzinfo=timezone.utc),
+            -1,
+            datetime(2026, 2, 28, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2026, 12, 15, tzinfo=timezone.utc),
+            1,
+            datetime(2027, 1, 15, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2026, 1, 15, tzinfo=timezone.utc),
+            -1,
+            datetime(2025, 12, 15, tzinfo=timezone.utc),
+        ),
+        (
+            datetime(2026, 5, 10, tzinfo=timezone.utc),
+            -14,
+            datetime(2025, 3, 10, tzinfo=timezone.utc),
+        ),
+    ],
+)
+def test_shift_by_duration_months(moment, months, expected):
+    duration = BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=abs(months))
+    assert _shift_by_duration(duration, moment, sign=1 if months > 0 else -1) == expected
+
+
+def test_sliding_window_cutoff_is_the_bucket_containing_the_window_start():
+    now = _NOW + timedelta(seconds=30)
+    width_ms = _sliding_bucket_width_ms(_ONE_HOUR)
+    # The window starts at 11:00:30, inside the 11:00 bucket.
+    assert _sliding_window_cutoff_ms(_ONE_HOUR, width_ms, now) == _ms(_NOW - timedelta(hours=1))
+
+
+def test_sliding_window_cutoff_skips_buckets_expired_by_month_clamping():
+    duration = BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1)
+    width_ms = _sliding_bucket_width_ms(duration)
+    now = datetime(2026, 3, 31, 10, 0, tzinfo=timezone.utc)
+    # A month before now is Feb 28 10:00, but the bucket ending Feb 28 12:00 already expired
+    # on Mar 28 12:00. The first live bucket ends Mar 1, so it expires Apr 1.
+    cutoff_ms = _sliding_window_cutoff_ms(duration, width_ms, now)
+    assert cutoff_ms == _ms(datetime(2026, 2, 28, 12, 0, tzinfo=timezone.utc))
+    assert _sliding_bucket_expiry(duration, cutoff_ms, width_ms) > now
+    assert _sliding_bucket_expiry(duration, cutoff_ms - width_ms, width_ms) <= now
+
+
+def test_sliding_window_counts_only_the_trailing_duration():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0)])
+        tracker.record_cost(30.0, timestamp_ms=_ms(_NOW - timedelta(minutes=50)))
+        tracker.record_cost(40.0, timestamp_ms=_ms(_NOW - timedelta(minutes=10)))
+        assert tracker._get_window_info("bp-test").cumulative_spend == 70.0
+
+    # 15 minutes later the cost from 50 minutes ago is more than an hour old.
+    with _clock(_NOW + timedelta(minutes=15)):
+        window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 40.0
+    assert window.window_start == _NOW - timedelta(minutes=45)
+    assert window.window_end == _NOW + timedelta(minutes=15)
+
+
+def test_sliding_window_counts_a_cost_for_at_least_the_duration():
+    tracker = InMemoryBudgetTracker()
+    started = _NOW - timedelta(seconds=1)  # 11:59:59, in the 11:59 bucket
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0)])
+        tracker.record_cost(10.0, timestamp_ms=_ms(started))
+
+    # Still counted a full hour after the request started...
+    with _clock(started + timedelta(hours=1)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 10.0
+    # ...and until the whole 11:59 bucket is an hour old.
+    with _clock(_NOW + timedelta(hours=1) - timedelta(microseconds=1)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 10.0
+    with _clock(_NOW + timedelta(hours=1)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+
+def test_sliding_window_ignores_cost_of_request_started_before_the_window():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0)])
+        assert tracker.record_cost(10.0, timestamp_ms=_ms(_NOW - timedelta(hours=2))) == []
+        assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+
+def test_sliding_window_rejects_until_enough_spend_ages_out():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=50.0)])
+        tracker.record_cost(30.0, timestamp_ms=_ms(_NOW - timedelta(minutes=40)))
+        tracker.record_cost(30.0, timestamp_ms=_ms(_NOW - timedelta(minutes=5)))
+        exceeded, window = tracker.should_reject_request()
+    assert exceeded is True
+    # The 11:20 bucket ends at 11:21 and ages out an hour later, leaving $30 < $50.
+    assert window.resets_at == _NOW + timedelta(minutes=21)
+
+    with _clock(_NOW + timedelta(minutes=21) - timedelta(seconds=1)):
+        assert tracker.should_reject_request()[0] is True
+    with _clock(_NOW + timedelta(minutes=21)):
+        assert tracker.should_reject_request() == (False, None)
+
+
+def test_sliding_window_resets_at_skips_buckets_that_do_not_free_enough():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=50.0)])
+        tracker.record_cost(5.0, timestamp_ms=_ms(_NOW - timedelta(minutes=50)))
+        tracker.record_cost(60.0, timestamp_ms=_ms(_NOW - timedelta(minutes=30)))
+        _, window = tracker.should_reject_request()
+    # Aging out the $5 bucket still leaves $60, so the $60 bucket (11:30) has to go too.
+    assert window.resets_at == _NOW + timedelta(minutes=31)
+
+
+def test_sliding_window_alert_rearms_after_spend_drops_below_the_limit():
+    tracker = InMemoryBudgetTracker()
+    policy = _sliding_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
+    with _clock(_NOW):
+        tracker.refresh_policies([policy])
+        assert len(tracker.record_cost(60.0)) == 1
+        # Still over the limit: no second alert.
+        assert tracker.record_cost(10.0) == []
+
+    later = _NOW + timedelta(hours=1, minutes=1)
+    with _clock(later):
+        assert tracker._get_window_info("bp-test").exceeded is False
+        newly_exceeded = tracker.record_cost(60.0)
+    assert [w.policy.budget_policy_id for w in newly_exceeded] == ["bp-test"]
+    assert newly_exceeded[0].cumulative_spend == 60.0
+
+
+def test_sliding_window_respects_scope():
+    tracker = InMemoryBudgetTracker()
+    policy = _sliding_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
+    with _clock(_NOW):
+        tracker.refresh_policies([policy])
+        tracker.record_cost(60.0, endpoint_id="ep-2")
+        assert tracker.should_reject_request(endpoint_id="ep-1") == (False, None)
+        tracker.record_cost(60.0, endpoint_id="ep-1")
+        assert tracker.should_reject_request(endpoint_id="ep-1")[0] is True
+        assert tracker.should_reject_request(endpoint_id="ep-2") == (False, None)
+
+
+def test_refresh_preserves_sliding_window_buckets():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=100.0)])
+        tracker.record_cost(30.0)
+        # An edit that keeps the duration, such as a new amount, keeps the spend.
+        tracker.refresh_policies([_sliding_policy(budget_amount=20.0)])
+        window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 30.0
+    assert window.policy.budget_amount == 20.0
+
+
+def test_refresh_resets_sliding_window_when_duration_changes():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=100.0)])
+        tracker.record_cost(30.0)
+        two_hours = BudgetDuration(unit=BudgetDurationUnit.HOURS, value=2)
+        tracker.refresh_policies([_sliding_policy(budget_amount=100.0, duration=two_hours)])
+        window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 0.0
+    assert window.bucket_spend == {}
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (BudgetWindowType.FIXED, BudgetWindowType.SLIDING),
+        (BudgetWindowType.SLIDING, BudgetWindowType.FIXED),
+    ],
+)
+def test_refresh_resets_spend_when_window_type_changes(before, after):
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_make_policy(duration=_ONE_HOUR, window_type=before)])
+        tracker.record_cost(30.0)
+        tracker.refresh_policies([_make_policy(duration=_ONE_HOUR, window_type=after)])
+        window = tracker._get_window_info("bp-test")
+    assert window.policy.window_type == after
+    assert window.cumulative_spend == 0.0
+    assert window.bucket_spend == {}
+
+
+def test_backfill_bucket_spend_takes_max_per_bucket_and_reports_crossing():
+    tracker = InMemoryBudgetTracker()
+    policy = _sliding_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
+    bucket_a = _ms(_NOW - timedelta(minutes=30))
+    bucket_b = _ms(_NOW - timedelta(minutes=10))
+    with _clock(_NOW):
+        tracker.refresh_policies([policy])
+        tracker.record_cost(20.0, timestamp_ms=bucket_a)
+        # Trace history lags behind on bucket_a, and saw another worker's spend in bucket_b.
+        newly_exceeded = tracker.backfill_bucket_spend([
+            SlidingWindowHistory(policy=policy, bucket_spend={bucket_a: 5.0, bucket_b: 40.0})
+        ])
+        window = tracker._get_window_info("bp-test")
+    assert window.bucket_spend == {bucket_a: 20.0, bucket_b: 40.0}
+    assert window.cumulative_spend == 60.0
+    assert newly_exceeded == [window]
+
+    with _clock(_NOW):
+        history = SlidingWindowHistory(policy=policy, bucket_spend={bucket_b: 40.0})
+        assert tracker.backfill_bucket_spend([history]) == []
+
+
+def test_backfill_bucket_spend_reports_crossing_after_earlier_spend_aged_out():
+    tracker = InMemoryBudgetTracker()
+    policy = _sliding_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
+    with _clock(_NOW):
+        tracker.refresh_policies([policy])
+        assert len(tracker.record_cost(60.0)) == 1
+
+    later = _NOW + timedelta(hours=1, minutes=1)
+    with _clock(later):
+        crossed = tracker.backfill_bucket_spend([
+            SlidingWindowHistory(policy=policy, bucket_spend={_ms(later): 60.0})
+        ])
+    assert [w.policy.budget_policy_id for w in crossed] == ["bp-test"]
+
+
+def test_backfill_bucket_spend_drops_buckets_outside_the_window():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        policy = _sliding_policy(budget_amount=1000.0)
+        tracker.refresh_policies([policy])
+        tracker.backfill_bucket_spend([
+            SlidingWindowHistory(policy=policy, bucket_spend={_ms(_NOW - timedelta(hours=3)): 10.0})
+        ])
+        assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+
+def test_backfill_methods_ignore_the_other_window_type():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([
+            _make_policy(budget_policy_id="bp-fixed"),
+            _sliding_policy(budget_policy_id="bp-sliding"),
+        ])
+        assert tracker.backfill_spend({"bp-sliding": 100.0}) == []
+        fixed_history = SlidingWindowHistory(
+            policy=_make_policy(budget_policy_id="bp-fixed"), bucket_spend={_ms(_NOW): 100.0}
+        )
+        assert tracker.backfill_bucket_spend([fixed_history]) == []
+        assert tracker._get_window_info("bp-fixed").cumulative_spend == 0.0
+        assert tracker._get_window_info("bp-sliding").cumulative_spend == 0.0
+
+
+def test_get_all_windows_ages_out_sliding_windows():
+    tracker = InMemoryBudgetTracker()
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0)])
+        tracker.record_cost(10.0)
+    with _clock(_NOW + timedelta(hours=2)):
+        [window] = tracker.get_all_windows()
+    assert window.cumulative_spend == 0.0
+    assert window.window_end == _NOW + timedelta(hours=2)
+    assert window.window_start == _NOW + timedelta(hours=1)
+
+
+def test_backfill_bucket_spend_drops_history_read_for_another_duration():
+    tracker = InMemoryBudgetTracker()
+    two_hours = BudgetDuration(unit=BudgetDurationUnit.HOURS, value=2)
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0, duration=two_hours)])
+        # Read while the policy still had a 1-hour duration, so its buckets are 1 minute wide
+        # instead of 2.
+        stale_history = SlidingWindowHistory(
+            policy=_sliding_policy(budget_amount=1000.0),
+            bucket_spend={_ms(_NOW - timedelta(minutes=1)): 25.0},
+        )
+        assert tracker.backfill_bucket_spend([stale_history]) == []
+        assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+
+def test_sliding_window_resets_at_does_not_drift_with_float_subtraction():
+    tracker = InMemoryBudgetTracker()
+    first = _NOW - timedelta(minutes=40)
+    second = _NOW - timedelta(minutes=20)
+    with _clock(_NOW):
+        tracker.refresh_policies([_sliding_policy(budget_amount=0.30)])
+        tracker.record_cost(0.60, timestamp_ms=_ms(first))
+        tracker.record_cost(0.30, timestamp_ms=_ms(second))
+        _, window = tracker.should_reject_request()
+    # 0.60 + 0.30 - 0.60 is 0.2999..., but once the first bucket ages out the tracker sums
+    # what is left to exactly 0.30, which still rejects. So the reset is when the second
+    # bucket ages out, not the first.
+    assert window.resets_at == second + timedelta(hours=1, minutes=1)
+    with _clock(first + timedelta(hours=1, minutes=1)):
+        assert tracker.should_reject_request()[0] is True
+
+
+_ONE_MONTH = BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1)
+
+
+def test_sliding_month_window_counts_a_request_for_its_full_calendar_month():
+    tracker = InMemoryBudgetTracker()
+    started = datetime(2026, 1, 28, 23, 0, tzinfo=timezone.utc)
+    with _clock(started):
+        tracker.refresh_policies([_sliding_policy(budget_amount=1000.0, duration=_ONE_MONTH)])
+        tracker.record_cost(10.0, timestamp_ms=_ms(started))
+
+    # Its 12-hour bucket ends Jan 29 00:00, a day February lacks. Clamping that to Feb 28
+    # 00:00 would drop the request 23 hours before a month has passed.
+    with _clock(datetime(2026, 2, 28, 12, 0, tzinfo=timezone.utc)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 10.0
+    with _clock(datetime(2026, 2, 28, 23, 30, tzinfo=timezone.utc)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 10.0
+    with _clock(datetime(2026, 3, 1, tzinfo=timezone.utc)):
+        assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
+
+
+def _one_calendar_month_after(moment: datetime) -> datetime:
+    """The same day and time next month, or the end of next month if it lacks that day."""
+    year, month = divmod(moment.year * 12 + moment.month, 12)
+    try:
+        return moment.replace(year=year, month=month + 1)
+    except ValueError:
+        year, month = divmod(moment.year * 12 + moment.month + 1, 12)
+        return datetime(year, month + 1, 1, tzinfo=moment.tzinfo)
+
+
+@pytest.mark.parametrize("year", [2026, 2028])
+def test_sliding_month_bucket_expiry_grows_and_never_precedes_a_month(year):
+    width_ms = _sliding_bucket_width_ms(_ONE_MONTH)
+    start_ms = _ms(datetime(year, 1, 1, tzinfo=timezone.utc))
+    end_ms = _ms(datetime(year + 1, 1, 1, tzinfo=timezone.utc))
+    previous_expiry = None
+    for bucket_start_ms in range(start_ms, end_ms, width_ms):
+        expiry = _sliding_bucket_expiry(_ONE_MONTH, bucket_start_ms, width_ms)
+        if previous_expiry is not None:
+            assert expiry >= previous_expiry
+        previous_expiry = expiry
+        for instant_ms in (bucket_start_ms, bucket_start_ms + width_ms - 1):
+            instant = datetime.fromtimestamp(instant_ms / 1000, tz=timezone.utc)
+            assert expiry >= _one_calendar_month_after(instant)

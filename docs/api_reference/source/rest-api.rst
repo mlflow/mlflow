@@ -3152,6 +3152,8 @@ Request Structure
 +---------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------+
 | target_value  | ``STRING``                     | Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER scope). Required for those scopes. |
 +---------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------+
+| window_type   | :ref:`mlflowbudgetwindowtype`  | How spend is measured over the duration. Defaults to FIXED.                                                        |
++---------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowCreateGatewayBudgetPolicyResponse:
 
@@ -3271,6 +3273,8 @@ Request Structure
 | updated_by       | ``STRING``                     |                                                                                                                    |
 +------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------+
 | target_value     | ``STRING``                     | Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER scope). Required for those scopes. |
++------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------+
+| window_type      | :ref:`mlflowbudgetwindowtype`  | How spend is measured over the duration.                                                                           |
 +------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowUpdateGatewayBudgetPolicyResponse:
@@ -7520,7 +7524,7 @@ BudgetDuration
 
 
 
-Fixed window duration: a (unit, value) pair that defines how long a budget window is
+Budget window duration: a (unit, value) pair that defines how long a budget window is
 
 
 +------------+---------------------------------+----------------------------------------------------+
@@ -8307,7 +8311,7 @@ Represents a budget policy for the AI Gateway
 +------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | budget_amount    | ``DOUBLE``                     | Budget limit amount                                                                                                                              |
 +------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
-| duration         | :ref:`mlflowbudgetduration`    | Fixed time window (unit + length pair)                                                                                                           |
+| duration         | :ref:`mlflowbudgetduration`    | Budget window length (unit + value pair)                                                                                                         |
 +------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | target_scope     | :ref:`mlflowbudgettargetscope` | Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)                                                                                       |
 +------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -8323,6 +8327,8 @@ Represents a budget policy for the AI Gateway
 +------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 | target_value     | ``STRING``                     | Target the policy applies to, interpreted per target_scope: a gateway endpoint ID for ENDPOINT scope, a username for USER scope. Required for    |
 |                  |                                | those scopes; unset for GLOBAL and WORKSPACE.                                                                                                    |
++------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
+| window_type      | :ref:`mlflowbudgetwindowtype`  | How spend is measured over the duration. FIXED when unset.                                                                                       |
 +------------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowGatewayEndpoint:
@@ -12050,6 +12056,26 @@ Budget measurement unit
 +-------------------------+-------------+
 | USD                     |             |
 +-------------------------+-------------+
+
+.. _mlflowBudgetWindowType:
+
+BudgetWindowType
+----------------
+
+
+How a budget policy measures spend over its duration
+
++-------------------------+-----------------------------------------------------------------------------+
+|          Name           |                                 Description                                 |
++=========================+=============================================================================+
+| WINDOW_TYPE_UNSPECIFIED |                                                                             |
++-------------------------+-----------------------------------------------------------------------------+
+| FIXED                   | Spend accumulates in consecutive windows aligned to calendar boundaries and |
+|                         | resets to zero when a window ends.                                          |
++-------------------------+-----------------------------------------------------------------------------+
+| SLIDING                 | Spend is measured over the trailing duration ending now, so each cost stops |
+|                         | counting once it is older than the duration.                                |
++-------------------------+-----------------------------------------------------------------------------+
 
 .. _mlflowModelVersionDeploymentJobStateDeploymentJobRunState:
 

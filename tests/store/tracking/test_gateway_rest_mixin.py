@@ -6,6 +6,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
 )
 from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
 
@@ -90,3 +91,39 @@ def test_update_budget_policy_passes_username_target():
     )
     (_, body) = store.calls[0]
     assert body["target_value"] == "bob"
+
+
+def test_create_budget_policy_sends_window_type():
+    store = _StubRestStore()
+    store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.REJECT,
+        window_type=BudgetWindowType.SLIDING,
+    )
+    (_, body) = store.calls[0]
+    assert body["window_type"] == "SLIDING"
+
+
+def test_create_budget_policy_sends_fixed_window_type_by_default():
+    store = _StubRestStore()
+    store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.REJECT,
+    )
+    (_, body) = store.calls[0]
+    assert body["window_type"] == "FIXED"
+
+
+def test_update_budget_policy_window_type_only_when_set():
+    store = _StubRestStore()
+    store.update_budget_policy(budget_policy_id="bp-1", window_type=BudgetWindowType.SLIDING)
+    store.update_budget_policy(budget_policy_id="bp-1", budget_amount=50.0)
+    (_, with_type), (_, without_type) = store.calls
+    assert with_type["window_type"] == "SLIDING"
+    assert "window_type" not in without_type

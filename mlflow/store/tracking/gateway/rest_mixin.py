@@ -20,6 +20,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDuration,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     GatewayBudgetPolicy,
 )
 from mlflow.entities.gateway_guardrail import (
@@ -658,6 +659,7 @@ class RestGatewayStoreMixin:
         budget_action: BudgetAction,
         created_by: str | None = None,
         target_value: str | None = None,
+        window_type: BudgetWindowType = BudgetWindowType.FIXED,
     ) -> GatewayBudgetPolicy:
         req_body = message_to_json(
             CreateGatewayBudgetPolicy(
@@ -668,6 +670,7 @@ class RestGatewayStoreMixin:
                 budget_action=budget_action.to_proto(),
                 created_by=created_by,
                 target_value=target_value,
+                window_type=BudgetWindowType(window_type).to_proto(),
             )
         )
         response_proto = self._call_endpoint(CreateGatewayBudgetPolicy, req_body)
@@ -691,6 +694,7 @@ class RestGatewayStoreMixin:
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
         target_value: str | None = None,
+        window_type: BudgetWindowType | None = None,
     ) -> GatewayBudgetPolicy:
         req_body = message_to_json(
             UpdateGatewayBudgetPolicy(
@@ -702,6 +706,7 @@ class RestGatewayStoreMixin:
                 budget_action=budget_action.to_proto() if budget_action else None,
                 updated_by=updated_by,
                 target_value=target_value,
+                window_type=BudgetWindowType(window_type).to_proto() if window_type else None,
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayBudgetPolicy, req_body)

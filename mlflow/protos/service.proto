@@ -5615,6 +5615,17 @@ enum BudgetAction {
   REJECT = 2;
 }
 
+// How a budget policy measures spend over its duration
+enum BudgetWindowType {
+  WINDOW_TYPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  // Spend accumulates in consecutive windows aligned to calendar boundaries and
+  // resets to zero when a window ends.
+  FIXED = 1;
+  // Spend is measured over the trailing duration ending now, so each cost stops
+  // counting once it is older than the duration.
+  SLIDING = 2;
+}
+
 // Budget measurement unit
 enum BudgetUnit {
   BUDGET_UNIT_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
@@ -5635,7 +5646,7 @@ enum GuardrailAction {
   SANITIZATION = 2;
 }
 
-// Fixed window duration: a (unit, value) pair that defines how long a budget window is
+// Budget window duration: a (unit, value) pair that defines how long a budget window is
 message BudgetDuration {
   // Unit of time (MINUTES, HOURS, DAYS, WEEKS, MONTHS)
   optional BudgetDurationUnit unit = 1;
@@ -5841,7 +5852,7 @@ message GatewayBudgetPolicy {
   optional BudgetUnit budget_unit = 2;
   // Budget limit amount
   optional double budget_amount = 3;
-  // Fixed time window (unit + length pair)
+  // Budget window length (unit + value pair)
   optional BudgetDuration duration = 4;
   // Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
   optional BudgetTargetScope target_scope = 5;
@@ -5859,6 +5870,8 @@ message GatewayBudgetPolicy {
   // for ENDPOINT scope, a username for USER scope. Required for those
   // scopes; unset for GLOBAL and WORKSPACE.
   optional string target_value = 11;
+  // How spend is measured over the duration. FIXED when unset.
+  optional BudgetWindowType window_type = 12;
 }
 
 message CreateGatewayBudgetPolicy {
@@ -5871,6 +5884,8 @@ message CreateGatewayBudgetPolicy {
   // Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
   // scope). Required for those scopes.
   optional string target_value = 7;
+  // How spend is measured over the duration. Defaults to FIXED.
+  optional BudgetWindowType window_type = 8;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5896,6 +5911,8 @@ message UpdateGatewayBudgetPolicy {
   // Target the policy applies to (endpoint ID for ENDPOINT scope, username for USER
   // scope). Required for those scopes.
   optional string target_value = 8;
+  // How spend is measured over the duration.
+  optional BudgetWindowType window_type = 9;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;

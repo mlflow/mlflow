@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import fastapi
@@ -12,17 +13,24 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
+    BudgetWindowType,
     GatewayBudgetPolicy,
 )
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.gateway.budget import (
+    calculate_existing_bucket_cost_for_windows,
     calculate_existing_cost_for_windows,
     check_budget_limit,
     fire_budget_exceeded_webhooks,
     make_budget_on_complete,
     maybe_refresh_budget_policies,
 )
-from mlflow.gateway.budget_tracker import get_budget_tracker
+from mlflow.gateway.budget_tracker import (
+    SlidingWindowHistory,
+    _sliding_bucket_start_ms,
+    _sliding_bucket_width_ms,
+    get_budget_tracker,
+)
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.tracing.constant import CostKey, SpanAttributeKey, TraceMetadataKey
@@ -47,6 +55,7 @@ def _make_policy(
     budget_action=BudgetAction.ALERT,
     target_scope=BudgetTargetScope.GLOBAL,
     target_value=None,
+    window_type=BudgetWindowType.FIXED,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -58,6 +67,7 @@ def _make_policy(
         created_at=0,
         last_updated_at=0,
         target_value=target_value,
+        window_type=window_type,
     )
 
 
@@ -1070,3 +1080,127 @@ def test_check_budget_limit_rejected_request_trace_records_the_request():
     assert metadata[TraceMetadataKey.GATEWAY_CALLER] == "judge"
     assert metadata[TraceMetadataKey.GATEWAY_ENDPOINT_ID] == "ep-test"
     assert metadata[TraceMetadataKey.AUTH_USERNAME] == "alice"
+
+
+# --- Sliding windows ---
+
+_ONE_DAY = BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1)
+
+
+def _current_bucket_ms():
+    return _sliding_bucket_start_ms(
+        int(datetime.now(timezone.utc).timestamp() * 1000), _sliding_bucket_width_ms(_ONE_DAY)
+    )
+
+
+def test_calculate_existing_cost_skips_sliding_windows():
+    sliding = _make_policy(window_type=BudgetWindowType.SLIDING)
+    store = _make_store()
+    tracker = get_budget_tracker()
+    windows = tracker.refresh_policies([sliding])
+
+    assert calculate_existing_cost_for_windows(store, windows) == {}
+    store.sum_gateway_trace_cost.assert_not_called()
+
+
+def test_calculate_existing_bucket_cost_queries_the_sliding_window():
+    sliding = _make_policy(
+        target_scope=BudgetTargetScope.ENDPOINT,
+        target_value="ep-1",
+        window_type=BudgetWindowType.SLIDING,
+    )
+    store = _make_store()
+    bucket = _current_bucket_ms()
+    store.sum_gateway_trace_cost_by_bucket.return_value = {bucket: 12.5, bucket - 1: 0.0}
+    windows = get_budget_tracker().refresh_policies([
+        sliding,
+        _make_policy(budget_policy_id="bp-f"),
+    ])
+
+    result = calculate_existing_bucket_cost_for_windows(store, windows)
+
+    # Empty buckets are dropped, and fixed windows are left to the fixed-window query.
+    assert result == [SlidingWindowHistory(policy=sliding, bucket_spend={bucket: 12.5})]
+    store.sum_gateway_trace_cost_by_bucket.assert_called_once()
+    kwargs = store.sum_gateway_trace_cost_by_bucket.call_args.kwargs
+    width_ms = _sliding_bucket_width_ms(_ONE_DAY)
+    assert kwargs["bucket_width_ms"] == width_ms
+    # From the bucket holding the time one day ago through the end of the current bucket.
+    assert kwargs["start_time_ms"] % width_ms == 0
+    assert kwargs["end_time_ms"] - kwargs["start_time_ms"] == 24 * 60 * 60 * 1000 + width_ms
+    assert kwargs["endpoint_id"] == "ep-1"
+    assert kwargs["workspace"] is None
+    assert kwargs["username"] is None
+
+
+def test_calculate_existing_bucket_cost_handles_store_error():
+    store = _make_store()
+    store.sum_gateway_trace_cost_by_bucket.side_effect = RuntimeError("db down")
+    windows = get_budget_tracker().refresh_policies([
+        _make_policy(window_type=BudgetWindowType.SLIDING)
+    ])
+    assert calculate_existing_bucket_cost_for_windows(store, windows) == []
+
+
+def test_refresh_seeds_sliding_window_from_trace_history_and_alerts():
+    store = _make_store(policies=[_make_policy(window_type=BudgetWindowType.SLIDING)])
+    store.sum_gateway_trace_cost_by_bucket.return_value = {_current_bucket_ms(): 150.0}
+
+    with patch(_DELIVER_FUNC) as mock_deliver, patch(_REGISTRY_STORE_FUNC):
+        maybe_refresh_budget_policies(store)
+
+    window = get_budget_tracker()._get_window_info("bp-test")
+    assert window.cumulative_spend == 150.0
+    assert window.exceeded is True
+    mock_deliver.assert_called_once()
+    payload = mock_deliver.call_args.kwargs["payload"]
+    assert payload["window_type"] == "SLIDING"
+    assert payload["current_spend"] == 150.0
+    assert payload["window_start"] == int(window.window_start.timestamp() * 1000)
+
+
+def test_fire_budget_exceeded_webhooks_includes_fixed_window_type():
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([_make_policy(budget_amount=10.0)])
+    crossed = tracker.record_cost(20.0)
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        fire_budget_exceeded_webhooks(crossed, workspace=None, registry_store=MagicMock())
+    assert mock_deliver.call_args.kwargs["payload"]["window_type"] == "FIXED"
+
+
+def test_check_budget_limit_sliding_window_message():
+    policy = _make_policy(
+        budget_amount=50.0,
+        budget_action=BudgetAction.REJECT,
+        window_type=BudgetWindowType.SLIDING,
+    )
+    store = _make_store(policies=[policy])
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(60.0)
+    _, window = tracker.should_reject_request()
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected") as exc_info:
+        check_budget_limit(store, _NO_TRACE_CONFIG)
+
+    assert exc_info.value.status_code == 429
+    detail = exc_info.value.detail
+    assert "Limit: $50.00 USD per sliding 1 day window." in detail
+    reset_time = window.resets_at.strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert f"Spend falls back under the limit at {reset_time}." in detail
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_files_sliding_cost_under_the_trace_start_time():
+    policy = _make_policy(window_type=BudgetWindowType.SLIDING)
+    store = _make_store(policies=[policy])
+
+    on_complete = make_budget_on_complete(store, workspace=None)
+    await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    expected_bucket = _sliding_bucket_start_ms(
+        trace.info.timestamp_ms, _sliding_bucket_width_ms(policy.duration)
+    )
+    window = get_budget_tracker()._get_window_info("bp-test")
+    assert window.bucket_spend == {expected_bucket: pytest.approx(0.075)}
