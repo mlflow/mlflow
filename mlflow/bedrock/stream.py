@@ -76,11 +76,14 @@ def _extract_token_usage_from_chunk(chunk: dict[str, Any]) -> dict[str, int] | N
         Token usage dictionary with standardized keys, or None if no usage found.
     """
     try:
-        usage = (
-            chunk.get("message", {}).get("usage")
-            if chunk.get("type") == "message_start"
-            else chunk.get("usage")
-        )
+        match chunk:
+            case {"type": "message_start", "message": {"usage": usage}}:
+                pass
+            # Amazon Nova reports usage in the final chunk's metadata
+            case {"metadata": {"usage": usage}} | {"usage": usage}:
+                pass
+            case _:
+                return None
         if isinstance(usage, dict):
             return parse_partial_token_usage_from_response(usage)
         return None
