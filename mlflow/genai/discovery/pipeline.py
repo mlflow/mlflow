@@ -157,8 +157,9 @@ def _annotate_issue_traces(
     Log an Issue assessment for each issue on affected traces.
 
     When session information is provided, logs one annotation per (issue,
-    session) on the session's first trace. Otherwise annotates each trace
-    individually.
+    session) on the session's first trace. A trace that ``trace_to_session``
+    doesn't map, and every trace when no session information is provided, is
+    annotated individually, with no session ID.
 
     Args:
         issues: Discovered issues to annotate traces for.
@@ -166,7 +167,7 @@ def _annotate_issue_traces(
         rationale_map: Mapping of trace_id to triage rationale text.
         trace_lookup: Mapping of trace_id to Trace objects.
         model: Model URI for the annotation LLM.
-        trace_to_session: Optional mapping of trace_id to session_id.
+        trace_to_session: Optional mapping of trace_id to session_id, for traces in a session.
         session_first_trace: Optional mapping of session_id to first trace_id.
         token_counter: Optional token counter for tracking LLM usage.
     """
