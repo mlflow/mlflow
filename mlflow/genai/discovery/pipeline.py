@@ -104,14 +104,21 @@ def _build_annotation_work_items(
 
     When session mappings are provided, groups affected traces by session
     and produces one item per session targeting the session's first trace.
+    A trace that ``trace_to_session`` doesn't map belongs to no session and gets
+    its own item, with no session ID.
     """
     work_items: list[_AnnotationWorkItem] = []
     for issue in issues:
         trace_ids = issue_trace_ids.get(issue.issue_id, [])
+        standalone = trace_ids
         if trace_to_session and session_first_trace:
             by_session: dict[str, list[str]] = {}
+            standalone = []
             for tid in trace_ids:
-                by_session.setdefault(trace_to_session.get(tid, tid), []).append(tid)
+                if session_id := trace_to_session.get(tid):
+                    by_session.setdefault(session_id, []).append(tid)
+                else:
+                    standalone.append(tid)
             for session_id, tids in by_session.items():
                 work_items.append(
                     _AnnotationWorkItem(
@@ -123,16 +130,15 @@ def _build_annotation_work_items(
                         session_id=session_id,
                     )
                 )
-        else:
-            work_items.extend(
-                _AnnotationWorkItem(
-                    issue=issue,
-                    trace_id=tid,
-                    triage_rationale=rationale_map.get(tid, ""),
-                    session_id=None,
-                )
-                for tid in trace_ids
+        work_items.extend(
+            _AnnotationWorkItem(
+                issue=issue,
+                trace_id=tid,
+                triage_rationale=rationale_map.get(tid, ""),
+                session_id=None,
             )
+            for tid in standalone
+        )
     return work_items
 
 
@@ -913,10 +919,13 @@ def discover_issues(
             total_cost_usd=0.0,
         )
 
+    in_session = [trace for trace in triage_traces if get_session_id(trace)]
+    without_session = [trace for trace in triage_traces if not get_session_id(trace)]
     use_conversation = False
-    sessionless_scorer = None
+    # Each batch of traces with the scorers that judge it, evaluated in turn.
+    triage_batches = None
     if scorers is None:
-        use_conversation = any(get_session_id(trace) for trace in triage_traces)
+        use_conversation = bool(in_session)
         if not use_conversation:
             _logger.debug("No session IDs found, falling back to trace-level scorer")
 
@@ -936,24 +945,22 @@ def discover_issues(
         # input by session and leaves the rest out, so those traces would never be judged.
         # They get the trace-level judge, the one a run without sessions uses, under the same
         # name, so triage reads both judges' verdicts the same way.
-        if use_conversation and not all(get_session_id(trace) for trace in triage_traces):
-            sessionless_scorer = build_issue_discovery_scorer(
+        if use_conversation and without_session:
+            trace_scorer = build_issue_discovery_scorer(
                 categories=categories,
                 model=model,
                 use_conversation=False,
                 latency_stats=latency_stats,
                 instructions=instructions,
             )
+            triage_batches = [(in_session, scorers), (without_session, [trace_scorer])]
+    triage_batches = triage_batches or [(triage_traces, scorers)]
 
     scorer_name = scorers[0].name
 
     test_session = None
     if use_conversation:
-        session_groups = group_traces_by_session(triage_traces)
-        test_session = next(
-            (traces for traces in session_groups.values() if get_session_id(traces[0])),
-            None,
-        )
+        test_session = next(iter(group_traces_by_session(in_session).values()))
 
     update_status_details({"stage": "Verifying configuration..."})
     verify_scorer(
@@ -965,17 +972,11 @@ def discover_issues(
     # the run, and every consumer reads the run to decide whether a detection has finished. The
     # phases below would otherwise file their issues against a run that already read FINISHED.
     with mlflow.start_run(run_id=run_id, tags={MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION}):
-        if sessionless_scorer is None:
-            triage_eval = mlflow.genai.evaluate(data=triage_traces, scorers=scorers)
-        else:
-            triage_eval = mlflow.genai.evaluate(
-                data=[trace for trace in triage_traces if get_session_id(trace)],
-                scorers=scorers,
-            )
-            mlflow.genai.evaluate(
-                data=[trace for trace in triage_traces if not get_session_id(trace)],
-                scorers=[sessionless_scorer],
-            )
+        # Every batch logs under this run, so the judge cost read below covers all of them.
+        triage_eval, *_ = [
+            mlflow.genai.evaluate(data=batch, scorers=batch_scorers)
+            for batch, batch_scorers in triage_batches
+        ]
 
         # Re-fetch traces with scorer assessments attached.
         scored_traces = triage_traces
@@ -1121,10 +1122,13 @@ def discover_issues(
         offered = {candidate.issue_id for candidate in candidates}
         new_issue_count = sum(1 for issue in issues if issue.issue_id not in offered)
 
-        trace_to_session: dict[str, str] = {}
-        for session_id, traces_in_session in session_groups.items():
-            for trace in traces_in_session:
-                trace_to_session[trace.info.trace_id] = session_id
+        # Only real sessions: grouping keys a trace without one by its own ID, which must not be
+        # written to its issue reference as a session.
+        trace_to_session = {
+            trace.info.trace_id: session_id
+            for trace in scored_traces
+            if (session_id := get_session_id(trace))
+        }
 
         trace_lookup = {trace.info.trace_id: trace for trace in scored_traces}
         session_first_trace: dict[str, str] | None = None
