@@ -359,12 +359,14 @@ class LabelingSessionMigrationResult:
 
     @property
     def warnings(self) -> list[LabelingSessionMigrationIssue]:
+        """The issues with ``WARNING`` severity. They don't stop the migration."""
         return [
             i for i in self.issues if i.severity == LabelingSessionMigrationIssueSeverity.WARNING
         ]
 
     @property
     def blocking_issues(self) -> list[LabelingSessionMigrationIssue]:
+        """The issues with ``BLOCKING`` severity. Any of them stops the migration."""
         return [
             i for i in self.issues if i.severity == LabelingSessionMigrationIssueSeverity.BLOCKING
         ]

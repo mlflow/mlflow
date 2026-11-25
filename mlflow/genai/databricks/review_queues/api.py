@@ -624,7 +624,7 @@ def migrate_labeling_session(
       between the two steps, it raises ``ABORTED``, and you can call it again.
 
     This feature is rolling out gradually and may not be available in every workspace yet.
-    If it isn't, the call raises an MlflowException with error code FEATURE_DISABLED.
+    If it isn't, the call raises an ``MlflowException`` with error code ``FEATURE_DISABLED``.
 
     .. code-block:: python
 
