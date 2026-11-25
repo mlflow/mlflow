@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.entities import _ConversationAnalysis
@@ -378,6 +379,32 @@ def test_build_analyses_reads_only_the_runs_own_feedback(make_trace):
     (analysis,) = analyses
     assert "this run's reason" in analysis.full_rationale
     assert "an earlier run's reason" not in analysis.full_rationale
+
+
+def test_extract_failing_traces_reads_a_verdict_logged_as_evaluation_logs_it(make_trace):
+    # Evaluation records the run in the assessment's metadata after building it, so the SQL store
+    # leaves its run column empty, and an assessment read back from the database has no
+    # `run_id`. The run must still be recognized from the metadata.
+    trace = make_trace()
+    verdict = Feedback(
+        name="satisfaction",
+        value=False,
+        rationale="this run's failure",
+        source=_SOURCE,
+    )
+    verdict.metadata = {AssessmentMetadataKey.SOURCE_RUN_ID: "run-new"}
+    mlflow.log_assessment(trace_id=trace.info.trace_id, assessment=verdict)
+    (refetched,) = _refetch([trace])
+    assert refetched.search_assessments("satisfaction")[0].run_id is None
+
+    result = extract_failing_traces([refetched], "satisfaction", run_id="run-new")
+
+    assert [t.info.trace_id for t in result.failing_traces] == [trace.info.trace_id]
+    assert result.rationale_map[trace.info.trace_id] == "this run's failure"
+    assert (
+        extract_assessment_rationale(refetched, "satisfaction", run_id="run-new")
+        == "this run's failure"
+    )
 
 
 def test_extract_failing_traces_without_a_run_reads_every_runs_verdicts(make_trace):

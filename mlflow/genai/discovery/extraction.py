@@ -16,7 +16,7 @@ from mlflow.genai.discovery.constants import (
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
 from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -330,8 +330,16 @@ def _parse_assessment_value(value) -> tuple[bool, list[str]]:
 
 
 def _counts_for_run(assessment, run_id: str | None) -> bool:
-    """Whether a verdict counts for triage scoped to ``run_id``: from that run, or from a human."""
-    if run_id is None or assessment.run_id == run_id:
+    """
+    Whether a verdict counts for triage scoped to ``run_id``: from that run, or from a human.
+
+    The run is read from the assessment's metadata, where evaluation records it, rather than
+    ``Assessment.run_id``. The SQL store fills that field from a column evaluation leaves empty,
+    so a verdict read straight from the database, as a detection job reads it, has no run there.
+    """
+    if run_id is None:
+        return True
+    if (assessment.metadata or {}).get(AssessmentMetadataKey.SOURCE_RUN_ID) == run_id:
         return True
     return assessment.source.source_type == AssessmentSourceType.HUMAN
 
