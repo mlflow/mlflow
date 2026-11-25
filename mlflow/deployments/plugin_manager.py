@@ -85,10 +85,10 @@ def _is_entry_point(obj) -> bool:
     library's ``entry_points()`` then returns the backport's ``EntryPoint`` objects, which aren't
     instances of the standard library's class.
     """
-    if isinstance(obj, importlib.metadata.EntryPoint):
-        return True
-    backport = sys.modules.get("importlib_metadata")
-    return backport is not None and isinstance(obj, backport.EntryPoint)
+    types = (importlib.metadata.EntryPoint,)
+    if backport := sys.modules.get("importlib_metadata"):
+        types += (backport.EntryPoint,)
+    return isinstance(obj, types)
 
 
 @developer_stable
