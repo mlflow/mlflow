@@ -13,6 +13,7 @@ from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
     UnityCatalogOSSModelsArtifactRepository,
 )
 from mlflow.store.artifact.utils.models import (
+    _get_model_registry_uri_from_artifact_uri,
     _parse_model_uri,
     get_model_name_and_version,
     is_using_databricks_registry,
@@ -44,7 +45,11 @@ class ModelsArtifactRepository(ArtifactRepository):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
         super().__init__(artifact_uri, tracking_uri, registry_uri)
-        registry_uri = registry_uri or mlflow.get_registry_uri()
+        registry_uri = (
+            _get_model_registry_uri_from_artifact_uri(artifact_uri)
+            or registry_uri
+            or mlflow.get_registry_uri()
+        )
         self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
         if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
             self.repo = UnityCatalogModelsArtifactRepository(

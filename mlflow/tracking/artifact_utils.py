@@ -108,6 +108,8 @@ def _download_artifact_from_uri(
     lineage_header_info: dict[str, Any] | None = None,
     tracking_uri: str | None = None,
     registry_uri: str | None = None,
+    *,
+    is_artifact_root: bool = False,
 ) -> str:
     """
     Args:
@@ -117,8 +119,11 @@ def _download_artifact_from_uri(
         lineage_header_info: The model lineage header info to be consumed by lineage services.
         tracking_uri: The tracking URI to be used when downloading artifacts.
         registry_uri: The registry URI to be used when downloading artifacts.
+        is_artifact_root: Whether the caller already knows the complete repository root URI.
     """
-    root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
+    root_uri, artifact_path = (
+        (artifact_uri, "") if is_artifact_root else _get_root_uri_and_artifact_path(artifact_uri)
+    )
     repo = get_artifact_repository(
         artifact_uri=root_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
     )

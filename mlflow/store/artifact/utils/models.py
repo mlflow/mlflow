@@ -5,12 +5,19 @@ from typing import NamedTuple
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_uri,
     is_models_uri,
 )
 
 _MODELS_URI_SUFFIX_LATEST = "latest"
+
+
+def _get_model_registry_uri_from_artifact_uri(uri: str) -> str | None:
+    return get_databricks_profile_uri_from_artifact_uri(
+        uri, result_scheme=_DATABRICKS_UNITY_CATALOG_SCHEME
+    ) or get_databricks_profile_uri_from_artifact_uri(uri)
 
 
 def is_using_databricks_registry(uri, registry_uri: str | None = None):
@@ -111,6 +118,14 @@ def _parse_model_uri(uri, scheme: str = "models") -> ParsedModelUri:
         return ParsedModelUri(parts[0])
 
 
+def _is_ambiguous_model_version_uri(uri: str) -> bool:
+    if not is_models_uri(uri):
+        return False
+    parsed = _parse_model_uri(uri)
+    # As an artifact URI, this path could also name a numeric file beneath another model's alias.
+    return parsed.version is not None and "@" in parsed.name
+
+
 def _resolve_model_uri_and_id(model_uri: str | Path) -> tuple[str, str | None]:
     """Pin an alias to its version so the artifacts and model ID refer to the same model."""
     uri = str(model_uri)
@@ -121,7 +136,7 @@ def _resolve_model_uri_and_id(model_uri: str | Path) -> tuple[str, str | None]:
     if parsed.version is None and parsed.alias is None:
         return uri, parsed.model_id
 
-    registry_uri = get_databricks_profile_uri_from_artifact_uri(uri)
+    registry_uri = _get_model_registry_uri_from_artifact_uri(uri)
     client = mlflow.tracking.MlflowClient(registry_uri=registry_uri)
     if parsed.alias is None:
         return uri, client.get_model_version(parsed.name, parsed.version).model_id

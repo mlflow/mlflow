@@ -2138,12 +2138,13 @@ def test_metrics_logged_to_model_on_evaluation(
 
         model_uri = model_info.model_uri
         if uri_kind != "logged_model":
-            version = mlflow.register_model(model_uri, "classifier")
+            name = "classifier@team"
+            version = mlflow.register_model(model_uri, name)
             assert version.model_id == model_id
-            model_uri = f"models:/classifier/{version.version}"
+            model_uri = f"models:/{name}/{version.version}"
             if uri_kind == "alias":
-                MlflowClient().set_registered_model_alias("classifier", "champion", version.version)
-                model_uri = "models:/classifier@champion"
+                MlflowClient().set_registered_model_alias(name, "champion", version.version)
+                model_uri = f"models:/{name}@champion"
 
         eval_result = mlflow.evaluate(
             model=model_uri,
