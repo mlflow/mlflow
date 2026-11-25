@@ -1397,6 +1397,59 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
     assert all(get_session_id(t) is not None for t in call_kwargs["session"])
 
 
+def test_discover_issues_judges_traces_without_a_session_on_their_own(make_trace):
+    # Evaluation hands a conversation-level judge only the traces that have a session, so the
+    # rest go to the trace-level judge, under the same name so triage reads both verdicts.
+    in_session = [make_trace(session_id="session-1"), make_trace(session_id="session-1")]
+    alone = [make_trace(session_id=None), make_trace(session_id=None)]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(),
+        ) as mock_evaluate,
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult([], {}, {}),
+        ) as mock_extract,
+    ):
+        discover_issues(traces=in_session + alone)
+
+    assert mock_evaluate.call_count == 2
+    conversation_call, trace_call = mock_evaluate.call_args_list
+    assert conversation_call.kwargs["data"] == in_session
+    assert trace_call.kwargs["data"] == alone
+    (conversation_judge,) = conversation_call.kwargs["scorers"]
+    (trace_judge,) = trace_call.kwargs["scorers"]
+    assert "conversation" in conversation_judge.template_variables
+    assert "conversation" not in trace_judge.template_variables
+    assert conversation_judge.name == trace_judge.name == DEFAULT_SCORER_NAME
+    # Every trace is read for a verdict, whichever judge gave it.
+    assert len(mock_extract.call_args.args[0]) == 4
+
+
+@pytest.mark.parametrize("session_ids", [["session-1", "session-1"], [None, None]])
+def test_discover_issues_runs_one_judge_when_traces_agree_on_sessions(make_trace, session_ids):
+    traces = [make_trace(session_id=session_id) for session_id in session_ids]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(),
+        ) as mock_evaluate,
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult([], {}, {}),
+        ),
+    ):
+        discover_issues(traces=traces)
+
+    mock_evaluate.assert_called_once()
+    assert mock_evaluate.call_args.kwargs["data"] == traces
+
+
 def _make_dedup_response(
     groups: list[list[int]],
     names: list[str] | None = None,

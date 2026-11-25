@@ -850,7 +850,8 @@ def discover_issues(
             and uses these traces as the input to the pipeline.
         scorers: Scorers to run during triage. A trace is considered failing
             if *any* scorer marks it as ``False``. When ``None``, a default
-            conversation-level satisfaction judge is used.
+            satisfaction judge is used: conversation-level for traces in a session, and
+            trace-level for traces without one.
         model: LLM used for all pipeline phases (scoring, labeling, clustering,
             summarization). Defaults to ``"openai:/gpt-5-mini"``.
         max_issues: Maximum distinct issues to identify.
@@ -913,6 +914,7 @@ def discover_issues(
         )
 
     use_conversation = False
+    sessionless_scorer = None
     if scorers is None:
         use_conversation = any(get_session_id(trace) for trace in triage_traces)
         if not use_conversation:
@@ -930,6 +932,18 @@ def discover_issues(
             instructions=instructions,
         )
         scorers = [default_scorer]
+        # A conversation-level judge only sees traces with a session: evaluation groups its
+        # input by session and leaves the rest out, so those traces would never be judged.
+        # They get the trace-level judge, the one a run without sessions uses, under the same
+        # name, so triage reads both judges' verdicts the same way.
+        if use_conversation and not all(get_session_id(trace) for trace in triage_traces):
+            sessionless_scorer = build_issue_discovery_scorer(
+                categories=categories,
+                model=model,
+                use_conversation=False,
+                latency_stats=latency_stats,
+                instructions=instructions,
+            )
 
     scorer_name = scorers[0].name
 
@@ -951,10 +965,17 @@ def discover_issues(
     # the run, and every consumer reads the run to decide whether a detection has finished. The
     # phases below would otherwise file their issues against a run that already read FINISHED.
     with mlflow.start_run(run_id=run_id, tags={MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION}):
-        triage_eval = mlflow.genai.evaluate(
-            data=triage_traces,
-            scorers=scorers,
-        )
+        if sessionless_scorer is None:
+            triage_eval = mlflow.genai.evaluate(data=triage_traces, scorers=scorers)
+        else:
+            triage_eval = mlflow.genai.evaluate(
+                data=[trace for trace in triage_traces if get_session_id(trace)],
+                scorers=scorers,
+            )
+            mlflow.genai.evaluate(
+                data=[trace for trace in triage_traces if not get_session_id(trace)],
+                scorers=[sessionless_scorer],
+            )
 
         # Re-fetch traces with scorer assessments attached.
         scored_traces = triage_traces
