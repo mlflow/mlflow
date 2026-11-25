@@ -7,9 +7,9 @@ from mlflow.genai.databricks.review_queues import (
     InputText,
     ItemKind,
     LabelingSessionMigrationIssue,
+    LabelingSessionMigrationIssueSeverity,
     LabelingSessionMigrationPlan,
     LabelingSessionMigrationResult,
-    MigrationIssueSeverity,
     QuestionType,
     ReviewQuestion,
     ReviewQueue,
@@ -245,14 +245,14 @@ def test_labeling_session_migration_result_from_dict_dry_run():
     )
     too_many = LabelingSessionMigrationIssue(
         code="TOO_MANY_ITEMS",
-        severity=MigrationIssueSeverity.BLOCKING,
+        severity=LabelingSessionMigrationIssueSeverity.BLOCKING,
         count=300,
         message="The session has 300 items, more than a review queue holds.",
         limit=150,
     )
     text_list = LabelingSessionMigrationIssue(
         code="TEXT_LIST_QUESTION_DROPPED",
-        severity=MigrationIssueSeverity.WARNING,
+        severity=LabelingSessionMigrationIssueSeverity.WARNING,
         count=1,
         message="1 text-list question(s) are not migrated.",
         subjects=["expected_facts"],
@@ -290,11 +290,11 @@ def test_labeling_session_migration_result_from_dict_empty():
 @pytest.mark.parametrize(
     ("severity", "expected"),
     [
-        ("WARNING", MigrationIssueSeverity.WARNING),
-        ("BLOCKING", MigrationIssueSeverity.BLOCKING),
-        ("SEVERITY_UNSPECIFIED", MigrationIssueSeverity.BLOCKING),
-        ("A_NEWER_SEVERITY", MigrationIssueSeverity.BLOCKING),
-        (None, MigrationIssueSeverity.BLOCKING),
+        ("WARNING", LabelingSessionMigrationIssueSeverity.WARNING),
+        ("BLOCKING", LabelingSessionMigrationIssueSeverity.BLOCKING),
+        ("SEVERITY_UNSPECIFIED", LabelingSessionMigrationIssueSeverity.BLOCKING),
+        ("A_NEWER_SEVERITY", LabelingSessionMigrationIssueSeverity.BLOCKING),
+        (None, LabelingSessionMigrationIssueSeverity.BLOCKING),
     ],
 )
 def test_labeling_session_migration_issue_treats_unknown_severity_as_blocking(severity, expected):
@@ -310,7 +310,7 @@ def test_labeling_session_migration_issue_from_dict_defaults():
         "severity": "WARNING",
     }) == LabelingSessionMigrationIssue(
         code="ALREADY_MIGRATED",
-        severity=MigrationIssueSeverity.WARNING,
+        severity=LabelingSessionMigrationIssueSeverity.WARNING,
         count=0,
         message="",
     )

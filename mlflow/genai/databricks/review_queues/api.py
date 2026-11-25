@@ -652,7 +652,9 @@ def migrate_labeling_session(
 
     Args:
         experiment_id: The experiment that owns the labeling session.
-        labeling_session_id: The labeling session to migrate.
+        labeling_session_id: The labeling session to migrate. It's the ``labeling_session_id``
+            of a :py:class:`mlflow.genai.LabelingSession`, such as one returned by
+            :py:func:`mlflow.genai.get_labeling_sessions`.
         dry_run: If ``True``, return the plan without writing anything.
         plan_token: The ``plan_token`` from a dry run, to migrate that plan. Can't be combined
             with ``dry_run=True``.

@@ -280,7 +280,7 @@ class ReviewQueueItem:
 
 
 @experimental(version="3.19.0")
-class MigrationIssueSeverity(StrEnum):
+class LabelingSessionMigrationIssueSeverity(StrEnum):
     """Whether a labeling session migration issue stops the migration."""
 
     WARNING = "WARNING"
@@ -297,7 +297,7 @@ class LabelingSessionMigrationIssue:
     """
 
     code: str
-    severity: MigrationIssueSeverity
+    severity: LabelingSessionMigrationIssueSeverity
     count: int
     message: str
     limit: int | None = None
@@ -310,9 +310,9 @@ class LabelingSessionMigrationIssue:
             # Anything not marked WARNING blocks, so a severity a newer server adds never
             # makes a blocked migration look ready.
             severity=(
-                MigrationIssueSeverity.WARNING
-                if d.get("severity") == MigrationIssueSeverity.WARNING
-                else MigrationIssueSeverity.BLOCKING
+                LabelingSessionMigrationIssueSeverity.WARNING
+                if d.get("severity") == LabelingSessionMigrationIssueSeverity.WARNING
+                else LabelingSessionMigrationIssueSeverity.BLOCKING
             ),
             count=int(d.get("count", 0)),
             message=d.get("message", ""),
@@ -359,11 +359,15 @@ class LabelingSessionMigrationResult:
 
     @property
     def warnings(self) -> list[LabelingSessionMigrationIssue]:
-        return [i for i in self.issues if i.severity == MigrationIssueSeverity.WARNING]
+        return [
+            i for i in self.issues if i.severity == LabelingSessionMigrationIssueSeverity.WARNING
+        ]
 
     @property
     def blocking_issues(self) -> list[LabelingSessionMigrationIssue]:
-        return [i for i in self.issues if i.severity == MigrationIssueSeverity.BLOCKING]
+        return [
+            i for i in self.issues if i.severity == LabelingSessionMigrationIssueSeverity.BLOCKING
+        ]
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "LabelingSessionMigrationResult":

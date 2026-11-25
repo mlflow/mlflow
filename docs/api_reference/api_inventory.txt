@@ -997,11 +997,11 @@ mlflow.genai.databricks.review_queues.InputText.to_dict
 mlflow.genai.databricks.review_queues.ItemKind
 mlflow.genai.databricks.review_queues.LabelingSessionMigrationIssue
 mlflow.genai.databricks.review_queues.LabelingSessionMigrationIssue.from_dict
+mlflow.genai.databricks.review_queues.LabelingSessionMigrationIssueSeverity
 mlflow.genai.databricks.review_queues.LabelingSessionMigrationPlan
 mlflow.genai.databricks.review_queues.LabelingSessionMigrationPlan.from_dict
 mlflow.genai.databricks.review_queues.LabelingSessionMigrationResult
 mlflow.genai.databricks.review_queues.LabelingSessionMigrationResult.from_dict
-mlflow.genai.databricks.review_queues.MigrationIssueSeverity
 mlflow.genai.databricks.review_queues.QuestionType
 mlflow.genai.databricks.review_queues.ReviewQuestion
 mlflow.genai.databricks.review_queues.ReviewQuestion.from_dict
@@ -1025,9 +1025,9 @@ mlflow.genai.databricks.review_queues.entities.InputPassFail
 mlflow.genai.databricks.review_queues.entities.InputText
 mlflow.genai.databricks.review_queues.entities.ItemKind
 mlflow.genai.databricks.review_queues.entities.LabelingSessionMigrationIssue
+mlflow.genai.databricks.review_queues.entities.LabelingSessionMigrationIssueSeverity
 mlflow.genai.databricks.review_queues.entities.LabelingSessionMigrationPlan
 mlflow.genai.databricks.review_queues.entities.LabelingSessionMigrationResult
-mlflow.genai.databricks.review_queues.entities.MigrationIssueSeverity
 mlflow.genai.databricks.review_queues.entities.QuestionType
 mlflow.genai.databricks.review_queues.entities.ReviewQuestion
 mlflow.genai.databricks.review_queues.entities.ReviewQueue
