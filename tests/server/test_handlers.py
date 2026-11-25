@@ -12054,7 +12054,7 @@ def test_detect_issues_handler_tags_a_new_run_with_the_idempotency_key(
     ids=["running", "succeeded", "failed"],
 )
 def test_detect_issues_handler_returns_the_run_an_earlier_request_with_the_token_started(
-    monkeypatch, mock_tracking_store, detect_issues_client, earlier, expected
+    monkeypatch, mock_tracking_store, detect_issues_client, earlier, expected, mock_job_store
 ):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     mock_tracking_store.get_experiment.return_value = _detection_experiment()
@@ -12378,7 +12378,9 @@ def _detection_job(
         ),
     ],
 )
-def test_get_issue_detection_run_handler_describes_the_run(mock_tracking_store, run, job, expected):
+def test_get_issue_detection_run_handler_describes_the_run(
+    mock_tracking_store, run, job, expected, mock_job_store
+):
     mock_tracking_store.get_run.return_value = run
     get_job_kwargs = (
         {"return_value": job}
@@ -12507,7 +12509,9 @@ def test_cancel_issue_detection_run_handler_leaves_a_run_whose_job_just_ended(
     mock_tracking_store.update_run_info.assert_not_called()
 
 
-def test_cancel_issue_detection_run_handler_kills_a_run_without_a_job(mock_tracking_store):
+def test_cancel_issue_detection_run_handler_kills_a_run_without_a_job(
+    mock_tracking_store, mock_job_store
+):
     mock_tracking_store.get_run.side_effect = [
         _detection_run(),
         _detection_run(),
@@ -12560,7 +12564,7 @@ def test_cancel_issue_detection_run_handler_settles_a_run_its_ended_job_left_run
 
 
 def test_cancel_issue_detection_run_handler_ignores_a_job_that_isnt_the_runs(
-    mock_tracking_store,
+    mock_tracking_store, mock_job_store
 ):
     # Anyone who can update the run can retag it, so a job of another run is never canceled.
     mock_tracking_store.get_run.side_effect = [
@@ -12618,6 +12622,89 @@ def test_cancel_issue_detection_run_handler_settles_a_run_whose_job_failed_meanw
     mock_tracking_store.update_run_info.assert_called_once_with(
         "run-detect-1", RunStatus.FAILED, end_time=1700000500000, run_name=None
     )
+
+
+def _untagged_detection_run(**kwargs):
+    run = _detection_run(**kwargs)
+    del run.data.tags["mlflow.issueDetection.jobId"]
+    return run
+
+
+def test_cancel_issue_detection_run_handler_finds_the_job_of_a_run_not_yet_tagged(
+    mock_tracking_store, mock_job_store
+):
+    # The run is tagged with its job only after the job is submitted, and best effort. Canceling
+    # in that window must still stop the job, or it could finish the run over the cancellation.
+    mock_tracking_store.get_run.side_effect = [
+        _untagged_detection_run(),
+        _untagged_detection_run(),
+        _untagged_detection_run(status="KILLED", end_time=1700000900000),
+    ]
+    mock_job_store.list_jobs.return_value = iter([_detection_job(JobStatus.RUNNING)])
+
+    with (
+        mock.patch("mlflow.server.jobs.get_job") as mock_get_job,
+        mock.patch(
+            "mlflow.server.jobs.cancel_job", return_value=_detection_job(JobStatus.CANCELED)
+        ) as mock_cancel_job,
+        mock.patch("mlflow.server.handlers.get_current_time_millis", return_value=1700000900000),
+        app.test_client() as c,
+    ):
+        resp = c.post("/api/3.0/mlflow/issues/detection-runs/run-detect-1/cancel", json={})
+
+    assert resp.status_code == 200
+    assert resp.get_json()["issue_detection_run"]["status"] == "canceled"
+    mock_get_job.assert_not_called()
+    mock_cancel_job.assert_called_once_with("job-detect-1")
+    # Bounded to the run's own ad hoc detection jobs, created since the run started.
+    mock_job_store.list_jobs.assert_called_once_with(
+        job_name="invoke_issue_detection",
+        begin_timestamp=1700000000000,
+        params={"run_id": "run-detect-1"},
+    )
+
+
+def test_cancel_issue_detection_run_handler_finds_the_real_job_of_a_retagged_run(
+    mock_tracking_store, mock_job_store
+):
+    # A tag pointing at another run's job is ignored, and the run's own job is still stopped.
+    mock_tracking_store.get_run.side_effect = [
+        _detection_run(),
+        _detection_run(),
+        _detection_run(status="KILLED", end_time=1700000900000),
+    ]
+    own = _detection_job(JobStatus.RUNNING)
+    mock_job_store.list_jobs.return_value = iter([own])
+
+    with (
+        mock.patch(
+            "mlflow.server.jobs.get_job",
+            return_value=_detection_job(
+                JobStatus.RUNNING, params='{"experiment_id": "exp-123", "run_id": "another-run"}'
+            ),
+        ),
+        mock.patch(
+            "mlflow.server.jobs.cancel_job", return_value=_detection_job(JobStatus.CANCELED)
+        ) as mock_cancel_job,
+        mock.patch("mlflow.server.handlers.get_current_time_millis", return_value=1700000900000),
+        app.test_client() as c,
+    ):
+        resp = c.post("/api/3.0/mlflow/issues/detection-runs/run-detect-1/cancel", json={})
+
+    assert resp.get_json()["issue_detection_run"]["status"] == "canceled"
+    mock_cancel_job.assert_called_once_with(own.job_id)
+
+
+def test_get_issue_detection_run_handler_reads_the_job_of_a_run_not_yet_tagged(
+    mock_tracking_store, mock_job_store
+):
+    mock_tracking_store.get_run.return_value = _untagged_detection_run()
+    mock_job_store.list_jobs.return_value = iter([_detection_job(JobStatus.FAILED)])
+
+    with app.test_client() as c:
+        resp = c.get("/api/3.0/mlflow/issues/detection-runs/run-detect-1")
+
+    assert resp.get_json()["issue_detection_run"]["status"] == "failed"
 
 
 def test_cancel_issue_detection_run_handler_rejects_other_runs(mock_tracking_store):

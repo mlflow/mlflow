@@ -6241,7 +6241,28 @@ def _get_issue_detection_run_and_job(store, run_id: str):
     # detection job is ignored rather than reported, as `GET /mlflow/jobs/<id>` would refuse to.
     if job is not None and not _is_detection_job_of_run(job, run):
         job = None
+    if job is None:
+        job = _find_ad_hoc_detection_job(run)
     return run, job
+
+
+def _find_ad_hoc_detection_job(run):
+    """
+    The ad hoc detection job that names ``run`` in its params, or ``None``.
+
+    The run is tagged with its job only after the job is submitted, and that write is best
+    effort, so a run can be missing the tag while its job runs: briefly after it starts, or for
+    good if the write failed. Without this, canceling such a run would end the run but leave its
+    job going, which could then finish the run over the cancellation. The job is created after
+    the run, which bounds the search.
+    """
+    jobs = _get_job_store().list_jobs(
+        job_name=INVOKE_ISSUE_DETECTION_JOB_NAME,
+        begin_timestamp=run.info.start_time,
+        params={"run_id": run.info.run_id},
+    )
+    matching = [job for job in jobs if _is_detection_job_of_run(job, run)]
+    return matching[-1] if matching else None
 
 
 _DETECTION_JOB_NAMES = frozenset({
