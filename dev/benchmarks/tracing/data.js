@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795588770598,
+  "lastUpdate": 1795589335547,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "atwkdeveloper@gmail.com",
-            "name": "Aaron Teo",
-            "username": "aaronteo-db"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c678855e069227a733bb6a759fd28bd15c86eacc",
-          "message": "Add `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` guard to `mlflow.paddle` flavor (#26428)\n\nSigned-off-by: Aaron Teo <atwkdeveloper@gmail.com>\nCo-authored-by: Isaac <no-reply@databricks.com>",
-          "timestamp": "2026-10-05T08:47:35Z",
-          "tree_id": "d8b6ba8f59213a8f1987610ea36c093dabb562c5",
-          "url": "https://github.com/mlflow/mlflow/commit/c678855e069227a733bb6a759fd28bd15c86eacc"
-        },
-        "date": 1791190284800,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 49.231344850001335,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 10.252392470590621,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 6.617873974360019,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 6.584005395162025,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 6.890077254546803,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 23.437176600003795,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 3.6825370000030944,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "67765438+Jannik-Hoffmann@users.noreply.github.com",
+            "name": "Jannik Hoffmann",
+            "username": "Jannik-Hoffmann"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e2947be527692c6e8fa8fb48d306e2f161fc75a9",
+          "message": "Do not forward the default `n=1` in OpenAI gateway chat requests (#28058)\n\nSigned-off-by: Jannik Hoffmann <67765438+Jannik-Hoffmann@users.noreply.github.com>\nSigned-off-by: harupy <17039389+harupy@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: harupy <17039389+harupy@users.noreply.github.com>",
+          "timestamp": "2026-11-25T06:45:46Z",
+          "tree_id": "17fdedbdb08998f9abf989b71a6dbbc8b35711de",
+          "url": "https://github.com/mlflow/mlflow/commit/e2947be527692c6e8fa8fb48d306e2f161fc75a9"
+        },
+        "date": 1795589330734,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 31.151935250000307,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 4.28919454117709,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 3.6680922666664335,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 4.016335523076628,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 4.002131134078521,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 10.969925000002453,
             "unit": "ms"
           }
         ]
