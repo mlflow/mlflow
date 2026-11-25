@@ -42,7 +42,7 @@ describe('EditableNote', () => {
     expect(screen.getByTestId('note-view-outer-container')).toBeInTheDocument();
   });
 
-  test('renderActions is called and rendered correctly when showEditor is true', () => {
+  test('renderActions is called and rendered correctly when showEditor is true', async () => {
     renderWithIntl(
       <DesignSystemProvider>
         <EditableNote {...commonProps} />
@@ -50,6 +50,7 @@ describe('EditableNote', () => {
     );
     expect(screen.getByTestId('note-view-outer-container')).toBeInTheDocument();
     expect(screen.getByTestId('editable-note-actions')).toBeInTheDocument();
+    expect(await screen.findByRole('textbox')).toBeVisible();
   });
 
   test('handleSubmitClick with successful onSubmit', async () => {
@@ -61,7 +62,7 @@ describe('EditableNote', () => {
 
     // Use native setter to avoid character-by-character typing which is flaky
     // under memory pressure when running with the full test suite.
-    setNativeTextareaValue(screen.getByTestId(textAreaDataTestId), 'test note');
+    setNativeTextareaValue(await screen.findByTestId(textAreaDataTestId), 'test note');
     await userEvent.click(screen.getByTestId(saveButtonDataTestId));
 
     // Wait for handleSubmitClick's promise chain to resolve and React to re-render
@@ -86,7 +87,7 @@ describe('EditableNote', () => {
       </DesignSystemProvider>,
     );
 
-    setNativeTextareaValue(screen.getByTestId(textAreaDataTestId), 'test note');
+    setNativeTextareaValue(await screen.findByTestId(textAreaDataTestId), 'test note');
     await userEvent.click(screen.getByTestId(saveButtonDataTestId));
 
     await waitFor(() => {

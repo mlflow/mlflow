@@ -25,7 +25,7 @@ import {
   sanitizeConvertedHtml,
 } from '../../../../common/utils/MarkdownUtils';
 import { TraceArchivalRetentionInput } from '../../../../common/components/TraceArchivalRetentionInput';
-import { ThemeAwareReactMde } from '../../../../common/components/EditableNote';
+import { ThemeAwareReactMde } from '../../../../common/components/ThemeAwareReactMde';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getExperimentApi, setExperimentTagApi, updateExperimentApi } from '../../../actions';
 import { getExperimentNameValidator } from '../../../../common/forms/validations';
