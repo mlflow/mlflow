@@ -584,6 +584,19 @@ def test_create_multipart_upload_falls_back_for_unsupported_credentials(mock_cli
     mock_client.get_user_delegation_key.assert_not_called()
 
 
+def test_create_multipart_upload_reports_unsupported_credentials_before_num_parts(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = object()
+
+    with pytest.raises(
+        _UnsupportedMultipartUploadException,
+        match=_UnsupportedMultipartUploadException.MESSAGE,
+    ) as exc:
+        repo.create_multipart_upload("local_file", num_parts=50_001)
+
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+
+
 def test_complete_multipart_upload(mock_client, tmp_path):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 

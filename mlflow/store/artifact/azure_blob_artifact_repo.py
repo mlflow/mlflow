@@ -251,7 +251,6 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         from azure.core.exceptions import HttpResponseError
         from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 
-        _validate_multipart_upload_num_parts(num_parts, _AZURE_MAX_NUM_BLOCKS)
         (container, _, dest_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
@@ -287,6 +286,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         else:
             raise _UnsupportedMultipartUploadException()
 
+        _validate_multipart_upload_num_parts(num_parts, _AZURE_MAX_NUM_BLOCKS)
         sas_token = generate_blob_sas(
             **sas_kwargs,
         )

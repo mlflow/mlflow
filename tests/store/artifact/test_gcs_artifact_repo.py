@@ -8,7 +8,7 @@ from google.auth.exceptions import DefaultCredentialsError
 from google.cloud.storage import client as gcs_client
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository, GCSMPUArguments
 
@@ -438,12 +438,27 @@ def test_create_multipart_upload(mock_client):
 def test_create_multipart_upload_rejects_out_of_range_num_parts(mock_client, num_parts):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
     with (
-        mock.patch.object(GCSArtifactRepository, "_validate_support_mpu") as mock_support,
+        mock.patch.object(GCSArtifactRepository, "_validate_support_mpu"),
         pytest.raises(MlflowException, match="num_parts must be between 1 and 10000") as exc,
     ):
         repo.create_multipart_upload("file.txt", num_parts=num_parts)
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
-    mock_support.assert_not_called()
+    mock_client.bucket.assert_not_called()
+
+
+def test_create_multipart_upload_reports_unsupported_mpu_before_num_parts(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    with (
+        mock.patch(
+            "mlflow.store.artifact.gcs_artifact_repo.get_installed_version", return_value=None
+        ),
+        pytest.raises(
+            _UnsupportedMultipartUploadException,
+            match=_UnsupportedMultipartUploadException.MESSAGE,
+        ) as exc,
+    ):
+        repo.create_multipart_upload("file.txt", num_parts=10_001)
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
     mock_client.bucket.assert_not_called()
 
 

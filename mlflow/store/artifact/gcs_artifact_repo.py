@@ -237,8 +237,8 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
-        _validate_multipart_upload_num_parts(num_parts, _GCS_MAX_NUM_PARTS)
         self._validate_support_mpu()
+        _validate_multipart_upload_num_parts(num_parts, _GCS_MAX_NUM_PARTS)
         from google.resumable_media.requests import XMLMPUContainer
 
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
