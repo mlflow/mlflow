@@ -1,5 +1,6 @@
 import logging
 
+from mlflow.langchain._mcp import patch_mcp_adapter
 from mlflow.langchain.constant import FLAVOR_NAME
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
@@ -78,6 +79,12 @@ def autolog(
         logger.warning(
             f"Failed to apply RunnableSequence.batch or BaseCallbackManager.merge patch: {e}"
         )
+
+    if log_traces:
+        try:
+            patch_mcp_adapter()
+        except Exception:
+            logger.debug("Failed to enable LangChain MCPAdapter tracing.", exc_info=True)
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}

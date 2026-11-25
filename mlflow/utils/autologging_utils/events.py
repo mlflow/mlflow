@@ -7,9 +7,11 @@ from mlflow.utils.autologging_utils import _logger
 def _catch_exception(fn):
     """A decorator that catches exceptions thrown by the wrapped function and logs them."""
 
-    def wrapper(*args):
+    def wrapper(self, *args):
+        if not self._enabled:
+            return
         try:
-            fn(*args)
+            fn(self, *args)
         except Exception as e:
             _logger.debug(f"Failed to log autologging event via '{fn}'. Exception: {e}")
 
@@ -26,10 +28,11 @@ class AutologgingEventLoggerWrapper:
         it is used in Databricks code base as well.
     """
 
-    def __init__(self, session, destination: Any, function_name: str):
+    def __init__(self, session, destination: Any, function_name: str, *, enabled: bool = True):
         self._session = session
         self._destination = destination
         self._function_name = function_name
+        self._enabled = enabled
         self._logger = AutologgingEventLogger.get_logger()
 
     @_catch_exception

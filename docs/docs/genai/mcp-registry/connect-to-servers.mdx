@@ -158,6 +158,76 @@ when linked, even if an alias is later retargeted.
 
 Manually linking a span does not require an MCP client framework or the `mcp` extra.
 
+### Automatically link LangChain MCP tools
+
+With LangChain 1.4.0 through 1.5.0 and its `mcp` extra, call `mlflow.langchain.autolog()` before
+creating a `langchain.mcp.MCPAdapter` (beta). When the adapter lists its tools, MLflow looks for
+the one access endpoint in the active workspace with the adapter's URL and transport (Streamable
+HTTP or SSE). The endpoint is the registry's record of approved access, so after it is deleted,
+tools discovered again are not linked. The adapter can take a URL, a FastMCP transport, or a FastMCP client; configure
+authentication on the transport or client.
+
+When a discovered tool runs, MLflow links its span to the server and version resolved at
+discovery, provided the call uses the same endpoint and the trace uses the same tracking server
+and workspace. A trace exported only through OTLP uses the workspace active when it started, or
+the tracking server's default workspace.
+
+- An alias is resolved at discovery. After retargeting an alias, discover the tools again. If the
+  endpoint URL changes, create an adapter for the new URL.
+- If the adapter reuses a connection opened before MLflow could observe it, reconnect and
+  discover the tools again.
+- If FastMCP follows an HTTP redirect, the link still reflects the configured endpoint. Use
+  [server-side span attributes](#link-spans-exported-through-otlp) to identify the server that
+  handled the request.
+- Registry lookups are best effort and time-limited. A lookup at invocation runs alongside the
+  tool call and can delay its result. If a lookup fails or times out, the span stays unlinked.
+
+Install `langchain[mcp]` in the application environment. `mlflow[mcp]` requires a different
+FastMCP version, so run a tracking server that uses it in a separate environment.
+
+This example assumes a running MLflow tracking server and a Streamable HTTP MCP server with a
+`forecast` tool that takes a `city` argument:
+
+```python
+import asyncio
+
+import mlflow
+from langchain.mcp import MCPAdapter
+
+mlflow.set_tracking_uri("http://localhost:5000")
+mcp_url = "http://localhost:8000/mcp"
+
+mlflow.genai.register_mcp_server(
+    server_json={"name": "io.acme/weather", "version": "1.0.0", "description": "Weather"},
+    status="active",
+    tools=[],
+)
+mlflow.genai.create_mcp_access_endpoint(
+    server_name="io.acme/weather", url=mcp_url, server_version="1.0.0"
+)
+experiment = mlflow.set_experiment("MCP tool tracing")
+mlflow.langchain.autolog()
+
+
+async def invoke_forecast():
+    async with MCPAdapter(mcp_url) as adapter:
+        tools = {tool.name: tool for tool in await adapter.list_tools()}
+        await tools["forecast"].ainvoke({"city": "Boston"})
+
+
+asyncio.run(invoke_forecast())
+
+# The tool span carries mlflow.mcp.server.name, mlflow.mcp.server.version,
+# and mlflow.mcp.tool.name, so the trace can be found by server.
+traces = mlflow.search_traces(
+    locations=[experiment.experiment_id],
+    filter_string="mcp_server = 'io.acme/weather'",
+    return_type="list",
+    flush=True,
+)
+print(traces[0].data.spans[0].attributes["mlflow.mcp.server.name"])
+```
+
 ### Link spans exported through OTLP
 
 When exporting OpenTelemetry spans directly to MLflow through OTLP, set the MCP attributes

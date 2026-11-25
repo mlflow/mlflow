@@ -4,7 +4,7 @@ import inspect
 import itertools
 import uuid
 from collections.abc import Mapping
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, nullcontext
 from typing import Any, Callable, NamedTuple
 
 import mlflow
@@ -236,6 +236,8 @@ def safe_patch(
     patch_function,
     manage_run=False,
     extra_tags=None,
+    *,
+    observe_only=False,
 ):
     """Patches the specified `function_name` on the specified `destination` class for autologging
     purposes, preceding its implementation with an error-safe copy of the specified patch
@@ -259,6 +261,8 @@ def safe_patch(
             does not apply the `with_managed_run` wrapper to the specified
             `patch_function`.
         extra_tags: A dictionary of extra tags to set on each managed run created by autologging.
+        observe_only: For patches that collect metadata without logging to an active run.
+            Use a private session without changing warning behavior or applying run exclusion.
     """
     from mlflow.tracking.fluent import active_run
     from mlflow.utils.autologging_utils import autologging_is_disabled, get_autologging_config
@@ -317,6 +321,15 @@ def safe_patch(
         original = original_fn
         is_property_method = False
 
+    def original_warnings():
+        return (
+            nullcontext()
+            if observe_only
+            else NonMlflowWarningsBehaviorForCurrentThread(
+                disable_warnings=False, reroute_warnings=False
+            )
+        )
+
     def safe_patch_function(*args, **kwargs):
         """
         A safe wrapper around the specified `patch_function` implementation designed to
@@ -347,7 +360,9 @@ def safe_patch(
         # during model serialization by ML frameworks such as scikit-learn
         is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
         with (
-            MlflowEventsAndWarningsBehaviorGlobally(
+            nullcontext()
+            if observe_only
+            else MlflowEventsAndWarningsBehaviorGlobally(
                 # MLflow warnings emitted during autologging training sessions are likely not
                 # actionable and result from the autologging implementation invoking another MLflow
                 # API. Accordingly, we reroute these warnings to the MLflow event logger with level
@@ -357,7 +372,9 @@ def safe_patch(
                 disable_event_logs=is_silent_mode,
                 disable_warnings=is_silent_mode,
             ),
-            NonMlflowWarningsBehaviorForCurrentThread(
+            nullcontext()
+            if observe_only
+            else NonMlflowWarningsBehaviorForCurrentThread(
                 # non-MLflow Warnings emitted during the autologging preamble (before the original /
                 # underlying ML function is called) and postamble (after the original / underlying
                 # ML function is called) are likely not actionable and result from the autologging
@@ -384,9 +401,9 @@ def safe_patch(
             )
 
             if (
-                active_session_failed
+                (active_session_failed and not observe_only)
                 or autologging_is_disabled(autologging_integration)
-                or (user_created_fluent_run_is_active and exclusive)
+                or (user_created_fluent_run_is_active and exclusive and not observe_only)
                 or (
                     mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
                     and autologging_integration
@@ -397,10 +414,7 @@ def safe_patch(
                 # fluent run is active, call the original function and return. Restore the original
                 # warning behavior during original function execution, since autologging is being
                 # skipped
-                with NonMlflowWarningsBehaviorForCurrentThread(
-                    disable_warnings=False,
-                    reroute_warnings=False,
-                ):
+                with original_warnings():
                     return original(*args, **kwargs)
 
             # Whether or not the original / underlying function has been called during the
@@ -417,8 +431,15 @@ def safe_patch(
             # The exception raised during executing patching function
             patch_error = None
 
-            with _AutologgingSessionManager.start_session(autologging_integration) as session:
-                event_logger = AutologgingEventLoggerWrapper(session, destination, function_name)
+            with _AutologgingSessionManager.start_session(
+                autologging_integration, isolate=observe_only
+            ) as session:
+                event_logger = AutologgingEventLoggerWrapper(
+                    session,
+                    destination,
+                    function_name,
+                    enabled=not (observe_only and is_silent_mode),
+                )
 
                 def call_original_fn_with_event_logging(original_fn, og_args, og_kwargs):
                     try:
@@ -466,10 +487,7 @@ def safe_patch(
                             # during original function execution, even if silent mode is enabled
                             # (`silent=True`), since these warnings originate from the ML framework
                             # or one of its dependencies and are likely relevant to the caller
-                            with NonMlflowWarningsBehaviorForCurrentThread(
-                                disable_warnings=False,
-                                reroute_warnings=False,
-                            ):
+                            with original_warnings():
                                 original_result = original(*_og_args, **_og_kwargs)
                                 return original_result
 
@@ -520,7 +538,8 @@ def safe_patch(
                     # means there's some error in user code (e.g. user provide wrong arguments)
                     if patch_error is not None and not failed_during_original:
                         event_logger.log_patch_function_error(args, kwargs, patch_error)
-                        _logger.warning(_ERROR_MSG.format(autologging_integration, patch_error))
+                        if not (observe_only and is_silent_mode):
+                            _logger.warning(_ERROR_MSG.format(autologging_integration, patch_error))
 
     async def async_safe_patch_function(*args, **kwargs):
         """
@@ -538,12 +557,16 @@ def safe_patch(
         """
         is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
         async with (
-            MlflowEventsAndWarningsBehaviorGlobally(
+            nullcontext()
+            if observe_only
+            else MlflowEventsAndWarningsBehaviorGlobally(
                 reroute_warnings=True,
                 disable_event_logs=is_silent_mode,
                 disable_warnings=is_silent_mode,
             ),
-            NonMlflowWarningsBehaviorForCurrentThread(
+            nullcontext()
+            if observe_only
+            else NonMlflowWarningsBehaviorForCurrentThread(
                 disable_warnings=is_silent_mode,
                 reroute_warnings=True,
             ),
@@ -563,15 +586,15 @@ def safe_patch(
             )
 
             if (
-                active_session_failed
+                (active_session_failed and not observe_only)
                 or autologging_is_disabled(autologging_integration)
-                or (user_created_fluent_run_is_active and exclusive)
+                or (user_created_fluent_run_is_active and exclusive and not observe_only)
                 or (
                     mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
                     and autologging_integration
                 )
             ):
-                async with NonMlflowWarningsBehaviorForCurrentThread(False, False):
+                async with original_warnings():
                     return await original(*args, **kwargs)
 
             original_has_been_called = False
@@ -581,9 +604,14 @@ def safe_patch(
             patch_error = None
 
             async with _AutologgingSessionManager.astart_session(
-                autologging_integration
+                autologging_integration, isolate=observe_only
             ) as session:
-                event_logger = AutologgingEventLoggerWrapper(session, destination, function_name)
+                event_logger = AutologgingEventLoggerWrapper(
+                    session,
+                    destination,
+                    function_name,
+                    enabled=not (observe_only and is_silent_mode),
+                )
 
                 async def call_original_fn_with_event_logging(original_fn, og_args, og_kwargs):
                     try:
@@ -617,7 +645,7 @@ def safe_patch(
                             original_has_been_called = True
 
                             nonlocal original_result
-                            async with NonMlflowWarningsBehaviorForCurrentThread(False, False):
+                            async with original_warnings():
                                 original_result = await original(*_og_args, **_og_kwargs)
                                 return original_result
 
@@ -664,7 +692,8 @@ def safe_patch(
                 finally:
                     if patch_error is not None and not failed_during_original:
                         event_logger.log_patch_function_error(args, kwargs, patch_error)
-                        _logger.warning(_ERROR_MSG.format(autologging_integration, patch_error))
+                        if not (observe_only and is_silent_mode):
+                            _logger.warning(_ERROR_MSG.format(autologging_integration, patch_error))
 
     if is_property_method:
         # Create a patched function (also property decorated)
@@ -747,7 +776,10 @@ class _AutologgingSessionManager:
 
     @classmethod
     @contextmanager
-    def start_session(cls, integration):
+    def start_session(cls, integration, *, isolate=False):
+        if isolate:
+            yield AutologgingSession(integration, uuid.uuid4().hex)
+            return
         try:
             prev_session = cls._session
             if prev_session is None:
@@ -763,7 +795,10 @@ class _AutologgingSessionManager:
 
     @classmethod
     @asynccontextmanager
-    async def astart_session(cls, integration):
+    async def astart_session(cls, integration, *, isolate=False):
+        if isolate:
+            yield AutologgingSession(integration, uuid.uuid4().hex)
+            return
         try:
             prev_session = cls._session
             if prev_session is None:

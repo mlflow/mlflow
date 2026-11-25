@@ -1,6 +1,8 @@
 import re
 import time
 import warnings
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 from unittest import mock
 
 import numpy
@@ -25,6 +27,7 @@ from mlflow.utils.rest_utils import (
     _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING,
     MlflowHostCreds,
     _can_parse_as_json_object,
+    _single_attempt_http_requests,
     augmented_raise_for_status,
     call_endpoint,
     call_endpoints,
@@ -36,6 +39,47 @@ from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 from tests import helper_functions
+
+
+def test_single_attempt_http_requests_disable_retries_and_restore_defaults():
+    response = requests.Response()
+    with mock.patch(
+        "mlflow.utils.rest_utils._get_http_response_with_retries", return_value=response
+    ) as request:
+        host = MlflowHostCreds("http://my-host")
+        with _single_attempt_http_requests(2.0):
+            http_request(host, "/endpoint", "GET", max_retries=3, timeout=10)
+        http_request(host, "/endpoint", "GET", max_retries=3, timeout=10)
+
+    single, ordinary = request.call_args_list
+    assert single.args[2] == 0
+    assert single.kwargs["timeout"] == 2.0
+    assert ordinary.args[2] == 3
+    assert ordinary.kwargs["timeout"] == 10
+
+
+def test_single_attempt_http_requests_time_out_slow_server():
+    class SlowServer(BaseHTTPRequestHandler):
+        def do_GET(self):
+            time.sleep(2)
+            self.send_response(200)
+            self.end_headers()
+
+    with ThreadingHTTPServer(("127.0.0.1", 0), SlowServer) as server:
+        worker = Thread(target=server.serve_forever, name="slow-server", daemon=True)
+        worker.start()
+        try:
+            host = MlflowHostCreds(f"http://127.0.0.1:{server.server_port}")
+            start = time.monotonic()
+            with (
+                _single_attempt_http_requests(0.3),
+                pytest.raises(MlflowException, match="timeout"),
+            ):
+                http_request(host, "/endpoint", "GET")
+            assert time.monotonic() - start < 1
+        finally:
+            server.shutdown()
+            worker.join()
 
 
 @pytest.mark.parametrize(

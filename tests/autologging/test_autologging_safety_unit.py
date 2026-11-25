@@ -21,6 +21,10 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     with_managed_run,
 )
+from mlflow.utils.autologging_utils.logging_and_warnings import (
+    _WARNINGS_CONTROLLER,
+    MlflowEventsAndWarningsBehaviorGlobally,
+)
 from mlflow.utils.autologging_utils.safety import (
     ValidationExemptArgument,
     _AutologgingSessionManager,
@@ -789,6 +793,127 @@ def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
     assert patch_postamble_called
     expected_calls = ["patch_start", "original_start", "original_success", "patch_success"]
     assert [call.method for call in logger.calls] == expected_calls
+
+
+@pytest.fixture
+def observe_only_integration():
+    integration_name = "test_observe_only_integration"
+
+    @autologging_integration(integration_name)
+    def autolog(disable=False, exclusive=False, silent=False):
+        pass
+
+    return integration_name, autolog
+
+
+def test_safe_patch_observe_only_uses_private_session(patch_destination, observe_only_integration):
+    integration_name, autolog = observe_only_integration
+    autolog()
+    patch_sessions = []
+
+    @asyncify(patch_destination.is_async)
+    def patch_impl(original, *args, **kwargs):
+        patch_sessions.append(_AutologgingSessionManager.active_session())
+        return original(*args, **kwargs)
+
+    safe_patch(integration_name, patch_destination, "fn", patch_impl, observe_only=True)
+
+    assert run_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert patch_sessions == [None]
+
+    with _AutologgingSessionManager.start_session("other_integration") as shared_session:
+        shared_session.state = "failed"
+        assert run_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
+        assert _AutologgingSessionManager.active_session() is shared_session
+        assert shared_session.state == "failed"
+    assert patch_sessions == [None, shared_session]
+    assert _AutologgingSessionManager.active_session() is None
+
+
+@pytest.mark.parametrize("observe_only", [True, False])
+def test_safe_patch_observe_only_ignores_exclusive_user_run(
+    patch_destination, observe_only_integration, observe_only
+):
+    integration_name, autolog = observe_only_integration
+    autolog(exclusive=True)
+    patch_impl_call_count = 0
+
+    @asyncify(patch_destination.is_async)
+    def patch_impl(original, *args, **kwargs):
+        nonlocal patch_impl_call_count
+        patch_impl_call_count += 1
+        return original(*args, **kwargs)
+
+    safe_patch(integration_name, patch_destination, "fn", patch_impl, observe_only=observe_only)
+
+    with mlflow.start_run():
+        assert run_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert patch_impl_call_count == (1 if observe_only else 0)
+
+
+@pytest.mark.parametrize(
+    ("silent", "expected_events", "expected_warnings"),
+    [
+        (True, [], 0),
+        (False, ["patch_start", "original_start", "original_success", "patch_error"], 1),
+    ],
+)
+def test_safe_patch_observe_only_respects_silent_for_events_and_warnings(
+    patch_destination,
+    observe_only_integration,
+    mock_event_logger,
+    silent,
+    expected_events,
+    expected_warnings,
+):
+    integration_name, autolog = observe_only_integration
+    autolog(silent=silent)
+
+    @asyncify(patch_destination.is_async)
+    def patch_impl(original, *args, **kwargs):
+        original(*args, **kwargs)
+        raise Exception("Bad patch implementation")
+
+    safe_patch(integration_name, patch_destination, "fn", patch_impl, observe_only=True)
+
+    with mock.patch("mlflow.utils.autologging_utils._logger.warning") as logger_mock:
+        assert run_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
+
+    assert [call.method for call in mock_event_logger.calls] == expected_events
+    assert logger_mock.call_count == expected_warnings
+
+
+@pytest.mark.parametrize("silent", [True, False])
+def test_safe_patch_observe_only_leaves_warning_and_logging_state_unchanged(
+    patch_destination, observe_only_integration, silent
+):
+    integration_name, autolog = observe_only_integration
+    autolog(silent=silent)
+    counts = []
+
+    @asyncify(patch_destination.is_async)
+    def patch_impl(original, *args, **kwargs):
+        counts.append((
+            MlflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count,
+            MlflowEventsAndWarningsBehaviorGlobally._disable_warnings_count,
+            MlflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count,
+        ))
+        return original(*args, **kwargs)
+
+    safe_patch(integration_name, patch_destination, "fn", patch_impl, observe_only=True)
+
+    with (
+        mock.patch.object(
+            _WARNINGS_CONTROLLER, "set_non_mlflow_warnings_disablement_state_for_current_thread"
+        ) as set_disablement,
+        mock.patch.object(
+            _WARNINGS_CONTROLLER, "set_non_mlflow_warnings_rerouting_state_for_current_thread"
+        ) as set_rerouting,
+    ):
+        assert run_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert counts == [(0, 0, 0)]
+    set_disablement.assert_not_called()
+    set_rerouting.assert_not_called()
 
 
 def test_picklable_exception_safe_function_exhibits_expected_behavior_in_standard_mode():

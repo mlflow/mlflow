@@ -22,6 +22,12 @@ from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
+from mlflow.langchain._mcp import (
+    _MCP_TOOL_METADATA_KEY,
+    _MCPToolMetadata,
+    _PendingToolLink,
+    pending_mcp_tool_link,
+)
 from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message, parse_token_usage
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.fluent import start_span_no_context
@@ -76,6 +82,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self.run_inline = run_inline
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
+        self._mcp_tool_links: dict[UUID, _PendingToolLink] = {}
         self._prediction_context = prediction_context
         # run_id: audio output format from invocation_params (e.g. "wav", "mp3").
         # Used in on_llm_end to reconstruct audio content blocks for OpenAI audio models.
@@ -261,6 +268,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     status=status,
                 )
         finally:
+            self._mcp_tool_links.pop(run_id, None)
             # Span should be detached from the context even when the client.end_span fails
             st = self._run_span_mapping.pop(str(run_id), None)
             if _should_attach_span_to_context.get():
@@ -300,6 +308,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     )
 
         self._run_span_mapping = {}
+        self._mcp_tool_links = {}
         self._run_audio_format = {}
 
     def _assign_span_name(self, serialized: dict[str, Any], default_name="unknown") -> str:
@@ -651,8 +660,14 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         **kwargs: Any,
     ):
         """Start span for a tool run."""
+        marker = None
         if metadata:
-            kwargs.update({"metadata": metadata})
+            marker = metadata.get(_MCP_TOOL_METADATA_KEY)
+            if isinstance(marker, _MCPToolMetadata):
+                metadata = metadata.copy()
+                metadata.pop(_MCP_TOOL_METADATA_KEY)
+            if metadata:
+                kwargs["metadata"] = metadata
 
         # For function calling, input_str can be a stringified dictionary
         # like "{'key': 'value'}". We try parsing it for better rendering,
@@ -662,7 +677,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         except Exception:
             inputs = input_str
 
-        self._start_span(
+        span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "tool"),
             parent_run_id=parent_run_id,
             span_type=SpanType.TOOL,
@@ -670,6 +685,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             inputs=inputs,
             attributes=kwargs,
         )
+        if isinstance(marker, _MCPToolMetadata) and (link := pending_mcp_tool_link(span, marker)):
+            self._mcp_tool_links[run_id] = link
 
     def on_tool_end(self, output: Any, *, run_id: UUID, **kwargs: Any):
         """Run when tool ends running."""
