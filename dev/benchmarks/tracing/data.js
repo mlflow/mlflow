@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795594802549,
+  "lastUpdate": 1795597932070,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "2194553866@qq.com",
-            "name": "Ryan-amazinghorse",
-            "username": "Amazinghorseli"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "657f113a0802d65442060a5fb7fe5d9cad36cd2c",
-          "message": "Fix MCP server `version` filters rewriting quoted values (#26423)\n\nSigned-off-by: LI YAN <188025880+Amazinghorseli@users.noreply.github.com>\nCo-authored-by: LI YAN <188025880+Amazinghorseli@users.noreply.github.com>",
-          "timestamp": "2026-10-05T13:25:19Z",
-          "tree_id": "d6fb97e723f20433f875dd9d5d2a12a68d71a5e2",
-          "url": "https://github.com/mlflow/mlflow/commit/657f113a0802d65442060a5fb7fe5d9cad36cd2c"
-        },
-        "date": 1791207036769,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
-            "value": 61.62328770000016,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
-            "value": 7.801437647886369,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
-            "value": 4.9925908750003245,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
-            "value": 4.911985411393755,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
-            "value": 5.168841387321952,
-            "unit": "ms"
-          },
-          {
-            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
-            "value": 6.059733000000733,
-            "unit": "ms"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 4.013108285716628,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "114540347+ericdelorefice@users.noreply.github.com",
+            "name": "Eric Del Orefice",
+            "username": "ericdelorefice"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e07c33c4b60277fa68d1f9529d5826ecb35745d",
+          "message": "Raise from `get_prompt` when the registry cannot be read instead of returning `None` (#26810)\n\nSigned-off-by: Eric Del Orefice <114540347+ericdelorefice@users.noreply.github.com>\nSigned-off-by: Harutaka Kawamura <hkawamura0130@gmail.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Harutaka Kawamura <hkawamura0130@gmail.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-11-25T09:08:37Z",
+          "tree_id": "181fd4166b1bb3bb8b9904b570f653b5a8bfa6ea",
+          "url": "https://github.com/mlflow/mlflow/commit/7e07c33c4b60277fa68d1f9529d5826ecb35745d"
+        },
+        "date": 1795597928440,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.600242200001645,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 6.043466222222612,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 5.270068248322086,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 5.324958410958882,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 5.790609939849955,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.178559400003337,
             "unit": "ms"
           }
         ]
