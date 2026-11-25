@@ -139,11 +139,11 @@ def _resolve_model_uri_and_id(model_uri: str | Path) -> tuple[str, str | None]:
     registry_uri = _get_model_registry_uri_from_artifact_uri(uri)
     client = mlflow.tracking.MlflowClient(registry_uri=registry_uri)
     if parsed.alias is None:
-        return uri, client.get_model_version(parsed.name, parsed.version).model_id
+        return uri, client.get_model_version(parsed.name, parsed.version).model_id or None
 
     version = client.get_model_version_by_alias(parsed.name, parsed.alias)
     url = urllib.parse.urlparse(uri, allow_fragments=False)
-    return url._replace(path=f"/{parsed.name}/{version.version}").geturl(), version.model_id
+    return url._replace(path=f"/{parsed.name}/{version.version}").geturl(), version.model_id or None
 
 
 def get_model_name_and_version(client, models_uri):

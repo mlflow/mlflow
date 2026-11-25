@@ -36,7 +36,7 @@ from mlflow.telemetry.events import EvaluateEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import _set_active_model
+from mlflow.tracking.fluent import _set_active_model, _without_active_model
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
@@ -1804,7 +1804,7 @@ def evaluate(
                 inferred_model_uri,
                 run.info.run_id,
             )
-            active_model = nullcontext()
+            active_model = _without_active_model()
             model_id = None
         with active_model:
             if isinstance(data, Dataset) and issubclass(

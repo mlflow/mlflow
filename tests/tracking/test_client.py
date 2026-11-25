@@ -2101,6 +2101,7 @@ def test_create_model_version_copy_called_db_to_db(mock_registry_store):
             "run_12345",
             "databricks://tracking",
             "databricks://registry:workspace",
+            local_model_path=None,
         )
 
 
@@ -2118,6 +2119,7 @@ def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
             "run_12345",
             "https://tracking",
             "databricks://registry:workspace",
+            local_model_path=None,
         )
 
 

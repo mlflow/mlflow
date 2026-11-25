@@ -160,6 +160,22 @@ def test_resolve_model_uri_and_id_pins_alias_in_its_registry(scheme):
         )
 
 
+@pytest.mark.parametrize("suffix", ["/2", "@champion"])
+def test_resolve_model_uri_and_id_without_uc_logged_model(suffix):
+    version = ModelVersion("catalog.schema.model", "2", 0, model_id="")
+    uri = "models://profile@databricks-uc/catalog.schema.model"
+    with mock.patch("mlflow.tracking.MlflowClient") as client:
+        registry = client.return_value
+        registry.get_model_version.return_value = version
+        registry.get_model_version_by_alias.return_value = version
+        assert _resolve_model_uri_and_id(uri + suffix) == (uri + "/2", None)
+        client.assert_called_once_with(registry_uri="databricks-uc://profile")
+        if suffix == "/2":
+            registry.get_model_version.assert_called_once_with(version.name, "2")
+        else:
+            registry.get_model_version_by_alias.assert_called_once_with(version.name, "champion")
+
+
 def test_get_model_name_and_version_with_version():
     with mock.patch.object(
         ModelRegistryClient, "get_latest_versions", return_value=[]

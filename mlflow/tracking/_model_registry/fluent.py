@@ -256,23 +256,23 @@ def _register_model(
     registered_source = _parse_model_uri(source) if is_models_uri(source) else None
     registered_version = registered_source is not None and registered_source.version is not None
     creation_model_id = model_id
-    if (
-        registered_version
-        and model_id
-        and is_databricks_unity_catalog_uri(registry_uri)
-        and not is_databricks_uri(client.tracking_uri)
-    ):
-        # UC copies the registered artifacts. A local tracking ID is only useful for run lineage.
-        creation_model_id = None
+    if registered_version and model_id and is_databricks_unity_catalog_uri(registry_uri):
+        local_tracking = not is_databricks_uri(client.tracking_uri)
+        if local_tracking:
+            # UC copies the registered artifacts. A local tracking ID only supplies run lineage.
+            creation_model_id = None
         try:
-            run_id = client.get_logged_model(model_id).source_run_id
+            logged_model = client.get_logged_model(model_id)
         except MlflowException as e:
-            if e.error_code not in {
-                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                ErrorCode.Name(PERMISSION_DENIED),
-            }:
+            if e.error_code == ErrorCode.Name(PERMISSION_DENIED):
+                creation_model_id = None
+            elif e.error_code != ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
                 raise
+            # The UC store handles missing IDs from other Databricks workspaces during creation.
             model_id = None
+        else:
+            if local_tracking:
+                run_id = logged_model.source_run_id
 
     with ExitStack() as stack:
         if (
@@ -283,6 +283,7 @@ def _register_model(
                 validated_env_pack
                 or is_databricks_unity_catalog_uri(registry_uri)
                 or is_oss_unity_catalog_uri(registry_uri)
+                or (is_databricks_uri(registry_uri) and registry_uri != client.tracking_uri)
             )
         ):
             # A numeric artifact beneath an alias has the same spelling as this version URI.

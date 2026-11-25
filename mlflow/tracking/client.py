@@ -4679,7 +4679,11 @@ class MlflowClient:
                     + " registry workspace ==="
                 )
                 new_source = _upload_artifacts_to_databricks(
-                    source, run_id, tracking_uri, self._registry_uri
+                    source,
+                    run_id,
+                    tracking_uri,
+                    self._registry_uri,
+                    local_model_path=local_model_path,
                 )
                 # NOTE: we can't easily delete the target temp location due to the async nature
                 # of the model version creation - printing to let the user know.

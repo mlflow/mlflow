@@ -2171,23 +2171,27 @@ def test_evaluate_registered_version_with_unavailable_logged_model(
 ):
     client = MlflowClient()
     version = mlflow.register_model(multiclass_logistic_regressor_model_uri, "classifier")
-    if unavailable == "deleted":
-        client.delete_logged_model(version.model_id)
-    else:
-        monkeypatch.setattr(
-            mlflow,
-            "get_logged_model",
-            mock.Mock(side_effect=MlflowException("Permission denied", PERMISSION_DENIED)),
-        )
-    model_uri = f"models:/classifier/{version.version}"
-    data = iris_dataset._constructor_args
-    with mlflow.start_run() as run:
+    unrelated = client.create_logged_model("0")
+    monkeypatch.setenv("MLFLOW_ACTIVE_MODEL_ID", unrelated.model_id)
+    with mlflow.set_active_model(model_id=unrelated.model_id), mlflow.start_run() as run:
+        if unavailable == "deleted":
+            client.delete_logged_model(version.model_id)
+        else:
+            monkeypatch.setattr(
+                mlflow,
+                "get_logged_model",
+                mock.Mock(side_effect=MlflowException("Permission denied", PERMISSION_DENIED)),
+            )
+        model_uri = f"models:/classifier/{version.version}"
+        data = iris_dataset._constructor_args
         result = mlflow.models.evaluate(
             model_uri, data["data"], targets=data["targets"], model_type="classifier"
         )
         evaluated_run = client.get_run(run.info.run_id)
         assert evaluated_run.data.metrics == result.metrics
         assert not evaluated_run.inputs.model_inputs
+        assert not client.get_logged_model(unrelated.model_id).metrics
+        assert mlflow.get_active_model_id() == unrelated.model_id
         with pytest.raises(MlflowException, match="not found|Permission denied"):
             mlflow.models.evaluate(
                 model_uri,

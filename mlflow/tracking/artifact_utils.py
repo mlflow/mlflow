@@ -8,6 +8,7 @@ import posixpath
 import tempfile
 import urllib.parse
 import uuid
+from contextlib import ExitStack
 from typing import Any
 
 from mlflow.exceptions import MlflowException
@@ -158,7 +159,12 @@ def _upload_artifact_to_uri(local_path, artifact_uri):
 
 
 def _upload_artifacts_to_databricks(
-    source, run_id, source_host_uri=None, target_databricks_profile_uri=None
+    source,
+    run_id,
+    source_host_uri=None,
+    target_databricks_profile_uri=None,
+    *,
+    local_model_path=None,
 ):
     """Copy the artifacts from ``source`` to the destination Databricks workspace (DBFS) given by
     ``databricks_profile_uri`` or the current tracking URI.
@@ -170,15 +176,23 @@ def _upload_artifacts_to_databricks(
             if applicable. If not given, defaults to the current tracking URI.
         target_databricks_profile_uri: Specifies the destination Databricks host. If not given,
             defaults to the current tracking URI.
+        local_model_path: Optional local directory containing the model files to upload.
 
     Returns:
         The DBFS location in the target Databricks workspace the model files have been
         uploaded to.
     """
 
-    with tempfile.TemporaryDirectory() as local_dir:
-        source_with_profile = add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
-        _download_artifact_from_uri(source_with_profile, local_dir)
+    with ExitStack() as stack:
+        if local_model_path is None:
+            upload_dir = stack.enter_context(tempfile.TemporaryDirectory())
+            source_with_profile = add_databricks_profile_info_to_artifact_uri(
+                source, source_host_uri
+            )
+            _download_artifact_from_uri(source_with_profile, upload_dir)
+        else:
+            upload_dir = local_model_path
+
         dest_root = "dbfs:/databricks/mlflow/tmp-external-source/"
         dest_root_with_profile = add_databricks_profile_info_to_artifact_uri(
             dest_root, target_databricks_profile_uri
@@ -188,6 +202,9 @@ def _upload_artifacts_to_databricks(
         # Allow uploading from the same run id multiple times by randomizing a suffix
         if len(dest_repo.list_artifacts(dest_artifact_path)) > 0:
             dest_artifact_path = dest_artifact_path + "-" + uuid.uuid4().hex[0:4]
-        dest_repo.log_artifacts(local_dir, artifact_path=dest_artifact_path)
-        dirname = pathlib.PurePath(source).name  # innermost directory name
-        return posixpath.join(dest_root, dest_artifact_path, dirname)  # new source
+        model_path = posixpath.join(dest_artifact_path, pathlib.PurePath(source).name)
+        # The generic download includes the source directory. A supplied path is the model root.
+        dest_repo.log_artifacts(
+            upload_dir, artifact_path=dest_artifact_path if local_model_path is None else model_path
+        )
+        return posixpath.join(dest_root, model_path)
