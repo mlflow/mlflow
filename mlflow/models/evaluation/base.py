@@ -25,8 +25,13 @@ from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.metric import Metric
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact.utils.models import _resolve_model_uri_and_id
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    PERMISSION_DENIED,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.store.artifact.utils.models import _parse_model_uri, _resolve_model_uri_and_id
 from mlflow.telemetry.events import EvaluateEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -1706,9 +1711,12 @@ def evaluate(
             )
 
     specified_model_id = model_id
+    inferred_model_uri = None
     model_id = None
     if isinstance(model, str):
         model, model_id = _resolve_model_uri_and_id(model)
+        if model_id and specified_model_id is None:
+            inferred_model_uri = model
         if _is_model_deployment_endpoint_uri(model):
             model = _get_model_from_deployment_endpoint_uri(model, inference_params)
         else:
@@ -1777,8 +1785,28 @@ def evaluate(
 
         from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
-        # model_id could be None
-        with _set_active_model(model_id=model_id) if model_id else nullcontext():
+        try:
+            active_model = _set_active_model(model_id=model_id) if model_id else nullcontext()
+        except MlflowException as e:
+            if (
+                inferred_model_uri is None
+                or _parse_model_uri(inferred_model_uri).version is None
+                or e.error_code
+                not in {
+                    ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                    ErrorCode.Name(PERMISSION_DENIED),
+                }
+            ):
+                raise
+            _logger.info(
+                "Logged model %s for %s is unavailable. Logging evaluation metrics to run %s.",
+                model_id,
+                inferred_model_uri,
+                run.info.run_id,
+            )
+            active_model = nullcontext()
+            model_id = None
+        with active_model:
             if isinstance(data, Dataset) and issubclass(
                 data.__class__, PyFuncConvertibleDatasetMixin
             ):
