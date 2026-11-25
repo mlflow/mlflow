@@ -307,9 +307,12 @@ class Response(Truncation, ToolChoice):
         texts: list[str] = []
         for output in self.output:
             if output.type == "message":
-                texts.extend(
-                    content.text for content in output.content if content.type == "output_text"
-                )
+                for content in output.content:
+                    if isinstance(content, dict):
+                        if content.get("type") == "output_text":
+                            texts.append(content["text"])
+                    elif content.type == "output_text":
+                        texts.append(content.text)
 
         return "".join(texts)
 
