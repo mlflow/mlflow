@@ -318,7 +318,10 @@ const tagFieldRef = (key: string): string =>
   key.includes('.') || key.includes(' ') ? `tags.\`${key}\`` : `tags.${key}`;
 
 export const validateMetadataFilters = (model: TraceFilterModel, intl: IntlShape): string | undefined =>
-  getMetadataFilterError(model.filter(({ field }) => field === 'metadata').map(({ key }) => key ?? ''), intl);
+  getMetadataFilterError(
+    model.filter(({ field }) => field === 'metadata').map(({ key }) => key ?? ''),
+    intl,
+  );
 
 const NO_NUMERIC_ASSESSMENT_KEYS: ReadonlySet<string> = new Set();
 
