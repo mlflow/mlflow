@@ -985,7 +985,8 @@ def discover_issues(
             _logger.debug("Failed to fetch scored traces", exc_info=True)
 
         scorer_names = [s.name for s in scorers]
-        triage = extract_failing_traces(scored_traces, scorer_names)
+        # Only this run's verdicts: a trace it didn't judge must not pass or fail on an old one.
+        triage = extract_failing_traces(scored_traces, scorer_names, run_id=triage_eval.run_id)
 
         # Cost is judged across the sample, because it is the one category a per-trace judge
         # cannot reach. This is the traced application's spend; the detector's own is owned by

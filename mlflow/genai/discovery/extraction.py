@@ -15,7 +15,7 @@ from mlflow.genai.discovery.constants import (
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
 from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -321,6 +321,7 @@ def _parse_assessment_value(value) -> tuple[bool, list[str]]:
 def extract_failing_traces(
     scored_traces: list[Trace],
     scorer_names: str | list[str],
+    run_id: str | None = None,
 ) -> _TriageResult:
     """
     Extract failing traces and their rationales from scored trace objects.
@@ -338,9 +339,15 @@ def extract_failing_traces(
     leaves the trace unclassified. Neither is a pass, and both are counted so a run cannot
     report a clean scan over a sample it never judged.
 
+    With ``run_id``, only the assessments that run logged count. A trace keeps every earlier
+    run's verdicts, so without it a trace this run didn't judge is read on a verdict an earlier
+    run gave, possibly under different categories, instructions or model, instead of being
+    reported as unclassified.
+
     Args:
         scored_traces: Traces with scorer assessments attached.
         scorer_names: One or more scorer names to check for failures.
+        run_id: The evaluation run whose verdicts to read. ``None`` reads every run's.
     """
     if isinstance(scorer_names, str):
         scorer_names = [scorer_names]
@@ -359,7 +366,12 @@ def extract_failing_traces(
         judged = False
         errors: list[str] = []
         for scorer_name in scorer_names:
-            assessments = trace.search_assessments(scorer_name, type="feedback")
+            assessments = [
+                assessment
+                for assessment in trace.search_assessments(scorer_name, type="feedback")
+                if run_id is None
+                or (assessment.metadata or {}).get(AssessmentMetadataKey.SOURCE_RUN_ID) == run_id
+            ]
             assessment = assessments[-1] if assessments else None
             if assessment is None:
                 continue

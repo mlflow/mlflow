@@ -14,6 +14,7 @@ from mlflow.genai.discovery.extraction import (
     extract_failure_labels,
     extract_span_errors,
 )
+from mlflow.tracing.constant import AssessmentMetadataKey
 
 # ---- extract_span_errors ----
 
@@ -153,13 +154,14 @@ def test_extract_failure_labels_keeps_leading_hyphen():
 _SOURCE = AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="test")
 
 
-def _add_feedback(trace, name, value, rationale=""):
+def _add_feedback(trace, name, value, rationale="", run_id=None):
     mlflow.log_feedback(
         trace_id=trace.info.trace_id,
         name=name,
         value=value,
         rationale=rationale,
         source=_SOURCE,
+        metadata={AssessmentMetadataKey.SOURCE_RUN_ID: run_id} if run_id else None,
     )
 
 
@@ -213,6 +215,42 @@ def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
     assert result.failing_traces[0].info.trace_id == traces[0].info.trace_id
     assert "reason a" in result.rationale_map[traces[0].info.trace_id]
     assert "reason b" in result.rationale_map[traces[0].info.trace_id]
+
+
+def test_extract_failing_traces_reads_only_the_runs_own_verdicts(make_trace):
+    # Every earlier run's verdicts stay on a trace. Scoped to a run, a trace that run didn't judge
+    # is unclassified rather than read on a stale verdict, and a trace it did judge is read on
+    # its own verdict even when an earlier run's says otherwise.
+    unjudged = make_trace()
+    judged = make_trace()
+    _add_feedback(unjudged, "satisfaction", False, "stale failure", run_id="run-old")
+    _add_feedback(judged, "satisfaction", False, "stale failure", run_id="run-old")
+    _add_feedback(judged, "satisfaction", True, "fine now", run_id="run-new")
+
+    result = extract_failing_traces(_refetch([unjudged, judged]), "satisfaction", run_id="run-new")
+
+    assert result.failing_traces == []
+    assert result.unclassified_trace_ids == [unjudged.info.trace_id]
+
+
+def test_extract_failing_traces_reads_the_runs_failure_over_a_later_one(make_trace):
+    trace = make_trace()
+    _add_feedback(trace, "satisfaction", False, "this run's failure", run_id="run-new")
+    _add_feedback(trace, "satisfaction", True, "another run's pass", run_id="run-other")
+
+    result = extract_failing_traces(_refetch([trace]), "satisfaction", run_id="run-new")
+
+    assert [t.info.trace_id for t in result.failing_traces] == [trace.info.trace_id]
+    assert result.rationale_map[trace.info.trace_id] == "this run's failure"
+
+
+def test_extract_failing_traces_without_a_run_reads_every_runs_verdicts(make_trace):
+    trace = make_trace()
+    _add_feedback(trace, "satisfaction", False, "earlier failure", run_id="run-old")
+
+    result = extract_failing_traces(_refetch([trace]), "satisfaction")
+
+    assert [t.info.trace_id for t in result.failing_traces] == [trace.info.trace_id]
 
 
 def test_extract_failing_traces_empty_list():
