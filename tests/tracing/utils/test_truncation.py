@@ -161,6 +161,28 @@ def test_truncate_responses_api_input_text():
 
 
 @pytest.mark.parametrize(
+    "output",
+    [
+        # Chat Completions: `content` is null and the text is in `refusal`
+        {"choices": [{"message": {"role": "assistant", "content": None, "refusal": "No."}}]},
+        # Responses API: a `refusal` content part
+        {
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "refusal", "refusal": "No."}],
+                }
+            ]
+        },
+    ],
+    ids=["chat_completion", "responses"],
+)
+def test_truncate_refusal(output):
+    assert _get_truncated_preview(json.dumps(output), role="assistant") == "No."
+
+
+@pytest.mark.parametrize(
     "input_data",
     [
         {"messages": 123, "long_data": "a" * 50},

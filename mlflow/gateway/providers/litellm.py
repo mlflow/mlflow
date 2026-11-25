@@ -91,6 +91,9 @@ class LiteLLMProvider(BaseProvider):
 
     DISPLAY_NAME = "LiteLLM"
     CONFIG_TYPE = LiteLLMConfig
+    # LiteLLM forwards `cache_control` to providers that support prompt caching and ignores
+    # it for the others: https://docs.litellm.ai/docs/completion/prompt_caching
+    SUPPORTS_CACHE_CONTROL = True
 
     PASSTHROUGH_PROVIDER_PATHS = {
         PassthroughAction.OPENAI_CHAT: "chat/completions",

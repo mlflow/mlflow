@@ -153,6 +153,22 @@ export const buildV4ViewQuery = (state: CapturedV4ViewState, viewId: string): st
   return params.toString();
 };
 
+export const hasV4ViewTimeRange = (label: string | null | undefined): boolean => Boolean(label);
+
+/** Mutates and returns `saved`, keeping the browsing range when the view has no time label. */
+export const applyV4ViewQuery = (current: URLSearchParams, saved: URLSearchParams): URLSearchParams => {
+  if (!hasV4ViewTimeRange(saved.get('startTimeLabel'))) {
+    for (const key of ['startTimeLabel', 'startTime', 'endTime']) {
+      saved.delete(key);
+      const value = current.get(key);
+      if (value !== null) {
+        saved.set(key, value);
+      }
+    }
+  }
+  return saved;
+};
+
 export const getTraceV4SavedViewShareUrl = (
   experimentId: string,
   state: CapturedV4ViewState,

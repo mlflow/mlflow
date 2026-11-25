@@ -50,6 +50,24 @@ def _extract_caller(request_headers: dict[str, str] | None) -> str | None:
     return None
 
 
+def build_gateway_trace_metadata(
+    endpoint_config: GatewayEndpointConfig,
+    metadata: dict[str, Any] | None = None,
+    request_headers: dict[str, str] | None = None,
+    request_type: GatewayRequestType | None = None,
+) -> dict[str, Any]:
+    """Trace metadata recorded for a gateway request: the endpoint, request type and caller,
+    on top of ``metadata`` (e.g. auth user info).
+    """
+    combined_metadata = metadata.copy() if metadata else {}
+    combined_metadata[TraceMetadataKey.GATEWAY_ENDPOINT_ID] = endpoint_config.endpoint_id
+    if request_type:
+        combined_metadata[TraceMetadataKey.GATEWAY_REQUEST_TYPE] = request_type
+    if caller := _extract_caller(request_headers):
+        combined_metadata[TraceMetadataKey.GATEWAY_CALLER] = caller
+    return combined_metadata
+
+
 def _dump_payload(value: Any) -> Any:
     """Serialize pydantic request payloads without None fields so the trace input
     shows only the fields the caller actually sent, not every optional parameter.
@@ -254,13 +272,9 @@ def maybe_traced_gateway_call(
         "trace_destination": MlflowExperimentLocation(endpoint_config.experiment_id),
     }
 
-    # Build combined metadata with gateway-specific fields
-    combined_metadata = metadata.copy() if metadata else {}
-    combined_metadata[TraceMetadataKey.GATEWAY_ENDPOINT_ID] = endpoint_config.endpoint_id
-    if request_type:
-        combined_metadata[TraceMetadataKey.GATEWAY_REQUEST_TYPE] = request_type
-    if caller := _extract_caller(request_headers):
-        combined_metadata[TraceMetadataKey.GATEWAY_CALLER] = caller
+    combined_metadata = build_gateway_trace_metadata(
+        endpoint_config, metadata, request_headers, request_type
+    )
 
     # Wrap function to set metadata inside the trace context
     if inspect.isasyncgenfunction(func):

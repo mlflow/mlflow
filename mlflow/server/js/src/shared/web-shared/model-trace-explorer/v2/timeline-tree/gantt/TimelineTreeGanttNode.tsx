@@ -47,6 +47,7 @@ export const TimelineTreeGanttNode = ({
     <TimelineTreeSpanTooltip span={node}>
       <div
         key={node.key}
+        data-testid={`timeline-tree-gantt-node-${node.key}`}
         css={{
           display: 'flex',
           flexDirection: 'row',

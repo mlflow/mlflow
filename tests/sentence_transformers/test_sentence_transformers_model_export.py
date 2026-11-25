@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sentence_transformers
+import transformers
 import yaml
 from packaging.version import Version
 from pyspark.sql import SparkSession
@@ -29,7 +30,6 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
-from tests.transformers.version import IS_TRANSFORMERS_V5_OR_LATER
 
 
 @pytest.fixture
@@ -42,9 +42,65 @@ def basic_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
 
 
+_CUSTOM_CONFIG_CODE = """
+from transformers import PretrainedConfig
+
+
+class CustomEmbeddingConfig(PretrainedConfig):
+    model_type = "mlflow-custom-embedding"
+
+    def __init__(self, vocab_size=8, hidden_size=16, **kwargs):
+        self.vocab_size = vocab_size
+        self.hidden_size = hidden_size
+        super().__init__(**kwargs)
+"""
+
+_CUSTOM_MODEL_CODE = """
+import torch
+from transformers import PreTrainedModel
+from transformers.modeling_outputs import BaseModelOutput
+
+from .configuration_custom import CustomEmbeddingConfig
+
+
+class CustomEmbeddingModel(PreTrainedModel):
+    config_class = CustomEmbeddingConfig
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.embeddings = torch.nn.Embedding(config.vocab_size, config.hidden_size)
+        self.post_init()
+
+    def forward(self, input_ids, attention_mask=None, **kwargs):
+        return BaseModelOutput(last_hidden_state=self.embeddings(input_ids))
+"""
+
+
 @pytest.fixture
-def model_with_remote_code():
-    return SentenceTransformer("Alibaba-NLP/gte-base-en-v1.5", trust_remote_code=True)
+def model_with_remote_code(tmp_path):
+    # Build a tiny model whose architecture is only available as custom code (`auto_map`), so the
+    # test does not depend on a Hub repository that may switch to a native architecture.
+    repo = tmp_path.joinpath("custom_code_model")
+    repo.mkdir()
+    repo.joinpath("configuration_custom.py").write_text(_CUSTOM_CONFIG_CODE)
+    repo.joinpath("modeling_custom.py").write_text(_CUSTOM_MODEL_CODE)
+    repo.joinpath("config.json").write_text(
+        json.dumps({
+            "model_type": "mlflow-custom-embedding",
+            "auto_map": {
+                "AutoConfig": "configuration_custom.CustomEmbeddingConfig",
+                "AutoModel": "modeling_custom.CustomEmbeddingModel",
+            },
+        })
+    )
+    vocab_file = repo.joinpath("vocab.txt")
+    vocab_file.write_text(
+        "\n".join(["[PAD]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "hello", "world"])
+    )
+    transformers.BertTokenizerFast(vocab_file=str(vocab_file)).save_pretrained(repo)
+    config = transformers.AutoConfig.from_pretrained(repo, trust_remote_code=True)
+    transformers.AutoModel.from_config(config, trust_remote_code=True).save_pretrained(repo)
+    return SentenceTransformer(str(repo), trust_remote_code=True)
 
 
 @pytest.fixture(scope="module")
@@ -68,23 +124,19 @@ def test_model_save_and_load(model_path, basic_model):
     assert all(len(x) == 384 for x in encoded_multi)
 
 
-@pytest.mark.skipif(
-    Version(sentence_transformers.__version__) < Version("2.4.0"),
-    reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0 "
-    "and `include_prompt` from gte-base-en-v1.5 requires 2.4.0 or above",
-)
-@pytest.mark.skipif(
-    IS_TRANSFORMERS_V5_OR_LATER,
-    reason="Alibaba-NLP/gte-base-en-v1.5 has corrupted position_ids buffers on transformers 5.x "
-    "due to uninitialized meta-device loading (https://github.com/huggingface/transformers/issues/43957)",
-)
 def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
     mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)
+    model_data_path = model_path.joinpath(
+        mlflow.sentence_transformers.SENTENCE_TRANSFORMERS_DATA_PATH
+    )
+    assert model_data_path.joinpath("modeling_custom.py").exists()
+    assert model_data_path.joinpath("configuration_custom.py").exists()
+
     loaded_model = mlflow.sentence_transformers.load_model(model_path)
 
-    encoded_single = loaded_model.encode("I'm just a simple string; nothing to see here.")
+    encoded_single = loaded_model.encode("hello world")
     assert isinstance(encoded_single, np.ndarray)
-    assert len(encoded_single) == 768
+    assert len(encoded_single) == 16
 
 
 def test_load_kwargs_do_not_trust_remote_code_when_model_code_execution_is_disallowed(

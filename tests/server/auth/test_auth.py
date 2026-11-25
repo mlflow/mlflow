@@ -28,6 +28,7 @@ from mlflow.environment_variables import (
     MLFLOW_AUTH_ADMIN_PASSWORD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
     MLFLOW_WORKSPACE_STORE_URI,
@@ -3207,6 +3208,48 @@ def test_graphql_get_experiment_authorization(client, monkeypatch):
 
 @pytest.mark.parametrize(
     "client",
+    [
+        {
+            "MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini",
+            MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.name: "yes",
+        }
+    ],
+    indirect=True,
+)
+def test_graphql_fails_closed_on_invalid_graphql_auth_flag(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("graphql_invalid_flag_exp")
+
+    query = """
+    query($expId: String!) {
+        mlflowGetExperiment(input: {experimentId: $expId}) {
+            experiment {
+                name
+            }
+        }
+    }
+    """
+    response = _graphql_query(
+        client.tracking_uri,
+        query,
+        variables={"expId": experiment_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 500
+    assert "graphql_invalid_flag_exp" not in response.text
+
+
+def test_get_graphql_authorization_middleware_skips_flag_when_auth_disabled(monkeypatch):
+    monkeypatch.setenv(MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.name, "yes")
+    monkeypatch.setattr(auth_module, "_auth_initialized", False)
+    assert auth_module.get_graphql_authorization_middleware() == []
+
+
+@pytest.mark.parametrize(
+    "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
     indirect=True,
 )
@@ -5985,6 +6028,38 @@ def test_assistant_unauthenticated_access_denied(fastapi_client, monkeypatch):
         json={"messages": []},
     )
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_assistant_message_requires_experiment_read_permission(fastapi_client, monkeypatch):
+    owner, owner_password = create_user(fastapi_client.tracking_uri)
+    other, other_password = create_user(fastapi_client.tracking_uri)
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("assistant-message-authz")
+
+    url = fastapi_client.tracking_uri + "/ajax-api/3.0/mlflow/assistant/message"
+
+    def send(auth, **body):
+        return requests.post(url, json={"message": "hi", "context": {}, **body}, auth=auth)
+
+    assert send((other, other_password), experiment_id=experiment_id).status_code == 403
+    assert send((other, other_password)).status_code == 200
+    assert send((owner, owner_password), experiment_id=experiment_id).status_code == 200
+
+    # Bodies the validator can't read pass through to FastAPI, which rejects them with 422.
+    other_auth = (other, other_password)
+    malformed = requests.post(
+        url, data="{", headers={"Content-Type": "application/json"}, auth=other_auth
+    )
+    assert malformed.status_code == 422
+    assert requests.post(url, json=[experiment_id], auth=other_auth).status_code == 422
+
+    grant_role_permission(fastapi_client.tracking_uri, other, "experiment", experiment_id, "READ")
+    assert send((other, other_password), experiment_id=experiment_id).status_code == 200
 
 
 def test_get_online_scoring_configs_with_auth(client, monkeypatch):

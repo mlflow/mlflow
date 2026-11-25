@@ -44,6 +44,14 @@ if TYPE_CHECKING:
 # MSSQL collation for case-sensitive string comparisons
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
+# Escapes that `json.dumps` can write but PostgreSQL's jsonb rejects: `\u0000`, and surrogate
+# escapes that aren't part of a high-low pair. `json.dumps` writes lowercase hex.
+_POSTGRES_UNDECODABLE_JSON_ESCAPES = (
+    r"\\u0000"
+    r"|\\ud[89ab][0-9a-f]{2}(?!\\ud[c-f][0-9a-f]{2})"
+    r"|(?<!\\ud[89ab][0-9a-f]{2})\\ud[c-f][0-9a-f]{2}"
+)
+
 
 def _convert_like_pattern_to_regex(pattern: str, flags: int = 0):
     regex = re.escape(pattern)
@@ -360,6 +368,10 @@ class SearchUtils:
                     return expression.in_([sa.func.binary(v) for v in value])
                 elif comparator == "NOT IN":
                     return ~expression.in_([sa.func.binary(v) for v in value])
+                elif comparator == "RLIKE":
+                    # Cast to binary to avoid errors like `Character set 'utf8mb4_0900_ai_ci'
+                    # cannot be used in conjunction with 'binary' in call to regexp_like`.
+                    return sa.cast(expression, sa.LargeBinary).op("REGEXP")(sa.func.binary(value))
                 value = sa.func.binary(value)
             return SearchUtils.get_comparison_func(comparator)(expression, value)
 
@@ -1803,6 +1815,9 @@ class SearchTraceUtils(SearchUtils):
     VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
+    # The SQL store matches `span.attributes.<key>` against the serialized span content,
+    # so only pattern-matching comparators are supported.
+    VALID_SPAN_CUSTOM_ATTRIBUTE_COMPARATORS = {"LIKE", "ILIKE", "RLIKE"}
     VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
     NUMERIC_ASSESSMENT_COMPARATORS = {">", ">=", "<", "<="}
     VALID_ASSESSMENT_COMPARATORS = {
@@ -2000,10 +2015,11 @@ class SearchTraceUtils(SearchUtils):
                         "Span attribute name cannot be empty after 'attributes.'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                if comparator not in cls.VALID_SPAN_ATTRIBUTE_COMPARATORS:
+                if comparator not in cls.VALID_SPAN_CUSTOM_ATTRIBUTE_COMPARATORS:
+                    allowed = ", ".join(sorted(cls.VALID_SPAN_CUSTOM_ATTRIBUTE_COMPARATORS))
                     raise MlflowException(
-                        f"span.{key_name} comparator '{comparator}' not one of "
-                        f"'{cls.VALID_SPAN_ATTRIBUTE_COMPARATORS}'",
+                        f"span.{key_name} comparator '{comparator}' is not supported. "
+                        f"Supported comparators for span.attributes.<key>: {allowed}.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             elif key_name in cls._SUPPORTED_SPAN_ATTRIBUTES:
@@ -2080,8 +2096,11 @@ class SearchTraceUtils(SearchUtils):
 
         For equality comparisons, we match either the raw JSON primitive value
         (for booleans and numeric values) or the JSON-serialized value (for strings).
+        Pattern comparisons (LIKE, ILIKE, RLIKE) match the decoded string for JSON strings
+        and the raw JSON text for other values.
         """
         import sqlalchemy as sa
+        from sqlalchemy.dialects.postgresql import JSONB
 
         def mysql_json_equality_inequality_comparison(
             column: "ColumnElement", value: str
@@ -2137,10 +2156,47 @@ class SearchTraceUtils(SearchUtils):
             )
             return SearchUtils.get_comparison_func(comparator)(numeric_column, float(value))
 
+        def json_pattern_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
+            # Match pattern comparators against the decoded string for JSON strings, and
+            # against the raw text for other values (e.g. `4` or `true`). The CASE keeps
+            # non-string values, such as `NaN` (invalid JSON), from being parsed. Strings the
+            # database can't decode are also matched against their raw text, so that a single
+            # such value doesn't make every search on the assessment name fail.
+            decodable = sa.func.substring(column, 1, 1) == '"'
+            if dialect == SQLITE:
+                decoded = sa.func.json_extract(column, "$", type_=sa.Text)
+            elif dialect == POSTGRES:
+                decoded = sa.cast(column, JSONB).op("#>>", return_type=sa.Text)(
+                    sa.literal_column("'{}'")
+                )
+                decodable = sa.and_(
+                    decodable,
+                    sa.not_(column.bool_op("~")(_POSTGRES_UNDECODABLE_JSON_ESCAPES)),
+                )
+            elif dialect == MYSQL:
+                decoded = sa.func.json_unquote(column, type_=sa.Text)
+                # `JSON_UNQUOTE` raises on unpaired surrogate escapes, `JSON_VALID` doesn't
+                decodable = sa.and_(decodable, sa.func.json_valid(column) == 1)
+            else:
+                # `JSON_VALUE` returns at most 4000 characters (NULL in lax mode beyond that),
+                # so decode with `OPENJSON`, whose default `value` column is nvarchar(max).
+                # Wrapping in an array avoids depending on whether the server version accepts
+                # a scalar as the JSON document root.
+                elements = sa.func.openjson("[" + column + "]").table_valued(
+                    sa.column("value", sa.Text)
+                )
+                decoded = sa.select(elements.c.value).scalar_subquery()
+            expression = sa.case((decodable, decoded), else_=column)
+            # Explicit string type so the MySQL BINARY and MSSQL collation handling applies
+            expression = sa.type_coerce(expression, sa.Text)
+            return SearchTraceUtils.get_sql_expression_comparison_func(comparator, dialect)(
+                expression, value
+            )
+
         if comparator in SearchTraceUtils.NUMERIC_ASSESSMENT_COMPARATORS:
             return json_numeric_comparison
         elif comparator not in ("=", "!="):
-            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
+            return json_pattern_comparison
         elif dialect == MYSQL:
             return mysql_json_equality_inequality_comparison
         else:
@@ -2386,7 +2442,7 @@ class SearchTraceUtils(SearchUtils):
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
 
         if comp.get("type") == cls._SPAN_IDENTIFIER:
-            cls.is_span(comp["type"], comp["key"], comp["comparator"])
+            cls.is_span(comp["type"], comp["key"], comp["comparator"].upper())
 
         return comp
 

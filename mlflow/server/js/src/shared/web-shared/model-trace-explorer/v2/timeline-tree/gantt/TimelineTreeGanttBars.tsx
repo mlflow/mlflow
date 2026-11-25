@@ -5,7 +5,8 @@ import { useResizeObserver } from '../../../../hooks/useResizeObserver';
 
 import { TimelineTreeGanttNode } from './TimelineTreeGanttNode';
 import type { ModelTraceSpanNode } from '../../ModelTrace.types';
-import { spanTimeFormatter, TimelineTreeZIndex } from '../TimelineTree.utils';
+import { SPAN_ROW_HEIGHT, spanTimeFormatter, TimelineTreeZIndex } from '../TimelineTree.utils';
+import { useTimelineTreeRowVirtualizer } from '../useTimelineTreeRowVirtualizer';
 
 // the amount of space required to accomodate the collapse buttons
 const TIMELINE_BAR_LEFT_OFFSET = 32;
@@ -62,6 +63,7 @@ export const TimelineTreeGanttBars = ({
   traceEndTime,
   expandedKeys,
   setExpandedKeys,
+  scrollElement,
 }: {
   nodes: ModelTraceSpanNode[];
   selectedKey: string | number;
@@ -70,10 +72,13 @@ export const TimelineTreeGanttBars = ({
   traceEndTime: number;
   expandedKeys: Set<string | number>;
   setExpandedKeys: (keys: Set<string | number>) => void;
+  scrollElement: HTMLElement | null;
 }): JSX.Element => {
   const { theme } = useDesignSystemTheme();
   const treeContainerRef = useRef<HTMLDivElement>(null);
-  const treeElementWidth = useResizeObserver({ ref: treeContainerRef })?.width ?? 0;
+  const treeElementBounds = useResizeObserver({ ref: treeContainerRef });
+  const treeElementWidth = treeElementBounds?.width ?? 0;
+  const treeHeaderHeight = treeElementBounds?.height ?? 0;
   const initialXTicks = useMemo(
     () => getNiceXTicks(traceStartTime, traceEndTime, treeElementWidth),
     [traceEndTime, traceStartTime, treeElementWidth],
@@ -88,6 +93,15 @@ export const TimelineTreeGanttBars = ({
   const xTicks = initialXTicks.slice(0, -1);
 
   const scaleDurationToTreeWidth = (value: number) => scaleX(value, left, right, treeElementWidth);
+  const { rowVirtualizer, virtualized } = useTimelineTreeRowVirtualizer(
+    nodes,
+    scrollElement,
+    selectedKey,
+    () => SPAN_ROW_HEIGHT,
+    true,
+    treeHeaderHeight,
+  );
+  const virtualRows = rowVirtualizer.getVirtualItems();
 
   return (
     <div
@@ -165,22 +179,51 @@ export const TimelineTreeGanttBars = ({
         </div>
       </div>
       {/* colored horizontal gantt bars */}
-      {nodes.map((node) => {
-        const leftOffset = scaleDurationToTreeWidth(node.start);
-        const width = scaleDurationToTreeWidth(node.end) - leftOffset;
-        return (
-          <TimelineTreeGanttNode
-            key={node.key}
-            selectedKey={selectedKey}
-            onSelect={onSelect}
-            node={node}
-            leftOffset={leftOffset}
-            width={width}
-            expandedKeys={expandedKeys}
-            setExpandedKeys={setExpandedKeys}
-          />
-        );
-      })}
+      {virtualized ? (
+        <div css={{ position: 'relative', flexShrink: 0 }} style={{ height: rowVirtualizer.getTotalSize() }}>
+          {virtualRows.map(({ index, start }) => {
+            const node = nodes[index];
+            const leftOffset = scaleDurationToTreeWidth(node.start);
+            const width = scaleDurationToTreeWidth(node.end) - leftOffset;
+            return (
+              <div
+                key={node.key}
+                ref={rowVirtualizer.measureElement}
+                data-index={index}
+                css={{ position: 'absolute', top: 0, left: 0, width: '100%', zIndex: TimelineTreeZIndex.NORMAL }}
+                style={{ transform: `translateY(${start - treeHeaderHeight}px)` }}
+              >
+                <TimelineTreeGanttNode
+                  selectedKey={selectedKey}
+                  onSelect={onSelect}
+                  node={node}
+                  leftOffset={leftOffset}
+                  width={width}
+                  expandedKeys={expandedKeys}
+                  setExpandedKeys={setExpandedKeys}
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        nodes.map((node) => {
+          const leftOffset = scaleDurationToTreeWidth(node.start);
+          const width = scaleDurationToTreeWidth(node.end) - leftOffset;
+          return (
+            <TimelineTreeGanttNode
+              key={node.key}
+              selectedKey={selectedKey}
+              onSelect={onSelect}
+              node={node}
+              leftOffset={leftOffset}
+              width={width}
+              expandedKeys={expandedKeys}
+              setExpandedKeys={setExpandedKeys}
+            />
+          );
+        })
+      )}
     </div>
   );
 };

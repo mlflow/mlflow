@@ -18,6 +18,7 @@ from mlflow.gateway.tracing_utils import (
     _gateway_span_attributes,
     _gateway_span_name,
     _get_model_span_info,
+    build_gateway_trace_metadata,
 )
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -181,6 +182,7 @@ def fire_budget_exceeded_webhooks(
 def _create_budget_error_trace(
     endpoint_config: GatewayEndpointConfig,
     exception: HTTPException,
+    metadata: dict[str, str] | None = None,
 ) -> None:
     """Create an error trace for a budget limit rejection.
 
@@ -196,6 +198,8 @@ def _create_budget_error_trace(
             trace_destination=MlflowExperimentLocation(endpoint_config.experiment_id),
             attributes=_gateway_span_attributes(endpoint_config),
         ) as span:
+            if metadata:
+                mlflow.update_current_trace(metadata=metadata)
             span.record_exception(exception)
     except Exception:
         _logger.debug("Failed to create budget error trace", exc_info=True)
@@ -206,10 +210,21 @@ def check_budget_limit(
     endpoint_config: GatewayEndpointConfig,
     workspace: str | None = None,
     username: str | None = None,
+    request_headers: dict[str, str] | None = None,
+    metadata: dict[str, str] | None = None,
 ) -> None:
     """Check if any REJECT-capable budget policy is exceeded.
 
     Raises HTTPException(429) with an error trace if the budget limit is exceeded.
+
+    Args:
+        store: The tracking store holding the budget policies.
+        endpoint_config: The endpoint the request is routed to.
+        workspace: The workspace the request was made from.
+        username: The authenticated username the request was made by.
+        request_headers: HTTP request headers, which identify the request's caller.
+        metadata: Trace metadata for the request (e.g. auth user info), recorded on the
+            error trace of a rejected request.
     """
     maybe_refresh_budget_policies(store)
     tracker = get_budget_tracker()
@@ -230,7 +245,8 @@ def check_budget_limit(
             "Request rejected."
         )
         exc = HTTPException(status_code=429, detail=detail)
-        _create_budget_error_trace(endpoint_config, exc)
+        trace_metadata = build_gateway_trace_metadata(endpoint_config, metadata, request_headers)
+        _create_budget_error_trace(endpoint_config, exc, trace_metadata)
         raise exc
 
 

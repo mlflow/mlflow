@@ -848,6 +848,15 @@ MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE = _EnvironmentVariable(
     "MLFLOW_GATEWAY_MAX_DECOMPRESSED_REQUEST_SIZE", int, 100 * 1024 * 1024
 )
 
+#: Maximum size in bytes of an OTLP trace-ingest request body (``POST /v1/traces``) after
+#: decompression. Requests whose decompressed body exceeds this limit are rejected with
+#: HTTP 413. This bounds the memory a compressed request can consume, since a small
+#: compressed body can expand by several orders of magnitude.
+#: (default: ``104857600`` — 100 MB)
+MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE = _EnvironmentVariable(
+    "MLFLOW_OTLP_MAX_DECOMPRESSED_TRACE_SIZE", int, 100 * 1024 * 1024
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
@@ -1976,8 +1985,12 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 #: cloudpickle artifacts, code directories logged with ``code_paths``, models from code, models
 #: on the Python path, Transformers custom code, LlamaIndex settings that name classes to
 #: construct, John Snow Labs models that start a Spark session with their own JARs and license,
-#: and all PyFunc models, because a PyFunc model names the Python module that loads
-#: it. Set it to ``false`` to refuse such models. Only set it to ``true`` for models you trust.
+#: Keras models loaded with ``mlflow.tensorflow.load_model`` or ``load_checkpoint`` (Keras 2
+#: models saved in the H5 or SavedModel format, H5 models loaded with Keras earlier than 3.11.3,
+#: and models loaded with Keras 3 earlier than 3.11.0, which can contain ``Lambda`` layer
+#: bytecode; ``mlflow.keras.load_model`` with Keras 3 is not checked), and all PyFunc models,
+#: because a PyFunc model names the Python module that loads it. Set it to ``false`` to refuse
+#: such models. Only set it to ``true`` for models you trust.
 #: (default: ``True``)
 MLFLOW_ALLOW_MODEL_CODE_EXECUTION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_MODEL_CODE_EXECUTION", True

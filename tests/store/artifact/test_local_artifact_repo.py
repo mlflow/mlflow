@@ -17,6 +17,7 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME, spans_to_traces_data_pb
 from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.os import is_windows
 
 
 @pytest.fixture
@@ -793,3 +794,55 @@ def test_get_local_path_nonexistent_raises_resource_does_not_exist(local_artifac
     with pytest.raises(MlflowException, match="No such artifact") as exc_info:
         local_artifact_repo.get_local_path("nonexistent.txt")
     assert exc_info.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+_SKIP_ON_WINDOWS = pytest.mark.skipif(is_windows(), reason="'?' is invalid in Windows file names")
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "loc#",
+        pytest.param("loc?", marks=_SKIP_ON_WINDOWS),
+        pytest.param("loc?x=1", marks=_SKIP_ON_WINDOWS),
+    ],
+)
+def test_artifact_dir_keeps_literal_question_mark_and_hash(tmp_path, location):
+    artifact_dir = tmp_path / location / "run" / "artifacts"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "file.txt").write_text("content")
+    repo = LocalArtifactRepository(f"{tmp_path.as_posix()}/{location}/run/artifacts")
+    assert repo.artifact_dir == str(artifact_dir)
+    assert [a.path for a in repo.list_artifacts()] == ["file.txt"]
+
+
+@pytest.mark.parametrize("dst_path_provided", [True, False])
+@pytest.mark.parametrize(
+    ("path", "content"),
+    [
+        ("data/a%20b.csv", "eval"),
+        ("data/a b.csv", "train"),
+        pytest.param("answers/what?.txt", "faq", marks=_SKIP_ON_WINDOWS),
+    ],
+)
+def test_download_artifacts_uses_literal_file_name(
+    local_artifact_repo, tmp_path_factory, dst_path_provided, path, content
+):
+    local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"train"), "a b.csv", "data")
+    local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"eval"), "a%20b.csv", "data")
+    if not is_windows():
+        local_artifact_repo.log_artifact_from_stream(io.BytesIO(b"faq"), "what?.txt", "answers")
+    dst = str(tmp_path_factory.mktemp("dst")) if dst_path_provided else None
+    result = local_artifact_repo.download_artifacts(path, dst_path=dst)
+    assert pathlib.Path(result).read_text() == content
+
+
+def test_download_artifacts_directory_with_percent_encoded_names(
+    local_artifact_repo, tmp_path_factory
+):
+    local_artifact_repo.log_artifact_from_stream(
+        io.BytesIO(b"ny"), "part-0.parquet", "eval_set/city=New%20York"
+    )
+    dst = tmp_path_factory.mktemp("dst")
+    result = local_artifact_repo.download_artifacts("eval_set", dst_path=str(dst))
+    assert (pathlib.Path(result) / "city=New%20York" / "part-0.parquet").read_text() == "ny"

@@ -133,7 +133,7 @@ def test_answers_concisely_in_english(agent):
     assert result.passed, result.reason
 ```
 
-`result.passed` is `True` only when every scorer passed for every row. `result.reason` names the failing scorers and their rationales, so when the assertion fails, pytest shows you _why_ without a second run.
+`result.passed` is `True` only when `predict_fn` succeeded for every row and every scorer passed for every row. `result.reason` names the failing scorers and their rationales, along with how many rows were not scored because `predict_fn` raised, so when the assertion fails, pytest shows you _why_ without a second run.
 
 You can use the full range of MLflow scorers here, including [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined), [custom judges](/genai/eval-monitor/scorers/llm-judge/custom-judges), and [code-based scorers](/genai/eval-monitor/scorers/custom).
 
