@@ -12785,6 +12785,98 @@ def test_get_issue_detection_run_handler_skips_the_job_lookup_for_a_settled_run(
     mock_job_store.list_jobs.assert_not_called()
 
 
+def _scheduled_job(status):
+    return _detection_job(
+        status,
+        job_name="scheduled_issue_detection",
+        params='{"experiment_id": "exp-123", "window_lower_bound_ms": 0}',
+    )
+
+
+def _newer_attempt():
+    newer = mock.MagicMock()
+    newer.info.run_id = "run-detect-2"
+    newer.info.start_time = 1700000300000
+    return newer
+
+
+@pytest.mark.parametrize("job_status", [JobStatus.RUNNING, JobStatus.SUCCEEDED])
+def test_get_issue_detection_run_handler_reports_a_scheduled_run_its_job_left_behind(
+    mock_tracking_store, job_status
+):
+    # The worker died, the job was queued again, and its rerun created a newer run. The job's
+    # status describes that attempt, so the run left RUNNING reads as failed when it was replaced.
+    mock_tracking_store.get_run.return_value = _detection_run()
+    mock_tracking_store.search_runs.return_value = [_newer_attempt()]
+
+    with (
+        mock.patch("mlflow.server.jobs.get_job", return_value=_scheduled_job(job_status)),
+        app.test_client() as c,
+    ):
+        resp = c.get("/api/3.0/mlflow/issues/detection-runs/run-detect-1")
+
+    run = resp.get_json()["issue_detection_run"]
+    assert run["status"] == "failed"
+    assert run["end_time"] == 1700000300000
+    assert "continued in run run-detect-2" in run["error_message"]
+    search = mock_tracking_store.search_runs.call_args.kwargs
+    assert search["filter_string"] == (
+        "tags.`mlflow.issueDetection.jobId` = 'job-detect-1' "
+        "AND attributes.start_time > 1700000000000"
+    )
+
+
+def test_cancel_issue_detection_run_handler_settles_a_left_behind_run_without_the_job(
+    mock_tracking_store,
+):
+    # The job is running the newer attempt, which isn't this run to cancel.
+    mock_tracking_store.get_run.side_effect = [
+        _detection_run(),
+        _detection_run(status="FAILED", end_time=1700000300000),
+    ]
+    mock_tracking_store.search_runs.return_value = [_newer_attempt()]
+
+    with (
+        mock.patch("mlflow.server.jobs.get_job", return_value=_scheduled_job(JobStatus.RUNNING)),
+        mock.patch("mlflow.server.jobs.cancel_job") as mock_cancel_job,
+        app.test_client() as c,
+    ):
+        resp = c.post("/api/3.0/mlflow/issues/detection-runs/run-detect-1/cancel", json={})
+
+    assert resp.status_code == 200
+    assert resp.get_json()["issue_detection_run"]["status"] == "failed"
+    mock_cancel_job.assert_not_called()
+    mock_tracking_store.update_run_info.assert_called_once_with(
+        "run-detect-1", RunStatus.FAILED, end_time=1700000300000, run_name=None
+    )
+    run_id, tag = mock_tracking_store.set_tag.call_args.args
+    assert run_id == "run-detect-1"
+    assert tag.key == "mlflow.issueDetection.error"
+    assert "continued in run run-detect-2" in tag.value
+
+
+def test_cancel_issue_detection_run_handler_cancels_a_scheduled_runs_job(mock_tracking_store):
+    mock_tracking_store.get_run.side_effect = [
+        _detection_run(),
+        _detection_run(),
+        _detection_run(status="KILLED", end_time=1700000900000),
+    ]
+    mock_tracking_store.search_runs.return_value = []
+
+    with (
+        mock.patch("mlflow.server.jobs.get_job", return_value=_scheduled_job(JobStatus.RUNNING)),
+        mock.patch(
+            "mlflow.server.jobs.cancel_job", return_value=_scheduled_job(JobStatus.CANCELED)
+        ) as mock_cancel_job,
+        mock.patch("mlflow.server.handlers.get_current_time_millis", return_value=1700000900000),
+        app.test_client() as c,
+    ):
+        resp = c.post("/api/3.0/mlflow/issues/detection-runs/run-detect-1/cancel", json={})
+
+    assert resp.get_json()["issue_detection_run"]["status"] == "canceled"
+    mock_cancel_job.assert_called_once_with("job-detect-1")
+
+
 def test_cancel_issue_detection_run_handler_rejects_other_runs(mock_tracking_store):
     mock_tracking_store.get_run.return_value = _detection_run(run_type="genai_evaluate")
 

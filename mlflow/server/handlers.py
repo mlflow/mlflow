@@ -6232,7 +6232,8 @@ _RUN_STATUS_BY_ENDED_JOB_STATUS = {
 
 def _get_issue_detection_run_and_job(store, run_id: str):
     """
-    The detection run ``run_id`` and its job, or ``None`` for a job that is gone or never started.
+    The detection run ``run_id``, its job, or ``None`` for a job that is gone or never started,
+    and the run that superseded it, if any (see ``_newer_attempt_of``).
 
     Raises ``RESOURCE_DOES_NOT_EXIST`` for a run that is not an issue detection run, so these
     endpoints cannot be used to read or end an arbitrary run.
@@ -6258,7 +6259,42 @@ def _get_issue_detection_run_and_job(store, run_id: str):
     # A settled run already says how it ended, so only a run still going needs its job found.
     if job is None and run.info.status not in _DETECTION_STATUS_BY_RUN_STATUS:
         job = _find_ad_hoc_detection_job(run)
-    return run, job
+    return run, job, _newer_attempt_of(store, run, job)
+
+
+def _newer_attempt_of(store, run, job):
+    """
+    The run that ``job`` created after ``run``, when ``run`` is a scheduled run left behind.
+
+    A scheduled job creates its own run each time it executes. When its worker dies, the job is
+    queued again and the rerun creates a new run, leaving the first RUNNING with nothing to end
+    it. That run's status can't come from the job, which is now running, or has ended, another
+    attempt. An ad hoc job reuses its run, so this only applies to a scheduled run still going.
+    """
+    if (
+        job is None
+        or job.job_name != SCHEDULED_ISSUE_DETECTION_JOB_NAME
+        or run.info.status in _DETECTION_STATUS_BY_RUN_STATUS
+    ):
+        return None
+    newer = store.search_runs(
+        experiment_ids=[run.info.experiment_id],
+        filter_string=(
+            f"tags.`{MLFLOW_ISSUE_DETECTION_JOB_ID}` = '{job.job_id}' "
+            f"AND attributes.start_time > {run.info.start_time}"
+        ),
+        run_view_type=ViewType.ALL,
+        max_results=1,
+        order_by=["attributes.start_time ASC"],
+    )
+    return newer[0] if newer else None
+
+
+def _abandoned_attempt_error(newer_attempt) -> str:
+    return (
+        "The run stopped when its worker did, and its scheduled job continued in run "
+        f"{newer_attempt.info.run_id}."
+    )
 
 
 def _find_ad_hoc_detection_job(run):
@@ -6306,7 +6342,7 @@ def _is_detection_job_of_run(job, run) -> bool:
     return "run_id" not in params or params["run_id"] == run.info.run_id
 
 
-def _to_issue_detection_run_proto(run, job) -> IssueDetectionRun:
+def _to_issue_detection_run_proto(run, job, newer_attempt=None) -> IssueDetectionRun:
     """
     Describe a detection run from the run and its job.
 
@@ -6318,10 +6354,16 @@ def _to_issue_detection_run_proto(run, job) -> IssueDetectionRun:
     ended without settling the run -- it timed out, or its worker died -- from one still going. A
     run whose job isn't recorded yet is running too: the handler records it right after
     submitting.
+
+    A scheduled run its job left behind for a newer attempt (``newer_attempt``) reads as failed,
+    ending when that attempt started: the job's status describes the newer attempt, not this run.
     """
     status = _DETECTION_STATUS_BY_RUN_STATUS.get(run.info.status)
     end_time = run.info.end_time if status is not None else None
-    if job is not None and job.status == EntityJobStatus.CANCELED:
+    if newer_attempt is not None:
+        status = "failed"
+        end_time = newer_attempt.info.start_time
+    elif job is not None and job.status == EntityJobStatus.CANCELED:
         status = "canceled"
         end_time = end_time or job.last_update_time
     elif status is None:
@@ -6344,9 +6386,14 @@ def _to_issue_detection_run_proto(run, job) -> IssueDetectionRun:
         # that only to the job's creator, while this RPC answers anyone who can read the run.
         # The run's error tag is the one-line reason the job records for exactly this.
         timed_out = job is not None and job.status == EntityJobStatus.TIMEOUT
-        proto.error_message = run.data.tags.get(MLFLOW_ISSUE_DETECTION_ERROR) or (
-            "The run timed out." if timed_out else "The run's job failed without recording why."
-        )
+        if recorded := run.data.tags.get(MLFLOW_ISSUE_DETECTION_ERROR):
+            proto.error_message = recorded
+        elif newer_attempt is not None:
+            proto.error_message = _abandoned_attempt_error(newer_attempt)
+        else:
+            proto.error_message = (
+                "The run timed out." if timed_out else "The run's job failed without recording why."
+            )
     return proto
 
 
@@ -6357,9 +6404,9 @@ def _get_issue_detection_run(run_id):
     A request handler for `GET /mlflow/issues/detection-runs/{run_id}` to get an issue detection
     run.
     """
-    run, job = _get_issue_detection_run_and_job(_get_tracking_store(), run_id)
+    run, job, newer_attempt = _get_issue_detection_run_and_job(_get_tracking_store(), run_id)
     response_message = GetIssueDetectionRun.Response(
-        issue_detection_run=_to_issue_detection_run_proto(run, job)
+        issue_detection_run=_to_issue_detection_run_proto(run, job, newer_attempt)
     )
     return _wrap_response(response_message)
 
@@ -6376,14 +6423,27 @@ def _cancel_issue_detection_run(run_id):
     and a canceled job reads as canceled even if its worker ends the run before stopping (see
     ``_to_issue_detection_run_proto``). A run that has already ended is returned
     unchanged, and so is one whose job ended first and settled it. A run whose job ended without
-    settling it is settled as the job ended. If the job can't be canceled while it's still going,
-    the request fails and the run is left running.
+    settling it is settled as the job ended. A scheduled run its job left behind for a newer
+    attempt is settled as failed, and the job, which is running that attempt, is left alone. If
+    the job can't be canceled while it's still going, the request fails and the run is left
+    running.
     """
     from mlflow.server.jobs import cancel_job, get_job
 
     store = _get_tracking_store()
-    run, job = _get_issue_detection_run_and_job(store, run_id)
-    if run.info.status not in _DETECTION_STATUS_BY_RUN_STATUS:
+    run, job, newer_attempt = _get_issue_detection_run_and_job(store, run_id)
+    if newer_attempt is not None:
+        # The job is running, or ran, a newer attempt, which isn't this run to cancel. The run is
+        # settled as it already reads, with the reason recorded where the job records one.
+        store.set_tag(
+            run_id, RunTag(MLFLOW_ISSUE_DETECTION_ERROR, _abandoned_attempt_error(newer_attempt))
+        )
+        store.update_run_info(
+            run_id, RunStatus.FAILED, end_time=newer_attempt.info.start_time, run_name=None
+        )
+        run = store.get_run(run_id)
+        newer_attempt = None
+    elif run.info.status not in _DETECTION_STATUS_BY_RUN_STATUS:
         if job is not None and not EntityJobStatus.is_finalized(job.status):
             try:
                 job = cancel_job(job.job_id)
@@ -6409,7 +6469,7 @@ def _cancel_issue_detection_run(run_id):
             store.update_run_info(run_id, status, end_time=end_time, run_name=None)
             run = store.get_run(run_id)
     response_message = CancelIssueDetectionRun.Response(
-        issue_detection_run=_to_issue_detection_run_proto(run, job)
+        issue_detection_run=_to_issue_detection_run_proto(run, job, newer_attempt)
     )
     return _wrap_response(response_message)
 
