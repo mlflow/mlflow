@@ -18,8 +18,12 @@ from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
     MultipartUploadMixin,
     _is_object_key_within_path,
+    _validate_multipart_upload_num_parts,
 )
 from mlflow.utils.credentials import get_default_host_creds
+
+# https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list
+_AZURE_MAX_NUM_BLOCKS = 50_000
 
 
 def encode_base64(data: str | bytes) -> str:
@@ -282,6 +286,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         else:
             raise _UnsupportedMultipartUploadException()
 
+        _validate_multipart_upload_num_parts(num_parts, _AZURE_MAX_NUM_BLOCKS)
         sas_token = generate_blob_sas(
             **sas_kwargs,
         )

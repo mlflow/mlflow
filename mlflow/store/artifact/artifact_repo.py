@@ -668,6 +668,13 @@ def _try_read_trace_data_pb(trace_data_path) -> list["Span"]:
         raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
 
 
+def _validate_multipart_upload_num_parts(num_parts: int, max_num_parts: int) -> None:
+    if not 1 <= num_parts <= max_num_parts:
+        raise MlflowException.invalid_parameter_value(
+            f"num_parts must be between 1 and {max_num_parts}, got {num_parts}."
+        )
+
+
 class MultipartUploadMixin(ABC):
     @abstractmethod
     def create_multipart_upload(
@@ -678,7 +685,8 @@ class MultipartUploadMixin(ABC):
 
         Args:
             local_file: Path of artifact to upload.
-            num_parts: Number of parts to upload. Only required by S3 and GCS.
+            num_parts: Number of parts to upload. Must be at least 1 and at most the
+                storage service's part limit (10,000 for S3 and GCS, 50,000 for Azure Blob).
             artifact_path: Directory within the run's artifact directory in which to upload the
                 artifact.
 
