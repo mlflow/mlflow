@@ -6,10 +6,18 @@ from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
+    create_text_output_item,
     responses_to_cc,
     to_chat_completions_input,
 )
-from mlflow.types.responses_helpers import FunctionCallOutput, Message
+from mlflow.types.responses_helpers import (
+    FunctionCallOutput,
+    Message,
+    OutputItem,
+    Response,
+    ResponseOutputRefusal,
+    ResponseOutputText,
+)
 
 
 def test_responses_request_validation():
@@ -277,3 +285,52 @@ def test_function_call_output_round_trip():
     assert cc_messages[0]["role"] == "tool"
     assert isinstance(cc_messages[0]["content"], str)
     assert "input_text" in cc_messages[0]["content"]
+
+
+def test_response_output_text_with_dict_content():
+    response = ResponsesAgentResponse(
+        output=[
+            create_text_output_item("Hello ", "msg_1"),
+            {
+                "type": "function_call",
+                "id": "fc_1",
+                "call_id": "call_1",
+                "name": "lookup",
+                "arguments": "{}",
+            },
+            {
+                "type": "message",
+                "id": "msg_2",
+                "role": "assistant",
+                "content": [
+                    {"type": "refusal", "refusal": "declined"},
+                    {"type": "output_text", "text": "world!"},
+                ],
+            },
+        ]
+    )
+    assert response.output_text == "Hello world!"
+
+    validated = Response.model_validate({
+        "output": [create_text_output_item("from json", "msg_3")],
+    })
+    assert validated.output_text == "from json"
+    assert Response(output=[]).output_text == ""
+
+
+def test_response_output_text_with_model_content():
+    response = Response(
+        output=[
+            OutputItem(
+                type="message",
+                id="msg_1",
+                role="assistant",
+                content=[
+                    ResponseOutputText(text="typed "),
+                    ResponseOutputRefusal(refusal="skip"),
+                    ResponseOutputText(text="text"),
+                ],
+            )
+        ]
+    )
+    assert response.output_text == "typed text"
