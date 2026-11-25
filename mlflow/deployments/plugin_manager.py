@@ -1,6 +1,7 @@
 import abc
 import importlib.metadata
 import inspect
+import sys
 
 from mlflow.deployments.base import BaseDeploymentClient
 from mlflow.deployments.utils import parse_target_uri
@@ -75,6 +76,21 @@ class PluginManager(abc.ABC):
         self._has_registered = True
 
 
+def _is_entry_point(obj) -> bool:
+    """
+    Whether ``obj`` is an entry point, from the standard library or the ``importlib_metadata``
+    backport.
+
+    Once a dependency imports the backport, it adds its own distribution finder, and the standard
+    library's ``entry_points()`` then returns the backport's ``EntryPoint`` objects, which aren't
+    instances of the standard library's class.
+    """
+    if isinstance(obj, importlib.metadata.EntryPoint):
+        return True
+    backport = sys.modules.get("importlib_metadata")
+    return backport is not None and isinstance(obj, backport.EntryPoint)
+
+
 @developer_stable
 class DeploymentPlugins(PluginManager):
     def __init__(self):
@@ -96,7 +112,7 @@ class DeploymentPlugins(PluginManager):
             )
             raise MlflowException(msg, error_code=RESOURCE_DOES_NOT_EXIST)
 
-        if isinstance(plugin_like, importlib.metadata.EntryPoint):
+        if _is_entry_point(plugin_like):
             try:
                 plugin_obj = plugin_like.load()
             except (AttributeError, ImportError) as exc:
