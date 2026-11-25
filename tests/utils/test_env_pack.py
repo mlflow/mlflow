@@ -8,7 +8,6 @@ from unittest import mock
 import pytest
 import yaml
 
-from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.telemetry.events import EnvPackEvent
 from mlflow.utils import env_pack
@@ -31,17 +30,14 @@ def mock_dbr_version():
         yield
 
 
-def test_pack_source_artifacts_for_version_with_at_in_name(tmp_path):
-    artifacts = tmp_path / "artifacts"
+@pytest.mark.parametrize("source", ["models:/parent/1/child", "models:/parent@champion/2"])
+def test_pack_source_artifacts_preserves_artifact_paths(source, tmp_path):
+    artifacts = tmp_path / "model"
     artifacts.mkdir()
-    (artifacts / "MLmodel").write_text("model")
-    client = MlflowClient()
-    client.create_registered_model("name@team")
-    version = client.create_model_version("name@team", artifacts.as_uri())
-    with env_pack._get_source_artifacts(f"models:/name@team/{version.version}") as downloaded:
-        assert (downloaded / "MLmodel").read_text() == "model"
-    assert not downloaded.exists()
-    assert (artifacts / "MLmodel").exists()
+    with mock.patch.object(env_pack, "download_artifacts", return_value=str(artifacts)) as download:
+        with env_pack._get_source_artifacts(source) as downloaded:
+            assert downloaded == artifacts
+        download.assert_called_once_with(artifact_uri=source)
 
 
 def test_tar_function_path_handling(tmp_path):

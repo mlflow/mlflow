@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+from contextlib import nullcontext
 from pathlib import Path
 from unittest import mock
 
@@ -118,6 +119,64 @@ def test_register_model_with_tags():
     register_model(f"runs:/{run.info.run_id}/model", "Model 1", tags=tags)
     mv = MlflowClient().get_model_version("Model 1", "1")
     assert mv.tags == tags
+
+
+@pytest.mark.parametrize("pack", [False, True])
+def test_register_remote_alias_to_uc_with_local_tracking(monkeypatch, pack):
+    alias = "models://src@databricks/classifier@team@champion"
+    pinned = "models://src@databricks/classifier@team/2"
+    version = ModelVersion("classifier@team", "2", 0, model_id="m-remote")
+    destination = ModelVersion("catalog.schema.copy", "1", 0)
+    monkeypatch.setenv("MLFLOW_PRINT_MODEL_URLS_ON_CREATION", "false")
+    monkeypatch.delenv("DATABRICKS_CPU_ARCH", raising=False)
+
+    def download(source, dst_path, *, is_artifact_root):
+        assert source == pinned
+        assert is_artifact_root
+        (Path(dst_path) / "MLmodel").write_text("pinned artifacts")
+        return dst_path
+
+    def create_version(**kwargs):
+        assert kwargs["source"] == pinned
+        assert kwargs["model_id"] is None
+        assert (Path(kwargs["local_model_path"]) / "MLmodel").read_text() == "pinned artifacts"
+        return destination
+
+    with (
+        mock.patch("mlflow.get_registry_uri", return_value="databricks-uc"),
+        mock.patch.object(MlflowClient, "create_registered_model"),
+        mock.patch.object(
+            MlflowClient, "get_model_version_by_alias", return_value=version
+        ) as lookup,
+        mock.patch.object(
+            MlflowClient,
+            "get_logged_model",
+            side_effect=MlflowException("Missing local model", RESOURCE_DOES_NOT_EXIST),
+        ),
+        mock.patch.object(
+            MlflowClient, "_create_model_version", side_effect=create_version
+        ) as create,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent._download_artifact_from_uri",
+            side_effect=download,
+        ),
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving",
+            side_effect=lambda uri, **kwargs: nullcontext(kwargs["local_model_path"]),
+        ) as pack_env,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving"
+        ),
+    ):
+        assert (
+            _register_model(
+                alias, destination.name, env_pack="databricks_model_serving" if pack else None
+            )
+            is destination
+        )
+        lookup.assert_called_once_with("classifier@team", "champion")
+        assert pack_env.call_count == int(pack)
+        assert not Path(create.call_args.kwargs["local_model_path"]).exists()
 
 
 def test_register_model_prints_uc_model_version_url(monkeypatch):

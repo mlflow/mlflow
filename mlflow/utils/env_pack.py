@@ -20,8 +20,6 @@ from mlflow.store._unity_catalog.registry.serving_staging import (
     VOLUME_ARTIFACTS_PATH_METADATA_KEY,
     get_volume_artifacts_path,
 )
-from mlflow.store.artifact.utils.models import _is_ambiguous_model_version_uri
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion, get_databricks_runtime_version
 from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
 from mlflow.utils.logging_utils import eprint
@@ -112,11 +110,6 @@ def _get_source_artifacts(
     Yields:
         Path: The path to the source artifacts directory.
     """
-    if not local_model_path and _is_ambiguous_model_version_uri(model_uri):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(_download_artifact_from_uri(model_uri, tmpdir, is_artifact_root=True))
-        return
-
     source_dir = Path(local_model_path or download_artifacts(artifact_uri=model_uri))
 
     yield source_dir

@@ -1,8 +1,10 @@
 import logging
 import os
+import tempfile
 import threading
 import uuid
 import warnings
+from contextlib import ExitStack
 from typing import Any
 
 from pydantic import BaseModel
@@ -38,6 +40,7 @@ from mlflow.tracing.fluent import get_active_trace_id, get_current_active_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_latest_active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
@@ -54,7 +57,12 @@ from mlflow.utils.env_pack import (
     pack_env_for_databricks_model_serving,
 )
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_models_uri
+from mlflow.utils.uri import (
+    is_databricks_unity_catalog_uri,
+    is_databricks_uri,
+    is_models_uri,
+    is_oss_unity_catalog_uri,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -244,40 +252,68 @@ def _register_model(
         )
         validated_env_pack = None
 
-    # Helper to avoid parameter drift below.
-    def _create_model_version(local_model_path: str | None) -> ModelVersion:
-        return client._create_model_version(
+    registry_uri = mlflow.get_registry_uri()
+    registered_source = _parse_model_uri(source) if is_models_uri(source) else None
+    registered_version = registered_source is not None and registered_source.version is not None
+    creation_model_id = model_id
+    if (
+        registered_version
+        and model_id
+        and is_databricks_unity_catalog_uri(registry_uri)
+        and not is_databricks_uri(client.tracking_uri)
+    ):
+        # UC copies the registered artifacts. A local tracking ID is only useful for run lineage.
+        creation_model_id = None
+        try:
+            run_id = client.get_logged_model(model_id).source_run_id
+        except MlflowException as e:
+            if e.error_code not in {
+                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                ErrorCode.Name(PERMISSION_DENIED),
+            }:
+                raise
+            model_id = None
+
+    with ExitStack() as stack:
+        if (
+            registered_version
+            and "@" in registered_source.name
+            and local_model_path is None
+            and (
+                validated_env_pack
+                or is_databricks_unity_catalog_uri(registry_uri)
+                or is_oss_unity_catalog_uri(registry_uri)
+            )
+        ):
+            # A numeric artifact beneath an alias has the same spelling as this version URI.
+            tmpdir = stack.enter_context(tempfile.TemporaryDirectory())
+            local_model_path = _download_artifact_from_uri(source, tmpdir, is_artifact_root=True)
+        if validated_env_pack:
+            eprint(
+                "Packing environment for Databricks Model Serving with install_dependencies "
+                f"{validated_env_pack.install_dependencies}..."
+            )
+            local_model_path = stack.enter_context(
+                pack_env_for_databricks_model_serving(
+                    model_uri,
+                    enforce_pip_requirements=validated_env_pack.install_dependencies,
+                    local_model_path=local_model_path,
+                )
+            )
+        create_version_response = client._create_model_version(
             name=name,
             source=source,
             run_id=run_id,
             tags=tags,
             await_creation_for=await_registration_for,
             local_model_path=local_model_path,
-            model_id=model_id,
+            model_id=creation_model_id,
         )
-
-    # If env_pack is supported and indicates Databricks Model Serving,
-    # pack env locally and directly register the resulting artifacts.
-    # This avoids storing artifacts prior to the final registered model version.
-    if validated_env_pack:
-        eprint(
-            "Packing environment for Databricks Model Serving with install_dependencies "
-            f"{validated_env_pack.install_dependencies}..."
-        )
-        with pack_env_for_databricks_model_serving(
-            model_uri,
-            enforce_pip_requirements=validated_env_pack.install_dependencies,
-            local_model_path=local_model_path,
-        ) as artifacts_path_with_env:
-            create_version_response = _create_model_version(artifacts_path_with_env)
-    else:
-        create_version_response = _create_model_version(local_model_path)
     created_message = (
         f"Created version '{create_version_response.version}' of model "
         f"'{create_version_response.name}'"
     )
     # Print a link to the UC model version page if the model is in UC.
-    registry_uri = mlflow.get_registry_uri()
     if (
         MLFLOW_PRINT_MODEL_URLS_ON_CREATION.get()
         and is_databricks_unity_catalog_uri(registry_uri)
