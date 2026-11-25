@@ -5,7 +5,7 @@ import logging
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pydantic
 
@@ -41,6 +41,7 @@ from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
     _IdentifiedIssue,
+    _TriageResult,
 )
 from mlflow.genai.discovery.evidence import generate_trace_evidence
 from mlflow.genai.discovery.extraction import (
@@ -764,6 +765,38 @@ def build_issue_discovery_scorer(
     return judge
 
 
+def _attribute_turns_to_their_session(triage: _TriageResult, traces: list[Trace]) -> _TriageResult:
+    """
+    Count a session's other turns with the conversation-level verdict that covers them.
+
+    The conversation judge's verdict is logged on one trace of the session, so extraction reads
+    the session's other turns as unclassified, although they were judged as part of the
+    conversation. A turn without its own outcome now takes its session's: judged when the session
+    was, a scorer error when the session's judge failed, and unclassified only when the session
+    got neither.
+    """
+    unclassified = set(triage.unclassified_trace_ids)
+    errored = set(triage.scorer_error_trace_ids)
+    sessions: dict[str, list[str]] = {}
+    for trace in traces:
+        if session_id := get_session_id(trace):
+            sessions.setdefault(session_id, []).append(trace.info.trace_id)
+    for trace_ids in sessions.values():
+        turns_without_outcome = {trace_id for trace_id in trace_ids if trace_id in unclassified}
+        if len(turns_without_outcome) == len(trace_ids):
+            continue
+        unclassified -= turns_without_outcome
+        judged = set(trace_ids) - errored - turns_without_outcome
+        if not judged:
+            errored |= turns_without_outcome
+    order = [trace.info.trace_id for trace in traces]
+    return replace(
+        triage,
+        unclassified_trace_ids=[trace_id for trace_id in order if trace_id in unclassified],
+        scorer_error_trace_ids=[trace_id for trace_id in order if trace_id in errored],
+    )
+
+
 def _lookup_by_trace_id(traces: list[Trace]) -> dict[str, Trace]:
     """Traces by ID, skipping any whose ID cannot be read rather than keying them positionally."""
     lookup = {}
@@ -986,6 +1019,8 @@ def discover_issues(
 
         scorer_names = [s.name for s in scorers]
         triage = extract_failing_traces(scored_traces, scorer_names)
+        if use_conversation:
+            triage = _attribute_turns_to_their_session(triage, scored_traces)
 
         # Cost is judged across the sample, because it is the one category a per-trace judge
         # cannot reach. This is the traced application's spend; the detector's own is owned by

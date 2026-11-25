@@ -1,4 +1,5 @@
 import json
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1395,6 +1396,71 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
     call_kwargs = mock_verify.call_args.kwargs
     assert call_kwargs["session"] is not None
     assert all(get_session_id(t) is not None for t in call_kwargs["session"])
+
+
+def _session_trace(trace_id, session_id):
+    trace = MagicMock()
+    trace.info.trace_id = trace_id
+    trace.info.trace_metadata = {"mlflow.trace.session": session_id} if session_id else {}
+    return trace
+
+
+def test_session_turns_take_their_sessions_outcome():
+    from mlflow.genai.discovery.pipeline import _attribute_turns_to_their_session
+
+    traces = [
+        # Judged: the verdict is on the first turn and covers the second.
+        _session_trace("judged-1", "s-judged"),
+        _session_trace("judged-2", "s-judged"),
+        # The judge failed on the session, so its other turn wasn't judged either.
+        _session_trace("errored-1", "s-errored"),
+        _session_trace("errored-2", "s-errored"),
+        # Nothing came back for the session at all.
+        _session_trace("empty-1", "s-empty"),
+        _session_trace("empty-2", "s-empty"),
+        # A trace without a session stands on its own.
+        _session_trace("alone", None),
+    ]
+    triage = _TriageResult(
+        [],
+        {},
+        {},
+        scorer_error_trace_ids=["errored-1"],
+        unclassified_trace_ids=["judged-2", "errored-2", "empty-1", "empty-2", "alone"],
+        scorer_errors={"errored-1": "rate limited"},
+    )
+
+    result = _attribute_turns_to_their_session(triage, traces)
+
+    assert result.unclassified_trace_ids == ["empty-1", "empty-2", "alone"]
+    assert result.scorer_error_trace_ids == ["errored-1", "errored-2"]
+    assert result.scorer_errors == {"errored-1": "rate limited"}
+
+
+def test_discover_issues_doesnt_count_a_judged_sessions_turns_as_unclassified(make_trace, caplog):
+    from mlflow.entities.assessment import Feedback
+
+    first_turn = make_trace(session_id="session-1")
+    second_turn = make_trace(session_id="session-1")
+    first_turn.info.assessments = [
+        Feedback(name=DEFAULT_SCORER_NAME, value={"passed": "true", "categories": ""})
+    ]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.get_trace",
+            side_effect=[first_turn, second_turn],
+        ),
+        caplog.at_level(logging.WARNING, logger="mlflow.genai.discovery.pipeline"),
+    ):
+        discover_issues(traces=[first_turn, second_turn])
+
+    assert "unclassified" not in caplog.text
 
 
 def _make_dedup_response(
