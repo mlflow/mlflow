@@ -6030,6 +6030,38 @@ def test_assistant_unauthenticated_access_denied(fastapi_client, monkeypatch):
     assert response.status_code == 401
 
 
+@pytest.mark.parametrize(
+    "fastapi_client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_assistant_message_requires_experiment_read_permission(fastapi_client, monkeypatch):
+    owner, owner_password = create_user(fastapi_client.tracking_uri)
+    other, other_password = create_user(fastapi_client.tracking_uri)
+    with User(owner, owner_password, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("assistant-message-authz")
+
+    url = fastapi_client.tracking_uri + "/ajax-api/3.0/mlflow/assistant/message"
+
+    def send(auth, **body):
+        return requests.post(url, json={"message": "hi", "context": {}, **body}, auth=auth)
+
+    assert send((other, other_password), experiment_id=experiment_id).status_code == 403
+    assert send((other, other_password)).status_code == 200
+    assert send((owner, owner_password), experiment_id=experiment_id).status_code == 200
+
+    # Bodies the validator can't read pass through to FastAPI, which rejects them with 422.
+    other_auth = (other, other_password)
+    malformed = requests.post(
+        url, data="{", headers={"Content-Type": "application/json"}, auth=other_auth
+    )
+    assert malformed.status_code == 422
+    assert requests.post(url, json=[experiment_id], auth=other_auth).status_code == 422
+
+    grant_role_permission(fastapi_client.tracking_uri, other, "experiment", experiment_id, "READ")
+    assert send((other, other_password), experiment_id=experiment_id).status_code == 200
+
+
 def test_get_online_scoring_configs_with_auth(client, monkeypatch):
     username, password = create_user(client.tracking_uri)
 
