@@ -1,9 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { screen, within } from '@testing-library/react';
+import { useState } from 'react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
 import { setupServer } from '@mlflow/mlflow/src/common/utils/setup-msw';
 import { setupTestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
-import type { ModelTraceSpan, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { QueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { ModelTrace, ModelTraceSpan, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { TracesV4TraceDrawer } from './TracesV4TraceDrawer';
 import { renderTracesV4Page } from '../test-utils/renderTracesV4Page';
 import { makeTaggedTrace, makeTrace } from '../test-utils/mockTraces';
@@ -134,6 +137,49 @@ describe('TracesV4TraceDrawer', () => {
     renderDrawer({ traceId: undefined });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+  });
+
+  test('keeps the newly active trace when the drawer closes and prunes its cache', async () => {
+    const user = userEvent.setup();
+    const traces = Array.from({ length: 6 }, (_, index) => makeTaggedTrace(`tr-${String(index).padStart(3, '0')}`));
+    const traceIds = traces.map((trace) => `trace:/cat.sch/${trace.trace_id}`);
+    const queryClient = new QueryClient();
+    traces.forEach((trace, index) => {
+      queryClient.setQueryData<ModelTrace>(
+        ['getTrace', traceIds[index], undefined],
+        { info: trace, data: { spans: [] } },
+        { updatedAt: Date.now() + index },
+      );
+    });
+
+    const DrawerHarness = () => {
+      const [traceId, setTraceId] = useState<string | undefined>(traceIds[1]);
+      return (
+        <TracesV4TraceDrawer
+          traceId={traceId}
+          onClose={() => setTraceId(undefined)}
+          experimentId={EXPERIMENT_ID}
+          traces={traces}
+          onSelectTrace={setTraceId}
+        />
+      );
+    };
+    renderTracesV4Page({
+      initialUrl: URL,
+      routes: [{ path: PATH, element: <DrawerHarness /> }],
+      history,
+      experimentId: EXPERIMENT_ID,
+      queryClient,
+    });
+
+    const drawer = await findDrawer();
+    await user.click(within(drawer).getByRole('button', { name: 'Previous trace' }));
+    expect(await within(drawer).findByRole('button', { name: '000' })).toBeInTheDocument();
+    await user.click(within(drawer).getByRole('button', { name: 'Close trace panel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(queryClient.getQueryData(['getTrace', traceIds[0], undefined])).toBeDefined();
+    await waitFor(() => expect(queryClient.getQueryData(['getTrace', traceIds[2], undefined])).toBeUndefined());
   });
 
   test('opens a deep-linked trace whose row is not on the current page', async () => {

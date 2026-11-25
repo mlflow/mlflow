@@ -533,6 +533,7 @@ mlflow.entities.LoggedModel.to_dictionary
 mlflow.entities.LoggedModel.to_proto
 mlflow.entities.LoggedModelInput
 mlflow.entities.LoggedModelInput.from_proto
+mlflow.entities.LoggedModelInput.to_dictionary
 mlflow.entities.LoggedModelInput.to_proto
 mlflow.entities.LoggedModelOutput
 mlflow.entities.LoggedModelOutput.from_proto
@@ -2121,6 +2122,7 @@ mlflow.types.agent.ChatAgentResponse.check_message_ids
 mlflow.types.agent.ChatContext
 mlflow.types.chat.AudioContentPart
 mlflow.types.chat.BaseRequestPayload
+mlflow.types.chat.CacheControl
 mlflow.types.chat.ChatChoice
 mlflow.types.chat.ChatChoiceDelta
 mlflow.types.chat.ChatChunkChoice

@@ -2154,6 +2154,73 @@ def test_metrics_logged_to_model_on_evaluation(
         assert all(metric.model_id == model_id for metric in logged_model_metrics)
 
 
+def test_builtin_evaluator_metrics_logged_once_to_model(
+    multiclass_logistic_regressor_model_uri, iris_dataset
+):
+    with mlflow.start_run() as run:
+        model_info = mlflow.sklearn.log_model(
+            mlflow.sklearn.load_model(multiclass_logistic_regressor_model_uri), name="model"
+        )
+        eval_result = mlflow.evaluate(
+            model=model_info.model_uri,
+            data=iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            evaluators=["default"],
+        )
+
+    logged_model_metrics = mlflow.get_logged_model(model_info.model_id).metrics
+    assert sorted(m.key for m in logged_model_metrics) == sorted(eval_result.metrics)
+    client = MlflowClient()
+    for key in eval_result.metrics:
+        assert len(client.get_metric_history(run.info.run_id, key)) == 1
+
+
+def test_non_builtin_evaluator_metrics_logged_to_model(
+    multiclass_logistic_regressor_model_uri, iris_dataset
+):
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(
+            mlflow.sklearn.load_model(multiclass_logistic_regressor_model_uri), name="model"
+        )
+        eval_result = mlflow.evaluate(
+            model=model_info.model_uri,
+            data=iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            evaluators=["dummy_evaluator"],
+        )
+
+    logged_model_metrics = mlflow.get_logged_model(model_info.model_id).metrics
+    linked = {m.key: m.value for m in logged_model_metrics if m.dataset_digest is not None}
+    assert linked == eval_result.metrics
+
+
+def test_builtin_and_non_builtin_evaluator_metrics_logged_to_model(
+    multiclass_logistic_regressor_model_uri, iris_dataset
+):
+    with mlflow.start_run() as run:
+        model_info = mlflow.sklearn.log_model(
+            mlflow.sklearn.load_model(multiclass_logistic_regressor_model_uri), name="model"
+        )
+        eval_result = mlflow.evaluate(
+            model=model_info.model_uri,
+            data=iris_dataset._constructor_args["data"],
+            model_type="classifier",
+            targets=iris_dataset._constructor_args["targets"],
+            evaluators=["default", "dummy_evaluator"],
+        )
+
+    logged_model_metrics = mlflow.get_logged_model(model_info.model_id).metrics
+    assert {m.key for m in logged_model_metrics} == set(eval_result.metrics)
+    # Both evaluators produce `accuracy_score`, so only the other keys come from a single write
+    client = MlflowClient()
+    builtin_only_keys = set(eval_result.metrics) - {"accuracy_score"}
+    assert builtin_only_keys
+    for key in builtin_only_keys:
+        assert len(client.get_metric_history(run.info.run_id, key)) == 1
+
+
 def test_evaluate_with_model_id(iris_dataset):
     # Create and log a model
     with mlflow.start_run():

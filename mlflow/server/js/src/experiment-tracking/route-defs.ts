@@ -1,7 +1,7 @@
 import type { RouteHandle } from '../common/utils/RoutingUtils';
 import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
-import { shouldEnableNewEvalRunsUi } from '../common/utils/FeatureUtils';
+import { shouldEnableExperimentSettingsPage, shouldEnableNewEvalRunsUi } from '../common/utils/FeatureUtils';
 import { PageId, RoutePaths } from './routes';
 
 const getPromptPagesRouteDefs = () => {
@@ -279,6 +279,18 @@ const getExperimentPageRouteDefs = () => {
             getPageTitle: (params) => `Playground - Experiment ${params['experimentId']}`,
           } satisfies RouteHandle,
         },
+        ...(shouldEnableExperimentSettingsPage()
+          ? [
+              {
+                path: RoutePaths.experimentPageTabSettings,
+                pageId: PageId.experimentPageTabSettings,
+                element: createLazyRouteElement(() => import('./pages/experiment-settings/ExperimentSettingsPage')),
+                handle: {
+                  getPageTitle: (params) => `Settings - Experiment ${params['experimentId']}`,
+                } satisfies RouteHandle,
+              },
+            ]
+          : []),
         {
           path: RoutePaths.experimentPageTabPrompts,
           pageId: PageId.experimentPageTabPrompts,

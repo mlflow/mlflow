@@ -384,3 +384,21 @@ def test_infer_signature_for_pydantic_objects_error():
         r"input example with Pydantic objects",
     ):
         infer_signature([m])
+
+
+def test_model_load_warns_on_duplicated_input_names(tmp_path):
+    inputs = [
+        {"type": "string", "name": "a", "required": True},
+        {"type": "double", "name": "a", "required": True},
+    ]
+    mlmodel = {"flavors": {}, "signature": {"inputs": json.dumps(inputs), "outputs": None}}
+    tmp_path.joinpath("MLmodel").write_text(json.dumps(mlmodel))
+    with pytest.warns(FutureWarning, match=r"Duplicated input names found in schema: \['a'\]"):
+        model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == inputs
+
+
+def test_infer_signature_warns_on_empty_input_names():
+    with pytest.warns(FutureWarning, match="Creating Schema with empty input names is deprecated"):
+        signature = infer_signature(pd.DataFrame({"": [1]}))
+    assert signature.inputs.to_dict() == [{"type": "long", "name": "", "required": True}]

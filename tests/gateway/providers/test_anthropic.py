@@ -2148,3 +2148,254 @@ def test_chat_stream_finish_reason(stop_reason, expected):
     result = AnthropicAdapter.model_to_chat_streaming(resp, EndpointConfig(**chat_config()))
 
     assert result.choices[0].finish_reason == expected
+
+
+async def _chat_request_body(payload, stream=False):
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    if stream:
+        mock_client = mock_http_client(MockAsyncStreamingResponse(chat_stream_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            [chunk async for chunk in provider.chat_stream(chat.RequestPayload(**payload))]
+    else:
+        mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+        with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+            await provider.chat(chat.RequestPayload(**payload))
+    return mock_client.post.call_args[1]["json"]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.asyncio
+async def test_chat_keeps_cache_control_on_content_parts(stream):
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Long document",
+                        "cache_control": {"type": "ephemeral"},
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,iVBORw0KGgo="},
+                        "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                    },
+                    {"type": "text", "text": "Question"},
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": [
+                    {"type": "text", "text": "Answer", "cache_control": {"type": "ephemeral"}}
+                ],
+            },
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+
+    body = await _chat_request_body(payload, stream=stream)
+
+    assert body["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Long document",
+                    "cache_control": {"type": "ephemeral"},
+                },
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png", "data": "iVBORw0KGgo="},
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                },
+                {"type": "text", "text": "Question"},
+            ],
+        },
+        {
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Answer", "cache_control": {"type": "ephemeral"}}],
+        },
+    ]
+
+
+@pytest.mark.asyncio
+async def test_chat_without_cache_control_sends_content_parts_unchanged():
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/png;base64,iVBORw0KGgo="},
+                    },
+                ],
+            }
+        ],
+    }
+
+    body = await _chat_request_body(payload)
+
+    assert body == {
+        "model": "claude-2.1",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": "iVBORw0KGgo=",
+                        },
+                    },
+                ],
+            }
+        ],
+        "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
+    }
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    ("cache_control", "expected_block"),
+    [
+        (None, {"type": "text", "text": "Long instructions"}),
+        (
+            {"type": "ephemeral"},
+            {
+                "type": "text",
+                "text": "Long instructions",
+                "cache_control": {"type": "ephemeral"},
+            },
+        ),
+        (
+            {"type": "ephemeral", "ttl": "1h"},
+            {
+                "type": "text",
+                "text": "Long instructions",
+                "cache_control": {"type": "ephemeral", "ttl": "1h"},
+            },
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_chat_sends_list_system_content_as_system_blocks(
+    cache_control, expected_block, stream
+):
+    part = {"type": "text", "text": "Long instructions"}
+    if cache_control is not None:
+        part["cache_control"] = cache_control
+    payload = {
+        "messages": [
+            {"role": "system", "content": [part]},
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+
+    body = await _chat_request_body(payload, stream=stream)
+
+    assert body["system"] == [expected_block]
+    assert body["messages"] == [{"role": "user", "content": "Hello"}]
+
+
+@pytest.mark.asyncio
+async def test_chat_joins_multiple_string_system_messages():
+    payload = {
+        "messages": [
+            {"role": "system", "content": "First"},
+            {"role": "system", "content": "Second"},
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+
+    body = await _chat_request_body(payload)
+
+    assert body["system"] == "First\nSecond"
+
+
+@pytest.mark.asyncio
+async def test_chat_mixes_string_and_list_system_messages_into_blocks():
+    payload = {
+        "messages": [
+            {"role": "system", "content": "First"},
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": "Second", "cache_control": {"type": "ephemeral"}},
+                    {"type": "text", "text": "Third"},
+                ],
+            },
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+
+    body = await _chat_request_body(payload)
+
+    assert body["system"] == [
+        {"type": "text", "text": "First"},
+        {"type": "text", "text": "Second", "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": "Third"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_chat_rejects_non_text_parts_in_system_message():
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": [{"type": "image_url", "image_url": {"url": "https://example.com"}}],
+            },
+            {"role": "user", "content": "Hello"},
+        ],
+    }
+
+    with pytest.raises(AIGatewayException, match="only support text content parts") as e:
+        await _chat_request_body(payload)
+    assert e.value.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_chat_json_object_response_format_appends_to_list_system():
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": [
+                    {"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}}
+                ],
+            },
+            {"role": "user", "content": "Give me JSON"},
+        ],
+        "response_format": {"type": "json_object"},
+    }
+
+    body = await _chat_request_body(payload)
+
+    assert body["system"][0] == {
+        "type": "text",
+        "text": "Rules",
+        "cache_control": {"type": "ephemeral"},
+    }
+    assert body["system"][1]["type"] == "text"
+    assert "valid JSON object" in body["system"][1]["text"]
+    assert len(body["system"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_chat_forwards_unknown_cache_control_ttl_as_is():
+    part = {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral", "ttl": "24h"}}
+    payload = {"messages": [{"role": "user", "content": [part]}]}
+
+    body = await _chat_request_body(payload)
+
+    assert body["messages"] == [{"role": "user", "content": [part]}]

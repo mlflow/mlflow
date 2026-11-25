@@ -339,6 +339,64 @@ def test_safe_patch_returns_original_result_and_ignores_patch_return_value(
     assert patch_impl_called
 
 
+def test_safe_patch_returns_patch_result_when_requested(
+    patch_destination, test_autologging_integration
+):
+    @asyncify(patch_destination.is_async)
+    def patch_impl(original, *args, **kwargs):
+        return ("wrapped", original(*args, **kwargs))
+
+    safe_patch(
+        test_autologging_integration,
+        patch_destination,
+        "fn",
+        patch_impl,
+        return_patch_result=True,
+    )
+    assert run_sync_or_async(patch_destination.fn) == (
+        "wrapped",
+        PATCH_DESTINATION_FN_DEFAULT_RESULT,
+    )
+    assert patch_destination.fn_call_count == 1
+
+
+def test_safe_patch_returns_original_result_when_patch_with_return_patch_result_throws(
+    patch_destination, test_autologging_integration
+):
+    @asyncify(patch_destination.is_async)
+    def patch_impl(original, *args, **kwargs):
+        original(*args, **kwargs)
+        raise Exception("Bad patch postamble")
+
+    safe_patch(
+        test_autologging_integration,
+        patch_destination,
+        "fn",
+        patch_impl,
+        return_patch_result=True,
+    )
+    assert run_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert patch_destination.fn_call_count == 1
+
+
+def test_safe_patch_with_return_patch_result_calls_original_when_patch_skips_it(
+    patch_destination, test_autologging_integration
+):
+    @asyncify(patch_destination.is_async)
+    def patch_impl(original, *args, **kwargs):
+        return "patch result without calling original"
+
+    safe_patch(
+        test_autologging_integration,
+        patch_destination,
+        "fn",
+        patch_impl,
+        return_patch_result=True,
+    )
+    assert run_sync_or_async(patch_destination.fn) == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert patch_destination.fn_call_count == 1
+
+
 @pytest.mark.usefixtures(test_mode_on.__name__)
 def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     patch_destination, test_autologging_integration

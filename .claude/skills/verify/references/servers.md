@@ -51,9 +51,10 @@ For a backend on another port, set `MLFLOW_PROXY=http://localhost:<port>/`. Unle
 `https://localhost:<frontend_port>/`, and pass `--ignore-https-errors` on the browser's first
 `open`.
 
-## Switch checkouts
+## Stop servers and switch checkouts
 
-Stop the outgoing servers using their recorded PIDs. A worker can outlive `yarn start`
+Stop the server parents using their recorded PIDs so they cannot respawn workers. Avoid broad
+`pkill` or `pgrep -f` patterns that can match your own shell. A worker can outlive `yarn start`
 or the backend reloader. Check the default ports with `lsof -nP -iTCP:3000 -iTCP:5000 -sTCP:LISTEN`.
 For any remaining listener, check its working directory with `lsof -a -p "$pid" -d cwd`
 and stop it if it belongs to the outgoing checkout. Start the next checkout once both ports are free.

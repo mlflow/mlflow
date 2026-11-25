@@ -1,6 +1,6 @@
 # MLflow Typescript SDK - Codex CLI
 
-Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with [Codex CLI](https://github.com/openai/codex) to automatically trace your Codex coding-agent conversations, including user prompts, assistant responses, tool usage, and token consumption.
+Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/master/libs/typescript) with [Codex CLI](https://github.com/openai/codex) to automatically trace your Codex coding-agent conversations, including user prompts, assistant responses, tool usage, and token consumption.
 
 | Package             | NPM                                                                                                                             | Description                                            |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
