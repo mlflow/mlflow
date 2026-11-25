@@ -2074,8 +2074,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2027-11-01",
-      "last_updated_at": "2026-10-29"
+      "deprecation_date": "2027-11-02",
+      "last_updated_at": "2026-11-25"
     },
     "deepseek-v3.2-speciale": {
       "mode": "chat",
@@ -2115,8 +2115,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2028-02-20",
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2028-02-22",
+      "last_updated_at": "2026-11-25"
     },
     "deepseek-v4-flash-0731": {
       "mode": "chat",
@@ -2158,8 +2158,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "deprecation_date": "2028-02-20",
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2028-02-22",
+      "last_updated_at": "2026-11-25"
     },
     "deepseek-v4.1-flash": {
       "mode": "chat",
@@ -2200,7 +2200,8 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-13"
+      "deprecation_date": "2027-03-06",
+      "last_updated_at": "2026-11-25"
     },
     "embed-v-4-0": {
       "mode": "embedding",
@@ -3541,8 +3542,8 @@
     "kimi-k3.1-pro": {
       "mode": "chat",
       "context_window": {
-        "max_input": 1048576,
-        "max_output": 1048576
+        "max_input": 1000000,
+        "max_output": 262144
       },
       "pricing": {
         "input_per_million_tokens": 2.3,
@@ -3557,7 +3558,7 @@
         "response_schema": false
       },
       "deprecation_date": "2027-11-04",
-      "last_updated_at": "2026-11-19"
+      "last_updated_at": "2026-11-25"
     },
     "ministral-3b": {
       "mode": "chat",

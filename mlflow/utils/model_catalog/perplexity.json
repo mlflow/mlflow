@@ -25,13 +25,13 @@
         "cache_read_per_million_tokens": 0.25
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-02"
+      "last_updated_at": "2026-11-25"
     },
     "anthropic/claude-fable-5-2": {
       "mode": "responses",
@@ -41,13 +41,13 @@
         "cache_read_per_million_tokens": 0.2
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-13"
+      "last_updated_at": "2026-11-25"
     },
     "anthropic/claude-haiku-4-5": {
       "mode": "responses",
@@ -177,13 +177,13 @@
         "cache_read_per_million_tokens": 0.2
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-02"
+      "last_updated_at": "2026-11-25"
     },
     "anthropic/claude-sonnet-4-5": {
       "mode": "responses",
@@ -448,13 +448,13 @@
         "cache_read_per_million_tokens": 0.075
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-02"
+      "last_updated_at": "2026-11-25"
     },
     "google/gemini-4-argon": {
       "mode": "responses",
@@ -464,13 +464,13 @@
         "cache_read_per_million_tokens": 0.1
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-25"
     },
     "google/gemini-4-carbon": {
       "mode": "responses",
@@ -480,13 +480,13 @@
         "cache_read_per_million_tokens": 0.1
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-13"
+      "last_updated_at": "2026-11-25"
     },
     "google/gemini-4-hydrogen": {
       "mode": "responses",
@@ -496,13 +496,13 @@
         "cache_read_per_million_tokens": 0.075
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-13"
+      "last_updated_at": "2026-11-25"
     },
     "llama-2-70b-chat": {
       "mode": "chat",
@@ -639,13 +639,13 @@
         "cache_read_per_million_tokens": 0.005
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-12"
+      "last_updated_at": "2026-11-25"
     },
     "openai/gpt-5.1": {
       "mode": "responses",
@@ -687,13 +687,13 @@
         "cache_read_per_million_tokens": 0.35
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-12"
+      "last_updated_at": "2026-11-25"
     },
     "openai/gpt-5.4": {
       "mode": "responses",
@@ -863,13 +863,13 @@
         ]
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-25"
     },
     "openai/gpt-6-luna": {
       "mode": "responses",
@@ -887,13 +887,13 @@
         ]
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-02"
+      "last_updated_at": "2026-11-25"
     },
     "openai/gpt-6-sol": {
       "mode": "responses",
@@ -911,13 +911,13 @@
         ]
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-02"
+      "last_updated_at": "2026-11-25"
     },
     "openai/gpt-6.1-sol": {
       "mode": "responses",
@@ -935,13 +935,13 @@
         ]
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-02"
+      "last_updated_at": "2026-11-25"
     },
     "openai/gpt-6.1-terra": {
       "mode": "responses",
@@ -961,13 +961,13 @@
         ]
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-21"
+      "last_updated_at": "2026-11-25"
     },
     "openai/gpt-6.2-astra": {
       "mode": "responses",
@@ -987,13 +987,13 @@
         ]
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-21"
+      "last_updated_at": "2026-11-25"
     },
     "openai/gpt-6.2-sol": {
       "mode": "responses",
@@ -1013,13 +1013,13 @@
         ]
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-21"
+      "last_updated_at": "2026-11-25"
     },
     "perplexity/deepseek-v4-flash-0731": {
       "mode": "responses",
@@ -1045,13 +1045,13 @@
         "cache_read_per_million_tokens": 0.044
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-12"
+      "last_updated_at": "2026-11-25"
     },
     "perplexity/glm-5.2": {
       "mode": "responses",
@@ -1173,13 +1173,13 @@
         "cache_read_per_million_tokens": 0.04
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-11-04"
+      "last_updated_at": "2026-11-25"
     },
     "perplexity/sonar": {
       "mode": "responses",
@@ -1800,13 +1800,13 @@
         ]
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-02"
+      "last_updated_at": "2026-11-25"
     }
   }
 }
