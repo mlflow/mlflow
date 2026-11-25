@@ -464,7 +464,12 @@ export function createMLflowService(
 
     initError = null;
     try {
-      init({ trackingUri, experimentId });
+      // The gateway process hosts provider SDKs that emit their own
+      // OpenTelemetry spans (e.g. `anthropic.messages.create`). They have no
+      // parent in MLflow, so a global provider would export each as a trace.
+      // Cores released before #28158 ignore this option.
+      const options = { trackingUri, experimentId, registerGlobalTracerProvider: false };
+      init(options);
     } catch (err) {
       initError = err;
       log.warn(`mlflow: init failed: ${String(err)}`);
