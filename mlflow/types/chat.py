@@ -229,6 +229,10 @@ class ParamProperty(ParamType):
     # guess its fields (e.g. Gemini returns `{}` for it).
     properties: dict[str, ParamProperty] | None = None
     required: list[str] | None = None
+    # Recursive for the same reason as `items`. Pydantic renders `Optional[T]` as
+    # `anyOf: [T, {"type": "null"}]`, so without this an optional parameter loses
+    # its type and shape.
+    anyOf: list[ParamProperty] | None = None
 
 
 class FunctionParams(BaseModel):
