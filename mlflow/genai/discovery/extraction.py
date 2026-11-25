@@ -155,7 +155,9 @@ def _is_session_scoped(assessment) -> bool:
     return TraceMetadataKey.TRACE_SESSION in metadata
 
 
-def extract_assessment_rationale(trace: Trace, scorer_name: str, *, session_scoped=None) -> str:
+def extract_assessment_rationale(
+    trace: Trace, scorer_name: str, *, session_scoped=None, run_id: str | None = None
+) -> str:
     """
     The most recent usable rationale among a trace's assessments for one scorer.
 
@@ -173,11 +175,14 @@ def extract_assessment_rationale(trace: Trace, scorer_name: str, *, session_scop
         scorer_name: The scorer whose assessments to read.
         session_scoped: When True, return only conversation-scoped rationales; when False,
             only per-turn ones. ``None`` reads both.
+        run_id: The evaluation run whose rationales to read, alongside human ones, as
+            :func:`extract_failing_traces` reads verdicts. ``None`` reads every run's.
     """
     usable = [
         assessment
         for assessment in trace.search_assessments(scorer_name, type="feedback")
-        if getattr(assessment, "error", None) is None
+        if _counts_for_run(assessment, run_id)
+        and getattr(assessment, "error", None) is None
         and assessment.rationale
         and (session_scoped is None or _is_session_scoped(assessment) == session_scoped)
     ]
@@ -194,6 +199,7 @@ def collect_session_rationales(
     rationale_map: dict[str, str],
     scorer_name: str,
     session_traces: list[Trace] | None = None,
+    run_id: str | None = None,
 ) -> str:
     """Combine triage rationales, feedback, and span errors for a session.
 
@@ -210,6 +216,8 @@ def collect_session_rationales(
         scorer_name: The scorer whose feedback to read.
         session_traces: Every trace in the session, in order. Session-scoped feedback is read
             from its first trace, which may itself have passed triage. Defaults to ``traces``.
+        run_id: The evaluation run whose feedback to read, alongside human feedback. ``None``
+            reads every run's.
     """
     seen: set[str] = set()
     parts: list[str] = []
@@ -218,7 +226,7 @@ def collect_session_rationales(
     # own first trace means it is not missed when that turn passed triage.
     if ordered_session := (session_traces if session_traces is not None else traces):
         if session_feedback := extract_assessment_rationale(
-            ordered_session[0], scorer_name, session_scoped=True
+            ordered_session[0], scorer_name, session_scoped=True, run_id=run_id
         ):
             seen.add(session_feedback)
             parts.append(f"[session feedback] {session_feedback}")
@@ -227,7 +235,9 @@ def collect_session_rationales(
         for text, prefix in [
             (rationale_map.get(trace.info.trace_id, ""), ""),
             (
-                extract_assessment_rationale(trace, scorer_name, session_scoped=False),
+                extract_assessment_rationale(
+                    trace, scorer_name, session_scoped=False, run_id=run_id
+                ),
                 "[human feedback] ",
             ),
             (extract_span_errors(trace), "[span errors] "),
@@ -323,8 +333,7 @@ def _counts_for_run(assessment, run_id: str | None) -> bool:
     """Whether a verdict counts for triage scoped to ``run_id``: from that run, or from a human."""
     if run_id is None or assessment.run_id == run_id:
         return True
-    source = getattr(assessment, "source", None)
-    return source is not None and source.source_type == AssessmentSourceType.HUMAN
+    return assessment.source.source_type == AssessmentSourceType.HUMAN
 
 
 def extract_failing_traces(

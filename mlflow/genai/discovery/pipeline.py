@@ -290,6 +290,7 @@ def _build_analyses(
     categories_map: dict[str, list[str]],
     scorer_name: str,
     categories: list[str] = DEFAULT_CATEGORIES,
+    run_id: str | None = None,
 ) -> tuple[list[_ConversationAnalysis], dict[str, list[Trace]]]:
     """
     Build per-session analyses from triage results.
@@ -304,6 +305,8 @@ def _build_analyses(
         categories_map: Mapping of trace_id to category tags from structured output.
         scorer_name: Name of the triage scorer, used to look up human feedback.
         categories: Known valid categories to filter against.
+        run_id: The triage run whose feedback to read, alongside human feedback, so an earlier
+            run's judge rationale doesn't describe this run's failures.
 
     Returns:
         A tuple of (analyses, session_groups) where session_groups maps
@@ -321,7 +324,11 @@ def _build_analyses(
         # The whole session, not just its failing turns: conversation-scoped feedback is often
         # recorded on the first turn, which may itself have passed.
         combined_rationale = collect_session_rationales(
-            session_failing, rationale_map, scorer_name, session_traces=session_traces
+            session_failing,
+            rationale_map,
+            scorer_name,
+            session_traces=session_traces,
+            run_id=run_id,
         )
         if not combined_rationale:
             continue
@@ -1057,6 +1064,7 @@ def discover_issues(
             triage.categories_map,
             scorer_name,
             categories=categories,
+            run_id=triage_eval.run_id,
         )
 
         # ---- Phase 3: Cluster & identify ----

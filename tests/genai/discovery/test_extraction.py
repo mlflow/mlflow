@@ -288,6 +288,40 @@ def test_extract_failing_traces_reads_the_runs_newer_verdict_over_a_humans(make_
     assert result.unclassified_trace_ids == []
 
 
+def test_extract_assessment_rationale_reads_only_the_runs_own_and_human_feedback(make_trace):
+    # This run's verdict has no rationale, so an earlier run's must not stand in for it, while a
+    # human's still does.
+    trace = make_trace()
+    _add_feedback(trace, "satisfaction", False, "an earlier run's reason", run_id="run-old")
+    _add_feedback(trace, "satisfaction", False, "", run_id="run-new")
+
+    assert (
+        extract_assessment_rationale(
+            trace=_refetch([trace])[0], scorer_name="satisfaction", run_id="run-new"
+        )
+        == ""
+    )
+
+    _add_feedback(trace, "satisfaction", False, "a reviewer's reason", source=_HUMAN)
+    assert (
+        extract_assessment_rationale(_refetch([trace])[0], "satisfaction", run_id="run-new")
+        == "a reviewer's reason"
+    )
+
+
+def test_collect_session_rationales_reads_only_the_runs_own_feedback(make_trace):
+    trace = make_trace()
+    _add_feedback(trace, "satisfaction", False, "an earlier run's reason", run_id="run-old")
+    (refetched,) = _refetch([trace])
+
+    combined = collect_session_rationales(
+        [refetched], {trace.info.trace_id: "this run's reason"}, "satisfaction", run_id="run-new"
+    )
+
+    assert "this run's reason" in combined
+    assert "an earlier run's reason" not in combined
+
+
 def test_extract_failing_traces_without_a_run_reads_every_runs_verdicts(make_trace):
     trace = make_trace()
     _add_feedback(trace, "satisfaction", False, "earlier failure", run_id="run-old")
