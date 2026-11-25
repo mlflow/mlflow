@@ -220,10 +220,9 @@ def detect_issues(
             not every match: on an MLflow tracking server, up to 100 sessions picked at random
             from the newest 500 matching traces; on Databricks, the traces its agent's searches
             return.
-        trace_ids: The IDs of the traces to analyze, all in the experiment. Cannot be combined
-            with ``filter_string``. An MLflow tracking server takes at most 500; Databricks takes
-            at most 100 traces stored in Unity Catalog, as returned by
-            :py:func:`mlflow.search_traces` or as bare trace IDs.
+        trace_ids: The IDs of the traces to analyze, all in the experiment, at most 500. Cannot
+            be combined with ``filter_string``. Not supported on Databricks, where
+            ``filter_string`` chooses the traces.
         model: The model to analyze traces with, as ``"<provider>:/<model>"`` or
             ``"gateway:/<endpoint>"``. Defaults to the model saved in the experiment's issue
             detection schedule. The run calls the model from the MLflow server, so a
