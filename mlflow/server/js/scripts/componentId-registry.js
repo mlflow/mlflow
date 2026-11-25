@@ -1113,7 +1113,6 @@ module.exports = {
   "mlflow.experiment-issues.detail.status.resolve": "",
   "mlflow.experiment-issues.detect": "",
   "mlflow.experiment-issues.detection-error": "",
-  "mlflow.experiment-issues.detection-progress.cancel": "",
   "mlflow.experiment-issues.detection-progress.go-to-traces": "",
   "mlflow.experiment-issues.empty-state.learn-how": "",
   "mlflow.experiment-issues.empty-state.run-detection": "",
