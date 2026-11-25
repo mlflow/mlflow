@@ -634,11 +634,19 @@ def migrate_labeling_session(
         preview = migrate_labeling_session("123", "<labeling-session-id>", dry_run=True)
         for issue in preview.issues:
             print(issue.severity, issue.message)
-        result = migrate_labeling_session(
-            "123", "<labeling-session-id>", plan_token=preview.plan_token
-        )
+        # There's no token when an issue blocks the migration.
+        if preview.plan_token is not None:
+            result = migrate_labeling_session(
+                "123", "<labeling-session-id>", plan_token=preview.plan_token
+            )
+            print(result.review_queue.queue_id)
 
-        # Or preview and migrate in one call.
+    To preview and migrate in one call:
+
+    .. code-block:: python
+
+        from mlflow.genai.databricks.review_queues import migrate_labeling_session
+
         result = migrate_labeling_session("123", "<labeling-session-id>")
         print(result.review_queue.queue_id)
 
