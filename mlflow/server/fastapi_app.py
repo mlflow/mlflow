@@ -49,7 +49,11 @@ from mlflow.server.mcp_server_api import (
     scoped_mcp_search_limit_error,
 )
 from mlflow.server.mlflow_response import mlflow_exception_response
-from mlflow.server.otel_api import otel_router
+from mlflow.server.otel_api import (
+    is_missing_experiment_id_header_error,
+    log_missing_experiment_id_header,
+    otel_router,
+)
 from mlflow.server.server_info_api import server_info_router
 from mlflow.server.skill_registry_api import (
     get_skill_registry_api_route_prefixes,
@@ -239,6 +243,8 @@ def add_registry_exception_handlers(fastapi_app: FastAPI) -> None:
         path = get_routed_asgi_path(request)
         if is_mcp_server_api_path(path) or is_skill_registry_api_path(path):
             return _request_validation_error_response(exc)
+        if is_missing_experiment_id_header_error(path, exc.errors()):
+            log_missing_experiment_id_header()
         return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
     @fastapi_app.exception_handler(HTTPException)

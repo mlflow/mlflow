@@ -44,6 +44,14 @@ if TYPE_CHECKING:
 # MSSQL collation for case-sensitive string comparisons
 _MSSQL_CASE_SENSITIVE_COLLATION = "Japanese_Bushu_Kakusu_100_CS_AS_KS_WS"
 
+# Escapes that `json.dumps` can write but PostgreSQL's jsonb rejects: `\u0000`, and surrogate
+# escapes that aren't part of a high-low pair. `json.dumps` writes lowercase hex.
+_POSTGRES_UNDECODABLE_JSON_ESCAPES = (
+    r"\\u0000"
+    r"|\\ud[89ab][0-9a-f]{2}(?!\\ud[c-f][0-9a-f]{2})"
+    r"|(?<!\\ud[89ab][0-9a-f]{2})\\ud[c-f][0-9a-f]{2}"
+)
+
 
 def _convert_like_pattern_to_regex(pattern: str, flags: int = 0):
     regex = re.escape(pattern)
@@ -256,14 +264,14 @@ class SearchUtils:
         }[comparator]
 
     @staticmethod
-    def get_sql_comparison_func(comparator, dialect):
+    def get_sql_comparison_func(comparator, dialect, *, ilike_escape=None):
         import sqlalchemy as sa
 
         def comparison_func(column, value):
             if comparator == "LIKE":
                 return column.like(value)
             elif comparator == "ILIKE":
-                return column.ilike(value)
+                return column.ilike(value, escape=ilike_escape)
             elif comparator == "IN":
                 return column.in_(value)
             elif comparator == "NOT IN":
@@ -360,6 +368,10 @@ class SearchUtils:
                     return expression.in_([sa.func.binary(v) for v in value])
                 elif comparator == "NOT IN":
                     return ~expression.in_([sa.func.binary(v) for v in value])
+                elif comparator == "RLIKE":
+                    # Cast to binary to avoid errors like `Character set 'utf8mb4_0900_ai_ci'
+                    # cannot be used in conjunction with 'binary' in call to regexp_like`.
+                    return sa.cast(expression, sa.LargeBinary).op("REGEXP")(sa.func.binary(value))
                 value = sa.func.binary(value)
             return SearchUtils.get_comparison_func(comparator)(expression, value)
 
@@ -569,6 +581,18 @@ class SearchUtils:
             )
 
     @classmethod
+    def _validate_list_comparator(cls, identifier_type, comparator):
+        # Reject `IN` / `NOT IN` for entity types that don't support it before parsing the
+        # value, so users get an "Invalid comparator" error instead of a value-type error.
+        comparator = comparator.upper()
+        if comparator in ("IN", "NOT IN"):
+            # The `is_*` helpers raise on an unsupported comparator; their return values
+            # are intentionally ignored.
+            cls.is_metric(identifier_type, comparator)
+            cls.is_param(identifier_type, comparator)
+            cls.is_tag(identifier_type, comparator)
+
+    @classmethod
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
@@ -591,6 +615,7 @@ class SearchUtils:
 
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
         return comp
 
@@ -645,7 +670,8 @@ class SearchUtils:
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_METRIC_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_METRIC_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -667,7 +693,7 @@ class SearchUtils:
         if key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
-                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}",
+                    f"Invalid comparator '{comparator}' not one of '{cls.VALID_TAG_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -697,7 +723,7 @@ class SearchUtils:
             if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}",
+                    f"'{cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -709,7 +735,7 @@ class SearchUtils:
             if comparator not in cls.VALID_DATASET_COMPARATORS:
                 raise MlflowException(
                     f"Invalid comparator '{comparator}' "
-                    f"not one of '{cls.VALID_DATASET_COMPARATORS}",
+                    f"not one of '{cls.VALID_DATASET_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
@@ -1176,6 +1202,7 @@ class SearchExperimentsUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1311,6 +1338,19 @@ class SearchModelUtils(SearchUtils):
     LIST_SUPPORTED_KEYS = frozenset({"name"})
 
     @classmethod
+    def is_querying_prompt(cls, parsed_filters: list[dict[str, Any]]) -> bool:
+        for f in parsed_filters:
+            if f["type"] != "tag" or f["key"] != IS_PROMPT_TAG_KEY:
+                continue
+
+            return (f["comparator"] == "=" and f["value"].lower() == "true") or (
+                f["comparator"] == "!=" and f["value"].lower() == "false"
+            )
+
+        # Query should return only normal models by default
+        return False
+
+    @classmethod
     def _does_registered_model_match_clauses(cls, model, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -1443,6 +1483,7 @@ class SearchModelUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_model_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -1634,6 +1675,7 @@ class SearchModelVersionUtils(SearchUtils):
         left, comparator, right = stripped_comparison
         comp = cls._get_model_version_search_identifier(left.value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = comparator.value.upper()
+        cls._validate_list_comparator(comp["type"], comp["comparator"])
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), right)
         return comp
 
@@ -2050,8 +2092,11 @@ class SearchTraceUtils(SearchUtils):
 
         For equality comparisons, we match either the raw JSON primitive value
         (for booleans and numeric values) or the JSON-serialized value (for strings).
+        Pattern comparisons (LIKE, ILIKE, RLIKE) match the decoded string for JSON strings
+        and the raw JSON text for other values.
         """
         import sqlalchemy as sa
+        from sqlalchemy.dialects.postgresql import JSONB
 
         def mysql_json_equality_inequality_comparison(
             column: "ColumnElement", value: str
@@ -2107,10 +2152,47 @@ class SearchTraceUtils(SearchUtils):
             )
             return SearchUtils.get_comparison_func(comparator)(numeric_column, float(value))
 
+        def json_pattern_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
+            # Match pattern comparators against the decoded string for JSON strings, and
+            # against the raw text for other values (e.g. `4` or `true`). The CASE keeps
+            # non-string values, such as `NaN` (invalid JSON), from being parsed. Strings the
+            # database can't decode are also matched against their raw text, so that a single
+            # such value doesn't make every search on the assessment name fail.
+            decodable = sa.func.substring(column, 1, 1) == '"'
+            if dialect == SQLITE:
+                decoded = sa.func.json_extract(column, "$", type_=sa.Text)
+            elif dialect == POSTGRES:
+                decoded = sa.cast(column, JSONB).op("#>>", return_type=sa.Text)(
+                    sa.literal_column("'{}'")
+                )
+                decodable = sa.and_(
+                    decodable,
+                    sa.not_(column.bool_op("~")(_POSTGRES_UNDECODABLE_JSON_ESCAPES)),
+                )
+            elif dialect == MYSQL:
+                decoded = sa.func.json_unquote(column, type_=sa.Text)
+                # `JSON_UNQUOTE` raises on unpaired surrogate escapes, `JSON_VALID` doesn't
+                decodable = sa.and_(decodable, sa.func.json_valid(column) == 1)
+            else:
+                # `JSON_VALUE` returns at most 4000 characters (NULL in lax mode beyond that),
+                # so decode with `OPENJSON`, whose default `value` column is nvarchar(max).
+                # Wrapping in an array avoids depending on whether the server version accepts
+                # a scalar as the JSON document root.
+                elements = sa.func.openjson("[" + column + "]").table_valued(
+                    sa.column("value", sa.Text)
+                )
+                decoded = sa.select(elements.c.value).scalar_subquery()
+            expression = sa.case((decodable, decoded), else_=column)
+            # Explicit string type so the MySQL BINARY and MSSQL collation handling applies
+            expression = sa.type_coerce(expression, sa.Text)
+            return SearchTraceUtils.get_sql_expression_comparison_func(comparator, dialect)(
+                expression, value
+            )
+
         if comparator in SearchTraceUtils.NUMERIC_ASSESSMENT_COMPARATORS:
             return json_numeric_comparison
         elif comparator not in ("=", "!="):
-            return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
+            return json_pattern_comparison
         elif dialect == MYSQL:
             return mysql_json_equality_inequality_comparison
         else:
@@ -2202,8 +2284,20 @@ class SearchTraceUtils(SearchUtils):
                 )
         elif identifier_type == cls._SPAN_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                if key in {"name", "type"}:
+                    return cls._parse_span_filter_literal(token.value)
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
+                if key in {"name", "type"}:
+                    # Normalize SQL literals before the existing Python-literal list validator.
+                    value = "".join(
+                        repr(cls._parse_span_filter_literal(item.value))
+                        if item.ttype
+                        in (TokenType.Literal.String.Single, TokenType.Literal.String.Symbol)
+                        else item.value
+                        for item in token.flatten()
+                    )
+                    token = Token(token.ttype, value)
                 return cls._parse_attribute_lists(token)
             else:
                 raise MlflowException(
@@ -2244,6 +2338,11 @@ class SearchTraceUtils(SearchUtils):
                 f"Expected one of {cls._VALID_IDENTIFIERS}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    @classmethod
+    def _parse_span_filter_literal(cls, literal):
+        value = cls._strip_quotes(literal, expect_quoted_value=True)
+        return value.replace("''", "'") if literal.startswith("'") else value
 
     @classmethod
     def _parse_attribute_lists(cls, token):

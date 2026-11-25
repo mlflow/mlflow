@@ -21,6 +21,9 @@ class LoggedModelInput(_MlflowObject):
     def to_proto(self) -> ProtoModelInput:
         return ProtoModelInput(model_id=self._model_id)
 
+    def to_dictionary(self) -> dict[str, str]:
+        return {"model_id": self.model_id}
+
     @classmethod
     def from_proto(cls, proto: ProtoModelInput) -> "LoggedModelInput":
         return cls(proto.model_id)

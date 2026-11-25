@@ -80,6 +80,7 @@ def _get_root_uri_and_artifact_path(artifact_uri):
             artifact_uri = path_to_local_file_uri(artifact_uri)
 
     parsed_uri = urllib.parse.urlparse(str(artifact_uri))
+    is_file_uri = parsed_uri.scheme == "file"
     prefix = ""
     if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
         # relative path is a special case, urllib does not reconstruct it properly
@@ -92,6 +93,10 @@ def _get_root_uri_and_artifact_path(artifact_uri):
         root_uri, artifact_path = ModelsArtifactRepository.split_models_uri(artifact_uri)
     else:
         artifact_path = posixpath.basename(parsed_uri.path)
+        if is_file_uri:
+            # Local repositories resolve artifact paths literally, so decode the URI's basename
+            # here just as the root URI is decoded when converted to a local path
+            artifact_path = urllib.parse.unquote(artifact_path)
         parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
         root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
     return root_uri, artifact_path

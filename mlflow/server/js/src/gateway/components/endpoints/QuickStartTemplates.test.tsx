@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
-import { MemoryRouter } from '../../../common/utils/RoutingUtils';
+import { MemoryRouter, Route, Routes, useLocation } from '../../../common/utils/RoutingUtils';
 import { QuickStartTemplates, QuickStartTemplatesCompact } from './QuickStartTemplates';
 
 const renderComponent = () =>
@@ -14,6 +15,21 @@ const renderCompactComponent = () =>
   renderWithDesignSystem(
     <MemoryRouter>
       <QuickStartTemplatesCompact />
+    </MemoryRouter>,
+  );
+
+const LocationStateDisplay = () => {
+  const location = useLocation();
+  return <div data-testid="location-state">{JSON.stringify(location.state)}</div>;
+};
+
+const renderComponentWithCreateRoute = () =>
+  renderWithDesignSystem(
+    <MemoryRouter>
+      <Routes>
+        <Route path="/" element={<QuickStartTemplates />} />
+        <Route path="/gateway/endpoints/create" element={<LocationStateDisplay />} />
+      </Routes>
     </MemoryRouter>,
   );
 
@@ -42,16 +58,16 @@ describe('QuickStartTemplates', () => {
     renderComponent();
 
     // OpenAI models
-    expect(screen.getByText('gpt-5')).toBeInTheDocument();
-    expect(screen.getByText('gpt-5-mini')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5.6')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5.5')).toBeInTheDocument();
     expect(screen.getByText('gpt-5.4')).toBeInTheDocument();
-    expect(screen.getByText('o4-mini')).toBeInTheDocument();
+    expect(screen.getByText('gpt-5.4-mini')).toBeInTheDocument();
 
     // Anthropic models
-    expect(screen.getByText('claude-opus-4-6')).toBeInTheDocument();
+    expect(screen.getByText('claude-opus-5-5')).toBeInTheDocument();
+    expect(screen.getByText('claude-sonnet-5-5')).toBeInTheDocument();
     expect(screen.getByText('claude-sonnet-4-6')).toBeInTheDocument();
-    expect(screen.getByText('claude-sonnet-4-5')).toBeInTheDocument();
-    expect(screen.getByText('claude-haiku-4-5')).toBeInTheDocument();
+    expect(screen.getByText('claude-haiku-5-5')).toBeInTheDocument();
 
     // Gemini models
     expect(screen.getByText('gemini-3.0-pro')).toBeInTheDocument();
@@ -73,6 +89,28 @@ describe('QuickStartTemplates', () => {
     const cardLinks = links.filter((link) => link.getAttribute('href') === '/gateway/endpoints/create');
     // 4 providers × 4 models + 3 coding agents + 1 browse all link = 20
     expect(cardLinks.length).toBe(20);
+  });
+
+  it.each([
+    ['openai', 'gpt-5.6', 'openai-gpt-5.6-endpoint', 'openai-api-key'],
+    ['openai', 'gpt-5.5', 'openai-gpt-5.5-endpoint', 'openai-api-key'],
+    ['openai', 'gpt-5.4', 'openai-gpt-5.4-endpoint', 'openai-api-key'],
+    ['openai', 'gpt-5.4-mini', 'openai-gpt-5.4-mini-endpoint', 'openai-api-key'],
+    ['anthropic', 'claude-opus-5-5', 'anthropic-claude-opus-endpoint', 'anthropic-api-key'],
+    ['anthropic', 'claude-sonnet-5-5', 'anthropic-claude-sonnet-endpoint', 'anthropic-api-key'],
+    ['anthropic', 'claude-sonnet-4-6', 'anthropic-claude-sonnet-4-6-endpoint', 'anthropic-api-key'],
+    ['anthropic', 'claude-haiku-5-5', 'anthropic-claude-haiku-endpoint', 'anthropic-api-key'],
+  ])('passes %s model %s and endpoint name %s in the link state', async (provider, model, endpointName, secretName) => {
+    renderComponentWithCreateRoute();
+
+    await userEvent.click(screen.getByText(model));
+
+    expect(JSON.parse(screen.getByTestId('location-state').textContent ?? 'null')).toEqual({
+      provider,
+      model,
+      endpointName,
+      secretName,
+    });
   });
 
   it('renders coding agents section with links to documentation', () => {

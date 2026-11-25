@@ -19,6 +19,39 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "ByteDance-Seed/Seedream-3.0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "ByteDance-Seed/Seedream-4.0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "ByteDance/Seedream-5.0-lite": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
     "MiniMaxAI/MiniMax-M2.7": {
       "mode": "chat",
       "context_window": {
@@ -71,13 +104,13 @@
         "cache_read_per_million_tokens": 0.015
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO": {
       "mode": "chat",
@@ -109,13 +142,13 @@
         "output_per_million_tokens": 0.0
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/QwQ-32B": {
       "mode": "chat",
@@ -135,6 +168,39 @@
         "response_schema": false
       },
       "last_updated_at": "2026-09-24"
+    },
+    "Qwen/Qwen-Image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "Qwen/Qwen-Image-2.0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "Qwen/Qwen-Image-2.0-Pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
     },
     "Qwen/Qwen2-1.5B-Instruct": {
       "mode": "chat",
@@ -524,13 +590,13 @@
         "output_per_million_tokens": 3.0
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": true,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/Qwen3.7-Max": {
       "mode": "chat",
@@ -539,18 +605,18 @@
         "max_output": 1000000
       },
       "pricing": {
-        "input_per_million_tokens": 1.5,
-        "output_per_million_tokens": 4.5,
-        "cache_read_per_million_tokens": 0.3
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 7.5,
+        "cache_read_per_million_tokens": 0.5
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-30"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/Qwen3.7-Plus": {
       "mode": "chat",
@@ -563,13 +629,13 @@
         "output_per_million_tokens": 1.28
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "Qwen/Qwen3.8-2.4T-A95B": {
       "mode": "chat",
@@ -603,13 +669,66 @@
         "output_per_million_tokens": 0.47
       },
       "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-19"
+    },
+    "Qwen/Qwen4-Max": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 1000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 4.5,
+        "cache_read_per_million_tokens": 0.075
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-24"
+    },
+    "RunDiffusion/Juggernaut-pro-flux": {
+      "mode": "image_generation",
+      "capabilities": {
         "function_calling": false,
         "vision": false,
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-21"
+    },
+    "Rundiffusion/Juggernaut-Lightning-Flux": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "Wan-AI/Wan2.6-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
     },
     "arcee-ai/trinity-mini": {
       "mode": "chat",
@@ -666,6 +785,83 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "black-forest-labs/FLUX.1-kontext-max": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "black-forest-labs/FLUX.1-kontext-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "black-forest-labs/FLUX.1.1-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "black-forest-labs/FLUX.2-dev": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "black-forest-labs/FLUX.2-flex": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "black-forest-labs/FLUX.2-max": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "black-forest-labs/FLUX.2-pro": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
     },
     "deepseek-ai/DeepSeek-R1": {
       "mode": "chat",
@@ -919,6 +1115,26 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017-fast": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 2.4,
+        "cache_read_per_million_tokens": 0.012
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-24"
+    },
     "deepseek-ai/deepseek-coder-33b-instruct": {
       "mode": "chat",
       "context_window": {
@@ -937,6 +1153,86 @@
         "response_schema": false
       },
       "last_updated_at": "2026-09-24"
+    },
+    "elorian-labs/glimpse-1.0": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.06
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-13"
+    },
+    "essentialai/rnj-1-instruct": {
+      "mode": "chat",
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.15
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "deprecation_date": "2026-11-14",
+      "last_updated_at": "2026-11-14"
+    },
+    "google/flash-image-2.5": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "google/flash-image-3.1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "google/flash-image-3.1-lite": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-18"
+    },
+    "google/gemini-3-pro-image": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
     },
     "google/gemma-2-27b-it": {
       "mode": "chat",
@@ -995,6 +1291,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-09-24"
+    },
+    "ideogram/ideogram-3.0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "ideogram/ideogram-4.0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
     },
     "intfloat/multilingual-e5-large-instruct": {
       "mode": "embedding",
@@ -1314,13 +1632,13 @@
         "cache_read_per_million_tokens": 0.04
       },
       "capabilities": {
-        "function_calling": false,
+        "function_calling": true,
         "vision": false,
         "reasoning": false,
         "prompt_caching": true,
-        "response_schema": false
+        "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-19"
     },
     "meta-models/Muse-Spark-Open-816B-A42B": {
       "mode": "chat",
@@ -1566,6 +1884,26 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "moonshotai/Kimi-K3.1-Pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-05"
+    },
     "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF": {
       "mode": "chat",
       "context_window": {
@@ -1643,6 +1981,28 @@
       },
       "last_updated_at": "2026-09-24"
     },
+    "openai/gpt-image-1.5": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "openai/gpt-image-2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
     "openai/gpt-oss-120b": {
       "mode": "chat",
       "context_window": {
@@ -1701,6 +2061,17 @@
       },
       "last_updated_at": "2026-08-26"
     },
+    "prunaai/p-image-ideogram": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
     "reflection/Beam-1.0-501B-A23B": {
       "mode": "chat",
       "context_window": {
@@ -1720,6 +2091,57 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-27"
+    },
+    "ricursive-ai/Ripple-65B-Preview": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.6,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-19"
+    },
+    "stabilityai/stable-diffusion-xl-base-1.0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-21"
+    },
+    "tencent/Hy4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.834,
+        "output_per_million_tokens": 2.501,
+        "cache_read_per_million_tokens": 0.042
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-20"
     },
     "thinkingmachines/Inkling": {
       "mode": "chat",
@@ -1741,6 +2163,26 @@
       },
       "deprecation_date": "2026-11-06",
       "last_updated_at": "2026-10-28"
+    },
+    "thinkingmachines/Inkling-2-Small": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 1048576
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.0,
+        "cache_read_per_million_tokens": 0.03
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-13"
     },
     "thinkingmachines/Inkling-Small": {
       "mode": "chat",

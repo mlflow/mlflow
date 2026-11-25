@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import dspy
+import numpy as np
 import pytest
 
 import mlflow
@@ -14,6 +15,7 @@ from mlflow.genai.judges.optimizers.memalign.utils import (
     _extract_json_object,
     distill_guidelines,
     get_default_embedding_model,
+    get_query_fields,
     retrieve_relevant_examples,
     truncate_to_token_limit,
     value_to_embedding_text,
@@ -376,23 +378,20 @@ def test_extract_json_object(response):
     assert json.loads(_extract_json_object(response)) == {"guidelines": []}
 
 
-def test_retrieve_relevant_examples_empty():
-    results = retrieve_relevant_examples(
-        retriever=None,
-        examples=[],
-        query_kwargs={"inputs": "test"},
-        signature=MagicMock(),
-    )
-    assert results == []
+def _mock_retriever(indices):
+    retriever = MagicMock()
+    retriever.return_value = MagicMock(indices=indices)
+    return retriever
 
 
-def test_retrieve_relevant_examples_no_search():
-    examples = [MagicMock(), MagicMock()]
+@pytest.mark.parametrize("examples", [[], [MagicMock(), MagicMock()]])
+def test_retrieve_relevant_examples_without_retrievers(examples):
     results = retrieve_relevant_examples(
-        retriever=None,
+        retrievers=None,
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": "test"},
-        signature=MagicMock(),
+        retrieval_k=5,
     )
     assert results == []
 
@@ -406,64 +405,64 @@ def test_retrieve_relevant_examples_success():
     example3._trace_id = "trace_3"
     examples = [example1, example2, example3]
 
-    # Mock retriever results
-    mock_retriever = MagicMock()
-    search_results = MagicMock()
-    search_results.indices = [2, 0]  # Return example3 and example1
-    mock_retriever.return_value = search_results
-
-    # Mock signature
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs"]
+    mock_retriever = _mock_retriever([2, 0])  # Return example3 and example1
 
     results = retrieve_relevant_examples(
-        retriever=mock_retriever,
+        retrievers={"inputs": (mock_retriever, [0, 1, 2])},
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": "test query", "outputs": "test output"},
-        signature=signature,
+        retrieval_k=5,
     )
 
     assert len(results) == 2
     assert results[0] == (example3, "trace_3")
     assert results[1] == (example1, "trace_1")
-    # Now uses only the first matching field from priority list ("inputs")
+    # Only the indexed field ("inputs") is queried
     mock_retriever.assert_called_once_with("test query")
 
 
-def test_retrieve_relevant_examples_uses_first_priority_field():
-    examples = [MagicMock()]
-    mock_retriever = MagicMock()
-    search_results = MagicMock()
-    search_results.indices = [0]
-    mock_retriever.return_value = search_results
+@pytest.mark.parametrize(("retrieval_k", "expected"), [(5, [2, 0]), (1, [2])])
+def test_retrieve_relevant_examples_maps_corpus_positions_to_examples(retrieval_k, expected):
+    # examples[1] lacks the field, so the index holds examples 0 and 2 at corpus entries 0 and 1
+    examples = [MagicMock(_trace_id=f"trace_{i}") for i in range(3)]
 
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs", "context"]
-
-    retrieve_relevant_examples(
-        retriever=mock_retriever,
+    results = retrieve_relevant_examples(
+        retrievers={"outputs": (_mock_retriever([1, 0]), [0, 2])},
         examples=examples,
-        query_kwargs={"inputs": "test", "outputs": "output_val", "context": "ctx"},
-        signature=signature,
+        embedding_model="openai:/text-embedding-3-small",
+        query_kwargs={"outputs": "test output"},
+        retrieval_k=retrieval_k,
     )
 
-    # Should only use "inputs" (first in priority list that exists in input_fields)
-    mock_retriever.assert_called_once_with("test")
+    assert results == [(examples[i], f"trace_{i}") for i in expected]
+
+
+@pytest.mark.parametrize(
+    ("input_fields", "retrieval_fields", "expected"),
+    [
+        (["inputs", "outputs", "context"], None, ["inputs"]),
+        (["outputs", "trace"], None, ["outputs"]),
+        (["context"], None, []),
+        (["inputs", "outputs"], ["outputs", "inputs"], ["outputs", "inputs"]),
+    ],
+)
+def test_get_query_fields(input_fields, retrieval_fields, expected):
+    signature = MagicMock(input_fields=input_fields)
+    assert get_query_fields(signature, retrieval_fields) == expected
 
 
 def test_retrieve_relevant_examples_returns_empty_for_none_value():
     examples = [MagicMock()]
     mock_retriever = MagicMock()
 
-    signature = MagicMock()
-    signature.input_fields = ["inputs", "outputs"]
-
-    # When the first priority field value is None, should return empty list
+    # When the indexed field's value is None, should return empty list
     results = retrieve_relevant_examples(
-        retriever=mock_retriever,
+        retrievers={"inputs": (mock_retriever, [0])},
         examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
         query_kwargs={"inputs": None, "outputs": "output_val"},
-        signature=signature,
+        retrieval_k=5,
     )
 
     assert results == []
@@ -472,21 +471,112 @@ def test_retrieve_relevant_examples_returns_empty_for_none_value():
 
 def test_retrieve_relevant_examples_out_of_bounds_raises():
     examples = [MagicMock(), MagicMock()]
-    mock_retriever = MagicMock()
-    search_results = MagicMock()
-    search_results.indices = [5]  # Out of bounds
-    mock_retriever.return_value = search_results
-
-    signature = MagicMock()
-    signature.input_fields = ["inputs"]
+    mock_retriever = _mock_retriever([5])  # Out of bounds
 
     with pytest.raises(IndexError, match="list index out of range"):
         retrieve_relevant_examples(
-            retriever=mock_retriever,
+            retrievers={"inputs": (mock_retriever, [0, 1])},
             examples=examples,
+            embedding_model="openai:/text-embedding-3-small",
             query_kwargs={"inputs": "test"},
-            signature=signature,
+            retrieval_k=5,
         )
+
+
+def _scored_retriever(corpus_embeddings, query_embedding):
+    # Mirrors dspy.retrievers.Embeddings: normalized corpus_embeddings plus the embedder
+    retriever = MagicMock()
+    retriever.corpus_embeddings = np.array(corpus_embeddings, dtype=float)
+    retriever.embedder = MagicMock(return_value=np.array([query_embedding], dtype=float))
+    return retriever
+
+
+# Each index is (corpus embeddings, query embedding, episodic positions).
+@pytest.mark.parametrize(
+    ("indexes", "query_kwargs", "retrieval_k", "expected_positions"),
+    [
+        # inputs covers examples 0-2, outputs covers 1 and 3. Unnormalized queries check that the
+        # query is normalized. Totals: 1 = 0.8 + 1.0, 0 = 1.0, 3 = 1.0, 2 = 0.0. Examples 0 and 3
+        # tie and keep episodic order; example 2 is cut by k.
+        pytest.param(
+            {
+                "inputs": ([[1, 0], [0.8, 0.6], [0, 1]], [2, 0], [0, 1, 2]),
+                "outputs": ([[1, 0], [1, 0]], [3, 0], [1, 3]),
+            },
+            {"inputs": "finding", "outputs": "reply"},
+            3,
+            [1, 0, 3],
+            id="fuses_fields",
+        ),
+        # Example 0 only has inputs, which was not queried, so it is not a candidate.
+        pytest.param(
+            {
+                "inputs": ([[1, 0]], [1, 0], [0]),
+                "outputs": ([[1, 0]], [1, 0], [1]),
+            },
+            {"inputs": None, "outputs": "reply"},
+            5,
+            [1],
+            id="skips_empty_query",
+        ),
+    ],
+)
+def test_retrieve_relevant_examples_multiple_fields(
+    indexes, query_kwargs, retrieval_k, expected_positions
+):
+    examples = [MagicMock(_trace_id=f"trace_{i}") for i in range(4)]
+    retrievers = {
+        field: (_scored_retriever(corpus, query), positions)
+        for field, (corpus, query, positions) in indexes.items()
+    }
+
+    results = retrieve_relevant_examples(
+        retrievers=retrievers,
+        examples=examples,
+        embedding_model="openai:/text-embedding-3-small",
+        query_kwargs=query_kwargs,
+        retrieval_k=retrieval_k,
+    )
+
+    assert results == [(examples[i], f"trace_{i}") for i in expected_positions]
+    for field, (retriever, _) in retrievers.items():
+        if query := query_kwargs[field]:
+            retriever.embedder.assert_called_once_with([query])
+        else:
+            retriever.embedder.assert_not_called()
+
+
+def test_retrieve_relevant_examples_truncates_oversized_queries():
+    long_output = "x" * 1_000_000
+    model = "openai:/text-embedding-3-small"
+    expected = truncate_to_token_limit(long_output, model, model_type="embedding")
+    assert len(expected) < len(long_output)
+    examples = [MagicMock(_trace_id="trace_0")]
+
+    single = _mock_retriever([0])
+    retrieve_relevant_examples(
+        retrievers={"outputs": (single, [0])},
+        examples=examples,
+        embedding_model=model,
+        query_kwargs={"outputs": long_output},
+        retrieval_k=5,
+    )
+    single.assert_called_once_with(expected)
+
+    inputs_retriever = _scored_retriever([[1, 0]], [1, 0])
+    outputs_retriever = _scored_retriever([[1, 0]], [1, 0])
+    retrieve_relevant_examples(
+        retrievers={
+            "inputs": (inputs_retriever, [0]),
+            "outputs": (outputs_retriever, [0]),
+        },
+        examples=examples,
+        embedding_model=model,
+        query_kwargs={"inputs": "short", "outputs": long_output},
+        retrieval_k=5,
+    )
+    inputs_retriever.embedder.assert_called_once_with(["short"])
+    outputs_retriever.embedder.assert_called_once_with([expected])
 
 
 @pytest.mark.parametrize(

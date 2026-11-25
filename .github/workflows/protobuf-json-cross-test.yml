@@ -57,4 +57,5 @@ jobs:
           uv sync --locked --no-default-groups --group pytest
           uv pip install pip "protobuf==$PROTOBUF_MAJOR_VERSION.*"
       - name: Run serialization tests
-        run: uv run --no-sync pytest tests/utils/test_proto_json_utils.py -k message_to_json
+        run: |
+          uv run --no-sync pytest tests/utils/test_proto_json_utils.py -k message_to_json

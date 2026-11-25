@@ -121,6 +121,7 @@ def databricks_config(tmp_path: Path) -> DatabricksTestConfig:
         "DATABRICKS_CONFIG_PROFILE",
         "DATABRICKS_HOST",
         "MLFLOW_TRACKING_URI",
+        "_MLFLOW_TESTING_TELEMETRY",
     ):
         env.pop(name, None)
     env.update({

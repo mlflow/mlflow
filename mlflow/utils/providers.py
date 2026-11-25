@@ -7,10 +7,9 @@ import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 import cachetools
-from typing_extensions import NotRequired
 
 from mlflow.environment_variables import MLFLOW_MODEL_CATALOG_CACHE_TTL, MLFLOW_MODEL_CATALOG_URI
 from mlflow.exceptions import MlflowException
@@ -470,7 +469,10 @@ def _cost_from_model_info(
 # Each mode defines:
 #   - display_name: Human-readable name for UI
 #   - description: Help text explaining this auth method
-#   - fields: List of fields with secret flag indicating if encrypted
+#   - fields: List of fields with secret flag indicating if encrypted. The UI rejects
+#     non-ASCII characters in secret fields, to catch API keys typed with a CJK input
+#     method on. If a new secret field can hold JSON or free-form text, add it to
+#     `JSON_CREDENTIAL_SECRET_FIELDS` in mlflow/server/js/src/gateway/utils/secretUtils.ts.
 #   - default: True if this is the default auth mode for the provider
 #   - runtime_auth: Optional runtime auth handler name
 #
@@ -772,6 +774,40 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "description": "Portkey API Base URL (defaults to https://api.portkey.ai/v1)",
                     "secret": False,
                     "required": False,
+                },
+            ],
+        },
+    },
+    "sap": {
+        "oauth2_client_credentials": {
+            "display_name": "OAuth2 Client Credentials",
+            "description": "SAP AI Core (SAP Generative AI Hub) via OAuth2 client credentials",
+            "default": True,
+            "fields": [
+                {
+                    "name": "auth_url",
+                    "description": "OAuth2 token endpoint URL "
+                    "(e.g. https://<subdomain>.authentication.<region>.hana.ondemand.com)",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_id",
+                    "description": "OAuth2 client ID",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_secret",
+                    "description": "OAuth2 client secret",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "SAP AI Core API URL",
+                    "secret": False,
+                    "required": True,
                 },
             ],
         },

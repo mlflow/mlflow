@@ -86,3 +86,69 @@ export const useSearchIssuesQuery = ({
     error,
   };
 };
+
+/**
+ * The dismissed set has to be complete: an ID missing from it reads as not dismissed, which is the
+ * bug the lookup exists to fix. So every page is drained rather than stopping at a fixed count.
+ *
+ * The page size is the most the Databricks issues backend accepts -- `DatabricksRestStore`
+ * rejects `max_results` above 100 outright -- so the set is assembled from many small pages there
+ * as well as here.
+ *
+ * The page bound and the repeated-token check only guarantee termination; the bound covers the
+ * same 100,000 issues it did at ten times the page size. A server still handing back pages after
+ * that many, or handing back a token it already gave, is broken rather than large, and throwing
+ * leaves the caller hiding nothing.
+ */
+const SEARCH_ISSUE_IDS_PAGE_SIZE = 100;
+const SEARCH_ISSUE_IDS_MAX_PAGES = 1000;
+
+/**
+ * The IDs of an experiment's issues with the given status.
+ *
+ * Search is the only issues read that answers for many issues at once -- `GetIssue` is one request
+ * per ID -- so a caller needing the status of every issue on screen asks for the IDs in the status
+ * it cares about and tests membership.
+ *
+ * `signal` comes from the caller's query function, so a lookup still paging when the last surface
+ * reading it unmounts stops instead of walking the rest of the experiment.
+ */
+export const searchIssueIdsByStatus = async (
+  experimentId: string,
+  status: IssueStatus,
+  signal?: AbortSignal,
+): Promise<string[]> => {
+  const issueIds: string[] = [];
+  const seenPageTokens = new Set<string>();
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < SEARCH_ISSUE_IDS_MAX_PAGES; page++) {
+    const response = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/issues/search'), {
+      method: 'POST',
+      signal,
+      body: {
+        experiment_id: experimentId,
+        statuses: [status],
+        // Only the IDs are read, so skip the trace counts and the long-form fields.
+        include_trace_count: false,
+        view: 'basic',
+        max_results: SEARCH_ISSUE_IDS_PAGE_SIZE,
+        ...(pageToken ? { page_token: pageToken } : {}),
+      },
+    })) as SearchIssuesResponse;
+
+    issueIds.push(...(response.issues ?? []).map(({ issue_id }) => issue_id));
+
+    // The server sends an empty token on the last page.
+    pageToken = response.next_page_token || undefined;
+    if (!pageToken) {
+      return issueIds;
+    }
+    if (seenPageTokens.has(pageToken)) {
+      throw new Error('Issue search returned a repeated page token');
+    }
+    seenPageTokens.add(pageToken);
+  }
+
+  throw new Error(`Issue search did not reach its last page within ${SEARCH_ISSUE_IDS_MAX_PAGES} pages`);
+};

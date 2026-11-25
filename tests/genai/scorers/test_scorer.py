@@ -8,11 +8,13 @@ from collections import defaultdict
 from dataclasses import asdict
 from unittest.mock import call, patch
 
+import flask
 import numpy as np
 import pandas as pd
 import pytest
 
 import mlflow
+import mlflow.server
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.environment_variables import _MLFLOW_IN_JOB_EXECUTOR
@@ -309,8 +311,13 @@ def test_scorer_returns_feedback_with_error(sample_data, is_in_databricks):
         scorers=[dummy_scorer],
     )
 
-    # Scorer should not be in result when it returns an error
-    assert all("dummy_scorer" not in metric for metric in results.metrics.keys())
+    # The scorer returns an error on every row, so it has no mean, only an error count
+    # under the scorer's name.
+    assert {
+        name: value
+        for name, value in results.metrics.items()
+        if "dummy_scorer" in name or "feedback_with_error" in name
+    } == {"dummy_scorer/error_count": len(sample_data)}
 
 
 @pytest.mark.parametrize(
@@ -609,6 +616,25 @@ def test_server_process_detected_for_direct_app_launch(monkeypatch):
     assert _is_tracking_server_process() is True
     loaded = Scorer.model_validate(_decorator_serialized())
     assert isinstance(loaded, _UnexecutedDecoratorScorer)
+
+
+def test_server_request_detected_under_any_wsgi_or_asgi_server(monkeypatch):
+    # A server run by a WSGI/ASGI server that `is_running_as_server` doesn't recognize has no boot
+    # id and no recognized server module, but code handling a request is still server code.
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+    monkeypatch.setattr(mlflow.server, "is_running_as_server", False)
+
+    with mlflow.server.app.test_request_context():
+        assert _is_tracking_server_process() is True
+        loaded = Scorer.model_validate(_decorator_serialized())
+        assert isinstance(loaded, _UnexecutedDecoratorScorer)
+
+    assert _is_tracking_server_process() is False
+    # A request handled by another Flask app in the same process is not an MLflow server request.
+    with flask.Flask("other").test_request_context():
+        assert _is_tracking_server_process() is False
 
 
 def test_reconstruct_decorator_scorer_blocked_in_server_process(monkeypatch):
@@ -944,11 +970,13 @@ def test_scorer_timeout_becomes_error_feedback_in_evaluate(sample_data, is_in_da
     finally:
         release.set()
 
-    # The fast scorer yields its metric; the timed-out one errors and is excluded. The control
-    # scorer makes the absence specifically a timeout, not scorers being dropped wholesale.
-    metrics = results.metrics.keys()
+    # The fast scorer yields its metric; the timed-out one errors on every row, so it gets no
+    # mean, only an error count. The control scorer makes this specifically a timeout, not
+    # scorers being dropped wholesale.
+    metrics = results.metrics
     assert any("fast_scorer" in metric for metric in metrics)
-    assert all("slow_scorer" not in metric for metric in metrics)
+    assert [metric for metric in metrics if "slow_scorer" in metric] == ["slow_scorer/error_count"]
+    assert metrics["slow_scorer/error_count"] == len(sample_data)
 
 
 # ==================== Tests for session_level ====================

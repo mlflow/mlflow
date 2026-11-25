@@ -1,6 +1,7 @@
 from typing import Any
 
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.data.dataset_source_registry import register_dataset_source
 
 
 class DatabricksEvaluationDatasetSource(DatasetSource):
@@ -100,3 +101,7 @@ class DatabricksUCTableDatasetSource(DatabricksEvaluationDatasetSource):
     @staticmethod
     def _get_source_type() -> str:
         return "databricks-uc-table"
+
+
+register_dataset_source(DatabricksEvaluationDatasetSource)
+register_dataset_source(DatabricksUCTableDatasetSource)

@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.17.3.dev0"
+version = "3.18.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -23,16 +23,16 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # Dependency version ranges express compatibility, not security. We do not raise version
 # floors to exclude dependency versions with known CVEs; patched versions are already
 # installable within the existing ranges, and pinning them is the responsibility of the
 # application. See https://sethmlarson.dev/library-version-specifiers-not-for-vulnerabilities
 dependencies = [
-  "mlflow-skinny==3.17.3.dev0",
-  "mlflow-tracing==3.17.3.dev0",
+  "mlflow-skinny==3.18.1.dev0",
+  "mlflow-tracing==3.18.1.dev0",
   "Flask-CORS<7",
   "Flask<4",
   "aiohttp<4,>=3.7.0",
@@ -68,6 +68,7 @@ extras = [
   "google-cloud-storage>=1.30.0",
   "azureml-core>=1.2.0",
   "pysftp",
+  "paramiko<4",
   "kubernetes",
   "prometheus-flask-exporter",
 ]

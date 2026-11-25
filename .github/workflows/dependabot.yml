@@ -49,4 +49,5 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"
+        run: |
+          gh pr merge "$PR_URL" --auto --squash --match-head-commit "$HEAD_SHA"

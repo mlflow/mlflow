@@ -11,6 +11,7 @@ jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
   SESSION_ID_METADATA_KEY: 'mlflow.trace.session',
   MLFLOW_GIT_BRANCH_KEY: 'mlflow.source.git.branch',
   MLFLOW_GIT_COMMIT_KEY: 'mlflow.source.git.commit',
+  GATEWAY_CALLER_METADATA_KEY: 'mlflow.gateway.caller',
   TraceFilterKey: { STATUS: 'status', TAG: 'tag', METADATA: 'metadata' },
   TraceStatus: { IN_PROGRESS: 'IN_PROGRESS', OK: 'OK', ERROR: 'ERROR' },
   createTraceMetadataFilter: jest.fn((key: string, value: string) => `trace.metadata.\`${key}\` = "${value}"`),
@@ -23,6 +24,7 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
   STATE_COLUMN_ID: 'state',
   GIT_BRANCH_COLUMN_ID: 'git_branch',
   GIT_COMMIT_COLUMN_ID: 'git_commit',
+  CUSTOM_METADATA_COLUMN_ID: 'custom_metadata',
   FilterOperator: { EQUALS: '=' },
 }));
 
@@ -195,5 +197,17 @@ describe('translateToTracesPageFilters', () => {
       'git_branch::=::main',
       'git_commit::=::abc1234',
     ]);
+  });
+});
+
+describe('gateway caller filter', () => {
+  const filters: MetricFilter[] = [{ column: 'gateway_caller', value: 'judge' }];
+
+  it('filters chart metrics on the gateway caller trace metadata', () => {
+    expect(translateToMetricsFilters(filters)).toEqual(['trace.metadata.`mlflow.gateway.caller` = "judge"']);
+  });
+
+  it('forwards to the traces table as a custom metadata filter', () => {
+    expect(translateToTracesPageFilters(filters)).toEqual(['custom_metadata:mlflow.gateway.caller::=::judge']);
   });
 });

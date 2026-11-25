@@ -8,13 +8,16 @@ import requests
 
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.typesafe import (
     _build_question,
     _invoke_typesafe_judge,
     _is_typesafe_model,
+    _send_gateway_request,
 )
 from mlflow.genai.scorers import Safety
+from mlflow.genai.utils.gateway_utils import gateway_caller
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 _REQUEST_TARGET = "mlflow.genai.judges.typesafe._get_http_response_with_retries"
@@ -268,7 +271,10 @@ def test_invalid_literal_feedback_value_type(feedback_value_type, message):
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"model_uri": "openai:/gpt-4"}, "Expected a typesafe:/ or gateway:/ model URI"),
+        (
+            {"model_uri": "openai:/gpt-4"},
+            "Expected a typesafe:/, gateway:/, or databricks:/ model URI",
+        ),
         ({"instructions": " "}, "instructions must be a non-empty string"),
         ({"instructions": "Evaluate {{ trace }}"}, "trace-based tool calling"),
         ({"state": []}, "state must be a dictionary"),
@@ -506,3 +512,20 @@ def test_builtin_scorer_invokes_typesafe_through_public_api(monkeypatch):
     assert "state.content" in instructions
     assert "JSON" not in instructions
     assert "rationale" not in instructions.lower()
+
+
+@pytest.mark.parametrize(
+    ("caller", "expected"),
+    [(None, "judge"), (GatewayCaller.ISSUE_DETECTION, "issue_detection")],
+)
+def test_gateway_request_attributes_calls_to_the_owning_feature(monkeypatch, caller, expected):
+    monkeypatch.setenv("MLFLOW_GATEWAY_URI", "http://localhost:5000")
+
+    with (
+        mock.patch("mlflow.genai.judges.typesafe.http_request") as request,
+        gateway_caller(caller),
+    ):
+        _send_gateway_request({"model": "jev-evaluator"}, num_retries=0)
+
+    assert request.call_args.kwargs["endpoint"] == "/gateway/typesafe/v1/systemone"
+    assert request.call_args.kwargs["extra_headers"] == {MLFLOW_GATEWAY_CALLER_HEADER: expected}

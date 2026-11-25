@@ -75,6 +75,7 @@ def setup_env(tmp_path: Path) -> dict[str, str]:
         "MLFLOW_TRACKING_URI",
         "MLFLOW_TRACKING_USERNAME",
         "MLFLOW_WORKSPACE",
+        "_MLFLOW_TESTING_TELEMETRY",
     ):
         env.pop(name, None)
     env.update({

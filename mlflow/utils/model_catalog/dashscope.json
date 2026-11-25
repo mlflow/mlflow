@@ -857,6 +857,28 @@
       },
       "last_updated_at": "2026-10-27"
     },
+    "qwen4-max": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 991808,
+        "max_output": 131072
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 4.5,
+        "cache_read_per_million_tokens": 0.075,
+        "cache_write_per_million_tokens": 1.875,
+        "cache_write_1hr_per_million_tokens": 3.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-17"
+    },
     "qwq-plus": {
       "mode": "chat",
       "context_window": {

@@ -524,7 +524,7 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
             <>
               <Button
                 componentId={`${COMPONENT_ID}.filter.trigger`}
-                icon={<FilterIcon />}
+                icon={<FilterIcon css={{ color: theme.colors.textSecondary }} />}
                 onClick={toggleOpen}
                 // Popover.Anchor (unlike Trigger) adds no ARIA, so announce the popover state ourselves.
                 aria-haspopup="dialog"
@@ -581,7 +581,7 @@ export const TraceFilterButton: React.FC<TraceFilterButtonProps> = ({
             >
               <Button
                 componentId={`${COMPONENT_ID}.filter.trigger`}
-                icon={<FilterIcon />}
+                icon={<FilterIcon css={{ color: theme.colors.textSecondary }} />}
                 aria-label={intl.formatMessage({
                   defaultMessage: 'Filters',
                   description: 'Aria label for the traces table filter button',

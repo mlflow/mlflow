@@ -988,6 +988,52 @@ def get_databricks_workspace_client_config(server_uri: str, scopes: list[str] | 
     return WorkspaceClient(**kwargs).config
 
 
+_TRACE_CATALOG_REQUIRED_PRIVILEGES = {
+    "catalog": {"USE_CATALOG"},
+    "schema": {"USE_SCHEMA", "CREATE_TABLE"},
+}
+
+
+def get_default_trace_catalog(server_uri: str, schema_name: str = "default") -> str | None:
+    """
+    Return the workspace default catalog if the current user can store traces in
+    ``<catalog>.<schema_name>``, or ``None`` if it is unset, missing, inaccessible,
+    or lacks privileges.
+    """
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.errors import NotFound, PermissionDenied
+
+    w = WorkspaceClient(config=get_databricks_workspace_client_config(server_uri))
+    try:
+        return _check_default_trace_catalog(w, schema_name)
+    except (NotFound, PermissionDenied):
+        return None
+
+
+def _check_default_trace_catalog(w, schema_name: str) -> str | None:
+    catalog_name = w.settings.default_namespace.get().namespace.value
+    if not catalog_name:
+        return None
+
+    user = w.current_user.me().user_name
+    for securable_type, full_name in [
+        ("catalog", catalog_name),
+        ("schema", f"{catalog_name}.{schema_name}"),
+    ]:
+        effective = w.grants.get_effective(securable_type, full_name, principal=user)
+        granted = {
+            p.privilege.value
+            for a in effective.privilege_assignments or []
+            for p in a.privileges or []
+            if p.privilege
+        }
+        if "ALL_PRIVILEGES" not in granted and not (
+            _TRACE_CATALOG_REQUIRED_PRIVILEGES[securable_type] <= granted
+        ):
+            return None
+    return catalog_name
+
+
 @_use_repl_context_if_available("mlflowGitRepoUrl")
 def get_git_repo_url():
     try:
@@ -1625,10 +1671,10 @@ def get_databricks_local_temp_dir():
         return entry_point.getReplLocalTempDir()
 
 
-def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
+def stage_model_for_databricks_model_serving(model_name: str, model_version: str, host_creds=None):
     endpoint = "/api/2.0/serving-endpoints:stageDeployment"
     response = http_request(
-        host_creds=get_databricks_host_creds(),
+        host_creds=host_creds or get_databricks_host_creds(),
         endpoint=endpoint,
         method="POST",
         raise_on_status=False,
@@ -1639,6 +1685,21 @@ def stage_model_for_databricks_model_serving(model_name: str, model_version: str
     )
     # Raises RestException so callers can act on the server's error_code.
     verify_rest_response(response, endpoint)
+
+
+def get_databricks_model_serving_staging_status(
+    model_name: str, model_version: str, host_creds=None
+) -> dict[str, Any]:
+    endpoint = "/api/2.0/serving-endpoints:checkModelDeploymentStagingStatus"
+    response = http_request(
+        host_creds=host_creds or get_databricks_host_creds(),
+        endpoint=endpoint,
+        method="POST",
+        raise_on_status=False,
+        json={"model": model_name, "model_version": model_version},
+    )
+    verify_rest_response(response, endpoint)
+    return response.json().get("status") or {}
 
 
 P = ParamSpec("P")

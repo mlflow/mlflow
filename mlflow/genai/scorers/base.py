@@ -358,19 +358,27 @@ def _in_job_executor() -> bool:
 
 
 def _is_tracking_server_process() -> bool:
-    """True in the tracking server process or a subprocess it spawned.
+    """True in the tracking server, a subprocess it spawned, or an ``mlflow.server.app`` request.
 
     ``mlflow server`` sets ``_MLFLOW_SERVER_BOOT_ID`` at startup, and worker and job subprocesses
     inherit it. A server started by importing the app directly (for example
-    ``gunicorn mlflow.server:app`` or ``uvicorn mlflow.server.fastapi_app:app``) has no boot id, so
-    also honor ``mlflow.server``'s own ``is_running_as_server`` detection when that module is
-    already loaded. Otherwise such a server would be misclassified as a client and reconstruct
-    custom scorer code in the server process, defeating the confinement.
+    ``gunicorn mlflow.server:app`` or ``uvicorn mlflow.server.fastapi_app:app``) has no boot id,
+    so also honor ``mlflow.server``'s own detection when that module is already loaded:
+    ``is_running_as_server``, which recognizes some WSGI/ASGI servers, and
+    ``_is_serving_request()``, which is true in the app's request context under any of them.
+    Otherwise such a server would be misclassified as a client and reconstruct custom scorer code
+    in the server process, defeating the confinement.
     """
     if _MLFLOW_SERVER_BOOT_ID.get() is not None:
         return True
     server_module = sys.modules.get("mlflow.server")
-    return bool(server_module is not None and getattr(server_module, "is_running_as_server", False))
+    if server_module is None:
+        return False
+    # `mlflow.server` may still be initializing, so its attributes might not exist yet.
+    if getattr(server_module, "is_running_as_server", False):
+        return True
+    is_serving_request = getattr(server_module, "_is_serving_request", None)
+    return is_serving_request is not None and is_serving_request()
 
 
 def _should_reconstruct_scorer_code() -> bool:

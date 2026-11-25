@@ -1,3 +1,4 @@
+import copy
 import functools
 import inspect
 import logging
@@ -5,10 +6,15 @@ from typing import Any
 
 import mlflow
 import mlflow.gemini
-from mlflow.entities import SpanType
+from mlflow.entities import SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
+)
+from mlflow.gemini.stream import (
+    AsyncStreamWrapper,
+    SyncStreamWrapper,
+    construct_streaming_response,
 )
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.distributed import _get_tracing_headers_from_span
@@ -57,6 +63,8 @@ def patched_class_call(original, self, *args, **kwargs):
         if manager.span and _is_genai_model_or_chat(self) and _should_inject_headers(original):
             _inject_tracing_headers_genai(kwargs, manager.span)
         output = original(self, *args, **kwargs)
+        if manager.span and hasattr(output, "__next__"):
+            return manager.wrap_stream(output, is_async=False)
         manager.output = output
         return output
 
@@ -70,6 +78,8 @@ async def async_patched_class_call(original, self, *args, **kwargs):
         if manager.span and _is_genai_model_or_chat(self) and _should_inject_headers(original):
             _inject_tracing_headers_genai(kwargs, manager.span)
         output = await original(self, *args, **kwargs)
+        if manager.span and hasattr(output, "__aiter__"):
+            return manager.wrap_stream(output, is_async=True)
         manager.output = output
         return output
 
@@ -86,6 +96,7 @@ class TracingSession:
         self.span = None
         self.token = None
         self.output = None
+        self.defer_end = False
 
     def __enter__(self):
         return self._enter_impl()
@@ -130,8 +141,33 @@ class TracingSession:
         # otherwise the span context will leak and pollute other traces created next.
         detach_span_from_context(self.token)
 
-        if exc_val:
-            self.span.record_exception(exc_val)
+        if not self.defer_end:
+            self._end_span(exc_val)
+
+    def wrap_stream(self, stream, is_async: bool):
+        self.defer_end = True
+        wrapper_cls = AsyncStreamWrapper if is_async else SyncStreamWrapper
+        return wrapper_cls(stream, self.span, self._on_stream_end)
+
+    def _on_stream_end(self, chunks, error):
+        try:
+            self.output = construct_streaming_response(chunks)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to reconstruct Gemini streaming response for span {self.span.name}: {e}",
+                exc_info=True,
+            )
+            self.output = chunks
+        self._end_span(error)
+
+    def _end_span(self, exc: BaseException | None):
+        if exc:
+            # Not `record_exception`, which rejects `BaseException`s such as the
+            # `asyncio.CancelledError` that ends a stream when the caller's task is cancelled.
+            self.span.add_event(SpanEvent.from_exception(exc))
+            self.span.set_status(
+                SpanStatus(SpanStatusCode.ERROR, description=f"{type(exc).__name__}: {exc}")
+            )
 
         try:
             # Chat instances store model in _model attribute
@@ -253,7 +289,13 @@ def _log_genai_tool_definition(model, inputs, span):
         _logger.warning(f"Failed to set tool definitions for {span}. Error: {e}")
 
 
-_HEADER_INJECTION_METHODS = {"_generate_content", "send_message", "count_tokens", "embed_content"}
+_HEADER_INJECTION_METHODS = {
+    "_generate_content",
+    "_generate_content_stream",
+    "send_message",
+    "count_tokens",
+    "embed_content",
+}
 
 
 def _should_inject_headers(original) -> bool:
@@ -266,41 +308,48 @@ def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
         return
     try:
         tracing_headers = _get_tracing_headers_from_span(span)
-        if not tracing_headers:
+        if not tracing_headers or "config" not in kwargs:
             return
 
-        if "config" not in kwargs:
-            return
-
+        # Inject into copies, never into the caller's config: users and the SDK reuse one config
+        # across requests (e.g. every automatic function calling round), and a traceparent left
+        # in a shared config would take precedence over the next request's own.
         config = kwargs["config"]
         if config is None:
             kwargs["config"] = {"http_options": {"headers": tracing_headers}}
-            return
         elif isinstance(config, dict):
             http_options = config.get("http_options") or {}
-            if isinstance(http_options, dict):
-                existing_headers = http_options.get("headers") or {}
-                http_options["headers"] = tracing_headers | existing_headers
-                config["http_options"] = http_options
-            else:
-                existing_headers = getattr(http_options, "headers", None) or {}
-                http_options.headers = tracing_headers | existing_headers
+            kwargs["config"] = config | {
+                "http_options": _with_tracing_headers(http_options, tracing_headers)
+            }
         else:
-            http_options = getattr(config, "http_options", None)
-            if http_options is None:
-                config.http_options = genai.types.HttpOptions(headers=tracing_headers)
-            else:
-                existing_headers = getattr(http_options, "headers", None) or {}
-                http_options.headers = tracing_headers | existing_headers
+            http_options = getattr(config, "http_options", None) or genai.types.HttpOptions()
+            config = copy.copy(config)
+            config.http_options = _with_tracing_headers(http_options, tracing_headers)
+            kwargs["config"] = config
     except Exception:
         _logger.debug("Failed to inject tracing headers for Gemini", exc_info=True)
+
+
+def _with_tracing_headers(http_options, tracing_headers: dict[str, str]):
+    # Headers the user set take precedence over the injected tracing headers
+    if isinstance(http_options, dict):
+        existing_headers = http_options.get("headers") or {}
+        return http_options | {"headers": tracing_headers | existing_headers}
+    existing_headers = getattr(http_options, "headers", None) or {}
+    http_options = copy.copy(http_options)
+    http_options.headers = tracing_headers | existing_headers
+    return http_options
 
 
 def _get_span_type(task_name: str) -> str:
     span_type_mapping = {
         "generate_content": SpanType.LLM,
         "_generate_content": SpanType.LLM,
+        "generate_content_stream": SpanType.LLM,
+        "_generate_content_stream": SpanType.LLM,
         "send_message": SpanType.CHAT_MODEL,
+        "send_message_stream": SpanType.CHAT_MODEL,
         "count_tokens": SpanType.LLM,
         "embed_content": SpanType.EMBEDDING,
     }
@@ -328,8 +377,13 @@ def _parse_usage(output):
         return None
 
     usage_dict = {}
-    if (prompt_tokens := usage.prompt_token_count) is not None:
-        usage_dict[TokenUsageKey.INPUT_TOKENS] = prompt_tokens
+    prompt_tokens = usage.prompt_token_count
+    # Content fetched by built-in tools (Google Search, URL context) is part of the input but
+    # reported separately from the prompt tokens. The legacy google-generativeai SDK lacks
+    # the field.
+    tool_use_tokens = getattr(usage, "tool_use_prompt_token_count", None)
+    if prompt_tokens is not None or tool_use_tokens is not None:
+        usage_dict[TokenUsageKey.INPUT_TOKENS] = (prompt_tokens or 0) + (tool_use_tokens or 0)
     candidate_tokens = usage.candidates_token_count
     # Thinking tokens are billed as output but reported separately from candidate tokens
     thoughts_tokens = getattr(usage, "thoughts_token_count", None)

@@ -1,8 +1,7 @@
 from collections.abc import AsyncIterator
-from typing import Any, cast
+from typing import Any, Self, cast
 
 import aiohttp
-from typing_extensions import Self
 
 from skills.github.types import Job, JobRun, PullRequest
 from skills.github.utils import get_github_token

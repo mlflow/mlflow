@@ -660,6 +660,7 @@ module.exports = {
   "mlflow.chat-sessions.copy-session-id": "",
   "mlflow.chat-sessions.delete-sessions": "",
   "mlflow.chat-sessions.moved-to-grouped-traces": "",
+  "mlflow.chat-sessions.moved-view-switcher": "",
   "mlflow.chat-sessions.session-header-label": "",
   "mlflow.chat-sessions.session-id-tag": "",
   "mlflow.chat-sessions.table-column-selector": "",
@@ -750,6 +751,7 @@ module.exports = {
   // -- mlflow.eval-datasets-v2 --
   "mlflow.eval-datasets-v2.breadcrumb.datasets": "",
   "mlflow.eval-datasets-v2.create-dataset.button": "",
+  "mlflow.eval-datasets-v2.create-dataset.permission-tooltip": "",
   "mlflow.eval-datasets-v2.detail.actions": "",
   "mlflow.eval-datasets-v2.detail.actions.delete-dataset": "",
   "mlflow.eval-datasets-v2.detail.actions.view-in-unity-catalog": "",
@@ -1298,6 +1300,23 @@ module.exports = {
   "mlflow.experiment_page.sort_select_v2.toggle": "",
   "mlflow.experiment_page.table_resizer.collapse": "",
 
+  // -- mlflow.experiment_runs --
+  "mlflow.experiment_runs.page_size": "",
+  "mlflow.experiment_runs.page_size_help": "",
+
+  // -- mlflow.experiment_settings --
+  "mlflow.experiment_settings.copy_artifact_location": "",
+  "mlflow.experiment_settings.copy_experiment_id": "",
+  "mlflow.experiment_settings.delete": "",
+  "mlflow.experiment_settings.load_error": "",
+  "mlflow.experiment_settings.mlflow_settings_link": "",
+  "mlflow.experiment_settings.name": "",
+  "mlflow.experiment_settings.name_retry": "",
+  "mlflow.experiment_settings.tags.edit": "",
+  "mlflow.experiment_settings.tags.edit_tooltip": "",
+  "mlflow.experiment_settings.trace_archival_retention": "",
+  "mlflow.experiment_settings.trace_archival_retention_retry": "",
+
   // -- mlflow.experiment_side_nav --
   "mlflow.experiment_side_nav.assistant_beta_tag": "",
   "mlflow.experiment_side_nav.assistant_button": "",
@@ -1404,7 +1423,11 @@ module.exports = {
   "mlflow.gateway.budgets-list.limit-header": "",
   "mlflow.gateway.budgets-list.next-page": "",
   "mlflow.gateway.budgets-list.previous-page": "",
+  "mlflow.gateway.budgets-list.scope-header": "",
+  "mlflow.gateway.budgets-list.unavailable-endpoint-tag": "",
+  "mlflow.gateway.budgets-list.unavailable-endpoint-tooltip": "",
   "mlflow.gateway.budgets-list.updated-header": "",
+  "mlflow.gateway.budgets-list.user-scope-tag": "",
   "mlflow.gateway.budgets-list.window-end-header": "",
   "mlflow.gateway.budgets-list.window-end-tooltip": "",
   "mlflow.gateway.budgets-list.window-start-header": "",
@@ -1593,6 +1616,7 @@ module.exports = {
   "mlflow.gateway.usage-modal.unified-view-mode": "",
   "mlflow.gateway.usage.breadcrumb_gateway_link": "",
   "mlflow.gateway.usage.endpoint-selector": "",
+  "mlflow.gateway.usage.feature_usage": "",
   "mlflow.gateway.usage.go_to_endpoints_link": "",
   "mlflow.gateway.usage.go_to_endpoints_link_logs": "",
   "mlflow.gateway.usage.tabs": "",
@@ -2317,6 +2341,7 @@ module.exports = {
   "mlflow.skill_registry.register_modal.name": "",
   "mlflow.skill_registry.register_modal.ref": "",
   "mlflow.skill_registry.register_modal.repository_import.copy": "",
+  "mlflow.skill_registry.register_modal.repository_import.tip": "",
   "mlflow.skill_registry.register_modal.source_type": "",
   "mlflow.skill_registry.register_modal.status": "",
   "mlflow.skill_registry.register_modal.submit": "",

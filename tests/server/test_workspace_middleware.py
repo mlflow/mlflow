@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
 import werkzeug
 from fastapi import FastAPI
@@ -188,6 +190,17 @@ def test_server_info_with_workspace_header_when_workspaces_disabled(monkeypatch)
     data = resp.get_json()
     assert data["workspaces_enabled"] is False
     assert data["trace_archival_enabled"] is False
+
+
+def test_flask_rejects_workspace_header_when_workspaces_disabled(flask_workspace_app, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    client = flask_workspace_app.test_client()
+    with mock.patch("mlflow.server.workspace_helpers._logger.warning") as mock_warning:
+        resp = client.get("/ping", headers={WORKSPACE_HEADER_NAME: "team-a"})
+    assert resp.status_code == 400
+    assert resp.get_json()["error_code"] == "FEATURE_DISABLED"
+    mock_warning.assert_called_once()
+    assert WORKSPACE_HEADER_NAME in mock_warning.call_args.args
 
 
 def test_fastapi_wsgi_flask_workspace_propagation(monkeypatch):

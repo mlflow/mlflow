@@ -1,6 +1,6 @@
 # MLflow Typescript SDK - OpenAI
 
-Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with OpenAI to automatically trace your OpenAI API calls.
+Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/master/libs/typescript) with OpenAI to automatically trace your OpenAI API calls.
 
 | Package              | NPM                                                                                                                               | Description                                  |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
@@ -12,7 +12,7 @@ Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main
 npm install @mlflow/openai
 ```
 
-The package includes the [`@mlflow/core`](https://github.com/mlflow/mlflow/tree/main/libs/typescript) package and `openai` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
+The package includes the [`@mlflow/core`](https://github.com/mlflow/mlflow/tree/master/libs/typescript) package and `openai` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
 
 ## Quickstart
 

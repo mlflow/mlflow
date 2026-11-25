@@ -388,9 +388,9 @@ def create_sqlalchemy_engine(db_uri):
     kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
-    if pool_size:
+    if pool_size is not None:
         kwargs["pool_size"] = pool_size
-    if pool_max_overflow:
+    if pool_max_overflow is not None:
         kwargs["max_overflow"] = pool_max_overflow
     if pool_recycle:
         kwargs["pool_recycle"] = pool_recycle

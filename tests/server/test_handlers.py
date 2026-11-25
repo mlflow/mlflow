@@ -13,6 +13,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
 
 import mlflow
+import mlflow.server
 from mlflow.entities import (
     Experiment,
     FallbackStrategy,
@@ -69,6 +70,7 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+from mlflow.genai.judges import make_judge
 from mlflow.genai.review_queues import ReviewQueueType
 from mlflow.genai.review_queues.review_queues import (
     ReviewItemType,
@@ -77,6 +79,7 @@ from mlflow.genai.review_queues.review_queues import (
     ReviewStatus,
 )
 from mlflow.genai.scorers import Completeness
+from mlflow.genai.scorers.base import _UnexecutedDecoratorScorer
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -308,7 +311,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore as RegistryStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -3740,6 +3743,37 @@ def test_get_dataset_records(mock_tracking_store):
     assert "next_page_token" not in response_data or response_data["next_page_token"] == ""
 
 
+@pytest.mark.parametrize(
+    "request_kwargs",
+    [
+        {"query_string": {"max_results": SEARCH_MAX_RESULTS_THRESHOLD + 1}},
+        {"query_string": {"max_results": -2}},
+        {"json": {"maxResults": SEARCH_MAX_RESULTS_THRESHOLD + 1}},
+    ],
+)
+def test_get_dataset_records_rejects_invalid_max_results(mock_tracking_store, request_kwargs):
+    with app.test_request_context(method="GET", **request_kwargs):
+        resp = _get_dataset_records_handler("d-1234567890abcdef1234567890abcdef")
+
+    assert resp.status_code == 400
+    assert json.loads(resp.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+    mock_tracking_store._load_dataset_records.assert_not_called()
+
+
+def test_get_dataset_records_accepts_max_results_at_threshold(mock_tracking_store):
+    mock_tracking_store._load_dataset_records.return_value = ([], None)
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    with app.test_request_context(
+        method="GET", query_string={"max_results": SEARCH_MAX_RESULTS_THRESHOLD}
+    ):
+        resp = _get_dataset_records_handler(dataset_id)
+
+    assert resp.status_code == 200
+    mock_tracking_store._load_dataset_records.assert_called_once_with(
+        dataset_id, max_results=SEARCH_MAX_RESULTS_THRESHOLD, page_token=None
+    )
+
+
 def test_get_dataset_records_empty(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = ([], None)
 
@@ -3937,6 +3971,27 @@ def test_register_scorer_rejects_third_party_destination_kwargs(
     assert resp.status_code == 400
     assert (
         "third_party_scorer_data.kwargs must not contain 'api_base'" in resp.get_json()["message"]
+    )
+    mock_tracking_store.register_scorer.assert_not_called()
+
+
+def test_register_scorer_rejects_judge_destination_inference_params(
+    mock_get_request_message, mock_tracking_store
+):
+    judge = make_judge(
+        name="judge",
+        instructions="Is {{ outputs }} polite?",
+        model="openai:/gpt-4o-mini",
+        inference_params={"api_base": "http://localhost:8000/v1"},
+    )
+    mock_get_request_message.return_value = RegisterScorer(
+        experiment_id="123", name="judge", serialized_scorer=json.dumps(judge.model_dump())
+    )
+    resp = _register_scorer()
+    assert resp.status_code == 400
+    assert (
+        "instructions_judge_pydantic_data.inference_params must not contain 'api_base'"
+        in resp.get_json()["message"]
     )
     mock_tracking_store.register_scorer.assert_not_called()
 
@@ -4673,6 +4728,39 @@ def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tr
     call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
+
+
+@pytest.mark.parametrize(
+    "max_results_field",
+    [
+        {"max_results": SEARCH_MAX_RESULTS_THRESHOLD + 1},
+        {"max_results": -2},
+        {"maxResults": SEARCH_MAX_RESULTS_THRESHOLD + 1},
+    ],
+)
+def test_search_logged_models_rejects_invalid_max_results(mock_tracking_store, max_results_field):
+    with app.test_request_context(
+        method="POST", json={"experiment_ids": ["1"], **max_results_field}
+    ):
+        resp = _search_logged_models()
+
+    assert resp.status_code == 400
+    assert json.loads(resp.get_data())["error_code"] == "INVALID_PARAMETER_VALUE"
+    mock_tracking_store.search_logged_models.assert_not_called()
+
+
+def test_search_logged_models_accepts_max_results_at_threshold(mock_tracking_store):
+    mock_tracking_store.search_logged_models.return_value = PagedList([], None)
+    with app.test_request_context(
+        method="POST",
+        json={"experiment_ids": ["1"], "max_results": SEARCH_MAX_RESULTS_THRESHOLD},
+    ):
+        resp = _search_logged_models()
+
+    assert resp.status_code == 200
+    mock_tracking_store.search_logged_models.assert_called_once()
+    call_kwargs = mock_tracking_store.search_logged_models.call_args.kwargs
+    assert call_kwargs["max_results"] == SEARCH_MAX_RESULTS_THRESHOLD
 
 
 def test_list_webhooks_empty_page_token(mock_get_request_message, mock_model_registry_store):
@@ -6421,7 +6509,10 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
     )
     mock_tracking_store.batch_get_trace_infos.return_value = [trace1, trace2]
 
-    with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
+    ):
         mock_job = mock.MagicMock()
         mock_job.job_id = "test-job-123"
         mock_submit.return_value = mock_job
@@ -6445,6 +6536,7 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
         mock_tracking_store.batch_get_trace_infos.assert_called_once_with(["trace1", "trace2"])
         mock_submit.assert_called_once()
         assert mock_submit.call_args.kwargs["params"]["experiment_id"] == "exp-123"
+        assert mock_submit.call_args.kwargs["params"]["username"] == "alice"
 
 
 def test_invoke_scorer_deduplicates_trace_ids(mock_tracking_store):
@@ -6627,6 +6719,10 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
         monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
     else:
         monkeypatch.delenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", raising=False)
+    # Whichever WSGI/ASGI server runs the app, the handler must not reconstruct the scorer's code.
+    monkeypatch.delenv("_MLFLOW_SERVER_BOOT_ID", raising=False)
+    monkeypatch.delenv("_MLFLOW_IN_JOB_EXECUTOR", raising=False)
+    monkeypatch.setattr(mlflow.server, "is_running_as_server", False)
     stored_scorer = json.dumps({
         "name": "s",
         "mlflow_version": mlflow.__version__,
@@ -6644,7 +6740,9 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
     )
 
     with (
-        mock.patch("mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]),
+        mock.patch(
+            "mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]
+        ) as mock_batches,
         mock.patch("mlflow.server.jobs.submit_job"),
         app.test_client() as c,
     ):
@@ -6662,6 +6760,7 @@ def test_invoke_registered_decorator_scorer_checks_the_stored_payload(
 
     if custom_scorers_enabled:
         assert response.status_code == 200, response.get_json()
+        assert isinstance(mock_batches.call_args.args[1], _UnexecutedDecoratorScorer)
     else:
         assert response.status_code == 400
         assert "custom" in response.get_json()["message"].lower()
@@ -6811,6 +6910,106 @@ def test_invoke_scorer_rejects_third_party_destination_kwargs_inside_ensemble():
         mock_submit.assert_not_called()
 
 
+def _judge_with_params(inference_params):
+    return make_judge(
+        name="judge",
+        instructions="Is {{ outputs }} polite?",
+        model="openai:/gpt-4o-mini",
+        inference_params=inference_params,
+    )
+
+
+def _builtin_judge_with_params(inference_params):
+    return Completeness(inference_params=inference_params)
+
+
+@pytest.mark.parametrize(
+    ("make_scorer", "field"),
+    [
+        (_judge_with_params, "instructions_judge_pydantic_data"),
+        (_builtin_judge_with_params, "builtin_scorer_pydantic_data"),
+    ],
+)
+def test_invoke_scorer_rejects_judge_destination_inference_params(make_scorer, field):
+    # The LiteLLM judge adapter merges inference_params last, so these would take precedence over
+    # the endpoint configured on the server.
+    scorer = make_scorer({"api_base": "http://localhost:8000/v1", "custom_llm_provider": "openai"})
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": json.dumps(scorer.model_dump()),
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert (
+            f"{field}.inference_params must not contain 'api_base', 'custom_llm_provider'"
+            in response.get_json()["message"]
+        )
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_judge_non_region_inference_params():
+    # Providers such as SageMaker build the request host from `aws_region_name`.
+    judge = make_judge(
+        name="judge",
+        instructions="Is {{ outputs }} polite?",
+        model="sagemaker:/my-endpoint",
+        inference_params={"aws_region_name": "us-east-1.example.com"},
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": json.dumps(judge.model_dump()),
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert (
+            "instructions_judge_pydantic_data.inference_params 'aws_region_name' must contain only"
+            in response.get_json()["message"]
+        )
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_accepts_judge_sampling_inference_params(mock_tracking_store):
+    judge = _judge_with_params({"temperature": 0.0, "max_tokens": 64})
+    with (
+        mock.patch(
+            "mlflow.genai.scorers.job.get_trace_batches_for_scorer", return_value=[]
+        ) as mock_get_batches,
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": json.dumps(judge.model_dump()),
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 200
+        mock_get_batches.assert_called_once_with(["trace1"], mock.ANY, mock_tracking_store)
+        mock_submit.assert_not_called()
+
+
 def test_invoke_scorer_allows_decorator_scorer_when_flag_enabled(mock_tracking_store, monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS", "true")
     serialized_scorer = json.dumps({
@@ -6885,6 +7084,39 @@ def test_invoke_scorer_rejects_stored_third_party_destination_kwargs(mock_tracki
         assert response.status_code == 400
         assert "third_party_scorer_data.kwargs must not contain" in response.get_json()["message"]
         mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "poc", 1)
+        mock_validate.assert_not_called()
+        mock_submit.assert_not_called()
+
+
+def test_invoke_scorer_rejects_stored_judge_destination_inference_params(mock_tracking_store):
+    # A judge registered before this validation existed must not run either.
+    judge = _judge_with_params({"api_base": "http://localhost:8000/v1"})
+    mock_tracking_store.get_scorer.return_value = ScorerVersion(
+        experiment_id="exp-123",
+        scorer_name="judge",
+        scorer_version=1,
+        serialized_scorer=json.dumps(judge.model_dump()),
+        creation_time=0,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit,
+        mock.patch("mlflow.genai.scorers.base.Scorer.model_validate_json") as mock_validate,
+    ):
+        with app.test_client() as c:
+            response = c.post(
+                "/ajax-api/3.0/mlflow/scorer/invoke",
+                json={
+                    "experiment_id": "exp-123",
+                    "serialized_scorer": json.dumps({"name": "judge"}),
+                    "scorer_name": "judge",
+                    "scorer_version": 1,
+                    "trace_ids": ["trace1"],
+                },
+            )
+        assert response.status_code == 400
+        assert "inference_params must not contain 'api_base'" in response.get_json()["message"]
+        mock_tracking_store.get_scorer.assert_called_once_with("exp-123", "judge", 1)
         mock_validate.assert_not_called()
         mock_submit.assert_not_called()
 
@@ -11103,6 +11335,7 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch, mock_tracking
         mock.patch("mlflow.start_run", return_value=mock_run),
         mock.patch("mlflow.set_tag"),
         mock.patch("mlflow.end_run"),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
         app.test_client() as c,
     ):
         resp = c.post(
@@ -11117,6 +11350,7 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch, mock_tracking
 
         call_kwargs = mock_submit_job.call_args.kwargs
         assert call_kwargs["params"]["model"] == "gateway:/my-endpoint"
+        assert call_kwargs["params"]["username"] == "alice"
 
 
 def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
@@ -11357,7 +11591,7 @@ def test_invoke_genai_evaluate_handler_success(monkeypatch, mock_tracking_store)
         assert submit_kwargs["params"]["scorer_versions"] == [None, None]
         assert submit_kwargs["params"]["experiment_id"] == "exp-123"
         assert submit_kwargs["params"]["run_id"] == "run-genai-1"
-        # No basic auth on the test client -> no username propagated.
+        # No auth plugin stamps an authenticated user here, so no username is propagated.
         assert submit_kwargs["params"]["username"] is None
 
         mock_client.set_tag.assert_called_once_with(
@@ -11704,6 +11938,50 @@ def test_invoke_genai_evaluate_handler_rejects_third_party_destination_kwargs(
     mock_submit_job.assert_not_called()
 
 
+@pytest.mark.parametrize("stored", [False, True])
+def test_invoke_genai_evaluate_handler_rejects_judge_destination_inference_params(
+    monkeypatch, mock_tracking_store, stored
+):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    judge_scorer = json.dumps(
+        _judge_with_params({"api_base": "http://localhost:8000/v1"}).model_dump()
+    )
+    if stored:
+        mock_tracking_store.get_scorer.return_value = ScorerVersion(
+            experiment_id="exp-123",
+            scorer_name="judge",
+            scorer_version=1,
+            serialized_scorer=judge_scorer,
+            creation_time=0,
+        )
+        request_json = {
+            "experiment_id": "exp-123",
+            "trace_ids": ["trace-1"],
+            "serialized_scorers": [json.dumps({"name": "judge"})],
+            "scorer_versions": [1],
+        }
+    else:
+        request_json = {
+            "experiment_id": "exp-123",
+            "trace_ids": ["trace-1"],
+            "serialized_scorers": [judge_scorer],
+        }
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        app.test_client() as c,
+    ):
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
+
+    assert resp.status_code == 400
+    assert "inference_params must not contain 'api_base'" in resp.get_json()["message"]
+    mock_client.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
 def test_invoke_genai_evaluate_handler_rejects_empty_trace_ids(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
@@ -11775,11 +12053,11 @@ def test_invoke_genai_evaluate_handler_missing_required_fields(monkeypatch):
             mock_submit_job.assert_not_called()
 
 
-def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
+def test_invoke_genai_evaluate_handler_propagates_authenticated_username(
     monkeypatch, mock_tracking_store
 ):
-    """Username comes from HTTP Basic auth and feeds the job's gateway-auth
-    path so judge LLM calls are made *as* the user.
+    """Username comes from the auth plugin's authenticated user and feeds the
+    job's gateway-auth path so judge LLM calls are made *as* the user.
     """
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
 
@@ -11798,14 +12076,10 @@ def test_invoke_genai_evaluate_handler_propagates_basic_auth_username(
     with (
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
         mock.patch("mlflow.server.handlers.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
         app.test_client() as c,
     ):
-        # Encoded form of "alice:hunter2"
-        resp = c.post(
-            "/ajax-api/3.0/mlflow/genai/evaluate/invoke",
-            json=request_json,
-            headers={"Authorization": "Basic YWxpY2U6aHVudGVyMg=="},
-        )
+        resp = c.post("/ajax-api/3.0/mlflow/genai/evaluate/invoke", json=request_json)
         assert resp.status_code == 200
         assert mock_submit_job.call_args.kwargs["params"]["username"] == "alice"
 

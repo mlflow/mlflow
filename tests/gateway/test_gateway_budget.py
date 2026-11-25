@@ -25,12 +25,13 @@ from mlflow.gateway.budget import (
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
-from mlflow.tracing.constant import CostKey, SpanAttributeKey
+from mlflow.tracing.constant import CostKey, SpanAttributeKey, TraceMetadataKey
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.workspace_context import WorkspaceContext
 
 _DELIVER_FUNC = "mlflow.gateway.budget.deliver_webhook"
+_REGISTRY_STORE_FUNC = "mlflow.server.handlers._get_model_registry_store"
 
 
 @pytest.fixture(autouse=True)
@@ -388,6 +389,94 @@ def test_refresh_triggers_backfill():
     store.sum_gateway_trace_cost.assert_called_once()
     tracker = get_budget_tracker()
     assert tracker._get_window_info("bp-test").cumulative_spend == 25.0
+
+
+def test_refresh_fires_webhook_when_backfill_crosses_the_limit():
+    # The crossing is only ever visible in trace history: no single record_cost call
+    # makes the transition, so without alerting here the window is silently muted.
+    store = _make_store(policies=[_make_policy(budget_amount=100.0)])
+    store.sum_gateway_trace_cost.return_value = 150.0
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_called_once()
+    payload = mock_deliver.call_args.kwargs["payload"]
+    assert payload["budget_policy_id"] == "bp-test"
+    assert payload["budget_amount"] == 100.0
+    assert payload["current_spend"] == 150.0
+    assert get_budget_tracker()._get_window_info("bp-test").exceeded is True
+
+
+def test_refresh_does_not_refire_for_an_already_exceeded_window():
+    store = _make_store(policies=[_make_policy(budget_amount=100.0)])
+    store.sum_gateway_trace_cost.return_value = 150.0
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+        tracker = get_budget_tracker()
+        tracker.invalidate()
+        store.sum_gateway_trace_cost.return_value = 400.0
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_called_once()
+
+
+def test_refresh_does_not_fire_below_the_limit():
+    store = _make_store(policies=[_make_policy(budget_amount=100.0)])
+    store.sum_gateway_trace_cost.return_value = 25.0
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_not_called()
+
+
+def test_refresh_does_not_fire_for_a_reject_policy():
+    # fire_budget_exceeded_webhooks alerts on ALERT policies only, on this path too.
+    store = _make_store(
+        policies=[_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)]
+    )
+    store.sum_gateway_trace_cost.return_value = 150.0
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_not_called()
+    assert get_budget_tracker()._get_window_info("bp-test").exceeded is True
+
+
+def test_a_crossing_is_alerted_once_whether_backfill_or_record_cost_sees_it_first():
+    # Same window, opposite order: the live request crosses the limit first, so the
+    # later backfill must stay quiet rather than alert a second time.
+    store = _make_store(policies=[_make_policy(budget_amount=100.0)])
+
+    with (
+        patch(_DELIVER_FUNC) as mock_deliver,
+        patch(_REGISTRY_STORE_FUNC),
+    ):
+        maybe_refresh_budget_policies(store)
+        tracker = get_budget_tracker()
+        crossed = tracker.record_cost(150.0)
+        fire_budget_exceeded_webhooks(crossed, workspace=None, registry_store=MagicMock())
+
+        tracker.invalidate()
+        store.sum_gateway_trace_cost.return_value = 150.0
+        maybe_refresh_budget_policies(store)
+
+    mock_deliver.assert_called_once()
 
 
 # --- check_budget_limit tests ---
@@ -953,3 +1042,31 @@ async def test_user_budget_overshoots_crossing_request_then_rejects_next():
 
     # A different user is unaffected by alice's overspend.
     check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")
+
+
+_JUDGE_HEADERS = {"X-MLflow-Gateway-Caller": "judge"}
+
+
+def test_check_budget_limit_rejected_request_trace_records_the_request():
+    policy = _make_policy(budget_amount=10.0, budget_action=BudgetAction.REJECT)
+    store = _make_store(policies=[policy])
+    endpoint_config = _make_endpoint_config()
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(20.0)
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(
+            store,
+            endpoint_config,
+            username="alice",
+            request_headers=_JUDGE_HEADERS,
+            metadata={TraceMetadataKey.AUTH_USERNAME: "alice"},
+        )
+
+    # Usage by feature and by user count a rejected request like an accepted one.
+    metadata = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.request_metadata
+    assert metadata[TraceMetadataKey.GATEWAY_CALLER] == "judge"
+    assert metadata[TraceMetadataKey.GATEWAY_ENDPOINT_ID] == "ep-test"
+    assert metadata[TraceMetadataKey.AUTH_USERNAME] == "alice"

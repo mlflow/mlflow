@@ -1,11 +1,27 @@
-import { describe, expect, test } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { render, screen, waitFor } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
+import { searchIssueIdsByStatus } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery';
+
+import { ModelTraceExplorerContextProvider } from '../ModelTraceExplorerContext';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
+
+jest.mock('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery', () => ({
+  ...jest.requireActual<
+    typeof import('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery')
+  >('@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSearchIssuesQuery'),
+  searchIssueIdsByStatus: jest.fn(),
+}));
+
+const mockSearchIssueIdsByStatus = jest.mocked(searchIssueIdsByStatus);
+
+/** Answers the experiment's dismissed-issue lookup. */
+const givenDismissedIssueIds = (issueIds: string[]) => mockSearchIssueIdsByStatus.mockResolvedValue(issueIds);
 
 const reference = (
   overrides: Partial<IssueReferenceAssessment> & Pick<IssueReferenceAssessment, 'assessment_id'>,
@@ -25,7 +41,12 @@ const renderSection = (issues: IssueReferenceAssessment[]) =>
   render(
     <DesignSystemProvider>
       <IntlProvider locale="en">
-        <AssessmentsPaneIssuesSection issues={issues} />
+        {/* The host names the experiment whose dismissed issues the section filters by. */}
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <ModelTraceExplorerContextProvider experimentId="experiment-1">
+            <AssessmentsPaneIssuesSection issues={issues} />
+          </ModelTraceExplorerContextProvider>
+        </QueryClientProvider>
       </IntlProvider>
     </DesignSystemProvider>,
   );
@@ -70,5 +91,34 @@ describe('AssessmentsPaneIssuesSection', () => {
     renderSection([reference({ assessment_id: 'a-invalid', valid: false })]);
 
     expect(screen.queryByText('High latency')).not.toBeInTheDocument();
+  });
+
+  describe('issues dismissed as not an issue', () => {
+    beforeEach(() => {
+      mockSearchIssueIdsByStatus.mockReset();
+    });
+
+    test('a rejected issue is dropped from the list and its count', async () => {
+      givenDismissedIssueIds(['iss-latency']);
+      renderSection([
+        reference({ assessment_id: 'a-latency' }),
+        reference({ assessment_id: 'a-cost', assessment_name: 'iss-cost', issue: { issue_name: 'Runaway cost' } }),
+      ]);
+
+      // Shown until the lookup answers, so the dismissed one is waited out.
+      await waitFor(() => expect(screen.queryByText('High latency')).not.toBeInTheDocument());
+      expect(screen.getByText('Runaway cost')).toBeInTheDocument();
+      expect(screen.getByText(/Issues\s*\(1\)/)).toBeInTheDocument();
+    });
+
+    test('only dismissed issues are looked up, so a resolved one is kept', async () => {
+      givenDismissedIssueIds([]);
+      renderSection([reference({ assessment_id: 'a-latency' })]);
+
+      await waitFor(() =>
+        expect(mockSearchIssueIdsByStatus).toHaveBeenCalledWith('experiment-1', 'rejected', expect.any(AbortSignal)),
+      );
+      expect(screen.getByText('High latency')).toBeInTheDocument();
+    });
   });
 });

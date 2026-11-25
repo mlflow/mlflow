@@ -482,6 +482,33 @@ def test_delete_trace_tag_fallback():
         assert result is None
 
 
+@pytest.mark.parametrize(
+    ("key", "expected_endpoint"),
+    [
+        ("k", "/api/2.0/mlflow/experiments/123/tags/k"),
+        ("foo/bar baz", "/api/2.0/mlflow/experiments/123/tags/foo%2Fbar%20baz"),
+    ],
+)
+def test_delete_experiment_tag(key, expected_endpoint):
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = "{}"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        result = store.delete_experiment_tag("123", key)
+
+    mock_http.assert_called_once_with(
+        host_creds=creds,
+        endpoint=expected_endpoint,
+        method="DELETE",
+        raise_on_status=False,
+        json=None,
+    )
+    assert result is None
+
+
 @pytest.mark.parametrize("sql_warehouse_id", [None, "warehouse_override"])
 def test_batch_get_traces(monkeypatch, sql_warehouse_id):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
@@ -1231,12 +1258,9 @@ def test_log_spans_to_uc_table_empty_spans():
     assert result == []
 
 
+@pytest.mark.parametrize("tracking_uri", ["databricks", None])
 @pytest.mark.parametrize("diff_trace_id", [True, False])
-def test_log_spans_to_uc_table_success(diff_trace_id):
-    # Mock configuration
-    mock_config = mock.MagicMock()
-    mock_config.authenticate.return_value = {"Authorization": "Bearer token"}
-
+def test_log_spans_to_uc_table_success(diff_trace_id, tracking_uri):
     spans = create_mock_spans(diff_trace_id)
 
     # Mock HTTP response
@@ -1251,16 +1275,13 @@ def test_log_spans_to_uc_table_success(diff_trace_id):
         mock.patch(
             "mlflow.store.tracking.databricks_rest_store.http_request", return_value=mock_response
         ) as mock_http_request,
-        mock.patch(
-            "mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config",
-            return_value=mock_config,
-        ) as mock_get_config,
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
     ):
-        # Execute
-        store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
+        store.log_spans("catalog.schema.spans", spans, tracking_uri=tracking_uri)
 
-    # Verify calls
-    mock_get_config.assert_called_once_with("databricks")
+    # `http_request` authenticates from `host_creds`, so `log_spans` must not build its own
+    # client (and fetch a fresh token) per upload.
+    mock_workspace_client.assert_not_called()
     mock_http_request.assert_called_once()
     mock_verify.assert_called_once_with(mock_response, "/api/2.0/otel/v1/traces")
 
@@ -1272,20 +1293,7 @@ def test_log_spans_to_uc_table_success(diff_trace_id):
     assert call_kwargs[1]["extra_headers"]["Content-Type"] == "application/x-protobuf"
     assert "X-Databricks-UC-Table-Name" in call_kwargs[1]["extra_headers"]
     assert call_kwargs[1]["extra_headers"]["X-Databricks-UC-Table-Name"] == "catalog.schema.spans"
-
-
-def test_log_spans_to_uc_table_config_error():
-    mock_span = mock.MagicMock(spec=Span, trace_id="trace123")
-    spans = [mock_span]
-
-    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
-
-    with mock.patch(
-        "mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config",
-        side_effect=Exception("Config failed"),
-    ):
-        with pytest.raises(MlflowException, match="Failed to log spans to UC table"):
-            store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
+    assert "Authorization" not in call_kwargs[1]["extra_headers"]
 
 
 def test_create_assessment(sql_warehouse_id):
@@ -2737,10 +2745,6 @@ def test_log_spans_does_not_auto_start_warehouse(sql_warehouse_id, mock_ensure_r
     response = mock.MagicMock(status_code=200, text="{}")
     spans = create_mock_spans()
     with (
-        mock.patch(
-            "mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config",
-            return_value=mock.MagicMock(authenticate=lambda: {}),
-        ),
         mock.patch(
             "mlflow.store.tracking.databricks_rest_store.http_request", return_value=response
         ),

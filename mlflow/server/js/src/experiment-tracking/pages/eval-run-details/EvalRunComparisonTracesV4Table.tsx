@@ -725,6 +725,7 @@ const EvalRunComparisonTracesV4Content = (props: EvalRunComparisonTracesV4TableP
       tableViewProps={tableViewProps}
       providerProps={{
         modelTraceExplorer: {
+          experimentId,
           renderExportTracesToDatasetsModal: actions.renderExportTracesToDatasetsModal,
           renderAddToReviewQueueDropdown: actions.AddToReviewQueueDropdown,
           DrawerComponent: AssistantAwareDrawer,

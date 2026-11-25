@@ -69,7 +69,12 @@ from mlflow.protos.databricks_tracing_pb2 import (
 )
 from mlflow.protos.databricks_tracing_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.issues_pb2 import CreateIssue, GetIssue, SearchIssues, UpdateIssue
-from mlflow.protos.service_pb2 import GetOnlineTraceDetails, MlflowService, SearchUnifiedTraces
+from mlflow.protos.service_pb2 import (
+    DeleteExperimentTag,
+    GetOnlineTraceDetails,
+    MlflowService,
+    SearchUnifiedTraces,
+)
 from mlflow.store.entities import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.rest_store import RestStore
@@ -85,7 +90,6 @@ from mlflow.utils.databricks_tracing_utils import (
     uc_table_prefix_location_from_proto,
     uc_table_prefix_location_to_proto,
 )
-from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
 from mlflow.utils.issue_utils import validate_issue_fields, validate_issue_search
 from mlflow.utils.proto_json_utils import (
     message_to_json,
@@ -96,6 +100,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     _V4_REST_API_PATH_PREFIX,
     _V4_TRACE_REST_API_PATH_PREFIX,
+    call_endpoint,
     extract_api_info_for_service,
     get_single_assessment_endpoint_v4,
     get_single_trace_endpoint_v4,
@@ -421,6 +426,30 @@ class DatabricksTracingRestStore(RestStore):
         """
         raise MlflowNotImplementedException()
 
+    def delete_experiment_tag(self, experiment_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified experiment.
+
+        Databricks doesn't serve the OSS ``POST /mlflow/experiments/delete-experiment-tag``
+        endpoint; it exposes ``DELETE /mlflow/experiments/{experiment_id}/tags/{key}`` instead.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            key: String name of the tag to be deleted.
+        """
+        # The key is a single path segment, so characters such as `/` must be percent-encoded.
+        endpoint = (
+            f"{_REST_API_PATH_PREFIX}/mlflow/experiments/{quote(experiment_id, safe='')}"
+            f"/tags/{quote(key, safe='')}"
+        )
+        call_endpoint(
+            self.get_host_creds(),
+            endpoint,
+            "DELETE",
+            None,
+            DeleteExperimentTag.Response(),
+        )
+
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace_id.
@@ -707,20 +736,7 @@ class DatabricksTracingRestStore(RestStore):
         if not spans:
             return []
 
-        if tracking_uri is None:
-            raise MlflowException(
-                "`tracking_uri` must be provided to log spans to with Databricks tracking server."
-            )
-
         endpoint = f"/api/2.0/otel{OTLP_TRACES_PATH}"
-        try:
-            config = get_databricks_workspace_client_config(tracking_uri)
-        except Exception as e:
-            raise MlflowException(
-                "Failed to log spans to UC table: could not identify Databricks workspace "
-                "configuration"
-            ) from e
-
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
         resource = getattr(spans[0]._span, "resource", None)
@@ -736,7 +752,6 @@ class DatabricksTracingRestStore(RestStore):
             extra_headers={
                 "Content-Type": "application/x-protobuf",
                 DATABRICKS_UC_TABLE_HEADER: location,
-                **config.authenticate(),
             },
         )
         verify_rest_response(response, endpoint)

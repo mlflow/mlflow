@@ -128,6 +128,7 @@ from mlflow.prompt.constants import (
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_TAG_KEY,
 )
+from mlflow.prompt.registry_utils import validate_prompt_version_tag_key_is_mutable
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -349,7 +350,11 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server._request_keys import SCOPED_EXPERIMENT_FILTER, SCOPED_EXPERIMENT_IDS
+from mlflow.server._request_keys import (
+    SCOPED_EXPERIMENT_FILTER,
+    SCOPED_EXPERIMENT_IDS,
+    SCOPED_REGISTERED_MODEL_FILTER,
+)
 from mlflow.server._search_limits import translate_scoped_search_limits
 from mlflow.server.artifact_transfer import (
     reject_proxied_artifact_download,
@@ -468,6 +473,7 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
+    _validate_judge_inference_params,
     _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
@@ -1010,6 +1016,15 @@ def _assert_less_than_or_equal(x, max_value, message=None):
         raise AssertionError(message) if message else AssertionError()
 
 
+def _validate_max_results_within_threshold(max_results: int) -> None:
+    # Validate the parsed field rather than the raw request JSON so that the `maxResults`
+    # alias accepted by protobuf can't bypass the check. Zero means "use the default".
+    if not 0 <= max_results <= SEARCH_MAX_RESULTS_THRESHOLD:
+        raise MlflowException.invalid_parameter_value(
+            f"max_results must be between 0 and {SEARCH_MAX_RESULTS_THRESHOLD}."
+        )
+
+
 def _assert_intlike_within_range(x, min_value, max_value, message=None):
     if not min_value <= x <= max_value:
         raise AssertionError(message) if message else AssertionError()
@@ -1202,6 +1217,10 @@ def _get_scoped_experiment_ids() -> list[str] | None:
 
 def _get_scoped_experiment_filter() -> str | None:
     return getattr(g, SCOPED_EXPERIMENT_FILTER, None) if has_request_context() else None
+
+
+def _get_scoped_registered_model_filter() -> str | None:
+    return getattr(g, SCOPED_REGISTERED_MODEL_FILTER, None) if has_request_context() else None
 
 
 def _get_request_message(
@@ -1519,25 +1538,22 @@ def _disable_if_gateway_disabled(func):
     return wrapper
 
 
+def _workspace_not_supported(message: str) -> MlflowException:
+    return MlflowException(message, FEATURE_DISABLED)
+
+
 def _disable_if_workspaces_disabled(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if not MLFLOW_ENABLE_WORKSPACES.get():
-            return Response(
-                (
-                    f"Endpoint: {request.url_rule} disabled because the server is running "
-                    "without workspaces support. To enable workspace, run "
-                    "`mlflow server` with `--enable-workspaces`"
-                ),
-                503,
+            raise _workspace_not_supported(
+                f"Endpoint: {request.url_rule} disabled because the server is running "
+                "without workspaces support. To enable workspace, run "
+                "`mlflow server` with `--enable-workspaces`"
             )
         return func(*args, **kwargs)
 
     return wrapper
-
-
-def _workspace_not_supported(message: str) -> MlflowException:
-    return MlflowException(message, FEATURE_DISABLED)
 
 
 def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
@@ -3105,12 +3121,13 @@ def _search_registered_models():
         },
     )
     store = _get_model_registry_store()
-    registered_models = store.search_registered_models(
-        filter_string=request_message.filter,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_registered_model_filter() is not None):
+        registered_models = store.search_registered_models(
+            filter_string=request_message.filter,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
     if registered_models.token:
@@ -3736,9 +3753,12 @@ def _set_model_version_tag():
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     store = _get_model_registry_store()
+    is_prompt = _is_prompt(request_message.name)
+    if is_prompt:
+        validate_prompt_version_tag_key_is_mutable(request_message.key)
     store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
 
-    if _is_prompt(request_message.name):
+    if is_prompt:
         # Send prompt version tag set webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.SET),
@@ -3778,13 +3798,16 @@ def _delete_model_version_tag():
         },
     )
     store = _get_model_registry_store()
+    is_prompt = _is_prompt(request_message.name)
+    if is_prompt:
+        validate_prompt_version_tag_key_is_mutable(request_message.key)
     store.delete_model_version_tag(
         name=request_message.name,
         version=request_message.version,
         key=request_message.key,
     )
 
-    if _is_prompt(request_message.name):
+    if is_prompt:
         # Send prompt version tag deleted webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED),
@@ -4201,11 +4224,13 @@ def _get_graphql_auth_middleware():
     """
     try:
         from mlflow.server.auth import get_graphql_authorization_middleware
-
-        return get_graphql_authorization_middleware()
     except Exception:
-        # Auth not configured or other error
+        # The basic-auth app imports this module, so it cannot be running if the import fails.
         return []
+
+    # Errors here must propagate: returning no middleware while auth is enabled would skip
+    # authorization for every GraphQL field.
+    return get_graphql_authorization_middleware()
 
 
 @catch_mlflow_exception
@@ -5476,7 +5501,7 @@ def _review_queue_max_results_validator(x):
 def _get_request_username():
     """The authenticated request user, stamped on ``flask.g`` by the auth
     plugin's before-request hook. ``None`` when no auth plugin is active (a
-    no-auth server), where queue ownership is meaningless.
+    no-auth server).
     """
     return getattr(g, "mlflow_authenticated_user", None)
 
@@ -5875,6 +5900,7 @@ def _invoke_issue_detection_handler():
             "run_id": run_id,
             "model": model_name,
             "instructions": instructions,
+            "username": _get_request_username(),
         },
         extra_envs=credentials,
     )
@@ -6049,7 +6075,7 @@ def _invoke_genai_evaluate_handler():
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
 
-    username = request.authorization.username if request.authorization else None
+    username = _get_request_username()
 
     try:
         job = submit_job(
@@ -6384,6 +6410,7 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
     with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
         models = _get_tracking_store().search_logged_models(
             # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
@@ -6471,10 +6498,10 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
     `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
     ensemble is caught too (see `custom_scorer_execution_blocked`). Decorator scorers with empty
-    source code, which can never run, are rejected too. Third-party scorer kwargs that
-    would steer the judge's outbound requests are always rejected, independent of that flag.
-    Applied to caller payloads and to registered scorers fetched from the store, since rows
-    written before these checks existed can carry the same fields.
+    source code, which can never run, are rejected too. Third-party scorer kwargs and judge
+    inference params that would steer the judge's outbound requests are always rejected,
+    independent of that flag. Applied to caller payloads and to registered scorers fetched from
+    the store, since rows written before these checks existed can carry the same fields.
     """
     try:
         serialized_data = json.loads(serialized_scorer)
@@ -6490,6 +6517,7 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
             custom_scorer_without_source_error_message(name)
         )
     _validate_third_party_scorer_data(serialized_data)
+    _validate_judge_inference_params(serialized_data)
 
 
 @catch_mlflow_exception
@@ -8052,7 +8080,7 @@ def _invoke_scorer_handler():
 
     # Extract the authenticated username so that job subprocesses can make
     # gateway requests authorised as the original user (not the admin).
-    username = request.authorization.username if request.authorization else None
+    username = _get_request_username()
 
     jobs = []
     for batch_trace_ids in batches:
@@ -8553,6 +8581,8 @@ def _remove_dataset_from_experiments_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),
@@ -8561,6 +8591,7 @@ def _get_dataset_records_handler(dataset_id):
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
 
     max_results = request_message.max_results or 1000
     page_token = request_message.page_token or None

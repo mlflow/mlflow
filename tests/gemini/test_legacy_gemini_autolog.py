@@ -10,6 +10,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
@@ -122,6 +123,12 @@ def test_generate_content_enable_disable_autolog():
         assert span.span_type == SpanType.LLM
         assert span.inputs == {"contents": "test content"}
         assert span.outputs == _GENERATE_CONTENT_RESPONSE
+        assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            TokenUsageKey.INPUT_TOKENS: 6,
+            TokenUsageKey.OUTPUT_TOKENS: 6,
+            TokenUsageKey.TOTAL_TOKENS: 6,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
+        }
 
         mlflow.gemini.autolog(disable=True)
         model = genai.GenerativeModel("gemini-1.5-flash")

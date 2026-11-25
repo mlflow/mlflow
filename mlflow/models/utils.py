@@ -173,7 +173,9 @@ def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
 
 
 def _handle_dataframe_nans(df: pd.DataFrame):
-    return df.where(df.notnull(), None)
+    # Cast to object first: float and datetime columns cannot hold `None`, so `where` would
+    # put `NaN`/`NaT` back, which serialize to invalid JSON (`NaN`) or the string "NaT".
+    return df.astype(object).where(df.notnull(), None)
 
 
 def _coerce_to_pandas_df(input_ex):
@@ -799,9 +801,14 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
                 f"datetime objects. Error: {e}"
             )
 
-    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
+    if t == DataType.datetime and (
+        values.dtype == object
+        or isinstance(values.dtype, pd.StringDtype)
+        or values.dtype == t.to_python()
+    ):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
+        # pandas 3 infers columns of date strings as StringDtype rather than object.
         try:
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:

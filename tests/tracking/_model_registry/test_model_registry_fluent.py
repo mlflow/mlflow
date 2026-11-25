@@ -265,6 +265,9 @@ with mlflow.start_run() as run:
             "--no-project",
             "--with",
             "mlflow<3",
+            # MLflow 2.x imports FallbackAsyncAdaptedQueuePool, removed in SQLAlchemy 2.1.
+            "--with",
+            "sqlalchemy<2.1",
             "python",
             "-I",
             "-c",

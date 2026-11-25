@@ -146,10 +146,15 @@ async def patched_capability_model_request(original, self, ctx, **kwargs):
     span_name = f"{type(model).__name__}.request" if model is not None else "Model.request"
 
     with mlflow.start_span(name=span_name, span_type=SpanType.LLM) as span:
-        span.set_inputs(model_request_inputs(request_context))
         if model is not None:
             _set_model_attributes(span, model)
-        result = await original(self, ctx, **kwargs)
+        try:
+            result = await original(self, ctx, **kwargs)
+        finally:
+            # `before_model_request` hooks (e.g. `ProcessHistory`) run inside the handler and
+            # write the processed request back onto `request_context`, so read the inputs
+            # afterwards to record what was actually sent to the model.
+            span.set_inputs(model_request_inputs(request_context))
         _set_result(span, result)
         return result
 
