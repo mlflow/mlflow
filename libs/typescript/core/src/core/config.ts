@@ -138,6 +138,19 @@ export interface MLflowTracingConfig {
    * `catalog.schema.table_prefix` instead.
    */
   traceLocation?: UnityCatalogLocationOptions;
+
+  /**
+   * Whether to register MLflow's tracer provider as the process-global
+   * OpenTelemetry tracer provider. Defaults to `true`, so spans that other
+   * libraries create through the global OpenTelemetry API are recorded in
+   * MLflow as well.
+   *
+   * Set to `false` to keep MLflow's tracer provider private. Only spans
+   * created through the MLflow API are recorded then. Use this when MLflow
+   * runs inside a host process whose other libraries emit OpenTelemetry spans
+   * that should not become MLflow traces.
+   */
+  registerGlobalTracerProvider?: boolean;
 }
 
 /**

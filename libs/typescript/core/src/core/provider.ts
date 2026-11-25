@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import { trace, Tracer } from '@opentelemetry/api';
+import { context, trace, Tracer, TracerProvider } from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { BasicTracerProvider, SpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { MlflowClient } from '../clients';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
 import {
@@ -14,7 +15,9 @@ import { getConfig, getAuthProvider, type UnityCatalogLocationOptions } from './
 import type { UnityCatalogLocation } from './entities/trace_location';
 import { asyncExportEnabled } from './utils/env';
 
-let sdk: NodeSDK | null = null;
+let sdk: NodeSDK | BasicTracerProvider | null = null;
+// Set only when MLflow's tracer provider is not the global one.
+let isolatedProvider: TracerProvider | null = null;
 // Keep a reference to the active span processor for flushing.
 let processor: SpanProcessor | null = null;
 
@@ -83,8 +86,17 @@ export function initializeSDK(): void {
       }
     }
 
-    sdk = new NodeSDK({ spanProcessors: [processor] });
-    sdk.start();
+    if (config.registerGlobalTracerProvider === false) {
+      const provider = new BasicTracerProvider({ spanProcessors: [processor] });
+      sdk = provider;
+      isolatedProvider = provider;
+      ensureContextManager();
+    } else {
+      isolatedProvider = null;
+      const nodeSdk = new NodeSDK({ spanProcessors: [processor] });
+      sdk = nodeSdk;
+      nodeSdk.start();
+    }
   } catch (error) {
     console.error('Failed to initialize MLflow tracing:', error);
   }
@@ -109,8 +121,22 @@ function resolveUcLocation(options: UnityCatalogLocationOptions): UnityCatalogLo
   };
 }
 
+/**
+ * `withSpan` and `getCurrentActiveSpan` rely on a context manager. NodeSDK
+ * registers one together with the global tracer provider, so the isolated
+ * path has to do it itself. Registration fails when the host process already
+ * has a context manager, and that one is used instead.
+ */
+function ensureContextManager(): void {
+  const contextManager = new AsyncLocalStorageContextManager();
+  contextManager.enable();
+  if (!context.setGlobalContextManager(contextManager)) {
+    contextManager.disable();
+  }
+}
+
 export function getTracer(module_name: string): Tracer {
-  return trace.getTracer(module_name);
+  return (isolatedProvider ?? trace).getTracer(module_name);
 }
 
 /**
