@@ -462,3 +462,53 @@ def test_single_run_artifact_download_when_both_run_and_model_artifacts_exist(tm
         run_id=run.info.run_id, artifact_path="model/file.txt", dst_path=tmp_path
     )
     assert pathlib.Path(out).read_text() == "test"
+
+
+@pytest.mark.parametrize("dst_path_provided", [True, False])
+@pytest.mark.parametrize(
+    ("artifact_path", "content"),
+    [
+        ("data/a%20b.csv", "eval"),
+        ("data/a b.csv", "train"),
+        pytest.param(
+            "answers/what?.txt",
+            "faq",
+            marks=pytest.mark.skipif(is_windows(), reason="'?' is invalid in Windows file names"),
+        ),
+        ("eval_set/city=New%20York/part-0.parquet", "ny"),
+    ],
+)
+def test_download_artifacts_with_run_id_keeps_literal_path(
+    tmp_path, dst_path_provided, artifact_path, content
+):
+    with mlflow.start_run() as run:
+        mlflow.log_text("train", "data/a b.csv")
+        mlflow.log_text("eval", "data/a%20b.csv")
+        if not is_windows():
+            mlflow.log_text("faq", "answers/what?.txt")
+        mlflow.log_text("ny", "eval_set/city=New%20York/part-0.parquet")
+
+    out = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id,
+        artifact_path=artifact_path,
+        dst_path=tmp_path if dst_path_provided else None,
+    )
+    assert pathlib.Path(out).read_text() == content
+
+
+@pytest.mark.parametrize("artifact_path", ["eval_set", "eval_set/city=New%20York"])
+def test_download_artifacts_with_run_id_percent_encoded_partition_directory(
+    tmp_path, artifact_path
+):
+    with mlflow.start_run() as run:
+        mlflow.log_text("ny", "eval_set/city=New%20York/part-0.parquet")
+        mlflow.log_text("paris", "eval_set/city=Paris/part-0.parquet")
+
+    out = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path=artifact_path, dst_path=tmp_path
+    )
+    root = tmp_path / "eval_set"
+    assert pathlib.Path(out).samefile(tmp_path / artifact_path)
+    assert (root / "city=New%20York" / "part-0.parquet").read_text() == "ny"
+    if artifact_path == "eval_set":
+        assert (root / "city=Paris" / "part-0.parquet").read_text() == "paris"

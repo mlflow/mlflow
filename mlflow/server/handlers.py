@@ -1032,6 +1032,15 @@ def _assert_less_than_or_equal(x, max_value, message=None):
         raise AssertionError(message) if message else AssertionError()
 
 
+def _validate_max_results_within_threshold(max_results: int) -> None:
+    # Validate the parsed field rather than the raw request JSON so that the `maxResults`
+    # alias accepted by protobuf can't bypass the check. Zero means "use the default".
+    if not 0 <= max_results <= SEARCH_MAX_RESULTS_THRESHOLD:
+        raise MlflowException.invalid_parameter_value(
+            f"max_results must be between 0 and {SEARCH_MAX_RESULTS_THRESHOLD}."
+        )
+
+
 def _assert_intlike_within_range(x, min_value, max_value, message=None):
     if not min_value <= x <= max_value:
         raise AssertionError(message) if message else AssertionError()
@@ -4231,11 +4240,13 @@ def _get_graphql_auth_middleware():
     """
     try:
         from mlflow.server.auth import get_graphql_authorization_middleware
-
-        return get_graphql_authorization_middleware()
     except Exception:
-        # Auth not configured or other error
+        # The basic-auth app imports this module, so it cannot be running if the import fails.
         return []
+
+    # Errors here must propagate: returning no middleware while auth is enabled would skip
+    # authorization for every GraphQL field.
+    return get_graphql_authorization_middleware()
 
 
 @catch_mlflow_exception
@@ -6687,6 +6698,7 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
     with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
         models = _get_tracking_store().search_logged_models(
             # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
@@ -8857,6 +8869,8 @@ def _remove_dataset_from_experiments_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),
@@ -8865,6 +8879,7 @@ def _get_dataset_records_handler(dataset_id):
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
 
     max_results = request_message.max_results or 1000
     page_token = request_message.page_token or None

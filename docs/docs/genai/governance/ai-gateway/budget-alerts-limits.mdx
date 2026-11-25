@@ -60,6 +60,8 @@ HTTP/1.1 429 Too Many Requests
 }
 ```
 
+If usage tracking is on for the endpoint, the gateway records each rejected request as an error trace. This trace has the same user and caller metadata as a request that the gateway accepts.
+
 ## Time Windows
 
 Budget windows are fixed intervals:

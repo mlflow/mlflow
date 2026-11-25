@@ -8734,9 +8734,9 @@ def get_graphql_authorization_middleware():
         A list containing the middleware instance if auth is enabled,
         empty list otherwise. Suitable for passing to schema.execute(middleware=...).
     """
-    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
-        return []
     if not is_auth_enabled():
+        return []
+    if not MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH.get():
         return []
     return [GraphQLAuthorizationMiddleware()]
 
@@ -9565,6 +9565,32 @@ def _get_require_authentication_validator() -> Callable[[str, StarletteRequest],
     return validator
 
 
+def _get_assistant_validator(
+    unprefixed_path: str, method: str
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    if method != "POST" or unprefixed_path != "/ajax-api/3.0/mlflow/assistant/message":
+        return _get_require_authentication_validator()
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        # The handler attaches the project directory configured for ``experiment_id`` as the
+        # session's working directory, which the Assistant's file and shell tools run in, so the
+        # caller must be able to read that experiment.
+        try:
+            body = await request.json()
+        except ValueError:
+            # FastAPI rejects the malformed body before the handler runs.
+            return True
+        experiment_id = body.get("experiment_id") if isinstance(body, dict) else None
+        if not experiment_id:
+            return True
+        permission = await asyncio.to_thread(
+            _get_experiment_permission, str(experiment_id), username
+        )
+        return permission.can_read
+
+    return validator
+
+
 def _job_route_tail(unprefixed_path: str) -> str:
     return unprefixed_path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
 
@@ -9725,7 +9751,7 @@ def _find_fastapi_validator(
         return _get_job_route_validator(unprefixed)
 
     if unprefixed.startswith("/ajax-api/3.0/mlflow/assistant"):
-        return _get_require_authentication_validator()
+        return _get_assistant_validator(unprefixed, method)
 
     # `artifact_router` is not registered under `--static-prefix`, so this matches the
     # raw path; prefixed artifact requests fall through to Flask, which owns their auth.

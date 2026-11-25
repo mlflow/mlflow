@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0",
+  "models": {
+    "deepseek/deepseek-v4-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.07432,
+        "output_per_million_tokens": 0.1486,
+        "cache_read_per_million_tokens": 0.01351
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-22"
+    },
+    "google/gemma-4-26b-a4b-it": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 8192
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.06054,
+        "output_per_million_tokens": 0.3328
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-22"
+    },
+    "qwen/qwen3-coder-30b-a3b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.07061,
+        "output_per_million_tokens": 0.2723
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-22"
+    },
+    "qwen/qwen3.8-27b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2905,
+        "output_per_million_tokens": 2.453
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-22"
+    },
+    "zai/glm-5.3": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 524288,
+        "max_output": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.189,
+        "output_per_million_tokens": 3.736,
+        "cache_read_per_million_tokens": 0.1757
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-22"
+    }
+  }
+}

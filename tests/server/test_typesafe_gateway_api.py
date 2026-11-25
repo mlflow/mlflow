@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI, HTTPException
@@ -91,7 +91,11 @@ def test_system_one_route_credentials_tracing_and_budgets(endpoint):
         patch("mlflow.gateway.providers.typesafe.send_request", return_value=_response()) as send,
         patch("mlflow.server.gateway_api.check_budget_limit") as budget,
     ):
-        response = client.post("/gateway/typesafe/v1/systemone", json=_request())
+        response = client.post(
+            "/gateway/typesafe/v1/systemone",
+            json=_request(),
+            headers={"X-MLflow-Gateway-Caller": "judge"},
+        )
 
     assert response.status_code == 200
     assert response.json() == _response()
@@ -101,7 +105,13 @@ def test_system_one_route_credentials_tracing_and_budgets(endpoint):
         path="systemone",
         payload={**_request(), "model": "jev-1.13.0"},
     )
-    assert budget.call_args.kwargs == {"workspace": endpoint.workspace, "username": None}
+    assert budget.call_args.kwargs == {
+        "workspace": endpoint.workspace,
+        "username": None,
+        "request_headers": ANY,
+        "metadata": {},
+    }
+    assert budget.call_args.kwargs["request_headers"]["x-mlflow-gateway-caller"] == "judge"
     assert budget.call_args.args[1].endpoint_id == endpoint.endpoint.endpoint_id
 
     traces = TracingClient().search_traces(locations=[endpoint.experiment_id])
@@ -167,7 +177,12 @@ async def test_system_one_guardrails_and_user_budget(endpoint):
         assert await typesafe_passthrough_system_one(request) == _response()
 
     assert send.call_args.kwargs["payload"]["state"] == "Sanitized input"
-    assert budget.call_args.kwargs == {"workspace": endpoint.workspace, "username": "alice"}
+    assert budget.call_args.kwargs == {
+        "workspace": endpoint.workspace,
+        "username": "alice",
+        "request_headers": {"authorization": "Basic mlflow-auth"},
+        "metadata": {TraceMetadataKey.AUTH_USERNAME: "alice"},
+    }
     assert pre.call_args.args[0] == [pre_guardrail, post_guardrail]
     assert post.call_args.args == ([pre_guardrail, post_guardrail], modified_body, _response())
     assert post.call_args.kwargs["auth_headers"] == request.headers

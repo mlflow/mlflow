@@ -25,7 +25,7 @@ from mlflow.gateway.budget import (
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
-from mlflow.tracing.constant import CostKey, SpanAttributeKey
+from mlflow.tracing.constant import CostKey, SpanAttributeKey, TraceMetadataKey
 from mlflow.tracking._tracking_service import utils as tracking_utils
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -1042,3 +1042,31 @@ async def test_user_budget_overshoots_crossing_request_then_rejects_next():
 
     # A different user is unaffected by alice's overspend.
     check_budget_limit(store, _NO_TRACE_CONFIG, username="bob")
+
+
+_JUDGE_HEADERS = {"X-MLflow-Gateway-Caller": "judge"}
+
+
+def test_check_budget_limit_rejected_request_trace_records_the_request():
+    policy = _make_policy(budget_amount=10.0, budget_action=BudgetAction.REJECT)
+    store = _make_store(policies=[policy])
+    endpoint_config = _make_endpoint_config()
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(20.0)
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(
+            store,
+            endpoint_config,
+            username="alice",
+            request_headers=_JUDGE_HEADERS,
+            metadata={TraceMetadataKey.AUTH_USERNAME: "alice"},
+        )
+
+    # Usage by feature and by user count a rejected request like an accepted one.
+    metadata = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.request_metadata
+    assert metadata[TraceMetadataKey.GATEWAY_CALLER] == "judge"
+    assert metadata[TraceMetadataKey.GATEWAY_ENDPOINT_ID] == "ep-test"
+    assert metadata[TraceMetadataKey.AUTH_USERNAME] == "alice"

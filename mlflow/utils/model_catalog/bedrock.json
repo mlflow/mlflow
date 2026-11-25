@@ -1110,7 +1110,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-05-23",
+      "last_updated_at": "2026-11-24"
     },
     "anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -7214,7 +7215,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-01-22",
+      "last_updated_at": "2026-11-24"
     },
     "claude_platform/claude-opus-4-6": {
       "mode": "chat",
@@ -13546,7 +13548,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-05-23",
+      "last_updated_at": "2026-11-24"
     },
     "eu.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -14298,7 +14301,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-05-23",
+      "last_updated_at": "2026-11-24"
     },
     "global.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -22129,6 +22133,27 @@
       },
       "last_updated_at": "2026-11-18"
     },
+    "us-gov.openai.gpt-5.6-cyber": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 922000,
+        "max_output": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 16.875,
+        "output_per_million_tokens": 101.25,
+        "cache_read_per_million_tokens": 1.6875,
+        "cache_write_per_million_tokens": 21.09375
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-11-25"
+    },
     "us-gov.openai.gpt-5.6-luna": {
       "mode": "chat",
       "context_window": {
@@ -23707,7 +23732,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2027-05-23",
+      "last_updated_at": "2026-11-24"
     },
     "us.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
