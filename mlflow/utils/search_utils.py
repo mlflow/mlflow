@@ -1037,7 +1037,7 @@ class SearchUtils:
             )
 
         offset_str = parsed_token.get("offset")
-        if not offset_str:
+        if offset_str is None:
             raise MlflowException(
                 f"Invalid page token, parsed value={parsed_token}",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -1045,7 +1045,7 @@ class SearchUtils:
 
         try:
             offset = int(offset_str)
-        except ValueError:
+        except (ValueError, TypeError):
             raise MlflowException(
                 f"Invalid page token, not stringable {offset_str}",
                 error_code=INVALID_PARAMETER_VALUE,
