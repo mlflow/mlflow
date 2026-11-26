@@ -492,16 +492,16 @@ describe('ExperimentLoggedModelListPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByText('Select a model')).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Model' })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Select a model'));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Model' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Create New Model')).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Create New Model' })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Create New Model'));
+    await userEvent.click(screen.getByRole('option', { name: 'Create New Model' }));
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Input a model name')).toBeInTheDocument();
