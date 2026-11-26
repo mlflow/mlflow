@@ -6,8 +6,8 @@ Explain what reproduces on the current checkout, the root cause, and the suggest
 ## Automatic fix
 
 Only propose a PR for a simple issue with a straightforward fix that meets the shared
-output requirements, even if the author offers to implement it. Describe unresolved design
-options for a maintainer to choose.
+output requirements, even if the author offers to implement it. When several fixes would
+work, propose the one you recommend and describe the others.
 
 ## Response
 

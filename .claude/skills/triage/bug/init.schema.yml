@@ -84,7 +84,7 @@ properties:
   pull_request:
     description: |
       Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is verified
-      and leaves nothing for a maintainer to decide.
+      and implemented in full.
     type: object
     additionalProperties: false
     required:
