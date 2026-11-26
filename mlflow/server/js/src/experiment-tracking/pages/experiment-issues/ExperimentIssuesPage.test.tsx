@@ -68,6 +68,7 @@ const server = setupServer(
     searches.push(body);
     const matches = issues.filter(
       (issue) =>
+        (!body.filter_string || issue.source_run_id === /source_run_id = '([^']*)'/.exec(body.filter_string)?.[1]) &&
         (!body.name || issue.name.toLowerCase().includes(body.name.toLowerCase())) &&
         (!body.statuses?.length || body.statuses.includes(issue.status)),
     );
@@ -139,6 +140,63 @@ beforeEach(() => {
   jobStatus = 'SUCCEEDED';
 });
 describe('Experiment Issues', () => {
+  test('pages only the selected run’s issues and removing its chip preserves other filters', async () => {
+    issues = [
+      { ...makeIssue('iss-a', 'Run result A'), source_run_id: 'run-first' },
+      { ...makeIssue('iss-b', 'Run result B'), source_run_id: 'run-other' },
+      { ...makeIssue('iss-c', 'Run result C'), source_run_id: 'run-first' },
+    ];
+    responsePageSize = 1;
+    renderPage('?issueDetectionRun=run-first&issueSearch=Run&issueSeverity=high&issueStatus=pending');
+
+    expect(await screen.findByText('2 results')).toBeInTheDocument();
+    expect(screen.getByText('Run: run-first')).toBeInTheDocument();
+    expect(screen.queryByText('Run result B')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(await screen.findByText('Run result C')).toBeInTheDocument();
+    expect(screen.queryByText('Run result B')).not.toBeInTheDocument();
+    expect(searches.filter((body) => body.page_token)).toEqual([
+      expect.objectContaining({ filter_string: "source_run_id = 'run-first'", page_token: '1' }),
+    ]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove run-first from Run filter' }));
+    expect(await screen.findByText('3 results')).toBeInTheDocument();
+    expect(screen.queryByText('Run: run-first')).not.toBeInTheDocument();
+    expect(searches[searches.length - 1]).toMatchObject({ name: 'Run', severities: ['high'], statuses: ['pending'] });
+    expect(searches[searches.length - 1]).not.toHaveProperty('filter_string');
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('issueSeverity=high');
+    expect(screen.getByLabelText('Current URL')).not.toHaveTextContent('issueDetectionRun');
+  });
+
+  test('Clear filters removes a lone run filter while keeping title search', async () => {
+    issues[0].source_run_id = 'run-first';
+    renderPage('?issueStatus=all&issueDetectionRun=run-first&issueSearch=response');
+    expect(await screen.findByText('1 result')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Filter issues' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(screen.queryByText('Run: run-first')).not.toBeInTheDocument());
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('issueSearch=response');
+    expect(screen.getByLabelText('Current URL')).not.toHaveTextContent('issueDetectionRun');
+    expect(searches[searches.length - 1]).not.toHaveProperty('filter_string');
+  });
+
+  test('a run that filed no issues shows a filtered zero count', async () => {
+    renderPage('?issueStatus=all&issueDetectionRun=run-empty');
+    expect(await screen.findByText('0 results')).toBeInTheDocument();
+    expect(screen.getByText('Run: run-empty')).toBeInTheDocument();
+    expect(screen.queryByText('No issues detected yet')).not.toBeInTheDocument();
+  });
+
+  test.each(["run' OR source_run_id != 'other", 'run\nother', 'run\n', 'x'.repeat(257)])(
+    'does not interpolate an invalid URL run ID into the issue filter: %s',
+    async (runId) => {
+      renderPage(`?issueDetectionRun=${encodeURIComponent(runId)}`);
+      expect(await screen.findByText('2 results')).toBeInTheDocument();
+      expect(searches.every((body) => !body.filter_string)).toBe(true);
+      expect(screen.queryByText(/^Run: /)).not.toBeInTheDocument();
+    },
+  );
+
   test.each(['network', 'server'])('allows retry when server information fails (%s)', async (failure) => {
     server.use(
       rest.get('*/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) =>

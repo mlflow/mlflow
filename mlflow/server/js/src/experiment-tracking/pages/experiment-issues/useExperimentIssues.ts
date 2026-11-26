@@ -9,6 +9,7 @@ import type { Issue, IssueSeverity, IssueStatus } from '../../components/run-pag
 
 export interface IssueFilters {
   name: string;
+  detectionRunId?: string;
   statuses: IssueStatus[];
   severities: IssueSeverity[];
   categories: string[];
@@ -37,6 +38,7 @@ export const useExperimentIssues = (experimentId: string, filters: IssueFilters)
         body: {
           experiment_id: experimentId,
           name: filters.name,
+          ...(filters.detectionRunId ? { filter_string: `source_run_id = '${filters.detectionRunId}'` } : {}),
           statuses: filters.statuses,
           severities: filters.severities,
           categories: filters.categories,

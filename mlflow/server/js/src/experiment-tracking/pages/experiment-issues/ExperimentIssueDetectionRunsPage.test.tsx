@@ -180,12 +180,12 @@ const manyRuns = (count: number): StoredRun[] =>
  */
 let queryClient: QueryClient;
 
-const renderPage = () => {
+const renderPage = (query = '') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, cacheTime: 0 } } });
   queryClient = client;
   return renderWithDesignSystem(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/experiments/1/issues/runs']}>
+      <MemoryRouter initialEntries={[`/experiments/1/issues/runs${query}`]}>
         <Routes>
           <Route path="/experiments/:experimentId/issues/runs" element={<ExperimentIssueDetectionRunsPage />} />
         </Routes>
@@ -218,6 +218,40 @@ afterEach(() => {
 });
 
 describe('ExperimentIssueDetectionRunsPage', () => {
+  test.each(['FINISHED', 'FAILED', 'KILLED'])(
+    'links a settled %s run’s issue count to that run’s results',
+    async (status) => {
+      storedRuns = [scheduled({ status })];
+      renderPage(
+        '?issueSeverity=high&issueDetectionRun=previous&selectedIssueId=old&selectedEvaluationId=trace&selectedIssueSpanId=span',
+      );
+      const link = await screen.findByRole('link', { name: 'View issues detected by run run-ok' });
+      expect(link).toHaveTextContent('0');
+      const href = new URL(link.getAttribute('href') ?? '', 'http://localhost');
+      expect(href.pathname).toBe('/experiments/1/issues');
+      expect(href.searchParams.getAll('issueDetectionRun')).toEqual(['run-ok']);
+      expect(href.searchParams.get('issueSeverity')).toBe('high');
+      expect(href.searchParams.has('selectedIssueId')).toBe(false);
+      expect(href.searchParams.has('selectedEvaluationId')).toBe(false);
+      expect(href.searchParams.has('selectedIssueSpanId')).toBe(false);
+    },
+  );
+
+  test.each(['RUNNING', 'SCHEDULED', 'UNKNOWN'])('does not link unfinished %s run results', async (status) => {
+    storedRuns = [scheduled({ status })];
+    renderPage();
+    const row = await rowFor('openai:/gpt-5-mini');
+    expect(within(row).queryByRole('link', { name: /View issues detected/ })).not.toBeInTheDocument();
+  });
+
+  test('does not link a count that failed to load', async () => {
+    issueSearchFails = true;
+    renderPage();
+    const row = await rowFor('openai:/gpt-5-mini');
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(within(row).queryByRole('link', { name: /View issues detected/ })).not.toBeInTheDocument();
+  });
+
   test('asks for every detection run, however it was started', async () => {
     renderPage();
 
