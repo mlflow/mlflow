@@ -656,3 +656,60 @@ def test_multiple_user_policies_are_independent():
     assert {w.policy.budget_policy_id for w in exceeded} == {"bp-alice"}
     assert tracker._get_window_info("bp-alice").cumulative_spend == 150.0
     assert tracker._get_window_info("bp-bob").cumulative_spend == 0.0
+
+
+def test_record_cost_skips_untrackable_policy_added_back_by_another_process():
+    from mlflow.gateway.budget_tracker.redis import _policy_key, _policy_set_key, _serialize_policy
+
+    tracker = _make_tracker()
+    bad = _make_policy(
+        budget_policy_id="bp-bad",
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=100_000),
+    )
+    good = _make_policy(
+        budget_policy_id="bp-good",
+        budget_amount=1.0,
+        budget_action=BudgetAction.REJECT,
+        duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=1),
+    )
+    tracker.refresh_policies([bad, good])
+    # A process without the trackability check (e.g. during a rolling upgrade) writes the
+    # bad policy back on its own refresh.
+    tracker._client.hset(_policy_key("bp-bad"), mapping={"data": _serialize_policy(bad)})
+    tracker._client.sadd(_policy_set_key(), "bp-bad")
+
+    tracker.record_cost(0.75)
+    tracker.record_cost(0.75)
+
+    [window] = tracker.get_all_windows()
+    assert window.policy.budget_policy_id == "bp-good"
+    assert window.cumulative_spend == 1.5
+    exceeded, _ = tracker.should_reject_request()
+    assert exceeded is True
+
+
+def test_refresh_policies_skips_policy_whose_window_cannot_be_computed(caplog):
+    from mlflow.gateway.budget_tracker.redis import _policy_set_key
+
+    tracker = _make_tracker()
+    bad = _make_policy(
+        budget_policy_id="bp-bad",
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=100_000),
+    )
+    good = _make_policy(
+        budget_policy_id="bp-good",
+        budget_amount=3.0,
+        budget_action=BudgetAction.REJECT,
+        duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=1),
+    )
+
+    tracker.refresh_policies([bad, good])
+
+    # The bad policy must not reach Redis, or record_cost in any process would compute its window.
+    assert tracker._client.smembers(_policy_set_key()) == {"bp-good"}
+    assert [w.policy.budget_policy_id for w in tracker.get_all_windows()] == ["bp-good"]
+    assert "Not tracking budget policy bp-bad" in caplog.text
+    tracker.record_cost(5.0)
+    exceeded, window = tracker.should_reject_request()
+    assert exceeded is True
+    assert window.policy.budget_policy_id == "bp-good"

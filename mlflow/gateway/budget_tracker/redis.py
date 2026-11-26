@@ -26,6 +26,8 @@ from mlflow.gateway.budget_tracker import (
     _compute_window_end,
     _compute_window_start,
     _policy_applies,
+    _trackable_policies,
+    is_trackable_duration,
 )
 
 _logger = logging.getLogger(__name__)
@@ -270,6 +272,8 @@ class RedisBudgetTracker(BudgetTracker):
 
     def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         now = datetime.now(timezone.utc)
+        # Dropped policies are also removed from Redis below, so no process computes their windows.
+        policies = _trackable_policies(policies, now)
         fresh_windows: list[BudgetWindow] = []
 
         new_policy_ids = {p.budget_policy_id for p in policies}
@@ -326,6 +330,11 @@ class RedisBudgetTracker(BudgetTracker):
                 if not (policy_data := self._client.hget(_policy_key(pid), "data")):
                     continue
                 policy = _deserialize_policy(policy_data)
+                # A process without this check (e.g. one not yet upgraded) can add back a
+                # policy that refresh_policies dropped. Computing its window raises, which
+                # would stop cost recording for every policy.
+                if not is_trackable_duration(policy.duration, now):
+                    continue
 
             if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, username=username):
                 continue

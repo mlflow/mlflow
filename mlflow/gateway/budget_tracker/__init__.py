@@ -6,6 +6,7 @@ The concrete InMemoryBudgetTracker lives in ``budget_tracker.in_memory``.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -23,6 +24,8 @@ from mlflow.environment_variables import (
     MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL,
 )
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+_logger = logging.getLogger(__name__)
 
 _EPOCH = datetime.fromtimestamp(0, tz=timezone.utc)
 # Sunday-aligned epoch for WEEKS windows (Dec 28, 1969 is the Sunday before Jan 1, 1970)
@@ -235,14 +238,42 @@ def _compute_window_end(
     elif duration.unit == BudgetDurationUnit.WEEKS:
         return window_start + timedelta(weeks=duration.value)
     elif duration.unit == BudgetDurationUnit.MONTHS:
-        year = window_start.year
-        month = window_start.month + duration.value
-        while month > 12:
-            month -= 12
-            year += 1
-        return datetime(year, month, 1, tzinfo=timezone.utc)
+        months = window_start.month - 1 + duration.value
+        return datetime(window_start.year + months // 12, months % 12 + 1, 1, tzinfo=timezone.utc)
 
     raise ValueError(f"Unknown duration type: {duration.unit}")
+
+
+def is_trackable_duration(duration: BudgetDuration, now: datetime | None = None) -> bool:
+    """Whether windows of this duration can be computed: they have to end by the year 9999."""
+    now = now or datetime.now(timezone.utc)
+    try:
+        _compute_window_end(duration, _compute_window_start(duration, now))
+    except (OverflowError, ValueError):
+        return False
+    return True
+
+
+def _trackable_policies(
+    policies: list[GatewayBudgetPolicy], now: datetime
+) -> list[GatewayBudgetPolicy]:
+    """Drop the policies whose windows can't be computed.
+
+    Computing such a window raises, so a single policy like this would otherwise make every
+    refresh fail and stop budget tracking for all policies.
+    """
+    trackable = []
+    for policy in policies:
+        if is_trackable_duration(policy.duration, now):
+            trackable.append(policy)
+        else:
+            _logger.warning(
+                "Not tracking budget policy %s: a window of %d %s would end after the year 9999.",
+                policy.budget_policy_id,
+                policy.duration.value,
+                policy.duration.unit.value.lower(),
+            )
+    return trackable
 
 
 def _policy_applies(

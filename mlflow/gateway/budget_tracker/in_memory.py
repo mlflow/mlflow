@@ -13,6 +13,7 @@ from mlflow.gateway.budget_tracker import (
     _compute_window_end,
     _compute_window_start,
     _policy_applies,
+    _trackable_policies,
 )
 
 
@@ -41,6 +42,7 @@ class InMemoryBudgetTracker(BudgetTracker):
             refresh interval.
         """
         now = datetime.now(timezone.utc)
+        policies = _trackable_policies(policies, now)
         active_windows: dict[str, BudgetWindow] = {}
 
         with self._lock:
