@@ -9300,6 +9300,28 @@ def test_archive_traces_chunks_large_experiment_groups_and_keeps_oldest_candidat
     )
 
 
+def test_archival_candidates_break_timestamp_ties_across_experiment_chunks(
+    store: SqlAlchemyStore, monkeypatch
+):
+    monkeypatch.setattr(sqlalchemy_store_module, "_TRACE_ARCHIVAL_EXPERIMENT_ID_CHUNK_SIZE", 2)
+    experiment_ids = []
+    # The first chunk fills the limit with b and c. The second chunk must displace c with a.
+    for trace_id in ("tr-c", "tr-b", "tr-a"):
+        experiment_id = store.create_experiment(f"experiment-{trace_id}")
+        store.log_spans(experiment_id, [create_test_span(trace_id, start_ns=1_000_000_000)])
+        experiment_ids.append(experiment_id)
+
+    with store.ManagedSessionMaker() as session:
+        candidates = store._find_archivable_trace_candidates_for_experiments(
+            session=session,
+            experiment_ids=experiment_ids,
+            max_timestamp_millis=1000,
+            limit=2,
+        )
+
+    assert [candidate.trace_id for candidate in candidates] == ["tr-a", "tr-b"]
+
+
 def test_archive_traces_keeps_regular_pass_when_archive_now_is_narrower(
     store: SqlAlchemyStore,
 ):
