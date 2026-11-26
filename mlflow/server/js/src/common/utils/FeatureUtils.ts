@@ -209,7 +209,19 @@ export const shouldEnableExperimentOverviewTab = (hasV4Location?: boolean) => {
   return true;
 };
 
-export const shouldEnableExperimentIssuesTab = () => false;
+/**
+ * Enables the experiment Settings page (`/experiments/:experimentId/settings`) and its entry point,
+ * the Settings item in the experiment's ⋯ menu. Return false to hide both.
+ */
+export const shouldEnableExperimentSettingsPage = () => {
+  return true;
+};
+
+/**
+ * On by default; the per-server gates live elsewhere -- the side nav requires a SQL backend store,
+ * and `shouldEnableIssueDetection` requires AI Gateway.
+ */
+export const shouldEnableExperimentIssuesTab = () => true;
 
 /**
  * Determines if the top-level nested sidebar feature is enabled.
@@ -232,7 +244,7 @@ export const shouldEnableImprovedEvalRunsComparison = () => {
  * group averages, the dataset version column and the restyled dataset cell.
  */
 export const shouldEnableNewEvalRunsUi = () => {
-  return false;
+  return true;
 };
 
 export const isScorerModelSelectionEnabled = () => {
@@ -245,7 +257,9 @@ export const isScorerModelSelectionEnabled = () => {
  * Gateway until those dependencies are decoupled.
  */
 export const shouldEnableIssueDetection = () => {
-  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY);
+  // Also requires the Issues tab: it is the only place a detection run's findings are shown, so
+  // offering detection without it would start work whose results have nowhere to land.
+  return getFeatureEnabledSync(SERVER_FEATURE_KEYS.GATEWAY) && shouldEnableExperimentIssuesTab();
 };
 
 /**

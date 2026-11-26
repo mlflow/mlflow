@@ -1,7 +1,9 @@
 # Define all the service endpoint handlers here.
+import hashlib
 import io
 import json
 import logging
+import ntpath
 import os
 import pathlib
 import posixpath
@@ -19,7 +21,16 @@ from zlib import adler32
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import (
+    Request,
+    Response,
+    current_app,
+    g,
+    has_request_context,
+    jsonify,
+    request,
+    send_file,
+)
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.exceptions import RequestedRangeNotSatisfiable
@@ -85,6 +96,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     MLFLOW_SERVER_INFO_TRACKING_AUTH,
 )
 from mlflow.exceptions import (
@@ -101,6 +113,14 @@ from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.genai.discovery.checkpoint import MAX_SCHEDULED_SESSION_SAMPLE_SIZE
+from mlflow.genai.discovery.constants import SAMPLE_POOL_MULTIPLIER
+from mlflow.genai.discovery.schedule import (
+    ScheduleModel,
+    read_detection_schedule,
+    scheduled_detection_available,
+)
+from mlflow.genai.discovery.settings import read_detection_settings
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
@@ -111,12 +131,14 @@ from mlflow.genai.scorers.scorer_utils import (
     find_custom_scorer_without_source,
 )
 from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
+from mlflow.metrics.genai.model_utils import _parse_model_uri as _parse_llm_model_uri
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_TAG_KEY,
 )
+from mlflow.prompt.registry_utils import validate_prompt_version_tag_key_is_mutable
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -131,7 +153,9 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
+    DetectIssues,
     GetIssue,
+    IssueDetectionRun,
     SearchIssues,
     UpdateIssue,
 )
@@ -337,6 +361,12 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server._request_keys import (
+    SCOPED_EXPERIMENT_FILTER,
+    SCOPED_EXPERIMENT_IDS,
+    SCOPED_REGISTERED_MODEL_FILTER,
+)
+from mlflow.server._search_limits import translate_scoped_search_limits
 from mlflow.server.artifact_transfer import (
     reject_proxied_artifact_download,
     reject_proxied_artifact_upload,
@@ -403,8 +433,11 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.issue_utils import validate_issue_fields
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
+    MLFLOW_ISSUE_DETECTION_ERROR,
+    MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_GENAI_EVALUATE,
@@ -419,7 +452,10 @@ from mlflow.utils.providers import (
     get_all_providers,
     get_models,
     get_provider_config_response,
+    has_env_credentials,
+    provider_credential_env_vars,
 )
+from mlflow.utils.search_utils import SearchTraceUtils
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
@@ -453,6 +489,7 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_gateway_secret_auth_config,
     _validate_gateway_secret_value,
+    _validate_judge_inference_params,
     _validate_third_party_scorer_data,
     _validate_trace_archival_location,
     _validate_trace_archival_retention_string,
@@ -646,26 +683,32 @@ def _get_trace_archive_repo(trace_info: TraceInfo):
     return _get_trace_repo_from_uri(get_archive_uri_for_trace(trace_info))
 
 
+def _get_servable_proxied_artifact_repo(artifact_uri: str) -> ArtifactRepository:
+    """Build the repository for a proxied location this server serves, under its destination."""
+    from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
+
+    root = os.environ.get(ARTIFACTS_DESTINATION_ENV_VAR)
+    if not root:
+        raise MlflowException(
+            f"Cannot resolve the proxied artifact URI {artifact_uri}: this server serves "
+            f"artifacts but {ARTIFACTS_DESTINATION_ENV_VAR} is unset."
+        )
+    path = _get_proxied_run_artifact_destination_path(artifact_uri)
+    return get_artifact_repository(posixpath.join(root, path))
+
+
 def _get_trace_repo_from_uri(artifact_uri: str):
     if _is_servable_proxied_run_artifact_root(artifact_uri):
         # If the artifact location is a proxied run artifact root (e.g. mlflow-artifacts://...),
         # we need to resolve it to the actual artifact location.
-        from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR
-
-        path = _get_proxied_run_artifact_destination_path(artifact_uri)
-        if not path:
+        if not _get_proxied_run_artifact_destination_path(artifact_uri):
             raise MlflowException(
-                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. ",
+                f"Failed to resolve the proxied run artifact URI: {artifact_uri}. "
                 "Trace artifact URI must contain subpath to the trace data directory.",
                 error_code=BAD_REQUEST,
             )
-        root = os.environ[ARTIFACTS_DESTINATION_ENV_VAR]
-        artifact_uri = posixpath.join(root, path)
-
-        # We don't set it to global var unlike run artifact, because the artifact repo has
-        # to be created with full trace artifact URI including request_id.
-        # e.g. s3://<experiment_id>/traces/<request_id>
-        artifact_repo = get_artifact_repository(artifact_uri)
+        # Not cached like the run artifact repo: the URI includes the trace's request_id.
+        artifact_repo = _get_servable_proxied_artifact_repo(artifact_uri)
     else:
         artifact_repo = _get_artifact_repository_for_uri(artifact_uri)
     return artifact_repo
@@ -989,6 +1032,15 @@ def _assert_less_than_or_equal(x, max_value, message=None):
         raise AssertionError(message) if message else AssertionError()
 
 
+def _validate_max_results_within_threshold(max_results: int) -> None:
+    # Validate the parsed field rather than the raw request JSON so that the `maxResults`
+    # alias accepted by protobuf can't bypass the check. Zero means "use the default".
+    if not 0 <= max_results <= SEARCH_MAX_RESULTS_THRESHOLD:
+        raise MlflowException.invalid_parameter_value(
+            f"max_results must be between 0 and {SEARCH_MAX_RESULTS_THRESHOLD}."
+        )
+
+
 def _assert_intlike_within_range(x, min_value, max_value, message=None):
     if not min_value <= x <= max_value:
         raise AssertionError(message) if message else AssertionError()
@@ -1167,7 +1219,7 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
     JSON body for POST) to distinguish the two cases.
     """
     try:
-        if request.method == "GET":
+        if request.method == "GET" and request.args:
             return field.name in request.args
         request_json = _get_normalized_request_json()
         return field.name in request_json or field.json_name in request_json
@@ -1175,7 +1227,21 @@ def _raw_request_has_field(field: descriptor.FieldDescriptor) -> bool:
         return False
 
 
-def _get_request_message(request_message, flask_request=request, schema=None):
+def _get_scoped_experiment_ids() -> list[str] | None:
+    return getattr(g, SCOPED_EXPERIMENT_IDS, None) if has_request_context() else None
+
+
+def _get_scoped_experiment_filter() -> str | None:
+    return getattr(g, SCOPED_EXPERIMENT_FILTER, None) if has_request_context() else None
+
+
+def _get_scoped_registered_model_filter() -> str | None:
+    return getattr(g, SCOPED_REGISTERED_MODEL_FILTER, None) if has_request_context() else None
+
+
+def _get_request_message(
+    request_message, flask_request=request, schema=None, *, raise_on_parse_error=False
+):
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
@@ -1210,12 +1276,19 @@ def _get_request_message(request_message, flask_request=request, schema=None):
 
     _reject_conflicting_field_aliases(request_json, request_message.DESCRIPTOR)
     proto_parsing_succeeded = True
+    parse_error = None
     try:
         parse_dict(request_json, request_message)
-    except ParseError:
+    except ParseError as e:
         proto_parsing_succeeded = False
+        parse_error = e
 
     _validate_request_json_with_schema(request_json, schema, proto_parsing_succeeded)
+    # Auth scopers must reject partial messages before rewriting authorization fields.
+    if raise_on_parse_error and parse_error is not None:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid request: {parse_error}"
+        ) from parse_error
 
     return request_message
 
@@ -1481,25 +1554,22 @@ def _disable_if_gateway_disabled(func):
     return wrapper
 
 
+def _workspace_not_supported(message: str) -> MlflowException:
+    return MlflowException(message, FEATURE_DISABLED)
+
+
 def _disable_if_workspaces_disabled(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if not MLFLOW_ENABLE_WORKSPACES.get():
-            return Response(
-                (
-                    f"Endpoint: {request.url_rule} disabled because the server is running "
-                    "without workspaces support. To enable workspace, run "
-                    "`mlflow server` with `--enable-workspaces`"
-                ),
-                503,
+            raise _workspace_not_supported(
+                f"Endpoint: {request.url_rule} disabled because the server is running "
+                "without workspaces support. To enable workspace, run "
+                "`mlflow server` with `--enable-workspaces`"
             )
         return func(*args, **kwargs)
 
     return wrapper
-
-
-def _workspace_not_supported(message: str) -> MlflowException:
-    return MlflowException(message, FEATURE_DISABLED)
 
 
 def _validate_artifact_uri_scheme(uri: str, field_name: str) -> None:
@@ -2720,10 +2790,10 @@ def create_promptlab_run_handler():
 @_disable_if_artifacts_presigned_only(upload=True)
 def upload_artifact_handler():
     args = request.args
-    run_uuid = args.get("run_uuid")
-    if not run_uuid:
+    run_id = args.get("run_id") or args.get("run_uuid")
+    if not run_id:
         raise MlflowException(
-            message="Request must specify run_uuid.",
+            message="Request must specify run_id or run_uuid.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     path = args.get("path")
@@ -2753,7 +2823,7 @@ def upload_artifact_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    run = _get_tracking_store().get_run(run_uuid)
+    run = _get_tracking_store().get_run(run_id)
     artifact_dir = run.info.artifact_uri
 
     basename = posixpath.basename(path)
@@ -2804,13 +2874,14 @@ def _search_experiments():
         },
     )
 
-    experiment_entities = _get_tracking_store().search_experiments(
-        view_type=request_message.view_type,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        filter_string=request_message.filter,
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_experiment_filter() is not None):
+        experiment_entities = _get_tracking_store().search_experiments(
+            view_type=request_message.view_type,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            filter_string=request_message.filter,
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
     if experiment_entities.token:
@@ -2825,11 +2896,16 @@ def _get_artifact_repo(run):
 
 
 _HANDLER_BLOCKED_TRACE_TAGS = frozenset({
+    MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_TRACE_SPANS_LOCATION,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
 })
 _HANDLER_TRACE_TAGS_MUTABLE_ON_DELETE = frozenset({MLFLOW_TRACE_ARCHIVAL_FAILURE})
+
+
+def _drop_blocked_trace_tags(tags: dict[str, str]) -> dict[str, str]:
+    return {key: value for key, value in tags.items() if key not in _HANDLER_BLOCKED_TRACE_TAGS}
 
 
 def _validate_trace_tag_handler_mutation(key: str, operation: str) -> None:
@@ -3061,12 +3137,13 @@ def _search_registered_models():
         },
     )
     store = _get_model_registry_store()
-    registered_models = store.search_registered_models(
-        filter_string=request_message.filter,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        page_token=request_message.page_token or None,
-    )
+    with translate_scoped_search_limits(_get_scoped_registered_model_filter() is not None):
+        registered_models = store.search_registered_models(
+            filter_string=request_message.filter,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchRegisteredModels.Response()
     response_message.registered_models.extend([e.to_proto() for e in registered_models])
     if registered_models.token:
@@ -3692,9 +3769,12 @@ def _set_model_version_tag():
     )
     tag = ModelVersionTag(key=request_message.key, value=request_message.value)
     store = _get_model_registry_store()
+    is_prompt = _is_prompt(request_message.name)
+    if is_prompt:
+        validate_prompt_version_tag_key_is_mutable(request_message.key)
     store.set_model_version_tag(name=request_message.name, version=request_message.version, tag=tag)
 
-    if _is_prompt(request_message.name):
+    if is_prompt:
         # Send prompt version tag set webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.SET),
@@ -3734,13 +3814,16 @@ def _delete_model_version_tag():
         },
     )
     store = _get_model_registry_store()
+    is_prompt = _is_prompt(request_message.name)
+    if is_prompt:
+        validate_prompt_version_tag_key_is_mutable(request_message.key)
     store.delete_model_version_tag(
         name=request_message.name,
         version=request_message.version,
         key=request_message.key,
     )
 
-    if _is_prompt(request_message.name):
+    if is_prompt:
         # Send prompt version tag deleted webhook
         deliver_webhook(
             event=WebhookEvent(WebhookEntity.PROMPT_VERSION_TAG, WebhookAction.DELETED),
@@ -4021,13 +4104,15 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
         # so root operations continue to see the existing layout.
         return base if workspace != DEFAULT_WORKSPACE_NAME else artifact_path
 
-    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.startswith("workspaces/"):
+    # Case-insensitive because a case-insensitive local store serves ``WORKSPACES/`` as
+    # ``workspaces/``.
+    if workspace == DEFAULT_WORKSPACE_NAME and not normalized.lower().startswith("workspaces/"):
         # Legacy default-workspace artifacts never had the workspace prefix; allow them to be served
         # without rewriting as long as the path isn't trying to opt into the reserved namespace.
         return artifact_path
 
     leading_segments = normalized.split("/", 2)
-    if leading_segments and leading_segments[0] == "workspaces":
+    if leading_segments and leading_segments[0].lower() == "workspaces":
         if len(leading_segments) == 1 or not leading_segments[1]:
             raise MlflowException.invalid_parameter_value(
                 "Artifact paths prefixed with 'workspaces/' must include a workspace name."
@@ -4155,11 +4240,13 @@ def _get_graphql_auth_middleware():
     """
     try:
         from mlflow.server.auth import get_graphql_authorization_middleware
-
-        return get_graphql_authorization_middleware()
     except Exception:
-        # Auth not configured or other error
+        # The basic-auth app imports this module, so it cannot be running if the import fails.
         return []
+
+    # Errors here must propagate: returning no middleware while auth is enabled would skip
+    # authorization for every GraphQL field.
+    return get_graphql_authorization_middleware()
 
 
 @catch_mlflow_exception
@@ -4332,6 +4419,23 @@ def _create_presigned_download_url():
     return resp
 
 
+def _get_multipart_upload_file_name(path: str) -> str:
+    # The `path` field carries the name of the file being uploaded. Clients before 3.18 sent
+    # their local file path, which may be absolute or a Windows path, and artifact repositories
+    # only use its basename. `ntpath.basename` splits on both "/" and "\\" so those clients keep
+    # working; a backslash inside a POSIX file name is treated as a separator as a result.
+    # `validate_path_is_safe` percent-decodes, so take the basename again on its result to drop
+    # separators that arrived encoded. That second basename can itself produce `..` (for example
+    # from `src%5C..` or `C%3A..` on a POSIX server, where a backslash or drive colon is not a
+    # separator for the validator), so check the final name too.
+    file_name = ntpath.basename(path)
+    if file_name:
+        file_name = ntpath.basename(validate_path_is_safe(file_name))
+    if file_name in ("", ".", ".."):
+        raise MlflowException("Invalid path", error_code=INVALID_PARAMETER_VALUE)
+    return file_name
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -4350,7 +4454,7 @@ def _create_multipart_upload_artifact(artifact_path):
             "num_parts": [_assert_intlike],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     num_parts = request_message.num_parts
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
@@ -4387,7 +4491,7 @@ def _complete_multipart_upload_artifact(artifact_path):
             "parts": [_assert_required],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
@@ -4422,7 +4526,7 @@ def _abort_multipart_upload_artifact(artifact_path):
             "upload_id": [_assert_string],
         },
     )
-    path = validate_path_is_safe(request_message.path)
+    path = _get_multipart_upload_file_name(request_message.path)
     upload_id = request_message.upload_id
     _reject_skill_artifact_mutation(posixpath.join(artifact_path, path))
 
@@ -4486,6 +4590,9 @@ def _start_trace_v3():
         schema={"trace": [_assert_required]},
     )
     trace_info = TraceInfo.from_proto(request_message.trace.trace_info)
+    # Trace tags such as the artifact location are system-managed, so drop blocked tags from
+    # client requests the same way the V2 end-trace handler does.
+    trace_info.tags = _drop_blocked_trace_tags(trace_info.tags)
     trace_info = _get_tracking_store().start_trace(trace_info)
     response_message = StartTraceV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
     return _wrap_trace_info_response(response_message)
@@ -4521,11 +4628,12 @@ def _batch_get_traces() -> Response:
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
     if has_experiment_ids:
-        traces = store.batch_get_traces(
-            request_message.trace_ids,
-            None,
-            experiment_ids=list(request_message.experiment_ids),
-        )
+        with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+            traces = store.batch_get_traces(
+                request_message.trace_ids,
+                None,
+                experiment_ids=list(request_message.experiment_ids),
+            )
     else:
         traces = store.batch_get_traces(request_message.trace_ids, None)
     response_message = BatchGetTraces.Response()
@@ -4547,9 +4655,11 @@ def _batch_get_trace_infos() -> Response:
     experiment_ids_field = request_message.DESCRIPTOR.fields_by_name["experiment_ids"]
     has_experiment_ids = _raw_request_has_field(experiment_ids_field)
     if has_experiment_ids:
-        trace_infos = store.batch_get_trace_infos(
-            request_message.trace_ids, experiment_ids=list(request_message.experiment_ids)
-        )
+        with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+            trace_infos = store.batch_get_trace_infos(
+                request_message.trace_ids,
+                experiment_ids=list(request_message.experiment_ids),
+            )
     else:
         trace_infos = store.batch_get_trace_infos(request_message.trace_ids)
     response_message = BatchGetTraceInfos.Response()
@@ -5407,7 +5517,7 @@ def _review_queue_max_results_validator(x):
 def _get_request_username():
     """The authenticated request user, stamped on ``flask.g`` by the auth
     plugin's before-request hook. ``None`` when no auth plugin is active (a
-    no-auth server), where queue ownership is meaningless.
+    no-auth server).
     """
     return getattr(g, "mlflow_authenticated_user", None)
 
@@ -5661,13 +5771,14 @@ def _set_review_queue_item_status():
 
 def _validate_trace_ids_in_experiment(
     tracking_store: AbstractTrackingStore, trace_ids: list[str], experiment_id: str
-) -> None:
+) -> list[TraceInfo]:
     """
     Reject the request if any requested trace that exists belongs to an experiment other
     than ``experiment_id``. The route validators only check the caller's permission on the
     request's ``experiment_id``, so this binds the caller-supplied ``trace_ids`` to that
     authorized experiment. Missing traces are not rejected here; they are left to fail
-    downstream in the job, which preserves the existing contract for missing traces.
+    downstream in the job, which preserves the existing contract for missing traces. Returns
+    the requested traces that exist, for a caller that rejects missing ones itself.
     """
     try:
         # Deliberately not scoped with `experiment_ids`: scoping would hide foreign traces and
@@ -5692,6 +5803,7 @@ def _validate_trace_ids_in_experiment(
                 "Not all requested traces could be accessed.",
                 error_code=PERMISSION_DENIED,
             )
+    return trace_infos
 
 
 @catch_mlflow_exception
@@ -5700,7 +5812,9 @@ def _invoke_issue_detection_handler():
     """
     Invoke issue detection on traces asynchronously.
 
-    This is a UI-only AJAX endpoint for running issue detection from the frontend.
+    This is a UI-only AJAX endpoint for running issue detection from the frontend. The run it
+    starts can overlap the experiment's other detection runs, ad-hoc or scheduled, as on
+    Databricks.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials, invoke_issue_detection_job
     from mlflow.server.jobs import submit_job
@@ -5712,6 +5826,7 @@ def _invoke_issue_detection_handler():
             "experiment_id": [_assert_required, _assert_string],
             "trace_ids": [_assert_required, _assert_array, _assert_item_type_string],
             "categories": [_assert_required, _assert_array],
+            "instructions": [_assert_string],
             "provider": [_assert_required, _assert_string],
             "model": [_assert_string],
             "secret_id": [_assert_string],
@@ -5723,6 +5838,7 @@ def _invoke_issue_detection_handler():
     # Deduplicate while preserving order so a repeated trace_id is not fetched or analyzed twice.
     trace_ids = list(dict.fromkeys(request_json.get("trace_ids", [])))
     categories = request_json.get("categories", [])
+    instructions = request_json.get("instructions")
     provider = request_json.get("provider")
     model = request_json.get("model")
     secret_id = request_json.get("secret_id")
@@ -5741,26 +5857,7 @@ def _invoke_issue_detection_handler():
 
     # Fail fast when no credential source exists, instead of submitting a job doomed to fail
     if not endpoint_name and not secret_id:
-        from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
-
-        env_config = _CORE_PROVIDER_ENV_VARS.get(provider_name)
-        if not env_config:
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported provider '{provider}'. Choose a supported provider or "
-                "AI Gateway endpoint."
-            )
-        if isinstance(env_config, dict):
-            env_vars = (
-                [env_config["api_key"]] if "api_key" in env_config else list(env_config.values())
-            )
-        else:
-            env_vars = [env_config]
-        if not any(os.environ.get(env_var) for env_var in env_vars):
-            env_var_hint = env_vars[0] if len(env_vars) == 1 else f"one of {', '.join(env_vars)}"
-            raise MlflowException.invalid_parameter_value(
-                f"No API key available for provider '{provider}'. Save an API key in "
-                f"AI Gateway, or set {env_var_hint} on the MLflow server."
-            )
+        _require_server_provider_credentials(provider)
 
     store = _get_tracking_store()
     _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
@@ -5795,6 +5892,8 @@ def _invoke_issue_detection_handler():
             "categories": categories,
             "run_id": run_id,
             "model": model_name,
+            "instructions": instructions,
+            "username": _get_request_username(),
         },
         extra_envs=credentials,
     )
@@ -5805,6 +5904,364 @@ def _invoke_issue_detection_handler():
     return jsonify({"job_id": job.job_id, "run_id": run_id})
 
 
+def _require_server_provider_credentials(provider: str) -> None:
+    """
+    Fail unless the MLflow server holds an API key for ``provider`` in its environment.
+
+    For a detection run with no stored secret and no gateway endpoint, the server's own
+    environment is the only credential source; checking it up front fails the request instead
+    of submitting a job doomed to fail.
+    """
+    provider_name = provider.lower()
+    env_vars = provider_credential_env_vars(provider_name)
+    if not env_vars:
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported provider '{provider}'. Choose a supported provider or "
+            "AI Gateway endpoint."
+        )
+    if not has_env_credentials(provider_name):
+        env_var_hint = env_vars[0] if len(env_vars) == 1 else f"one of {', '.join(env_vars)}"
+        raise MlflowException.invalid_parameter_value(
+            f"No API key available for provider '{provider}'. Save an API key in "
+            f"AI Gateway, or set {env_var_hint} on the MLflow server."
+        )
+
+
+# The `flask.g` attribute carrying the detection schedule model the auth plugin checked.
+_AUTHORIZED_DETECTION_MODEL_ATTR = "mlflow_issue_detection_authorized_model"
+
+
+def _remember_authorized_detection_model(
+    experiment_id: str, saved_model: ScheduleModel | None
+) -> None:
+    """
+    Record the schedule model the auth plugin checked for this request's DetectIssues.
+
+    The handler reads the experiment again after authorization, and a schedule edit in between
+    could swap in a secret the caller was never checked for. Recording what was checked lets the
+    handler run on exactly that.
+    """
+    setattr(g, _AUTHORIZED_DETECTION_MODEL_ATTR, (experiment_id, saved_model))
+
+
+def _saved_detection_model(experiment) -> ScheduleModel | None:
+    """
+    The schedule model a DetectIssues run without an explicit ``model`` uses.
+
+    That is the one the auth plugin checked, when it checked one for this experiment. Otherwise,
+    on a server without authentication or for an admin, whom it doesn't check, it's read from the
+    experiment.
+    """
+    authorized = getattr(g, _AUTHORIZED_DETECTION_MODEL_ATTR, None)
+    if authorized is not None and authorized[0] == experiment.experiment_id:
+        return authorized[1]
+    schedule = read_detection_schedule(experiment)
+    return schedule.model if schedule is not None else None
+
+
+def _resolve_issue_detection_model(
+    store, experiment, model: str | None
+) -> tuple[str, dict[str, str] | None]:
+    """
+    The model URI a DetectIssues run analyzes with, and the credentials its job needs.
+
+    An explicit ``model`` runs on the server's own keys or, for ``gateway:/<endpoint>``, on the
+    endpoint's. Without one, the run uses the model saved in the experiment's detection schedule,
+    including the stored secret a direct provider selection records, so a caller can run
+    detection the way the experiment is configured. The auth plugin requires USE on that secret,
+    and the run uses the schedule model it checked.
+    """
+    from mlflow.genai.discovery.job import _fetch_provider_credentials
+
+    if model:
+        provider, model_name = _parse_llm_model_uri(model)
+        provider = provider.lower()
+        if provider != "gateway":
+            _require_server_provider_credentials(provider)
+        # Rebuilt with the provider lowercased, as `issues/invoke` does, so the run's tag and its
+        # job see the same URI however the caller cased it.
+        return f"{provider}:/{model_name}", None
+
+    saved = _saved_detection_model(experiment)
+    if saved is None:
+        raise MlflowException.invalid_parameter_value(
+            "Specify `model`, or save a model in the experiment's issue detection schedule."
+        )
+    if saved.endpoint_name:
+        return saved.to_model_uri(), None
+    if saved.secret_id:
+        credentials = _fetch_provider_credentials(store, saved.provider.lower(), saved.secret_id)
+        return saved.to_model_uri(), credentials
+    _require_server_provider_credentials(saved.provider)
+    return saved.to_model_uri(), None
+
+
+# The most trace IDs a DetectIssues request can name: as many traces as a filtered run fetches to
+# sample from, so a run never reads more traces one way than the other.
+_MAX_DETECTION_TRACE_IDS = MAX_SCHEDULED_SESSION_SAMPLE_SIZE * SAMPLE_POOL_MULTIPLIER
+
+_MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH = 64
+
+_DETECTION_STATUS_BY_RUN_STATUS = {
+    "SCHEDULED": "running",
+    "RUNNING": "running",
+    "FINISHED": "succeeded",
+    "FAILED": "failed",
+    "KILLED": "canceled",
+}
+
+
+def _validate_detection_idempotency_token(token: str) -> None:
+    if len(token) > _MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"`idempotency_token` can be at most {_MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH} "
+            f"characters, got {len(token)}."
+        )
+    if any(unicodedata.category(char) == "Cc" for char in token):
+        raise MlflowException.invalid_parameter_value(
+            "`idempotency_token` must not contain control characters."
+        )
+
+
+def _detection_idempotency_key(token: str) -> str:
+    """
+    The run tag value a DetectIssues request with ``token`` is found by. It includes the caller,
+    so another user's request with the same token starts its own run rather than getting this one.
+    """
+    caller = _get_request_username() or ""
+    return hashlib.sha256(f"{caller}\0{token}".encode()).hexdigest()
+
+
+def _find_detection_run_by_idempotency_key(store, experiment_id: str, key: str):
+    """The experiment's active detection run an earlier request with ``key`` started, if any."""
+    runs = store.search_runs(
+        experiment_ids=[experiment_id],
+        filter_string=f"tags.`{MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY}` = '{key}'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=1,
+        order_by=["attributes.start_time ASC"],
+    )
+    for run in runs:
+        if run.data.tags.get(MLFLOW_RUN_TYPE) == MLFLOW_RUN_TYPE_ISSUE_DETECTION:
+            return run
+    return None
+
+
+def _detection_run_from_run(run) -> IssueDetectionRun:
+    proto = IssueDetectionRun(
+        run_id=run.info.run_id,
+        experiment_id=run.info.experiment_id,
+        status=_DETECTION_STATUS_BY_RUN_STATUS.get(run.info.status, "running"),
+        start_time=run.info.start_time,
+    )
+    if run.info.end_time:
+        proto.end_time = run.info.end_time
+    if run.info.status == "FAILED" and (error := run.data.tags.get(MLFLOW_ISSUE_DETECTION_ERROR)):
+        proto.error_message = error
+    return proto
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _detect_issues():
+    """
+    A request handler for `POST /mlflow/issues/detect` to start an issue detection run.
+
+    The public counterpart of the Issues tab's ``issues/invoke``. It takes either the traces the
+    caller picked or a trace filter whose matching traces the run samples, and it analyzes them
+    with the categories and instructions saved on the experiment. Like ``issues/invoke``, it
+    starts a run while others of the experiment's runs are in progress, ad-hoc or scheduled, as
+    on Databricks, so callers can run detection over different traces at once. Runs that overlap
+    can refresh the same issues, and, since neither sees the issues the other files, can each
+    file one for the same finding: cross-run matching is best effort. A request with the
+    ``idempotency_token`` of an earlier one from the same caller returns the run that request
+    started.
+    """
+    from mlflow.genai.discovery.job import _record_failure, invoke_issue_detection_job
+    from mlflow.server.jobs import submit_job
+
+    request_message = _get_request_message(
+        DetectIssues(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "filter_string": [_assert_string],
+            "model": [_assert_string],
+            "trace_ids": [_assert_array, _assert_item_type_string],
+            "idempotency_token": [_assert_string],
+        },
+    )
+    experiment_id = request_message.experiment_id
+    if idempotency_token := request_message.idempotency_token:
+        _validate_detection_idempotency_token(idempotency_token)
+    filter_string = request_message.filter_string or None
+    # Deduplicated while preserving order so a repeated trace is not fetched or analyzed twice.
+    trace_ids = list(dict.fromkeys(request_message.trace_ids))
+    if filter_string and trace_ids:
+        raise MlflowException.invalid_parameter_value(
+            "Set at most one of `filter_string` and `trace_ids`."
+        )
+    if len(trace_ids) > _MAX_DETECTION_TRACE_IDS:
+        raise MlflowException.invalid_parameter_value(
+            f"`trace_ids` can name at most {_MAX_DETECTION_TRACE_IDS} traces, got {len(trace_ids)}."
+        )
+    if filter_string:
+        # Parsed here so a malformed filter fails the request rather than the run.
+        SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    # Checked before the run exists: submit_job refuses too, but only after the run would have
+    # been created, leaving a RUNNING detection run that blocks the experiment until it times out.
+    if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        raise MlflowException(
+            "Issue detection needs job execution, which is disabled on this MLflow server. Set "
+            f"the environment variable '{MLFLOW_SERVER_ENABLE_JOB_EXECUTION.name}' to 'true' to "
+            "enable it.",
+            error_code=FEATURE_DISABLED,
+        )
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment(experiment_id)
+    idempotency_key = _detection_idempotency_key(idempotency_token) if idempotency_token else None
+    # Best effort: two requests with the same token that arrive together can both start a run.
+    if idempotency_key and (
+        started := _find_detection_run_by_idempotency_key(store, experiment_id, idempotency_key)
+    ):
+        response_message = DetectIssues.Response(
+            issue_detection_run=_detection_run_from_run(started)
+        )
+        return _wrap_response(response_message)
+    if trace_ids:
+        found = {
+            info.trace_id
+            for info in _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
+        }
+        # Rejected here rather than left to fail the job, so a mistyped ID doesn't start a run.
+        if missing := [trace_id for trace_id in trace_ids if trace_id not in found]:
+            shown = ", ".join(missing[:10]) + (", ..." if len(missing) > 10 else "")
+            raise MlflowException.invalid_parameter_value(
+                f"{len(missing)} of `trace_ids` not found in experiment {experiment_id}: {shown}"
+            )
+    model, credentials = _resolve_issue_detection_model(
+        store, experiment, request_message.model or None
+    )
+
+    settings = read_detection_settings(experiment)
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        "categories": ",".join(settings.categories),
+        "model": model,
+    }
+    if model.startswith("gateway:/"):
+        tags["endpoint_name"] = model.removeprefix("gateway:/")
+    if trace_ids:
+        # A sampled run records its count once the job has sampled.
+        tags["total_traces"] = str(len(trace_ids))
+    if idempotency_key:
+        tags[MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY] = idempotency_key
+    client = MlflowClient()
+    run = client.create_run(experiment_id=experiment_id, tags=tags)
+    run_id = run.info.run_id
+    try:
+        job = submit_job(
+            function=invoke_issue_detection_job,
+            params={
+                "experiment_id": experiment_id,
+                # None, rather than empty, has the job sample the traces matching the filter.
+                "trace_ids": trace_ids or None,
+                "categories": list(settings.categories),
+                "run_id": run_id,
+                "model": model,
+                "instructions": settings.instructions,
+                "username": _get_request_username(),
+                "filter_string": filter_string,
+            },
+            extra_envs=credentials,
+        )
+    except Exception as error:
+        # A run left RUNNING with no job would never end, so it is failed with the reason.
+        _record_failure(client, run_id, error)
+        raise
+    # Best effort, and outside the block above: the job is already queued and ends the run itself,
+    # so a failed tag write must not mark the run FAILED under a job that may still succeed.
+    try:
+        client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_JOB_ID, job.job_id)
+    except Exception:
+        _logger.warning(
+            "Could not record job %s on issue detection run %s", job.job_id, run_id, exc_info=True
+        )
+
+    response_message = DetectIssues.Response(
+        issue_detection_run=IssueDetectionRun(
+            run_id=run_id,
+            experiment_id=experiment_id,
+            status="running",
+            start_time=run.info.start_time,
+        )
+    )
+    return _wrap_response(response_message)
+
+
+def _sync_issue_detection_schedule_state_handler():
+    """
+    Bring a schedule's dispatch state in line with the schedule that is now stored, and answer
+    with when it next runs.
+
+    The dialog calls this straight after writing the schedule tags. Those writes go through the
+    generic tag endpoint, so nothing on the server knows a schedule was just saved -- the next
+    fire time was worked out only by the following dispatcher pass, up to a quarter of an hour
+    later, which is precisely the time the owner spends wanting to be told what they just
+    scheduled. The arithmetic was always available; nobody was asking for it.
+
+    It applies the dispatcher's own reasoning and adds none of its own: adopt the timing when the
+    state recorded none, re-anchor when it has changed, leave both alone when it has not. The
+    re-anchor is **exact here** -- this request is the moment of the edit, where a pass can only
+    bound it by the previous pass.
+
+    Dispatching is left to the dispatcher. A save says when a run should happen, not that one
+    should happen now, and a UI-triggered occurrence is not something anybody asked for.
+
+    Best-effort by design, and the client treats it as such: a failure, an older server without
+    this route, or an authorization refusal all leave the state exactly as the dispatcher would
+    have found it, and the next pass still corrects it.
+    """
+    from mlflow.genai.discovery.schedule import (
+        adopt_timing,
+        claim_first_occurrence,
+        read_detection_schedule,
+        read_detection_schedule_state,
+        reanchor_timing,
+        write_detection_schedule_state,
+    )
+    from mlflow.utils.time import get_current_time_millis
+
+    _validate_content_type(request, ["application/json"])
+    request_json = _get_validated_flask_request_json(
+        schema={"experiment_id": [_assert_required, _assert_string]}
+    )
+    experiment_id = request_json.get("experiment_id")
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment(experiment_id)
+    schedule = read_detection_schedule(experiment)
+    if schedule is None:
+        # Nothing stored, or a schedule this server does not recognize. Either way there is no
+        # next run to report and no state worth writing.
+        return jsonify({"next_fire_time_ms": None})
+
+    now_ms = get_current_time_millis()
+    state = read_detection_schedule_state(experiment)
+    if state is None:
+        updated = claim_first_occurrence(now_ms, schedule)
+    elif state.timing is None:
+        updated = adopt_timing(state, schedule)
+    elif state.timing != schedule.timing:
+        updated = reanchor_timing(state, schedule, now_ms)
+    else:
+        updated = state
+
+    if updated is not state:
+        write_detection_schedule_state(store, experiment_id, updated)
+    return jsonify({"next_fire_time_ms": updated.next_fire_time_ms})
+
+
 def _get_registered_scorer(
     tracking_store: AbstractTrackingStore, experiment_id: str, name: str, version: int
 ) -> ScorerVersion:
@@ -5812,8 +6269,8 @@ def _get_registered_scorer(
     were made for.
 
     MySQL and SQL Server compare names without case by default, and can also ignore trailing
-    spaces or accents, so the store can return a scorer whose name differs from ``name``. That is
-    treated as not found.
+    spaces or accents. The SQLAlchemy store already treats such a match as not found; this check
+    keeps the same guarantee for other tracking stores.
     """
     registered_scorer = tracking_store.get_scorer(experiment_id, name, version)
     if registered_scorer.scorer_name != name:
@@ -5906,7 +6363,7 @@ def _invoke_genai_evaluate_handler():
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
 
-    username = request.authorization.username if request.authorization else None
+    username = _get_request_username()
 
     try:
         job = submit_job(
@@ -5981,7 +6438,7 @@ def _deprecated_start_trace_v2():
         },
     )
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
+    tags = _drop_blocked_trace_tags({e.key: e.value for e in request_message.tags})
 
     trace_info = _get_tracking_store().deprecated_start_trace_v2(
         experiment_id=request_message.experiment_id,
@@ -6010,7 +6467,9 @@ def _deprecated_end_trace_v2(request_id):
         },
     )
     request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
+    # Legacy clients send back all trace tags, including server-managed ones, so drop
+    # blocked tags instead of rejecting the request.
+    tags = _drop_blocked_trace_tags({e.key: e.value for e in request_message.tags})
 
     trace_info = _get_tracking_store().deprecated_end_trace_v2(
         request_id=request_id,
@@ -6189,7 +6648,7 @@ def _finalize_logged_model(model_id: str):
         },
     )
     model = _get_tracking_store().finalize_logged_model(
-        request_message.model_id, LoggedModelStatus.from_int(request_message.status)
+        model_id, LoggedModelStatus.from_int(request_message.status)
     )
     response_message = FinalizeLoggedModel.Response(model=model.to_proto())
     return _wrap_response(response_message)
@@ -6239,38 +6698,40 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
-    models = _get_tracking_store().search_logged_models(
-        # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
-        # to avoid serialization issues
-        experiment_ids=list(request_message.experiment_ids),
-        filter_string=request_message.filter or None,
-        datasets=(
-            [
-                {
-                    "dataset_name": d.dataset_name,
-                    "dataset_digest": d.dataset_digest or None,
-                }
-                for d in request_message.datasets
-            ]
-            if request_message.datasets
-            else None
-        ),
-        max_results=request_message.max_results or None,
-        order_by=(
-            [
-                {
-                    "field_name": ob.field_name,
-                    "ascending": ob.ascending,
-                    "dataset_name": ob.dataset_name or None,
-                    "dataset_digest": ob.dataset_digest or None,
-                }
-                for ob in request_message.order_by
-            ]
-            if request_message.order_by
-            else None
-        ),
-        page_token=request_message.page_token or None,
-    )
+    _validate_max_results_within_threshold(request_message.max_results)
+    with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
+        models = _get_tracking_store().search_logged_models(
+            # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
+            # to avoid serialization issues
+            experiment_ids=list(request_message.experiment_ids),
+            filter_string=request_message.filter or None,
+            datasets=(
+                [
+                    {
+                        "dataset_name": d.dataset_name,
+                        "dataset_digest": d.dataset_digest or None,
+                    }
+                    for d in request_message.datasets
+                ]
+                if request_message.datasets
+                else None
+            ),
+            max_results=request_message.max_results or None,
+            order_by=(
+                [
+                    {
+                        "field_name": ob.field_name,
+                        "ascending": ob.ascending,
+                        "dataset_name": ob.dataset_name or None,
+                        "dataset_digest": ob.dataset_digest or None,
+                    }
+                    for ob in request_message.order_by
+                ]
+                if request_message.order_by
+                else None
+            ),
+            page_token=request_message.page_token or None,
+        )
     response_message = SearchLoggedModels.Response()
     response_message.models.extend([e.to_proto() for e in models])
     if models.token:
@@ -6325,10 +6786,10 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
     is deserialized. Reconstructing them server-side is blocked unless the operator opts in with
     `MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS`; the check is recursive, so a decorator nested inside an
     ensemble is caught too (see `custom_scorer_execution_blocked`). Decorator scorers with empty
-    source code, which can never run, are rejected too. Third-party scorer kwargs that
-    would steer the judge's outbound requests are always rejected, independent of that flag.
-    Applied to caller payloads and to registered scorers fetched from the store, since rows
-    written before these checks existed can carry the same fields.
+    source code, which can never run, are rejected too. Third-party scorer kwargs and judge
+    inference params that would steer the judge's outbound requests are always rejected,
+    independent of that flag. Applied to caller payloads and to registered scorers fetched from
+    the store, since rows written before these checks existed can carry the same fields.
     """
     try:
         serialized_data = json.loads(serialized_scorer)
@@ -6344,6 +6805,7 @@ def _validate_serialized_scorer_payload(serialized_scorer: str) -> None:
             custom_scorer_without_source_error_message(name)
         )
     _validate_third_party_scorer_data(serialized_data)
+    _validate_judge_inference_params(serialized_data)
 
 
 @catch_mlflow_exception
@@ -6423,9 +6885,8 @@ def _list_scorers():
         )
     if has_experiment_ids:
         requested_experiment_ids = list(dict.fromkeys(request_message.experiment_ids))
-        if requested_experiment_ids:
-            for eid in requested_experiment_ids:
-                _validate_experiment_id(eid)
+        for eid in requested_experiment_ids:
+            _validate_experiment_id(eid)
         valid_experiment_ids = store.filter_active_experiment_ids(requested_experiment_ids)
         scorers = store.list_scorers_across_experiments(valid_experiment_ids)
     elif request_message.experiment_id:
@@ -6434,8 +6895,6 @@ def _list_scorers():
         # Cross-experiment listing: walk the active workspace's experiments
         # via the workspace-aware ``search_experiments`` pagination, then
         # batch the scorer fetch through ``list_scorers_across_experiments``.
-        # Auth-side ``filter_list_scorers`` applies per-row RBAC filtering on
-        # the response.
         scorers = store.list_scorers_across_experiments(_search_active_experiment_ids(store))
     response_message.scorers.extend([scorer.to_proto() for scorer in scorers])
     response = Response(mimetype="application/json")
@@ -7713,6 +8172,20 @@ def build_server_info_payload() -> dict[str, Any]:
         else:
             store_type = None
 
+    # Whether a saved issue-detection schedule would actually run here. A client asks so it can
+    # say the schedule cannot run instead of offering a switch that silently does nothing. This
+    # response is served before login, so an unavailable capability reports as False rather than
+    # failing the whole payload every client reads at startup.
+    try:
+        scheduled_issue_detection_enabled = scheduled_detection_available()
+    except Exception:
+        _logger.debug(
+            "Failed to resolve scheduled issue detection availability while serving server-info; "
+            "defaulting to disabled.",
+            exc_info=True,
+        )
+        scheduled_issue_detection_enabled = False
+
     multipart_uploads_enabled = False
     multipart_downloads_enabled = False
     if _is_serving_proxied_artifacts():
@@ -7759,6 +8232,7 @@ def build_server_info_payload() -> dict[str, Any]:
         SERVER_INFO_MODEL_ARTIFACT_PRESIGNED_DOWNLOADS_SUPPORTED: presigned_transfers_supported,
         SERVER_INFO_FEATURES_ENABLED: {
             "gateway": MLFLOW_ENABLE_AI_GATEWAY.get(),
+            "scheduled_issue_detection": scheduled_issue_detection_enabled,
         },
         SERVER_INFO_TRACKING_AUTH: MLFLOW_SERVER_INFO_TRACKING_AUTH.get() or "",
         SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY: MLFLOW_ARTIFACTS_PRESIGNED_ONLY.get(),
@@ -7797,9 +8271,18 @@ def _list_supported_models():
 @_disable_if_artifacts_only
 @_disable_if_gateway_disabled
 def _get_provider_config():
+    from mlflow.utils.providers import has_env_credentials
+
     try:
         provider = request.args.get("provider")
+        # Normalized here rather than relying on `has_env_credentials` to lower-case internally,
+        # which is how a mixed-case provider works today -- by accident rather than by contract.
+        provider_name = provider.lower() if provider else provider
         config = get_provider_config_response(provider)
+        # Reported so a client can tell whether this provider needs a key saved at all. A server
+        # started with the provider's own environment variable set already has a credential, and
+        # asking for another would be asking for one it would not use.
+        config["env_credentials_available"] = has_env_credentials(provider_name)
         return jsonify(config)
     except (ImportError, ValueError) as e:
         raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
@@ -7889,7 +8372,7 @@ def _invoke_scorer_handler():
 
     # Extract the authenticated username so that job subprocesses can make
     # gateway requests authorised as the original user (not the admin).
-    username = request.authorization.username if request.authorization else None
+    username = _get_request_username()
 
     jobs = []
     for batch_trace_ids in batches:
@@ -8033,6 +8516,11 @@ def get_issues_detection_endpoints():
         (
             _get_ajax_path("/mlflow/issues/invoke", version=3),
             _invoke_issue_detection_handler,
+            ["POST"],
+        ),
+        (
+            _get_ajax_path("/mlflow/issues/schedule/state", version=3),
+            _sync_issue_detection_schedule_state_handler,
             ["POST"],
         ),
     ]
@@ -8385,6 +8873,8 @@ def _remove_dataset_from_experiments_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),
@@ -8393,6 +8883,7 @@ def _get_dataset_records_handler(dataset_id):
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
 
     max_results = request_message.max_results or 1000
     page_token = request_message.page_token or None
@@ -8965,6 +9456,7 @@ HANDLERS = {
     CreateIssue: _create_issue,
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
+    DetectIssues: _detect_issues,
     SearchIssues: _search_issues,
     # Label Schema APIs
     CreateLabelSchema: _create_label_schema,

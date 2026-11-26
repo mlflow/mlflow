@@ -99,6 +99,22 @@ def test_autolog_early_stopping_callback(log_models):
         assert logged_model is None
 
 
+def test_autolog_does_not_mutate_user_callbacks():
+    mlflow.paddle.autolog(log_models=False)
+
+    callbacks = [paddle.callbacks.EarlyStopping("loss", mode="min", patience=NUM_EPOCHS)]
+    run_ids = []
+    for _ in range(2):
+        with mlflow.start_run() as run:
+            train_model(callbacks=callbacks)
+        run_ids.append(run.info.run_id)
+
+    assert len(callbacks) == 1
+    client = MlflowClient()
+    for run_id in run_ids:
+        assert len(client.get_metric_history(run_id, "loss")) == NUM_EPOCHS
+
+
 @pytest.mark.parametrize("log_models", [True, False])
 def test_autolog_log_models_configuration(log_models):
     mlflow.paddle.autolog(log_models=log_models)

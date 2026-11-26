@@ -446,6 +446,20 @@ def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True)
             raise e
 
 
+def _roc_auc_score_or_nan(**kwargs):
+    # scikit-learn < 1.6 raises instead of returning NaN when a class is absent from y_true.
+    try:
+        return sk_metrics.roc_auc_score(**kwargs)
+    except ValueError as e:
+        if "Only one class present in y_true" not in str(e):
+            raise
+        _logger.warning(
+            "ROC AUC is undefined because a class is absent from the evaluation labels. "
+            "Reporting NaN instead."
+        )
+        return np.nan
+
+
 def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, y_pred, y_probs):
     y = np.array(y)
     y_bin = np.where(y == positive_class, 1, 0)
@@ -540,15 +554,15 @@ def _get_multiclass_classifier_metrics(
         sample_weights=sample_weights,
     )
     if average in ("macro", "weighted") and y_proba is not None:
-        metrics.update(
-            roc_auc=sk_metrics.roc_auc_score(
+        with _suppress_class_imbalance_errors(ValueError):
+            metrics["roc_auc"] = _roc_auc_score_or_nan(
                 y_true=y_true,
                 y_score=y_proba,
+                labels=labels,
                 sample_weight=sample_weights,
                 average=average,
                 multi_class="ovr",
             )
-        )
     return metrics
 
 
@@ -615,7 +629,7 @@ def _gen_classifier_curve(
                 pos_label=_pos_label if _pos_label == pos_label else None,
             )
 
-            auc = sk_metrics.roc_auc_score(
+            auc = _roc_auc_score_or_nan(
                 y_true=np.asarray(_y) == _pos_label,
                 y_score=_y_prob,
                 sample_weight=sample_weights,

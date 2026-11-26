@@ -216,8 +216,7 @@ def make_containing_dirs(path):
     directories.
     """
     dir_name = os.path.dirname(path)
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    os.makedirs(dir_name, exist_ok=True)
 
 
 class TempDir:
@@ -439,8 +438,14 @@ def path_to_local_sqlite_uri(path):
     """
     Convert local filesystem path to sqlite uri.
     """
-    # SQLAlchemy doesn't URL-decode SQLite database paths, so the path must stay unencoded.
-    return f"sqlite:///{pathlib.Path(os.path.abspath(path)).as_posix()}"
+    posix_path = pathlib.Path(os.path.abspath(path)).as_posix()
+    if importlib.util.find_spec("sqlalchemy") is None:
+        return f"sqlite:///{posix_path}"
+    # Whether SQLAlchemy URL-decodes SQLite database paths (e.g. `%2B`) depends on its version
+    # (2.1+ does, 1.4/2.0 don't), so let the installed version escape the path.
+    from sqlalchemy.engine import URL
+
+    return URL.create("sqlite", database=posix_path).render_as_string()
 
 
 def local_file_uri_to_path(uri):
@@ -455,6 +460,9 @@ def local_file_uri_to_path(uri):
         # Fix for retaining server name in UNC path.
         if is_windows() and parsed_path.netloc:
             return urllib.request.url2pathname(rf"\\{parsed_path.netloc}{path}")
+    # Since Python 3.14, `url2pathname` discards everything after "?" or "#". Percent-encode
+    # them so they stay literal path characters, as on earlier Python versions.
+    path = path.replace("?", "%3F").replace("#", "%23")
     return urllib.request.url2pathname(path)
 
 

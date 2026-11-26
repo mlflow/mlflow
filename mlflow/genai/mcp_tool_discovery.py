@@ -210,21 +210,18 @@ def discover_tools_for_server_json(
     )
 
 
-def _select_access_endpoint(
+def _select_access_endpoints(
     access_endpoints: Sequence[MCPAccessEndpoint], version: str
-) -> MCPAccessEndpoint | None:
-    """Pick the access endpoint used to discover tools for ``version``."""
+) -> list[MCPAccessEndpoint]:
+    """Order matching access endpoints for tool discovery for ``version``."""
     matching = [
         endpoint
         for endpoint in access_endpoints
         if endpoint.resolved_version is not None and endpoint.resolved_version.version == version
     ]
-    if not matching:
-        return None
-
-    # Lowest creation_timestamp wins; endpoints with no timestamp sort last.
+    # Lowest creation_timestamp comes first; endpoints with no timestamp sort last.
     # ID is a stable tiebreaker (not creation-order) when timestamps are equal or absent.
-    return min(
+    return sorted(
         matching,
         key=lambda endpoint: (
             endpoint.creation_timestamp
@@ -244,8 +241,8 @@ def discover_tools_for_version(
 ) -> list[MCPTool]:
     """Discover tools for a version, preferring matching access endpoints."""
     endpoints = access_endpoints or []
-    endpoint = _select_access_endpoint(endpoints, version)
-    if endpoint is not None:
+    matching = _select_access_endpoints(endpoints, version)
+    for index, endpoint in enumerate(matching):
         try:
             return discover_mcp_tools(
                 url=endpoint.url,
@@ -254,6 +251,8 @@ def discover_tools_for_version(
                 timeout=timeout,
             )
         except MlflowException as e:
+            if index < len(matching) - 1:
+                continue
             error_message = str(e)
             endpoint_url = "" if endpoint.url in error_message else f" ({endpoint.url!r})"
             raise MlflowException.invalid_parameter_value(
@@ -261,6 +260,8 @@ def discover_tools_for_version(
                 f"resolving to version '{version}': {error_message}"
             ) from e
         except Exception as e:
+            if index < len(matching) - 1:
+                continue
             # Plain exceptions lack URL context; add it here.
             raise MlflowException.invalid_parameter_value(
                 f"MCP tool discovery failed for access endpoint '{endpoint.id}' "

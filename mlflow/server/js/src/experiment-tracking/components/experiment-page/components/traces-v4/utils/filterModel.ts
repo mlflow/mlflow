@@ -291,14 +291,20 @@ const compileContainsAwareClause = (field: string, operator: FilterOp, value: st
 };
 
 /**
- * Compile a span text field (name/type) clause, matching v3's span handling: the backend has no
+ * Compile a span text field (name/type) clause: the backend has no
  * `CONTAINS` token, so `EQUALS` becomes a case-insensitive exact `ILIKE 'value'` and `CONTAINS` a
- * substring `ILIKE '%value%'`; `NOT_EQUALS` passes through as `!=`.
+ * substring `ILIKE '%value%'`, escaping LIKE metacharacters in the value; `NOT_EQUALS` passes through as `!=`.
  */
-const compileSpanTextClause = (field: string, operator: FilterOp, value: string): string =>
-  operator === FilterOp.EQUALS
-    ? `${field} ILIKE '${escapeFilterValue(value)}'`
-    : compileContainsAwareClause(field, operator, value);
+const compileSpanTextClause = (field: string, operator: FilterOp, value: string): string => {
+  const escaped = escapeFilterValue(value).replace(/[\\%_[]/g, '\\$&');
+  if (operator === FilterOp.EQUALS) {
+    return `${field} ILIKE '${escaped}'`;
+  }
+  if (operator === FilterOp.CONTAINS) {
+    return `${field} ILIKE '%${escaped}%'`;
+  }
+  return compileContainsAwareClause(field, operator, value);
+};
 
 /**
  * The `tags.<key>` field reference, backticked only when the key contains a `.` or a space (matching

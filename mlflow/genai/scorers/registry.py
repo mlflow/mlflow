@@ -11,11 +11,10 @@ from abc import ABCMeta, abstractmethod
 from base64 import urlsafe_b64encode
 from collections.abc import Callable
 from functools import partial
-from typing import TYPE_CHECKING, Any, NoReturn, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, NoReturn, Optional, Self, TypeVar, cast
 from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, ValidationError
-from typing_extensions import Self
 
 from mlflow.entities import LifecycleStage, ScorerVersion
 from mlflow.exceptions import MlflowException, RestException
@@ -39,7 +38,7 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.rest_utils import http_request, verify_rest_response
-from mlflow.utils.uri import get_uri_scheme
+from mlflow.utils.uri import get_uri_scheme, redact_uri_credentials
 
 if TYPE_CHECKING:
     from mlflow.genai.scorers.online.entities import OnlineScoringConfig
@@ -150,7 +149,8 @@ class UnsupportedScorerStoreURIException(MlflowException):
     def __init__(self, unsupported_uri, supported_uri_schemes):
         message = (
             f"Scorer registration functionality is unavailable; got unsupported URI"
-            f" '{unsupported_uri}' for scorer data storage. Supported URI schemes are:"
+            f" '{redact_uri_credentials(unsupported_uri)}' for scorer data storage. "
+            "Supported URI schemes are:"
             f" {supported_uri_schemes}."
         )
         super().__init__(message)

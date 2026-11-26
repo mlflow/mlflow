@@ -6,6 +6,10 @@ from mlflow.genai.databricks.review_queues import (
     InputPassFail,
     InputText,
     ItemKind,
+    LabelingSessionMigrationIssue,
+    LabelingSessionMigrationIssueSeverity,
+    LabelingSessionMigrationPlan,
+    LabelingSessionMigrationResult,
     QuestionType,
     ReviewQuestion,
     ReviewQueue,
@@ -192,4 +196,121 @@ def test_review_queue_item_from_dict_pending_dataset_record():
         status=ReviewStatus.PENDING,
         dataset_id="ds1",
         dataset_record_id="r1",
+    )
+
+
+def test_labeling_session_migration_result_from_dict_dry_run():
+    result = LabelingSessionMigrationResult.from_dict({
+        "plan": {
+            "review_queue": "experiments/1/reviewQueues/rq-ls1",
+            "review_queue_display_name": "Support triage",
+            "questions": [
+                {"name": "experiments/1/reviewQuestions/q1", "title": "quality", "type": "FEEDBACK"}
+            ],
+            "items_to_add": "6",
+        },
+        "issues": [
+            {
+                "code": "TOO_MANY_ITEMS",
+                "severity": "BLOCKING",
+                "count": "300",
+                "limit": "150",
+                "message": "The session has 300 items, more than a review queue holds.",
+            },
+            {
+                "code": "TEXT_LIST_QUESTION_DROPPED",
+                "severity": "WARNING",
+                "count": 1,
+                "subjects": ["expected_facts"],
+                "message": "1 text-list question(s) are not migrated.",
+            },
+        ],
+        "plan_token": "v1.tok",
+    })
+
+    assert result.plan == LabelingSessionMigrationPlan(
+        review_queue_id="rq-ls1",
+        experiment_id="1",
+        review_queue_display_name="Support triage",
+        questions=[
+            ReviewQuestion(
+                question_id="q1",
+                experiment_id="1",
+                title="quality",
+                type=QuestionType.FEEDBACK,
+                input=None,
+            )
+        ],
+        items_to_add=6,
+    )
+    too_many = LabelingSessionMigrationIssue(
+        code="TOO_MANY_ITEMS",
+        severity=LabelingSessionMigrationIssueSeverity.BLOCKING,
+        count=300,
+        message="The session has 300 items, more than a review queue holds.",
+        limit=150,
+    )
+    text_list = LabelingSessionMigrationIssue(
+        code="TEXT_LIST_QUESTION_DROPPED",
+        severity=LabelingSessionMigrationIssueSeverity.WARNING,
+        count=1,
+        message="1 text-list question(s) are not migrated.",
+        subjects=["expected_facts"],
+    )
+    assert result.issues == [too_many, text_list]
+    assert result.blocking_issues == [too_many]
+    assert result.warnings == [text_list]
+    assert result.plan_token == "v1.tok"
+    assert result.review_queue is None
+
+
+def test_labeling_session_migration_result_from_dict_migration():
+    result = LabelingSessionMigrationResult.from_dict({
+        "plan": {"review_queue": "experiments/1/reviewQueues/rq-ls1", "items_to_add": 2},
+        "review_queue": {
+            "name": "experiments/1/reviewQueues/rq-ls1",
+            "display_name": "Support triage",
+            "queue_type": "CUSTOM",
+        },
+    })
+
+    assert result.plan.questions == []
+    assert result.issues == []
+    assert result.plan_token is None
+    assert result.review_queue.queue_id == "rq-ls1"
+    assert result.review_queue.queue_type == ReviewQueueType.CUSTOM
+
+
+def test_labeling_session_migration_result_from_dict_empty():
+    assert LabelingSessionMigrationResult.from_dict({}) == LabelingSessionMigrationResult(
+        plan=None, issues=[]
+    )
+
+
+@pytest.mark.parametrize(
+    ("severity", "expected"),
+    [
+        ("WARNING", LabelingSessionMigrationIssueSeverity.WARNING),
+        ("BLOCKING", LabelingSessionMigrationIssueSeverity.BLOCKING),
+        ("SEVERITY_UNSPECIFIED", LabelingSessionMigrationIssueSeverity.BLOCKING),
+        ("A_NEWER_SEVERITY", LabelingSessionMigrationIssueSeverity.BLOCKING),
+        (None, LabelingSessionMigrationIssueSeverity.BLOCKING),
+    ],
+)
+def test_labeling_session_migration_issue_treats_unknown_severity_as_blocking(severity, expected):
+    d = {"code": "TOO_MANY_MEMBERS", "count": 20}
+    if severity is not None:
+        d["severity"] = severity
+    assert LabelingSessionMigrationIssue.from_dict(d).severity == expected
+
+
+def test_labeling_session_migration_issue_from_dict_defaults():
+    assert LabelingSessionMigrationIssue.from_dict({
+        "code": "ALREADY_MIGRATED",
+        "severity": "WARNING",
+    }) == LabelingSessionMigrationIssue(
+        code="ALREADY_MIGRATED",
+        severity=LabelingSessionMigrationIssueSeverity.WARNING,
+        count=0,
+        message="",
     )

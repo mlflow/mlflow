@@ -6,16 +6,14 @@ labels: "bug"
 title: "[BUG]"
 
 body:
-  - type: markdown
+  - type: checkboxes
     attributes:
-      value: |
-        > [!WARNING]
-        > Before submitting a PR, please make sure that:
-        > - A maintainer has triaged this issue and applied the `ready` label
-        > - This issue has no assignee
-        > - No duplicate PR exists
-        >
-        > PRs not meeting these requirements may be automatically closed.
+      label: PR policy
+      options:
+        - label: I understand that PRs for this issue are closed automatically unless a maintainer has applied the `ready` label, the issue isn't assigned to someone else, and no open PR already links it.
+          required: true
+        - label: I understand a triage bot may open a PR for this issue automatically, even if I offer to submit one.
+          required: true
   - type: markdown
     attributes:
       value: |
@@ -102,6 +100,12 @@ body:
       label: Code to reproduce issue
       description: |
         Provide a reproducible test case that is the bare minimum necessary to generate the problem.
+
+        For bugs in an external API integration (for example, OpenAI or Anthropic), include the
+        actual call made through the affected integration to the provider's real endpoint and its
+        response. Also state the integration package version and, where applicable, the provider
+        API or model version. Reporting a suspected issue from code inspection, or calling the
+        handler function directly, does not count as a reproduction.
 
         ### Bad
 

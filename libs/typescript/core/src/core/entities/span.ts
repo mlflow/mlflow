@@ -148,7 +148,12 @@ export class Span implements ISpan {
    * Get the parent span ID
    */
   get parentId(): string | null {
-    return this._span.parentSpanContext?.spanId ?? null;
+    const parent = this._span.parentSpanContext;
+    // A remote parent belongs to the caller's process, so it is not part of this MLflow trace
+    if (!parent?.spanId || parent.isRemote) {
+      return null;
+    }
+    return parent.spanId;
   }
 
   get name(): string {

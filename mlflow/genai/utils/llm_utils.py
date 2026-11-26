@@ -12,7 +12,9 @@ import requests
 
 import mlflow
 from mlflow.gateway.config import EndpointType
+from mlflow.gateway.constants import GatewayCaller
 from mlflow.genai.judges.adapters.litellm_adapter import _is_litellm_available
+from mlflow.genai.utils.gateway_utils import gateway_caller as gateway_caller_context
 from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.metrics.genai.model_utils import _get_provider_instance, _parse_model_uri, _send_request
 from mlflow.tracing.provider import trace_disabled
@@ -119,9 +121,16 @@ def _call_llm(
     inference_params: dict[str, Any] | None = None,
     max_tokens: int = _DEFAULT_MAX_TOKENS,
     num_retries: int = _DEFAULT_NUM_RETRIES,
+    gateway_caller: GatewayCaller | None = None,
 ) -> Any:
-    if _is_litellm_available():
-        return _call_llm_via_litellm(
+    """
+    Args:
+        gateway_caller: The built-in feature to attribute the call to when ``model`` is a
+            ``gateway:/`` URI, so the gateway can break its usage down by feature.
+    """
+    call = _call_llm_via_litellm if _is_litellm_available() else _call_llm_via_gateway
+    with gateway_caller_context(gateway_caller):
+        return call(
             model,
             messages,
             json_mode=json_mode,
@@ -131,16 +140,6 @@ def _call_llm(
             max_tokens=max_tokens,
             num_retries=num_retries,
         )
-    return _call_llm_via_gateway(
-        model,
-        messages,
-        json_mode=json_mode,
-        response_format=response_format,
-        token_counter=token_counter,
-        inference_params=inference_params,
-        max_tokens=max_tokens,
-        num_retries=num_retries,
-    )
 
 
 def _call_llm_via_litellm(

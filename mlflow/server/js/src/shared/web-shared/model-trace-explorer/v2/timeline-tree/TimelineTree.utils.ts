@@ -2,20 +2,16 @@ import { values } from 'lodash';
 import type { Dispatch, SetStateAction } from 'react';
 import { useState } from 'react';
 
-import type { TimelineTreeNode } from './TimelineTree.types';
+import type { HierarchyBar, TimelineTreeNode } from './TimelineTree.types';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import { getSpanExceptionCount } from '../../spanExceptionEvents';
 
 // expand all nodes by default
 export const DEFAULT_EXPAND_DEPTH: number = Infinity;
-export const SPAN_INDENT_WIDTH = 16;
 export const SPAN_ROW_HEIGHT = 32;
-export const TimelineTreeZIndex = {
-  HIGH: 5,
-  NORMAL: 3,
-  LOW: 1,
-};
+export const SPAN_ROW_HEIGHT_WITH_METADATA = 48;
+export { SPAN_INDENT_WIDTH, TimelineTreeZIndex } from '../../hierarchyLineStyles';
 
 interface TimelineTreeSpanConstraints {
   min: number;
@@ -41,24 +37,36 @@ export const getTimelineTreeSpanConstraints = (
   return constraints;
 };
 
-// Gets a flat list of all expanded nodes in the tree
-export const getTimelineTreeExpandedNodesList = <T extends TimelineTreeNode & { children?: T[] }>(
+export interface TimelineTreeExpandedRow<T extends TimelineTreeNode> {
+  node: T;
+  linesToRender: HierarchyBar[];
+}
+
+// Flattens the recursive tree while retaining the hierarchy bars each standalone row needs.
+export const getTimelineTreeExpandedRows = <T extends TimelineTreeNode & { children?: T[] }>(
   nodes: T[],
   expandedKeys: Set<string | number>,
-): T[] => {
-  const expandedNodesFlat: T[] = [];
-  const traverseExpanded = (traversedNode: T | undefined) => {
-    if (!traversedNode) {
-      return;
-    }
-    expandedNodesFlat.push(traversedNode);
-    if (expandedKeys.has(traversedNode.key)) {
-      traversedNode.children?.forEach(traverseExpanded);
+  selectedKey?: string | number,
+): TimelineTreeExpandedRow<T>[] => {
+  const rows: TimelineTreeExpandedRow<T>[] = [];
+  const visit = (node: T, linesToRender: HierarchyBar[]) => {
+    rows.push({ node, linesToRender });
+    const children = node.children as T[] | undefined;
+    if (expandedKeys.has(node.key) && children?.length) {
+      const activeChildIndex = selectedKey === undefined ? -1 : getActiveChildIndex(node, selectedKey);
+      children.forEach((child, index) =>
+        visit(child, [
+          ...linesToRender,
+          {
+            shouldRender: index < children.length - 1,
+            isActive: activeChildIndex >= 0 && index < activeChildIndex,
+          },
+        ]),
+      );
     }
   };
-
-  nodes.forEach(traverseExpanded);
-  return expandedNodesFlat;
+  nodes.forEach((node) => visit(node, []));
+  return rows;
 };
 
 // Gets a flat list of all nodes in the tree (regardless of expansion status)
@@ -154,7 +162,41 @@ export const spanTimeFormatter = (executionTimeUs: number): string => {
   }
 };
 
-export const getActiveChildIndex = (node: ModelTraceSpanNode, activeNodeId: string): number => {
+/** Formats a unit-suffixed duration string (e.g. a trace's `execution_duration`, "0.071573s") like `spanTimeFormatter`. */
+export const formatExecutionDuration = (value: string): string => {
+  const match = value.match(/^(-?\d+(?:\.\d+)?)(.*)$/);
+  if (!match) {
+    return value;
+  }
+
+  const numericValue = Number(match[1]);
+  if (!Number.isFinite(numericValue)) {
+    return value;
+  }
+
+  let multiplier: number | undefined;
+  switch (match[2]) {
+    case 'm':
+      multiplier = 60 * 1e6;
+      break;
+    case 's':
+      multiplier = 1e6;
+      break;
+    case 'ms':
+      multiplier = 1e3;
+      break;
+    case 'us':
+    case 'µs':
+      multiplier = 1;
+      break;
+  }
+
+  return multiplier === undefined
+    ? `${numericValue.toFixed(2)}${match[2]}`
+    : spanTimeFormatter(numericValue * multiplier);
+};
+
+export const getActiveChildIndex = (node: TimelineTreeNode, activeNodeId: string | number): number => {
   if (node.key === activeNodeId) {
     return 0;
   }
@@ -167,9 +209,16 @@ export const getModelTraceSpanNodeDepth = (node: ModelTraceSpanNode): number => 
     return 0;
   }
 
-  const childDepths = node.children.map(getModelTraceSpanNodeDepth);
-  return Math.max(...childDepths) + 1;
+  return getMaxModelTraceSpanNodeDepth(node.children) + 1;
 };
+
+export function getMaxModelTraceSpanNodeDepth(nodes: ModelTraceSpanNode[]): number {
+  let depth = -Infinity;
+  for (const node of nodes) {
+    depth = Math.max(depth, getModelTraceSpanNodeDepth(node));
+  }
+  return depth;
+}
 
 export const getSpanNodeParentIds = (
   node: ModelTraceSpanNode,

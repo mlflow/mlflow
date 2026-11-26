@@ -16,46 +16,42 @@ A workspace-level grant is a permission on the special
 applies to **every resource type** in that workspace (experiments, registered
 models, prompts, AI Gateway resources). Two levels are grantable:
 
-- `USE` on `(workspace, *)` is the **Workspace Member** grant. Holders get
-  USE-level access (read + use) to every resource in the workspace, plus
-  the ability to create new experiments and registered models. Per-resource
-  grants can upgrade individual rows. A user _without_ this grant doesn't
-  get a workspace floor; they only get what their specific resource grants
-  provide.
+- `USE` on `(workspace, *)` is the **Workspace Member** grant. Holders can
+  access the workspace and create new experiments and registered models in
+  it. It does not grant read on existing resources; that comes from
+  per-resource or resource-type grants such as `(experiment, *, READ)`. A
+  user _without_ this grant only gets what their resource grants provide.
 - `MANAGE` on `(workspace, *)` is the **Workspace Manager** grant. Full
   authority within the workspace, including granting permissions to other
   users via roles in this workspace. Cannot perform system-wide operations
   like deleting users.
 
-A workspace-level grant participates in the same `max` as any per-resource
-grants the user holds, so it acts as a **floor**: per-resource grants can
-upgrade individual rows above the workspace level, but never downgrade them.
-See [Permission resolution](/self-hosting/security/role-based-access-control#permission-resolution)
+A workspace `MANAGE` grant resolves every resource in the workspace to
+`MANAGE`. A workspace `USE` grant does not fold into per-resource checks;
+access to each resource comes from the user's resource grants. See [Permission resolution](/self-hosting/security/role-based-access-control#permission-resolution)
 on the RBAC page for the full mechanic.
 
 ### Example scenarios
 
-1. **Workspace-level grant.** Alice holds the `team-a/user` role, so she has
-   USE-level access (read and use) on every experiment, registered model,
-   and prompt in `team-a`.
-2. **Resource-level upgrade.** Bob holds the `team-a/user` role (`USE`
-   workspace-wide) plus a per-resource grant of `EDIT` on experiment
-   `exp-123`. Bob has USE on every resource in `team-a` and additionally
-   `EDIT` on `exp-123`; the resolver folds matching grants and the
-   higher-priority `EDIT` wins for that resource.
+1. **Workspace Member.** Alice holds the `team-a/user` role. She can see
+   `team-a`, create experiments and registered models there, and read what
+   she creates. To read every experiment, registered model, and prompt in
+   `team-a`, her role also needs `(experiment, *, READ)`,
+   `(registered_model, *, READ)`, and `(prompt, *, READ)`.
+2. **Resource-level grant.** Bob holds the `team-a/user` role plus a
+   per-resource grant of `EDIT` on experiment `exp-123`. Bob can edit
+   `exp-123` and create new resources; other experiments need their own
+   grants.
 3. **Direct resource grant without workspace access.** Carol has `EDIT`
    permission on experiment `exp-456` in `team-a` but no role with
    workspace-level access. Carol can access `exp-456` only, and the
    workspace `team-a` does not appear in her `mlflow.list_workspaces()`
    results.
 
-Because there is no "explicit deny" override (see
-[Permission levels](/self-hosting/security/role-based-access-control#permission-levels)),
-a workspace-level grant covers every resource in the workspace and an absent
-(or lesser) per-resource grant cannot revoke it. To restrict access to a
-specific resource, give the user narrower access in the first place:
-per-resource or resource-type-wildcard roles instead of the seeded
-`<workspace>/user` role.
+To let members read every resource of a type, add a resource-type wildcard
+grant such as `(experiment, *, READ)` to their role. To block a specific
+resource, use `DENY` (see
+[Permission levels](/self-hosting/security/role-based-access-control#permission-levels)).
 
 ## Default roles
 
@@ -169,10 +165,9 @@ If users hit permission-denied errors:
        print(r.workspace, r.name)
    ```
 
-2. Confirm the operation needs more than `USE` (e.g., `EDIT` / `MANAGE`).
-   The resolver folds every matching grant and takes the highest-priority
-   permission level, so a workspace `USE` grant is the floor; if no
-   per-resource grant upgrades it, write operations are denied.
+2. A workspace `USE` grant gives membership and create rights only. Reads
+   and writes on existing resources need a per-resource or resource-type
+   grant (e.g., `READ`, `EDIT`).
 3. Verify the workspace exists and the role is assigned in the right workspace.
 
 ### Workspace not visible in `list_workspaces()`

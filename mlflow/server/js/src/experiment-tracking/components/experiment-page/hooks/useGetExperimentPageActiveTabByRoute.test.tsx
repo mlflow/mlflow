@@ -4,7 +4,7 @@ import { useGetExperimentPageActiveTabByRoute } from './useGetExperimentPageActi
 import { ExperimentPageTabName } from '../../../constants';
 import { useLocation } from '../../../../common/utils/RoutingUtils';
 import { shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
-import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentSettingsPage, shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../common/utils/RoutingUtils', () => ({
   useLocation: jest.fn(),
@@ -26,12 +26,14 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   shouldEnableNewEvalRunsUi: jest.fn(() => false),
+  shouldEnableExperimentSettingsPage: jest.fn(() => false),
 }));
 
 describe('useGetExperimentPageActiveTabByRoute', () => {
   beforeEach(() => {
     jest.mocked(shouldEnableSessionGrouping).mockReturnValue(true);
     jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(false);
+    jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(false);
   });
 
   const testCases = [
@@ -40,6 +42,24 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
       pathname: '/experiments/123/issues',
       expectedTabName: ExperimentPageTabName.Issues,
       expectedTopLevelTabName: ExperimentPageTabName.Issues,
+    },
+    {
+      name: 'should return Overview tab for the journey overview route',
+      pathname: '/experiments/123/overview',
+      expectedTabName: ExperimentPageTabName.Overview,
+      expectedTopLevelTabName: ExperimentPageTabName.Overview,
+    },
+    {
+      name: 'should return Dashboard tab for the dashboard route',
+      pathname: '/experiments/123/dashboard/usage',
+      expectedTabName: ExperimentPageTabName.Dashboard,
+      expectedTopLevelTabName: ExperimentPageTabName.Dashboard,
+    },
+    {
+      name: 'should map the legacy overview chart route to Dashboard',
+      pathname: '/experiments/123/overview/usage',
+      expectedTabName: ExperimentPageTabName.Dashboard,
+      expectedTopLevelTabName: ExperimentPageTabName.Dashboard,
     },
     {
       name: 'should return Runs tab when on runs route',
@@ -124,6 +144,27 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
       jest.mocked(shouldEnableNewEvalRunsUi).mockReturnValue(flagEnabled);
       jest.mocked(useLocation).mockReturnValue({
         pathname: '/experiments/123/evaluation-runs/run-1/details',
+        state: undefined,
+        search: '',
+        hash: '',
+        key: '',
+      });
+
+      const { result } = renderHook(() => useGetExperimentPageActiveTabByRoute());
+
+      expect(result.current.tabName).toBe(expectedTabName);
+    },
+  );
+
+  test.each([
+    { flagEnabled: true, expectedTabName: ExperimentPageTabName.Settings },
+    { flagEnabled: false, expectedTabName: undefined },
+  ])(
+    'maps the settings route to $expectedTabName with the experiment Settings page $flagEnabled',
+    ({ flagEnabled, expectedTabName }) => {
+      jest.mocked(shouldEnableExperimentSettingsPage).mockReturnValue(flagEnabled);
+      jest.mocked(useLocation).mockReturnValue({
+        pathname: '/experiments/123/settings',
         state: undefined,
         search: '',
         hash: '',

@@ -6,16 +6,14 @@ labels: ["bug", "area/uiux"]
 title: "[UI-BUG]"
 
 body:
-  - type: markdown
+  - type: checkboxes
     attributes:
-      value: |
-        > [!WARNING]
-        > Before submitting a PR, please make sure that:
-        > - A maintainer has triaged this issue and applied the `ready` label
-        > - This issue has no assignee
-        > - No duplicate PR exists
-        >
-        > PRs not meeting these requirements may be automatically closed.
+      label: PR policy
+      options:
+        - label: I understand that PRs for this issue are closed automatically unless a maintainer has applied the `ready` label, the issue isn't assigned to someone else, and no open PR already links it.
+          required: true
+        - label: I understand a triage bot may open a PR for this issue automatically, even if I offer to submit one.
+          required: true
   - type: markdown
     attributes:
       value: |

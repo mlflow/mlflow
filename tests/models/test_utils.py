@@ -440,6 +440,19 @@ def test_enforce_datetime_array(data, container):
     )
 
 
+@pytest.mark.parametrize(
+    ("dtype", "expected"),
+    [
+        (DataType.string, ["Question 1", "None", "Question 2"]),
+        (DataType.binary, [b"Question 1", b"None", b"Question 2"]),
+    ],
+)
+@pytest.mark.parametrize("container", [list, lambda d: np.array(d, dtype=object)])
+def test_enforce_string_array_with_none(dtype, expected, container):
+    result = _enforce_array(container(["Question 1", None, "Question 2"]), Array(dtype))
+    assert list(result) == expected
+
+
 def test_enforce_array_with_errors():
     with pytest.raises(MlflowException, match=r"Expected data to be list or numpy array, got str"):
         _enforce_array("abc", Array(DataType.string))

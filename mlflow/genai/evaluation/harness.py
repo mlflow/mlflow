@@ -51,18 +51,21 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT,
 )
 from mlflow.genai.evaluation import context
+from mlflow.genai.evaluation.constant import PREDICT_ERROR_COUNT_METRIC
 from mlflow.genai.evaluation.entities import (
     EvalItem,
     EvalResult,
     EvaluationResult,
     ScorerStat,
 )
+from mlflow.genai.evaluation.quality_criteria import QualityCriteriaRule
 from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RateLimiter,
     RPSRateLimiter,
     call_with_retry,
     eval_retry_context,
+    scorer_rate_limit_context,
 )
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
@@ -669,6 +672,7 @@ def run(
     run_id: str | None = None,
     dataset: Any | None = None,
     extra_aggregations: dict[str, list[str]] | None = None,
+    quality_criteria: list[QualityCriteriaRule] | None = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -676,6 +680,9 @@ def run(
     Rate limiting is controlled via environment variables:
     - MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT: max predict_fn calls/second
     - MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT: max scorer calls/second
+    - ENABLE_RETRIEVAL_JUDGE_PER_REQUEST_RATE_LIMITING: Databricks
+      only; whether RetrievalRelevance with databricks-agents SDK is rate limited
+      based on scorer invocation or per-chunk requests.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
     eval_start_time = int(time.time() * 1000)
@@ -772,8 +779,15 @@ def run(
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(
-        eval_results, scorers=scorers, extra_aggregations=extra_aggregations
+        eval_results,
+        scorers=scorers,
+        extra_aggregations=extra_aggregations,
+        scorer_stats=scorer_stats,
     )
+    if predict_error_count := sum(
+        result is not None and result.eval_item.predict_failed for result in eval_results
+    ):
+        aggregated_metrics[PREDICT_ERROR_COUNT_METRIC] = predict_error_count
     mlflow.log_metrics(aggregated_metrics, dataset=dataset)
 
     try:
@@ -787,6 +801,7 @@ def run(
             num_session_groups,
             aggregated_metrics,
             session_count_by_scorer=session_count_by_scorer,
+            scored_trace_count=len(eval_items) - predict_error_count,
         )
     except Exception as e:
         _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
@@ -831,11 +846,25 @@ def run(
         if getattr(scorer, "pass_if", None) is not None
     }
 
+    # result_df also carries dataset expectations and feedback logged on the traces outside
+    # this run, so tell EvaluationResult.passed which columns of each row are this run's scorer
+    # verdicts. eval_results already includes the session-level feedback attached above.
+    scorer_feedback_names_by_trace: dict[str, set[str]] = {}
+    for result in eval_results:
+        if result is None or result.eval_item.trace is None:
+            continue
+        trace_id = result.eval_item.trace.info.trace_id
+        scorer_feedback_names_by_trace.setdefault(trace_id, set()).update(
+            assessment.name for assessment in result.assessments if isinstance(assessment, Feedback)
+        )
+
     return EvaluationResult(
         run_id=run_id,
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
         pass_criteria=pass_criteria,
+        quality_criteria=quality_criteria or [],
+        scorer_feedback_names_by_trace=scorer_feedback_names_by_trace,
     )
 
 
@@ -866,6 +895,7 @@ def _run_predict(
                     max_retries,
                 )
             except Exception as e:
+                eval_item.predict_failed = True
                 eval_item.error_message = (
                     f"Failed to invoke the predict_fn with {eval_item.inputs}: {e}"
                 )
@@ -919,10 +949,13 @@ def _run_score(
         ctx = context.get_context()
         ctx.set_mlflow_run_id(run_id)
 
+    # A row whose predict_fn raised has no output to judge, so its scorers are skipped. The row
+    # still logs its expectations and tags, and is counted in the predict_error_count metric.
+    scorers_to_run = [] if eval_item.predict_failed else scorers
     with eval_retry_context():
         eval_result = _compute_eval_scores(
             eval_item=eval_item,
-            scorers=scorers,
+            scorers=scorers_to_run,
             rate_limiter=scorer_rate_limiter,
             max_retries=max_retries,
         )
@@ -988,9 +1021,10 @@ def _compute_eval_scores(
                     scorer_func
                 )
 
-            value = call_with_retry(
-                lambda: _invoke_scorer(scorer_func, eval_item), rate_limiter, max_retries
-            )
+            with scorer_rate_limit_context(scorer, rate_limiter) as invocation_limiter:
+                value = call_with_retry(
+                    lambda: _invoke_scorer(scorer_func, eval_item), invocation_limiter, max_retries
+                )
             feedbacks = standardize_scorer_value(scorer.name, value)
 
         except Exception as e:

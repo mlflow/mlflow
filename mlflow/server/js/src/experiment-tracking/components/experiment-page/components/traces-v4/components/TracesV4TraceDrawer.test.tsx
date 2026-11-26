@@ -1,9 +1,12 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import { screen, within } from '@testing-library/react';
+import { useState } from 'react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
 import { setupServer } from '@mlflow/mlflow/src/common/utils/setup-msw';
 import { setupTestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { QueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import type { ModelTrace, ModelTraceSpan, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { TracesV4TraceDrawer } from './TracesV4TraceDrawer';
 import { renderTracesV4Page } from '../test-utils/renderTracesV4Page';
 import { makeTaggedTrace, makeTrace } from '../test-utils/mockTraces';
@@ -20,6 +23,7 @@ const TRACE_INFO_V3_ENDPOINT = '/ajax-api/3.0/mlflow/traces/:traceId';
 interface ServerState {
   /** Server-side tag state for the open trace; the V3 info fetch reads it. */
   trace: ModelTraceInfoV3;
+  spans?: ModelTraceSpan[];
 }
 
 let state: ServerState;
@@ -28,7 +32,7 @@ const server = setupServer(
   // OSS's `getTrace` uses V3 endpoint when the trace info carries the `mlflow.trace.spansLocation`
   // tag set to `TRACKING_STORE`. This endpoint returns { trace: { trace_info, spans } }.
   rest.get(TRACE_INFO_V3_ENDPOINT, (_req, res, ctx) =>
-    res(ctx.json({ trace: { trace_info: state.trace, spans: [] } })),
+    res(ctx.json({ trace: { trace_info: state.trace, spans: state.spans ?? [] } })),
   ),
 );
 
@@ -65,9 +69,9 @@ const noop = () => {};
 // which test runs first.
 const findDrawer = () => screen.findByRole('dialog', {}, { timeout: 10000 });
 
-const renderDrawer = ({ traceId }: { traceId?: string }) =>
+const renderDrawer = ({ traceId, initialUrl = URL }: { traceId?: string; initialUrl?: string }) =>
   renderTracesV4Page({
-    initialUrl: URL,
+    initialUrl,
     routes: [
       {
         path: PATH,
@@ -87,6 +91,37 @@ const renderDrawer = ({ traceId }: { traceId?: string }) =>
   });
 
 describe('TracesV4TraceDrawer', () => {
+  test.each([
+    { name: 'selects the linked child', spanId: 'child', expectedSpan: 'child' },
+    { name: 'falls back to root for an unknown span', spanId: 'missing-span', expectedSpan: 'root' },
+    { name: 'defaults to root without a span parameter', spanId: undefined, expectedSpan: 'root' },
+  ])('$name in a trace drawer deep link', async ({ spanId, expectedSpan }) => {
+    state.spans = ['root', 'child'].map((name, index) => ({
+      name,
+      context: { span_id: name, trace_id: ON_PAGE_TRACE.trace_id },
+      parent_id: index === 0 ? null : 'root',
+      start_time: index * 1_000_000,
+      end_time: 10_000_000,
+      status: { status_code: 1, description: 'OK' },
+      attributes: {
+        'mlflow.spanType': JSON.stringify('CHAIN'),
+        'mlflow.spanOutputs': JSON.stringify(`${name}-only-output`),
+      },
+      events: [],
+    }));
+    renderDrawer({
+      traceId: ON_PAGE_LONG_ID,
+      initialUrl: `${URL}?traceId=${ON_PAGE_LONG_ID}${spanId ? `&spanId=${spanId}` : ''}`,
+    });
+
+    const drawer = await findDrawer();
+    expect(
+      await within(drawer).findByText(`${expectedSpan}-only-output`, { exact: false }, { timeout: 10000 }),
+    ).toBeVisible();
+    const otherSpan = expectedSpan === 'child' ? 'root' : 'child';
+    expect(within(drawer).queryByText(`${otherSpan}-only-output`, { exact: false })).not.toBeInTheDocument();
+  });
+
   test('opens the redesigned explorer drawer with the trace body for a selected trace', async () => {
     renderDrawer({ traceId: ON_PAGE_LONG_ID });
 
@@ -102,6 +137,49 @@ describe('TracesV4TraceDrawer', () => {
     renderDrawer({ traceId: undefined });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+  });
+
+  test('keeps the newly active trace when the drawer closes and prunes its cache', async () => {
+    const user = userEvent.setup();
+    const traces = Array.from({ length: 6 }, (_, index) => makeTaggedTrace(`tr-${String(index).padStart(3, '0')}`));
+    const traceIds = traces.map((trace) => `trace:/cat.sch/${trace.trace_id}`);
+    const queryClient = new QueryClient();
+    traces.forEach((trace, index) => {
+      queryClient.setQueryData<ModelTrace>(
+        ['getTrace', traceIds[index], undefined],
+        { info: trace, data: { spans: [] } },
+        { updatedAt: Date.now() + index },
+      );
+    });
+
+    const DrawerHarness = () => {
+      const [traceId, setTraceId] = useState<string | undefined>(traceIds[1]);
+      return (
+        <TracesV4TraceDrawer
+          traceId={traceId}
+          onClose={() => setTraceId(undefined)}
+          experimentId={EXPERIMENT_ID}
+          traces={traces}
+          onSelectTrace={setTraceId}
+        />
+      );
+    };
+    renderTracesV4Page({
+      initialUrl: URL,
+      routes: [{ path: PATH, element: <DrawerHarness /> }],
+      history,
+      experimentId: EXPERIMENT_ID,
+      queryClient,
+    });
+
+    const drawer = await findDrawer();
+    await user.click(within(drawer).getByRole('button', { name: 'Previous trace' }));
+    expect(await within(drawer).findByRole('button', { name: '000' })).toBeInTheDocument();
+    await user.click(within(drawer).getByRole('button', { name: 'Close trace panel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(queryClient.getQueryData(['getTrace', traceIds[0], undefined])).toBeDefined();
+    await waitFor(() => expect(queryClient.getQueryData(['getTrace', traceIds[2], undefined])).toBeUndefined());
   });
 
   test('opens a deep-linked trace whose row is not on the current page', async () => {

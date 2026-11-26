@@ -11,6 +11,7 @@ import {
   DatabaseIcon,
   ForkHorizontalIcon,
   GavelIcon,
+  GearIcon,
   ListIcon,
   ModelsIcon,
   PlayIcon,
@@ -42,6 +43,7 @@ export const getTabDisplayIcon = (tabName: ExperimentPageTabName | undefined) =>
 
   switch (tabName) {
     case ExperimentPageTabName.Overview:
+    case ExperimentPageTabName.Dashboard:
       return <ChartLineIcon />;
     case ExperimentPageTabName.Runs:
       return <ListIcon />;
@@ -70,6 +72,8 @@ export const getTabDisplayIcon = (tabName: ExperimentPageTabName | undefined) =>
       return <TextBoxIcon />;
     case ExperimentPageTabName.ReviewQueue:
       return <UserGroupIcon />;
+    case ExperimentPageTabName.Settings:
+      return <GearIcon />;
     default:
       return <BeakerIcon />;
   }
@@ -110,6 +114,13 @@ const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
         <FormattedMessage
           defaultMessage="Overview"
           description="Label for the overview tab in the MLflow experiment navbar"
+        />
+      );
+    case ExperimentPageTabName.Dashboard:
+      return (
+        <FormattedMessage
+          defaultMessage="Dashboard"
+          description="Label for the dashboard tab in the MLflow experiment navbar"
         />
       );
     case ExperimentPageTabName.Runs:
@@ -183,6 +194,13 @@ const getMLTabDisplayName = (tabName: ExperimentPageTabName) => {
         <FormattedMessage
           defaultMessage="Playground"
           description="Label for the playground tab in the MLflow experiment navbar"
+        />
+      );
+    case ExperimentPageTabName.Settings:
+      return (
+        <FormattedMessage
+          defaultMessage="Experiment settings"
+          description="Label for the experiment settings page in the MLflow experiment navbar and breadcrumb"
         />
       );
     case ExperimentPageTabName.Models:

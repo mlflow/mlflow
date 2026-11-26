@@ -7,9 +7,16 @@ MLFLOW_GATEWAY_OVERHEAD_HEADER = "X-MLflow-Gateway-Overhead-Duration-Ms"
 
 
 class GatewayCaller(str, Enum):
-    """Known callers of the gateway, sent via the X-MLflow-Gateway-Caller header."""
+    """
+    Built-in MLflow features that call the gateway, sent via the X-MLflow-Gateway-Caller header.
+
+    The gateway records the value on each trace so usage can be broken down by feature.
+    """
 
     JUDGE = "judge"
+    SIMULATOR = "simulator"
+    ISSUE_DETECTION = "issue_detection"
+    PROMPT_OPTIMIZATION = "prompt_optimization"
 
 
 MLFLOW_GATEWAY_HEALTH_ENDPOINT = "/health"

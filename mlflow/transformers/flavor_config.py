@@ -210,7 +210,9 @@ def build_flavor_config_from_local_checkpoint(
         config = json.load(f)
 
     task_metadata = pipelines.check_task(task)
-    pipeline_class = task_metadata[1]["impl"].__name__
+    impl = task_metadata[1]["impl"]
+    # transformers >= 5.23 lazily loads pipelines, so `impl` is a dotted-path string
+    pipeline_class = impl.rsplit(".", 1)[-1] if isinstance(impl, str) else impl.__name__
 
     flavor_conf = {
         FlavorKey.TASK: task,

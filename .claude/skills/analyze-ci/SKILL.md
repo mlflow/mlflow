@@ -9,54 +9,33 @@ argument-hint: "url(s) of failed GitHub Action jobs, workflow runs, or PRs"
 
 Fetch logs from failed GitHub Action jobs and produce a focused per-job failure summary.
 
-URLs provided: $ARGUMENTS
-
-If no URLs are listed above, ask for a job, run, or PR URL and stop. `fetch-logs` requires at least one and exits 2 without.
-
-## Prerequisites
-
-- **GitHub Token**: Auto-detected via `gh auth token`, or set `GH_TOKEN`.
+If no URLs are passed as arguments, use the relevant job, run, or PR URLs already shared in the conversation. If none are available, ask for a URL and stop.
 
 ## Steps
 
-1. **Fetch logs.** Run, single-quoting each URL so the shell does not interpret `?` or other special characters in it:
+1. Fetch logs with the following command. Single-quote each URL to protect shell special characters like `?`.
 
    ```bash
-   uv run --package skills skills fetch-logs '<url>' ['<url>' ...]
+   uv run --package skills skills fetch-logs '<url1>' ['<url2>' ...]
    ```
 
-   The command prints one block per failed job containing the workflow/job name, URL, failed step, and paths to the cached raw log, failed-step log, and (optional) package versions file.
+2. Read all reported ranges. Inspect the raw log directly if no failed-step range is available, then identify:
 
-2. **Read each failed-step log and summarize it.** For every block, Read the file at its `Failed step log:` path, then identify:
+   - The root cause and its impact.
+   - A short log excerpt showing the failure.
+   - A full node ID for pytest failures (e.g. `tests/test_foo.py::test_bar[case1]`).
+   - Package versions or snapshot changes that help explain the failure.
 
-   - The root cause.
-   - Specific error messages (assertion errors, exceptions, stack traces).
-   - Full pytest test names where applicable (e.g. `tests/test_foo.py::test_bar`).
-   - A short log snippet showing the error context.
+3. Format each job with a heading, an evidence list, and a summary of 1-2 sentences plus the log excerpt.
 
-3. **Format each summary** with these fields, then a blank line, then the 1-2 paragraph summary.
+   ```markdown
+   ## <workflow name> / <job name>
 
-   - `Failed job: <workflow name> / <job name>`
-   - `Failed step: <step name>`
-   - `URL: <job_url>`
-   - `Raw log: <raw_log_path>`
-   - `Failed step log: <failed_step_log_path>`
-   - `Package versions: <package_versions_path>` (if present)
+   - URL: <job_url>
+   - Raw log: <raw_log_path>
+   - <additional fields, if present>
 
-   Preserve the `Raw log:`, `Failed step log:`, and `Package versions:` paths verbatim from step 1 so downstream agents can grep deeper.
+   <summary>
+   ```
 
-## Invocation examples
-
-```bash
-# All failed jobs on a PR
-/analyze-ci https://github.com/mlflow/mlflow/pull/19601
-
-# All failed jobs in one workflow run
-/analyze-ci https://github.com/mlflow/mlflow/actions/runs/22626454465
-
-# Specific job by URL
-/analyze-ci https://github.com/mlflow/mlflow/actions/runs/12345/job/67890
-
-# Multiple URLs at once
-/analyze-ci https://github.com/mlflow/mlflow/actions/runs/123/job/456 https://github.com/mlflow/mlflow/actions/runs/789/job/012
-```
+   Copy the raw log path verbatim from step 1. If no failed step is recorded, include the reported `Conclusion:` field too.

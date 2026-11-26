@@ -37,12 +37,15 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     PresignedUploadMixin,
     _is_object_key_within_path,
+    _validate_multipart_upload_num_parts,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 _logger = logging.getLogger(__name__)
 
 _MAX_CACHE_SECONDS = 300
+# https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html
+_S3_MAX_NUM_PARTS = 10_000
 
 BOTO_TO_MLFLOW_ERROR = {
     "AccessDenied": PERMISSION_DENIED,
@@ -651,6 +654,7 @@ class S3ArtifactRepository(
             raise MlflowException(
                 "Presigned artifact transfers are unavailable.", error_code=NOT_IMPLEMENTED
             )
+        _validate_multipart_upload_num_parts(num_parts, _S3_MAX_NUM_PARTS)
         s3_client = self._get_s3_client()
         create_allowed_args = s3_client.meta.service_model.operation_model(
             "CreateMultipartUpload"

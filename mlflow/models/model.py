@@ -1004,7 +1004,7 @@ class Model:
                     try:
                         file_extension = os.path.splitext(model_config)[1].lower()
                         if file_extension == ".json":
-                            with open(model_config) as f:
+                            with open(model_config, encoding="utf-8") as f:
                                 model_config = json.load(f)
                         elif file_extension in [".yaml", ".yml"]:
                             model_config = _validate_and_get_model_config_from_file(model_config)
@@ -1334,7 +1334,7 @@ class Model:
                         try:
                             file_extension = os.path.splitext(model_config)[1].lower()
                             if file_extension == ".json":
-                                with open(model_config) as f:
+                                with open(model_config, encoding="utf-8") as f:
                                     model_config = json.load(f)
                             elif file_extension in [".yaml", ".yml"]:
                                 from mlflow.utils.model_utils import (

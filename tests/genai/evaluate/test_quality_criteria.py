@@ -90,7 +90,7 @@ def test_parse_rejects_unsupported_comparators(comparator):
         parse_quality_criteria([_make_scorer("a")], f"a {comparator} 0.5")
 
 
-def test_parse_rejects_non_finite_threshold():
+def test_parse_rejects_non_finite_value():
     with pytest.raises(MlflowException, match="must be a finite number"):
         parse_quality_criteria([_make_scorer("a")], "a >= 1e999")
 
@@ -177,7 +177,11 @@ def test_build_tag_returns_none_without_rules():
 
 
 def test_build_tag_serializes_rules_in_ui_criteria_shape():
-    scorers = [_make_scorer("correctness"), _make_scorer("latency"), _make_scorer("no_threshold")]
+    scorers = [
+        _make_scorer("correctness"),
+        _make_scorer("latency"),
+        _make_scorer("not_in_criteria"),
+    ]
     rules = parse_quality_criteria(scorers, "correctness >= 0.9 AND `latency/p90` <= 2")
 
     payload = json.loads(build_quality_criteria_tag(rules))

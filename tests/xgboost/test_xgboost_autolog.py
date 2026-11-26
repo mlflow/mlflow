@@ -293,6 +293,29 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain, log_m
         assert logged_model is None
 
 
+def test_xgb_autolog_does_not_mutate_callbacks_across_runs(bst_params, dtrain):
+    mlflow.xgboost.autolog()
+    callbacks = [xgb.callback.EvaluationMonitor(period=100)]
+    original_callbacks = list(callbacks)
+    run_ids = []
+    for _ in range(2):
+        with mlflow.start_run() as run:
+            xgb.train(
+                bst_params,
+                dtrain,
+                num_boost_round=5,
+                evals=[(dtrain, "train")],
+                callbacks=callbacks,
+                verbose_eval=False,
+            )
+        run_ids.append(run.info.run_id)
+
+    assert callbacks == original_callbacks
+    client = MlflowClient()
+    for run_id in run_ids:
+        assert len(client.get_metric_history(run_id, "train-mlogloss")) == 5
+
+
 def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}

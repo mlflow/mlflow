@@ -4,17 +4,20 @@ import { RoutePaths } from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
 import { map } from 'lodash';
 import { shouldEnableSessionGrouping } from '@databricks/web-shared/genai-traces-table';
-import { shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
+import { shouldEnableExperimentSettingsPage, shouldEnableNewEvalRunsUi } from '../../../../common/utils/FeatureUtils';
 
 // Maps experiment page route paths to enumerated tab names
 const ExperimentPageRoutePathToTabNameMap = map(
   {
-    [RoutePaths.experimentPageTabOverview]: ExperimentPageTabName.Overview,
+    [RoutePaths.experimentPageTabJourneyOverview]: ExperimentPageTabName.Overview,
+    [RoutePaths.experimentPageTabOverview]: ExperimentPageTabName.Dashboard,
+    [RoutePaths.experimentPageTabDashboard]: ExperimentPageTabName.Dashboard,
     [RoutePaths.experimentPageTabRuns]: ExperimentPageTabName.Runs,
     [RoutePaths.experimentPageTabTraces]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabModels]: ExperimentPageTabName.Models,
     [RoutePaths.experimentPageTabEvaluationRuns]: ExperimentPageTabName.EvaluationRuns,
     [RoutePaths.experimentPageTabIssues]: ExperimentPageTabName.Issues,
+    [RoutePaths.experimentPageTabIssueDetectionRuns]: ExperimentPageTabName.Issues,
     [RoutePaths.experimentPageTabDatasets]: ExperimentPageTabName.Datasets,
     [RoutePaths.experimentPageTabDatasetDetail]: ExperimentPageTabName.Datasets,
     [RoutePaths.experimentPageTabChatSessions]: ExperimentPageTabName.ChatSessions,
@@ -34,6 +37,9 @@ const getTabNameFromRoutePath = (pathname: string) => {
   // The evaluation run details route only exists with the new evaluation runs UI.
   if (shouldEnableNewEvalRunsUi() && matchPath(RoutePaths.experimentPageTabEvaluationRunDetails, pathname)) {
     return ExperimentPageTabName.EvaluationRuns;
+  }
+  if (shouldEnableExperimentSettingsPage() && matchPath(RoutePaths.experimentPageTabSettings, pathname)) {
+    return ExperimentPageTabName.Settings;
   }
   const tabName = ExperimentPageRoutePathToTabNameMap
     // Find the first route path that matches the given pathname

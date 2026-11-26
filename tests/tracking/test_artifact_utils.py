@@ -1,4 +1,5 @@
 import os
+import pathlib
 from unittest import mock
 from unittest.mock import ANY
 from uuid import UUID
@@ -81,6 +82,24 @@ def test_download_artifact_with_special_characters_in_file_name_and_path(tmp_pat
     )
     with open(os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name)) as f:
         assert f.read() == artifact_text
+
+
+@pytest.mark.parametrize("output_path_provided", [True, False])
+@pytest.mark.parametrize(("file_name", "content"), [("a b.csv", "train"), ("a%20b.csv", "eval")])
+def test_download_artifact_from_file_uri_decodes_file_name(
+    tmp_path, output_path_provided, file_name, content
+):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a b.csv").write_text("train")
+    (src / "a%20b.csv").write_text("eval")
+    dst = tmp_path / "dst"
+    dst.mkdir()
+
+    out = _download_artifact_from_uri(
+        (src / file_name).as_uri(), output_path=str(dst) if output_path_provided else None
+    )
+    assert pathlib.Path(out).read_text() == content
 
 
 def test_download_artifact_invalid_uri_model_id():

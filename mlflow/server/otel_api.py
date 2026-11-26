@@ -15,6 +15,8 @@ import base64
 import json
 import logging
 import time
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -29,7 +31,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 
 from mlflow.entities.span import Span
 from mlflow.exceptions import MlflowException
-from mlflow.server.handlers import _get_tracking_store
+from mlflow.server.handlers import _HANDLER_BLOCKED_TRACE_TAGS, _get_tracking_store
 from mlflow.server.otlp_metrics import (
     INGESTION_ERRORS,
     REQUEST_DURATION,
@@ -39,6 +41,8 @@ from mlflow.server.otlp_metrics import (
 )
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.otel.translation import strip_otlp_double_encoding
 from mlflow.tracing.utils import dump_span_attribute_value
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
@@ -108,6 +112,24 @@ def _convert_otlp_json_ids_to_base64(body: bytes) -> bytes:
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 
 
+def log_missing_experiment_id_header() -> None:
+    # OTel exporters don't print response bodies, so without this the server logs only the
+    # access line for a rejected export.
+    _logger.warning(
+        "Rejecting OTLP trace export request to %s: missing or empty required '%s' header. "
+        "Set it on the exporter, e.g. OTEL_EXPORTER_OTLP_TRACES_HEADERS=%s=<experiment id>.",
+        OTLP_TRACES_PATH,
+        MLFLOW_EXPERIMENT_ID_HEADER,
+        MLFLOW_EXPERIMENT_ID_HEADER,
+    )
+
+
+def is_missing_experiment_id_header_error(path: str, errors: Sequence[Mapping[str, Any]]) -> bool:
+    return path.rstrip("/").endswith(OTLP_TRACES_PATH) and any(
+        tuple(error.get("loc", ())) == ("header", MLFLOW_EXPERIMENT_ID_HEADER) for error in errors
+    )
+
+
 @otel_router.post("", status_code=200)
 async def export_traces(
     request: Request,
@@ -147,6 +169,13 @@ async def export_traces(
     Raises:
         HTTPException: If the request is invalid or span logging fails
     """
+    if not x_mlflow_experiment_id.strip():
+        log_missing_experiment_id_header()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The '{MLFLOW_EXPERIMENT_ID_HEADER}' header must not be empty.",
+        )
+
     start_time = time.perf_counter()
 
     try:
@@ -215,6 +244,9 @@ async def export_traces(
                 for otel_proto_span in scope_span.spans:
                     try:
                         mlflow_span = Span.from_otel_proto(otel_proto_span, resource=resource)
+                        mlflow_span._span._attributes = strip_otlp_double_encoding(
+                            mlflow_span._span._attributes
+                        )
 
                         # Propagate service.name onto root spans so it's visible
                         # in the UI. Per the OTel resource spec, resource attrs
@@ -225,6 +257,12 @@ async def export_traces(
                             if resource_service_name:
                                 mlflow_span._span._attributes["service.name"] = (
                                     dump_span_attribute_value(resource_service_name)
+                                )
+                            # Root span "mlflow.traceTag.<key>" attributes become trace tags,
+                            # so drop the system-managed ones like the trace handlers do.
+                            for key in _HANDLER_BLOCKED_TRACE_TAGS:
+                                mlflow_span._span._attributes.pop(
+                                    SpanAttributeKey.TRACE_TAG_PREFIX + key, None
                                 )
 
                         all_spans.append(mlflow_span)

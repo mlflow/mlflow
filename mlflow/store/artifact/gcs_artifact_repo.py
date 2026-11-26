@@ -29,10 +29,14 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     _is_object_key_within_path,
     _retry_with_new_creds,
+    _validate_multipart_upload_num_parts,
 )
 from mlflow.store.artifact.s3_artifact_repo import _attachment_content_disposition
 from mlflow.utils import get_installed_version
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+
+# https://cloud.google.com/storage/docs/multipart-uploads
+_GCS_MAX_NUM_PARTS = 10_000
 
 
 class GCSMPUArguments(NamedTuple):
@@ -303,6 +307,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin, MultipartD
 
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         self._validate_support_mpu()
+        _validate_multipart_upload_num_parts(num_parts, _GCS_MAX_NUM_PARTS)
         from google.resumable_media.requests import XMLMPUContainer
 
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)

@@ -5,8 +5,7 @@
       "mode": "completion",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -19,14 +18,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-textgeneration-llama-2-13b-f": {
       "mode": "chat",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -39,14 +37,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-textgeneration-llama-2-70b": {
       "mode": "completion",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -59,14 +56,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-textgeneration-llama-2-70b-b-f": {
       "mode": "chat",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -79,14 +75,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-textgeneration-llama-2-7b": {
       "mode": "completion",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -99,14 +94,13 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     },
     "meta-textgeneration-llama-2-7b-f": {
       "mode": "chat",
       "context_window": {
         "max_input": 4096,
-        "max_output": 4096,
-        "max_tokens": 4096
+        "max_output": 4096
       },
       "pricing": {
         "input_per_million_tokens": 0.0,
@@ -119,7 +113,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-10-27"
     }
   }
 }

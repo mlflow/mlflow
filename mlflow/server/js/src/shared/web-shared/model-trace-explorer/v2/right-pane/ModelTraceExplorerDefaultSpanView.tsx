@@ -1,5 +1,5 @@
 import { isNil } from 'lodash';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 
 import { Button, ChevronDownIcon, DropdownMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -19,16 +19,23 @@ import {
 } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
-import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import {
+  areModelTraceComparisonValuesEqual,
+  ModelTraceExplorerFieldRenderer,
+} from '../field-renderers/ModelTraceExplorerFieldRenderer';
 import { ModelTraceExplorerIssueEvidence } from '../../ModelTraceExplorerIssueBanner';
 import { useModelTraceExplorerContext } from '../ModelTraceExplorerContext';
 import { ModelTraceExplorerChatSections } from './ModelTraceExplorerChatSections';
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { DecisionAnswers, DecisionInputs } from './DecisionView';
 import { resolveDecision } from './decision-utils';
+import { useCachedPayloadResult } from './ModelTraceExplorerPayloadCache';
+import { shouldEnableNewEvalRunsUi } from '../../../../../common/utils/FeatureUtils';
 
 type ModelTraceExplorerSectionRenderMode = 'pretty' | Extract<ModelTraceExplorerRenderMode, 'json' | 'yaml'>;
+type ModelTraceExplorerField = { key: string; value: string };
 
 const CHAT_FIELD_KEYS: Record<'inputs' | 'outputs', Set<string>> = {
   inputs: new Set(['messages', 'input', 'inputs', 'prompt', 'prompts', 'tools']),
@@ -45,6 +52,15 @@ const getInitialSectionRenderMode = (
 };
 
 const stringifySectionData = (data: unknown) => JSON.stringify(data ?? null, null, 2);
+
+// Mount only for a visible JSON/YAML section, keeping serialization out of Pretty and comparison views.
+function ModelTraceExplorerSectionSnippet({
+  data,
+  ...props
+}: Omit<ComponentProps<typeof ModelTraceExplorerCodeSnippet>, 'data'> & { data: unknown }) {
+  const json = useCachedPayloadResult('section-json', data, () => stringifySectionData(data));
+  return <ModelTraceExplorerCodeSnippet {...props} data={json} />;
+}
 
 const getInputChatMessages = (
   activeSpan: ModelTraceSpanNode | undefined,
@@ -95,6 +111,47 @@ const getOutputChatMessages = (
   };
 };
 
+// Fallback conversations share the payload cache across badge and pane consumers.
+export const useSpanComparisonFields = (span: ModelTraceSpanNode | undefined, comparison = true) => {
+  const rawInputs = useCachedPayloadResult('fields', span?.inputs, () => createListFromObject(span?.inputs));
+  const rawOutputs = useCachedPayloadResult('fields', span?.outputs, () => createListFromObject(span?.outputs));
+  const inputChat = useMemo(() => getInputChatMessages(span), [span]);
+  const outputChat = useMemo(() => getOutputChatMessages(span, inputChat.messages), [span, inputChat]);
+  const needsInputFallback = comparison && !inputChat.hasTopLevelChatPayload && inputChat.messages.length > 0;
+  const needsOutputFallback = comparison && !outputChat.hasTopLevelChatPayload && outputChat.messages.length > 0;
+  const inputFallback = useCachedPayloadResult(
+    'input-chat-json',
+    needsInputFallback ? span?.chatMessages : undefined,
+    () => (needsInputFallback ? JSON.stringify(inputChat.messages, null, 2) : undefined),
+  );
+  const outputFallback = useCachedPayloadResult(
+    'output-chat-json',
+    needsOutputFallback ? span?.chatMessages : undefined,
+    () => (needsOutputFallback ? JSON.stringify(outputChat.messages, null, 2) : undefined),
+  );
+  const inputs = useMemo(
+    () =>
+      inputFallback === undefined
+        ? rawInputs
+        : [
+            ...rawInputs.filter(({ key }) => key !== 'mlflow.chat.messages'),
+            { key: 'mlflow.chat.messages', value: inputFallback },
+          ],
+    [rawInputs, inputFallback],
+  );
+  const outputs = useMemo(
+    () =>
+      outputFallback === undefined
+        ? rawOutputs
+        : [
+            ...rawOutputs.filter(({ key }) => key !== 'mlflow.chat.messages'),
+            { key: 'mlflow.chat.messages', value: outputFallback },
+          ],
+    [rawOutputs, outputFallback],
+  );
+  return { inputs, outputs, rawInputs, rawOutputs, inputChat, outputChat };
+};
+
 export function ModelTraceExplorerDefaultSpanView({
   activeSpan,
   className,
@@ -110,6 +167,7 @@ export function ModelTraceExplorerDefaultSpanView({
 }): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
   const { experimentId } = useModelTraceExplorerContext();
+  const { selectedComparisonNode, selectedNodeComparisonRole: comparisonRole } = useModelTraceExplorerViewState();
   const [sectionRenderModes, setSectionRenderModes] = useState<
     Record<'inputs' | 'outputs', ModelTraceExplorerSectionRenderMode>
   >({
@@ -117,25 +175,33 @@ export function ModelTraceExplorerDefaultSpanView({
     outputs: getInitialSectionRenderMode(defaultRenderMode),
   });
   const [openSectionRenderModeDropdown, setOpenSectionRenderModeDropdown] = useState<'inputs' | 'outputs' | null>(null);
-  const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
-  const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
-  const inputChatMessagesResult = useMemo(() => getInputChatMessages(activeSpan), [activeSpan]);
+  const {
+    rawInputs: inputList,
+    rawOutputs: outputList,
+    inputChat: inputChatMessagesResult,
+    outputChat: outputChatMessagesResult,
+    inputs: effectiveInputList,
+    outputs: effectiveOutputList,
+  } = useSpanComparisonFields(activeSpan, Boolean(comparisonRole));
   const inputChatMessages = inputChatMessagesResult.messages;
   const inputHasTopLevelChatPayload = inputChatMessagesResult.hasTopLevelChatPayload;
-  const outputChatMessagesResult = useMemo(
-    () => getOutputChatMessages(activeSpan, inputChatMessages),
-    [activeSpan, inputChatMessages],
-  );
   const outputChatMessages = outputChatMessagesResult.messages;
   const outputHasTopLevelChatPayload = outputChatMessagesResult.hasTopLevelChatPayload;
+  const { inputs: effectiveComparisonInputList, outputs: effectiveComparisonOutputList } = useSpanComparisonFields(
+    comparisonRole ? selectedComparisonNode : undefined,
+  );
   const decision = useMemo(() => resolveDecision(activeSpan), [activeSpan]);
 
   if (isNil(activeSpan)) {
     return null;
   }
 
-  const containsInputs = inputList.length > 0 || inputChatMessages.length > 0;
-  const containsOutputs = outputList.length > 0 || outputChatMessages.length > 0;
+  const containsInputs = comparisonRole
+    ? effectiveInputList.length > 0 || effectiveComparisonInputList.length > 0
+    : inputList.length > 0 || inputChatMessages.length > 0;
+  const containsOutputs = comparisonRole
+    ? effectiveOutputList.length > 0 || effectiveComparisonOutputList.length > 0
+    : outputList.length > 0 || outputChatMessages.length > 0;
   const containsTools = (activeSpan.chatTools?.length ?? 0) > 0;
 
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
@@ -218,21 +284,47 @@ export function ModelTraceExplorerDefaultSpanView({
     </DropdownMenu.Root>
   );
 
-  const renderPrettyFields = (section: 'inputs' | 'outputs', fields: typeof inputList) => {
-    if (!searchFilter && decision) {
+  const renderPrettyFields = (
+    section: 'inputs' | 'outputs',
+    fields: typeof inputList,
+    comparisonFields: typeof inputList = [],
+  ) => {
+    if (!comparisonRole && !searchFilter && decision) {
       if (section === 'outputs') {
         return <DecisionAnswers decision={decision} />;
       }
       return <DecisionInputs decision={decision} fields={fields} assessments={activeSpan.assessments} />;
     }
 
+    // In a comparison, fields are the union of both sides, with changed fields first.
+    const activeFields = new Map(fields.map(({ key, value }) => [key, value]));
+    const counterpartFields = new Map(comparisonFields.map(({ key, value }) => [key, value]));
+    const baselineFields = comparisonRole === 'candidate' ? comparisonFields : fields;
+    const candidateFields = comparisonRole === 'candidate' ? fields : comparisonFields;
+    const fieldKeys = [
+      ...baselineFields.map(({ key }) => key),
+      ...candidateFields.map(({ key }) => key).filter((key) => !baselineFields.some((field) => field.key === key)),
+    ];
+    const sortedFieldKeys = comparisonRole
+      ? [...fieldKeys].sort(
+          (firstKey, secondKey) =>
+            Number(areModelTraceComparisonValuesEqual(activeFields.get(firstKey), counterpartFields.get(firstKey))) -
+            Number(areModelTraceComparisonValuesEqual(activeFields.get(secondKey), counterpartFields.get(secondKey))),
+        )
+      : fieldKeys;
+    const displayedFields = comparisonRole
+      ? sortedFieldKeys.map((key) => ({ key, value: activeFields.get(key) }))
+      : fields;
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-        {fields.map(({ key, value }, index) => (
+        {displayedFields.map(({ key, value }, index) => (
           <ModelTraceExplorerFieldRenderer
             key={key || index}
             title={key}
             data={value}
+            comparisonData={counterpartFields.get(key)}
+            comparisonRole={comparisonRole}
+            comparisonEnabled={Boolean(comparisonRole)}
             renderMode="default"
             assessments={activeSpan?.assessments}
             searchFilter={searchFilter}
@@ -291,6 +383,13 @@ export function ModelTraceExplorerDefaultSpanView({
   };
 
   const renderSectionPayload = (section: 'inputs' | 'outputs', data: unknown) => {
+    if (comparisonRole) {
+      return renderPrettyFields(
+        section,
+        section === 'inputs' ? effectiveInputList : effectiveOutputList,
+        section === 'inputs' ? effectiveComparisonInputList : effectiveComparisonOutputList,
+      );
+    }
     if (sectionRenderModes[section] === 'pretty') {
       if (decision && !searchFilter) {
         return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
@@ -317,11 +416,10 @@ export function ModelTraceExplorerDefaultSpanView({
       return renderPrettyFields(section, section === 'inputs' ? inputList : outputList);
     }
 
-    const stringifiedData = stringifySectionData(data);
     return (
-      <ModelTraceExplorerCodeSnippet
+      <ModelTraceExplorerSectionSnippet
         title=""
-        data={stringifiedData}
+        data={data}
         initialRenderMode={
           sectionRenderModes[section] === 'yaml' ? CodeSnippetRenderMode.YAML : CodeSnippetRenderMode.JSON
         }
@@ -344,9 +442,10 @@ export function ModelTraceExplorerDefaultSpanView({
       }}
     >
       {title}
-      {renderModeDropdown(section, sectionRenderModes[section], (mode) =>
-        setSectionRenderModes((current) => ({ ...current, [section]: mode })),
-      )}
+      {!comparisonRole &&
+        renderModeDropdown(section, sectionRenderModes[section], (mode) =>
+          setSectionRenderModes((current) => ({ ...current, [section]: mode })),
+        )}
     </div>
   );
 
@@ -356,6 +455,7 @@ export function ModelTraceExplorerDefaultSpanView({
         paddingLeft: theme.spacing.md + theme.spacing.xs,
         paddingRight: theme.spacing.md + theme.spacing.xs,
         paddingTop: theme.spacing.sm,
+        ...(shouldEnableNewEvalRunsUi() ? { paddingBottom: theme.spacing.xl } : {}),
       }}
       data-testid="model-trace-explorer-default-span-view"
     >
@@ -400,6 +500,8 @@ export function ModelTraceExplorerDefaultSpanView({
       )}
       {containsInputs && (
         <ModelTraceExplorerCollapsibleSection
+          // A comparison remounts the section per span so a collapsed section opens again on the next span.
+          key={comparisonRole ? `${activeSpan.key}-input` : undefined}
           withBorder
           css={{ marginBottom: theme.spacing.sm }}
           headerPadding={`${theme.spacing.xs}px 0`}
@@ -420,6 +522,7 @@ export function ModelTraceExplorerDefaultSpanView({
       )}
       {containsOutputs && (
         <ModelTraceExplorerCollapsibleSection
+          key={comparisonRole ? `${activeSpan.key}-output` : undefined}
           withBorder
           css={{ borderTop: `1px solid ${theme.colors.borderDecorative}`, paddingTop: theme.spacing.sm }}
           headerPadding={`${theme.spacing.xs}px 0`}

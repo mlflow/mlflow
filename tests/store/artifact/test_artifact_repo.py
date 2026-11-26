@@ -12,6 +12,7 @@ from mlflow.store.artifact.artifact_repo import (
     _is_object_key_within_path,
     _sanitize_path_component_for_windows,
     _sanitize_path_for_windows,
+    _validate_multipart_upload_num_parts,
 )
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.os import is_windows
@@ -45,6 +46,18 @@ _EMPTY_FILE_SIZE = 0
 )
 def test_is_object_key_within_path(object_key, path, expected):
     assert _is_object_key_within_path(object_key, path) is expected
+
+
+@pytest.mark.parametrize("num_parts", [1, 10_000])
+def test_validate_multipart_upload_num_parts_accepts_in_range_values(num_parts):
+    _validate_multipart_upload_num_parts(num_parts, 10_000)
+
+
+@pytest.mark.parametrize("num_parts", [-1, 0, 10_001])
+def test_validate_multipart_upload_num_parts_rejects_out_of_range_values(num_parts):
+    with pytest.raises(MlflowException, match="num_parts must be between 1 and 10000") as exc:
+        _validate_multipart_upload_num_parts(num_parts, 10_000)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
 class ArtifactRepositoryImpl(ArtifactRepository):

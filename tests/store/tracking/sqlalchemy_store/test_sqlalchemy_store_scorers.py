@@ -25,7 +25,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer as scorer_decorator
-from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig
+from mlflow.store.db.db_types import MSSQL, MYSQL
+from mlflow.store.tracking.dbmodels.models import SqlOnlineScoringConfig, SqlScorer
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -630,6 +631,73 @@ def _mock_gateway_endpoint():
         created_at=0,
         last_updated_at=0,
     )
+
+
+def _compares_names_without_case(store: SqlAlchemyStore) -> bool:
+    # MySQL and SQL Server compare strings without case (MySQL also without accents) under their
+    # default collations, so these tests check the store's own exact-name check on those databases.
+    return store._get_dialect() in (MYSQL, MSSQL)
+
+
+@pytest.mark.parametrize(
+    "act",
+    [
+        lambda store, experiment_id: store.get_scorer(experiment_id, "JUDGE"),
+        lambda store, experiment_id: store.get_scorer(experiment_id, "judgé"),
+        lambda store, experiment_id: store.get_scorer(experiment_id, "JUDGE", version=1),
+        lambda store, experiment_id: store.list_scorer_versions(experiment_id, "JUDGE"),
+        lambda store, experiment_id: store.delete_scorer(experiment_id, "JUDGE"),
+        lambda store, experiment_id: store.upsert_online_scoring_config(
+            experiment_id=experiment_id, scorer_name="JUDGE", sample_rate=1.0
+        ),
+    ],
+)
+def test_scorer_name_in_another_case_is_not_found(store: SqlAlchemyStore, act):
+    experiment_id = store.create_experiment("test_scorer_name_case")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "judge", _gateway_model_scorer_json())
+
+    with pytest.raises(MlflowException, match="not found") as e:
+        act(store, experiment_id)
+    assert e.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+    assert [v.scorer_version for v in store.list_scorer_versions(experiment_id, "judge")] == [1]
+    assert (
+        store.get_online_scoring_configs([store.get_scorer(experiment_id, "judge").scorer_id]) == []
+    )
+
+
+def test_register_scorer_name_in_another_case(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_register_scorer_name_case")
+    with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
+        store.register_scorer(experiment_id, "judge", _gateway_model_scorer_json())
+        if _compares_names_without_case(store):
+            with pytest.raises(MlflowException, match="compares as equal to 'JUDGE'") as e:
+                store.register_scorer(experiment_id, "JUDGE", _gateway_model_scorer_json())
+            assert e.value.error_code == "RESOURCE_ALREADY_EXISTS"
+        else:
+            other = store.register_scorer(experiment_id, "JUDGE", _gateway_model_scorer_json())
+            assert (other.scorer_name, other.scorer_version) == ("JUDGE", 1)
+
+    assert [v.scorer_version for v in store.list_scorer_versions(experiment_id, "judge")] == [1]
+
+
+def test_get_sql_scorer_requires_the_exact_name(store: SqlAlchemyStore):
+    # SQLite compares names exactly, so simulate a database that does not.
+    case_variant = SqlScorer(experiment_id=1, scorer_name="judge", scorer_id="id")
+    with (
+        store.ManagedSessionMaker() as session,
+        mock.patch.object(
+            SqlAlchemyStore, "_find_sql_scorer_by_collation", return_value=case_variant
+        ) as find,
+    ):
+        assert store._get_sql_scorer_exact(session, 1, "JUDGE") is None
+        assert store._get_sql_scorer_exact(session, 1, "judge ") is None
+        assert store._get_sql_scorer_exact(session, 1, "judgé") is None
+        assert store._get_sql_scorer_exact(session, 1, "judge") is case_variant
+    assert find.call_args_list == [
+        mock.call(session, 1, name) for name in ["JUDGE", "judge ", "judgé", "judge"]
+    ]
 
 
 def test_get_online_scoring_configs_batch(store: SqlAlchemyStore):

@@ -15,7 +15,11 @@ from google.oauth2 import credentials as user_credentials
 from google.oauth2 import service_account
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.exceptions import MlflowException, _UnsupportedPresignedDownloadException
+from mlflow.exceptions import (
+    MlflowException,
+    _UnsupportedMultipartUploadException,
+    _UnsupportedPresignedDownloadException,
+)
 from mlflow.protos.databricks_pb2 import NOT_IMPLEMENTED, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -441,6 +445,34 @@ def test_create_multipart_upload(mock_client):
         assert len(create.credentials) == 5
         assert create.upload_id == upload_id
         assert kwargs["data"] is None
+
+
+@pytest.mark.parametrize("num_parts", [0, 10_001])
+def test_create_multipart_upload_rejects_out_of_range_num_parts(mock_client, num_parts):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    with (
+        mock.patch.object(GCSArtifactRepository, "_validate_support_mpu"),
+        pytest.raises(MlflowException, match="num_parts must be between 1 and 10000") as exc,
+    ):
+        repo.create_multipart_upload("file.txt", num_parts=num_parts)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    mock_client.bucket.assert_not_called()
+
+
+def test_create_multipart_upload_reports_unsupported_mpu_before_num_parts(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    with (
+        mock.patch(
+            "mlflow.store.artifact.gcs_artifact_repo.get_installed_version", return_value=None
+        ),
+        pytest.raises(
+            _UnsupportedMultipartUploadException,
+            match=_UnsupportedMultipartUploadException.MESSAGE,
+        ) as exc,
+    ):
+        repo.create_multipart_upload("file.txt", num_parts=10_001)
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
+    mock_client.bucket.assert_not_called()
 
 
 def test_complete_multipart_upload(mock_client):
