@@ -19,6 +19,5 @@ verified against the reproduction and relevant tests. Include `pull_request` onl
 with a verified `fix.patch` that meets the [shared output requirements](../output.md)
 and the selected action's eligibility rules.
 
-Several fixes that behave the same for users are not an unresolved design choice. Implement
-the one you recommend and name the alternatives in the PR body. If users would notice which
-one was chosen, such as a different error or default, leave the choice to a maintainer.
+More than one way to implement the fix is not an unresolved design choice. Implement the
+one you recommend and name the alternatives in the PR body.
