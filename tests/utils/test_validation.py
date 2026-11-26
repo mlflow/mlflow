@@ -513,6 +513,7 @@ def _mock_getaddrinfo_by_host(host_to_ip: dict[str, str]):
         ("ftp://example.com", "Invalid webhook URL scheme"),
         ("http://example.com", "Invalid webhook URL scheme"),
         ("https://", "must include a hostname"),
+        ("https://127.0.0.1:6379\\@1.2.3.4/hook", "must not contain a backslash"),
     ],
 )
 def test_validate_webhook_url_rejects_invalid_input(url, expected_match):

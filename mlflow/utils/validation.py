@@ -1583,6 +1583,13 @@ def _validate_webhook_url(url: str) -> None:
             f"Allowed schemes are: {', '.join(schemes)}."
         )
 
+    # urllib3 (used by requests for delivery) ends the authority at a backslash while
+    # urllib.parse does not, so the two would disagree on which host the URL targets.
+    if "\\" in parsed_url.netloc:
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must not contain a backslash in its host: {url!r}"
+        )
+
     hostname = parsed_url.hostname
     if not hostname:
         raise MlflowException.invalid_parameter_value(
