@@ -106,7 +106,7 @@ describe('RegisterModelForm', () => {
   });
 
   test('filters model options by search text', async () => {
-    renderForm({
+    const { rerender } = renderForm({
       ...minimalProps,
       modelByName: {
         'Model A': mockRegisteredModelDetailed('Model A', []),
@@ -120,6 +120,20 @@ describe('RegisterModelForm', () => {
 
     expect(screen.getByRole('option', { name: 'Model B' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Model A' })).not.toBeInTheDocument();
+
+    rerender(
+      <RegisterModelForm
+        {...minimalProps}
+        modelByName={{
+          'Model B': mockRegisteredModelDetailed('Model B', []),
+          'Model C': mockRegisteredModelDetailed('Model C', []),
+        }}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Model B' })).toBeInTheDocument();
+      expect(screen.queryByRole('option', { name: 'Model C' })).not.toBeInTheDocument();
+    });
 
     await userEvent.clear(modelInput);
     await userEvent.paste('No match');
