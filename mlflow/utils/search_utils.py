@@ -1045,7 +1045,7 @@ class SearchUtils:
 
         try:
             offset = int(offset_str)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             raise MlflowException(
                 f"Invalid page token, not stringable {offset_str}",
                 error_code=INVALID_PARAMETER_VALUE,
