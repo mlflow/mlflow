@@ -3791,6 +3791,7 @@ def autolog(
         "openai": "mlflow.openai",
         "google.genai": "mlflow.gemini",
         "google.generativeai": "mlflow.gemini",
+        "google.adk": "mlflow.google_adk",
         "litellm": "mlflow.litellm",
         "llama_index.core": "mlflow.llama_index",
         "langchain": "mlflow.langchain",

@@ -95,6 +95,7 @@ TRACING_INCLUDE_FILES = [
     "mlflow.llama_index*",
     "mlflow.mistral*",
     "mlflow.openai*",
+    "mlflow.google_adk*",
     "mlflow.strands*",
     "mlflow.typesafe*",
     "mlflow.haystack*",
