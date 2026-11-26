@@ -106,14 +106,20 @@ def parse_filter_string(filter_string: str | None) -> list[Comparison]:
             op = op.upper()
             entity = Entity.from_str(identifier)
             entity.validate_op(op)
-            if entity.is_numeric():
-                value = float(value)
-            else:
-                if value.startswith("(") and value.endswith(")"):
-                    value = ast.literal_eval(value)
-                    value = (value,) if isinstance(value, str) else value
+            try:
+                if entity.is_numeric():
+                    value = float(value)
                 else:
-                    value = value.strip("'")
+                    if value.startswith("(") and value.endswith(")"):
+                        value = ast.literal_eval(value)
+                        value = (value,) if isinstance(value, str) else value
+                    else:
+                        value = value.strip("'")
+            except (ValueError, TypeError, SyntaxError) as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid filter string: {filter_string!r}. Failed to convert value "
+                    f"{value!r} for {entity}. {e!r}"
+                ) from e
             comparisons.append(Comparison(entity=entity, op=op, value=value))
         elif stmt.value.strip().upper() == "AND":
             # Do nothing, this is just a separator
