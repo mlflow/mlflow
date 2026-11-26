@@ -1587,7 +1587,7 @@ def _validate_webhook_url(url: str) -> None:
     # urllib.parse does not, so the two would disagree on which host the URL targets.
     if "\\" in parsed_url.netloc:
         raise MlflowException.invalid_parameter_value(
-            f"Webhook URL must not contain a backslash in its host: {url!r}"
+            f"Webhook URL must not contain a backslash in its network location: {url!r}"
         )
 
     hostname = parsed_url.hostname

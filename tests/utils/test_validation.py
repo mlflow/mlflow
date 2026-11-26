@@ -568,12 +568,19 @@ def test_validate_webhook_url_rejects_if_any_resolved_address_is_private():
             _validate_webhook_url("https://dual-homed.example.com/hook")
 
 
-def test_validate_webhook_url_accepts_public_ip():
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/webhook",
+        "https://example.com/a\\b?x=\\y",
+    ],
+)
+def test_validate_webhook_url_accepts_public_ip(url):
     with patch(
         "mlflow.utils.validation.socket.getaddrinfo",
         side_effect=_mock_getaddrinfo("8.8.8.8"),
     ):
-        _validate_webhook_url("https://example.com/webhook")
+        _validate_webhook_url(url)
 
 
 def test_validate_webhook_url_allow_private_ips_env_var(monkeypatch):
