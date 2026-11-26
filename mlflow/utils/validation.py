@@ -1281,11 +1281,11 @@ def _validate_gateway_secret_value(secret_value: dict[str, Any] | None) -> None:
     _validate_gateway_region_keys(secret_value, "secret_value", show_value=False)
 
 
-def _find_destination_keys(value: Any) -> set[str]:
+def _find_destination_keys(value: Any, keys: frozenset[str] = GATEWAY_DESTINATION_KEYS) -> set[str]:
     if isinstance(value, dict):
-        found = GATEWAY_DESTINATION_KEYS & set(value)
+        found = keys & set(value)
         for nested in value.values():
-            found |= _find_destination_keys(nested)
+            found |= _find_destination_keys(nested, keys)
         return found
     if isinstance(value, list):
         found: set[str] = set()
@@ -1293,8 +1293,8 @@ def _find_destination_keys(value: Any) -> set[str]:
             # `dict()` also accepts a list of two-item pairs, which is how nested option maps
             # such as trulens' `completion_kwargs` are materialized.
             if isinstance(nested, list) and len(nested) == 2 and isinstance(nested[0], str):
-                found |= GATEWAY_DESTINATION_KEYS & {nested[0]}
-            found |= _find_destination_keys(nested)
+                found |= keys & {nested[0]}
+            found |= _find_destination_keys(nested, keys)
         return found
     return set()
 
@@ -1319,6 +1319,31 @@ def _iter_region_key_values(value: Any) -> Iterator[tuple[str, Any]]:
             ):
                 yield nested[0], nested[1]
             yield from _iter_region_key_values(nested)
+
+
+def _validate_llm_client_kwargs(
+    kwargs: Any, field: str, client: str, endpoint: str | None = None
+) -> None:
+    """Reject ``kwargs`` that would choose where an LLM client on the server sends requests.
+
+    The gateway destination keys are rejected at any nesting depth, and the region keys, from
+    which providers build request hosts, must be bare region names at any nesting depth. ``client``
+    names whose LLM client receives the kwargs and ``endpoint`` names the endpoint configured on
+    the server instead, e.g. ``"judge"``. ``endpoint`` defaults to ``client``.
+    """
+    endpoint = endpoint or client
+    if found := sorted(_find_destination_keys(kwargs)):
+        raise MlflowException.invalid_parameter_value(
+            f"{field} must not contain {', '.join(map(repr, found))}: these options choose where "
+            f"the {client}'s LLM client sends requests. Configure the {endpoint} endpoint on the "
+            "server instead, for example through a gateway endpoint ('gateway:/<name>') or the "
+            "provider's environment variables."
+        )
+    for key, value in _iter_region_key_values(kwargs):
+        try:
+            _validate_region_name(value, f"{field} {key!r}")
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(str(e)) from None
 
 
 def _iter_third_party_scorer_data(value: Any) -> Iterator[dict[str, Any]]:
@@ -1358,18 +1383,9 @@ def _validate_third_party_scorer_data(serialized_scorer: dict[str, Any]) -> None
                 "third_party_scorer_data.kwargs must be a JSON object, got "
                 f"{type(kwargs).__name__}."
             )
-        if found := sorted(_find_destination_keys(kwargs)):
-            raise MlflowException.invalid_parameter_value(
-                f"third_party_scorer_data.kwargs must not contain {', '.join(map(repr, found))}: "
-                "these options choose where the scorer's LLM client sends requests. Configure "
-                "the judge endpoint on the server instead, for example through a gateway "
-                "endpoint ('gateway:/<name>') or the provider's environment variables."
-            )
-        for key, value in _iter_region_key_values(kwargs):
-            try:
-                _validate_region_name(value, f"third_party_scorer_data.kwargs {key!r}")
-            except ValueError as e:
-                raise MlflowException.invalid_parameter_value(str(e)) from None
+        _validate_llm_client_kwargs(
+            kwargs, "third_party_scorer_data.kwargs", client="scorer", endpoint="judge"
+        )
 
 
 # Serialized judges whose data carries ``inference_params``: ``InstructionsJudge`` (``make_judge``)
@@ -1402,7 +1418,7 @@ def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
     judge endpoint is configured on the server, so the gateway destination keys rejected for
     third-party scorer kwargs are rejected here too, at any nesting depth and inside any
     wrapping scorer. Providers build request hosts from the region keys, so those must be bare
-    region names.
+    region names at any nesting depth too.
     """
     for field, data in _iter_judge_pydantic_data(serialized_scorer):
         params = data.get("inference_params")
@@ -1412,14 +1428,44 @@ def _validate_judge_inference_params(serialized_scorer: dict[str, Any]) -> None:
             raise MlflowException.invalid_parameter_value(
                 f"{field}.inference_params must be a JSON object, got {type(params).__name__}."
             )
-        if found := sorted(_find_destination_keys(params)):
+        _validate_llm_client_kwargs(params, f"{field}.inference_params", client="judge")
+
+
+def _validate_prompt_optimizer_config(optimizer_config: Any) -> None:
+    """Reject prompt optimizer options that set where the reflection model's requests are sent.
+
+    The optimization job forwards ``lm_kwargs`` (MetaPrompt) and ``gepa_kwargs`` (GEPA, including
+    its ``reflection_lm_kwargs``) into the reflection model's ``litellm.completion()`` kwargs, where
+    they take precedence over the endpoint the server configured and travel with the server's
+    provider credentials. As for judge ``inference_params``, the gateway destination keys are
+    rejected at any nesting depth and the region keys must be bare region names.
+    """
+    if optimizer_config is None:
+        return
+    # The job reads options with `config.get(...)`, so only a mapping (or null) is a valid shape.
+    if not isinstance(optimizer_config, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"optimizer_config_json must be a JSON object, got {type(optimizer_config).__name__}."
+        )
+    _validate_llm_client_kwargs(
+        optimizer_config, "optimizer_config_json", client="reflection model"
+    )
+    # These kwargs are merged over the model resolved from `reflection_model`, which is the
+    # endpoint the auth plugin authorizes, so a `model` key (or `extra_body.model`) would send the
+    # request to a different model or gateway endpoint than the one checked.
+    gepa_kwargs = optimizer_config.get("gepa_kwargs")
+    reflection_kwargs = {
+        "lm_kwargs": optimizer_config.get("lm_kwargs"),
+        "gepa_kwargs.reflection_lm_kwargs": (
+            gepa_kwargs.get("reflection_lm_kwargs") if isinstance(gepa_kwargs, dict) else None
+        ),
+    }
+    for field, kwargs in reflection_kwargs.items():
+        if _find_destination_keys(kwargs, frozenset({"model"})):
             raise MlflowException.invalid_parameter_value(
-                f"{field}.inference_params must not contain {', '.join(map(repr, found))}: "
-                "these options choose where the judge's LLM client sends requests. Configure "
-                "the judge endpoint on the server instead, for example through a gateway "
-                "endpoint ('gateway:/<name>') or the provider's environment variables."
+                f"optimizer_config_json {field} must not contain 'model': set the reflection "
+                "model with 'reflection_model' instead."
             )
-        _validate_gateway_region_keys(params, f"{field}.inference_params")
 
 
 def _validate_icon_url(url: str) -> None:

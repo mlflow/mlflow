@@ -8608,6 +8608,49 @@ def test_create_prompt_optimization_job_invalid_optimizer_config_json(mock_track
         assert "Invalid JSON in optimizer_config_json" in json_response["message"]
 
 
+@pytest.mark.parametrize(
+    ("optimizer_type", "optimizer_config"),
+    [
+        (
+            OPTIMIZER_TYPE_METAPROMPT,
+            {"reflection_model": "openai:/gpt-4o", "lm_kwargs": {"api_base": "http://h:1/v1"}},
+        ),
+        (
+            OPTIMIZER_TYPE_GEPA,
+            {
+                "reflection_model": "openai:/gpt-4o",
+                "gepa_kwargs": {"reflection_lm_kwargs": {"base_url": "http://h:1/v1"}},
+            },
+        ),
+    ],
+)
+def test_create_prompt_optimization_job_rejects_destination_keys(
+    mock_tracking_store, optimizer_type, optimizer_config
+):
+    with (
+        mock.patch("mlflow.server.jobs.submit_job") as mock_submit_job,
+        app.test_request_context(
+            method="POST",
+            json={
+                "experiment_id": "exp-123",
+                "source_prompt_uri": "prompts:/my-prompt/1",
+                "config": {
+                    "optimizer_type": optimizer_type,
+                    "optimizer_config_json": json.dumps(optimizer_config),
+                },
+            },
+        ),
+    ):
+        response = _create_prompt_optimization_job()
+
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert "optimizer_config_json must not contain" in json_response["message"]
+    mock_tracking_store.create_run.assert_not_called()
+    mock_submit_job.assert_not_called()
+
+
 def test_create_prompt_optimization_job_missing_experiment_id(mock_tracking_store):
     with app.test_request_context(
         method="POST",
