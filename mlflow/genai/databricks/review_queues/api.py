@@ -1,13 +1,16 @@
 """Review queues on Databricks.
 
 A Databricks-native client for review queues. Unlike :mod:`mlflow.genai.review_queues`
-(which targets the MLflow tracking server), the functions here mirror the Databricks
-review queue REST API one-to-one: questions, queues, members, and items are separate
-resources nested under an experiment, and every function takes the ``experiment_id``
-explicitly. They require a Databricks tracking URI.
+(which targets the MLflow tracking server), the functions here follow the Databricks
+review queue REST API: questions, queues, members, and items are separate resources
+nested under an experiment, and every function takes the ``experiment_id`` explicitly.
+They require a Databricks tracking URI.
+
+The member functions also accept a :py:class:`mlflow.genai.LabelingSession` in place of
+``experiment_id`` and ``queue_id``, so code written for labeling sessions can use them too.
 """
 
-from typing import Any, Literal
+from typing import Any, Literal, overload
 from urllib.parse import quote
 
 from mlflow.exceptions import MlflowException
@@ -24,7 +27,9 @@ from mlflow.genai.databricks.review_queues.entities import (
     ReviewQueueType,
     ReviewStatus,
 )
-from mlflow.protos.databricks_pb2 import INVALID_STATE
+from mlflow.genai.labeling import stores as labeling_stores
+from mlflow.genai.labeling.labeling import LabelingSession
+from mlflow.protos.databricks_pb2 import INVALID_STATE, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.utils.annotations import experimental
@@ -204,6 +209,7 @@ def create_review_queue(
     *,
     queue_type: ReviewQueueType | Literal["USER", "CUSTOM"] = ReviewQueueType.CUSTOM,
     question_ids: list[str] | None = None,
+    members: list[str] | None = None,
 ) -> ReviewQueue:
     """
     Create a review queue in an experiment.
@@ -217,10 +223,14 @@ def create_review_queue(
         queue_type: ``"USER"`` or ``"CUSTOM"`` (default).
         question_ids: For a ``CUSTOM`` queue, the questions to pin. A ``USER`` queue
             uses all of the experiment's questions.
+        members: Reviewers to assign once the queue is created, e.g. email addresses.
+            They're added one at a time after the queue is created, so if one can't be
+            added, the queue still exists and the error names it.
 
     Returns:
         The created :py:class:`ReviewQueue`.
     """
+    member_users = _unique_users(members) if members is not None else []
     queue_type = ReviewQueueType(queue_type)
     body: dict[str, Any] = {"display_name": display_name, "queue_type": queue_type.value}
     if queue_type == ReviewQueueType.USER:
@@ -230,7 +240,17 @@ def create_review_queue(
     if question_ids:
         body["question_names"] = [_question(experiment_id, q) for q in question_ids]
     resp = _client.call("POST", f"{_experiment(experiment_id)}/reviewQueues", json=body)
-    return ReviewQueue.from_dict(resp)
+    queue = ReviewQueue.from_dict(resp)
+    if member_users:
+        try:
+            _add_queue_members(experiment_id, queue.queue_id, member_users)
+        except MlflowException as e:
+            raise MlflowException(
+                f"Created review queue {queue.queue_id!r}, but couldn't add all its members. "
+                f"{e.message}",
+                error_code=ErrorCode.Value(e.error_code),
+            ) from e
+    return queue
 
 
 @experimental(version="3.17.1")
@@ -332,35 +352,82 @@ def delete_review_queue(experiment_id: str, queue_id: str) -> None:
 
 
 # ---- Members ----
+#
+# Each member function also accepts a `LabelingSession` in place of `experiment_id` and
+# `queue_id`. For a session, it reads and writes the session's assigned users through the
+# labeling session SDK, so the session keeps behaving as it does today, including the access
+# that SDK grants to assigned users. It never changes the queue a session was migrated to.
 
 
-@experimental(version="3.17.1")
-def add_review_queue_member(experiment_id: str, queue_id: str, user: str) -> ReviewQueueMember:
-    """
-    Assign a reviewer to a queue.
+def _require(value: Any, name: str) -> Any:
+    if value is None:
+        raise MlflowException.invalid_parameter_value(f"`{name}` is required.")
+    return value
 
-    Args:
-        experiment_id: The experiment that owns the queue.
-        queue_id: The queue to assign the reviewer to.
-        user: The reviewer, e.g. an email address.
 
-    Returns:
-        The added :py:class:`ReviewQueueMember`.
-    """
+def _unique_users(users: list[str]) -> list[str]:
+    if isinstance(users, str):
+        raise MlflowException.invalid_parameter_value(
+            f"`users` must be a list of users, not a string: {users!r}."
+        )
+    return list(dict.fromkeys(users))
+
+
+def _reject_queue_id_for_session(function: str, queue_id: Any, keyword: str | None) -> None:
+    # A session has no `queue_id`, so a second positional argument is a misplaced keyword,
+    # e.g. `add_review_queue_member(session, "alice@example.com")`.
+    if queue_id is not None:
+        hint = (
+            f" Pass `{keyword}` by keyword: `{function}(session, {keyword}=...)`."
+            if keyword
+            else ""
+        )
+        raise MlflowException.invalid_parameter_value(
+            f"`{function}` takes no `queue_id` when given a `LabelingSession`.{hint}"
+        )
+
+
+def _current_labeling_session(session: LabelingSession) -> LabelingSession:
+    # The caller's object can be out of date, so read the session again before using its users.
+    store = labeling_stores._get_labeling_store()
+    for current in store.get_labeling_sessions(session.experiment_id):
+        if current.labeling_session_id == session.labeling_session_id:
+            return current
+    raise MlflowException(
+        f"Labeling session {session.labeling_session_id!r} was not found in experiment "
+        f"{session.experiment_id!r}.",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
+
+
+def _add_session_members(session: LabelingSession, users: list[str]) -> None:
+    current = _current_labeling_session(session)
+    if new_users := [u for u in users if u not in current.assigned_users]:
+        current.set_assigned_users(current.assigned_users + new_users)
+
+
+def _add_queue_member(experiment_id: str, queue_id: str, user: str) -> ReviewQueueMember:
     resp = _client.call("POST", f"{_queue(experiment_id, queue_id)}/members", json={"user": user})
     return ReviewQueueMember.from_dict(resp)
 
 
-@experimental(version="3.17.1")
-def remove_review_queue_member(experiment_id: str, queue_id: str, user: str) -> None:
-    """
-    Unassign a reviewer from a queue.
+def _add_queue_members(
+    experiment_id: str, queue_id: str, users: list[str]
+) -> list[ReviewQueueMember]:
+    added: list[ReviewQueueMember] = []
+    for user in users:
+        try:
+            added.append(_add_queue_member(experiment_id, queue_id, user))
+        except MlflowException as e:
+            raise MlflowException(
+                f"Couldn't add {user!r} to review queue {queue_id!r}. Members added before "
+                f"this one: {[m.user for m in added]}. Error: {e.message}",
+                error_code=ErrorCode.Value(e.error_code),
+            ) from e
+    return added
 
-    Args:
-        experiment_id: The experiment that owns the queue.
-        queue_id: The queue to unassign the reviewer from.
-        user: The reviewer to unassign.
-    """
+
+def _remove_queue_member(experiment_id: str, queue_id: str, user: str) -> None:
     _client.call(
         "DELETE",
         f"{_queue(experiment_id, queue_id)}/members/{quote(user, safe='@')}",
@@ -368,26 +435,9 @@ def remove_review_queue_member(experiment_id: str, queue_id: str, user: str) -> 
     )
 
 
-@experimental(version="3.17.1")
-def list_review_queue_members(
-    experiment_id: str,
-    queue_id: str,
-    *,
-    max_results: int | None = None,
-    page_token: str | None = None,
+def _list_queue_members(
+    experiment_id: str, queue_id: str, max_results: int | None, page_token: str | None
 ) -> PagedList[ReviewQueueMember]:
-    """
-    List the reviewers assigned to a queue.
-
-    Args:
-        experiment_id: The experiment that owns the queue.
-        queue_id: The queue to list.
-        max_results: Page size.
-        page_token: Continuation token from a previous call.
-
-    Returns:
-        A :py:class:`PagedList` of :py:class:`ReviewQueueMember`.
-    """
     resp = _client.call(
         "GET",
         f"{_queue(experiment_id, queue_id)}/members",
@@ -397,6 +447,303 @@ def list_review_queue_members(
         [ReviewQueueMember.from_dict(m) for m in resp.get("review_queue_members", [])],
         resp.get("next_page_token"),
     )
+
+
+def _list_all_queue_members(experiment_id: str, queue_id: str) -> list[ReviewQueueMember]:
+    members: list[ReviewQueueMember] = []
+    page_token = None
+    while True:
+        page = _list_queue_members(experiment_id, queue_id, None, page_token)
+        members.extend(page)
+        if not page.token:
+            return members
+        page_token = page.token
+
+
+@overload
+def add_review_queue_member(experiment_id: str, queue_id: str, user: str) -> ReviewQueueMember: ...
+
+
+@overload
+def add_review_queue_member(
+    labeling_session: LabelingSession, /, *, user: str
+) -> ReviewQueueMember: ...
+
+
+@experimental(version="3.17.1")
+def add_review_queue_member(
+    experiment_id: str | LabelingSession,
+    queue_id: str | None = None,
+    user: str | None = None,
+) -> ReviewQueueMember:
+    """
+    Assign a reviewer to a queue or a labeling session.
+
+    Assigning a reviewer who is already assigned changes nothing.
+
+    To assign a reviewer to a :py:class:`mlflow.genai.LabelingSession`, pass the session in
+    place of ``experiment_id`` and ``queue_id``, and pass ``user`` by keyword. The reviewer is
+    added to the session's assigned users with
+    :py:meth:`mlflow.genai.LabelingSession.set_assigned_users`, which also grants them access
+    as it does today. That reads the session's users and then writes them back, so a change
+    someone else makes to them at the same moment can be lost.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.databricks.review_queues import add_review_queue_member
+
+        add_review_queue_member("123", "rq-1", "alice@example.com")
+
+        session = mlflow.genai.get_labeling_session(run_id="<run-id>")
+        add_review_queue_member(session, user="alice@example.com")
+
+    Args:
+        experiment_id: The experiment that owns the queue, or a labeling session.
+        queue_id: The queue to assign the reviewer to. Omit it for a labeling session.
+        user: The reviewer, e.g. an email address.
+
+    Returns:
+        The added :py:class:`ReviewQueueMember`. For a labeling session, only ``user`` is set.
+    """
+    if isinstance(experiment_id, LabelingSession):
+        _reject_queue_id_for_session("add_review_queue_member", queue_id, "user")
+        user = _require(user, "user")
+        _add_session_members(experiment_id, [user])
+        return ReviewQueueMember(user=user)
+    return _add_queue_member(experiment_id, _require(queue_id, "queue_id"), _require(user, "user"))
+
+
+@overload
+def remove_review_queue_member(experiment_id: str, queue_id: str, user: str) -> None: ...
+
+
+@overload
+def remove_review_queue_member(labeling_session: LabelingSession, /, *, user: str) -> None: ...
+
+
+@experimental(version="3.17.1")
+def remove_review_queue_member(
+    experiment_id: str | LabelingSession,
+    queue_id: str | None = None,
+    user: str | None = None,
+) -> None:
+    """
+    Unassign a reviewer from a queue or a labeling session.
+
+    Unassigning a reviewer who isn't assigned changes nothing.
+
+    To unassign a reviewer from a :py:class:`mlflow.genai.LabelingSession`, pass the session
+    in place of ``experiment_id`` and ``queue_id``, and pass ``user`` by keyword. The reviewer
+    is removed from the session's assigned users with
+    :py:meth:`mlflow.genai.LabelingSession.set_assigned_users`. That reads the session's users
+    and then writes them back, so a change someone else makes to them at the same moment can
+    be lost.
+
+    Args:
+        experiment_id: The experiment that owns the queue, or a labeling session.
+        queue_id: The queue to unassign the reviewer from. Omit it for a labeling session.
+        user: The reviewer to unassign.
+    """
+    if isinstance(experiment_id, LabelingSession):
+        _reject_queue_id_for_session("remove_review_queue_member", queue_id, "user")
+        user = _require(user, "user")
+        current = _current_labeling_session(experiment_id)
+        if user in current.assigned_users:
+            current.set_assigned_users([u for u in current.assigned_users if u != user])
+        return
+    _remove_queue_member(experiment_id, _require(queue_id, "queue_id"), _require(user, "user"))
+
+
+@overload
+def list_review_queue_members(
+    experiment_id: str,
+    queue_id: str,
+    *,
+    max_results: int | None = None,
+    page_token: str | None = None,
+) -> PagedList[ReviewQueueMember]: ...
+
+
+@overload
+def list_review_queue_members(
+    labeling_session: LabelingSession, /
+) -> PagedList[ReviewQueueMember]: ...
+
+
+@experimental(version="3.17.1")
+def list_review_queue_members(
+    experiment_id: str | LabelingSession,
+    queue_id: str | None = None,
+    *,
+    max_results: int | None = None,
+    page_token: str | None = None,
+) -> PagedList[ReviewQueueMember]:
+    """
+    List the reviewers assigned to a queue or a labeling session.
+
+    To list the reviewers of a :py:class:`mlflow.genai.LabelingSession`, pass the session in
+    place of ``experiment_id`` and ``queue_id``. Its assigned users are read again, so the
+    result is current even if the session object is not, and they all come back in one page.
+
+    Args:
+        experiment_id: The experiment that owns the queue, or a labeling session.
+        queue_id: The queue to list. Omit it for a labeling session.
+        max_results: Page size. Not used for a labeling session.
+        page_token: Continuation token from a previous call. Not used for a labeling session.
+
+    Returns:
+        A :py:class:`PagedList` of :py:class:`ReviewQueueMember`. For a labeling session, only
+        ``user`` is set.
+    """
+    if isinstance(experiment_id, LabelingSession):
+        _reject_queue_id_for_session("list_review_queue_members", queue_id, None)
+        if max_results is not None or page_token is not None:
+            raise MlflowException.invalid_parameter_value(
+                "`max_results` and `page_token` apply only to review queues. A labeling "
+                "session's members come back in one page."
+            )
+        current = _current_labeling_session(experiment_id)
+        return PagedList([ReviewQueueMember(user=u) for u in current.assigned_users], None)
+    return _list_queue_members(
+        experiment_id, _require(queue_id, "queue_id"), max_results, page_token
+    )
+
+
+@overload
+def add_review_queue_members(
+    experiment_id: str, queue_id: str, users: list[str]
+) -> list[ReviewQueueMember]: ...
+
+
+@overload
+def add_review_queue_members(
+    labeling_session: LabelingSession, /, *, users: list[str]
+) -> list[ReviewQueueMember]: ...
+
+
+@experimental(version="3.19.0")
+def add_review_queue_members(
+    experiment_id: str | LabelingSession,
+    queue_id: str | None = None,
+    users: list[str] | None = None,
+) -> list[ReviewQueueMember]:
+    """
+    Assign several reviewers to a queue or a labeling session.
+
+    Reviewers who are already assigned are left as they are. On a queue, reviewers are
+    added one at a time, so if one can't be added, the ones before it stay added, and the
+    error names them.
+
+    To assign reviewers to a :py:class:`mlflow.genai.LabelingSession`, pass the session in
+    place of ``experiment_id`` and ``queue_id``, and pass ``users`` by keyword. The reviewers
+    are added to the session's assigned users in one
+    :py:meth:`mlflow.genai.LabelingSession.set_assigned_users` call, which also grants them
+    access as it does today. That reads the session's users and then writes them back, so a
+    change someone else makes to them at the same moment can be lost.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.databricks.review_queues import add_review_queue_members
+
+        add_review_queue_members("123", "rq-1", ["alice@example.com", "bob@example.com"])
+
+        session = mlflow.genai.get_labeling_session(run_id="<run-id>")
+        add_review_queue_members(session, users=["alice@example.com", "bob@example.com"])
+
+    Args:
+        experiment_id: The experiment that owns the queue, or a labeling session.
+        queue_id: The queue to assign the reviewers to. Omit it for a labeling session.
+        users: The reviewers, e.g. email addresses.
+
+    Returns:
+        One :py:class:`ReviewQueueMember` per reviewer in ``users``. For a labeling session,
+        only ``user`` is set.
+    """
+    if isinstance(experiment_id, LabelingSession):
+        _reject_queue_id_for_session("add_review_queue_members", queue_id, "users")
+        unique_users = _unique_users(_require(users, "users"))
+        _add_session_members(experiment_id, unique_users)
+        return [ReviewQueueMember(user=u) for u in unique_users]
+    return _add_queue_members(
+        experiment_id, _require(queue_id, "queue_id"), _unique_users(_require(users, "users"))
+    )
+
+
+@overload
+def set_review_queue_members(
+    experiment_id: str, queue_id: str, users: list[str]
+) -> list[ReviewQueueMember]: ...
+
+
+@overload
+def set_review_queue_members(
+    labeling_session: LabelingSession, /, *, users: list[str]
+) -> list[ReviewQueueMember]: ...
+
+
+@experimental(version="3.19.0")
+def set_review_queue_members(
+    experiment_id: str | LabelingSession,
+    queue_id: str | None = None,
+    users: list[str] | None = None,
+) -> list[ReviewQueueMember]:
+    """
+    Replace the reviewers assigned to a queue or a labeling session.
+
+    On a queue, the current reviewers are listed, those not in ``users`` are unassigned, and
+    then the missing ones are assigned. Unassigning first means a full replacement never goes
+    over the queue's reviewer limit. The steps aren't atomic: if one fails, the earlier ones
+    stay done, and the error names them.
+
+    To set the reviewers of a :py:class:`mlflow.genai.LabelingSession`, pass the session in
+    place of ``experiment_id`` and ``queue_id``, and pass ``users`` by keyword. This makes one
+    :py:meth:`mlflow.genai.LabelingSession.set_assigned_users` call, which also grants the
+    reviewers access as it does today.
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.databricks.review_queues import set_review_queue_members
+
+        set_review_queue_members("123", "rq-1", ["alice@example.com", "bob@example.com"])
+
+        session = mlflow.genai.get_labeling_session(run_id="<run-id>")
+        set_review_queue_members(session, users=["alice@example.com", "bob@example.com"])
+
+    Args:
+        experiment_id: The experiment that owns the queue, or a labeling session.
+        queue_id: The queue whose reviewers to replace. Omit it for a labeling session.
+        users: The reviewers the queue or session should have, e.g. email addresses.
+
+    Returns:
+        The reviewers now assigned, as :py:class:`ReviewQueueMember` objects. For a labeling
+        session, only ``user`` is set.
+    """
+    if isinstance(experiment_id, LabelingSession):
+        _reject_queue_id_for_session("set_review_queue_members", queue_id, "users")
+        updated = experiment_id.set_assigned_users(_unique_users(_require(users, "users")))
+        return [ReviewQueueMember(user=u) for u in updated.assigned_users]
+
+    queue_id = _require(queue_id, "queue_id")
+    wanted = _unique_users(_require(users, "users"))
+    current = {m.user: m for m in _list_all_queue_members(experiment_id, queue_id)}
+    removed: list[str] = []
+    added: dict[str, ReviewQueueMember] = {}
+    try:
+        for user in [u for u in current if u not in wanted]:
+            _remove_queue_member(experiment_id, queue_id, user)
+            removed.append(user)
+        for user in [u for u in wanted if u not in current]:
+            added[user] = _add_queue_member(experiment_id, queue_id, user)
+    except MlflowException as e:
+        raise MlflowException(
+            f"Setting the members of review queue {queue_id!r} stopped partway. Removed so far: "
+            f"{removed}. Added so far: {list(added)}. Error: {e.message}",
+            error_code=ErrorCode.Value(e.error_code),
+        ) from e
+    return [current[u] if u in current else added[u] for u in wanted]
 
 
 # ---- Items ----
