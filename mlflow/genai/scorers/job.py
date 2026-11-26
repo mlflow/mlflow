@@ -51,6 +51,10 @@ from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
+from mlflow.utils.validation import (
+    _validate_judge_inference_params,
+    _validate_third_party_scorer_data,
+)
 from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 if TYPE_CHECKING:
@@ -87,16 +91,32 @@ def _extract_failures_from_feedbacks(feedbacks: list[Any]) -> list[ScorerFailure
     ]
 
 
+def _validate_scorer_request_options(serialized_data: Any) -> None:
+    """Reject a stored scorer whose options set where its LLM client sends requests.
+
+    The register and invoke handlers reject these options, but scorers stored before those checks
+    existed can still carry them, and online scoring loads scorers from the store.
+    """
+    _validate_third_party_scorer_data(serialized_data)
+    _validate_judge_inference_params(serialized_data)
+
+
 def _online_scorers_this_job_can_run(online_scorers: list[OnlineScorer]) -> list[OnlineScorer]:
-    """Drop the custom scorers that this online scoring job must not run.
+    """Drop the scorers that this online scoring job must not run.
 
     Online scoring runs custom scorers only in job containers, never in the job's own process, and
     only while custom scorers are enabled. The scheduler and the tracking store check this too,
     but a job can run on a job runner whose settings differ from the ones it was submitted with.
+    Scorers whose options set where their LLM client sends requests are dropped as well.
     """
     runnable = []
     for online_scorer in online_scorers:
         serialized_data = _parse_serialized_scorer(online_scorer.serialized_scorer)
+        try:
+            _validate_scorer_request_options(serialized_data)
+        except MlflowException as e:
+            _logger.warning(f"Skipping scorer '{online_scorer.name}': {e.message}")
+            continue
         if not _serialized_scorer_is_custom_code(serialized_data):
             runnable.append(online_scorer)
         elif not container_scoring_enabled():
@@ -817,6 +837,8 @@ def run_online_scoring_scheduler() -> None:
                                 "is disabled (set MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS to enable)."
                             )
                             continue
+                        # Raising here logs and skips just this scorer, like a malformed one.
+                        _validate_scorer_request_options(serialized_data)
                         scorer_obj = Scorer.model_validate(serialized_data)
                         if scorer_obj.is_session_level_scorer:
                             session_level_scorers.append(scorer)
