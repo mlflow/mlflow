@@ -163,10 +163,11 @@ def test_create_review_queue():
     assert queue.queue_type == ReviewQueueType.CUSTOM
 
 
-def test_create_review_queue_rejects_dataset_type():
+@pytest.mark.parametrize("queue_type", ["DATASET", "INVALID"])
+def test_create_review_queue_rejects_other_types(queue_type):
     with mock.patch(_CALL) as mock_call:
         with pytest.raises(MlflowException, match="must be USER or CUSTOM"):
-            create_review_queue("1", "My queue", queue_type="DATASET")
+            create_review_queue("1", "My queue", queue_type=queue_type)
     mock_call.assert_not_called()
 
 
