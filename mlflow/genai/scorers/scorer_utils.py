@@ -481,14 +481,23 @@ def _iter_serialized_scorers(job_name: str, params: dict[str, Any]) -> list[str]
         s = params.get("serialized_scorer")
         return [s] if isinstance(s, str) else []
     if job_name in names.inline_list:
-        return [s for s in params.get("serialized_scorers") or [] if isinstance(s, str)]
+        return [s for s in _get_list_param(params, "serialized_scorers") if isinstance(s, str)]
     if job_name in names.online:
         return [
             sc["serialized_scorer"]
-            for sc in params.get("online_scorers") or []
+            for sc in _get_list_param(params, "online_scorers")
             if isinstance(sc, dict) and isinstance(sc.get("serialized_scorer"), str)
         ]
     return []
+
+
+def _get_list_param(params: dict[str, Any], key: str) -> list[Any]:
+    value = params.get(key) or []
+    if not isinstance(value, list):
+        raise MlflowException.invalid_parameter_value(
+            f"'{key}' must be a list, got {type(value).__name__}"
+        )
+    return value
 
 
 def params_contain_custom_scorer_code(job_name: str, params: dict[str, Any]) -> bool:

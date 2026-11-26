@@ -269,6 +269,11 @@ _TRULENS_WITH_BASE_URL = json.dumps({
         "kwargs": {"base_url": "http://127.0.0.1:9/"},
     },
 })
+_SAFE_SCORER = json.dumps({"name": "safe", "builtin_scorer_class": "Safety"})
+_ONLINE_SCORERS_WITH_API_BASE = [
+    {"name": "safe", "serialized_scorer": _SAFE_SCORER, "online_config": {}},
+    {"name": "judge", "serialized_scorer": _JUDGE_WITH_API_BASE, "online_config": {}},
+]
 
 
 @pytest.mark.parametrize(
@@ -281,21 +286,21 @@ _TRULENS_WITH_BASE_URL = json.dumps({
         ),
         (
             "invoke_genai_evaluate",
-            {"trace_ids": ["t"], "serialized_scorers": [_TRULENS_WITH_BASE_URL], "run_id": "r"},
+            {
+                "trace_ids": ["t"],
+                "serialized_scorers": [_SAFE_SCORER, _TRULENS_WITH_BASE_URL],
+                "run_id": "r",
+            },
             "base_url",
         ),
         (
             "run_online_trace_scorer",
-            {
-                "experiment_id": "0",
-                "online_scorers": [
-                    {
-                        "name": "judge",
-                        "serialized_scorer": _JUDGE_WITH_API_BASE,
-                        "online_config": {},
-                    }
-                ],
-            },
+            {"experiment_id": "0", "online_scorers": _ONLINE_SCORERS_WITH_API_BASE},
+            "api_base",
+        ),
+        (
+            "run_online_session_scorer",
+            {"experiment_id": "0", "online_scorers": _ONLINE_SCORERS_WITH_API_BASE},
             "api_base",
         ),
     ],
@@ -308,6 +313,21 @@ def test_job_endpoint_rejects_scorer_destination_keys(
     assert f"must not contain '{rejected_key}'" in response.json()["detail"]
     search = client.post("/ajax-api/3.0/jobs/search", payload={"job_name": job_name})
     assert search.json()["jobs"] == []
+
+
+@pytest.mark.parametrize(
+    ("job_name", "params", "key"),
+    [
+        ("invoke_genai_evaluate", {"serialized_scorers": 5}, "serialized_scorers"),
+        ("run_online_trace_scorer", {"online_scorers": 5}, "online_scorers"),
+    ],
+)
+def test_job_endpoint_rejects_non_list_scorer_params(
+    client: Client, job_name: str, params: dict[str, Any], key: str
+):
+    response = client.post("/ajax-api/3.0/jobs/", payload={"job_name": job_name, "params": params})
+    assert response.status_code == 400
+    assert response.json()["detail"] == f"'{key}' must be a list, got int"
 
 
 def test_job_endpoint_submits_valid_serialized_scorer(client: Client):
