@@ -5,6 +5,7 @@ import logging
 import math
 import re
 from abc import abstractmethod
+from collections import Counter
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -1093,10 +1094,12 @@ class ToolCallCorrectness(BuiltInScorer):
         expected_calls: list["FunctionCall"],
         include_arguments: bool,
     ) -> Feedback:
-        actual_set = {get_tool_call_signature(c, include_arguments) for c in actual_calls}
-        expected_set = {get_tool_call_signature(c, include_arguments) for c in expected_calls}
+        actual_counts = Counter(get_tool_call_signature(c, include_arguments) for c in actual_calls)
+        expected_counts = Counter(
+            get_tool_call_signature(c, include_arguments) for c in expected_calls
+        )
 
-        if actual_set == expected_set:
+        if actual_counts == expected_counts:
             return Feedback(
                 name=self.name,
                 value=CategoricalRating.YES,
@@ -1104,8 +1107,8 @@ class ToolCallCorrectness(BuiltInScorer):
                 source=AssessmentSource(source_type=AssessmentSourceType.CODE),
             )
 
-        missing = expected_set - actual_set
-        extra = actual_set - expected_set
+        missing = list((expected_counts - actual_counts).elements())
+        extra = list((actual_counts - expected_counts).elements())
 
         rationale_parts = []
         if missing:

@@ -2086,6 +2086,45 @@ def test_tool_call_correctness_exact_match_count_mismatch(tool_call_trace_one_to
     assert "Expected 2 tool call(s), but got 1" in result.rationale
 
 
+def test_tool_call_correctness_exact_match_unordered_duplicate_multiplicity():
+    with mlflow.start_span(name="agent") as span:
+        with mlflow.start_span(name="search", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"query": "MLflow"})
+        with mlflow.start_span(name="search", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"query": "MLflow"})
+        with mlflow.start_span(name="summarize", span_type=SpanType.TOOL) as tool_span:
+            tool_span.set_inputs({"max_length": 100})
+
+    trace = mlflow.get_trace(span.trace_id)
+    scorer = ToolCallCorrectness(should_exact_match=True, should_consider_ordering=False)
+
+    mismatched_result = scorer(
+        trace=trace,
+        expectations={
+            "expected_tool_calls": [
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+                {"name": "summarize", "arguments": {"max_length": 100}},
+            ]
+        },
+    )
+    assert mismatched_result.value == CategoricalRating.NO
+    assert "Missing:" in mismatched_result.rationale
+    assert "Unexpected:" in mismatched_result.rationale
+
+    matched_result = scorer(
+        trace=trace,
+        expectations={
+            "expected_tool_calls": [
+                {"name": "summarize", "arguments": {"max_length": 100}},
+                {"name": "search", "arguments": {"query": "MLflow"}},
+                {"name": "search", "arguments": {"query": "MLflow"}},
+            ]
+        },
+    )
+    assert matched_result.value == CategoricalRating.YES
+
+
 def test_tool_call_correctness_exact_match_without_expectations_raises_error(
     tool_call_trace_one_tool,
 ):
