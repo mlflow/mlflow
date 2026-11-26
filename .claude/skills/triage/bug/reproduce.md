@@ -94,7 +94,6 @@ reproduction before and after the fix can be sufficient verification. Run releva
 tests when they meaningfully cover the affected behavior.
 
 Keep the fix minimal and in the style of the surrounding code. When more than one fix would
-work, recommend one and verify that one. If the options differ in behavior users can observe
-beyond fixing the bug (see [pull request eligibility](output.md#pull-request-eligibility))
-and no maintainer has chosen, describe the options and your recommendation instead of
-implementing one.
+work, recommend one and verify that one. If users would notice which option was chosen (see
+[pull request eligibility](output.md#pull-request-eligibility)) and no maintainer has
+chosen, describe the options and your recommendation instead of implementing one.
