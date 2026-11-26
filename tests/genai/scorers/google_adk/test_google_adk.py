@@ -923,6 +923,6 @@ def test_llm_judge_default_model_and_samples():
             HallucinationsV1Evaluator,
             "hallucinations_v1",
             0.5,
-            judge_model="gemini-2.5-flash",
+            judge_model="gemini-3.5-flash-lite",
             num_samples=5,
         )
