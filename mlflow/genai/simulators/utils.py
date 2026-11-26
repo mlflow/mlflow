@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-_DEFAULT_SIMULATION_MODEL = "openai:/gpt-5"
+_DEFAULT_SIMULATION_MODEL = "openai:/gpt-6.1-sol"
 
 
 def get_default_simulation_model() -> str:

@@ -99,7 +99,7 @@ def test_invoke_model_without_tracing_with_databricks(model_uri):
 def test_get_default_simulation_model_non_databricks():
     with mock.patch("mlflow.genai.simulators.utils.is_databricks_uri", return_value=False):
         model = get_default_simulation_model()
-        assert model == "openai:/gpt-5"
+        assert model == "openai:/gpt-6.1-sol"
 
 
 def test_get_default_simulation_model_databricks():

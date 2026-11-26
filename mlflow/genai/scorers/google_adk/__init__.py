@@ -54,7 +54,7 @@ _logger = logging.getLogger(__name__)
 _FRAMEWORK_NAME = "google_adk"
 
 _DEFAULT_THRESHOLD = 0.5
-_DEFAULT_JUDGE_MODEL = "gemini-2.5-flash"
+_DEFAULT_JUDGE_MODEL = "gemini-3.5-flash-lite"
 _DEFAULT_JUDGE_SAMPLES = 5
 
 
@@ -323,7 +323,7 @@ class ResponseEvaluation(GoogleADKScorer):
         this integration.
 
     Args:
-        model: Judge model ID (default: ``"gemini-2.5-flash"``). Must be a
+        model: Judge model ID (default: ``"gemini-3.5-flash-lite"``). Must be a
             model ADK's ``LlmRegistry`` can resolve.
         threshold: Score threshold for pass/fail (default: 0.5).
         num_samples: Number of judge samples for majority voting (default: 5).
@@ -472,7 +472,7 @@ class Hallucination(GoogleADKScorer):
         ``openai:/gpt-4o`` are not supported.
 
     Args:
-        model: Judge model ID (default: ``"gemini-2.5-flash"``).
+        model: Judge model ID (default: ``"gemini-3.5-flash-lite"``).
         threshold: Score threshold for pass/fail (default: 0.5).
         num_samples: Number of judge samples for majority voting (default: 5).
 
