@@ -24,7 +24,11 @@ export const toBudgetDurationFormValue = ({ unit, value }: BudgetDuration): Budg
   durationUnit: unit,
 });
 
-/** Returns the duration to submit, or `null` when the length isn't a positive whole number. */
+// The backend fails to compute a window end past year 9999 (from ~96,400 months), and that
+// failure stops budget tracking for every policy. 1,000 of any unit stays far below it.
+export const MAX_BUDGET_DURATION_VALUE = 1000;
+
+/** Returns the duration to submit, or `null` when the length isn't a whole number from 1 to the max. */
 export const parseBudgetDuration = ({
   durationValue,
   durationUnit,
@@ -32,7 +36,7 @@ export const parseBudgetDuration = ({
   const trimmed = durationValue.trim();
   if (!/^\d+$/.test(trimmed)) return null;
   const value = Number(trimmed);
-  return value >= 1 ? { unit: durationUnit, value } : null;
+  return value >= 1 && value <= MAX_BUDGET_DURATION_VALUE ? { unit: durationUnit, value } : null;
 };
 
 const DURATION_UNITS: DurationUnit[] = ['MINUTES', 'HOURS', 'DAYS', 'WEEKS', 'MONTHS'];
@@ -105,7 +109,7 @@ export const BudgetDurationField = ({ componentId, value, onChange }: BudgetDura
         </Tooltip>
       </div>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <div css={{ width: 96 }}>
+        <div css={{ width: theme.spacing.md * 6 }}>
           <Input
             componentId={`${componentId}.duration-value`}
             aria-label={intl.formatMessage({
@@ -116,6 +120,7 @@ export const BudgetDurationField = ({ componentId, value, onChange }: BudgetDura
             onChange={(e) => onChange({ durationValue: e.target.value })}
             type="number"
             min={1}
+            max={MAX_BUDGET_DURATION_VALUE}
             step={1}
             validationState={isValid ? undefined : 'error'}
           />
@@ -140,10 +145,13 @@ export const BudgetDurationField = ({ componentId, value, onChange }: BudgetDura
       {!isValid && (
         <FormUI.Message
           type="error"
-          message={intl.formatMessage({
-            defaultMessage: 'Enter a whole number greater than 0.',
-            description: 'Validation error for an invalid budget reset period length',
-          })}
+          message={intl.formatMessage(
+            {
+              defaultMessage: 'Enter a whole number from 1 to {max, number}.',
+              description: 'Validation error for an invalid budget reset period length',
+            },
+            { max: MAX_BUDGET_DURATION_VALUE },
+          )}
         />
       )}
     </div>

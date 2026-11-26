@@ -125,7 +125,7 @@ describe('EditBudgetPolicyModal', () => {
     const lengthInput = screen.getByRole('spinbutton', { name: 'Reset period length' });
     await userEvent.clear(lengthInput);
     await userEvent.type(lengthInput, '30');
-    await userEvent.click(screen.getAllByRole('combobox')[1]);
+    await userEvent.click(screen.getByRole('combobox', { name: 'Reset period unit' }));
     await userEvent.click(screen.getByRole('option', { name: 'Minutes' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
@@ -145,7 +145,17 @@ describe('EditBudgetPolicyModal', () => {
     await userEvent.clear(screen.getByRole('spinbutton', { name: 'Reset period length' }));
 
     expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
-    expect(screen.getByText('Enter a whole number greater than 0.')).toBeInTheDocument();
+    expect(screen.getByText('Enter a whole number from 1 to 1,000.')).toBeInTheDocument();
+  });
+
+  // A stored length above the cap (possible through the REST API) must not be saved back unchanged.
+  test('disables save for a stored policy whose length is above the cap', () => {
+    const policy: BudgetPolicy = { ...mockPolicy, duration: { unit: 'MONTHS', value: 100000 } };
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={policy} onClose={jest.fn()} />);
+
+    expect(screen.getByRole('spinbutton', { name: 'Reset period length' })).toHaveValue(100000);
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+    expect(screen.getByText('Enter a whole number from 1 to 1,000.')).toBeInTheDocument();
   });
 
   test('initializes scope and endpoint from an ENDPOINT policy', () => {

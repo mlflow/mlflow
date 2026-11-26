@@ -91,6 +91,7 @@ describe('CreateBudgetPolicyModal', () => {
     ['MINUTES' as const, '15', 'Minutes'],
     ['HOURS' as const, '6', 'Hours'],
     ['HOURS' as const, '1', 'Hour'],
+    ['MONTHS' as const, '1000', 'Months'],
   ])('submits a %s reset period of length %s', async (unit, length, unitLabel) => {
     renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
 
@@ -100,9 +101,7 @@ describe('CreateBudgetPolicyModal', () => {
     await userEvent.clear(lengthInput);
     await userEvent.type(lengthInput, length);
 
-    // Scope is the first combobox; the reset period unit follows it.
-    await userEvent.click(screen.getAllByRole('combobox')[1]);
-    expect(screen.getByRole('listbox', { name: 'Reset period unit options' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Reset period unit' }));
     await userEvent.click(screen.getByRole('option', { name: unitLabel }));
 
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
@@ -116,7 +115,7 @@ describe('CreateBudgetPolicyModal', () => {
     });
   });
 
-  test.each([[''], ['0'], ['1.5'], ['-2']])(
+  test.each([[''], ['0'], ['1.5'], ['-2'], ['1001'], ['100000']])(
     'disables Create and explains the error for reset period length %j',
     async (length) => {
       renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
@@ -129,7 +128,7 @@ describe('CreateBudgetPolicyModal', () => {
       }
 
       expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
-      expect(screen.getByText('Enter a whole number greater than 0.')).toBeInTheDocument();
+      expect(screen.getByText('Enter a whole number from 1 to 1,000.')).toBeInTheDocument();
     },
   );
 

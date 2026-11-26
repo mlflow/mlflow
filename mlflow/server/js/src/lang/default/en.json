@@ -12335,10 +12335,6 @@
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
   },
-  "bL2+tW": {
-    "defaultMessage": "Enter a whole number greater than 0.",
-    "description": "Validation error for an invalid budget reset period length"
-  },
   "bMUODD": {
     "defaultMessage": "Cancel detection",
     "description": "Experiment issues tab > Action to cancel the issue detection in progress"
@@ -19686,6 +19682,10 @@
   "y56Vz9": {
     "defaultMessage": "In progress",
     "description": "Experiment page > traces table > status label > in progress"
+  },
+  "y6FGUk": {
+    "defaultMessage": "Enter a whole number from 1 to {max, number}.",
+    "description": "Validation error for an invalid budget reset period length"
   },
   "y6KMoc": {
     "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
