@@ -109,7 +109,7 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
     await userEvent.type(screen.getByRole('button', { name: 'Register model' }), '{arrowdown}');
 
     await userEvent.click(screen.getByRole('menuitem', { name: /^another_artifact_path/ }));
-    await userEvent.click(screen.getByRole('combobox', { name: 'Model' }));
+    await userEvent.click(screen.getByRole('textbox', { name: 'Model' }));
 
     await userEvent.click(screen.getByRole('option', { name: 'Create New Model' }));
 
