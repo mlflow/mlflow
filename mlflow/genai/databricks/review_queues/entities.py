@@ -155,7 +155,10 @@ def _input_from_dict(d: dict[str, Any]) -> QuestionInput | None:
 @experimental(version="3.17.1")
 @dataclass
 class ReviewQuestion:
-    """An experiment-scoped question that reviewers answer."""
+    """An experiment-scoped question that reviewers answer.
+
+    A ``type`` this client doesn't recognize is kept as a plain ``str``.
+    """
 
     question_id: str
     experiment_id: str
@@ -198,6 +201,8 @@ class ReviewQueue:
     The questions a queue asks are not included; use
     :py:func:`mlflow.genai.databricks.review_queues.resolve_effective_review_questions`
     to get them.
+
+    A ``queue_type`` this client doesn't recognize is kept as a plain ``str``.
     """
 
     queue_id: str
@@ -257,6 +262,8 @@ class ReviewQueueItem:
     Exactly one address is populated, depending on ``kind``: ``trace_id`` for
     ``V4_TRACE`` items, or ``dataset_id`` + ``dataset_record_id`` for
     ``DATASET_RECORD`` items.
+
+    A ``kind`` or ``status`` this client doesn't recognize is kept as a plain ``str``.
     """
 
     item_id: str

@@ -163,6 +163,13 @@ def test_create_review_queue():
     assert queue.queue_type == ReviewQueueType.CUSTOM
 
 
+def test_create_review_queue_rejects_dataset_type():
+    with mock.patch(_CALL) as mock_call:
+        with pytest.raises(MlflowException, match="must be USER or CUSTOM"):
+            create_review_queue("1", "My queue", queue_type="DATASET")
+    mock_call.assert_not_called()
+
+
 def test_create_review_queue_user_sets_owner():
     with mock.patch(_CALL, return_value={**_QUEUE, "queue_type": "USER"}) as mock_call:
         queue = create_review_queue("1", "alice@example.com", queue_type="USER")
@@ -193,8 +200,13 @@ def test_list_review_queues_with_dataset_and_unknown_queue_types():
             {**_QUEUE, "name": "experiments/1/reviewQueues/rq3", "queue_type": "FUTURE_TYPE"},
         ]
     }
-    with mock.patch(_CALL, return_value=resp):
+    with mock.patch(_CALL, return_value=resp) as mock_call:
         queues = list_review_queues("1")
+    mock_call.assert_called_once_with(
+        "GET",
+        "experiments/1/reviewQueues",
+        params={"filter": None, "page_size": None, "page_token": None},
+    )
     assert [q.queue_type for q in queues] == [
         ReviewQueueType.CUSTOM,
         ReviewQueueType.DATASET,

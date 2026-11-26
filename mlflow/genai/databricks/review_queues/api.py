@@ -222,6 +222,10 @@ def create_review_queue(
         The created :py:class:`ReviewQueue`.
     """
     queue_type = ReviewQueueType(queue_type)
+    if queue_type == ReviewQueueType.DATASET:
+        raise MlflowException.invalid_parameter_value(
+            "`queue_type` must be USER or CUSTOM; DATASET queues can't be created here."
+        )
     body: dict[str, Any] = {"display_name": display_name, "queue_type": queue_type.value}
     if queue_type == ReviewQueueType.USER:
         # The server takes a USER queue's reviewer from `owner` and ignores
