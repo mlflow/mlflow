@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from enum import Enum
+from typing import Any, TypeVar
 
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.utils.annotations import experimental
@@ -10,6 +11,18 @@ def _parse_time_ms(value: str | None) -> int | None:
     if not value:
         return None
     return int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() * 1000)
+
+
+_E = TypeVar("_E", bound=Enum)
+
+
+def _parse_enum(enum_cls: type[_E], value: str) -> _E | str:
+    # Keep a value a newer server adds as a plain string, so one unknown value can't
+    # make a whole list call fail.
+    try:
+        return enum_cls(value)
+    except ValueError:
+        return value
 
 
 def _last_segment(resource_name: str) -> str:
@@ -23,10 +36,15 @@ def _experiment_id(resource_name: str) -> str:
 
 @experimental(version="3.17.1")
 class ReviewQueueType(StrEnum):
-    """The flavor of a Databricks review queue."""
+    """The flavor of a Databricks review queue.
+
+    A ``DATASET`` queue is backed by a dataset. Its questions are expectations and its
+    answers go to the dataset records.
+    """
 
     USER = "USER"
     CUSTOM = "CUSTOM"
+    DATASET = "DATASET"
 
 
 @experimental(version="3.17.1")
@@ -142,7 +160,7 @@ class ReviewQuestion:
     question_id: str
     experiment_id: str
     title: str | None
-    type: QuestionType | None
+    type: QuestionType | str | None
     input: QuestionInput | None
     instruction: str | None = None
     enable_comment: bool = False
@@ -159,7 +177,7 @@ class ReviewQuestion:
             question_id=_last_segment(d["name"]),
             experiment_id=_experiment_id(d["name"]),
             title=d.get("title"),
-            type=QuestionType(d["type"]) if d.get("type") else None,
+            type=_parse_enum(QuestionType, d["type"]) if d.get("type") else None,
             input=_input_from_dict(d),
             instruction=d.get("instruction"),
             enable_comment=d.get("enable_comment", False),
@@ -185,7 +203,7 @@ class ReviewQueue:
     queue_id: str
     experiment_id: str
     display_name: str
-    queue_type: ReviewQueueType
+    queue_type: ReviewQueueType | str
     owner: str | None = None
     total_item_count: int | None = None
     pending_item_count: int | None = None
@@ -200,7 +218,7 @@ class ReviewQueue:
             queue_id=_last_segment(d["name"]),
             experiment_id=_experiment_id(d["name"]),
             display_name=d.get("display_name", ""),
-            queue_type=ReviewQueueType(d["queue_type"]),
+            queue_type=_parse_enum(ReviewQueueType, d["queue_type"]),
             owner=d.get("owner"),
             total_item_count=int(d["total_item_count"]) if "total_item_count" in d else None,
             pending_item_count=(
@@ -244,8 +262,8 @@ class ReviewQueueItem:
     item_id: str
     queue_id: str
     experiment_id: str
-    kind: ItemKind
-    status: ReviewStatus
+    kind: ItemKind | str
+    status: ReviewStatus | str
     trace_id: str | None = None
     dataset_id: str | None = None
     dataset_record_id: str | None = None
@@ -265,8 +283,8 @@ class ReviewQueueItem:
             item_id=parts[5],
             queue_id=parts[3],
             experiment_id=parts[1],
-            kind=ItemKind(d["kind"]),
-            status=ReviewStatus(d["status"]),
+            kind=_parse_enum(ItemKind, d["kind"]),
+            status=_parse_enum(ReviewStatus, d["status"]),
             trace_id=trace.get("trace_id"),
             dataset_id=record.get("dataset_id"),
             dataset_record_id=record.get("dataset_record_id"),

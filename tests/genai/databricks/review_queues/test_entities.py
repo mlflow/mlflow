@@ -141,6 +141,32 @@ def test_review_queue_from_dict_minimal():
     )
 
 
+@pytest.mark.parametrize(
+    ("queue_type", "expected"),
+    [("DATASET", ReviewQueueType.DATASET), ("FUTURE_TYPE", "FUTURE_TYPE")],
+)
+def test_review_queue_from_dict_dataset_and_unknown_type(queue_type, expected):
+    queue = ReviewQueue.from_dict({
+        "name": "experiments/1/reviewQueues/rq1",
+        "queue_type": queue_type,
+    })
+    assert queue.queue_type == expected
+
+
+def test_from_dict_keeps_unknown_enum_values():
+    question = ReviewQuestion.from_dict({
+        "name": "experiments/1/reviewQuestions/q1",
+        "type": "FUTURE_TYPE",
+    })
+    item = ReviewQueueItem.from_dict({
+        "name": "experiments/1/reviewQueues/rq1/items/i1",
+        "kind": "FUTURE_KIND",
+        "status": "FUTURE_STATUS",
+    })
+    assert question.type == "FUTURE_TYPE"
+    assert (item.kind, item.status) == ("FUTURE_KIND", "FUTURE_STATUS")
+
+
 def test_review_queue_member_from_dict():
     member = ReviewQueueMember.from_dict({
         "user": "alice@example.com",

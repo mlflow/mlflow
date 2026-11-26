@@ -185,6 +185,23 @@ def test_get_review_queue():
     assert queue.display_name == "My queue"
 
 
+def test_list_review_queues_with_dataset_and_unknown_queue_types():
+    resp = {
+        "review_queues": [
+            _QUEUE,
+            {**_QUEUE, "name": "experiments/1/reviewQueues/rq2", "queue_type": "DATASET"},
+            {**_QUEUE, "name": "experiments/1/reviewQueues/rq3", "queue_type": "FUTURE_TYPE"},
+        ]
+    }
+    with mock.patch(_CALL, return_value=resp):
+        queues = list_review_queues("1")
+    assert [q.queue_type for q in queues] == [
+        ReviewQueueType.CUSTOM,
+        ReviewQueueType.DATASET,
+        "FUTURE_TYPE",
+    ]
+
+
 def test_list_review_queues():
     resp = {"review_queues": [_QUEUE], "next_page_token": "tok"}
     with mock.patch(_CALL, return_value=resp) as mock_call:
