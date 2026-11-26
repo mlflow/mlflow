@@ -14,6 +14,8 @@ import urllib.parse
 from fnmatch import fnmatch
 from typing import Any, Iterator
 
+import requests
+
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
 from mlflow.entities.webhook import WebhookEvent
@@ -1590,14 +1592,26 @@ def _validate_webhook_url(url: str) -> None:
             f"Webhook URL must not contain a backslash in its network location: {url!r}"
         )
 
-    hostname = parsed_url.hostname
-    if not hostname:
+    if not parsed_url.hostname:
         raise MlflowException.invalid_parameter_value(
             f"Webhook URL must include a hostname: {url!r}"
         )
 
+    delivery_hostname = _get_webhook_delivery_hostname(url)
     if not _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS.get():
-        _validate_hostname_resolves_to_public_ips(hostname, "Webhook URL")
+        _validate_hostname_resolves_to_public_ips(delivery_hostname, "Webhook URL")
+
+
+def _get_webhook_delivery_hostname(url: str) -> str | None:
+    # Webhooks are delivered with requests, which normalizes the host before connecting
+    # (e.g. IDNA 2008 encoding and percent-encoding), so the name it resolves can differ
+    # from `urllib.parse.urlparse(url).hostname`. Validate the name requests will use.
+    prepared = requests.PreparedRequest()
+    try:
+        prepared.prepare_url(url, None)
+    except requests.exceptions.RequestException as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
+    return urllib.parse.urlparse(prepared.url).hostname
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:

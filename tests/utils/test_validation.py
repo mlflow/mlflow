@@ -514,11 +514,29 @@ def _mock_getaddrinfo_by_host(host_to_ip: dict[str, str]):
         ("http://example.com", "Invalid webhook URL scheme"),
         ("https://", "must include a hostname"),
         ("https://127.0.0.1:6379\\@1.2.3.4/hook", "must not contain a backslash"),
+        ("https://*.example.com/hook", "Invalid webhook URL"),
     ],
 )
 def test_validate_webhook_url_rejects_invalid_input(url, expected_match):
     with pytest.raises(MlflowException, match=expected_match):
         _validate_webhook_url(url)
+
+
+@pytest.mark.parametrize(
+    ("url", "parsed_host", "delivery_host"),
+    [
+        ("https://straße.example.com/hook", "straße.example.com", "xn--strae-oqa.example.com"),
+        ('https://a"b.example.com/hook', 'a"b.example.com', "a%22b.example.com"),
+    ],
+)
+def test_validate_webhook_url_resolves_host_used_for_delivery(url, parsed_host, delivery_host):
+    resolve = _mock_getaddrinfo_by_host({parsed_host: "8.8.8.8", delivery_host: "10.0.0.1"})
+    with patch(
+        "mlflow.utils.validation.socket.getaddrinfo", side_effect=resolve
+    ) as mock_getaddrinfo:
+        with pytest.raises(MlflowException, match="must not resolve to a non-public"):
+            _validate_webhook_url(url)
+    mock_getaddrinfo.assert_called_once_with(delivery_host, None)
 
 
 @pytest.mark.parametrize(
