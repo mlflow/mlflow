@@ -104,6 +104,8 @@ class SubmitJobPayload(BaseModel):
 
 @job_api_router.post("/", response_model=Job)
 def submit_job(payload: SubmitJobPayload, request: Request) -> Job:
+    from mlflow.genai.scorers.scorer_utils import _iter_serialized_scorers
+    from mlflow.server.handlers import _validate_serialized_scorer_payload
     from mlflow.server.jobs import submit_job
     from mlflow.server.jobs.utils import _load_function, get_job_fn_fullname
 
@@ -114,6 +116,10 @@ def submit_job(payload: SubmitJobPayload, request: Request) -> Job:
     try:
         function_fullname = get_job_fn_fullname(job_name)
         function = _load_function(function_fullname)
+        # The scorer invoke handlers check scorer payloads before submitting their jobs, so a
+        # scorer job submitted here directly must pass the same checks.
+        for serialized_scorer in _iter_serialized_scorers(job_name, payload.params):
+            _validate_serialized_scorer_payload(serialized_scorer)
         job = submit_job(function, payload.params, payload.timeout, creator=creator)
         return Job.from_job_entity(job)
     except MlflowException as e:

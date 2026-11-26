@@ -1,3 +1,4 @@
+import json
 import os
 import signal
 import subprocess
@@ -248,6 +249,65 @@ def test_job_endpoint_missing_parameters(client: Client):
         "Missing required parameters for function 'simple_job_fun': ['y']. "
         + "Expected parameters: ['x', 'y', 'sleep_secs']"
     )
+
+
+_JUDGE_WITH_API_BASE = json.dumps({
+    "name": "judge",
+    "instructions_judge_pydantic_data": {
+        "instructions": "Is {{ outputs }} good?",
+        "model": "hosted_vllm:/m",
+        "inference_params": {"api_base": "http://127.0.0.1:9/"},
+    },
+})
+_TRULENS_WITH_BASE_URL = json.dumps({
+    "name": "groundedness",
+    "third_party_scorer_data": {
+        "module": "mlflow.genai.scorers.trulens",
+        "class": "Groundedness",
+        "metric_name": "Groundedness",
+        "model": "openai:/gpt-4o-mini",
+        "kwargs": {"base_url": "http://127.0.0.1:9/"},
+    },
+})
+
+
+@pytest.mark.parametrize(
+    ("job_name", "params", "rejected_key"),
+    [
+        (
+            "invoke_scorer",
+            {"experiment_id": "0", "serialized_scorer": _JUDGE_WITH_API_BASE, "trace_ids": ["t"]},
+            "api_base",
+        ),
+        (
+            "invoke_genai_evaluate",
+            {"trace_ids": ["t"], "serialized_scorers": [_TRULENS_WITH_BASE_URL], "run_id": "r"},
+            "base_url",
+        ),
+        (
+            "run_online_trace_scorer",
+            {
+                "experiment_id": "0",
+                "online_scorers": [
+                    {
+                        "name": "judge",
+                        "serialized_scorer": _JUDGE_WITH_API_BASE,
+                        "online_config": {},
+                    }
+                ],
+            },
+            "api_base",
+        ),
+    ],
+)
+def test_job_endpoint_rejects_scorer_destination_keys(
+    client: Client, job_name: str, params: dict[str, Any], rejected_key: str
+):
+    response = client.post("/ajax-api/3.0/jobs/", payload={"job_name": job_name, "params": params})
+    assert response.status_code == 400
+    assert f"must not contain '{rejected_key}'" in response.json()["detail"]
+    search = client.post("/ajax-api/3.0/jobs/search", payload={"job_name": job_name})
+    assert search.json()["jobs"] == []
 
 
 def test_job_tracking_uri(client: Client):
