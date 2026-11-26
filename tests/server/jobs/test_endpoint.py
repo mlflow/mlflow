@@ -310,6 +310,39 @@ def test_job_endpoint_rejects_scorer_destination_keys(
     assert search.json()["jobs"] == []
 
 
+def test_job_endpoint_submits_valid_serialized_scorer(client: Client):
+    judge = json.dumps({
+        "name": "judge",
+        "instructions_judge_pydantic_data": {
+            "instructions": "Is {{ outputs }} good?",
+            "model": "openai:/gpt-4o-mini",
+        },
+    })
+    params = {"experiment_id": "0", "serialized_scorer": judge, "trace_ids": ["t"]}
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": "invoke_scorer", "params": params}
+    )
+    assert response.status_code == 200
+    assert response.json()["job_name"] == "invoke_scorer"
+
+
+def test_job_endpoint_rejects_disabled_custom_scorer(client: Client):
+    custom_scorer = json.dumps({
+        "name": "custom",
+        "call_source": "return True",
+        "call_signature": "(outputs)",
+        "original_func_name": "custom",
+    })
+    params = {"experiment_id": "0", "serialized_scorer": custom_scorer, "trace_ids": ["t"]}
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": "invoke_scorer", "params": params}
+    )
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "disabled on this server" in detail
+    assert "MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS" in detail
+
+
 def test_job_tracking_uri(client: Client):
     job_id = client.submit_job(
         job_name="job_assert_tracking_uri",

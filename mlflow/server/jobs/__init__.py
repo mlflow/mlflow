@@ -254,6 +254,26 @@ def _resolve_exclusive_job_timeout(timeout: float | None) -> float:
     return default_timeout
 
 
+def _check_custom_scorers_allowed(job_name: str, params: dict[str, Any]) -> bool:
+    """Reject custom scorer jobs unless the operator opted in; return whether the job has one.
+
+    Custom (@scorer decorator) scorers carry inline code that is executed on the server when
+    the scorer runs. Gate them behind an explicit operator opt-in regardless of engine, since
+    the code executes on both. This is a security control, so it is enforced at submission.
+    """
+    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS
+    from mlflow.genai.scorers.scorer_utils import params_contain_custom_scorer_code
+
+    is_custom_scorer = params_contain_custom_scorer_code(job_name, params)
+    if is_custom_scorer and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
+        raise MlflowException.invalid_parameter_value(
+            "Custom scorers defined with the @scorer decorator are disabled on this server "
+            "because they execute arbitrary code. To run them, an operator must set the "
+            "environment variable 'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'."
+        )
+    return is_custom_scorer
+
+
 def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
@@ -292,14 +312,8 @@ def submit_job(
         The job entity. You can call `get_job` API by the job id to get
         the updated job entity.
     """
-    from mlflow.environment_variables import (
-        MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
-        MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
-    )
-    from mlflow.genai.scorers.scorer_utils import (
-        params_contain_custom_scorer_code,
-        scorer_params_use_direct_provider_model,
-    )
+    from mlflow.environment_variables import MLFLOW_SERVER_ENABLE_JOB_EXECUTION
+    from mlflow.genai.scorers.scorer_utils import scorer_params_use_direct_provider_model
     from mlflow.server.jobs.executor_registry import get_executor_registry
     from mlflow.server.jobs.router import select_executor_backend
     from mlflow.server.jobs.utils import (
@@ -363,16 +377,7 @@ def submit_job(
             "use the huey engine (unset MLFLOW_SERVER_JOB_EXECUTION_ENGINE) instead."
         )
 
-    # Custom (@scorer decorator) scorers carry inline code that is executed on the server when
-    # the scorer runs. Gate them behind an explicit operator opt-in regardless of engine, since
-    # the code executes on both. This is a security control, so it is enforced at submission.
-    is_custom_scorer = params_contain_custom_scorer_code(fn_meta.name, params)
-    if is_custom_scorer and not MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS.get():
-        raise MlflowException.invalid_parameter_value(
-            "Custom scorers defined with the @scorer decorator are disabled on this server "
-            "because they execute arbitrary code. To run them, an operator must set the "
-            "environment variable 'MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS' to 'true'."
-        )
+    is_custom_scorer = _check_custom_scorers_allowed(fn_meta.name, params)
 
     # Select the executor backend for this job so the executor engine (and crash recovery) can
     # route it to the right backend. Only relevant to the executor engine; the default (Huey)
