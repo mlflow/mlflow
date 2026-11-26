@@ -1,4 +1,5 @@
 # Define all the service endpoint handlers here.
+import hashlib
 import io
 import json
 import logging
@@ -95,6 +96,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
+    MLFLOW_SERVER_ENABLE_JOB_EXECUTION,
     MLFLOW_SERVER_INFO_TRACKING_AUTH,
 )
 from mlflow.exceptions import (
@@ -111,7 +113,14 @@ from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.constants import GATEWAY_DISABLED_MESSAGE
 from mlflow.gateway.utils import is_valid_endpoint_name
-from mlflow.genai.discovery.schedule import scheduled_detection_available
+from mlflow.genai.discovery.checkpoint import MAX_SCHEDULED_SESSION_SAMPLE_SIZE
+from mlflow.genai.discovery.constants import SAMPLE_POOL_MULTIPLIER
+from mlflow.genai.discovery.schedule import (
+    ScheduleModel,
+    read_detection_schedule,
+    scheduled_detection_available,
+)
+from mlflow.genai.discovery.settings import read_detection_settings
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
@@ -122,6 +131,7 @@ from mlflow.genai.scorers.scorer_utils import (
     find_custom_scorer_without_source,
 )
 from mlflow.genai.skill_content.archive import MAX_ARCHIVE_ENTRIES, get_max_decompressed_size
+from mlflow.metrics.genai.model_utils import _parse_model_uri as _parse_llm_model_uri
 from mlflow.models import Model
 from mlflow.prompt.constants import (
     _PROMPT_SOURCE_PLACEHOLDERS,
@@ -138,13 +148,14 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
     NOT_IMPLEMENTED,
     PERMISSION_DENIED,
-    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
+    DetectIssues,
     GetIssue,
+    IssueDetectionRun,
     SearchIssues,
     UpdateIssue,
 )
@@ -425,6 +436,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
     MLFLOW_CUSTOM_VIEW_TAG_PREFIX,
     MLFLOW_GENAI_EVALUATE_JOB_ID,
+    MLFLOW_ISSUE_DETECTION_ERROR,
+    MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
     MLFLOW_RUN_TYPE_GENAI_EVALUATE,
@@ -439,7 +452,10 @@ from mlflow.utils.providers import (
     get_all_providers,
     get_models,
     get_provider_config_response,
+    has_env_credentials,
+    provider_credential_env_vars,
 )
+from mlflow.utils.search_utils import SearchTraceUtils
 from mlflow.utils.server_info import (
     SERVER_INFO_ARTIFACT_SERVING_ENABLED,
     SERVER_INFO_ARTIFACTS_PRESIGNED_ONLY,
@@ -1014,6 +1030,15 @@ def _assert_required(x, path=None):
 def _assert_less_than_or_equal(x, max_value, message=None):
     if x > max_value:
         raise AssertionError(message) if message else AssertionError()
+
+
+def _validate_max_results_within_threshold(max_results: int) -> None:
+    # Validate the parsed field rather than the raw request JSON so that the `maxResults`
+    # alias accepted by protobuf can't bypass the check. Zero means "use the default".
+    if not 0 <= max_results <= SEARCH_MAX_RESULTS_THRESHOLD:
+        raise MlflowException.invalid_parameter_value(
+            f"max_results must be between 0 and {SEARCH_MAX_RESULTS_THRESHOLD}."
+        )
 
 
 def _assert_intlike_within_range(x, min_value, max_value, message=None):
@@ -5746,13 +5771,14 @@ def _set_review_queue_item_status():
 
 def _validate_trace_ids_in_experiment(
     tracking_store: AbstractTrackingStore, trace_ids: list[str], experiment_id: str
-) -> None:
+) -> list[TraceInfo]:
     """
     Reject the request if any requested trace that exists belongs to an experiment other
     than ``experiment_id``. The route validators only check the caller's permission on the
     request's ``experiment_id``, so this binds the caller-supplied ``trace_ids`` to that
     authorized experiment. Missing traces are not rejected here; they are left to fail
-    downstream in the job, which preserves the existing contract for missing traces.
+    downstream in the job, which preserves the existing contract for missing traces. Returns
+    the requested traces that exist, for a caller that rejects missing ones itself.
     """
     try:
         # Deliberately not scoped with `experiment_ids`: scoping would hide foreign traces and
@@ -5777,6 +5803,7 @@ def _validate_trace_ids_in_experiment(
                 "Not all requested traces could be accessed.",
                 error_code=PERMISSION_DENIED,
             )
+    return trace_infos
 
 
 @catch_mlflow_exception
@@ -5785,10 +5812,11 @@ def _invoke_issue_detection_handler():
     """
     Invoke issue detection on traces asynchronously.
 
-    This is a UI-only AJAX endpoint for running issue detection from the frontend.
+    This is a UI-only AJAX endpoint for running issue detection from the frontend. The run it
+    starts can overlap the experiment's other detection runs, ad-hoc or scheduled, as on
+    Databricks.
     """
     from mlflow.genai.discovery.job import _fetch_provider_credentials, invoke_issue_detection_job
-    from mlflow.genai.discovery.utils import in_flight_detection_run
     from mlflow.server.jobs import submit_job
 
     _validate_content_type(request, ["application/json"])
@@ -5829,36 +5857,10 @@ def _invoke_issue_detection_handler():
 
     # Fail fast when no credential source exists, instead of submitting a job doomed to fail
     if not endpoint_name and not secret_id:
-        from mlflow.utils.providers import has_env_credentials, provider_credential_env_vars
-
-        env_vars = provider_credential_env_vars(provider_name)
-        if not env_vars:
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported provider '{provider}'. Choose a supported provider or "
-                "AI Gateway endpoint."
-            )
-        if not has_env_credentials(provider_name):
-            env_var_hint = env_vars[0] if len(env_vars) == 1 else f"one of {', '.join(env_vars)}"
-            raise MlflowException.invalid_parameter_value(
-                f"No API key available for provider '{provider}'. Save an API key in "
-                f"AI Gateway, or set {env_var_hint} on the MLflow server."
-            )
+        _require_server_provider_credentials(provider)
 
     store = _get_tracking_store()
     _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
-
-    # After the checks above rather than before, so request validation stays free of database
-    # reads and the "fails fast" contract on an unsupported provider or a missing key holds. The
-    # cost is that a caller with neither a key nor a free slot is told about the key first, which
-    # sends the dialog to its API-key step before this refusal; the opposite order would make
-    # every invoke read the run table before validating its own arguments.
-    if in_flight_run_id := in_flight_detection_run(store, experiment_id):
-        raise MlflowException(
-            "Issue detection is already running for this experiment "
-            f"(run {in_flight_run_id}). Wait for it to finish, or cancel it, before starting "
-            "another.",
-            error_code=RESOURCE_ALREADY_EXISTS,
-        )
 
     # Fetch credentials required for executing the job
     if secret_id:
@@ -5900,6 +5902,301 @@ def _invoke_issue_detection_handler():
     mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
 
     return jsonify({"job_id": job.job_id, "run_id": run_id})
+
+
+def _require_server_provider_credentials(provider: str) -> None:
+    """
+    Fail unless the MLflow server holds an API key for ``provider`` in its environment.
+
+    For a detection run with no stored secret and no gateway endpoint, the server's own
+    environment is the only credential source; checking it up front fails the request instead
+    of submitting a job doomed to fail.
+    """
+    provider_name = provider.lower()
+    env_vars = provider_credential_env_vars(provider_name)
+    if not env_vars:
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported provider '{provider}'. Choose a supported provider or "
+            "AI Gateway endpoint."
+        )
+    if not has_env_credentials(provider_name):
+        env_var_hint = env_vars[0] if len(env_vars) == 1 else f"one of {', '.join(env_vars)}"
+        raise MlflowException.invalid_parameter_value(
+            f"No API key available for provider '{provider}'. Save an API key in "
+            f"AI Gateway, or set {env_var_hint} on the MLflow server."
+        )
+
+
+# The `flask.g` attribute carrying the detection schedule model the auth plugin checked.
+_AUTHORIZED_DETECTION_MODEL_ATTR = "mlflow_issue_detection_authorized_model"
+
+
+def _remember_authorized_detection_model(
+    experiment_id: str, saved_model: ScheduleModel | None
+) -> None:
+    """
+    Record the schedule model the auth plugin checked for this request's DetectIssues.
+
+    The handler reads the experiment again after authorization, and a schedule edit in between
+    could swap in a secret the caller was never checked for. Recording what was checked lets the
+    handler run on exactly that.
+    """
+    setattr(g, _AUTHORIZED_DETECTION_MODEL_ATTR, (experiment_id, saved_model))
+
+
+def _saved_detection_model(experiment) -> ScheduleModel | None:
+    """
+    The schedule model a DetectIssues run without an explicit ``model`` uses.
+
+    That is the one the auth plugin checked, when it checked one for this experiment. Otherwise,
+    on a server without authentication or for an admin, whom it doesn't check, it's read from the
+    experiment.
+    """
+    authorized = getattr(g, _AUTHORIZED_DETECTION_MODEL_ATTR, None)
+    if authorized is not None and authorized[0] == experiment.experiment_id:
+        return authorized[1]
+    schedule = read_detection_schedule(experiment)
+    return schedule.model if schedule is not None else None
+
+
+def _resolve_issue_detection_model(
+    store, experiment, model: str | None
+) -> tuple[str, dict[str, str] | None]:
+    """
+    The model URI a DetectIssues run analyzes with, and the credentials its job needs.
+
+    An explicit ``model`` runs on the server's own keys or, for ``gateway:/<endpoint>``, on the
+    endpoint's. Without one, the run uses the model saved in the experiment's detection schedule,
+    including the stored secret a direct provider selection records, so a caller can run
+    detection the way the experiment is configured. The auth plugin requires USE on that secret,
+    and the run uses the schedule model it checked.
+    """
+    from mlflow.genai.discovery.job import _fetch_provider_credentials
+
+    if model:
+        provider, model_name = _parse_llm_model_uri(model)
+        provider = provider.lower()
+        if provider != "gateway":
+            _require_server_provider_credentials(provider)
+        # Rebuilt with the provider lowercased, as `issues/invoke` does, so the run's tag and its
+        # job see the same URI however the caller cased it.
+        return f"{provider}:/{model_name}", None
+
+    saved = _saved_detection_model(experiment)
+    if saved is None:
+        raise MlflowException.invalid_parameter_value(
+            "Specify `model`, or save a model in the experiment's issue detection schedule."
+        )
+    if saved.endpoint_name:
+        return saved.to_model_uri(), None
+    if saved.secret_id:
+        credentials = _fetch_provider_credentials(store, saved.provider.lower(), saved.secret_id)
+        return saved.to_model_uri(), credentials
+    _require_server_provider_credentials(saved.provider)
+    return saved.to_model_uri(), None
+
+
+# The most trace IDs a DetectIssues request can name: as many traces as a filtered run fetches to
+# sample from, so a run never reads more traces one way than the other.
+_MAX_DETECTION_TRACE_IDS = MAX_SCHEDULED_SESSION_SAMPLE_SIZE * SAMPLE_POOL_MULTIPLIER
+
+_MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH = 64
+
+_DETECTION_STATUS_BY_RUN_STATUS = {
+    "SCHEDULED": "running",
+    "RUNNING": "running",
+    "FINISHED": "succeeded",
+    "FAILED": "failed",
+    "KILLED": "canceled",
+}
+
+
+def _validate_detection_idempotency_token(token: str) -> None:
+    if len(token) > _MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"`idempotency_token` can be at most {_MAX_DETECTION_IDEMPOTENCY_TOKEN_LENGTH} "
+            f"characters, got {len(token)}."
+        )
+    if any(unicodedata.category(char) == "Cc" for char in token):
+        raise MlflowException.invalid_parameter_value(
+            "`idempotency_token` must not contain control characters."
+        )
+
+
+def _detection_idempotency_key(token: str) -> str:
+    """
+    The run tag value a DetectIssues request with ``token`` is found by. It includes the caller,
+    so another user's request with the same token starts its own run rather than getting this one.
+    """
+    caller = _get_request_username() or ""
+    return hashlib.sha256(f"{caller}\0{token}".encode()).hexdigest()
+
+
+def _find_detection_run_by_idempotency_key(store, experiment_id: str, key: str):
+    """The experiment's active detection run an earlier request with ``key`` started, if any."""
+    runs = store.search_runs(
+        experiment_ids=[experiment_id],
+        filter_string=f"tags.`{MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY}` = '{key}'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=1,
+        order_by=["attributes.start_time ASC"],
+    )
+    for run in runs:
+        if run.data.tags.get(MLFLOW_RUN_TYPE) == MLFLOW_RUN_TYPE_ISSUE_DETECTION:
+            return run
+    return None
+
+
+def _detection_run_from_run(run) -> IssueDetectionRun:
+    proto = IssueDetectionRun(
+        run_id=run.info.run_id,
+        experiment_id=run.info.experiment_id,
+        status=_DETECTION_STATUS_BY_RUN_STATUS.get(run.info.status, "running"),
+        start_time=run.info.start_time,
+    )
+    if run.info.end_time:
+        proto.end_time = run.info.end_time
+    if run.info.status == "FAILED" and (error := run.data.tags.get(MLFLOW_ISSUE_DETECTION_ERROR)):
+        proto.error_message = error
+    return proto
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _detect_issues():
+    """
+    A request handler for `POST /mlflow/issues/detect` to start an issue detection run.
+
+    The public counterpart of the Issues tab's ``issues/invoke``. It takes either the traces the
+    caller picked or a trace filter whose matching traces the run samples, and it analyzes them
+    with the categories and instructions saved on the experiment. Like ``issues/invoke``, it
+    starts a run while others of the experiment's runs are in progress, ad-hoc or scheduled, as
+    on Databricks, so callers can run detection over different traces at once. Runs that overlap
+    can refresh the same issues, and, since neither sees the issues the other files, can each
+    file one for the same finding: cross-run matching is best effort. A request with the
+    ``idempotency_token`` of an earlier one from the same caller returns the run that request
+    started.
+    """
+    from mlflow.genai.discovery.job import _record_failure, invoke_issue_detection_job
+    from mlflow.server.jobs import submit_job
+
+    request_message = _get_request_message(
+        DetectIssues(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "filter_string": [_assert_string],
+            "model": [_assert_string],
+            "trace_ids": [_assert_array, _assert_item_type_string],
+            "idempotency_token": [_assert_string],
+        },
+    )
+    experiment_id = request_message.experiment_id
+    if idempotency_token := request_message.idempotency_token:
+        _validate_detection_idempotency_token(idempotency_token)
+    filter_string = request_message.filter_string or None
+    # Deduplicated while preserving order so a repeated trace is not fetched or analyzed twice.
+    trace_ids = list(dict.fromkeys(request_message.trace_ids))
+    if filter_string and trace_ids:
+        raise MlflowException.invalid_parameter_value(
+            "Set at most one of `filter_string` and `trace_ids`."
+        )
+    if len(trace_ids) > _MAX_DETECTION_TRACE_IDS:
+        raise MlflowException.invalid_parameter_value(
+            f"`trace_ids` can name at most {_MAX_DETECTION_TRACE_IDS} traces, got {len(trace_ids)}."
+        )
+    if filter_string:
+        # Parsed here so a malformed filter fails the request rather than the run.
+        SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
+    # Checked before the run exists: submit_job refuses too, but only after the run would have
+    # been created, leaving a RUNNING detection run that blocks the experiment until it times out.
+    if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        raise MlflowException(
+            "Issue detection needs job execution, which is disabled on this MLflow server. Set "
+            f"the environment variable '{MLFLOW_SERVER_ENABLE_JOB_EXECUTION.name}' to 'true' to "
+            "enable it.",
+            error_code=FEATURE_DISABLED,
+        )
+
+    store = _get_tracking_store()
+    experiment = store.get_experiment(experiment_id)
+    idempotency_key = _detection_idempotency_key(idempotency_token) if idempotency_token else None
+    # Best effort: two requests with the same token that arrive together can both start a run.
+    if idempotency_key and (
+        started := _find_detection_run_by_idempotency_key(store, experiment_id, idempotency_key)
+    ):
+        response_message = DetectIssues.Response(
+            issue_detection_run=_detection_run_from_run(started)
+        )
+        return _wrap_response(response_message)
+    if trace_ids:
+        found = {
+            info.trace_id
+            for info in _validate_trace_ids_in_experiment(store, trace_ids, experiment_id)
+        }
+        # Rejected here rather than left to fail the job, so a mistyped ID doesn't start a run.
+        if missing := [trace_id for trace_id in trace_ids if trace_id not in found]:
+            shown = ", ".join(missing[:10]) + (", ..." if len(missing) > 10 else "")
+            raise MlflowException.invalid_parameter_value(
+                f"{len(missing)} of `trace_ids` not found in experiment {experiment_id}: {shown}"
+            )
+    model, credentials = _resolve_issue_detection_model(
+        store, experiment, request_message.model or None
+    )
+
+    settings = read_detection_settings(experiment)
+    tags = {
+        MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+        "categories": ",".join(settings.categories),
+        "model": model,
+    }
+    if model.startswith("gateway:/"):
+        tags["endpoint_name"] = model.removeprefix("gateway:/")
+    if trace_ids:
+        # A sampled run records its count once the job has sampled.
+        tags["total_traces"] = str(len(trace_ids))
+    if idempotency_key:
+        tags[MLFLOW_ISSUE_DETECTION_IDEMPOTENCY_KEY] = idempotency_key
+    client = MlflowClient()
+    run = client.create_run(experiment_id=experiment_id, tags=tags)
+    run_id = run.info.run_id
+    try:
+        job = submit_job(
+            function=invoke_issue_detection_job,
+            params={
+                "experiment_id": experiment_id,
+                # None, rather than empty, has the job sample the traces matching the filter.
+                "trace_ids": trace_ids or None,
+                "categories": list(settings.categories),
+                "run_id": run_id,
+                "model": model,
+                "instructions": settings.instructions,
+                "username": _get_request_username(),
+                "filter_string": filter_string,
+            },
+            extra_envs=credentials,
+        )
+    except Exception as error:
+        # A run left RUNNING with no job would never end, so it is failed with the reason.
+        _record_failure(client, run_id, error)
+        raise
+    # Best effort, and outside the block above: the job is already queued and ends the run itself,
+    # so a failed tag write must not mark the run FAILED under a job that may still succeed.
+    try:
+        client.set_tag(run_id, MLFLOW_ISSUE_DETECTION_JOB_ID, job.job_id)
+    except Exception:
+        _logger.warning(
+            "Could not record job %s on issue detection run %s", job.job_id, run_id, exc_info=True
+        )
+
+    response_message = DetectIssues.Response(
+        issue_detection_run=IssueDetectionRun(
+            run_id=run_id,
+            experiment_id=experiment_id,
+            status="running",
+            start_time=run.info.start_time,
+        )
+    )
+    return _wrap_response(response_message)
 
 
 def _sync_issue_detection_schedule_state_handler():
@@ -6401,6 +6698,7 @@ def _search_logged_models():
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
     with translate_scoped_search_limits(_get_scoped_experiment_ids() is not None):
         models = _get_tracking_store().search_logged_models(
             # Convert `RepeatedScalarContainer` objects (experiment_ids and order_by) to `list`
@@ -8571,6 +8869,8 @@ def _remove_dataset_from_experiments_handler(dataset_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_dataset_records_handler(dataset_id):
     request_message = _get_request_message(
         GetDatasetRecords(),
@@ -8579,6 +8879,7 @@ def _get_dataset_records_handler(dataset_id):
             "page_token": [_assert_string],
         },
     )
+    _validate_max_results_within_threshold(request_message.max_results)
 
     max_results = request_message.max_results or 1000
     page_token = request_message.page_token or None
@@ -9151,6 +9452,7 @@ HANDLERS = {
     CreateIssue: _create_issue,
     UpdateIssue: _update_issue,
     GetIssue: _get_issue,
+    DetectIssues: _detect_issues,
     SearchIssues: _search_issues,
     # Label Schema APIs
     CreateLabelSchema: _create_label_schema,

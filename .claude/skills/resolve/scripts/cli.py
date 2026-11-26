@@ -14,6 +14,7 @@ APP_ID = 191841109
 COPILOT = "copilot-pull-request-reviewer[bot]"
 NAILAOPUS = "nailaopus[bot]"
 MAX_ROUNDS = 5
+COMMIT_PLACEHOLDER = re.compile(r"\{\{[ \t]*commit[ \t]*\}\}")
 PATCH_PATHS = Path(__file__).resolve().parents[2] / "patch-paths.txt"
 PR_CONTEXT = Path(__file__).resolve().parents[3] / "scripts" / "pr_context.py"
 CLOSE_THREAD = """
@@ -195,10 +196,11 @@ def validate(context_path: Path, out_dir: Path) -> None:
     optional = {"review"} if current_review(context)["body"].strip() else set()
     if not thread_ids <= responses.keys() <= thread_ids | optional:
         raise ValueError("Responses must cover every thread and only a nonempty review body")
-    has_resolved = any(item["status"] == "resolved" for item in responses.values())
+    if not patch.is_file() and any(
+        COMMIT_PLACEHOLDER.search(response["body"]) for response in responses.values()
+    ):
+        raise ValueError("{{commit}} in a reply requires fix.patch")
     pr_update = result.get("pr_update")
-    if has_resolved != (patch.exists() or pr_update is not None):
-        raise ValueError("Resolved feedback must accompany a patch or a PR update")
     if pr_update and any(value == context["pr"][field] for field, value in pr_update.items()):
         raise ValueError("A PR update must change each proposed field")
     command(
@@ -392,16 +394,16 @@ def publish(repo: str, number: str, review_id: str, context_path: Path, out_dir:
     roots = {thread["id"]: thread["comments"][0]["id"] for thread in all_threads(context)}
     blocked = False
     for key, response in responses.items():
+        body = response["body"]
+        if tree:
+            body = COMMIT_PLACEHOLDER.sub(head, body)
         # Blocked replies tell the reviewer what input is needed; their threads stay open.
         if response["status"] == "blocked":
             blocked = True
-            summary(f"<p>Blocked {html.escape(key)}: {html.escape(response['body'])}</p>")
+            summary(f"<p>Blocked {html.escape(key)}: {html.escape(body)}</p>")
         note = marker(current["author"], review_id, key)
         resolved = response["status"] == "resolved"
         if note not in posted:
-            body = response["body"]
-            if resolved and tree and not pr_update:
-                body += f"\n\n[Fix commit]({os.environ['GITHUB_SERVER_URL']}/{repo}/commit/{head})."
             if key == "review":
                 url = current["url"]
                 body = f"In response to [this review]({url})\n\n{body}\n\n{note}"

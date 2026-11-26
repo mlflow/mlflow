@@ -174,6 +174,49 @@ def test_chat_request_preserves_nested_object_properties():
     assert properties["batch"]["items"] == nested_object
 
 
+def test_chat_request_preserves_any_of():
+    # Regression test for https://github.com/mlflow/mlflow/issues/28128.
+    # Pydantic renders `Optional[T]` as `anyOf: [T, {"type": "null"}]`, so dropping
+    # `anyOf` strips the type and shape of every optional tool parameter.
+    nested_object = {
+        "type": "object",
+        "properties": {"url": {"type": "string"}},
+        "required": ["url"],
+    }
+    properties = {
+        "optional_string": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "description": "A name.",
+        },
+        "optional_enum": {"anyOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]},
+        "optional_object": {"anyOf": [nested_object, {"type": "null"}]},
+        "optional_array": {
+            "type": "array",
+            "items": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+        },
+        "nested": {
+            "type": "object",
+            "properties": {"limit": {"anyOf": [{"type": "integer"}, {"type": "null"}]}},
+        },
+    }
+    payload = chat.RequestPayload(**{
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search",
+                    "description": "Search.",
+                    "parameters": {"type": "object", "properties": properties},
+                },
+            }
+        ],
+    })
+
+    dumped = payload.model_dump(exclude_none=True)
+    assert dumped["tools"][0]["function"]["parameters"]["properties"] == properties
+
+
 @pytest.mark.parametrize(
     "properties",
     [

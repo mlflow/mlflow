@@ -29,14 +29,15 @@ properties:
       properties:
         status:
           description: >
-            Use resolved when a patch or PR title or description edit addresses the feedback,
+            Use resolved when the current PR already addresses the feedback or this run fixes it,
             answered when a substantive reply suffices, or blocked when the item needs human input.
           enum: [resolved, answered, blocked]
         body:
           description: >
             Use one or two sentences in Markdown. For resolved feedback, summarize the fix
             and any relevant verification. For answered feedback, cite the supporting code
-            or behavior. For blocked feedback, explain what human input is needed. Cite
+            or behavior. For blocked feedback, explain what human input is needed. Use
+            {{commit}} in plain text to insert the SHA of this run's patch. Cite
             each screenshot or recording as a Markdown image whose path is the file's
             absolute path in `$out_dir/media`, such as
             `![Run list after the fix](/abs/path/to/out_dir/media/runs.png)`. Put a

@@ -1647,6 +1647,394 @@ def test_memory_augmented_judge_round_trip_preserves_base_judge_session_level():
 
 
 # =============================================================================
+# guidelines / unalign(guideline_indices=...)
+# =============================================================================
+
+_GUIDELINES = ["G0", "G1", "G2", "G3", "G4"]
+
+
+def test_guidelines_returns_texts_in_order(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    assert aligned.guidelines == _GUIDELINES
+
+
+def test_guidelines_empty_when_none(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    assert aligned.guidelines == []
+
+
+def test_unalign_guideline_indices_on_initialized_judge(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES) as mocks:
+        aligned = MemAlignOptimizer(
+            reflection_lm="openai:/gpt-4o-mini",
+            retrieval_k=3,
+            embedding_model="openai:/text-embedding-3-small",
+            embedding_dim=256,
+        ).align(sample_judge, sample_traces)
+        # mock_apis gives every guideline the same sources; make them distinct per guideline
+        for i, g in enumerate(aligned._semantic_memory):
+            g.source_trace_ids = [f"tr-{i}"]
+        embedder_class_calls = mocks["embedder_class"].call_count
+        embeddings_class_calls = mocks["embeddings_class"].call_count
+
+        with patch("mlflow.get_trace") as mock_get_trace:
+            cleaned = aligned.unalign(guideline_indices=[3, 1])
+
+        mock_get_trace.assert_not_called()
+        assert cleaned is not aligned
+        assert cleaned.guidelines == ["G0", "G2", "G4"]
+        # The original judge is unchanged
+        assert aligned.guidelines == _GUIDELINES
+        assert [g.source_trace_ids for g in cleaned._semantic_memory] == [
+            ["tr-0"],
+            ["tr-2"],
+            ["tr-4"],
+        ]
+
+        assert cleaned._episodic_memory == aligned._episodic_memory
+        assert cleaned._episodic_memory is not aligned._episodic_memory
+        assert cleaned._episodic_trace_ids == aligned._episodic_trace_ids
+        assert cleaned._retrievers is aligned._retrievers
+        assert cleaned._embedder is aligned._embedder
+        assert cleaned._reflection_lm == aligned._reflection_lm
+        assert cleaned._retrieval_k == aligned._retrieval_k
+        assert cleaned._embedding_model == aligned._embedding_model
+        assert cleaned._embedding_dim == aligned._embedding_dim
+        assert cleaned.name == aligned.name
+
+        # Scoring the copy reuses the shared state: no trace fetch, no new embedder or
+        # retriever, and no corpus re-embedding.
+        patcher, captured = _mock_scoring_call(sample_judge.name, sample_judge.model)
+        with patch("mlflow.get_trace") as mock_get_trace, patcher:
+            cleaned(inputs="test input", outputs="test output")
+
+        assert len(captured) == 1
+        mock_get_trace.assert_not_called()
+        assert mocks["embedder_class"].call_count == embedder_class_calls
+        assert mocks["embeddings_class"].call_count == embeddings_class_calls
+
+
+def test_unalign_guideline_indices_does_not_change_instructions_format(sample_judge, sample_traces):
+    with mock_apis(guidelines=["G0", "G1"]):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    cleaned = aligned.unalign(guideline_indices=[0])
+    assert (
+        cleaned.instructions
+        == sample_judge.instructions + "\n\nDistilled Guidelines (1):\n  - G1\n"
+    )
+
+
+def test_unalign_guideline_indices_can_remove_all(sample_judge, sample_traces):
+    with mock_apis(guidelines=["G0", "G1"]):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    cleaned = aligned.unalign(guideline_indices=[1, 0])
+    assert cleaned.guidelines == []
+    assert cleaned.instructions == sample_judge.instructions
+
+
+def test_unalign_guideline_indices_on_deferred_judge_does_not_fetch_traces(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    restored = Scorer.model_validate(aligned.model_dump())
+    assert restored._embedder is None
+
+    with patch("mlflow.get_trace") as mock_get_trace, patch("dspy.Embedder") as embedder_class:
+        cleaned = restored.unalign(guideline_indices=[0, 4])
+
+    mock_get_trace.assert_not_called()
+    embedder_class.assert_not_called()
+    assert cleaned._embedder is None
+    assert cleaned.guidelines == ["G1", "G2", "G3"]
+
+
+def test_unalign_empty_traces_with_guideline_indices_on_deferred_judge_does_not_fetch_traces(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    restored = Scorer.model_validate(aligned.model_dump())
+
+    with patch("mlflow.get_trace") as mock_get_trace, patch("dspy.Embedder") as embedder_class:
+        cleaned = restored.unalign(traces=[], guideline_indices=[0])
+
+    mock_get_trace.assert_not_called()
+    embedder_class.assert_not_called()
+    assert cleaned._embedder is None
+    assert cleaned.guidelines == ["G1", "G2", "G3", "G4"]
+    assert restored.guidelines == _GUIDELINES
+    assert cleaned._episodic_trace_ids == restored._episodic_trace_ids
+    assert cleaned._episodic_trace_ids == aligned._episodic_trace_ids
+
+
+def test_unalign_guideline_indices_round_trip_serialization(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    cleaned = aligned.unalign(guideline_indices=[2])
+
+    restored = Scorer.model_validate(cleaned.model_dump())
+    assert isinstance(restored, MemoryAugmentedJudge)
+    assert restored.guidelines == ["G0", "G1", "G3", "G4"]
+    assert restored._episodic_trace_ids == aligned._episodic_trace_ids
+
+    # Chaining on a deserialized (deferred) judge persists too
+    twice = Scorer.model_validate(restored.unalign(guideline_indices=[0]).model_dump())
+    assert twice.guidelines == ["G1", "G3", "G4"]
+
+
+def test_unalign_guideline_indices_judge_still_scores(sample_judge, sample_traces):
+    with mock_apis(guidelines=["G0", "G1"]) as mocks:
+        mocks["search"].return_value = MagicMock(indices=[0])
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+        cleaned = aligned.unalign(guideline_indices=[0])
+        patcher, captured = _mock_scoring_call(sample_judge.name, sample_judge.model)
+        with patcher:
+            result = cleaned(inputs="in", outputs="out")
+
+    assert result.value == "yes"
+    assert len(captured) == 1
+    assert "G0" not in captured[0]
+    assert "G1" in captured[0]
+    assert "Example Judgements" in captured[0]
+
+
+def test_unalign_guideline_indices_then_register_then_load(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+        cleaned = aligned.unalign(guideline_indices=[0, 3])
+
+        cleaned.register()
+        loaded = get_scorer(name=sample_judge.name, experiment_id=_get_experiment_id())
+
+    assert isinstance(loaded, MemoryAugmentedJudge)
+    assert loaded.guidelines == ["G1", "G2", "G4"]
+
+
+def test_register_keeps_scorer_settings_and_load_persists_description_and_aggregations(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+        aligned.timeout = 5
+        aligned.aggregations = ["median"]
+        aligned.description = "custom description"
+
+        registered = aligned.register()
+        loaded = get_scorer(name=sample_judge.name, experiment_id=_get_experiment_id())
+
+    assert registered.timeout == 5
+    assert registered.aggregations == ["median"]
+    assert registered.description == "custom description"
+    assert isinstance(loaded, MemoryAugmentedJudge)
+    assert loaded.description == "custom description"
+    assert loaded.aggregations == ["median"]
+    # Like make_judge judges, MemAlign judges do not persist timeout
+    assert loaded.timeout is None
+
+
+def test_unalign_guideline_indices_while_lazy_init_in_progress_stays_deferred(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    restored = Scorer.model_validate(aligned.model_dump())
+    # Mimic another thread inside _lazy_init: embedder set, memory and retriever not yet built
+    restored._embedder = MagicMock()
+    assert restored._retrievers is None
+
+    cleaned = restored.unalign(guideline_indices=[0])
+
+    assert cleaned._embedder is None
+    assert cleaned._retrievers is None
+    assert cleaned.guidelines == ["G1", "G2", "G3", "G4"]
+
+
+def test_unalign_guideline_indices_on_initialized_judge_without_episodic_examples(
+    sample_judge, sample_traces
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    restored = Scorer.model_validate(aligned.model_dump())
+    # No stored trace IDs, so _lazy_init finishes with no examples and no retriever
+    restored._episodic_trace_ids = []
+    with patch("dspy.Embedder"):
+        restored._lazy_init()
+    assert restored._embedder is not None
+    assert restored._retrievers is None
+
+    with patch("mlflow.get_trace") as mock_get_trace:
+        cleaned = restored.unalign(guideline_indices=[0])
+        cleaned._lazy_init()
+
+    mock_get_trace.assert_not_called()
+    assert cleaned._embedder is restored._embedder
+    assert cleaned._retrievers is None
+    assert cleaned.guidelines == ["G1", "G2", "G3", "G4"]
+
+
+def test_unalign_guideline_indices_preserves_scorer_settings(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    aligned.timeout = 5
+    aligned.aggregations = ["median"]
+    aligned.description = "custom description"
+    aligned.session_level = "episode"
+    pass_if = lambda value: value == "yes"  # noqa: E731
+    aligned._pass_if = pass_if
+
+    cleaned = aligned.unalign(guideline_indices=[0])
+
+    assert cleaned.timeout == 5
+    assert cleaned.aggregations == ["median"]
+    assert cleaned.description == "custom description"
+    assert cleaned.session_level == "episode"
+    assert cleaned._pass_if is pass_if
+    assert cleaned.aggregations is not aligned.aggregations
+
+
+@pytest.mark.parametrize(
+    ("indices", "match"),
+    [
+        (3, "non-empty list"),
+        ((0, 1), "non-empty list"),
+        ([True], "Invalid guideline index True"),
+        (["1"], "Invalid guideline index '1'"),
+        ([1.0], "Invalid guideline index 1.0"),
+        ([-1], r"Invalid guideline index -1.*0 to 4"),
+        ([5], r"Invalid guideline index 5.*0 to 4"),
+        ([0, 2, 2], "duplicates"),
+    ],
+)
+def test_unalign_guideline_indices_rejects_invalid_indices(
+    sample_judge, sample_traces, indices, match
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    with pytest.raises(MlflowException, match=match) as exc_info:
+        aligned.unalign(guideline_indices=indices)
+    assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+    assert aligned.guidelines == _GUIDELINES
+
+
+def test_unalign_guideline_indices_on_judge_without_guidelines(sample_judge, sample_traces):
+    with mock_apis(guidelines=[]):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    with pytest.raises(MlflowException, match="no guidelines to remove"):
+        aligned.unalign(guideline_indices=[0])
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{}, {"traces": None, "guideline_indices": None}],
+)
+def test_unalign_requires_traces_or_guideline_indices(sample_judge, sample_traces, kwargs):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    with pytest.raises(MlflowException, match="requires `traces`, `guideline_indices`, or both"):
+        aligned.unalign(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"guideline_indices": []}, "No guideline indices provided; nothing to remove"),
+        (
+            {"traces": [], "guideline_indices": []},
+            "No feedback records found for the provided traces",
+        ),
+    ],
+)
+def test_unalign_empty_guideline_indices_warns_and_returns_same_judge(
+    sample_judge, sample_traces, kwargs, message
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    with patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger.warning") as warning:
+        assert aligned.unalign(**kwargs) is aligned
+    warning.assert_called_once_with(message)
+
+
+def test_unalign_empty_traces_warns_and_returns_same_judge(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+    with patch("mlflow.genai.judges.optimizers.memalign.optimizer._logger.warning") as warning:
+        assert aligned.unalign(traces=[]) is aligned
+    warning.assert_called_once_with("No feedback records found for the provided traces")
+
+
+def test_unalign_traces_and_guideline_indices_use_pre_call_positions(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+        # Guideline i comes only from trace i
+        for i, g in enumerate(aligned._semantic_memory):
+            g.source_trace_ids = [sample_traces[i].info.trace_id]
+
+        # Removing trace 0 drops G0. Index 1 is G1 before the call (G2 after trace removal).
+        cleaned = aligned.unalign(traces=[sample_traces[0]], guideline_indices=[1])
+
+    assert cleaned.guidelines == ["G2", "G3", "G4"]
+    assert sample_traces[0].info.trace_id not in cleaned._episodic_trace_ids
+    assert aligned.guidelines == _GUIDELINES
+
+
+def test_unalign_unmatched_traces_still_removes_guideline_indices(
+    sample_judge, sample_traces, caplog
+):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+        unknown = MagicMock()
+        unknown.info.trace_id = "trace_999"
+        cleaned = aligned.unalign(traces=[unknown], guideline_indices=[0])
+
+    assert "No feedback records found for the provided traces" in caplog.text
+    assert cleaned is not aligned
+    assert cleaned.guidelines == ["G1", "G2", "G3", "G4"]
+    assert cleaned._episodic_trace_ids == aligned._episodic_trace_ids
+    assert cleaned._retrievers is aligned._retrievers
+
+
+def test_unalign_traces_preserves_scorer_settings(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES):
+        aligned = MemAlignOptimizer().align(sample_judge, sample_traces)
+        aligned.timeout = 5
+        aligned.aggregations = ["median"]
+        unaligned = aligned.unalign(traces=[sample_traces[0]])
+
+    assert unaligned is not aligned
+    assert unaligned.timeout == 5
+    assert unaligned.aggregations == ["median"]
+
+
+def test_unalign_guideline_indices_shares_multi_field_retrievers(sample_judge, sample_traces):
+    with mock_apis(guidelines=_GUIDELINES) as mocks:
+        # Multi-field retrieval scores corpus embeddings directly instead of calling search
+        mocks["search"].embedder = lambda texts: np.ones((len(texts), 2))
+        mocks["search"].corpus_embeddings = np.ones((len(sample_traces), 2))
+        aligned = MemAlignOptimizer(retrieval_fields=["inputs", "outputs"]).align(
+            sample_judge, sample_traces
+        )
+        assert list(aligned._retrievers) == ["inputs", "outputs"]
+        embeddings_class_calls = mocks["embeddings_class"].call_count
+
+        cleaned = aligned.unalign(guideline_indices=[0])
+        patcher, captured = _mock_scoring_call(sample_judge.name, sample_judge.model)
+        with patch("mlflow.get_trace") as mock_get_trace, patcher:
+            result = cleaned(inputs="in", outputs="out")
+
+    assert cleaned._retrievers is aligned._retrievers
+    mock_get_trace.assert_not_called()
+    assert mocks["embeddings_class"].call_count == embeddings_class_calls
+    assert result.value == "yes"
+    assert len(captured) == 1
+    assert "G0" not in captured[0]
+    assert "G1" in captured[0]
+    assert "Example Judgements" in captured[0]
+
+
+# =============================================================================
 # retrieval_fields tests
 # =============================================================================
 

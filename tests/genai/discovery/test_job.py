@@ -5,10 +5,12 @@ import pytest
 
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.checkpoint import MAX_SCHEDULED_SESSION_SAMPLE_SIZE
 from mlflow.genai.discovery.job import (
     _fetch_provider_credentials,
     invoke_issue_detection_job,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_ERROR
 
 
 @pytest.mark.parametrize(
@@ -357,3 +359,133 @@ def test_invoke_issue_detection_job_without_priorities_passes_none():
         )
 
     assert discover.call_args.kwargs["instructions"] is None
+
+
+def _trace(trace_id):
+    trace = mock.MagicMock()
+    trace.info.trace_id = trace_id
+    return trace
+
+
+def test_invoke_issue_detection_job_without_trace_ids_samples_the_filtered_traces():
+    mock_client = mock.MagicMock()
+    traces = [_trace("trace-1"), _trace("trace-2")]
+    mock_client._tracing_client.batch_get_traces.return_value = traces
+    mock_result = mock.MagicMock()
+    mock_result.summary = "Found 1 issue"
+    mock_result.issues = [mock.MagicMock()]
+    mock_result.total_traces_analyzed = 2
+    mock_result.total_cost_usd = 0.05
+    mock_result.new_issue_count = 1
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch(
+            "mlflow.genai.discovery.job.sample_traces", return_value=traces
+        ) as mock_sample_traces,
+        mock.patch(
+            "mlflow.genai.discovery.job.discover_issues", return_value=mock_result
+        ) as mock_discover_issues,
+    ):
+        result = invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=None,
+            run_id="run-123",
+            categories=["correctness"],
+            model="openai:/gpt-5-mini",
+            filter_string="trace.status = 'ERROR'",
+            instructions="Focus on refunds.",
+        )
+
+    mock_sample_traces.assert_called_once_with(
+        MAX_SCHEDULED_SESSION_SAMPLE_SIZE,
+        search_kwargs={"experiment_ids": ["exp-123"], "filter_string": "trace.status = 'ERROR'"},
+    )
+    mock_client.set_tag.assert_any_call("run-123", "total_traces", "2")
+    mock_client.link_traces_to_run.assert_called_once_with(["trace-1", "trace-2"], "run-123")
+    assert mock_discover_issues.call_args.kwargs["categories"] == ["correctness"]
+    assert mock_discover_issues.call_args.kwargs["instructions"] == "Focus on refunds."
+    assert mock_discover_issues.call_args.kwargs["model"] == "openai:/gpt-5-mini"
+    mock_client.set_terminated.assert_called_once_with(
+        "run-123", RunStatus.to_string(RunStatus.FINISHED)
+    )
+    assert result["issues"] == 1
+
+
+def test_invoke_issue_detection_job_finishes_without_analyzing_when_nothing_matches():
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[]),
+        mock.patch("mlflow.genai.discovery.job.discover_issues") as mock_discover_issues,
+    ):
+        result = invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=None,
+            run_id="run-123",
+            categories=["correctness"],
+            model="gateway:/e",
+            filter_string="tags.env = 'nowhere'",
+        )
+
+    mock_discover_issues.assert_not_called()
+    mock_client.link_traces_to_run.assert_not_called()
+    mock_client.set_tag.assert_any_call("run-123", "total_traces", "0")
+    mock_client.set_tag.assert_any_call("run-123", "total_traces_analyzed", 0)
+    mock_client.set_terminated.assert_called_once_with(
+        "run-123", RunStatus.to_string(RunStatus.FINISHED)
+    )
+    assert result == {"total_traces_analyzed": 0, "total_cost_usd": 0.0}
+
+
+def test_invoke_issue_detection_job_fails_the_run_when_recording_the_sample_fails():
+    mock_client = mock.MagicMock()
+    mock_client.set_tag.side_effect = [MlflowException("store unavailable"), None]
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch("mlflow.genai.discovery.job.sample_traces", return_value=[]),
+        pytest.raises(MlflowException, match="store unavailable"),
+    ):
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=None,
+            run_id="run-123",
+            categories=["correctness"],
+            model="gateway:/e",
+        )
+
+    mock_client.set_tag.assert_called_with(
+        "run-123", MLFLOW_ISSUE_DETECTION_ERROR, "MlflowException: store unavailable"
+    )
+    mock_client.set_terminated.assert_called_once_with(
+        "run-123", RunStatus.to_string(RunStatus.FAILED)
+    )
+
+
+def test_invoke_issue_detection_job_fails_the_run_when_sampling_fails():
+    mock_client = mock.MagicMock()
+
+    with (
+        mock.patch("mlflow.genai.discovery.job.MlflowClient", return_value=mock_client),
+        mock.patch(
+            "mlflow.genai.discovery.job.sample_traces",
+            side_effect=MlflowException("store unavailable"),
+        ),
+        pytest.raises(MlflowException, match="store unavailable"),
+    ):
+        invoke_issue_detection_job(
+            experiment_id="exp-123",
+            trace_ids=None,
+            run_id="run-123",
+            categories=["correctness"],
+            model="gateway:/e",
+        )
+
+    mock_client.set_tag.assert_called_once_with(
+        "run-123", MLFLOW_ISSUE_DETECTION_ERROR, "MlflowException: store unavailable"
+    )
+    mock_client.set_terminated.assert_called_once_with(
+        "run-123", RunStatus.to_string(RunStatus.FAILED)
+    )

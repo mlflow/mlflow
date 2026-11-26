@@ -1925,6 +1925,13 @@
         "input_per_million_tokens": 2.0,
         "output_per_million_tokens": 6.0,
         "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.6,
+            "output_per_million_tokens": 4.8,
+            "cache_read_per_million_tokens": 0.4
+          }
+        },
         "long_context": [
           {
             "threshold_tokens": 200000,
@@ -1946,7 +1953,47 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "last_updated_at": "2026-11-26"
+    },
+    "grok-4.6-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.6,
+            "output_per_million_tokens": 4.8,
+            "cache_read_per_million_tokens": 0.4
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 1.0,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 12.0
+          }
+        ],
+        "modality": {
+          "image": {
+            "input_per_million_tokens": 2.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-26"
     },
     "grok-4.7": {
       "mode": "chat",
@@ -1987,6 +2034,46 @@
         "response_schema": true
       },
       "last_updated_at": "2026-10-29"
+    },
+    "grok-4.7-latest": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 500000,
+        "max_output": 500000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.5,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.6,
+            "output_per_million_tokens": 4.8,
+            "cache_read_per_million_tokens": 0.4
+          }
+        },
+        "long_context": [
+          {
+            "threshold_tokens": 200000,
+            "cache_read_per_million_tokens": 1.0,
+            "input_per_million_tokens": 4.0,
+            "output_per_million_tokens": 12.0
+          }
+        ],
+        "modality": {
+          "image": {
+            "input_per_million_tokens": 2.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-11-26"
     },
     "grok-beta": {
       "mode": "chat",

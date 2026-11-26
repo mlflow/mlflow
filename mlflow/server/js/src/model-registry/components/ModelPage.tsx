@@ -352,7 +352,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                   handleEditDescription={this.handleEditDescription}
                   handleDelete={this.handleDelete}
                   navigate={navigate}
-                  onMetadataUpdated={this.loadModelVersions}
+                  onMetadataUpdated={() => this.loadModelVersions(false)}
                   orderByKey={this.orderByKey}
                   orderByAsc={this.orderByAsc}
                   currentPage={this.currentPage}

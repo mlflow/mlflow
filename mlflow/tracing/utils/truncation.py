@@ -135,6 +135,12 @@ def _get_text_content_from_message(message: dict[str, Any]) -> str:
                 return part
             elif isinstance(part, dict) and part.get("type") in _TEXT_PART_TYPES:
                 return part.get("text")
+            elif isinstance(part, dict) and part.get("type") == "refusal":
+                # Responses API output part for a refusal
+                return part.get("refusal")
     elif isinstance(content, str):
         return content
+    # A Chat Completions refusal carries its text in `refusal` and leaves `content` null
+    if isinstance(refusal := message.get("refusal"), str):
+        return refusal
     return ""

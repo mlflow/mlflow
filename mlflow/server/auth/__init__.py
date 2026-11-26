@@ -67,7 +67,7 @@ from mlflow.environment_variables import (
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
-from mlflow.genai.discovery.schedule import scheduled_detection_secret_id
+from mlflow.genai.discovery.schedule import read_detection_schedule, scheduled_detection_secret_id
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -79,6 +79,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.protos.issues_pb2 import (
     CreateIssue,
+    DetectIssues,
     GetIssue,
     SearchIssues,
     UpdateIssue,
@@ -448,6 +449,7 @@ from mlflow.server.handlers import (
     _get_tracking_store,
     _get_validated_flask_request_json,
     _raw_request_has_field,
+    _remember_authorized_detection_model,
     catch_mlflow_exception,
     get_endpoints,
     get_service_endpoints,
@@ -5950,6 +5952,55 @@ def validate_can_search_issues():
     return _run_tier_not_denied_in_workspace(username)
 
 
+def validate_can_detect_issues():
+    """
+    Detection creates a run in the request's experiment, so this requires what creating a run
+    does. Its job then searches and reads the experiment's traces with ``filter_string`` straight
+    from the store, so it also requires what searching them with that filter does. That covers
+    ``trace_ids`` too, since the handler rejects a trace outside the experiment. Without an
+    explicit ``model``, the run uses the model saved in the experiment's detection schedule, and
+    when the run would decrypt a stored gateway secret for it the caller also needs USE on it, as
+    ``validate_can_invoke_issue_detection`` requires for a secret named in the request.
+
+    The job also reads the traces' assessments and logs its own straight through the store, so an
+    explicit DENY on assessments refuses the request. Absent an assessment grant the experiment
+    governs, as it does for the assessments a trace read returns.
+
+    The handler runs on the schedule model checked here rather than reading the schedule again,
+    so a schedule edit landing between this check and the handler can't swap in a secret the
+    caller was never checked for.
+    """
+    message = _get_request_message(DetectIssues())
+    if not message.experiment_id:
+        return False
+    experiment_resource = (RESOURCE_TYPE_EXPERIMENT, message.experiment_id)
+    # `read` also vetoes the job's assessment writes: every positive grant carries `can_read`, so
+    # only a DENY fails it, which is what a create checks.
+    assessments = Requirement(
+        RESOURCE_TYPE_ASSESSMENT, "*", "read", fallback_if_no_grant=(experiment_resource,)
+    )
+    if not _authorize_create_in_experiment(message.experiment_id, RESOURCE_TYPE_RUN, [assessments]):
+        return False
+    if not _authorize_trace_search([message.experiment_id], message.filter_string):
+        return False
+    if message.model:
+        return True
+    try:
+        experiment = _get_tracking_store().get_experiment(message.experiment_id)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            return False
+        raise
+    schedule = read_detection_schedule(experiment)
+    saved_model = schedule.model if schedule is not None else None
+    _remember_authorized_detection_model(message.experiment_id, saved_model)
+    if saved_model is None:
+        return True
+    if not (secret_id := saved_model.credential_secret_id):
+        return True
+    return _get_gateway_secret_permission(secret_id).can_use
+
+
 ISSUE_BEFORE_REQUEST_HANDLERS = {
     GetIssue: validate_can_read_issue,
     UpdateIssue: validate_can_update_issue,
@@ -5972,6 +6023,7 @@ ISSUE_BEFORE_REQUEST_VALIDATORS = {
 ISSUE_EXACT_BEFORE_REQUEST_HANDLERS = {
     CreateIssue: validate_can_create_issue,
     SearchIssues: validate_can_search_issues,
+    DetectIssues: validate_can_detect_issues,
 }
 
 
@@ -9513,6 +9565,32 @@ def _get_require_authentication_validator() -> Callable[[str, StarletteRequest],
     return validator
 
 
+def _get_assistant_validator(
+    unprefixed_path: str, method: str
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    if method != "POST" or unprefixed_path != "/ajax-api/3.0/mlflow/assistant/message":
+        return _get_require_authentication_validator()
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        # The handler attaches the project directory configured for ``experiment_id`` as the
+        # session's working directory, which the Assistant's file and shell tools run in, so the
+        # caller must be able to read that experiment.
+        try:
+            body = await request.json()
+        except ValueError:
+            # FastAPI rejects the malformed body before the handler runs.
+            return True
+        experiment_id = body.get("experiment_id") if isinstance(body, dict) else None
+        if not experiment_id:
+            return True
+        permission = await asyncio.to_thread(
+            _get_experiment_permission, str(experiment_id), username
+        )
+        return permission.can_read
+
+    return validator
+
+
 def _job_route_tail(unprefixed_path: str) -> str:
     return unprefixed_path.split("/ajax-api/3.0/jobs", 1)[-1].strip("/")
 
@@ -9673,7 +9751,7 @@ def _find_fastapi_validator(
         return _get_job_route_validator(unprefixed)
 
     if unprefixed.startswith("/ajax-api/3.0/mlflow/assistant"):
-        return _get_require_authentication_validator()
+        return _get_assistant_validator(unprefixed, method)
 
     # `artifact_router` is not registered under `--static-prefix`, so this matches the
     # raw path; prefixed artifact requests fall through to Flask, which owns their auth.

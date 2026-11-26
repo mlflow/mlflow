@@ -216,8 +216,7 @@ def make_containing_dirs(path):
     directories.
     """
     dir_name = os.path.dirname(path)
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    os.makedirs(dir_name, exist_ok=True)
 
 
 class TempDir:
@@ -461,6 +460,9 @@ def local_file_uri_to_path(uri):
         # Fix for retaining server name in UNC path.
         if is_windows() and parsed_path.netloc:
             return urllib.request.url2pathname(rf"\\{parsed_path.netloc}{path}")
+    # Since Python 3.14, `url2pathname` discards everything after "?" or "#". Percent-encode
+    # them so they stay literal path characters, as on earlier Python versions.
+    path = path.replace("?", "%3F").replace("#", "%23")
     return urllib.request.url2pathname(path)
 
 

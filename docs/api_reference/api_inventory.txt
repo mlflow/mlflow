@@ -995,6 +995,13 @@ mlflow.genai.databricks.review_queues.InputPassFail.to_dict
 mlflow.genai.databricks.review_queues.InputText
 mlflow.genai.databricks.review_queues.InputText.to_dict
 mlflow.genai.databricks.review_queues.ItemKind
+mlflow.genai.databricks.review_queues.LabelingSessionMigrationIssue
+mlflow.genai.databricks.review_queues.LabelingSessionMigrationIssue.from_dict
+mlflow.genai.databricks.review_queues.LabelingSessionMigrationIssueSeverity
+mlflow.genai.databricks.review_queues.LabelingSessionMigrationPlan
+mlflow.genai.databricks.review_queues.LabelingSessionMigrationPlan.from_dict
+mlflow.genai.databricks.review_queues.LabelingSessionMigrationResult
+mlflow.genai.databricks.review_queues.LabelingSessionMigrationResult.from_dict
 mlflow.genai.databricks.review_queues.QuestionType
 mlflow.genai.databricks.review_queues.ReviewQuestion
 mlflow.genai.databricks.review_queues.ReviewQuestion.from_dict
@@ -1017,6 +1024,10 @@ mlflow.genai.databricks.review_queues.entities.InputNumeric
 mlflow.genai.databricks.review_queues.entities.InputPassFail
 mlflow.genai.databricks.review_queues.entities.InputText
 mlflow.genai.databricks.review_queues.entities.ItemKind
+mlflow.genai.databricks.review_queues.entities.LabelingSessionMigrationIssue
+mlflow.genai.databricks.review_queues.entities.LabelingSessionMigrationIssueSeverity
+mlflow.genai.databricks.review_queues.entities.LabelingSessionMigrationPlan
+mlflow.genai.databricks.review_queues.entities.LabelingSessionMigrationResult
 mlflow.genai.databricks.review_queues.entities.QuestionType
 mlflow.genai.databricks.review_queues.entities.ReviewQuestion
 mlflow.genai.databricks.review_queues.entities.ReviewQueue
@@ -1030,6 +1041,7 @@ mlflow.genai.databricks.review_queues.list_review_questions
 mlflow.genai.databricks.review_queues.list_review_queue_items
 mlflow.genai.databricks.review_queues.list_review_queue_members
 mlflow.genai.databricks.review_queues.list_review_queues
+mlflow.genai.databricks.review_queues.migrate_labeling_session
 mlflow.genai.databricks.review_queues.remove_review_queue_items
 mlflow.genai.databricks.review_queues.remove_review_queue_member
 mlflow.genai.databricks.review_queues.resolve_effective_review_questions
