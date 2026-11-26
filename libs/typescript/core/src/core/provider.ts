@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
-import { context, trace, Tracer, TracerProvider } from '@opentelemetry/api';
+import { context, trace, ProxyTracerProvider, Tracer, TracerProvider } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { BasicTracerProvider, SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { SpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { MlflowClient } from '../clients';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
 import {
@@ -15,9 +15,8 @@ import { getConfig, getAuthProvider, type UnityCatalogLocationOptions } from './
 import type { UnityCatalogLocation } from './entities/trace_location';
 import { asyncExportEnabled } from './utils/env';
 
-let sdk: NodeSDK | BasicTracerProvider | null = null;
-// Set only when MLflow's tracer provider is not the global one.
-let isolatedProvider: TracerProvider | null = null;
+let provider: NodeTracerProvider | null = null;
+let globalRegistration: TracerProvider | null = null;
 // Keep a reference to the active span processor for flushing.
 let processor: SpanProcessor | null = null;
 
@@ -38,8 +37,12 @@ let processor: SpanProcessor | null = null;
  * until that lands, customers configure UC explicitly via `traceLocation`.
  */
 export function initializeSDK(): void {
-  if (sdk) {
-    sdk.shutdown().catch((error) => {
+  if (globalRegistration && trace.getTracerProvider() === globalRegistration) {
+    trace.disable();
+  }
+  globalRegistration = null;
+  if (provider) {
+    provider.shutdown().catch((error) => {
       console.error('Error shutting down existing SDK:', error);
     });
   }
@@ -86,16 +89,18 @@ export function initializeSDK(): void {
       }
     }
 
-    if (config.registerGlobalTracerProvider === false) {
-      const provider = new BasicTracerProvider({ spanProcessors: [processor] });
-      sdk = provider;
-      isolatedProvider = provider;
-      ensureContextManager();
-    } else {
-      isolatedProvider = null;
-      const nodeSdk = new NodeSDK({ spanProcessors: [processor] });
-      sdk = nodeSdk;
-      nodeSdk.start();
+    provider = new NodeTracerProvider({ spanProcessors: [processor] });
+    ensureContextManager();
+    if (config.registerGlobalTracerProvider !== false) {
+      provider.register({ contextManager: null });
+      const global = trace.getTracerProvider();
+      if (global instanceof ProxyTracerProvider && global.getDelegate() === provider) {
+        globalRegistration = global;
+      } else {
+        console.warn(
+          '[mlflow] Global tracer registration failed. MLflow will use its own provider.',
+        );
+      }
     }
   } catch (error) {
     console.error('Failed to initialize MLflow tracing:', error);
@@ -122,10 +127,7 @@ function resolveUcLocation(options: UnityCatalogLocationOptions): UnityCatalogLo
 }
 
 /**
- * `withSpan` and `getCurrentActiveSpan` rely on a context manager. NodeSDK
- * registers one together with the global tracer provider, so the isolated
- * path has to do it itself. Registration fails when the host process already
- * has a context manager, and that one is used instead.
+ * Keep the host context manager if one is already registered.
  */
 function ensureContextManager(): void {
   const contextManager = new AsyncLocalStorageContextManager();
@@ -136,7 +138,8 @@ function ensureContextManager(): void {
 }
 
 export function getTracer(module_name: string): Tracer {
-  return (isolatedProvider ?? trace).getTracer(module_name);
+  if (!provider) throw new Error('MLflow tracing has not been initialized.');
+  return provider.getTracer(module_name);
 }
 
 /**

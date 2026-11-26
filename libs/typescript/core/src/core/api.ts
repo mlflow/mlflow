@@ -3,6 +3,7 @@ import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
 import { DEFAULT_SPAN_NAME, SpanLogLevel, SpanType, TraceMetadataKey } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
 import { SpanLink } from './entities/span_link';
+import { getConfig } from './config';
 import { getTracer } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
 import { convertNanoSecondsToHrTime, mapArgsToObject } from './utils';
@@ -108,10 +109,10 @@ export function startSpan(options: SpanOptions): LiveSpan {
   try {
     const tracer = getTracer('default');
 
-    // If parent is provided, use it as the parent spanAdd commentMore actions
+    // An explicit MLflow parent takes precedence over the active span.
     const parentContext = options.parent
       ? otelTrace.setSpan(context.active(), options.parent._span)
-      : context.active();
+      : getActiveParentContext();
 
     // Convert startTimeNs to OTel format
     const startTime = options.startTimeNs
@@ -130,6 +131,13 @@ export function startSpan(options: SpanOptions): LiveSpan {
     console.warn('Failed to start span', error);
     return new NoOpSpan();
   }
+}
+
+function getActiveParentContext() {
+  const active = context.active();
+  return getConfig().registerGlobalTracerProvider === false && !getCurrentActiveSpan()
+    ? otelTrace.deleteSpan(active)
+    : active;
 }
 
 /**
@@ -168,58 +176,63 @@ export function withSpan<T>(
     : undefined;
 
   // Use startActiveSpan to automatically manage context and parent-child relationships
-  return tracer.startActiveSpan(spanName, { startTime }, (otelSpan: ApiSpan) => {
-    let mlflowSpan: LiveSpan | NoOpSpan;
+  return tracer.startActiveSpan(
+    spanName,
+    { startTime },
+    getActiveParentContext(),
+    (otelSpan: ApiSpan) => {
+      let mlflowSpan: LiveSpan | NoOpSpan;
 
-    try {
-      // SpanProcessor should have already registered the mlflow span
-      mlflowSpan = getMlflowSpan(otelSpan as OTelSpan, spanOptions);
-    } catch (error) {
-      console.debug('Failed to create and register MLflow span', error);
-      mlflowSpan = new NoOpSpan();
-    }
-
-    // Expression function to handle errors consistently
-    const handleError = (error: Error): never => {
       try {
-        mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
-        mlflowSpan.recordException(error);
-        mlflowSpan.end();
+        // SpanProcessor should have already registered the mlflow span
+        mlflowSpan = getMlflowSpan(otelSpan as OTelSpan, spanOptions);
       } catch (error) {
-        console.debug('Failed to set status or record exception on MLflow span', error);
+        console.debug('Failed to create and register MLflow span', error);
+        mlflowSpan = new NoOpSpan();
       }
-      throw error;
-    };
 
-    try {
-      // Execute the callback with the span
-      const result = callback(mlflowSpan);
-
-      // Handle both sync and async results
-      if (result instanceof Promise) {
-        return result
-          .then((value) => {
-            // Set outputs if they are not already set
-            if (mlflowSpan.outputs === undefined) {
-              mlflowSpan.setOutputs(value);
-            }
-            mlflowSpan.end();
-            return value;
-          })
-          .catch(handleError);
-      } else {
-        // Synchronous execution
-        if (mlflowSpan.outputs === undefined) {
-          mlflowSpan.setOutputs(result);
+      // Expression function to handle errors consistently
+      const handleError = (error: Error): never => {
+        try {
+          mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
+          mlflowSpan.recordException(error);
+          mlflowSpan.end();
+        } catch (error) {
+          console.debug('Failed to set status or record exception on MLflow span', error);
         }
-        mlflowSpan.end();
-        return result;
+        throw error;
+      };
+
+      try {
+        // Execute the callback with the span
+        const result = callback(mlflowSpan);
+
+        // Handle both sync and async results
+        if (result instanceof Promise) {
+          return result
+            .then((value) => {
+              // Set outputs if they are not already set
+              if (mlflowSpan.outputs === undefined) {
+                mlflowSpan.setOutputs(value);
+              }
+              mlflowSpan.end();
+              return value;
+            })
+            .catch(handleError);
+        } else {
+          // Synchronous execution
+          if (mlflowSpan.outputs === undefined) {
+            mlflowSpan.setOutputs(result);
+          }
+          mlflowSpan.end();
+          return result;
+        }
+      } catch (error) {
+        // Handle synchronous errors
+        return handleError(error as Error);
       }
-    } catch (error) {
-      // Handle synchronous errors
-      return handleError(error as Error);
-    }
-  });
+    },
+  );
 }
 
 function getMlflowSpan(otelSpan: OTelSpan, options: SpanOptions): LiveSpan | NoOpSpan {

@@ -17,9 +17,9 @@ function loadProvider(): ProviderHarness {
 
   let provider!: ProviderModule;
   jest.isolateModules(() => {
-    jest.doMock('@opentelemetry/sdk-node', () => ({
-      NodeSDK: jest.fn().mockImplementation(() => ({
-        start: jest.fn(),
+    jest.doMock('@opentelemetry/sdk-trace-node', () => ({
+      NodeTracerProvider: jest.fn().mockImplementation(() => ({
+        register: jest.fn(),
         shutdown: jest.fn().mockResolvedValue(undefined),
       })),
     }));
@@ -41,7 +41,11 @@ function loadProvider(): ProviderHarness {
       resolveDaemonEntry,
     }));
     jest.doMock('../../src/core/config', () => ({
-      getConfig: () => ({ trackingUri: 'http://localhost:5000', experimentId: '1' }),
+      getConfig: () => ({
+        trackingUri: 'http://localhost:5000',
+        experimentId: '1',
+        registerGlobalTracerProvider: false,
+      }),
       getAuthProvider: () => ({}),
     }));
 
