@@ -20,8 +20,11 @@ _UC_TAGS = [
 def _acl(*entries):
     return {
         "access_control_list": [
-            {"user_name": user, "all_permissions": [{"permission_level": level, "inherited": inh}]}
-            for user, level, inh in entries
+            {
+                "user_name": user,
+                "all_permissions": [{"permission_level": level, "inherited": inherited}],
+            }
+            for user, level, inherited in entries
         ]
     }
 
