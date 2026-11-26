@@ -316,18 +316,24 @@ def test_job_endpoint_rejects_scorer_destination_keys(
 
 
 @pytest.mark.parametrize(
-    ("job_name", "params", "key"),
+    ("job_name", "key"),
     [
-        ("invoke_genai_evaluate", {"serialized_scorers": 5}, "serialized_scorers"),
-        ("run_online_trace_scorer", {"online_scorers": 5}, "online_scorers"),
+        ("invoke_genai_evaluate", "serialized_scorers"),
+        ("run_online_trace_scorer", "online_scorers"),
     ],
 )
+@pytest.mark.parametrize(
+    ("value", "type_name"),
+    [(5, "int"), ("", "str"), (0, "int"), ({}, "dict"), (False, "bool")],
+)
 def test_job_endpoint_rejects_non_list_scorer_params(
-    client: Client, job_name: str, params: dict[str, Any], key: str
+    client: Client, job_name: str, key: str, value: Any, type_name: str
 ):
-    response = client.post("/ajax-api/3.0/jobs/", payload={"job_name": job_name, "params": params})
+    response = client.post(
+        "/ajax-api/3.0/jobs/", payload={"job_name": job_name, "params": {key: value}}
+    )
     assert response.status_code == 400
-    assert response.json()["detail"] == f"'{key}' must be a list, got int"
+    assert response.json()["detail"] == f"'{key}' must be a list, got {type_name}"
 
 
 def test_job_endpoint_submits_valid_serialized_scorer(client: Client):

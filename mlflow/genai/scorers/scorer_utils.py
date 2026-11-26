@@ -492,7 +492,9 @@ def _iter_serialized_scorers(job_name: str, params: dict[str, Any]) -> list[str]
 
 
 def _get_list_param(params: dict[str, Any], key: str) -> list[Any]:
-    value = params.get(key) or []
+    value = params.get(key)
+    if value is None:
+        return []
     if not isinstance(value, list):
         raise MlflowException.invalid_parameter_value(
             f"'{key}' must be a list, got {type(value).__name__}"
