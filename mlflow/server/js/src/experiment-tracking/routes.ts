@@ -26,6 +26,7 @@ export enum PageId {
   experimentPageTabTraceDetail = 'mlflow.experiment.tab.trace-detail',
   experimentPageTabEvaluationRuns = 'mlflow.experiment.tab.evaluation-runs',
   experimentPageTabIssues = 'mlflow.experiment.tab.issues',
+  experimentPageTabIssueDetectionRuns = 'mlflow.experiment.tab.issue-detection-runs',
   experimentPageTabEvaluationRunDetails = 'mlflow.experiment.tab.evaluation-run-details',
   experimentPageTabDatasets = 'mlflow.experiment.tab.datasets',
   experimentPageTabDatasetDetail = 'mlflow.experiment.tab.dataset-detail',
@@ -34,6 +35,7 @@ export enum PageId {
   experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
   experimentPageTabReviewQueue = 'mlflow.experiment.tab.review-queue',
   experimentPageTabPlayground = 'mlflow.experiment.tab.playground',
+  experimentPageTabSettings = 'mlflow.experiment.tab.settings',
   experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
   experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
   // Child routes for experiment page - end
@@ -89,14 +91,11 @@ export class RoutePaths {
   static get experimentPageTabEvaluationRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs');
   }
-  static get experimentPageTabIssueDetectionRunDetails() {
-    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid');
-  }
-  static get experimentPageTabIssueDetectionRunDetailsWithTab() {
-    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/*');
-  }
   static get experimentPageTabIssues() {
     return createMLflowRoutePath('/experiments/:experimentId/issues');
+  }
+  static get experimentPageTabIssueDetectionRuns() {
+    return createMLflowRoutePath('/experiments/:experimentId/issues/runs');
   }
   static get experimentPageTabEvaluationRunDetails() {
     return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/details');
@@ -112,6 +111,9 @@ export class RoutePaths {
   }
   static get experimentPageTabReviewQueue() {
     return createMLflowRoutePath('/experiments/:experimentId/review-queue');
+  }
+  static get experimentPageTabSettings() {
+    return createMLflowRoutePath('/experiments/:experimentId/settings');
   }
   // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {
@@ -235,6 +237,10 @@ class Routes {
     return generatePath(RoutePaths.experimentPageTabbed, { experimentId, tabName });
   }
 
+  static getIssueDetectionRunsRoute(experimentId: string) {
+    return generatePath(RoutePaths.experimentPageTabIssueDetectionRuns, { experimentId });
+  }
+
   static getExperimentPageTabSingleChatSessionRoute(experimentId: string, sessionId: string) {
     return generatePath(RoutePaths.experimentPageTabSingleChatSession, { experimentId, sessionId });
   }
@@ -286,14 +292,6 @@ class Routes {
 
   static getEvaluationRunDetailsRoute(experimentId: string, runUuid: string) {
     return generatePath(RoutePaths.experimentPageTabEvaluationRunDetails, { experimentId, runUuid });
-  }
-
-  static getIssueDetectionRunDetailsRoute(experimentId: string, runUuid: string) {
-    return generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid });
-  }
-
-  static getIssueDetectionRunDetailsTabRoute(experimentId: string, runUuid: string, tabName: string) {
-    return `${generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid })}/${tabName}`;
   }
 
   /**

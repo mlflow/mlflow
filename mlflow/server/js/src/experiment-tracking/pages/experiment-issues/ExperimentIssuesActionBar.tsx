@@ -1,13 +1,18 @@
-import { Input, SearchIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { useIntl } from 'react-intl';
+import { Button, HistoryIcon, Input, SearchIcon, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { DetectIssuesButton } from '@databricks/web-shared/genai-traces-table/components/DetectIssuesButton';
+import { useNavigate } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
 import { CancelIssueDetectionButton } from './CancelIssueDetectionButton';
+import { IssueDetectionSettingsControl } from './IssueDetectionSettingsControl';
+import { ExperimentIssuesScheduleControl } from './ExperimentIssuesScheduleControl';
 import { ExperimentIssuesFilterControl } from './ExperimentIssuesToolbar';
 import type { ExperimentIssuesToolbarControls } from './useExperimentIssuesListControls';
 
 const COMPONENT_ID = 'mlflow.experiment-issues.action-bar';
 
 export interface ExperimentIssuesActionBarProps {
+  experimentId: string;
   controls: ExperimentIssuesToolbarControls;
   /** The search box's text as typed, which may not have been committed to the search yet. */
   searchInput: string;
@@ -33,6 +38,7 @@ export interface ExperimentIssuesActionBarProps {
  * the list, then the actions that produce new Issues. The active filter chips sit with the list.
  */
 export const ExperimentIssuesActionBar = ({
+  experimentId,
   controls,
   searchInput,
   onSearchInputChange,
@@ -45,6 +51,7 @@ export const ExperimentIssuesActionBar = ({
 }: ExperimentIssuesActionBarProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
   return (
     <div
       role="toolbar"
@@ -77,6 +84,34 @@ export const ExperimentIssuesActionBar = ({
       </div>
       <ExperimentIssuesFilterControl controls={controls} align="start" />
       <div css={{ flex: 1 }} />
+      {/* Leads the detection group on the right, but outside its `detectionEnabled` gate: this
+          reads the runs an experiment has already recorded, which outlive whatever made them
+          possible. A tooltip because the icon alone does not say which history it means. */}
+      <Tooltip
+        componentId={`${COMPONENT_ID}.run-history.tooltip`}
+        content={
+          <FormattedMessage
+            defaultMessage="Issue detection run history"
+            description="Experiment issues tab > Tooltip on the toolbar button opening the detection run history"
+          />
+        }
+      >
+        <Button
+          componentId={`${COMPONENT_ID}.run-history`}
+          icon={<HistoryIcon />}
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Issue detection run history',
+            description: 'Experiment issues tab > Accessible label for the toolbar button opening the run history',
+          })}
+          onClick={() => navigate(Routes.getIssueDetectionRunsRoute(experimentId))}
+        />
+      </Tooltip>
+      {detectionEnabled && (
+        <>
+          <IssueDetectionSettingsControl experimentId={experimentId} />
+          <ExperimentIssuesScheduleControl experimentId={experimentId} />
+        </>
+      )}
       {detectionEnabled &&
         // A run that exists can be cancelled, so the action becomes that rather than a disabled
         // button with no way out of a run that has stopped reporting progress. While one is still

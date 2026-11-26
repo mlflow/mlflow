@@ -45,3 +45,7 @@ class ResultDataFrameColumn:
     TAGS = "tags"
     TRACE = "trace"
     ERROR_MESSAGE = "error_message"
+
+
+# Run metric counting the rows whose predict_fn raised. These rows are not scored.
+PREDICT_ERROR_COUNT_METRIC = "predict_error_count"

@@ -137,7 +137,7 @@ from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIExce
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils import is_uuid, workspace_utils
+from mlflow.utils import get_results_from_paginated_fn, is_uuid, workspace_utils
 from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
@@ -153,7 +153,11 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
 )
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    is_databricks_unity_catalog_uri,
+    is_databricks_uri,
+    redact_uri_credentials,
+)
 from mlflow.utils.validation import (
     _parse_skill_identities,
     _validate_alias_name,
@@ -331,7 +335,8 @@ class MlflowClient:
             except UnsupportedModelRegistryStoreURIException as exc:
                 raise MlflowException(
                     "Model Registry features are not supported by the store with URI:"
-                    f" '{self._registry_uri}'. Stores with the following URI schemes are supported:"
+                    f" '{redact_uri_credentials(self._registry_uri)}'. "
+                    "Stores with the following URI schemes are supported:"
                     f" {exc.supported_uri_schemes}.",
                     FEATURE_DISABLED,
                 )
@@ -352,7 +357,8 @@ class MlflowClient:
         except UnsupportedWorkspaceStoreURIException as exc:
             raise MlflowException(
                 "Workspace operations are not supported by the configured workspace URI "
-                f"'{self._workspace_store_uri}'. Stores with the following URI schemes are "
+                f"'{redact_uri_credentials(self._workspace_store_uri)}'. "
+                "Stores with the following URI schemes are "
                 + f"supported: {exc.supported_uri_schemes}. Configure a supported workspace store "
                 + "to use workspace APIs.",
                 error_code=FEATURE_DISABLED,
@@ -3345,7 +3351,7 @@ class MlflowClient:
                 )
 
             step = step or 0
-            timestamp = timestamp or get_current_time_millis()
+            timestamp = timestamp if timestamp is not None else get_current_time_millis()
 
             # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
             # '#' was previously used here but is rejected by validate_path_is_safe(),
@@ -3396,11 +3402,15 @@ class MlflowClient:
             if char in artifact_file:
                 raise ValueError(f"The artifact_file contains forbidden character: {char}")
 
-    def _read_from_file(self, artifact_path):
+    def _read_from_file(self, artifact_path, infer_dtypes=True):
         import pandas as pd
 
         if artifact_path.endswith(".json"):
-            return pd.read_json(artifact_path, orient="split")
+            if infer_dtypes:
+                return pd.read_json(artifact_path, orient="split")
+            # Keep the stored JSON values as-is so that rewriting the table doesn't alter them
+            # (e.g. "02108" -> 2108)
+            return pd.read_json(artifact_path, orient="split", dtype=False, convert_dates=False)
         if artifact_path.endswith(".parquet"):
             return pd.read_parquet(artifact_path)
         raise ValueError(f"Unsupported file type in {artifact_path}. Expected .json or .parquet")
@@ -3497,6 +3507,8 @@ class MlflowClient:
             # for data like {"inputs": "What is MLflow?"}
             except ValueError:
                 data = pd.DataFrame([data])
+        else:
+            data = data.copy()
 
         # Check if the column is a `PIL.Image.Image` or `mlflow.Image` object
         # and save filepath
@@ -3560,7 +3572,9 @@ class MlflowClient:
                 downloaded_artifact_path = self.download_artifacts(
                     run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
-                existing_predictions = self._read_from_file(downloaded_artifact_path)
+                existing_predictions = self._read_from_file(
+                    downloaded_artifact_path, infer_dtypes=False
+                )
             data = pd.concat([existing_predictions, data], ignore_index=True)
             _logger.debug(
                 "Appending new table to already existing artifact "
@@ -3678,7 +3692,25 @@ class MlflowClient:
             list_run_ids = ",".join(map(repr, run_ids))
             filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
-        runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+        from mlflow.tracking.fluent import (
+            NUM_RUNS_PER_PAGE_PANDAS,
+            SEARCH_MAX_RESULTS_PANDAS,
+            _runs_to_pandas,
+        )
+
+        def pagination_wrapper_func(number_to_get, next_page_token):
+            return self.search_runs(
+                [experiment_id],
+                filter_string,
+                max_results=number_to_get,
+                page_token=next_page_token,
+            )
+
+        runs = _runs_to_pandas(
+            get_results_from_paginated_fn(
+                pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, SEARCH_MAX_RESULTS_PANDAS
+            )
+        )
         if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."
@@ -3810,7 +3842,9 @@ class MlflowClient:
                 download the specified artifacts. This directory must already exist.
                 If unspecified, the artifacts will either be downloaded to a new
                 uniquely-named directory on the local filesystem or will be returned
-                directly in the case of the LocalArtifactRepository.
+                directly in the case of the LocalArtifactRepository. The artifact keeps its
+                path relative to the run's artifact root, so ``a/b.txt`` is downloaded to
+                ``<dst_path>/a/b.txt``.
 
         Returns:
             Local path of desired artifact.
@@ -4165,7 +4199,7 @@ class MlflowClient:
             description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
         self._raise_if_prompt(name)
-        self._get_registry_client().rename_registered_model(name, new_name)
+        return self._get_registry_client().rename_registered_model(name, new_name)
 
     def update_registered_model(
         self, name: str, description: str | None = None, deployment_job_id: str | None = None

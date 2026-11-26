@@ -60,6 +60,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
     _ACTIVE_MODEL_CONTEXT,
@@ -1442,7 +1443,7 @@ def test_log_input_polars(tmp_path):
     assert len(dataset_inputs) == 1
     assert dataset_inputs[0].dataset.name == "dataset"
     # Digest value varies across Polars versions due to hash_rows() implementation changes
-    assert re.match(r"^\d+$", dataset_inputs[0].dataset.digest)
+    assert re.match(r"^[0-9a-f]{8}$", dataset_inputs[0].dataset.digest)
     assert dataset_inputs[0].dataset.source_type == "local"
 
 
@@ -2111,6 +2112,47 @@ def test_search_logged_models_max_results():
             order_by=None,
             page_token=None,
         )
+
+
+def test_search_logged_models_caps_page_size():
+    with mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient:
+        mock_client = MockClient.return_value
+        mock_client.search_logged_models.side_effect = [
+            make_mock_search_logged_model_page(["model_1"], "token_1"),
+            make_mock_search_logged_model_page(["model_2"], None),
+        ]
+
+        result = mlflow.search_logged_models(
+            experiment_ids=["123"],
+            max_results=SEARCH_MAX_RESULTS_THRESHOLD + 1,
+            output_format="list",
+        )
+
+        assert result == ["model_1", "model_2"]
+        assert [
+            c.kwargs["max_results"] for c in mock_client.search_logged_models.call_args_list
+        ] == [SEARCH_MAX_RESULTS_THRESHOLD, SEARCH_MAX_RESULTS_THRESHOLD]
+
+
+def test_search_logged_models_last_page_requests_only_remaining():
+    with (
+        mock.patch("mlflow.tracking.fluent.SEARCH_MAX_RESULTS_THRESHOLD", 2),
+        mock.patch("mlflow.tracking.fluent.MlflowClient") as MockClient,
+    ):
+        mock_client = MockClient.return_value
+        mock_client.search_logged_models.side_effect = [
+            make_mock_search_logged_model_page(["model_1", "model_2"], "token_1"),
+            make_mock_search_logged_model_page(["model_3"], "token_2"),
+        ]
+
+        result = mlflow.search_logged_models(
+            experiment_ids=["123"], max_results=3, output_format="list"
+        )
+
+        assert result == ["model_1", "model_2", "model_3"]
+        assert [
+            c.kwargs["max_results"] for c in mock_client.search_logged_models.call_args_list
+        ] == [2, 1]
 
 
 def test_set_active_model():

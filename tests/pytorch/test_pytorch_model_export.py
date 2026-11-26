@@ -1159,8 +1159,8 @@ def test_load_state_dict_disallows_pickle_deserialization(model_path, monkeypatc
     model = get_sequential_model()
     mlflow.pytorch.save_state_dict(model.state_dict(), model_path)
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         mlflow.pytorch.load_state_dict(model_path)
 
 
@@ -1207,7 +1207,7 @@ def test_load_pt2_model_allowed_when_pickle_deserialization_disallowed(
         input_example=data[0].to_numpy(dtype=np.float32),
     )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     loaded_model = mlflow.pytorch.load_model(model_path)
     np.testing.assert_array_equal(_predict(loaded_model, data), _predict(model, data))
 
@@ -1229,12 +1229,12 @@ def test_load_pt2_model_rejects_pickle_payload_when_pickle_deserialization_disal
         Path(model_path) / "data" / "model.pt2", _FileCreatingPayload(marker_path)
     )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     with pytest.raises(MlflowException, match=f"record '{re.escape(record)}'"):
         mlflow.pytorch.load_model(model_path)
     assert not marker_path.exists()
 
-    with pytest.raises(MlflowException, match=f"record '{re.escape(record)}'"):
+    with pytest.raises(MlflowException, match="Loading PyFunc models is disallowed"):
         mlflow.pyfunc.load_model(model_path)
     assert not marker_path.exists()
 
@@ -1270,7 +1270,7 @@ def test_load_pt2_model_validation_ignores_ambient_safe_globals(
         Path(model_path) / "data" / "model.pt2", _SafeListedFunctionPayload(marker_path)
     )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     with torch.serialization.safe_globals([_create_marker_file]):
         with pytest.raises(MlflowException, match=f"record '{re.escape(record)}'"):
             mlflow.pytorch.load_model(model_path)
@@ -1311,7 +1311,7 @@ def test_load_pt2_model_validation_does_not_disturb_concurrent_weights_only_load
                 errors.append(e)
                 return
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     with torch.serialization.safe_globals([_RegisteredMetadata]):
         loader = threading.Thread(
             target=load_checkpoint_repeatedly, name="weights_only_checkpoint_loader"
@@ -1339,7 +1339,7 @@ def test_load_pt2_model_rejected_on_unverifiable_torch_when_pickle_deserializati
         input_example=data[0].to_numpy(dtype=np.float32),
     )
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
     with (
         mock.patch("torch.__version__", "2.9.1"),
         pytest.raises(MlflowException, match="Upgrade to `torch` >= 2.10"),
@@ -1364,17 +1364,15 @@ def test_load_pickle_model_does_not_import_artifact_pickle_module_when_disallowe
     (Path(model_path) / "data" / "pickle_module_info.txt").write_text("pickle_module_canary")
     code_dir = os.path.join(model_path, "code")
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         mlflow.pytorch.load_model(model_path)
     assert not marker_path.exists()
     assert "pickle_module_canary" not in sys.modules
     # The rejected load must not leave the artifact's code directory importable either.
     assert code_dir not in sys.path
 
-    # `mlflow.pyfunc.load_model` prepends the code directory itself before calling the flavor,
-    # so only the import is checked on this route.
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    with pytest.raises(MlflowException, match="Loading PyFunc models is disallowed"):
         mlflow.pyfunc.load_model(model_path)
     assert not marker_path.exists()
     assert "pickle_module_canary" not in sys.modules

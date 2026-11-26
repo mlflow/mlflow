@@ -10,6 +10,9 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     DISPLAY_NAME = "OpenRouter"
     CONFIG_TYPE = _OpenAICompatibleConfig
     DEFAULT_API_BASE = "https://openrouter.ai/api/v1"
+    # OpenRouter accepts `cache_control` on content parts for prompt caching:
+    # https://openrouter.ai/docs/guides/best-practices/prompt-caching
+    SUPPORTS_CACHE_CONTROL = True
     PASSTHROUGH_PROVIDER_PATHS = {
         **OpenAICompatibleProvider.PASSTHROUGH_PROVIDER_PATHS,
         PassthroughAction.TYPESAFE_SYSTEM_ONE: "systemone",

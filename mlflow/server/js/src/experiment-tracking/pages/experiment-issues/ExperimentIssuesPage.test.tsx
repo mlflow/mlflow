@@ -404,6 +404,23 @@ describe('Experiment Issues', () => {
     );
     expect(screen.getByRole('textbox', { name: 'Search issues by title' })).toHaveValue('Slow');
   });
+  test('opens the detection run history from the toolbar, ahead of the settings gear', async () => {
+    // The schedule dialog's footer link was the only way in, which is a narrow door for a page
+    // that lists the ad-hoc runs started from this very toolbar.
+    renderPage();
+    await screen.findByRole('button', { name: /Slow response/ });
+    const history = screen.getByRole('button', { name: 'Issue detection run history' });
+
+    // Leads the detection group on the right rather than sitting with the filters on the left.
+    expect(
+      history.compareDocumentPosition(screen.getByRole('button', { name: 'Issue detection settings' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await userEvent.click(history);
+
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/experiments/1/issues/runs');
+  });
   test('lists category options without search and preserves custom-category links', async () => {
     issues[0].categories = ['CustomerSupport'];
     renderPage('?issueCategory=CustomerSupport');
@@ -727,7 +744,7 @@ describe('Experiment Issues', () => {
     await screen.findByText('Unable to update detection progress');
     expect(screen.getByRole('button', { name: 'Cancel detection' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Detect issues in traces' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry status' })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Retry status' })).toBeEnabled());
   });
   test('a failed cancel still refreshes job status, so a finished run stops blocking', async () => {
     // Reported in review. One failed status read stops polling, so this client can be holding
@@ -865,9 +882,29 @@ describe('Experiment Issues', () => {
       'href',
       'https://mlflow.org/docs/latest/genai/eval-monitor/ai-insights/detect-issues/',
     );
+    // Nothing has ever run here, so the history would be empty too.
+    expect(screen.queryByRole('link', { name: 'View run history' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Run issue detection' }));
     expect(await screen.findByRole('dialog')).toHaveTextContent('Selected traces: trace-1, trace-2');
   });
+  test.each(['FAILED', 'SUCCEEDED'])('reaches the run history from the empty state after a %s run', async (status) => {
+    // This state hides the toolbar that normally carries the history button, and it is exactly
+    // where a detection that failed or found nothing lands -- so without a link here the reason a
+    // run failed is unreachable from the one screen that reports it.
+    issues = [];
+    latestRun = {
+      info: { run_id: 'run-1', status: 'RUNNING' },
+      data: { tags: [{ key: 'mlflow.issueDetection.jobId', value: 'job-1' }] },
+    };
+    jobStatus = status;
+    renderPage();
+
+    expect(screen.queryByRole('toolbar')).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('link', { name: 'View run history' }));
+
+    expect(screen.getByLabelText('Current URL')).toHaveTextContent('/experiments/1/issues/runs');
+  });
+
   test.each(['FAILED', 'TIMEOUT'])('offers a centered new detection after an empty %s run', async (status) => {
     issues = [];
     latestRun = {

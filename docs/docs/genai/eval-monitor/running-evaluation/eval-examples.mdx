@@ -1,6 +1,6 @@
 # MLflow evaluation examples
 
-This page presents some common usage patterns for the evaluation harness, including data patterns and `predict_fn` patterns.
+This page presents some common usage patterns for the evaluation harness, including data patterns, `predict_fn` patterns, and measuring consistency across repeated runs.
 
 ## Common data input patterns
 
@@ -224,4 +224,52 @@ results = mlflow.genai.evaluate(
     predict_fn=evaluate_model,
     scorers=[Safety()],
 )
+```
+
+## Measure consistency with repeated runs
+
+Run the same evaluation several times as nested runs to find test cases that pass only some of the time. pass^k, from [τ-bench](https://arxiv.org/abs/2406.12045), estimates the chance that k attempts at a test case all pass. To test whether one run is really better than another, see [Comparing Evaluation Runs](/genai/eval-monitor/comparing-evaluation-runs).
+
+```python
+import json
+import math
+
+import mlflow
+import pandas as pd
+from mlflow.genai.scorers import Correctness
+from my_app import agent  # Your app with tracing
+
+eval_data = [
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {"expected_facts": ["open-source", "AI engineering platform"]},
+    },
+    {
+        "inputs": {"question": "How do I track experiments?"},
+        "expectations": {"expected_facts": ["mlflow.start_run()", "log metrics", "log parameters"]},
+    },
+]
+
+frames = []
+with mlflow.start_run(run_name="consistency"):
+    for i in range(5):
+        with mlflow.start_run(run_name=f"repeat-{i}", nested=True):
+            result = mlflow.genai.evaluate(
+                data=eval_data, predict_fn=agent, scorers=[Correctness()]
+            )
+        frames.append(result.result_df)
+results = pd.concat(frames, ignore_index=True)
+
+# `request` holds dicts, so group on their JSON form. `n` counts scored rows, skipping errors.
+results["case"] = results["request"].map(lambda r: json.dumps(r, sort_keys=True, default=str))
+per_case = results.groupby("case")["correctness/value"].agg(
+    n="count", c=lambda v: (v == "yes").sum()
+)
+
+k = 3
+per_case["pass^k"] = [
+    math.comb(c, k) / math.comb(n, k) if n >= k else float("nan")
+    for n, c in zip(per_case["n"], per_case["c"])
+]
+print(per_case["pass^k"].mean(), "over", per_case["pass^k"].count(), "of", len(per_case), "cases")
 ```

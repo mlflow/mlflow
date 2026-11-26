@@ -6,6 +6,7 @@ import { ModelTraceExplorerCustomView } from './ModelTraceExplorerCustomView';
 export interface ModelTraceExplorerCustomViewRendererProps {
   modelTrace: ModelTrace;
   enableFeedback: boolean;
+  feedbackSourceId?: string;
 }
 
 /**
@@ -15,10 +16,15 @@ export interface ModelTraceExplorerCustomViewRendererProps {
 export const ModelTraceExplorerCustomViewRenderer = ({
   modelTrace,
   enableFeedback,
+  feedbackSourceId,
 }: ModelTraceExplorerCustomViewRendererProps): JSX.Element => (
   <ModelTraceExplorerPreferencesProvider>
     <ModelTraceExplorerViewStateProvider modelTrace={modelTrace} assessmentsPaneEnabled={false}>
-      <ModelTraceExplorerCustomView modelTraceInfo={modelTrace.info} enableFeedback={enableFeedback} />
+      <ModelTraceExplorerCustomView
+        modelTraceInfo={modelTrace.info}
+        enableFeedback={enableFeedback}
+        feedbackSourceId={feedbackSourceId}
+      />
     </ModelTraceExplorerViewStateProvider>
   </ModelTraceExplorerPreferencesProvider>
 );

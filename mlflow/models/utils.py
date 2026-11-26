@@ -173,7 +173,9 @@ def _handle_sparse_matrix(x: Union["csr_matrix", "csc_matrix"]):
 
 
 def _handle_dataframe_nans(df: pd.DataFrame):
-    return df.where(df.notnull(), None)
+    # Cast to object first: float and datetime columns cannot hold `None`, so `where` would
+    # put `NaN`/`NaT` back, which serialize to invalid JSON (`NaN`) or the string "NaT".
+    return df.astype(object).where(df.notnull(), None)
 
 
 def _coerce_to_pandas_df(input_ex):
@@ -799,9 +801,14 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
                 f"datetime objects. Error: {e}"
             )
 
-    if t == DataType.datetime and (values.dtype == object or values.dtype == t.to_python()):
+    if t == DataType.datetime and (
+        values.dtype == object
+        or isinstance(values.dtype, pd.StringDtype)
+        or values.dtype == t.to_python()
+    ):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
+        # pandas 3 infers columns of date strings as StringDtype rather than object.
         try:
             return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
@@ -1388,13 +1395,15 @@ def _enforce_array(data: Any, arr: Array, required: bool = True):
     if isinstance(arr.dtype, DataType):
         # TODO: this is still significantly slower than direct np.asarray dtype conversion
         # pd.Series conversion can be removed once we support direct validation on the numpy array
-        data_enforced = (
-            _enforce_mlflow_datatype("", pd.Series(data), arr.dtype).to_numpy(
-                dtype=arr.dtype.to_numpy()
-            )
-            if len(data) > 0
-            else data
-        )
+        if len(data) > 0:
+            values = _enforce_mlflow_datatype("", pd.Series(data), arr.dtype)
+            if isinstance(values.dtype, pd.StringDtype):
+                # pandas 3 infers StringDtype for string data, and its to_numpy(dtype=str)
+                # truncates every element to one character when a missing value is present.
+                values = pd.Series(data, dtype=object)
+            data_enforced = values.to_numpy(dtype=arr.dtype.to_numpy())
+        else:
+            data_enforced = data
     else:
         data_enforced = [_enforce_type(x, arr.dtype, required=required) for x in data]
 

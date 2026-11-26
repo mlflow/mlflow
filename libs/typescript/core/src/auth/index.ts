@@ -215,6 +215,25 @@ function readHostFromConfigFile(configPath: string, profile?: string): string | 
 }
 
 /**
+ * Copy an error thrown by the Databricks SDK, keeping only its message and stack.
+ *
+ * The SDK's `ConfigError` holds a reference to the resolved `Config`, which stores
+ * credentials in plaintext along with all of `process.env`. Node prints an error's own
+ * properties when it is logged, so letting that object escape leaks those values into
+ * logs. The original is deliberately not attached as `cause`, which is printed too.
+ */
+function redactDatabricksAuthError(error: unknown): Error {
+  if (!(error instanceof Error)) {
+    return new Error(String(error));
+  }
+  const redacted = new Error(error.message);
+  if (error.stack) {
+    redacted.stack = error.stack;
+  }
+  return redacted;
+}
+
+/**
  * Create authentication for Databricks-hosted MLflow.
  *
  * Host resolution order:
@@ -253,16 +272,20 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
 
   // Headers provider delegates entirely to the SDK
   const headersProvider: HeadersProvider = async () => {
-    // SDK resolves credentials from env vars, config file, OAuth, etc.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    await databricksConfig.ensureResolved();
-
     const headers = new Headers();
     headers.set('Content-Type', 'application/json');
 
-    // SDK adds appropriate auth headers (Bearer token, OAuth, etc.)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    await databricksConfig.authenticate(headers);
+    try {
+      // SDK resolves credentials from env vars, config file, OAuth, etc.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      await databricksConfig.ensureResolved();
+
+      // SDK adds appropriate auth headers (Bearer token, OAuth, etc.)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      await databricksConfig.authenticate(headers);
+    } catch (error) {
+      throw redactDatabricksAuthError(error);
+    }
 
     // Convert Headers to plain object
     const result: Record<string, string> = {};

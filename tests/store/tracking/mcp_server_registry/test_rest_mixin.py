@@ -24,7 +24,7 @@ from mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import _UNPROCESSED_REQUEST_RESPONSE_CODES, MlflowHostCreds
 from mlflow.utils.workspace_context import WorkspaceContext
 
 
@@ -131,6 +131,90 @@ def test_rest_client_url_encodes_slashed_name():
         http_request_mock.call_args.kwargs["endpoint"]
         == "/api/3.0/mlflow/mcp-servers/io.github.user%2Fmy-server/versions/2025.6.0"
     )
+
+
+@pytest.mark.parametrize(
+    ("method", "retry_safe", "expected_retry_options"),
+    [
+        (
+            "POST",
+            False,
+            {
+                "retry_codes": _UNPROCESSED_REQUEST_RESPONSE_CODES,
+                "retry_read_errors": False,
+                "retry_on_retry_after": False,
+            },
+        ),
+        ("POST", True, {}),
+        ("GET", False, {}),
+    ],
+)
+def test_mcp_request_retries_post_writes_only_when_unprocessed(
+    method, retry_safe, expected_retry_options
+):
+    response = mock.Mock(status_code=200, text="")
+    with mock.patch(
+        "mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request", return_value=response
+    ) as request:
+        _TestRestClient(TestClient(FastAPI()))._mcp_request(
+            method, "/my-resource", retry_safe=retry_safe
+        )
+
+    retry_options = {
+        key: value
+        for key, value in request.call_args.kwargs.items()
+        if key in {"retry_codes", "retry_read_errors", "retry_on_retry_after"}
+    }
+    assert retry_options == expected_retry_options
+
+
+class _StopRequest(Exception):
+    pass
+
+
+@pytest.mark.parametrize(
+    ("method", "kwargs", "retry_safe"),
+    [
+        ("create_mcp_server", {"name": "io.example/server"}, False),
+        (
+            "create_mcp_server_version",
+            {"server_json": {"name": "io.example/server", "version": "1.0.0"}, "tools": []},
+            False,
+        ),
+        (
+            "create_mcp_access_endpoint",
+            {
+                "server_name": "io.example/server",
+                "url": "https://mcp.example.com/mcp",
+                "server_version": "1.0.0",
+            },
+            False,
+        ),
+        ("set_mcp_server_tag", {"name": "io.example/server", "key": "k", "value": "v"}, True),
+        (
+            "set_mcp_server_version_tag",
+            {"name": "io.example/server", "version": "1.0.0", "key": "k", "value": "v"},
+            True,
+        ),
+        (
+            "set_mcp_server_alias",
+            {"name": "io.example/server", "alias": "prod", "version": "1.0.0"},
+            True,
+        ),
+    ],
+)
+def test_mcp_post_writes_mark_only_upserts_retry_safe(method, kwargs, retry_safe):
+    client = _TestRestClient(TestClient(FastAPI()))
+    with (
+        mock.patch.object(
+            client, "_mcp_request", side_effect=_StopRequest("request sent")
+        ) as request,
+        pytest.raises(_StopRequest, match="request sent"),
+    ):
+        getattr(client, method)(**kwargs)
+
+    assert request.call_args.args[0] == "POST"
+    assert request.call_args.kwargs.get("retry_safe", False) is retry_safe
 
 
 @pytest.mark.parametrize("value", [".", "..", 123, None, True, 1.0, b"key", [], {}])

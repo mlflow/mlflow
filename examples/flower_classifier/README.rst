@@ -55,7 +55,7 @@ The example contains the following files:
    dataset.
 
  * image_pyfunc.py
-   The implementation of the model train and also of the outputed custom python flavor model. Note
+   The implementation of the model train and also of the outputted custom python flavor model. Note
    that the same preprocessing code that is used during model training is packaged with the output
    model and is used during scoring.
 

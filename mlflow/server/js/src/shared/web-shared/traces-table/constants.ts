@@ -1,5 +1,5 @@
 import { shouldEnableNewEvalRunsUi } from '../../../common/utils/FeatureUtils';
-import type { SortDirection, TraceColumnId } from './types';
+import type { SortDirection, TraceColumnId, TraceSortColumnId } from './types';
 
 /** Page-size options offered in the pagination bar. */
 export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
@@ -55,6 +55,12 @@ export const getSortableTraceColumns = (): readonly TraceColumnId[] =>
  * order-by/URL builder agree on what's sortable (both derive from `getSortableTraceColumns`). */
 export const isSortableTraceColumn = (id: string): id is TraceColumnId =>
   (getSortableTraceColumns() as readonly string[]).includes(id);
+
+const COMPARISON_SORTABLE_TRACE_COLUMNS = new Set<string>(['start_time', 'duration', 'state', 'tokens', 'cost']);
+
+/** Columns a consumer-sorted comparison can order by, including trace-level assessment columns. */
+export const isComparisonSortableTraceColumn = (id: string): id is TraceSortColumnId =>
+  COMPARISON_SORTABLE_TRACE_COLUMNS.has(id) || (id.startsWith('assessment:') && id.length > 'assessment:'.length);
 
 /** Default sort: newest traces first. */
 export const DEFAULT_SORT_COLUMN: TraceColumnId = 'start_time';

@@ -1,7 +1,7 @@
 import type { RouteHandle } from '../common/utils/RoutingUtils';
 import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
-import { shouldEnableNewEvalRunsUi } from '../common/utils/FeatureUtils';
+import { shouldEnableExperimentSettingsPage, shouldEnableNewEvalRunsUi } from '../common/utils/FeatureUtils';
 import { PageId, RoutePaths } from './routes';
 
 const getPromptPagesRouteDefs = () => {
@@ -234,6 +234,14 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabIssueDetectionRuns,
+          pageId: PageId.experimentPageTabIssueDetectionRuns,
+          element: createLazyRouteElement(() => import('./pages/experiment-issues/ExperimentIssueDetectionRunsPage')),
+          handle: {
+            getPageTitle: (params) => `Issue detection run history - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
           element: createLazyRouteElement(() => {
@@ -271,6 +279,18 @@ const getExperimentPageRouteDefs = () => {
             getPageTitle: (params) => `Playground - Experiment ${params['experimentId']}`,
           } satisfies RouteHandle,
         },
+        ...(shouldEnableExperimentSettingsPage()
+          ? [
+              {
+                path: RoutePaths.experimentPageTabSettings,
+                pageId: PageId.experimentPageTabSettings,
+                element: createLazyRouteElement(() => import('./pages/experiment-settings/ExperimentSettingsPage')),
+                handle: {
+                  getPageTitle: (params) => `Settings - Experiment ${params['experimentId']}`,
+                } satisfies RouteHandle,
+              },
+            ]
+          : []),
         {
           path: RoutePaths.experimentPageTabPrompts,
           pageId: PageId.experimentPageTabPrompts,
@@ -395,24 +415,6 @@ export const getRouteDefs = () => [
         'What parameters were used?',
         'How does this run compare to others?',
       ],
-    } satisfies RouteHandle,
-  },
-  {
-    path: RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab,
-    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
-    pageId: 'mlflow.issue-detection-run-details',
-    handle: {
-      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
-      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
-    } satisfies RouteHandle,
-  },
-  {
-    path: RoutePaths.experimentPageTabIssueDetectionRunDetails,
-    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
-    pageId: 'mlflow.issue-detection-run-details',
-    handle: {
-      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
-      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
     } satisfies RouteHandle,
   },
   {

@@ -202,6 +202,21 @@ def test_format_available_tools(tools, expected):
             id="no_output",
         ),
         pytest.param(
+            [
+                FunctionCall(name="is_in_stock", arguments={"item": "apple"}, outputs=False),
+                FunctionCall(name="count_orders", arguments={"user": "bob"}, outputs=0),
+            ],
+            (
+                "Tool Call 1: is_in_stock\n"
+                "  Input Arguments: {'item': 'apple'}\n"
+                "  Output: False\n\n"
+                "Tool Call 2: count_orders\n"
+                "  Input Arguments: {'user': 'bob'}\n"
+                "  Output: 0"
+            ),
+            id="falsy_outputs",
+        ),
+        pytest.param(
             [],
             "No tools called",
             id="empty",

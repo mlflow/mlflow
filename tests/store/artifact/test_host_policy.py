@@ -2,10 +2,15 @@ import pytest
 
 from mlflow.environment_variables import MLFLOW_ALLOWED_HOST_ADDRESSED_ARTIFACT_SCHEMES
 from mlflow.exceptions import MlflowException
-from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, ARTIFACTS_DESTINATION_ENV_VAR
+from mlflow.server.constants import (
+    ARTIFACT_ROOT_ENV_VAR,
+    ARTIFACTS_DESTINATION_ENV_VAR,
+    SERVE_ARTIFACTS_ENV_VAR,
+)
 from mlflow.store.artifact.host_policy import (
     _SERVER_ARTIFACT_ROOT_ENV_VAR,
     _SERVER_ARTIFACTS_DESTINATION_ENV_VAR,
+    _SERVER_SERVE_ARTIFACTS_ENV_VAR,
     enforce_server_artifact_uri_host_policy,
     host_addressed_uri_targets,
     rejected_host_addressed_scheme,
@@ -146,9 +151,10 @@ def test_allowed_schemes_env_var_is_case_insensitive(monkeypatch):
 
 def test_marker_env_vars_match_server_constants():
     # The policy cannot import `mlflow.server.constants`; a rename there must not silently turn
-    # the registry-level enforcement off.
+    # the registry-level enforcement or `TracingClient`'s in-server artifact resolution off.
     assert _SERVER_ARTIFACT_ROOT_ENV_VAR == ARTIFACT_ROOT_ENV_VAR
     assert _SERVER_ARTIFACTS_DESTINATION_ENV_VAR == ARTIFACTS_DESTINATION_ENV_VAR
+    assert _SERVER_SERVE_ARTIFACTS_ENV_VAR == SERVE_ARTIFACTS_ENV_VAR
 
 
 def test_enforcement_only_applies_in_tracking_server_processes(monkeypatch):

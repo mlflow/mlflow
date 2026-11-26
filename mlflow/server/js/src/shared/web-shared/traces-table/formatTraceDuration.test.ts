@@ -1,5 +1,5 @@
 import { describe, expect, test } from '@jest/globals';
-import { formatTraceDuration } from './formatTraceDuration';
+import { formatTraceDuration, formatTraceDurationTotal } from './formatTraceDuration';
 
 describe('formatTraceDuration', () => {
   test.each<{ input: string; expected: string }>([
@@ -20,5 +20,18 @@ describe('formatTraceDuration', () => {
     expect(formatTraceDuration('not-a-duration')).toBeNull();
     expect(formatTraceDuration('')).toBeNull();
     expect(formatTraceDuration('12')).toBeNull();
+  });
+});
+
+describe('formatTraceDurationTotal', () => {
+  test('sums the durations in one unit', () => {
+    expect(formatTraceDurationTotal(['0.5s', '0.7s'])).toBe('1.2s');
+    expect(formatTraceDurationTotal(['45s', '45s'])).toBe('1.5min');
+  });
+
+  test('returns null for no durations or any missing or unparseable one', () => {
+    expect(formatTraceDurationTotal([])).toBeNull();
+    expect(formatTraceDurationTotal(['1s', undefined])).toBeNull();
+    expect(formatTraceDurationTotal(['1s', 'soon'])).toBeNull();
   });
 });

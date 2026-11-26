@@ -28,9 +28,13 @@ down_revision = "b7e2c1a4d9f3"
 branch_labels = None
 depends_on = None
 
-_logger = logging.getLogger(__name__)
+# Alembic loads revision files under a module name outside the `mlflow` package, so
+# `logging.getLogger(__name__)` would not inherit MLflow's handler and INFO progress logs would be
+# dropped.
+_logger = logging.getLogger(f"mlflow.store.db_migrations.versions.{revision}")
 
 _BATCH_SIZE = 250
+_PROGRESS_EVERY_BATCHES = 100
 _TOKEN_COLUMNS = _backfill.TOKEN_COLUMNS
 _COST_COLUMNS = _backfill.COST_COLUMNS
 _finite_float_or_none = _backfill.finite_float_or_none
@@ -47,19 +51,51 @@ _SPAN_MODEL_PROVIDER_ATTRIBUTE_KEY = "mlflow.llm.provider"
 
 
 def upgrade():
-    _validate_required_trace_joins()
-    _validate_dimension_attributes()
-    _add_analytics_columns()
-    _backfill_trace_analytics()
-    _backfill_span_analytics()
-    _backfill_trace_costs_from_spans()
-    _backfill_assessment_analytics()
-    _validate_backfill()
-    _finalize_assessment_not_null()
-    _create_rollup_tables()
-    _cleanup_legacy_analytics()
-    _drop_dimension_attributes()
-    _create_analytics_indexes()
+    operations = [
+        _validate_required_trace_joins,
+        _validate_dimension_attributes,
+        _add_analytics_columns,
+        _backfill_trace_analytics,
+        _backfill_span_analytics,
+        _backfill_trace_costs_from_spans,
+        _backfill_assessment_analytics,
+        _validate_backfill,
+        _finalize_assessment_not_null,
+        _create_rollup_tables,
+        _cleanup_legacy_analytics,
+        _drop_dimension_attributes,
+        _create_analytics_indexes,
+    ]
+    # Every new database runs this migration on first use. Without traces there is nothing to
+    # migrate, so keep the step lines out of the default INFO output.
+    level = logging.INFO if _has_traces() else logging.DEBUG
+    for step, operation in enumerate(operations, start=1):
+        _logger.log(
+            level,
+            "Trace analytics migration step %d/%d: %s",
+            step,
+            len(operations),
+            operation.__name__.strip("_"),
+        )
+        operation()
+
+
+def _has_traces():
+    trace_info = sa.table("trace_info", sa.column("request_id"))
+    return op.get_bind().execute(sa.select(trace_info.c.request_id).limit(1)).first() is not None
+
+
+def _log_progress(operation, batch_count, *, done=False, **counts):
+    # No batches means the table had no rows to process, so there is nothing to report.
+    if batch_count == 0:
+        return
+    if done or batch_count == 1 or batch_count % _PROGRESS_EVERY_BATCHES == 0:
+        _logger.info(
+            "Trace analytics %s %s: %s",
+            operation,
+            "completed" if done else "progress",
+            ", ".join(f"{name}={count}" for name, count in counts.items()),
+        )
 
 
 def downgrade():
@@ -428,6 +464,7 @@ def _backfill_trace_analytics():
         *_COST_COLUMNS.values(),
     ]
     last_request_id = None
+    batch_count = scanned = updated = 0
     while True:
         # Read the destination columns alongside the keys so rows already filled by the online
         # prepopulation utility can be skipped instead of rewritten under the migration's lock.
@@ -503,7 +540,12 @@ def _backfill_trace_analytics():
         if updates:
             _execute_backfill_updates(bind, update_stmt, updates, "trace")
         last_request_id = batch_ids[-1]
+        batch_count += 1
+        scanned += len(batch)
+        updated += len(updates)
+        _log_progress("trace backfill", batch_count, scanned=scanned, updated=updated)
 
+    _log_progress("trace backfill", batch_count, done=True, scanned=scanned, updated=updated)
     if sum(truncation_counts.values()):
         _logger.warning(
             "Truncated trace analytics dimensions during backfill: trace_name=%d "
@@ -538,6 +580,7 @@ def _backfill_span_analytics():
     truncation_counts = {"model_name": 0, "model_provider": 0}
     value_columns = [*_COST_COLUMNS.values(), "model_name", "model_provider"]
     last_span_key = None
+    batch_count = scanned = updated = 0
     while True:
         # Read the destination columns so rows already filled by the online prepopulation utility
         # can be skipped instead of rewritten under the migration's lock.
@@ -550,13 +593,7 @@ def _backfill_span_analytics():
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
             page_stmt = page_stmt.where(
-                sa.or_(
-                    spans.c.trace_id > last_trace_id,
-                    sa.and_(
-                        spans.c.trace_id == last_trace_id,
-                        spans.c.span_id > last_span_id,
-                    ),
-                )
+                _span_key_after(spans, last_trace_id, last_span_id, bind.dialect.name)
             )
         batch = bind.execute(page_stmt.limit(_BATCH_SIZE)).all()
         if not batch:
@@ -597,7 +634,12 @@ def _backfill_span_analytics():
         if updates:
             _execute_backfill_updates(bind, update_stmt, updates, "span")
         last_span_key = span_keys[-1]
+        batch_count += 1
+        scanned += len(batch)
+        updated += len(updates)
+        _log_progress("span backfill", batch_count, scanned=scanned, updated=updated)
 
+    _log_progress("span backfill", batch_count, done=True, scanned=scanned, updated=updated)
     if sum(truncation_counts.values()):
         _logger.warning(
             "Truncated span analytics dimensions to %d characters during backfill: "
@@ -661,6 +703,7 @@ def _backfill_assessment_analytics():
         "aggregate_value",
         "is_numeric_value",
     ]
+    batch_count = scanned = updated = 0
     while True:
         # Read the destination columns so rows already filled by the online prepopulation utility
         # can be skipped instead of rewritten under the migration's lock.
@@ -697,6 +740,11 @@ def _backfill_assessment_analytics():
         if updates:
             _execute_backfill_updates(bind, update_stmt, updates, "assessment")
         last_assessment_id = batch[-1].assessment_id
+        batch_count += 1
+        scanned += len(batch)
+        updated += len(updates)
+        _log_progress("assessment backfill", batch_count, scanned=scanned, updated=updated)
+    _log_progress("assessment backfill", batch_count, done=True, scanned=scanned, updated=updated)
 
 
 def _validate_required_trace_joins():
@@ -779,13 +827,7 @@ def _validate_dimension_attributes():
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
             stmt = stmt.where(
-                sa.or_(
-                    spans.c.trace_id > last_trace_id,
-                    sa.and_(
-                        spans.c.trace_id == last_trace_id,
-                        spans.c.span_id > last_span_id,
-                    ),
-                )
+                _span_key_after(spans, last_trace_id, last_span_id, bind.dialect.name)
             )
         rows = bind.execute(stmt.limit(_BATCH_SIZE)).all()
         if not rows:
@@ -827,6 +869,24 @@ def _validated_dimension_attributes(value, span_key):
             f"span {span_key!r}: {details}"
         )
     return value
+
+
+def _span_key_after(table, last_trace_id, last_span_id, dialect_name):
+    if dialect_name in ("mysql", "mssql"):
+        # SQL Server lacks row-value comparison, and MySQL doesn't seek on a row-value inequality
+        # (it scans the index from the start), but both turn this expanded form into a range seek.
+        return sa.and_(
+            table.c.trace_id >= last_trace_id,
+            sa.or_(
+                table.c.trace_id > last_trace_id,
+                sa.and_(table.c.trace_id == last_trace_id, table.c.span_id > last_span_id),
+            ),
+        )
+    # A row-value comparison lets the index seek land on the cursor itself rather than at the
+    # start of its trace, so pages within a large trace don't rescan earlier spans.
+    return sa.tuple_(table.c.trace_id, table.c.span_id) > sa.tuple_(
+        sa.literal(last_trace_id), sa.literal(last_span_id)
+    )
 
 
 def _span_metrics_for_keys_query(span_metrics, span_keys, dialect_name):
@@ -873,36 +933,49 @@ def _execute_backfill_updates(bind, update_stmt, updates, entity):
 
 def _delete_trace_rows(table, keys):
     bind = op.get_bind()
+    last_request_id = None
+    batch_count = deleted = 0
+    operation = f"{table.name} legacy row cleanup"
     while True:
-        request_ids = (
-            bind
-            .execute(
-                sa
-                .select(table.c.request_id)
-                .where(table.c.key.in_(keys))
-                .order_by(table.c.request_id)
-                .limit(_BATCH_SIZE)
-            )
-            .scalars()
-            .all()
+        # Rows deleted earlier in this transaction stay in the index until commit, so page with a
+        # cursor instead of rescanning them from the start on every batch.
+        stmt = (
+            sa.select(table.c.request_id).where(table.c.key.in_(keys)).order_by(table.c.request_id)
         )
+        if last_request_id is not None:
+            stmt = stmt.where(table.c.request_id > last_request_id)
+        request_ids = bind.execute(stmt.limit(_BATCH_SIZE)).scalars().all()
         if not request_ids:
             break
-        bind.execute(
+        result = bind.execute(
             table.delete().where(table.c.request_id.in_(request_ids), table.c.key.in_(keys))
         )
+        last_request_id = request_ids[-1]
+        batch_count += 1
+        deleted += result.rowcount
+        _log_progress(operation, batch_count, deleted=deleted)
+    _log_progress(operation, batch_count, done=True, deleted=deleted)
 
 
 def _delete_span_metric_rows(span_metrics):
     bind = op.get_bind()
+    last_span_key = None
+    batch_count = deleted = 0
+    operation = f"{span_metrics.name} legacy row cleanup"
     while True:
-        rows = bind.execute(
+        # See _delete_trace_rows for why this pages with a cursor.
+        stmt = (
             sa
             .select(span_metrics.c.trace_id, span_metrics.c.span_id)
             .where(span_metrics.c.key.in_(list(_COST_COLUMNS)))
             .order_by(span_metrics.c.trace_id, span_metrics.c.span_id)
-            .limit(_BATCH_SIZE)
-        ).all()
+        )
+        if last_span_key is not None:
+            last_trace_id, last_span_id = last_span_key
+            stmt = stmt.where(
+                _span_key_after(span_metrics, last_trace_id, last_span_id, bind.dialect.name)
+            )
+        rows = bind.execute(stmt.limit(_BATCH_SIZE)).all()
         if not rows:
             break
         key_filter = sa.or_(
@@ -914,12 +987,17 @@ def _delete_span_metric_rows(span_metrics):
                 for row in rows
             )
         )
-        bind.execute(
+        result = bind.execute(
             span_metrics.delete().where(
                 key_filter,
                 span_metrics.c.key.in_(list(_COST_COLUMNS)),
             )
         )
+        last_span_key = (rows[-1].trace_id, rows[-1].span_id)
+        batch_count += 1
+        deleted += result.rowcount
+        _log_progress(operation, batch_count, deleted=deleted)
+    _log_progress(operation, batch_count, done=True, deleted=deleted)
 
 
 def _cleanup_legacy_analytics():
@@ -1033,13 +1111,7 @@ def _reconstruct_legacy_analytics():
         if last_span_key is not None:
             last_trace_id, last_span_id = last_span_key
             stmt = stmt.where(
-                sa.or_(
-                    spans.c.trace_id > last_trace_id,
-                    sa.and_(
-                        spans.c.trace_id == last_trace_id,
-                        spans.c.span_id > last_span_id,
-                    ),
-                )
+                _span_key_after(spans, last_trace_id, last_span_id, bind.dialect.name)
             )
         rows = bind.execute(stmt.limit(_BATCH_SIZE)).mappings().all()
         if not rows:

@@ -1,6 +1,8 @@
 import os
 import random
 import shutil
+import types
+import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -325,8 +327,8 @@ def test_load_model_with_custom_objects_disallows_pickle_deserialization(
     # Loading must then fail when pickle deserialization is disabled.
     mlflow.tensorflow.save_model(model, path=model_path, custom_objects={"dummy": object()})
 
-    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
-    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_MODEL_CODE_EXECUTION"):
         mlflow.tensorflow.load_model(model_path)
 
 
@@ -743,3 +745,173 @@ def test_model_log_with_signature_inference(tf_keras_model, data, model_signatur
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == model_signature
+
+
+def test_load_model_refuses_keras_module_on_python_path_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch
+):
+    model_name = f"crafted_keras_model_{os.getpid()}"
+    marker = tmp_path / "marker"
+    model_dir = tmp_path / model_name
+    model_dir.mkdir()
+    (model_dir / "evil.py").write_text(f"open({str(marker)!r}, 'w').close()\n")
+    (model_dir / "MLmodel").write_text(
+        f"flavors:\n  tensorflow:\n    model_type: keras\n    keras_module: {model_name}.evil\n"
+    )
+
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="on the Python path"):
+        mlflow.tensorflow.load_model(str(model_dir))
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("save_format", ["h5", "tf"])
+def test_load_model_refuses_keras2_legacy_format_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch, save_format
+):
+    tf_keras = pytest.importorskip("tf_keras")
+
+    marker = tmp_path / "marker"
+    inputs = tf_keras.Input(shape=(1,))
+    outputs = tf_keras.layers.Lambda(lambda x, p=str(marker): (open(p, "w").close(), x)[1])(inputs)
+    model_dir = tmp_path / "model"
+    data_path = model_dir / "data" / "model"
+    data_path.parent.mkdir(parents=True)
+    tf_keras.Model(inputs, outputs).save(
+        str(data_path) + (".h5" if save_format == "h5" else ""), save_format=save_format
+    )
+    marker.unlink()
+    (model_dir / "MLmodel").write_text(
+        "flavors:\n  tensorflow:\n    model_type: keras\n    keras_module: tf_keras\n"
+        f"    save_format: {save_format}\n    data: data\n"
+    )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="Loading this Keras model is disallowed"):
+        mlflow.tensorflow.load_model(str(model_dir))
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize(
+    ("keras_module", "file_name", "is_zip"),
+    [
+        (types.SimpleNamespace(__version__="2.15.0"), "model.keras", True),
+        (types.SimpleNamespace(), "model.keras", True),
+        (types.SimpleNamespace(__version__="3.11.0"), "model.keras", True),
+        (types.SimpleNamespace(__version__="3.11.3"), "model.h5", False),
+    ],
+)
+def test_check_keras_model_loading_allows_safe_format_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch, keras_module, file_name, is_zip
+):
+    model_path = tmp_path / file_name
+    if is_zip:
+        with zipfile.ZipFile(model_path, "w") as zf:
+            zf.writestr("config.json", "{}")
+    else:
+        model_path.write_bytes(b"not a zip")
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    mlflow.tensorflow._check_keras_model_loading_allowed(keras_module, str(model_path))
+
+
+@pytest.mark.parametrize("keras_version", ["3.0.0", "3.10.0"])
+def test_check_keras_model_loading_refuses_keras3_before_3_11_zip_when_code_execution_disallowed(
+    tmp_path, monkeypatch, keras_version
+):
+    model_path = tmp_path / "model.keras"
+    with zipfile.ZipFile(model_path, "w") as zf:
+        zf.writestr("config.json", "{}")
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="Keras 3 earlier than 3.11.0"):
+        mlflow.tensorflow._check_keras_model_loading_allowed(
+            types.SimpleNamespace(__version__=keras_version), str(model_path)
+        )
+
+
+@pytest.mark.parametrize(
+    "keras_module",
+    [
+        types.SimpleNamespace(__version__="2.15.0"),
+        types.SimpleNamespace(),
+        types.SimpleNamespace(__version__="3.11.2"),
+    ],
+)
+@pytest.mark.parametrize("file_name", ["model.keras", "model.h5", "model"])
+def test_check_keras_model_loading_refuses_unsafe_format_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch, keras_module, file_name
+):
+    model_path = tmp_path / file_name
+    model_path.write_bytes(b"not a zip")
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with pytest.raises(MlflowException, match="re-save the model in the zipped `.keras` format"):
+        mlflow.tensorflow._check_keras_model_loading_allowed(keras_module, str(model_path))
+
+
+@pytest.mark.parametrize("save_format", ["h5", "tf", "keras"])
+def test_load_keras_model_checks_resolved_path_when_model_code_execution_disallowed(
+    tmp_path, monkeypatch, save_format
+):
+    data_path = tmp_path / "data"
+    data_path.mkdir()
+    if save_format == "h5":
+        (data_path / "model.h5").write_bytes(b"not a zip")
+    elif save_format == "tf":
+        (data_path / "model").mkdir()
+    else:
+        with zipfile.ZipFile(data_path / "model.keras", "w") as zf:
+            zf.writestr("config.json", "{}")
+
+    keras_module = types.SimpleNamespace(__name__="tf_keras", __version__="2.15.0")
+    keras_models = mock.Mock(load_model=mock.Mock(return_value=mock.sentinel.model))
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    with mock.patch(
+        "mlflow.tensorflow.importlib.import_module", return_value=keras_models
+    ) as mock_import:
+        if save_format == "keras":
+            loaded = mlflow.tensorflow._load_keras_model(str(data_path), keras_module, "tf")
+            assert loaded is mock.sentinel.model
+            keras_models.load_model.assert_called_once_with(
+                str(data_path / "model.keras"), custom_objects={}
+            )
+        else:
+            with pytest.raises(MlflowException, match="Loading this Keras model is disallowed"):
+                mlflow.tensorflow._load_keras_model(str(data_path), keras_module, save_format)
+            keras_models.load_model.assert_not_called()
+    mock_import.assert_called_once_with("tf_keras.models")
+
+
+def test_load_checkpoint_checks_keras_model_loading_allowed(tmp_path):
+    checkpoint_path = str(tmp_path / "checkpoint.h5")
+    with (
+        mock.patch(
+            "mlflow.tensorflow.download_checkpoint_artifact", return_value=checkpoint_path
+        ) as mock_download,
+        mock.patch(
+            "mlflow.tensorflow._check_keras_model_loading_allowed",
+            side_effect=MlflowException("refused"),
+        ) as mock_check,
+        pytest.raises(MlflowException, match="refused"),
+    ):
+        mlflow.tensorflow.load_checkpoint(run_id="run_id")
+    mock_download.assert_called_once_with(
+        run_id="run_id", epoch=None, global_step=None, dst_path=mock.ANY
+    )
+    mock_check.assert_called_once_with(tf.keras, checkpoint_path)
+
+
+@pytest.mark.skipif(
+    Version(getattr(tf.keras, "__version__", "2")) < Version("3.11.3"),
+    reason="Requires Keras >= 3.11.3",
+)
+def test_load_model_allows_keras3_h5_model_when_model_code_execution_disallowed(
+    model, model_path, data, monkeypatch
+):
+    mlflow.tensorflow.save_model(model, path=model_path, keras_model_kwargs={"save_format": "h5"})
+
+    monkeypatch.setenv("MLFLOW_ALLOW_MODEL_CODE_EXECUTION", "false")
+    loaded = mlflow.tensorflow.load_model(model_path)
+    np.testing.assert_allclose(loaded.predict(data[0]), model.predict(data[0]))

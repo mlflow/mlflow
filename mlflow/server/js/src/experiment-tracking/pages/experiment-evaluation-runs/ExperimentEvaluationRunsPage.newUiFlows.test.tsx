@@ -402,7 +402,7 @@ describe('ExperimentEvaluationRunsPage new eval runs UI flows', () => {
     await userEvent.click(screen.getByRole('img', { name: 'Test Run 0, assessment-1: 90%' }));
     expect(screen.getByRole('checkbox', { name: 'Select run Test Run 0' })).toBeChecked();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Actions (1)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
     await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Filter chart to selected runs' }));
     expect(screen.getByRole('img', { name: 'Test Run 0, assessment-1: 90%' })).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: 'Test Run 1, assessment-1: 80%' })).not.toBeInTheDocument();
@@ -410,7 +410,7 @@ describe('ExperimentEvaluationRunsPage new eval runs UI flows', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select run Test Run 0' }));
     expect(screen.getByRole('img', { name: 'Test Run 1, assessment-1: 80%' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('checkbox', { name: 'Select run Test Run 1' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Actions (1)' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Actions' }));
     expect(screen.getByRole('menuitemcheckbox', { name: 'Filter chart to selected runs' })).not.toBeChecked();
   });
 

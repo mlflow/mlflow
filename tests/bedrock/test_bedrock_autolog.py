@@ -698,6 +698,32 @@ _CONVERSE_TOOL_CALLING_RESPONSE = {
     "metrics": {"latencyMs": 551},
 }
 
+_CONVERSE_PARALLEL_TOOL_CALLING_RESPONSE = {
+    **_CONVERSE_TOOL_CALLING_RESPONSE,
+    "output": {
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"text": "I'll check the weather in both cities."},
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_2",
+                        "name": "get_weather",
+                        "input": '{"location": "Paris, France"}',
+                    }
+                },
+                {
+                    "toolUse": {
+                        "toolUseId": "tool_3",
+                        "name": "get_weather",
+                        "input": '{"location": "Tokyo, Japan"}',
+                    }
+                },
+            ],
+        },
+    },
+}
+
 _CONVERSE_TOOL_CALLING_EXPECTED_CHAT_ATTRIBUTE = [
     {
         "role": "user",
@@ -996,6 +1022,14 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
             _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
             {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
+        # 3. Parallel tool calls in a single turn
+        (
+            _CONVERSE_TOOL_CALLING_REQUEST,
+            _CONVERSE_PARALLEL_TOOL_CALLING_RESPONSE,
+            None,
+            _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
+        ),
     ],
 )
 def test_bedrock_autolog_converse_stream(
@@ -1116,7 +1150,9 @@ def _event_stream(raw_response, chunk_size=10):
 
 
 def _generate_tool_use_chunks_if_present(content, chunk_size=10):
-    if len(content) > 1 and (tool_content := content[1].get("toolUse")):
+    for block in content[1:]:
+        if not (tool_content := block.get("toolUse")):
+            continue
         yield {
             "contentBlockStart": {
                 "start": {
@@ -1252,6 +1288,45 @@ TOKEN_USAGE_EDGE_CASE_DATA = [
             "cache_read_input_tokens": 0,
             "cache_creation_input_tokens": 0,
             "total_tokens": 20,
+        },
+    },
+    # 11. Converse API per-TTL breakdown of cache writes, with a 1-hour portion
+    {
+        "name": "converse_1h_cache_details",
+        "usage_data": {
+            "inputTokens": 10,
+            "outputTokens": 5,
+            "totalTokens": 1479,
+            "cacheReadInputTokens": 0,
+            "cacheWriteInputTokens": 1464,
+            "cacheDetails": [{"ttl": "1h", "inputTokens": 1000}, {"ttl": "5m", "inputTokens": 464}],
+        },
+        "expected_usage": {
+            "input_tokens": 1474,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1464,
+            "cache_creation_input_tokens_above_1hr": 1000,
+            "total_tokens": 1479,
+        },
+    },
+    # 12. Anthropic-native per-TTL breakdown of cache writes, with a 1-hour portion
+    {
+        "name": "anthropic_1h_cache_creation",
+        "usage_data": {
+            "input_tokens": 10,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1462,
+            "cache_creation": {"ephemeral_5m_input_tokens": 0, "ephemeral_1h_input_tokens": 1462},
+        },
+        "expected_usage": {
+            "input_tokens": 1472,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1462,
+            "cache_creation_input_tokens_above_1hr": 1462,
+            "total_tokens": 1477,
         },
     },
 ]
@@ -1513,6 +1588,77 @@ STREAM_TOKEN_USAGE_EDGE_CASES = [
             "cache_read_input_tokens": 10000,
             "cache_creation_input_tokens": 300,
             "total_tokens": 11000,
+        },
+    },
+    # 8. The 1-hour cache write breakdown in message_start must survive buffering
+    {
+        "name": "1h_cache_creation_in_message_start",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {
+                        "input_tokens": 10,
+                        "output_tokens": 1,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 1464,
+                        "cache_creation": {
+                            "ephemeral_5m_input_tokens": 0,
+                            "ephemeral_1h_input_tokens": 1464,
+                        },
+                    },
+                },
+            },
+            {
+                "type": "message_delta",
+                "delta": {},
+                "usage": {"output_tokens": 5},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": {
+            "input_tokens": 1474,
+            "output_tokens": 5,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 1464,
+            "cache_creation_input_tokens_above_1hr": 1464,
+            "total_tokens": 1479,
+        },
+    },
+    # 9. Amazon Nova reports usage in the final chunk's metadata
+    {
+        "name": "nova_usage_in_metadata",
+        "chunks": [
+            {"contentBlockDelta": {"delta": {"text": "Hi there!"}, "contentBlockIndex": 0}},
+            {
+                "metadata": {
+                    "usage": {
+                        "inputTokens": 6,
+                        "outputTokens": 6,
+                        "cacheReadInputTokenCount": 0,
+                        "cacheWriteInputTokenCount": 0,
+                    },
+                    "metrics": {},
+                    "trace": {},
+                },
+                "amazon-bedrock-invocationMetrics": {
+                    "inputTokenCount": 0,
+                    "outputTokenCount": 0,
+                    "invocationLatency": 463,
+                    "firstByteLatency": 413,
+                },
+            },
+        ],
+        "expected_usage": {
+            "input_tokens": 6,
+            "output_tokens": 6,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "total_tokens": 12,
         },
     },
 ]

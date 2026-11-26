@@ -4,8 +4,13 @@ import {
   TRACE_DRAWER_SESSION_ID_QUERY_PARAM,
   TRACE_DRAWER_VIEW_MODE_QUERY_PARAM,
 } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import {
+  BASELINE_TRACE_ID_PARAM,
+  CANDIDATE_TRACE_ID_PARAM,
+  PAIRWISE_REVIEW_MODE_PARAM,
+  TRACE_ID_PARAM,
+} from './useTracesV4UrlState';
 
-const TRACE_ID_PARAM = 'traceId';
 const LEGACY_TRACE_ID_PARAM = 'selectedEvaluationId';
 const SPAN_ID_PARAM = 'spanId';
 const SESSION_VIEW_MODE = 'session';
@@ -24,7 +29,7 @@ export interface TracesV4DrawerSessionUrlState {
   showSession: () => void;
   /** Opens a trace on its own (for example the next trace on the page), leaving the session. */
   selectTrace: (traceId: string) => void;
-  /** Closes the drawer and forgets the session. */
+  /** Closes the drawer and forgets the session and any trace comparison. */
   closeDrawer: () => void;
 }
 
@@ -95,6 +100,11 @@ export const useTracesV4DrawerSessionUrlState = (): TracesV4DrawerSessionUrlStat
       params.delete(SPAN_ID_PARAM);
       params.delete(TRACE_DRAWER_VIEW_MODE_QUERY_PARAM);
       params.delete(TRACE_DRAWER_SESSION_ID_QUERY_PARAM);
+      // Closing the drawer also leaves a trace comparison and its pairwise review, otherwise opening
+      // either compared trace later would silently reopen the comparison.
+      params.delete(BASELINE_TRACE_ID_PARAM);
+      params.delete(CANDIDATE_TRACE_ID_PARAM);
+      params.delete(PAIRWISE_REVIEW_MODE_PARAM);
       return params;
     });
   }, [setSearchParams]);

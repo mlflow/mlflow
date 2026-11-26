@@ -25,8 +25,12 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     PresignedUploadMixin,
     _is_object_key_within_path,
+    _validate_multipart_upload_num_parts,
 )
 from mlflow.utils.credentials import get_default_host_creds
+
+# https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list
+_AZURE_MAX_NUM_BLOCKS = 50_000
 
 
 def encode_base64(data: str | bytes) -> str:
@@ -106,22 +110,29 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin, Pres
     @staticmethod
     def parse_wasbs_uri(uri):
         """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
-        parsed = urllib.parse.urlparse(uri)
+        form_error = (
+            "WASBS URI must be of the form "
+            "<container>@<account>.blob.core.windows.net"
+            " or <container>@<account>.blob.core.chinacloudapi.cn"
+            " or <container>@<account>.blob.core.usgovcloudapi.net"
+        )
+        try:
+            parsed = urllib.parse.urlparse(uri)
+        except ValueError as e:
+            # `urlparse` raises ValueError for some malformed authorities (such as brackets).
+            raise MlflowException.invalid_parameter_value(form_error) from e
         if parsed.scheme != "wasbs":
             raise MlflowException.invalid_parameter_value(f"Not a WASBS URI: {uri}")
 
+        # Azure storage account names are lowercase letters and digits; host names ignore case.
         match = re.fullmatch(
-            r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
+            r"([^@]+)@([A-Za-z0-9]+)"
+            r"\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
             parsed.netloc,
         )
 
         if match is None:
-            raise MlflowException.invalid_parameter_value(
-                "WASBS URI must be of the form "
-                "<container>@<account>.blob.core.windows.net"
-                " or <container>@<account>.blob.core.chinacloudapi.cn"
-                " or <container>@<account>.blob.core.usgovcloudapi.net"
-            )
+            raise MlflowException.invalid_parameter_value(form_error)
         container = match.group(1)
         storage_account = match.group(2)
         api_uri_suffix = match.group(3)
@@ -282,6 +293,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin, Pres
         else:
             raise _UnsupportedMultipartUploadException()
 
+        _validate_multipart_upload_num_parts(num_parts, _AZURE_MAX_NUM_BLOCKS)
         sas_token = generate_blob_sas(
             **sas_kwargs,
         )

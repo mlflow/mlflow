@@ -73,6 +73,12 @@ export const WorkspaceSelector = () => {
         // Global routes (e.g. /account) are workspace-agnostic - the URL
         // doesn't carry ``?workspace=``, so just stay on the page. The
         // active workspace update above is enough.
+        // Global pages that do carry it (e.g. /admin/ws) must keep it in sync.
+        if (workspaceFromUrl) {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.set(WORKSPACE_QUERY_PARAM, nextWorkspace);
+          navigate(`${location.pathname}?${nextParams.toString()}`);
+        }
         return;
       }
 
@@ -91,7 +97,7 @@ export const WorkspaceSelector = () => {
       // with the new context.
       queryClient.invalidateQueries();
     },
-    [currentWorkspace, location.pathname, navigate, queryClient],
+    [currentWorkspace, workspaceFromUrl, searchParams, location.pathname, navigate, queryClient],
   );
 
   // Refresh workspaces when combobox is opened to catch label selector changes

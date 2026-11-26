@@ -3,6 +3,7 @@ import json
 import re
 
 import pytest
+import sqlalchemy as sa
 
 from mlflow.entities import (
     Dataset,
@@ -23,6 +24,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.models import SqlSpan
 from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
@@ -335,6 +337,90 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
 
 
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize("comparator", ["=", "!=", "LIKE", "ILIKE"])
+@pytest.mark.parametrize(
+    ("literal", "expected"),
+    [
+        ("'it''s'", "it's"),
+        ("'it''''s'", "it''s"),
+        (r"'100\%\\it''s'", r"100\%\\it's"),
+        ("\"it''s\"", "it''s"),
+        ('"path\\name"', "path\\name"),
+    ],
+)
+def test_span_filter_quote_escaping(field, comparator, literal, expected):
+    assert SearchTraceUtils.parse_search_filter(f"span.{field} {comparator} {literal}") == [
+        {"type": "span", "key": field, "comparator": comparator, "value": expected}
+    ]
+
+
+@pytest.mark.parametrize("field", ["name", "type"])
+@pytest.mark.parametrize("comparator", ["IN", "NOT IN"])
+@pytest.mark.parametrize(
+    ("literal", "expected"),
+    [
+        ("('it''s')", ("it's",)),
+        ("('it''''s', 'plain')", ("it''s", "plain")),
+        (r"('100%\it''s', 'a,b')", (r"100%\it's", "a,b")),
+        ("(\"it''s\", 'it''s')", ("it''s", "it's")),
+        (r"('path\name', 'trailing\')", (r"path\name", "trailing\\")),
+    ],
+)
+def test_span_filter_list_quote_escaping(field, comparator, literal, expected):
+    assert SearchTraceUtils.parse_search_filter(f"span.{field} {comparator} {literal}") == [
+        {"type": "span", "key": field, "comparator": comparator, "value": expected}
+    ]
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        "span.attributes.`gen_ai.request.model` = 'gpt-4o'",
+        "span.attributes.`gen_ai.request.model` != 'gpt-4o'",
+        "span.attributes.`gen_ai.request.model` IN ('gpt-4o')",
+        "span.attributes.`gen_ai.request.model` NOT IN ('gpt-4o')",
+    ],
+)
+def test_span_attribute_filter_rejects_unsupported_comparators(filter_string):
+    with pytest.raises(
+        MlflowException,
+        match=r"comparator '(=|!=|IN|NOT IN)' is not supported\. "
+        r"Supported comparators for span\.attributes\.<key>: ILIKE, LIKE, RLIKE\.",
+    ) as e:
+        SearchTraceUtils.parse_search_filter(filter_string)
+    assert e.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE", "RLIKE", "like", "ilike", "rlike"])
+def test_span_attribute_filter_accepts_pattern_comparators(comparator):
+    assert SearchTraceUtils.parse_search_filter(f"span.attributes.model {comparator} 'gpt%'") == [
+        {"type": "span", "key": "attributes.model", "comparator": comparator, "value": "gpt%"}
+    ]
+
+
+@pytest.mark.parametrize(
+    ("field", "filter_suffix", "comparator", "value"),
+    [
+        ("name", "= 'a'", "=", "a"),
+        ("name", "in ('a', 'b')", "in", ("a", "b")),
+        ("type", "like 'L%'", "like", "L%"),
+        ("status", "ilike 'ok'", "ilike", "ok"),
+        ("status", "rlike '^O'", "rlike", "^O"),
+    ],
+)
+def test_span_filter_accepts_lowercase_comparators(field, filter_suffix, comparator, value):
+    assert SearchTraceUtils.parse_search_filter(f"span.{field} {filter_suffix}") == [
+        {"type": "span", "key": field, "comparator": comparator, "value": value}
+    ]
+
+
+@pytest.mark.parametrize("literal", ["()", "(1)", "('valid', 1)", "(('nested',),)"])
+def test_span_filter_list_rejects_invalid_values(literal):
+    with pytest.raises(MlflowException, match="While parsing a list in the query"):
+        SearchTraceUtils.parse_search_filter(f"span.name IN {literal}")
+
+
 @pytest.mark.parametrize(
     ("filter_string", "error_message"),
     [
@@ -452,6 +538,41 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         bad_filter = f"{entity_type}.{key} {bad_comparator} {entity_value}"
         with pytest.raises(MlflowException, match="Invalid comparator"):
             SearchUtils.filter([run], bad_filter)
+
+
+@pytest.mark.parametrize(
+    ("search_utils", "filter_string"),
+    [
+        (SearchUtils, "params.p IN ('a', 'b')"),
+        (SearchUtils, "params.p NOT IN ('a')"),
+        (SearchUtils, "tags.t IN ('a', 'b')"),
+        (SearchUtils, "metrics.m IN (1, 2)"),
+        (SearchUtils, "params.p in ('a')"),
+        (SearchExperimentsUtils, "tags.t IN ('a', 'b')"),
+        (SearchModelUtils, "tags.t IN ('a', 'b')"),
+        (SearchModelVersionUtils, "tags.t IN ('a', 'b')"),
+    ],
+)
+def test_in_comparator_rejected_for_unsupported_entity_types(search_utils, filter_string):
+    with pytest.raises(
+        MlflowException, match=r"^Invalid comparator '(NOT )?IN' not one of '\{.*\}'$"
+    ):
+        search_utils.parse_search_filter(filter_string)
+
+
+def test_invalid_comparator_message_lists_allowed_comparators():
+    with pytest.raises(
+        MlflowException,
+        match=r"^Invalid comparator 'IN' not one of '\{.*\}'$",
+    ) as exc:
+        SearchUtils.is_numeric_attribute("attribute", "start_time", "IN")
+    assert "LIKE" not in str(exc.value)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"^Invalid comparator '>' not one of '\{.*\}'$",
+    ):
+        SearchUtils.is_dataset("dataset", ">")
 
 
 @pytest.mark.parametrize(
@@ -1075,6 +1196,19 @@ def test_search_trace_utils_filter_metadata_is_null():
     assert {t.trace_id for t in result} == {"t1"}
 
 
+@pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mysql", "mssql"])
+def test_sql_comparison_explicit_escape(dialect):
+    engine_dialect = sa.dialects.registry.load(dialect)()
+    regular = SearchUtils.get_sql_comparison_func("ILIKE", dialect)(SqlSpan.name, r"a\_%")
+    escaped = SearchUtils.get_sql_comparison_func("ILIKE", dialect, ilike_escape="\\")(
+        SqlSpan.name, r"a\_%"
+    )
+    assert "ESCAPE" not in str(regular.compile(dialect=engine_dialect))
+    assert "ESCAPE" in str(escaped.compile(dialect=engine_dialect))
+    if dialect == "mssql":
+        assert "COLLATE" in str(escaped.compile(dialect=engine_dialect))
+
+
 def _mysql_sql(comparator, expression, value):
     from sqlalchemy.dialects import mysql
 
@@ -1109,6 +1243,11 @@ def test_sql_expression_comparison_func_binds_lists_on_mysql(comparator):
     assert "binary(" in _mysql_sql(comparator, _collated_column(), ["active", "draft"])
 
 
+def test_sql_expression_comparison_func_supports_rlike_on_mysql():
+    sql = _mysql_sql("RLIKE", _collated_column(), "^Act")
+    assert "AS BINARY) REGEXP binary(" in sql
+
+
 @pytest.mark.parametrize("dialect", ["sqlite", "postgresql", "mssql"])
 @pytest.mark.parametrize("comparator", ["=", "LIKE", "ILIKE"])
 def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, comparator):
@@ -1116,3 +1255,20 @@ def test_sql_expression_comparison_func_delegates_on_other_dialects(dialect, com
     expression_func = SearchUtils.get_sql_expression_comparison_func(comparator, dialect)
     column_func = SearchUtils.get_sql_comparison_func(comparator, dialect)
     assert expression_func(column, "act%").compare(column_func(column, "act%"))
+
+
+@pytest.mark.parametrize("comparator", ["LIKE", "ILIKE"])
+def test_json_pattern_comparison_decodes_strings_with_openjson_on_mssql(comparator):
+    from sqlalchemy.dialects import mssql
+
+    from mlflow.store.tracking.dbmodels.models import SqlAssessments
+
+    func = SearchTraceUtils._get_sql_json_comparison_func(comparator, "mssql")
+    query = sa.select(SqlAssessments.trace_id).where(func(SqlAssessments.value, "go%"))
+    sql = str(query.compile(dialect=mssql.dialect()))
+    # JSON_VALUE truncates to 4000 characters (NULL in lax mode), OPENJSON doesn't
+    assert "json_value" not in sql.lower()
+    assert "openjson" in sql.lower()
+    assert "COLLATE" in sql
+    # The OPENJSON subquery is correlated with the outer assessments table
+    assert sql.count("FROM assessments") == 1

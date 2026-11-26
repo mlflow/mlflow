@@ -55,6 +55,7 @@ import { getTraceCost, getTraceTokenUsage } from './ModelTraceExplorer.utils';
 import { CostMetadataItem, TokenUsageMetadataItem } from './right-pane/ModelTraceExplorerRightPaneHeader';
 import { formatExecutionDuration } from './timeline-tree/TimelineTree.utils';
 import { useCopyController } from '../../copy/useCopyController';
+import { useIsAfterFirstPaint } from '../hooks/useIsAfterFirstPaint';
 import { useLocation, useNavigate } from '../RoutingUtils';
 import { RunColorCircle } from '../../genai-traces-table/components/RunColorCircle';
 
@@ -195,12 +196,16 @@ const drawerSlideOutAnimation = keyframes({
 
 export interface ModelTraceExplorerDrawerProps {
   children: React.ReactNode;
+  /** Shown between the previous and next buttons, e.g. the position in a list. */
+  navigationLabel?: React.ReactNode;
   selectPreviousEval: () => void;
   selectNextEval: () => void;
   isPreviousAvailable: boolean;
   isNextAvailable: boolean;
   handleClose: () => void;
   isLoading?: boolean;
+  /** Mount optional header controls after the drawer's first paint. */
+  deferHeaderActions?: boolean;
   experimentId?: string;
   traceInfo?: ModelTraceInfoV3;
   /** Replaces the "Trace" title and the trace id tag, e.g. with a session's title. */
@@ -231,6 +236,7 @@ export interface ModelTraceExplorerDrawerProps {
 }
 
 export const ModelTraceExplorerDrawer = ({
+  navigationLabel,
   selectPreviousEval,
   selectNextEval,
   isPreviousAvailable,
@@ -238,6 +244,7 @@ export const ModelTraceExplorerDrawer = ({
   handleClose,
   children,
   isLoading,
+  deferHeaderActions = false,
   experimentId,
   traceInfo,
   headerTitle,
@@ -246,6 +253,7 @@ export const ModelTraceExplorerDrawer = ({
 }: ModelTraceExplorerDrawerProps): JSX.Element => {
   const { getPrefixedClassName, theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const showHeaderActions = useIsAfterFirstPaint(deferHeaderActions);
   const { openAssistant: openCustomViewAssistant } = useCustomViewAssistantConnector();
   const customViewDefinition = useOptionalCustomViewDefinition();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
@@ -734,7 +742,6 @@ export const ModelTraceExplorerDrawer = ({
           {React.createElement(renderAddToReviewQueueDropdown, {
             selectedTraceInfos: [traceInfo],
             experimentId,
-            onCloseDrawer: beginClose,
             open: isFlagForReviewDropdownOpen,
             onOpenChange: (open) => {
               setIsFlagForReviewDropdownOpen(open);
@@ -1332,6 +1339,7 @@ export const ModelTraceExplorerDrawer = ({
                 size="small"
               />
             </Tooltip>
+            {navigationLabel}
             <Tooltip componentId="mlflow.evaluations_review.modal.next-tooltip" content={nextTraceLabel}>
               <Button
                 componentId="mlflow.evaluations_review.modal.next_eval"
@@ -1494,98 +1502,105 @@ export const ModelTraceExplorerDrawer = ({
                 <CostMetadataItem cost={traceCost} formatTotalCost={formatHeaderCost} />
               )}
             </div>
-            <div
-              css={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: hideTraceTitleText ? theme.spacing.sm : theme.spacing.md,
-                flexShrink: 0,
-              }}
-            >
-              <Tooltip componentId="mlflow.evaluations_review.modal.find-tooltip" content={findInTraceLabel}>
-                <Button
-                  componentId="mlflow.evaluations_review.modal.find-button"
-                  icon={<SearchIcon css={headerIconCss} />}
-                  onClick={handleFindClick}
-                  aria-pressed={isSearchVisible}
-                  aria-label={findInTraceLabel}
-                  size="small"
-                  css={fullscreenActionButtonCss}
+            {showHeaderActions ? (
+              <>
+                <div
+                  css={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: hideTraceTitleText ? theme.spacing.sm : theme.spacing.md,
+                    flexShrink: 0,
+                  }}
                 >
-                  {showFullscreenActionLabels ? (
-                    <FormattedMessage
-                      defaultMessage="Find"
-                      description="Visible label for finding content in a trace"
-                    />
-                  ) : undefined}
-                </Button>
-              </Tooltip>
-              {addToDatasetButton}
-              {flagForReviewButton}
-              {traceComparison?.onReviewModeChange && (
-                <Tooltip componentId="mlflow.trace-comparison.review-tooltip" content={pairwiseReviewTooltip}>
-                  <ToggleButton
-                    componentId="mlflow.trace-comparison.review"
-                    aria-label={pairwiseReviewTooltip}
-                    pressed={traceComparison.isReviewMode}
-                    onPressedChange={handleReviewModeChange}
-                    icon={<CheckboxIcon css={headerIconCss} />}
-                    size="small"
-                    css={[
-                      fullscreenActionButtonCss,
-                      {
-                        '&&[data-state="on"], &&[data-state="on"]:hover, &&[data-state="on"]:active': {
-                          backgroundColor: theme.colors.actionDefaultBackgroundHover,
-                        },
-                      },
-                    ]}
+                  <Tooltip componentId="mlflow.evaluations_review.modal.find-tooltip" content={findInTraceLabel}>
+                    <Button
+                      componentId="mlflow.evaluations_review.modal.find-button"
+                      icon={<SearchIcon css={headerIconCss} />}
+                      onClick={handleFindClick}
+                      aria-pressed={isSearchVisible}
+                      aria-label={findInTraceLabel}
+                      size="small"
+                      css={fullscreenActionButtonCss}
+                    >
+                      {showFullscreenActionLabels ? (
+                        <FormattedMessage
+                          defaultMessage="Find"
+                          description="Visible label for finding content in a trace"
+                        />
+                      ) : undefined}
+                    </Button>
+                  </Tooltip>
+                  {addToDatasetButton}
+                  {flagForReviewButton}
+                  {traceComparison?.onReviewModeChange && (
+                    <Tooltip componentId="mlflow.trace-comparison.review-tooltip" content={pairwiseReviewTooltip}>
+                      <ToggleButton
+                        componentId="mlflow.trace-comparison.review"
+                        aria-label={pairwiseReviewTooltip}
+                        pressed={traceComparison.isReviewMode}
+                        onPressedChange={handleReviewModeChange}
+                        icon={<CheckboxIcon css={headerIconCss} />}
+                        size="small"
+                        css={[
+                          fullscreenActionButtonCss,
+                          {
+                            '&&[data-state="on"], &&[data-state="on"]:hover, &&[data-state="on"]:active': {
+                              backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                            },
+                          },
+                        ]}
+                      >
+                        {showFullscreenActionLabels ? pairwiseReviewLabel : undefined}
+                      </ToggleButton>
+                    </Tooltip>
+                  )}
+                  <Tooltip
+                    componentId="mlflow.evaluations_review.modal.copy-link-tooltip"
+                    content={tooltipMessage}
+                    open={tooltipOpen}
+                    onOpenChange={handleTooltipOpenChange}
                   >
-                    {showFullscreenActionLabels ? pairwiseReviewLabel : undefined}
-                  </ToggleButton>
-                </Tooltip>
-              )}
-              <Tooltip
-                componentId="mlflow.evaluations_review.modal.copy-link-tooltip"
-                content={tooltipMessage}
-                open={tooltipOpen}
-                onOpenChange={handleTooltipOpenChange}
-              >
-                <Button
-                  componentId="mlflow.evaluations_review.modal.share-button"
-                  aria-label={shareLabel}
-                  icon={<LinkIcon css={headerIconCss} />}
-                  onClick={copyShareLink}
-                  size="small"
-                  css={fullscreenActionButtonCss}
-                >
-                  {showFullscreenActionLabels ? (
-                    <FormattedMessage
-                      defaultMessage="Share"
-                      description="Visible label for copying a link to a trace"
-                    />
-                  ) : undefined}
-                </Button>
-              </Tooltip>
-            </div>
-            {!traceComparison && (
-              <ModelTraceExplorerCustomViewSelector
-                value={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
-                onValueChange={setTraceExplorerDisplayMode}
-                onCreateCustomView={handleCreateCustomView}
-                isCustomViewEnabled={isCustomViewEnabled}
-                canCreateCustomView={canCreateCustomView}
-                compact={compactPrimaryActions}
-                componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
-              />
-            )}
-            {canUseAssistant && (
-              <ModelTraceExplorerAssistantButton
-                componentId="mlflow.evaluations_review.modal.analyze-trace"
-                onClick={handleAnalyzeTrace}
-                ariaLabel={compactPrimaryActions ? analyzeTraceLabel : undefined}
-              >
-                {compactPrimaryActions ? undefined : analyzeTraceLabel}
-              </ModelTraceExplorerAssistantButton>
+                    <Button
+                      componentId="mlflow.evaluations_review.modal.share-button"
+                      aria-label={shareLabel}
+                      icon={<LinkIcon css={headerIconCss} />}
+                      onClick={copyShareLink}
+                      size="small"
+                      css={fullscreenActionButtonCss}
+                    >
+                      {showFullscreenActionLabels ? (
+                        <FormattedMessage
+                          defaultMessage="Share"
+                          description="Visible label for copying a link to a trace"
+                        />
+                      ) : undefined}
+                    </Button>
+                  </Tooltip>
+                </div>
+                {!traceComparison && (
+                  <ModelTraceExplorerCustomViewSelector
+                    value={isCustomViewEnabled ? traceExplorerDisplayMode : 'default'}
+                    onValueChange={setTraceExplorerDisplayMode}
+                    onCreateCustomView={handleCreateCustomView}
+                    isCustomViewEnabled={isCustomViewEnabled}
+                    canCreateCustomView={canCreateCustomView}
+                    compact={compactPrimaryActions}
+                    componentId="mlflow.model_trace_explorer.drawer.custom_view_selector"
+                  />
+                )}
+                {canUseAssistant && (
+                  <ModelTraceExplorerAssistantButton
+                    componentId="mlflow.evaluations_review.modal.analyze-trace"
+                    onClick={handleAnalyzeTrace}
+                    ariaLabel={compactPrimaryActions ? analyzeTraceLabel : undefined}
+                  >
+                    {compactPrimaryActions ? undefined : analyzeTraceLabel}
+                  </ModelTraceExplorerAssistantButton>
+                )}
+              </>
+            ) : (
+              // Retain row height; action widths depend on available controls and viewport.
+              <div css={{ height: theme.general.heightSm, flexShrink: 0 }} />
             )}
             <div
               css={{

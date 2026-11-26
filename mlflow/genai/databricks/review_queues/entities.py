@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -276,4 +276,106 @@ class ReviewQueueItem:
             added_by=d.get("added_by"),
             create_time_ms=_parse_time_ms(d.get("create_time")),
             update_time_ms=_parse_time_ms(d.get("update_time")),
+        )
+
+
+@experimental(version="3.19.0")
+class LabelingSessionMigrationIssueSeverity(StrEnum):
+    """Whether a labeling session migration issue stops the migration."""
+
+    WARNING = "WARNING"
+    BLOCKING = "BLOCKING"
+
+
+@experimental(version="3.19.0")
+@dataclass
+class LabelingSessionMigrationIssue:
+    """Something a labeling session migration changes or leaves out, or a reason it can't run.
+
+    ``code`` names the kind of issue, e.g. ``"TEXT_LIST_QUESTION_DROPPED"`` or
+    ``"TOO_MANY_ITEMS"``, and ``message`` describes it.
+    """
+
+    code: str
+    severity: LabelingSessionMigrationIssueSeverity
+    count: int
+    message: str
+    limit: int | None = None
+    subjects: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "LabelingSessionMigrationIssue":
+        return cls(
+            code=d.get("code", "CODE_UNSPECIFIED"),
+            # Anything not marked WARNING blocks, so a severity a newer server adds never
+            # makes a blocked migration look ready.
+            severity=(
+                LabelingSessionMigrationIssueSeverity.WARNING
+                if d.get("severity") == LabelingSessionMigrationIssueSeverity.WARNING
+                else LabelingSessionMigrationIssueSeverity.BLOCKING
+            ),
+            count=int(d.get("count", 0)),
+            message=d.get("message", ""),
+            limit=int(d["limit"]) if "limit" in d else None,
+            subjects=list(d.get("subjects", [])),
+        )
+
+
+@experimental(version="3.19.0")
+@dataclass
+class LabelingSessionMigrationPlan:
+    """What migrating a labeling session creates, or would create on a dry run."""
+
+    review_queue_id: str
+    experiment_id: str
+    review_queue_display_name: str
+    questions: list[ReviewQuestion]
+    items_to_add: int
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "LabelingSessionMigrationPlan":
+        return cls(
+            review_queue_id=_last_segment(d["review_queue"]),
+            experiment_id=_experiment_id(d["review_queue"]),
+            review_queue_display_name=d.get("review_queue_display_name", ""),
+            questions=[ReviewQuestion.from_dict(q) for q in d.get("questions", [])],
+            items_to_add=int(d.get("items_to_add", 0)),
+        )
+
+
+@experimental(version="3.19.0")
+@dataclass
+class LabelingSessionMigrationResult:
+    """The result of migrating a labeling session, or of a dry run.
+
+    A dry run returns ``plan``, ``issues`` and, unless an issue is blocking, ``plan_token``.
+    A migration returns ``plan``, the warnings, and the ``review_queue`` it migrated to.
+    """
+
+    plan: LabelingSessionMigrationPlan | None
+    issues: list[LabelingSessionMigrationIssue]
+    plan_token: str | None = None
+    review_queue: ReviewQueue | None = None
+
+    @property
+    def warnings(self) -> list[LabelingSessionMigrationIssue]:
+        """The issues with ``WARNING`` severity. They don't stop the migration."""
+        return [
+            i for i in self.issues if i.severity == LabelingSessionMigrationIssueSeverity.WARNING
+        ]
+
+    @property
+    def blocking_issues(self) -> list[LabelingSessionMigrationIssue]:
+        """The issues with ``BLOCKING`` severity. Any of them stops the migration."""
+        return [
+            i for i in self.issues if i.severity == LabelingSessionMigrationIssueSeverity.BLOCKING
+        ]
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "LabelingSessionMigrationResult":
+        return cls(
+            plan=LabelingSessionMigrationPlan.from_dict(d["plan"]) if "plan" in d else None,
+            issues=[LabelingSessionMigrationIssue.from_dict(i) for i in d.get("issues", [])],
+            plan_token=d.get("plan_token") or None,
+            review_queue=ReviewQueue.from_dict(d["review_queue"]) if "review_queue" in d else None,
         )

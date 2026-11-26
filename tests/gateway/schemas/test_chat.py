@@ -174,6 +174,49 @@ def test_chat_request_preserves_nested_object_properties():
     assert properties["batch"]["items"] == nested_object
 
 
+def test_chat_request_preserves_any_of():
+    # Regression test for https://github.com/mlflow/mlflow/issues/28128.
+    # Pydantic renders `Optional[T]` as `anyOf: [T, {"type": "null"}]`, so dropping
+    # `anyOf` strips the type and shape of every optional tool parameter.
+    nested_object = {
+        "type": "object",
+        "properties": {"url": {"type": "string"}},
+        "required": ["url"],
+    }
+    properties = {
+        "optional_string": {
+            "anyOf": [{"type": "string"}, {"type": "null"}],
+            "description": "A name.",
+        },
+        "optional_enum": {"anyOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]},
+        "optional_object": {"anyOf": [nested_object, {"type": "null"}]},
+        "optional_array": {
+            "type": "array",
+            "items": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+        },
+        "nested": {
+            "type": "object",
+            "properties": {"limit": {"anyOf": [{"type": "integer"}, {"type": "null"}]}},
+        },
+    }
+    payload = chat.RequestPayload(**{
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search",
+                    "description": "Search.",
+                    "parameters": {"type": "object", "properties": properties},
+                },
+            }
+        ],
+    })
+
+    dumped = payload.model_dump(exclude_none=True)
+    assert dumped["tools"][0]["function"]["parameters"]["properties"] == properties
+
+
 @pytest.mark.parametrize(
     "properties",
     [
@@ -360,3 +403,90 @@ def test_chat_stream_response():
         ],
     })
     assert response_no_usage.usage is None
+
+
+def test_chat_request_keeps_cache_control_on_content_parts():
+    messages = [
+        {
+            "role": "system",
+            "content": [
+                {"type": "text", "text": "Rules", "cache_control": {"type": "ephemeral"}},
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/a.png"},
+                    "cache_control": {"type": "ephemeral", "ttl": "1h"},
+                },
+                {"type": "text", "text": "Question", "cache_control": {"type": "ephemeral"}},
+            ],
+        },
+    ]
+
+    payload = chat.RequestPayload(messages=messages)
+
+    assert payload.model_dump(exclude_none=True)["messages"] == messages
+    # The gateway server re-validates the dumped payload after the guardrails run.
+    assert chat.RequestPayload(**payload.model_dump()) == payload
+
+
+def test_chat_request_without_cache_control_serializes_as_before():
+    payload = chat.RequestPayload(
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe"},
+                    {"type": "image_url", "image_url": {"url": "https://example.com/a.png"}},
+                ],
+            }
+        ]
+    )
+
+    assert payload.model_dump()["messages"] == [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Describe"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/a.png", "detail": None},
+                },
+            ],
+            "tool_calls": None,
+            "refusal": None,
+            "tool_call_id": None,
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "cache_control",
+    [
+        {"type": "persistent"},
+        {"ttl": "1h"},
+    ],
+)
+def test_chat_request_rejects_invalid_cache_control(cache_control):
+    with pytest.raises(pydantic.ValidationError, match="cache_control"):
+        chat.RequestPayload(
+            messages=[
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": "Doc", "cache_control": cache_control}],
+                }
+            ]
+        )
+
+
+def test_chat_request_keeps_unknown_cache_control_ttl():
+    part = {"type": "text", "text": "Doc", "cache_control": {"type": "ephemeral", "ttl": "24h"}}
+
+    payload = chat.RequestPayload(messages=[{"role": "user", "content": [part]}])
+
+    assert payload.model_dump(exclude_none=True)["messages"] == [
+        {"role": "user", "content": [part]}
+    ]

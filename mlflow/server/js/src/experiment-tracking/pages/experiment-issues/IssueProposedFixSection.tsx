@@ -12,6 +12,7 @@ import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 
 import { useLocation } from '../../../common/utils/RoutingUtils';
+import { useActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 import type { Issue } from '../../components/run-page/hooks/useSearchIssuesQuery';
 import { IssueDetailSectionTitle } from './IssueDetailSectionTitle';
 import { buildIssueFixPrompt } from './issueFixPrompt';
@@ -41,6 +42,7 @@ export const IssueProposedFixSection = ({ experimentId, issue }: IssueProposedFi
   const promptId = `issue-fix-prompt-${issue.issue_id}`;
   const [isExpanded, setIsExpanded] = useState(false);
   const { pathname, search, hash } = useLocation();
+  const workspace = useActiveWorkspace();
   // Resolved against the document's base, which carries the server's `--static-prefix`: an origin
   // plus the hash route would drop that prefix and point the agent at an unserved path.
   const issueUrl = new URL(`#${pathname}${search}${hash}`, document.baseURI).toString();
@@ -53,10 +55,11 @@ export const IssueProposedFixSection = ({ experimentId, issue }: IssueProposedFi
   );
   const prompt = buildIssueFixPrompt(experimentId, issue, issueUrl, {
     traceIds,
-    // `GetIssue` returns no trace count, so this is usually undefined and the prompt says
-    // "and more not listed here" rather than inventing a total from the page in memory.
+    // `GetIssue` returns no trace count, so this is usually undefined and the prompt points to the
+    // trace search rather than inventing a total from the page in memory.
     totalTraceCount: issue.trace_count,
     hasMoreTraces: Boolean(hasNextPage),
+    workspace,
   });
   const { copied, copy } = useCopyController(prompt);
   // An unresolved lookup reads as "no traces", which would hand the agent a prompt with nothing

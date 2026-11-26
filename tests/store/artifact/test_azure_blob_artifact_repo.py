@@ -184,6 +184,35 @@ def test_parse_govcloud_wasbs_uri_invalid(uri, error_match):
         AzureBlobArtifactRepository.parse_wasbs_uri(uri)
 
 
+@pytest.mark.parametrize(
+    "account",
+    [
+        "localhost\\",
+        "[::1]",
+        "[acct",
+        "localhost:8080\\",
+        "acct:443",
+        "ac%2Fct",
+        "ac-ct",
+        "ac ct",
+        "ac_ct",
+    ],
+)
+@pytest.mark.parametrize(
+    "suffix", ["blob.core.windows.net", "blob.core.chinacloudapi.cn", "blob.core.usgovcloudapi.net"]
+)
+def test_parse_wasbs_uri_rejects_non_alphanumeric_account(account, suffix):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
+        AzureBlobArtifactRepository.parse_wasbs_uri(f"wasbs://cont@{account}.{suffix}/path")
+
+
+@pytest.mark.parametrize("account", ["acct", "Acct01", "mystorageaccount123"])
+def test_parse_wasbs_uri_accepts_alphanumeric_account(account):
+    assert AzureBlobArtifactRepository.parse_wasbs_uri(
+        f"wasbs://cont@{account}.blob.core.windows.net/path"
+    ) == ("cont", account, "path", "blob.core.windows.net")
+
+
 def test_list_artifacts_empty(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     mock_client.get_container_client().walk_blobs.return_value = MockBlobList([])
@@ -472,6 +501,19 @@ def test_create_multipart_upload_block_ids_have_same_length(mock_client):
     assert len({len(b) for b in block_ids}) == 1
 
 
+@pytest.mark.parametrize("num_parts", [0, 50_001])
+def test_create_multipart_upload_rejects_out_of_range_num_parts(mock_client, num_parts):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    with (
+        mock.patch("azure.storage.blob.generate_blob_sas") as generate_sas,
+        pytest.raises(MlflowException, match="num_parts must be between 1 and 50000") as exc,
+    ):
+        repo.create_multipart_upload("local_file", num_parts=num_parts)
+    assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+    generate_sas.assert_not_called()
+    mock_client.get_user_delegation_key.assert_not_called()
+
+
 def test_create_multipart_upload_with_token_credential(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     mock_client.url = "some-url"
@@ -543,6 +585,19 @@ def test_create_multipart_upload_falls_back_for_unsupported_credentials(mock_cli
         repo.create_multipart_upload("local_file")
 
     mock_client.get_user_delegation_key.assert_not_called()
+
+
+def test_create_multipart_upload_reports_unsupported_credentials_before_num_parts(mock_client):
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
+    mock_client.credential = object()
+
+    with pytest.raises(
+        _UnsupportedMultipartUploadException,
+        match=_UnsupportedMultipartUploadException.MESSAGE,
+    ) as exc:
+        repo.create_multipart_upload("local_file", num_parts=50_001)
+
+    assert exc.value.error_code == "NOT_IMPLEMENTED"
 
 
 def test_complete_multipart_upload(mock_client, tmp_path):

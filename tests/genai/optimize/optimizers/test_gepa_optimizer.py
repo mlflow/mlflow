@@ -659,3 +659,56 @@ def test_extract_eval_scores_per_scorer(val_aggregate_scores, val_aggregate_subs
 
     result = optimizer._extract_eval_scores(mock_result)
     assert result == expected
+
+
+def test_gepa_optimizer_routes_gateway_reflection_model_through_the_gateway(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    from mlflow.gateway.constants import GatewayCaller
+
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_result = Mock()
+    mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
+    mock_result.val_aggregate_subscores = None
+    mock_gepa_module.optimize.return_value = mock_result
+    mock_gepa_module.EvaluationBatch = MagicMock()
+
+    optimizer = GepaPromptOptimizer(
+        reflection_model="gateway:/my-endpoint",
+        gepa_kwargs={"reflection_lm_kwargs": {"temperature": 0.2}},
+    )
+
+    with patch.dict(sys.modules, mock_modules):
+        optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=sample_train_data,
+            target_prompts=sample_target_prompts,
+        )
+
+    # LiteLLM cannot route a "gateway/<endpoint>" string, so GEPA gets a callable instead.
+    reflection_lm = mock_gepa_module.optimize.call_args.kwargs["reflection_lm"]
+    assert callable(reflection_lm)
+
+    response = Mock()
+    response.choices = [Mock()]
+    response.choices[0].message.content = "Improved instruction"
+    with patch("mlflow.genai.utils.llm_utils._call_llm", return_value=response) as mock_call:
+        assert reflection_lm("Reflect on these examples") == "Improved instruction"
+
+    args, kwargs = mock_call.call_args
+    assert args == (
+        "gateway:/my-endpoint",
+        [{"role": "user", "content": "Reflect on these examples"}],
+    )
+    assert kwargs == {
+        "inference_params": {"temperature": 0.2},
+        "gateway_caller": GatewayCaller.PROMPT_OPTIMIZATION,
+    }

@@ -111,6 +111,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
     moreRunsAvailable,
     requestError: runsRequestError,
     refreshRuns,
+    pageSizeSelect,
   } = useExperimentRuns(uiState, searchFacets, experimentIds);
 
   useEffect(() => {
@@ -288,6 +289,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
         searchFacetsState={searchFacets}
         loadMoreRuns={loadMoreRuns}
         moreRunsAvailable={moreRunsAvailable}
+        pageSizeSelect={pageSizeSelect}
         requestError={runsRequestError}
         refreshRuns={refreshRuns}
         uiState={uiState}

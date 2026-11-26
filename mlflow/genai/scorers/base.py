@@ -26,6 +26,7 @@ from mlflow.environment_variables import (
     MLFLOW_SERVER_ENABLE_CUSTOM_SCORERS,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers._scorer_execution import get_scorer_execution
 from mlflow.genai.scorers.ensemble import (
     BOOL_ENSEMBLES,
     BUILTIN_ENSEMBLES,
@@ -357,19 +358,27 @@ def _in_job_executor() -> bool:
 
 
 def _is_tracking_server_process() -> bool:
-    """True in the tracking server process or a subprocess it spawned.
+    """True in the tracking server, a subprocess it spawned, or an ``mlflow.server.app`` request.
 
     ``mlflow server`` sets ``_MLFLOW_SERVER_BOOT_ID`` at startup, and worker and job subprocesses
     inherit it. A server started by importing the app directly (for example
-    ``gunicorn mlflow.server:app`` or ``uvicorn mlflow.server.fastapi_app:app``) has no boot id, so
-    also honor ``mlflow.server``'s own ``is_running_as_server`` detection when that module is
-    already loaded. Otherwise such a server would be misclassified as a client and reconstruct
-    custom scorer code in the server process, defeating the confinement.
+    ``gunicorn mlflow.server:app`` or ``uvicorn mlflow.server.fastapi_app:app``) has no boot id,
+    so also honor ``mlflow.server``'s own detection when that module is already loaded:
+    ``is_running_as_server``, which recognizes some WSGI/ASGI servers, and
+    ``_is_serving_request()``, which is true in the app's request context under any of them.
+    Otherwise such a server would be misclassified as a client and reconstruct custom scorer code
+    in the server process, defeating the confinement.
     """
     if _MLFLOW_SERVER_BOOT_ID.get() is not None:
         return True
     server_module = sys.modules.get("mlflow.server")
-    return bool(server_module is not None and getattr(server_module, "is_running_as_server", False))
+    if server_module is None:
+        return False
+    # `mlflow.server` may still be initializing, so its attributes might not exist yet.
+    if getattr(server_module, "is_running_as_server", False):
+        return True
+    is_serving_request = getattr(server_module, "_is_serving_request", None)
+    return is_serving_request is not None and is_serving_request()
 
 
 def _should_reconstruct_scorer_code() -> bool:
@@ -1056,6 +1065,10 @@ class Scorer(BaseModel):
         # scorer directly, so a Scorer.run frame stays on its stack for telemetry callsite lookup.
         ctx = copy_context()
         outcome: dict[str, Any] = {}
+        execution = get_scorer_execution()
+        done = threading.Event() if execution is not None else None
+        if execution is not None:
+            execution.start()
 
         def _target() -> None:
             _in_scorer_timeout.set(True)
@@ -1063,14 +1076,22 @@ class Scorer(BaseModel):
                 outcome["value"] = self.run(**kwargs)
             except BaseException as e:  # re-surface whatever the scorer raised on the caller
                 outcome["error"] = e
+            finally:
+                if execution is not None:
+                    done.set()
+                    execution.notify_completion()
 
         thread = threading.Thread(
             target=lambda: ctx.run(_target), name=f"MlflowScorer-{self.name}", daemon=True
         )
         thread.start()
         # Thread.join rejects values above TIMEOUT_MAX; clamp so a huge timeout just means "wait".
-        thread.join(min(timeout, threading.TIMEOUT_MAX))
-        if thread.is_alive():
+        if execution is None:
+            thread.join(min(timeout, threading.TIMEOUT_MAX))
+            completed = not thread.is_alive()
+        else:
+            completed = execution.wait(done, timeout)
+        if not completed:
             # Warn so a climbing thread count from timed-out scorers is diagnosable.
             _logger.warning("Scorer '%s' timed out after %s seconds.", self.name, timeout)
             raise MlflowTimeoutError(

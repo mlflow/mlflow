@@ -38,6 +38,7 @@ import {
 } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/utils/savedViewEnvelope';
 import { SavedViewsMenu, type SavedViewMenuItem } from '../../saved-views/SavedViewsMenu';
 import {
+  applyV4ViewQuery,
   buildV4ViewQuery,
   captureV4ViewState,
   decodeViewColumns,
@@ -56,7 +57,6 @@ import {
   translateV3ViewState,
   type V3SavedViewState,
 } from '../utils/tracesV3ViewCompat';
-import { DEFAULT_TRACES_V4_TIME_LABEL } from '../utils/timeRange';
 
 /**
  * Saved views for the V4 traces tab. Reuses the shared tag-envelope codec and the
@@ -343,7 +343,7 @@ export const useTracesV4SavedViews = ({
   // resolvable columns leaves the user's columns untouched rather than hiding everything.
   const applyView = useCallback(
     (state: CapturedV4ViewState, id: string) => {
-      setSearchParams(new URLSearchParams(buildV4ViewQuery(state, id)));
+      setSearchParams((current) => applyV4ViewQuery(current, new URLSearchParams(buildV4ViewQuery(state, id))));
       const columns = decodeViewColumns(state, TRACE_COLUMN_IDS);
       if (columns) {
         setColumns(columns);
@@ -370,10 +370,9 @@ export const useTracesV4SavedViews = ({
     ],
   );
 
-  // Return to the default state: drop every view param, clear the non-URL surfaces (columns +
-  // popover filters). Time-range label is kept (not dropped) so the default has a window, not empty.
+  // Clear view settings while keeping the current time range.
   const resetToDefaultView = useCallback(() => {
-    setSearchParams(new URLSearchParams({ startTimeLabel: DEFAULT_TRACES_V4_TIME_LABEL }));
+    setSearchParams((current) => applyV4ViewQuery(current, new URLSearchParams()));
     resetColumns();
     setFilterModel(EMPTY_FILTER_MODEL);
   }, [setSearchParams, resetColumns, setFilterModel]);
@@ -824,7 +823,7 @@ export const TracesV4SavedViewsButton = ({
         <DropdownMenu.Trigger asChild>
           <Button
             componentId="mlflow.traces-v4.saved_views.trigger"
-            icon={<LayerIcon />}
+            icon={<LayerIcon css={{ color: theme.colors.textSecondary }} />}
             endIcon={<ChevronDownIcon />}
             data-testid="trace-v4-saved-views-trigger"
             // Names the button when its label collapses to icon-only.
