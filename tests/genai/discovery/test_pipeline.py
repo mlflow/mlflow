@@ -916,6 +916,31 @@ def test_discover_issues_with_custom_run_id(make_trace):
         mlflow.get_run(custom_run_id)
 
 
+def test_discover_issues_reads_only_its_own_triage_verdicts(make_trace):
+    traces = [make_trace()]
+    failing = _TriageResult(traces, {traces[0].info.trace_id: "bad"}, {})
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval("run-triage"),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces", return_value=failing
+        ) as mock_extract,
+        patch(
+            "mlflow.genai.discovery.pipeline._build_analyses", return_value=([], {})
+        ) as mock_analyses,
+        patch("mlflow.genai.discovery.pipeline._cluster_and_identify", return_value=[]),
+    ):
+        discover_issues(traces=traces)
+
+    # Both the verdicts and the rationales describing the failures come from this run.
+    assert mock_extract.call_args.kwargs["run_id"] == "run-triage"
+    assert mock_analyses.call_args.kwargs["run_id"] == "run-triage"
+
+
 def test_discover_issues_tags_run_with_issue_detection_marker(make_trace):
     traces = [make_trace()]
     scorer = _TestScorer(name="test")

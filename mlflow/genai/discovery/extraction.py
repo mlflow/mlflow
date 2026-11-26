@@ -5,6 +5,7 @@ import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Trace
@@ -15,7 +16,7 @@ from mlflow.genai.discovery.constants import (
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
 from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -154,7 +155,9 @@ def _is_session_scoped(assessment) -> bool:
     return TraceMetadataKey.TRACE_SESSION in metadata
 
 
-def extract_assessment_rationale(trace: Trace, scorer_name: str, *, session_scoped=None) -> str:
+def extract_assessment_rationale(
+    trace: Trace, scorer_name: str, *, session_scoped=None, run_id: str | None = None
+) -> str:
     """
     The most recent usable rationale among a trace's assessments for one scorer.
 
@@ -172,11 +175,14 @@ def extract_assessment_rationale(trace: Trace, scorer_name: str, *, session_scop
         scorer_name: The scorer whose assessments to read.
         session_scoped: When True, return only conversation-scoped rationales; when False,
             only per-turn ones. ``None`` reads both.
+        run_id: The evaluation run whose rationales to read, alongside human ones, as
+            :func:`extract_failing_traces` reads verdicts. ``None`` reads every run's.
     """
     usable = [
         assessment
         for assessment in trace.search_assessments(scorer_name, type="feedback")
-        if getattr(assessment, "error", None) is None
+        if _counts_for_run(assessment, run_id)
+        and getattr(assessment, "error", None) is None
         and assessment.rationale
         and (session_scoped is None or _is_session_scoped(assessment) == session_scoped)
     ]
@@ -193,6 +199,7 @@ def collect_session_rationales(
     rationale_map: dict[str, str],
     scorer_name: str,
     session_traces: list[Trace] | None = None,
+    run_id: str | None = None,
 ) -> str:
     """Combine triage rationales, feedback, and span errors for a session.
 
@@ -209,6 +216,8 @@ def collect_session_rationales(
         scorer_name: The scorer whose feedback to read.
         session_traces: Every trace in the session, in order. Session-scoped feedback is read
             from its first trace, which may itself have passed triage. Defaults to ``traces``.
+        run_id: The evaluation run whose feedback to read, alongside human feedback. ``None``
+            reads every run's.
     """
     seen: set[str] = set()
     parts: list[str] = []
@@ -217,7 +226,7 @@ def collect_session_rationales(
     # own first trace means it is not missed when that turn passed triage.
     if ordered_session := (session_traces if session_traces is not None else traces):
         if session_feedback := extract_assessment_rationale(
-            ordered_session[0], scorer_name, session_scoped=True
+            ordered_session[0], scorer_name, session_scoped=True, run_id=run_id
         ):
             seen.add(session_feedback)
             parts.append(f"[session feedback] {session_feedback}")
@@ -226,7 +235,9 @@ def collect_session_rationales(
         for text, prefix in [
             (rationale_map.get(trace.info.trace_id, ""), ""),
             (
-                extract_assessment_rationale(trace, scorer_name, session_scoped=False),
+                extract_assessment_rationale(
+                    trace, scorer_name, session_scoped=False, run_id=run_id
+                ),
                 "[human feedback] ",
             ),
             (extract_span_errors(trace), "[span errors] "),
@@ -318,9 +329,25 @@ def _parse_assessment_value(value) -> tuple[bool, list[str]]:
     return bool(value), []
 
 
+def _counts_for_run(assessment, run_id: str | None) -> bool:
+    """
+    Whether a verdict counts for triage scoped to ``run_id``: from that run, or from a human.
+
+    The run is read from the assessment's metadata, where evaluation records it, rather than
+    ``Assessment.run_id``. The SQL store fills that field from a column evaluation leaves empty,
+    so a verdict read straight from the database, as a detection job reads it, has no run there.
+    """
+    if run_id is None:
+        return True
+    if (assessment.metadata or {}).get(AssessmentMetadataKey.SOURCE_RUN_ID) == run_id:
+        return True
+    return assessment.source.source_type == AssessmentSourceType.HUMAN
+
+
 def extract_failing_traces(
     scored_traces: list[Trace],
     scorer_names: str | list[str],
+    run_id: str | None = None,
 ) -> _TriageResult:
     """
     Extract failing traces and their rationales from scored trace objects.
@@ -338,9 +365,19 @@ def extract_failing_traces(
     leaves the trace unclassified. Neither is a pass, and both are counted so a run cannot
     report a clean scan over a sample it never judged.
 
+    With ``run_id``, only the verdicts that run logged count, plus any a human gave. A trace
+    keeps every earlier run's verdicts, so without it a trace this run didn't judge is read on a
+    verdict an earlier run gave, possibly under different categories, instructions or model,
+    instead of being reported as unclassified. A human's verdict, such as a correction of the
+    judge, is kept: it carries no run, and it judges the trace rather than repeating an earlier
+    run's criteria. The scope is the run, so a run reused for several evaluations reads all of
+    their verdicts.
+
     Args:
         scored_traces: Traces with scorer assessments attached.
         scorer_names: One or more scorer names to check for failures.
+        run_id: The evaluation run whose verdicts to read, alongside human ones. ``None`` reads
+            every run's.
     """
     if isinstance(scorer_names, str):
         scorer_names = [scorer_names]
@@ -359,7 +396,11 @@ def extract_failing_traces(
         judged = False
         errors: list[str] = []
         for scorer_name in scorer_names:
-            assessments = trace.search_assessments(scorer_name, type="feedback")
+            assessments = [
+                assessment
+                for assessment in trace.search_assessments(scorer_name, type="feedback")
+                if _counts_for_run(assessment, run_id)
+            ]
             assessment = assessments[-1] if assessments else None
             if assessment is None:
                 continue
