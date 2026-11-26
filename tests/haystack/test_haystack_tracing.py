@@ -87,6 +87,40 @@ def test_pipeline_with_multiple_components_single_trace():
     assert len(traces) == 1
 
 
+def test_token_usage_total_computed_when_missing():
+    mlflow.haystack.autolog()
+
+    @component
+    class MyLLM:
+        def run(self, prompt: str, model: str):
+            return {}
+
+    pipe = Pipeline()
+    pipe.add_component("my_llm", MyLLM())
+
+    # AnthropicChatGenerator reports prompt and completion tokens, but no total.
+    output = {
+        "replies": [
+            {
+                "content": [{"text": "hi"}],
+                "meta": {"usage": {"prompt_tokens": 15, "completion_tokens": 64}},
+            }
+        ]
+    }
+
+    with patch.object(MyLLM, "run", return_value=output):
+        pipe.run({"my_llm": {"prompt": "hello", "model": "claude-sonnet-4-5"}})
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[1].attributes[SpanAttributeKey.CHAT_USAGE] == {
+        "input_tokens": 15,
+        "output_tokens": 64,
+        "total_tokens": 79,
+    }
+    assert traces[0].info.token_usage["total_tokens"] == 79
+
+
 def test_token_usage_parsed_for_llm_component(mock_litellm_cost):
     mlflow.haystack.autolog()
 

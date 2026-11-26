@@ -250,7 +250,8 @@ def _parse_token_usage(outputs: Any) -> dict[str, int] | None:
         if isinstance(usage, dict):
             in_tok = usage.get("prompt_tokens", 0)
             out_tok = usage.get("completion_tokens", 0)
-            tot_tok = usage.get("total_tokens", 0)
+            # Some generators (e.g. AnthropicChatGenerator) report no `total_tokens`.
+            tot_tok = usage.get("total_tokens", in_tok + out_tok)
             return {
                 TokenUsageKey.INPUT_TOKENS: in_tok,
                 TokenUsageKey.OUTPUT_TOKENS: out_tok,
