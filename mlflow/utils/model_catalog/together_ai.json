@@ -1073,7 +1073,8 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-12-09",
+      "last_updated_at": "2026-11-26"
     },
     "deepseek-ai/DeepSeek-V4.1-Flash": {
       "mode": "chat",
@@ -2020,7 +2021,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-10-27"
+      "deprecation_date": "2026-12-09",
+      "last_updated_at": "2026-11-26"
     },
     "openai/gpt-oss-20b": {
       "mode": "chat",
@@ -2156,13 +2158,13 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
-        "reasoning": false,
+        "vision": true,
+        "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
       },
-      "deprecation_date": "2026-11-06",
-      "last_updated_at": "2026-10-28"
+      "deprecation_date": "2026-12-09",
+      "last_updated_at": "2026-11-26"
     },
     "thinkingmachines/Inkling-2-Small": {
       "mode": "chat",
@@ -2345,7 +2347,8 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-10-13"
+      "deprecation_date": "2026-12-09",
+      "last_updated_at": "2026-11-26"
     },
     "togethercomputer/CodeLlama-34b-Instruct": {
       "mode": "chat",
