@@ -88,8 +88,8 @@ properties:
   pull_request:
     description: |
       Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is verified
-      and leaves no public API, default, or storage schema decision to a maintainer. When
-      more than one fix would work, it implements the recommended one.
+      and leaves no choice about user-visible behavior to a maintainer. When more than one
+      fix would work, it implements the recommended one.
     type: object
     additionalProperties: false
     required:

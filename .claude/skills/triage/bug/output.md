@@ -19,7 +19,9 @@ verified against the reproduction and relevant tests. Include `pull_request` onl
 with a verified `fix.patch` that meets the [shared output requirements](../output.md)
 and the selected action's eligibility rules.
 
-When more than one fix would work, implement the one you recommend, and list the
-alternatives and why you chose it in the issue comment and the PR body. Do not propose a PR
-when the choice changes a public API, a default, or a storage schema, unless a maintainer
-has chosen: describe the options, recommend one, and leave the decision to them.
+When more than one fix would work and the options differ only in internal implementation,
+implement the one you recommend. List the alternatives and why you chose it in the PR body
+and, on initial triage, in the issue comment. Do not propose a PR when the options differ in
+behavior users can observe beyond fixing the bug, such as a public API, a default, error
+semantics, a stored or wire format, or compatibility, unless a maintainer has chosen:
+describe the options, recommend one, and leave the decision to them.

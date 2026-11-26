@@ -28,7 +28,9 @@ properties:
         minLength: 1
         maxLength: 120
       body:
-        description: PR body following .github/pull_request_template.md.
+        description: |
+          PR body following .github/pull_request_template.md. When the patch implements one
+          of several options, name the alternatives and why this one was chosen.
         type: string
         minLength: 1
         maxLength: 20000

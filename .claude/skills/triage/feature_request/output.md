@@ -17,5 +17,6 @@ or include a `verdict`.
 
 Only propose a PR on a maintainer follow-up requesting implementation, when the behavior
 is not already supported, the change leaves no design choice or trade-off unresolved, and
-the implementation is verified against a concrete usage example and relevant tests. Include `pull_request` only with a verified `fix.patch` that
-meets the [shared output requirements](../output.md).
+the implementation is verified against a concrete usage example and relevant tests.
+Include `pull_request` only with a verified `fix.patch` that meets the
+[shared output requirements](../output.md).
