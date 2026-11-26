@@ -14,6 +14,7 @@ from mlflow.genai.databricks.review_queues import (
     ReviewQueueType,
     ReviewStatus,
     _client,
+    _grants,
     add_review_queue_items,
     add_review_queue_member,
     add_review_queue_members,
@@ -41,6 +42,13 @@ from mlflow.genai.labeling.stores import DatabricksLabelingStore
 from mlflow.protos.databricks_pb2 import INVALID_STATE
 
 _CALL = "mlflow.genai.databricks.review_queues._client.call"
+
+
+@pytest.fixture(autouse=True)
+def grant_reviewer_access():
+    with mock.patch.object(_grants, "grant_reviewer_access") as mock_grant:
+        yield mock_grant
+
 
 _QUESTION = {
     "name": "experiments/1/reviewQuestions/q1",
@@ -217,6 +225,26 @@ def test_create_review_queue_checks_members_before_creating():
         with pytest.raises(MlflowException, match="must be a list of users"):
             create_review_queue("1", "My queue", members="alice@example.com")
     mock_call.assert_not_called()
+
+
+def test_create_review_queue_grants_its_members(grant_reviewer_access):
+    with mock.patch(_CALL, side_effect=[_QUEUE, {"user": "alice@example.com"}]):
+        create_review_queue("1", "My queue", members=["alice@example.com"])
+    # A new queue has no items, so there are no dataset tables to look up.
+    grant_reviewer_access.assert_called_once_with("1", ["alice@example.com"], queue_id=None)
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "responses"),
+    [
+        ({}, [_QUEUE]),
+        ({"members": ["alice@example.com"], "grant_access": False}, [_QUEUE, {"user": "a"}]),
+    ],
+)
+def test_create_review_queue_without_grants(grant_reviewer_access, kwargs, responses):
+    with mock.patch(_CALL, side_effect=responses):
+        create_review_queue("1", "My queue", **kwargs)
+    grant_reviewer_access.assert_not_called()
 
 
 def test_get_review_queue():
@@ -567,6 +595,89 @@ def test_set_review_queue_members_on_labeling_session(labeling_store):
     labeling_store.get_labeling_sessions.assert_not_called()
     mock_call.assert_not_called()
     assert [m.user for m in members] == ["bob@example.com", "carol@example.com"]
+
+
+def test_add_review_queue_member_grants_the_reviewer_access(grant_reviewer_access):
+    with mock.patch(_CALL, return_value={"user": "alice@example.com"}):
+        add_review_queue_member("1", "rq1", "alice@example.com")
+    grant_reviewer_access.assert_called_once_with("1", ["alice@example.com"], queue_id="rq1")
+
+
+def test_add_review_queue_members_grants_the_reviewers_added(grant_reviewer_access):
+    responses = [{"user": "alice@example.com"}, {"user": "bob@example.com"}]
+    with mock.patch(_CALL, side_effect=responses):
+        add_review_queue_members("1", "rq1", ["alice@example.com", "bob@example.com"])
+    grant_reviewer_access.assert_called_once_with(
+        "1", ["alice@example.com", "bob@example.com"], queue_id="rq1"
+    )
+
+
+def test_add_review_queue_members_grants_the_ones_added_before_a_failure(grant_reviewer_access):
+    failure = MlflowException("Too many reviewers.", INVALID_STATE)
+    with mock.patch(_CALL, side_effect=[{"user": "alice@example.com"}, failure]):
+        with pytest.raises(MlflowException, match="Couldn't add 'bob@example.com'"):
+            add_review_queue_members("1", "rq1", ["alice@example.com", "bob@example.com"])
+    grant_reviewer_access.assert_called_once_with("1", ["alice@example.com"], queue_id="rq1")
+
+
+def test_set_review_queue_members_grants_only_new_reviewers(grant_reviewer_access):
+    listing = {"review_queue_members": [{"user": "alice@example.com"}, {"user": "bob@example.com"}]}
+    with mock.patch(_CALL, side_effect=[listing, {}, {"user": "carol@example.com"}]):
+        set_review_queue_members("1", "rq1", ["alice@example.com", "carol@example.com"])
+    grant_reviewer_access.assert_called_once_with("1", ["carol@example.com"], queue_id="rq1")
+
+
+def test_set_review_queue_members_grants_the_ones_added_before_a_failure(grant_reviewer_access):
+    failure = MlflowException("Too many reviewers.", INVALID_STATE)
+    listing = {"review_queue_members": []}
+    with mock.patch(_CALL, side_effect=[listing, {"user": "alice@example.com"}, failure]):
+        with pytest.raises(MlflowException, match="stopped partway"):
+            set_review_queue_members("1", "rq1", ["alice@example.com", "bob@example.com"])
+    grant_reviewer_access.assert_called_once_with("1", ["alice@example.com"], queue_id="rq1")
+
+
+@pytest.mark.parametrize(
+    ("func", "args"),
+    [
+        (add_review_queue_member, ("1", "rq1", "alice@example.com")),
+        (add_review_queue_members, ("1", "rq1", ["alice@example.com"])),
+        (set_review_queue_members, ("1", "rq1", ["alice@example.com"])),
+    ],
+)
+def test_grant_access_false_adds_without_granting(grant_reviewer_access, func, args):
+    response = {"user": "alice@example.com", "review_queue_members": []}
+    with mock.patch(_CALL, return_value=response) as mock_call:
+        func(*args, grant_access=False)
+    mock_call.assert_any_call("POST", _MEMBERS, json={"user": "alice@example.com"})
+    grant_reviewer_access.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("func", "kwargs"),
+    [
+        (add_review_queue_member, {"user": "alice@example.com"}),
+        (add_review_queue_members, {"users": ["alice@example.com"]}),
+        (set_review_queue_members, {"users": ["alice@example.com"]}),
+    ],
+)
+def test_labeling_session_rejects_grant_access_false(
+    labeling_store, grant_reviewer_access, func, kwargs
+):
+    with pytest.raises(MlflowException, match="can't take `grant_access=False` with a"):
+        func(_session([]), **kwargs, grant_access=False)
+    labeling_store.get_labeling_sessions.assert_not_called()
+    labeling_store.set_session_assigned_users.assert_not_called()
+    grant_reviewer_access.assert_not_called()
+
+
+def test_labeling_session_grants_only_through_the_labeling_sdk(
+    labeling_store, grant_reviewer_access
+):
+    labeling_store.get_labeling_sessions.return_value = [_session([])]
+    add_review_queue_member(_session([]), user="alice@example.com")
+    set_review_queue_members(_session([]), users=["bob@example.com"])
+    assert labeling_store.set_session_assigned_users.call_count == 2
+    grant_reviewer_access.assert_not_called()
 
 
 def test_add_review_queue_items():

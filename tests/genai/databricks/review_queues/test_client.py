@@ -74,3 +74,25 @@ def test_call_raises_on_error_response():
         with pytest.raises(MlflowException, match="Queue not found"):
             _client.call("GET", "experiments/1/reviewQueues/missing")
     mock_req.assert_called_once()
+
+
+def test_call_api_sends_the_endpoint_as_given():
+    mlflow.set_tracking_uri("databricks")
+    with (
+        mock.patch.object(_client, "get_databricks_host_creds") as mock_creds,
+        mock.patch.object(_client, "http_request", return_value=_response(200, "{}")) as mock_req,
+    ):
+        _client.call_api("PATCH", "/api/2.0/permissions/experiments/1", json={"a": 1})
+
+    mock_req.assert_called_once_with(
+        host_creds=mock_creds.return_value,
+        endpoint="/api/2.0/permissions/experiments/1",
+        method="PATCH",
+        json={"a": 1},
+    )
+
+
+def test_call_api_rejects_non_databricks_tracking_uri():
+    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    with pytest.raises(MlflowException, match="requires a Databricks tracking URI"):
+        _client.call_api("GET", "/api/2.0/preview/scim/v2/Me")

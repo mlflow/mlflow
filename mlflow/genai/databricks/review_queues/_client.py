@@ -16,13 +16,23 @@ def call(
     json: dict[str, Any] | None = None,
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    return call_api(method, f"{_API_PREFIX}/{path}", json=json, params=params)
+
+
+def call_api(
+    method: str,
+    endpoint: str,
+    *,
+    json: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    # Calls any Databricks REST endpoint, given its full path, e.g. `/api/2.0/permissions/...`.
     tracking_uri = get_tracking_uri()
     if not is_databricks_uri(tracking_uri):
         raise MlflowException.invalid_parameter_value(
             "`mlflow.genai.databricks.review_queues` requires a Databricks tracking URI; "
             f"got {tracking_uri!r}. Use `mlflow.genai.review_queues` with other tracking servers."
         )
-    endpoint = f"{_API_PREFIX}/{path}"
     kwargs = {}
     if json is not None:
         kwargs["json"] = json

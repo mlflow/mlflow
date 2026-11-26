@@ -14,7 +14,7 @@ from typing import Any, Literal, overload
 from urllib.parse import quote
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.databricks.review_queues import _client
+from mlflow.genai.databricks.review_queues import _client, _grants
 from mlflow.genai.databricks.review_queues.entities import (
     ItemKind,
     LabelingSessionMigrationResult,
@@ -210,6 +210,7 @@ def create_review_queue(
     queue_type: ReviewQueueType | Literal["USER", "CUSTOM"] = ReviewQueueType.CUSTOM,
     question_ids: list[str] | None = None,
     members: list[str] | None = None,
+    grant_access: bool = True,
 ) -> ReviewQueue:
     """
     Create a review queue in an experiment.
@@ -225,7 +226,10 @@ def create_review_queue(
             uses all of the experiment's questions.
         members: Reviewers to assign once the queue is created, e.g. email addresses.
             They're added one at a time after the queue is created, so if one can't be
-            added, the queue still exists and the error names it.
+            added, the queue still exists and the error names it. They're also granted
+            access, as described in :py:func:`add_review_queue_member`.
+        grant_access: Whether to grant ``members`` the access they need to review the
+            queue. Defaults to ``True``.
 
     Returns:
         The created :py:class:`ReviewQueue`.
@@ -243,7 +247,14 @@ def create_review_queue(
     queue = ReviewQueue.from_dict(resp)
     if member_users:
         try:
-            _add_queue_members(experiment_id, queue.queue_id, member_users)
+            # A new queue has no items yet, so there are no dataset tables to grant.
+            _add_queue_members(
+                experiment_id,
+                queue.queue_id,
+                member_users,
+                grant_access=grant_access,
+                new_queue=True,
+            )
         except MlflowException as e:
             raise MlflowException(
                 f"Created review queue {queue.queue_id!r}, but couldn't add all its members. "
@@ -357,6 +368,8 @@ def delete_review_queue(experiment_id: str, queue_id: str) -> None:
 # `queue_id`. For a session, it reads and writes the session's assigned users through the
 # labeling session SDK, so the session keeps behaving as it does today, including the access
 # that SDK grants to assigned users. It never changes the queue a session was migrated to.
+# For a queue, reviewers who are added are also granted access, as the review queue UI does,
+# unless `grant_access=False`.
 
 
 def _require(value: Any, name: str) -> Any:
@@ -406,24 +419,53 @@ def _add_session_members(session: LabelingSession, users: list[str]) -> None:
         current.set_assigned_users(current.assigned_users + new_users)
 
 
+def _reject_grant_access_for_session(function: str, grant_access: bool) -> None:
+    if not grant_access:
+        raise MlflowException.invalid_parameter_value(
+            f"`{function}` can't take `grant_access=False` with a `LabelingSession`: the labeling "
+            "session SDK always grants its assigned users access."
+        )
+
+
+def _grant_queue_members(
+    experiment_id: str, queue_id: str, users: list[str], *, new_queue: bool = False
+) -> None:
+    if users:
+        _grants.grant_reviewer_access(
+            experiment_id, users, queue_id=None if new_queue else queue_id
+        )
+
+
 def _add_queue_member(experiment_id: str, queue_id: str, user: str) -> ReviewQueueMember:
     resp = _client.call("POST", f"{_queue(experiment_id, queue_id)}/members", json={"user": user})
     return ReviewQueueMember.from_dict(resp)
 
 
 def _add_queue_members(
-    experiment_id: str, queue_id: str, users: list[str]
+    experiment_id: str,
+    queue_id: str,
+    users: list[str],
+    *,
+    grant_access: bool,
+    new_queue: bool = False,
 ) -> list[ReviewQueueMember]:
     added: list[ReviewQueueMember] = []
-    for user in users:
-        try:
-            added.append(_add_queue_member(experiment_id, queue_id, user))
-        except MlflowException as e:
-            raise MlflowException(
-                f"Couldn't add {user!r} to review queue {queue_id!r}. Members added before "
-                f"this one: {[m.user for m in added]}. Error: {e.message}",
-                error_code=ErrorCode.Value(e.error_code),
-            ) from e
+    added_users: list[str] = []
+    try:
+        for user in users:
+            try:
+                added.append(_add_queue_member(experiment_id, queue_id, user))
+            except MlflowException as e:
+                raise MlflowException(
+                    f"Couldn't add {user!r} to review queue {queue_id!r}. Members added before "
+                    f"this one: {added_users}. Error: {e.message}",
+                    error_code=ErrorCode.Value(e.error_code),
+                ) from e
+            added_users.append(user)
+    finally:
+        # Reviewers who were added get access even if a later one couldn't be added.
+        if grant_access:
+            _grant_queue_members(experiment_id, queue_id, added_users, new_queue=new_queue)
     return added
 
 
@@ -461,7 +503,9 @@ def _list_all_queue_members(experiment_id: str, queue_id: str) -> list[ReviewQue
 
 
 @overload
-def add_review_queue_member(experiment_id: str, queue_id: str, user: str) -> ReviewQueueMember: ...
+def add_review_queue_member(
+    experiment_id: str, queue_id: str, user: str, *, grant_access: bool = True
+) -> ReviewQueueMember: ...
 
 
 @overload
@@ -475,11 +519,26 @@ def add_review_queue_member(
     experiment_id: str | LabelingSession,
     queue_id: str | None = None,
     user: str | None = None,
+    *,
+    grant_access: bool = True,
 ) -> ReviewQueueMember:
     """
     Assign a reviewer to a queue or a labeling session.
 
     Assigning a reviewer who is already assigned changes nothing.
+
+    Unless ``grant_access=False``, the reviewer is also granted the access they need to review
+    the queue, as the review queue UI does:
+
+    - ``CAN_READ`` on the experiment when its traces are stored in Unity Catalog, otherwise
+      ``CAN_EDIT``. A reviewer who already has that level or higher is left alone.
+    - In Unity Catalog, ``SELECT`` on the experiment's trace spans and logs tables, ``SELECT``
+      and ``MODIFY`` on its trace annotation table and on the tables of datasets whose records
+      are in the queue, and ``USE CATALOG`` and ``USE SCHEMA`` on the objects above them.
+
+    Grants are made as the caller, so they need ``CAN_MANAGE`` on the experiment and
+    ``MANAGE`` on those Unity Catalog objects. A grant that fails is logged as a warning and
+    never fails the call. The caller isn't granted anything.
 
     To assign a reviewer to a :py:class:`mlflow.genai.LabelingSession`, pass the session in
     place of ``experiment_id`` and ``queue_id``, and pass ``user`` by keyword. The reviewer is
@@ -502,16 +561,25 @@ def add_review_queue_member(
         experiment_id: The experiment that owns the queue, or a labeling session.
         queue_id: The queue to assign the reviewer to. Omit it for a labeling session.
         user: The reviewer, e.g. an email address.
+        grant_access: Whether to grant the reviewer the access they need to review the queue.
+            Defaults to ``True``. A labeling session always grants its assigned users access,
+            so it can't be ``False`` for one.
 
     Returns:
         The added :py:class:`ReviewQueueMember`. For a labeling session, only ``user`` is set.
     """
     if isinstance(experiment_id, LabelingSession):
         _reject_queue_id_for_session("add_review_queue_member", queue_id, "user")
+        _reject_grant_access_for_session("add_review_queue_member", grant_access)
         user = _require(user, "user")
         _add_session_members(experiment_id, [user])
         return ReviewQueueMember(user=user)
-    return _add_queue_member(experiment_id, _require(queue_id, "queue_id"), _require(user, "user"))
+    queue_id = _require(queue_id, "queue_id")
+    user = _require(user, "user")
+    member = _add_queue_member(experiment_id, queue_id, user)
+    if grant_access:
+        _grant_queue_members(experiment_id, queue_id, [user])
+    return member
 
 
 @overload
@@ -612,7 +680,7 @@ def list_review_queue_members(
 
 @overload
 def add_review_queue_members(
-    experiment_id: str, queue_id: str, users: list[str]
+    experiment_id: str, queue_id: str, users: list[str], *, grant_access: bool = True
 ) -> list[ReviewQueueMember]: ...
 
 
@@ -627,13 +695,17 @@ def add_review_queue_members(
     experiment_id: str | LabelingSession,
     queue_id: str | None = None,
     users: list[str] | None = None,
+    *,
+    grant_access: bool = True,
 ) -> list[ReviewQueueMember]:
     """
     Assign several reviewers to a queue or a labeling session.
 
     Reviewers who are already assigned are left as they are. On a queue, reviewers are
     added one at a time, so if one can't be added, the ones before it stay added, and the
-    error names them.
+    error names them. Unless ``grant_access=False``, the reviewers who were added are also
+    granted the access they need to review the queue, as described in
+    :py:func:`add_review_queue_member`.
 
     To assign reviewers to a :py:class:`mlflow.genai.LabelingSession`, pass the session in
     place of ``experiment_id`` and ``queue_id``, and pass ``users`` by keyword. The reviewers
@@ -656,6 +728,10 @@ def add_review_queue_members(
         experiment_id: The experiment that owns the queue, or a labeling session.
         queue_id: The queue to assign the reviewers to. Omit it for a labeling session.
         users: The reviewers, e.g. email addresses.
+        grant_access: Whether to grant the reviewers the access they need to review the
+            queue, as described in :py:func:`add_review_queue_member`. Defaults to ``True``.
+            A labeling session always grants its assigned users access, so it can't be
+            ``False`` for one.
 
     Returns:
         One :py:class:`ReviewQueueMember` per reviewer in ``users``. For a labeling session,
@@ -663,17 +739,21 @@ def add_review_queue_members(
     """
     if isinstance(experiment_id, LabelingSession):
         _reject_queue_id_for_session("add_review_queue_members", queue_id, "users")
+        _reject_grant_access_for_session("add_review_queue_members", grant_access)
         unique_users = _unique_users(_require(users, "users"))
         _add_session_members(experiment_id, unique_users)
         return [ReviewQueueMember(user=u) for u in unique_users]
     return _add_queue_members(
-        experiment_id, _require(queue_id, "queue_id"), _unique_users(_require(users, "users"))
+        experiment_id,
+        _require(queue_id, "queue_id"),
+        _unique_users(_require(users, "users")),
+        grant_access=grant_access,
     )
 
 
 @overload
 def set_review_queue_members(
-    experiment_id: str, queue_id: str, users: list[str]
+    experiment_id: str, queue_id: str, users: list[str], *, grant_access: bool = True
 ) -> list[ReviewQueueMember]: ...
 
 
@@ -688,6 +768,8 @@ def set_review_queue_members(
     experiment_id: str | LabelingSession,
     queue_id: str | None = None,
     users: list[str] | None = None,
+    *,
+    grant_access: bool = True,
 ) -> list[ReviewQueueMember]:
     """
     Replace the reviewers assigned to a queue or a labeling session.
@@ -695,7 +777,9 @@ def set_review_queue_members(
     On a queue, the current reviewers are listed, those not in ``users`` are unassigned, and
     then the missing ones are assigned. Unassigning first means a full replacement never goes
     over the queue's reviewer limit. The steps aren't atomic: if one fails, the earlier ones
-    stay done, and the error names them.
+    stay done, and the error names them. Unless ``grant_access=False``, the newly assigned
+    reviewers are also granted the access they need to review the queue, as described in
+    :py:func:`add_review_queue_member`. Unassigning a reviewer doesn't revoke any access.
 
     To set the reviewers of a :py:class:`mlflow.genai.LabelingSession`, pass the session in
     place of ``experiment_id`` and ``queue_id``, and pass ``users`` by keyword. This makes one
@@ -716,6 +800,10 @@ def set_review_queue_members(
         experiment_id: The experiment that owns the queue, or a labeling session.
         queue_id: The queue whose reviewers to replace. Omit it for a labeling session.
         users: The reviewers the queue or session should have, e.g. email addresses.
+        grant_access: Whether to grant the reviewers the access they need to review the
+            queue, as described in :py:func:`add_review_queue_member`. Defaults to ``True``.
+            A labeling session always grants its assigned users access, so it can't be
+            ``False`` for one.
 
     Returns:
         The reviewers now assigned, as :py:class:`ReviewQueueMember` objects. For a labeling
@@ -723,6 +811,7 @@ def set_review_queue_members(
     """
     if isinstance(experiment_id, LabelingSession):
         _reject_queue_id_for_session("set_review_queue_members", queue_id, "users")
+        _reject_grant_access_for_session("set_review_queue_members", grant_access)
         updated = experiment_id.set_assigned_users(_unique_users(_require(users, "users")))
         return [ReviewQueueMember(user=u) for u in updated.assigned_users]
 
@@ -743,6 +832,10 @@ def set_review_queue_members(
             f"{removed}. Added so far: {list(added)}. Error: {e.message}",
             error_code=ErrorCode.Value(e.error_code),
         ) from e
+    finally:
+        # Reviewers who were added get access even if a later step failed.
+        if grant_access:
+            _grant_queue_members(experiment_id, queue_id, list(added))
     return [current[u] if u in current else added[u] for u in wanted]
 
 
