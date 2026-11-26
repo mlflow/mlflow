@@ -2145,6 +2145,9 @@ module.exports = {
   // -- mlflow.quality_tab --
   "mlflow.quality_tab.empty_state.learn_more_link": "",
 
+  // -- mlflow.register_model_form --
+  "mlflow.register_model_form.model": "",
+
   // -- mlflow.regression-test-detail --
   "mlflow.regression-test-detail.assertion-expand": "",
   "mlflow.regression-test-detail.col-assertion": "",
