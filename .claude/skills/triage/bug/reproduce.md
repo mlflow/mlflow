@@ -93,7 +93,6 @@ reload code changes. For simple visual or UI changes, manual browser inspection 
 reproduction before and after the fix can be sufficient verification. Run relevant existing
 tests when they meaningfully cover the affected behavior.
 
-Keep the fix minimal and in the style of the surrounding code. When more than one fix would
-work, recommend one and verify that one. If users would notice which option was chosen (see
-[pull request eligibility](output.md#pull-request-eligibility)) and no maintainer has
-chosen, describe the options and your recommendation instead of implementing one.
+Keep the fix minimal and in the style of the surrounding code. If a design choice remains
+unresolved (a public API, a default, or a storage schema), describe the options instead of
+picking one.

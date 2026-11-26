@@ -19,9 +19,6 @@ verified against the reproduction and relevant tests. Include `pull_request` onl
 with a verified `fix.patch` that meets the [shared output requirements](../output.md)
 and the selected action's eligibility rules.
 
-When more than one fix would work and every option behaves the same for users, differing
-only in how the code is written, implement the one you recommend. List the alternatives and
-why you chose it in the PR body and, on initial triage, in the issue comment. Do not propose
-a PR when users would notice which option was chosen, for example through a public API, a
-default, error semantics, a stored or wire format, or compatibility, unless a maintainer has
-chosen: describe the options, recommend one, and leave the decision to them.
+Several fixes that behave the same for users are not an unresolved design choice. Implement
+the one you recommend and name the alternatives in the PR body. If users would notice which
+one was chosen, such as a different error or default, leave the choice to a maintainer.

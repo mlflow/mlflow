@@ -16,7 +16,6 @@ or include a `verdict`.
 ## Pull request eligibility
 
 Only propose a PR on a maintainer follow-up requesting implementation, when the behavior
-is not already supported, the change leaves no design choice or trade-off unresolved, and
-the implementation is verified against a concrete usage example and relevant tests.
-Include `pull_request` only with a verified `fix.patch` that meets the
-[shared output requirements](../output.md).
+is not already supported and the implementation is verified against a concrete usage
+example and relevant tests. Include `pull_request` only with a verified `fix.patch` that
+meets the [shared output requirements](../output.md).
