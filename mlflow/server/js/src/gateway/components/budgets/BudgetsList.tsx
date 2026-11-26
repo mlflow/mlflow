@@ -27,9 +27,15 @@ import { useBudgetScopeLabels } from './useBudgetScopeLabels';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
-import type { BudgetPolicy } from '../../types';
+import type { BudgetPolicy, DurationUnit } from '../../types';
 
 const PAGE_SIZE = 10;
+
+const WINDOW_END_DATE_FORMAT: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+const WINDOW_END_TIME_FORMAT: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+
+// Minute and hour windows end at a time of day, so the date alone would read the same for many windows.
+const showsWindowEndTime = (unit: DurationUnit) => unit === 'MINUTES' || unit === 'HOURS';
 
 interface BudgetsListProps {
   onEditClick?: (policy: BudgetPolicy) => void;
@@ -251,7 +257,8 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                   <Typography.Text color="secondary">—</Typography.Text>
                 )}
               </TableCell>
-              <TableCell css={{ flex: 1 }}>
+              {/* Wraps instead of truncating, so a narrow column doesn't cut off the time of day. */}
+              <TableCell css={{ flex: 1 }} multiline>
                 {window ? (
                   <Tooltip
                     componentId="mlflow.gateway.budgets-list.window-end-tooltip"
@@ -262,11 +269,17 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                   >
                     <span>
                       <Typography.Text>
-                        {formatDate(window.window_end_ms, {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
+                        {/* The time moves to the next line as a whole when it doesn't fit after the date, and
+                            wraps inside only when the column is narrower than the time itself, so nothing is cut off. */}
+                        {formatDate(window.window_end_ms, WINDOW_END_DATE_FORMAT)}
+                        {showsWindowEndTime(policy.duration.unit) && (
+                          <>
+                            {' '}
+                            <span css={{ display: 'inline-block' }}>
+                              {formatDate(window.window_end_ms, WINDOW_END_TIME_FORMAT)}
+                            </span>
+                          </>
+                        )}
                       </Typography.Text>
                     </span>
                   </Tooltip>

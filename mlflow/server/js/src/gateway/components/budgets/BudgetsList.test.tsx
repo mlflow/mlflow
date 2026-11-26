@@ -283,6 +283,46 @@ describe('BudgetsList', () => {
     expect(screen.getByText('$42.5')).toBeInTheDocument();
   });
 
+  // Jest runs in GMT (scripts/global-setup.js), so the expected times are in UTC.
+  test.each([
+    ['MINUTES' as const, 15, '2026-03-01T08:15:00Z', 'Mar 1, 2026', '8:15 AM'],
+    ['HOURS' as const, 6, '2026-03-01T12:00:00Z', 'Mar 1, 2026', '12:00 PM'],
+    ['DAYS' as const, 1, '2026-03-02T00:00:00Z', 'Mar 2, 2026', null],
+    ['MONTHS' as const, 1, '2026-04-01T00:00:00Z', 'Apr 1, 2026', null],
+  ])('shows the window end of a %s policy of length %d', (unit, value, windowEnd, expectedDate, expectedTime) => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [{ ...mockPolicies[0], duration: { unit, value } }],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+    jest.mocked(useBudgetWindowsQuery).mockReturnValue({
+      data: {
+        'bp-1': {
+          budget_policy_id: 'bp-1',
+          window_start_ms: new Date('2026-03-01T00:00:00Z').getTime(),
+          window_end_ms: new Date(windowEnd).getTime(),
+          current_spend: 0,
+        },
+      },
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(expectedDate)).toBeInTheDocument();
+    if (expectedTime) {
+      expect(screen.getByText(expectedTime)).toBeInTheDocument();
+    } else {
+      expect(screen.queryByText(/\d{1,2}:\d{2} [AP]M/)).not.toBeInTheDocument();
+    }
+  });
+
   test('shows violation indicator when current spend exceeds budget', () => {
     jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
       data: [mockPolicies[0]], // budget_amount: 100
