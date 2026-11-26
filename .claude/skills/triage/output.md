@@ -27,7 +27,7 @@ rename the issue yourself.
 Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
-- The change leaves no design choice or trade-off unresolved.
+- The change leaves no design choice (a public API, a default, or a storage schema) unresolved.
 - Every changed file is within `TRIAGE_PATCH_PATH_ALLOWLIST`.
   Each non-empty line is a permitted repository path; an empty list permits no changes.
 

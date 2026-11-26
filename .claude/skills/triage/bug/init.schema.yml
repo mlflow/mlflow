@@ -58,6 +58,8 @@ properties:
 
       <the root cause in a sentence or two, with permalinks>
 
+      <if several fixes would work: the options as a numbered list, with the recommended one marked>
+
       <the fix: for a short change, the patch in a `diff` code block; for a longer or multi-file
       change, what changes in each file and why, with permalinks>
 
@@ -82,7 +84,7 @@ properties:
   pull_request:
     description: |
       Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is verified
-      and leaves nothing for a maintainer to decide.
+      and implemented in full.
     type: object
     additionalProperties: false
     required:
