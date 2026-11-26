@@ -10,7 +10,7 @@ import type { OpenClawPluginApi, OpenClawPluginService } from 'openclaw/plugin-s
 import {
   onDiagnosticEvent,
   type DiagnosticEventPayload,
-} from 'openclaw/plugin-sdk/diagnostics-otel';
+} from 'openclaw/plugin-sdk/diagnostic-runtime';
 import {
   init,
   startSpan,
@@ -688,11 +688,12 @@ export function createMLflowService(
       }
     });
 
-    api.on('subagent_spawning', (event: unknown, agentCtx: unknown) => {
+    api.on('subagent_spawned', (event: unknown, agentCtx: unknown) => {
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
-      const sessionKey = ctx.sessionKey as string | undefined;
-      if (!sessionKey) {
+      const sessionKey = asNonEmptyString(ctx.requesterSessionKey);
+      const childSessionKey = asNonEmptyString(evt.childSessionKey);
+      if (!sessionKey || !childSessionKey) {
         return;
       }
 
@@ -711,18 +712,21 @@ export function createMLflowService(
         spanType: SpanType.AGENT,
         inputs: {
           agent_id: agentId,
+          child_session_key: childSessionKey,
           ...(label ? { label } : {}),
         },
       });
 
-      trace.pendingSubagents.set(agentId, { span: subSpan, name: agentId });
+      // Keyed by child session: one agent can run several subagents at once.
+      trace.pendingSubagents.set(childSessionKey, { span: subSpan, name: agentId });
     });
 
     api.on('subagent_ended', (event: unknown, agentCtx: unknown) => {
       const ctx = agentCtx as Record<string, unknown>;
       const evt = event as Record<string, unknown>;
-      const sessionKey = ctx.sessionKey as string | undefined;
-      if (!sessionKey) {
+      const sessionKey = asNonEmptyString(ctx.requesterSessionKey);
+      const childSessionKey = asNonEmptyString(evt.targetSessionKey);
+      if (!sessionKey || !childSessionKey) {
         return;
       }
 
@@ -732,20 +736,22 @@ export function createMLflowService(
       }
 
       trace.lastActivityMs = Date.now();
-      const agentId = evt.agentId as string;
-      const pending = trace.pendingSubagents.get(agentId);
-
-      if (pending) {
-        if (evt.error) {
-          pending.span.setOutputs({ error: evt.error });
-        } else {
-          pending.span.setOutputs({
-            result: (evt.result as string) || '',
-          });
-        }
-        pending.span.end();
-        trace.pendingSubagents.delete(agentId);
+      const pending = trace.pendingSubagents.get(childSessionKey);
+      if (!pending) {
+        return;
       }
+
+      const error = asNonEmptyString(evt.error);
+      pending.span.setOutputs({
+        outcome: evt.outcome,
+        reason: evt.reason,
+        ...(error ? { error } : {}),
+      });
+      if (error || (evt.outcome != null && evt.outcome !== 'ok')) {
+        pending.span.setStatus(SpanStatusCode.ERROR, error ?? String(evt.outcome));
+      }
+      pending.span.end();
+      trace.pendingSubagents.delete(childSessionKey);
     });
 
     api.on('agent_end', (event: unknown, agentCtx: unknown) => {

@@ -36,8 +36,11 @@ declare module 'openclaw/plugin-sdk/plugin-entry' {
     ) => void;
     runtime: {
       config: {
-        loadConfig: () => OpenClawConfig;
-        writeConfigFile: (cfg: OpenClawConfig) => Promise<void>;
+        current: () => OpenClawConfig;
+        mutateConfigFile: (params: {
+          afterWrite: { mode: 'auto' };
+          mutate: (draft: OpenClawConfig) => void;
+        }) => Promise<unknown>;
       };
     };
     on: (event: string, handler: (event: unknown, ctx: unknown) => void) => void;
@@ -54,7 +57,7 @@ declare module 'openclaw/plugin-sdk/plugin-entry' {
   export function emptyPluginConfigSchema(): OpenClawPluginConfigSchema;
 }
 
-declare module 'openclaw/plugin-sdk/diagnostics-otel' {
+declare module 'openclaw/plugin-sdk/diagnostic-runtime' {
   export type DiagnosticEventPayload = {
     type: string;
     sessionKey?: string;

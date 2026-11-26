@@ -8,7 +8,7 @@ const PLUGIN_ID = 'mlflow-openclaw';
 
 type ConfigDeps = {
   loadConfig: () => OpenClawConfig;
-  writeConfigFile: (cfg: OpenClawConfig) => Promise<void>;
+  updateConfig: (mutate: (draft: OpenClawConfig) => void) => Promise<void>;
 };
 
 // Minimal structural type for the Commander.js `Command` object OpenClaw
@@ -20,7 +20,7 @@ export type CommanderLike = {
 type CommandLike = {
   description: (d: string) => CommandLike;
   command: (name: string) => CommandLike;
-  action: (fn: () => void) => CommandLike;
+  action: (fn: () => void | Promise<void>) => CommandLike;
 };
 
 type RegisterCliParams = {
@@ -66,18 +66,18 @@ function getPluginEntry(cfg: OpenClawConfig): {
   };
 }
 
-function setPluginEntry(
-  cfg: OpenClawConfig,
-  config: Record<string, unknown>,
-  enabled = true,
-): OpenClawConfig {
-  const root = asObject(cfg);
-  const plugins = asObject(root.plugins);
+// Mutates `draft` in place: the host persists the draft it handed out.
+function mergePluginEntry(draft: OpenClawConfig, config: Record<string, unknown>): void {
+  const plugins = asObject(draft.plugins);
   const entries = asObject(plugins.entries);
-  entries[PLUGIN_ID] = { ...asObject(entries[PLUGIN_ID]), enabled, config };
+  const entry = asObject(entries[PLUGIN_ID]);
+  entries[PLUGIN_ID] = {
+    ...entry,
+    enabled: true,
+    config: { ...asObject(entry.config), ...config },
+  };
   plugins.entries = entries;
-  root.plugins = plugins;
-  return root as OpenClawConfig;
+  draft.plugins = plugins;
 }
 
 function showStatus(deps: ConfigDeps): void {
@@ -141,28 +141,27 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
     return;
   }
 
-  const updated = setPluginEntry(cfg, {
-    ...entry.config,
-    trackingUri: trackingUri as string,
-    experimentId: experimentId as string,
+  await deps.updateConfig((draft) => {
+    mergePluginEntry(draft, {
+      trackingUri: trackingUri as string,
+      experimentId: experimentId as string,
+    });
   });
-  await deps.writeConfigFile(updated);
 
   p.outro('MLflow configuration saved. Restart the gateway to apply.');
 }
 
 export function registerMlflowCli(params: RegisterCliParams): void {
-  const { program, loadConfig, writeConfigFile } = params;
-  const deps: ConfigDeps = { loadConfig, writeConfigFile };
+  const { program, loadConfig, updateConfig } = params;
+  const deps: ConfigDeps = { loadConfig, updateConfig };
 
   const root = program.command('mlflow').description('MLflow trace export integration');
 
   root
     .command('configure')
     .description('Interactive setup for MLflow trace export')
-    .action(() => {
-      void runConfigure(deps);
-    });
+    // Return the promise: the host tears the plugin down once the action settles.
+    .action(() => runConfigure(deps));
 
   root
     .command('status')
