@@ -1,7 +1,7 @@
 import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
-import { renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { act, renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { CREATE_NEW_MODEL_OPTION_VALUE, RegisterModelForm, SELECTED_MODEL_FIELD } from './RegisterModelForm';
 import { mockRegisteredModelDetailed } from '../test-utils';
 
@@ -91,6 +91,21 @@ describe('RegisterModelForm', () => {
     expect(innerRef.current.getFieldValue(SELECTED_MODEL_FIELD)).toBe('Model A');
   });
 
+  test('clears the selected model after the form is reset', async () => {
+    const innerRef = React.createRef<any>();
+    renderForm({
+      ...minimalProps,
+      innerRef,
+      modelByName: { 'Model A': mockRegisteredModelDetailed('Model A', []) },
+    });
+    await openModelSelect();
+    await userEvent.click(screen.getByRole('option', { name: 'Model A' }));
+
+    act(() => innerRef.current.resetFields());
+
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Model' })).toHaveValue(''));
+  });
+
   test('searches registered models as the user types a model name', async () => {
     const onSearchRegisteredModels = jest.fn();
     renderForm({
@@ -139,6 +154,8 @@ describe('RegisterModelForm', () => {
     await userEvent.paste('No match');
 
     expect(screen.queryByText('Models')).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Model B' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Create New Model' })).not.toBeInTheDocument();
   });
 
   test('uses the copy form label as the combobox accessible name', () => {
