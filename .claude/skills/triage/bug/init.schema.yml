@@ -58,8 +58,12 @@ properties:
 
       <the root cause in a sentence or two, with permalinks>
 
-      <the fix: for a short change, the patch in a `diff` code block; for a longer or multi-file
-      change, what changes in each file and why, with permalinks>
+      <if more than one fix would work: the options as a short numbered list, with the one you
+      recommend marked **Recommended** and a line on why>
+
+      <the fix, which is the recommended option when there are several: for a short change, the
+      patch in a `diff` code block; for a longer or multi-file change, what changes in each file
+      and why, with permalinks>
 
       ### What I tried
 
@@ -75,14 +79,17 @@ properties:
         "Share a minimal reproduction; for an external API integration such as OpenAI or
         Anthropic, use a live call to the provider's real endpoint and include the integration
         package version.">
-      - Maintainers: <e.g. "Review the PR." or "Review findings and add the `ready` label if appropriate." or "Choose a fix direction.">
+      - Maintainers: <e.g. "Review the PR." or "Review the PR, which implements the recommended
+        option; to get another one, close it and comment `/triage <instructions>`." or "Review
+        findings and add the `ready` label if appropriate." or "Choose a fix direction.">
     type: string
     minLength: 1
     maxLength: 5000
   pull_request:
     description: |
       Draft pull request for `fix.patch`. Only for a Reproduced bug whose fix is verified
-      and leaves nothing for a maintainer to decide.
+      and leaves no public API, default, or storage schema decision to a maintainer. When
+      more than one fix would work, it implements the recommended one.
     type: object
     additionalProperties: false
     required:
@@ -96,7 +103,9 @@ properties:
         minLength: 1
         maxLength: 120
       body:
-        description: PR body following `.github/pull_request_template.md`.
+        description: |
+          PR body following `.github/pull_request_template.md`. When the patch implements one
+          of several options, name the alternatives and why this one was chosen.
         type: string
         minLength: 1
         maxLength: 20000

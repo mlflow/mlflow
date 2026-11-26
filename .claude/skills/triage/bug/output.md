@@ -18,3 +18,8 @@ Only propose a PR when the bug reproduces at the current checkout and the fix is
 verified against the reproduction and relevant tests. Include `pull_request` only
 with a verified `fix.patch` that meets the [shared output requirements](../output.md)
 and the selected action's eligibility rules.
+
+When more than one fix would work, implement the one you recommend, and list the
+alternatives and why you chose it in the issue comment and the PR body. Do not propose a PR
+when the choice changes a public API, a default, or a storage schema, unless a maintainer
+has chosen: describe the options, recommend one, and leave the decision to them.

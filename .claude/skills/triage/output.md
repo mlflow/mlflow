@@ -27,11 +27,11 @@ rename the issue yourself.
 Propose a pull request only when all of these hold:
 
 - The `PR_DISABLED` environment variable is not `true`.
-- The change leaves no design choice or trade-off unresolved.
 - Every changed file is within `TRIAGE_PATCH_PATH_ALLOWLIST`.
   Each non-empty line is a permitted repository path; an empty list permits no changes.
 
-Also apply the PR eligibility and verification rules for the selected type and action.
+Also apply the PR eligibility and verification rules for the selected type and action,
+which say when an open design choice blocks a PR.
 If any requirement is unmet, explain the findings in the comment without proposing a PR.
 
 Add regression tests when they add meaningful coverage. Place new regression tests next to

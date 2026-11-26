@@ -17,5 +17,6 @@ Empty instructions mean rerun triage using the discussion.
 
 When investigation or a fix is needed, use [bug reproduction and verification](reproduce.md).
 Recheck the current code and reproduce the bug before proposing a PR; previous results can
-be stale. Implement the requested fix, including a previously suggested option. A specific
-maintainer request can resolve that design choice. All shared PR requirements still apply.
+be stale. Implement the requested fix, including a previously suggested option other than
+the recommended one. A specific maintainer request also settles a public API, default, or
+storage schema choice. All other PR requirements still apply.
