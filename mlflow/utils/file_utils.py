@@ -216,8 +216,7 @@ def make_containing_dirs(path):
     directories.
     """
     dir_name = os.path.dirname(path)
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    os.makedirs(dir_name, exist_ok=True)
 
 
 class TempDir:

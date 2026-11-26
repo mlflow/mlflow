@@ -1629,6 +1629,38 @@ STREAM_TOKEN_USAGE_EDGE_CASES = [
             "total_tokens": 1479,
         },
     },
+    # 9. Amazon Nova reports usage in the final chunk's metadata
+    {
+        "name": "nova_usage_in_metadata",
+        "chunks": [
+            {"contentBlockDelta": {"delta": {"text": "Hi there!"}, "contentBlockIndex": 0}},
+            {
+                "metadata": {
+                    "usage": {
+                        "inputTokens": 6,
+                        "outputTokens": 6,
+                        "cacheReadInputTokenCount": 0,
+                        "cacheWriteInputTokenCount": 0,
+                    },
+                    "metrics": {},
+                    "trace": {},
+                },
+                "amazon-bedrock-invocationMetrics": {
+                    "inputTokenCount": 0,
+                    "outputTokenCount": 0,
+                    "invocationLatency": 463,
+                    "firstByteLatency": 413,
+                },
+            },
+        ],
+        "expected_usage": {
+            "input_tokens": 6,
+            "output_tokens": 6,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "total_tokens": 12,
+        },
+    },
 ]
 
 
