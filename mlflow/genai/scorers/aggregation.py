@@ -94,7 +94,11 @@ def compute_aggregated_metrics(
         for agg_name, agg_value in aggregation_results.items():
             key = f"{name}/{agg_name}"
             if not _is_valid_metric_key(key):
-                _logger.warning("Skipping aggregation with invalid metric key %r.", key)
+                _logger.warning(
+                    "Skipping aggregation with invalid metric key %r. Rename the scorer, or use a "
+                    "named function instead of a lambda for a custom aggregation.",
+                    key,
+                )
                 continue
             result[key] = agg_value
 
