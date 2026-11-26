@@ -5,12 +5,6 @@ import { renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/comm
 import { CREATE_NEW_MODEL_OPTION_VALUE, RegisterModelForm, SELECTED_MODEL_FIELD } from './RegisterModelForm';
 import { mockRegisteredModelDetailed } from '../test-utils';
 
-const mockModel = mockRegisteredModelDetailed as (
-  name: string,
-  latestVersions?: unknown[],
-  tags?: unknown[],
-) => ReturnType<typeof mockRegisteredModelDetailed>;
-
 describe('RegisterModelForm', () => {
   let minimalProps: any;
 
@@ -31,7 +25,7 @@ describe('RegisterModelForm', () => {
   test('lists "Create New Model" and existing models in the dropdown', async () => {
     renderForm({
       ...minimalProps,
-      modelByName: { 'Model A': mockModel('Model A', []) },
+      modelByName: { 'Model A': mockRegisteredModelDetailed('Model A', []) },
     });
     await openModelSelect();
 
@@ -42,7 +36,7 @@ describe('RegisterModelForm', () => {
   test('shows the model-name input after choosing "Create New Model"', async () => {
     renderForm({
       ...minimalProps,
-      modelByName: { 'Model A': mockModel('Model A', []) },
+      modelByName: { 'Model A': mockRegisteredModelDetailed('Model A', []) },
     });
     await openModelSelect();
     await userEvent.click(screen.getByText('Create New Model'));
@@ -55,7 +49,7 @@ describe('RegisterModelForm', () => {
     const { rerender } = renderForm({
       ...minimalProps,
       innerRef,
-      modelByName: { 'Model A': mockModel('Model A', []) },
+      modelByName: { 'Model A': mockRegisteredModelDetailed('Model A', []) },
     });
     await openModelSelect();
     await userEvent.click(screen.getByRole('option', { name: 'Model A' }));
@@ -64,7 +58,11 @@ describe('RegisterModelForm', () => {
       expect((await innerRef.current.validateFields())[SELECTED_MODEL_FIELD]).toBe('Model A');
     });
     rerender(
-      <RegisterModelForm {...minimalProps} innerRef={innerRef} modelByName={{ 'Model B': mockModel('Model B', []) }} />,
+      <RegisterModelForm
+        {...minimalProps}
+        innerRef={innerRef}
+        modelByName={{ 'Model B': mockRegisteredModelDetailed('Model B', []) }}
+      />,
     );
     expect(screen.getByRole('textbox', { name: 'Model' })).toHaveValue('Model A');
 
@@ -74,17 +72,42 @@ describe('RegisterModelForm', () => {
     expect(innerRef.current.getFieldValue(SELECTED_MODEL_FIELD)).toBe(CREATE_NEW_MODEL_OPTION_VALUE);
   });
 
+  test('restores the selected model when search text loses focus', async () => {
+    const innerRef = React.createRef<any>();
+    renderForm({
+      ...minimalProps,
+      innerRef,
+      modelByName: { 'Model A': mockRegisteredModelDetailed('Model A', []) },
+    });
+    await openModelSelect();
+    await userEvent.click(screen.getByRole('option', { name: 'Model A' }));
+
+    const modelInput = screen.getByRole('textbox', { name: 'Model' });
+    await userEvent.click(modelInput);
+    await userEvent.paste('Model B');
+    await userEvent.tab();
+
+    expect(modelInput).toHaveValue('Model A');
+    expect(innerRef.current.getFieldValue(SELECTED_MODEL_FIELD)).toBe('Model A');
+  });
+
   test('searches registered models as the user types a model name', async () => {
     const onSearchRegisteredModels = jest.fn();
     renderForm({
       ...minimalProps,
-      modelByName: { 'Model A': mockModel('Model A', []) },
+      modelByName: { 'Model A': mockRegisteredModelDetailed('Model A', []) },
       onSearchRegisteredModels,
     });
     await openModelSelect();
     await userEvent.click(screen.getByRole('textbox', { name: 'Model' }));
     await userEvent.paste('Model B');
 
-    expect(onSearchRegisteredModels).toHaveBeenCalled();
+    expect(onSearchRegisteredModels).toHaveBeenLastCalledWith('Model B');
+  });
+
+  test('uses the copy form label as the combobox accessible name', () => {
+    renderForm({ ...minimalProps, isCopy: true });
+
+    expect(screen.getByRole('combobox', { name: 'Copy to model' })).toBeInTheDocument();
   });
 });

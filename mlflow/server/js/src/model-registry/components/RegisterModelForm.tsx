@@ -34,9 +34,10 @@ interface RegisteredModelOption {
 }
 
 interface ModelComboboxProps {
-  modelByName: Record<string, RegisteredModelOption>;
+  modelByName?: Record<string, RegisteredModelOption>;
   onSearchRegisteredModels: (search: string) => void;
   onModelSelectChange: (selectedModel: string | null) => void;
+  inputLabel: string;
   value?: string | null;
   onChange?: (value: string | null) => void;
   id?: string;
@@ -49,6 +50,7 @@ function ModelCombobox({
   modelByName,
   onSearchRegisteredModels,
   onModelSelectChange,
+  inputLabel,
   value,
   onChange,
   id,
@@ -93,7 +95,6 @@ function ModelCombobox({
 
   return (
     <TypeaheadComboboxRoot
-      aria-label="Model"
       comboboxState={comboboxState}
       onClick={(event) => {
         if (event.target === event.currentTarget) comboboxState.toggleMenu();
@@ -101,9 +102,10 @@ function ModelCombobox({
     >
       <TypeaheadComboboxInput
         id={id}
-        aria-label="Model"
+        aria-label={inputLabel}
         placeholder="Select a model"
         comboboxState={comboboxState}
+        clearInputValueOnFocus
         showComboboxToggleButton
       />
       <TypeaheadComboboxMenu comboboxState={comboboxState} matchTriggerWidth maxHeight={280}>
@@ -185,17 +187,19 @@ export class RegisterModelForm extends React.Component<Props, State> {
     const { modelByName, innerRef, isCopy } = this.props;
     const { selectedModel } = this.state;
     const creatingNewModel = selectedModel === CREATE_NEW_MODEL_OPTION_VALUE;
+    const modelFieldLabel = isCopy ? 'Copy to model' : 'Model';
     return (
       // @ts-expect-error TS(2322): Type '{ children: (Element | null)[]; ref: any; la... Remove this comment to see the full error message
       <LegacyForm ref={innerRef} layout="vertical" className="mlflow-register-model-form">
         {/* "+ Create new model" OR "Select existing model" */}
         <LegacyForm.Item
-          label={isCopy ? <b>Copy to model</b> : 'Model'}
+          label={isCopy ? <b>{modelFieldLabel}</b> : modelFieldLabel}
           name={SELECTED_MODEL_FIELD}
           rules={[{ required: true, message: 'Please select a model or create a new one.' }]}
         >
           <ModelCombobox
             modelByName={modelByName}
+            inputLabel={modelFieldLabel}
             onSearchRegisteredModels={this.props.onSearchRegisteredModels}
             onModelSelectChange={this.handleModelSelectChange}
           />
