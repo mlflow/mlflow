@@ -569,21 +569,33 @@ def test_partial_edges_query_raw_around_covered_day(store: SqlAlchemyStore, monk
     assert merged_by_bucket[day_b_bucket] == raw_by_bucket[day_b_bucket]
 
 
-def test_merged_result_matches_raw_with_correct_rollup_values(store: SqlAlchemyStore, monkeypatch):
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        (DAY_A_START, DAY_B_START + 10_000),
+        # Starts between day A's two traces, so only the later one is in range.
+        (DAY_A_START + 5_500, DAY_B_START + MS_PER_DAY - 1),
+    ],
+    ids=["partial last day", "partial first day"],
+)
+def test_merged_result_matches_raw_with_correct_rollup_values(
+    store: SqlAlchemyStore, monkeypatch, start, end
+):
     exp_id = _seed(store)
-    # Seed day A's real count, then request a range covering day A fully and only part of day B so a
-    # rollup-served day and a raw edge must merge into a result identical to the raw path.
-    for point in _raw_day_points(
-        store, exp_id, MetricViewType.TRACES, TraceMetricKey.TRACE_COUNT, None, DAY_A_START
-    ):
-        _insert_trace_metric_rollup(
-            store,
-            exp_id,
-            DAY_A_START,
-            TraceMetricKey.TRACE_COUNT,
-            GroupingSet.GLOBAL.value,
-            sample_count=int(point.values["COUNT"]),
-        )
+    # Seed each day's real count, then request a range covering one day fully and only part of the
+    # other, so a rollup-served day and a raw edge must merge into a result identical to raw.
+    for day_start in (DAY_A_START, DAY_B_START):
+        for point in _raw_day_points(
+            store, exp_id, MetricViewType.TRACES, TraceMetricKey.TRACE_COUNT, None, day_start
+        ):
+            _insert_trace_metric_rollup(
+                store,
+                exp_id,
+                day_start,
+                TraceMetricKey.TRACE_COUNT,
+                GroupingSet.GLOBAL.value,
+                sample_count=int(point.values["COUNT"]),
+            )
     _assert_enabled_equals_raw(
         store,
         monkeypatch,
@@ -592,7 +604,8 @@ def test_merged_result_matches_raw_with_correct_rollup_values(store: SqlAlchemyS
         TraceMetricKey.TRACE_COUNT,
         _COUNT,
         None,
-        end=DAY_B_START + 10_000,
+        start=start,
+        end=end,
     )
 
 
