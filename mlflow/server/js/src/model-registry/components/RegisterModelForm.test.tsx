@@ -105,6 +105,28 @@ describe('RegisterModelForm', () => {
     expect(onSearchRegisteredModels).toHaveBeenLastCalledWith('Model B');
   });
 
+  test('filters model options by search text', async () => {
+    renderForm({
+      ...minimalProps,
+      modelByName: {
+        'Model A': mockRegisteredModelDetailed('Model A', []),
+        'Model B': mockRegisteredModelDetailed('Model B', []),
+      },
+    });
+    await openModelSelect();
+
+    const modelInput = screen.getByRole('textbox', { name: 'Model' });
+    await userEvent.paste('Model B');
+
+    expect(screen.getByRole('option', { name: 'Model B' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Model A' })).not.toBeInTheDocument();
+
+    await userEvent.clear(modelInput);
+    await userEvent.paste('No match');
+
+    expect(screen.queryByText('Models')).not.toBeInTheDocument();
+  });
+
   test('uses the copy form label as the combobox accessible name', () => {
     renderForm({ ...minimalProps, isCopy: true });
 
