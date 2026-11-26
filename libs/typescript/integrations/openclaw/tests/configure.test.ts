@@ -1,3 +1,5 @@
+import { outro } from '@clack/prompts';
+
 import { registerMlflowCli, type CommanderLike } from '../src/configure';
 
 const answers: string[] = [];
@@ -58,6 +60,9 @@ describe('openclaw mlflow configure', () => {
     await actions.get('configure')!();
 
     expect(updateConfig).toHaveBeenCalledTimes(1);
+    expect(outro).toHaveBeenCalledWith(
+      'MLflow configuration saved. The gateway applies changes according to its reload settings (gateway.reload.mode).',
+    );
     expect(config).toEqual({
       gateway: { port: 18789 },
       plugins: {

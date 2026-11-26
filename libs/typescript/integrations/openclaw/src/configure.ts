@@ -148,7 +148,9 @@ async function runConfigure(deps: ConfigDeps): Promise<void> {
     });
   });
 
-  p.outro('MLflow configuration saved. Restart the gateway to apply.');
+  p.outro(
+    'MLflow configuration saved. The gateway applies changes according to its reload settings (gateway.reload.mode).',
+  );
 }
 
 export function registerMlflowCli(params: RegisterCliParams): void {
