@@ -12,28 +12,20 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
-import type { BudgetPolicy, DurationUnit, BudgetAction } from '../../types';
+import type { BudgetPolicy, BudgetAction } from '../../types';
+import {
+  BudgetDurationField,
+  DEFAULT_BUDGET_DURATION,
+  parseBudgetDuration,
+  toBudgetDurationFormValue,
+  type BudgetDurationFormValue,
+} from './BudgetDurationField';
 import {
   BudgetScopeField,
   getBudgetScopePayload,
   useBudgetScopeField,
   type BudgetScopeFormValue,
 } from './BudgetScopeField';
-
-type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
-
-const DURATION_MAP: Record<DurationPreset, { unit: DurationUnit; value: number }> = {
-  DAILY: { unit: 'DAYS', value: 1 },
-  WEEKLY: { unit: 'WEEKS', value: 1 },
-  MONTHLY: { unit: 'MONTHS', value: 1 },
-};
-
-const toDurationPreset = (unit: DurationUnit, value: number): DurationPreset => {
-  if (unit === 'DAYS' && value === 1) return 'DAILY';
-  if (unit === 'WEEKS' && value === 1) return 'WEEKLY';
-  if (unit === 'MONTHS' && value === 1) return 'MONTHLY';
-  return 'MONTHLY';
-};
 
 interface EditBudgetPolicyModalProps {
   open: boolean;
@@ -42,9 +34,8 @@ interface EditBudgetPolicyModalProps {
   onSuccess?: () => void;
 }
 
-interface FormData extends BudgetScopeFormValue {
+interface FormData extends BudgetScopeFormValue, BudgetDurationFormValue {
   budgetAmount: string;
-  duration: DurationPreset;
   budgetAction: BudgetAction;
 }
 
@@ -53,7 +44,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
   const intl = useIntl();
   const [formData, setFormData] = useState<FormData>({
     budgetAmount: '',
-    duration: 'MONTHLY',
+    ...DEFAULT_BUDGET_DURATION,
     budgetAction: 'REJECT',
     scope: 'ALL',
     endpointId: '',
@@ -71,7 +62,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     if (policy) {
       setFormData({
         budgetAmount: String(policy.budget_amount),
-        duration: toDurationPreset(policy.duration.unit, policy.duration.value),
+        ...toBudgetDurationFormValue(policy.duration),
         budgetAction: policy.budget_action,
         scope: policy.target_scope === 'ENDPOINT' ? 'ENDPOINT' : policy.target_scope === 'USER' ? 'USER' : 'ALL',
         endpointId: policy.target_scope === 'ENDPOINT' ? (policy.target_value ?? '') : '',
@@ -94,22 +85,23 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     [resetMutation],
   );
 
+  const { durationValue, durationUnit } = formData;
+  const duration = useMemo(() => parseBudgetDuration({ durationValue, durationUnit }), [durationValue, durationUnit]);
+
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
-    return !isNaN(amount) && amount > 0 && scopeField.isValid;
-  }, [formData.budgetAmount, scopeField.isValid]);
+    return !isNaN(amount) && amount > 0 && scopeField.isValid && duration !== null;
+  }, [formData.budgetAmount, scopeField.isValid, duration]);
 
   const handleSubmit = useCallback(async () => {
-    if (!isFormValid || !policy) return;
-
-    const { unit, value } = DURATION_MAP[formData.duration];
+    if (!isFormValid || !policy || !duration) return;
 
     try {
       await updateBudgetPolicy({
         budget_policy_id: policy.budget_policy_id,
         budget_unit: 'USD',
         budget_amount: parseFloat(formData.budgetAmount),
-        duration: { unit, value },
+        duration,
         ...getBudgetScopePayload(formData, policy.target_scope),
         budget_action: formData.budgetAction,
       });
@@ -121,7 +113,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     }
     handleClose();
     onSuccess?.();
-  }, [isFormValid, policy, formData, updateBudgetPolicy, handleClose, onSuccess]);
+  }, [isFormValid, policy, duration, formData, updateBudgetPolicy, handleClose, onSuccess]);
 
   const errorMessage = useMemo((): string | null => {
     if (!mutationError) return null;
@@ -193,47 +185,11 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
           existingScope={policy.target_scope}
         />
 
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-            <Typography.Text bold>
-              <FormattedMessage defaultMessage="Reset period" description="Budget reset period label" />
-            </Typography.Text>
-            <Tooltip
-              componentId="mlflow.gateway.edit-budget-policy-modal.reset-period-tooltip"
-              content={
-                <FormattedMessage
-                  defaultMessage="<link>Learn more about budget time windows.</link>"
-                  description="Tooltip with link to budget time windows documentation"
-                  values={{
-                    link: (chunks: React.ReactNode) => (
-                      <a
-                        href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/budget-alerts-limits#time-windows"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        css={{ color: 'inherit', textDecoration: 'underline' }}
-                      >
-                        {chunks}
-                      </a>
-                    ),
-                  }}
-                />
-              }
-            >
-              <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help' }} />
-            </Tooltip>
-          </div>
-          <SimpleSelect
-            id="edit-budget-policy-duration"
-            componentId="mlflow.gateway.edit-budget-policy-modal.duration"
-            label={intl.formatMessage({ defaultMessage: 'Reset period', description: 'Budget reset period label' })}
-            value={formData.duration}
-            onChange={({ target }) => handleFormChange({ duration: target.value as DurationPreset })}
-          >
-            <SimpleSelectOption value="DAILY">Daily</SimpleSelectOption>
-            <SimpleSelectOption value="WEEKLY">Weekly</SimpleSelectOption>
-            <SimpleSelectOption value="MONTHLY">Monthly</SimpleSelectOption>
-          </SimpleSelect>
-        </div>
+        <BudgetDurationField
+          componentId="mlflow.gateway.edit-budget-policy-modal"
+          value={formData}
+          onChange={handleFormChange}
+        />
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>

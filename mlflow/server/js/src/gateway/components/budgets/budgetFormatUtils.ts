@@ -10,6 +10,7 @@ export function formatBudgetAmount(amount: number, budgetUnit: BudgetUnit, digit
 export function formatDuration(value: number, unit: DurationUnit): string {
   if (value === 1) {
     const friendlyLabels: Partial<Record<DurationUnit, string>> = {
+      HOURS: 'Hourly',
       DAYS: 'Daily',
       WEEKS: 'Weekly',
       MONTHS: 'Monthly',

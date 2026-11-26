@@ -87,6 +87,51 @@ describe('CreateBudgetPolicyModal', () => {
     });
   });
 
+  test.each([
+    ['MINUTES' as const, '15', 'Minutes'],
+    ['HOURS' as const, '6', 'Hours'],
+    ['HOURS' as const, '1', 'Hour'],
+    ['MONTHS' as const, '1000', 'Months'],
+  ])('submits a %s reset period of length %s', async (unit, length, unitLabel) => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    await userEvent.type(screen.getByPlaceholderText('e.g., 100.00'), '10');
+
+    const lengthInput = screen.getByRole('spinbutton', { name: 'Reset period length' });
+    await userEvent.clear(lengthInput);
+    await userEvent.type(lengthInput, length);
+
+    await userEvent.click(screen.getByRole('combobox', { name: 'Reset period unit' }));
+    await userEvent.click(screen.getByRole('option', { name: unitLabel }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_unit: 'USD',
+      budget_amount: 10,
+      duration: { unit, value: Number(length) },
+      target_scope: 'GLOBAL',
+      budget_action: 'REJECT',
+    });
+  });
+
+  test.each([[''], ['0'], ['1.5'], ['-2'], ['1001'], ['100000']])(
+    'disables Create and explains the error for reset period length %j',
+    async (length) => {
+      renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+      await userEvent.type(screen.getByPlaceholderText('e.g., 100.00'), '10');
+      const lengthInput = screen.getByRole('spinbutton', { name: 'Reset period length' });
+      await userEvent.clear(lengthInput);
+      if (length) {
+        await userEvent.type(lengthInput, length);
+      }
+
+      expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+      expect(screen.getByText('Enter a whole number from 1 to 1,000.')).toBeInTheDocument();
+    },
+  );
+
   test('defaults to all-endpoints scope without endpoint picker', () => {
     renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
 

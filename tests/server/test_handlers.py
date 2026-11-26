@@ -9883,6 +9883,57 @@ def test_create_budget_policy_endpoint_scope():
     assert response.json["budget_policy"]["target_value"] == "ep-1"
 
 
+@pytest.mark.parametrize(
+    ("unit", "value"),
+    [
+        (BudgetDurationUnit.MINUTES, 1),
+        (BudgetDurationUnit.MINUTES, 15),
+        (BudgetDurationUnit.HOURS, 1),
+        (BudgetDurationUnit.HOURS, 6),
+    ],
+)
+@pytest.mark.parametrize("action", ["create", "update"])
+def test_budget_policy_accepts_minute_and_hour_durations(unit, value, action):
+    duration = BudgetDuration(unit=unit, value=value)
+    policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-1",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=10.0,
+        duration=duration,
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.REJECT,
+        created_at=0,
+        last_updated_at=0,
+    )
+    store = mock.MagicMock()
+    store.create_budget_policy.return_value = policy
+    store.update_budget_policy.return_value = policy
+    store.get_budget_policy.return_value = policy
+    body = {"duration": {"unit": unit.value, "value": value}}
+    if action == "create":
+        body |= {
+            "budget_unit": "USD",
+            "budget_amount": 10.0,
+            "target_scope": "GLOBAL",
+            "budget_action": "REJECT",
+        }
+    else:
+        body["budget_policy_id"] = "bp-1"
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=store),
+        mock.patch("mlflow.server.handlers.get_budget_tracker"),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.post(f"/ajax-api/3.0/mlflow/gateway/budgets/{action}", json=body)
+
+    assert response.status_code == 200
+    store_method = getattr(store, f"{action}_budget_policy")
+    assert store_method.call_args.kwargs["duration"] == duration
+    assert response.json["budget_policy"]["duration"] == {"unit": unit.value, "value": value}
+
+
 def test_create_budget_policy_endpoint_scope_missing_target_value_returns_400():
     store = mock.MagicMock()
     with (

@@ -259,6 +259,10 @@
     "defaultMessage": "Full screen",
     "description": "Accessible label and tooltip for expanding the trace drawer to full screen"
   },
+  "+tTcRr": {
+    "defaultMessage": "{count, plural, one {Hour} other {Hours}}",
+    "description": "Budget reset period unit"
+  },
   "+tURAJ": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
@@ -6923,6 +6927,10 @@
     "defaultMessage": "MCP Server:",
     "description": "MCP registry endpoint modal server label"
   },
+  "K+VauR": {
+    "defaultMessage": "{count, plural, one {Month} other {Months}}",
+    "description": "Budget reset period unit"
+  },
   "K0BdF9": {
     "defaultMessage": "Save",
     "description": "Edit server modal save button"
@@ -10991,6 +10999,10 @@
     "defaultMessage": "Details & Timeline",
     "description": "Label for the details & timeline view tab in the model trace explorer"
   },
+  "WiHjR9": {
+    "defaultMessage": "{count, plural, one {Day} other {Days}}",
+    "description": "Budget reset period unit"
+  },
   "WiML15": {
     "defaultMessage": "Create your first workspace",
     "description": "Home page workspaces empty state title"
@@ -13066,6 +13078,10 @@
   "dO2m7/": {
     "defaultMessage": "CLI",
     "description": "CLI tracing setup tab"
+  },
+  "dOIgIG": {
+    "defaultMessage": "Reset period length",
+    "description": "Accessible label for the budget reset period length input"
   },
   "dPn3az": {
     "defaultMessage": "Tool",
@@ -19787,6 +19803,10 @@
     "defaultMessage": "In progress",
     "description": "Experiment page > traces table > status label > in progress"
   },
+  "y6FGUk": {
+    "defaultMessage": "Enter a whole number from 1 to {max, number}.",
+    "description": "Validation error for an invalid budget reset period length"
+  },
   "y6KMoc": {
     "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
     "description": "Description for running judge on traces or sessions"
@@ -19814,6 +19834,10 @@
   "yC7fi8": {
     "defaultMessage": "High → low",
     "description": "Active descending sort direction for a scorer in evaluation comparison"
+  },
+  "yCShar": {
+    "defaultMessage": "Reset period unit",
+    "description": "Accessible label for the budget reset period unit selector"
   },
   "yCncIr": {
     "defaultMessage": "Metric",
@@ -20139,6 +20163,10 @@
     "defaultMessage": "Workspace: {workspace}",
     "description": "Subtitle on the admin page identifying the active workspace when the URL is per-workspace scoped"
   },
+  "zJjeKZ": {
+    "defaultMessage": "{count, plural, one {Week} other {Weeks}}",
+    "description": "Budget reset period unit"
+  },
   "zK6IRq": {
     "defaultMessage": "Delete dataset",
     "description": "Title for the V2 evaluation dataset delete confirmation modal"
@@ -20202,6 +20230,10 @@
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
     "description": "Label indicating positive infinity used as a hover text in a plot UI element"
+  },
+  "zXSYqh": {
+    "defaultMessage": "{count, plural, one {Minute} other {Minutes}}",
+    "description": "Budget reset period unit"
   },
   "zYpqJP": {
     "defaultMessage": "Tool error: <highlight>invalid argument</highlight>",
