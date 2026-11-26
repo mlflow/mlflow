@@ -1,5 +1,6 @@
 from unittest import mock
 
+import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExportResult
 
@@ -65,9 +66,9 @@ def test_on_end_emits_tag_attributes_for_ended_sdk_span():
     processor, _ = _make_processor()
     tracer = TracerProvider().get_tracer(__name__)
     root_span = tracer.start_span("root", attributes={"existing": "value"})
-    # opentelemetry-sdk >= 1.43 makes the attributes immutable when the span ends.
     root_span.end()
-    was_immutable = root_span._attributes._immutable
+    if not getattr(root_span._attributes, "_immutable", False):
+        pytest.skip("Requires opentelemetry-sdk >= 1.43, which freezes attributes on span end")
 
     manager_trace = _make_manager_trace(tags={"env": "production"})
 
@@ -80,7 +81,7 @@ def test_on_end_emits_tag_attributes_for_ended_sdk_span():
         "existing": "value",
         SpanAttributeKey.TRACE_TAG_PREFIX + "env": "production",
     }
-    assert root_span._attributes._immutable == was_immutable
+    assert root_span._attributes._immutable
 
 
 def test_on_end_skips_tag_emission_when_no_tags():
