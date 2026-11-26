@@ -1,20 +1,42 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchLoggedModelsQuery } from '../../../hooks/logged-models/useSearchLoggedModelsQuery';
 import type { LoggedModelProto } from '../../../types';
 
 export const useLoggedModelsForExperimentRunsTable = ({
   experimentIds,
+  runIds,
   enabled = true,
 }: {
   experimentIds: string[];
+  runIds: string[];
   enabled?: boolean;
 }) => {
-  const { data: loggedModelsData } = useSearchLoggedModelsQuery(
-    { experimentIds },
+  const isEnabled = enabled && runIds.length > 0;
+  const searchQuery =
+    runIds.length > 0
+      ? `attributes.source_run_id IN (${[...runIds]
+          .sort()
+          .map((runId) => `'${runId}'`)
+          .join(',')})`
+      : undefined;
+  const {
+    data: loggedModelsData,
+    nextPageToken,
+    isFetching,
+    error,
+    loadMoreResults,
+  } = useSearchLoggedModelsQuery(
+    { experimentIds, searchQuery },
     {
-      enabled,
+      enabled: isEnabled,
     },
   );
+
+  useEffect(() => {
+    if (isEnabled && nextPageToken && !isFetching && !error) {
+      void loadMoreResults();
+    }
+  }, [isEnabled, nextPageToken, isFetching, error, loadMoreResults]);
 
   const loggedModelsByRunId = useMemo(
     () =>
