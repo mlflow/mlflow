@@ -3047,6 +3047,10 @@
     "defaultMessage": "Duration:",
     "description": "Row title for the duration of runs on the experiment compare runs page"
   },
+  "7lIg1t": {
+    "defaultMessage": "{count, number} {unit}",
+    "description": "Budget reset period as a length and a unit, for example \"15 Minutes\""
+  },
   "7lROwq": {
     "defaultMessage": "Models",
     "description": "Label for the Models tab in the MLflow experiment navbar"
@@ -6827,6 +6831,10 @@
     "defaultMessage": "Sample rate:",
     "description": "Sample rate label for scorer"
   },
+  "JfK0db": {
+    "defaultMessage": "Daily",
+    "description": "Budget reset period of 1 day"
+  },
   "JfLrpE": {
     "defaultMessage": "Add tags",
     "description": "Label for the add tags button in the MCP servers table"
@@ -9795,6 +9803,10 @@
     "defaultMessage": "Go to model",
     "description": "Run page > Header > Register model dropdown > Go to model button label"
   },
+  "T2KrxU": {
+    "defaultMessage": "budget policy",
+    "description": "Item type in the delete budget policy confirmation, for example \"Delete the budget policy ...\""
+  },
   "T3Ew34": {
     "defaultMessage": "Used by",
     "description": "Used by column header"
@@ -10750,6 +10762,10 @@
   "VuqpXo": {
     "defaultMessage": "AI Registry",
     "description": "Sidebar label for the AI Registry section"
+  },
+  "Vv6dy3": {
+    "defaultMessage": "Hourly",
+    "description": "Budget reset period of 1 hour"
   },
   "VwxvII": {
     "defaultMessage": "forecasting",
@@ -12286,6 +12302,10 @@
   "arz711": {
     "defaultMessage": "This run reached the trace search limit. Statistics cover only the loaded traces and may not represent the full run.",
     "description": "Per-run warning about potentially truncated configuration statistics"
+  },
+  "at8byp": {
+    "defaultMessage": "Monthly",
+    "description": "Budget reset period of 1 month"
   },
   "atcZM5": {
     "defaultMessage": "Status",
@@ -15239,6 +15259,10 @@
     "defaultMessage": "Output",
     "description": "Label indicating that the logged model was the output of the experiment run Displayed in logged model list table on the run page."
   },
+  "jUStcI": {
+    "defaultMessage": "Weekly",
+    "description": "Budget reset period of 1 week"
+  },
   "jW3Cwp": {
     "defaultMessage": "User",
     "description": "Trace filter field: user"
@@ -17791,6 +17815,10 @@
     "defaultMessage": "Absolute difference: {delta}. {directionNote}",
     "description": "Absolute difference tooltip for an evaluation comparison scorer"
   },
+  "rSPO+N": {
+    "defaultMessage": "Alert",
+    "description": "Budget policy action that sends a webhook alert"
+  },
   "rSSnZZ": {
     "defaultMessage": "No assessment values to chart for the selected runs.",
     "description": "Empty state inside the eval-runs chart when selected assessments have no values"
@@ -18351,6 +18379,10 @@
     "defaultMessage": "Roles",
     "description": "Users table roles header — roles render as multiple <workspace> → <role_name> lines per user"
   },
+  "tMtdVO": {
+    "defaultMessage": "Delete Budget Policy",
+    "description": "Title of the delete budget policy confirmation dialog"
+  },
   "tNL+F4": {
     "defaultMessage": "Full trace with an agent using the right part of the trace to use to judge",
     "description": "Description for trace variable"
@@ -18815,6 +18847,10 @@
     "defaultMessage": "Deleted {count, plural, one {# record} other {# records}}",
     "description": "Success toast after bulk-deleting V2 dataset records"
   },
+  "v5+ySd": {
+    "defaultMessage": "{amount} / {duration} — {action}",
+    "description": "One-line budget policy summary, for example \"$100 / Monthly — Reject\""
+  },
   "v5YEGx": {
     "defaultMessage": "Branch, tag or commit",
     "description": "Label for an optional skill git ref"
@@ -18846,6 +18882,10 @@
   "vCZkhL": {
     "defaultMessage": "The directory holding SKILL.md. Leave blank if it is at the root.",
     "description": "Hint for the skill source subpath field"
+  },
+  "vCaiK+": {
+    "defaultMessage": "Reject",
+    "description": "Budget policy action that rejects requests"
   },
   "vDAb7C": {
     "defaultMessage": "Auto-create experiment",

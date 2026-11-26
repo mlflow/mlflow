@@ -10,6 +10,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { BudgetDuration, DurationUnit } from '../../types';
+import { durationUnitMessages } from './budgetFormatUtils';
 
 export interface BudgetDurationFormValue {
   // Kept as the raw input string so an in-progress edit (e.g. a cleared field) isn't coerced.
@@ -54,29 +55,6 @@ export const BudgetDurationField = ({ componentId, value, onChange }: BudgetDura
   const isValid = parseBudgetDuration(value) !== null;
   // A blank or invalid length falls back to the plural form, which reads naturally next to any number.
   const count = Number(value.durationValue) || 0;
-
-  const unitLabels: Record<DurationUnit, string> = {
-    MINUTES: intl.formatMessage(
-      { defaultMessage: '{count, plural, one {Minute} other {Minutes}}', description: 'Budget reset period unit' },
-      { count },
-    ),
-    HOURS: intl.formatMessage(
-      { defaultMessage: '{count, plural, one {Hour} other {Hours}}', description: 'Budget reset period unit' },
-      { count },
-    ),
-    DAYS: intl.formatMessage(
-      { defaultMessage: '{count, plural, one {Day} other {Days}}', description: 'Budget reset period unit' },
-      { count },
-    ),
-    WEEKS: intl.formatMessage(
-      { defaultMessage: '{count, plural, one {Week} other {Weeks}}', description: 'Budget reset period unit' },
-      { count },
-    ),
-    MONTHS: intl.formatMessage(
-      { defaultMessage: '{count, plural, one {Month} other {Months}}', description: 'Budget reset period unit' },
-      { count },
-    ),
-  };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
@@ -137,7 +115,7 @@ export const BudgetDurationField = ({ componentId, value, onChange }: BudgetDura
         >
           {DURATION_UNITS.map((unit) => (
             <SimpleSelectOption key={unit} value={unit}>
-              {unitLabels[unit]}
+              {intl.formatMessage(durationUnitMessages[unit], { count })}
             </SimpleSelectOption>
           ))}
         </SimpleSelect>

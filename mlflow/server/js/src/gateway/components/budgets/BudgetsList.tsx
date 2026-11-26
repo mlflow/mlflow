@@ -38,7 +38,8 @@ interface BudgetsListProps {
 
 export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) => {
   const { theme } = useDesignSystemTheme();
-  const { formatMessage, formatDate } = useIntl();
+  const intl = useIntl();
+  const { formatMessage, formatDate } = intl;
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [pageTokenHistory, setPageTokenHistory] = useState<string[]>([]);
 
@@ -239,10 +240,10 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
               </TableCell>
               <TableCell css={{ flex: 1 }}>{renderScope(policy)}</TableCell>
               <TableCell css={{ flex: 1 }}>
-                <Typography.Text>{formatDuration(policy.duration.value, policy.duration.unit)}</Typography.Text>
+                <Typography.Text>{formatDuration(intl, policy.duration.value, policy.duration.unit)}</Typography.Text>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
-                <Typography.Text>{formatOnExceeded(policy.budget_action)}</Typography.Text>
+                <Typography.Text>{formatOnExceeded(intl, policy.budget_action)}</Typography.Text>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 {window ? (
